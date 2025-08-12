@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.DoctorService.Grpc";
+
+package doctor;
+
+service DoctorGrpcService {
+  rpc GetDoctor (GetDoctorRequest) returns (GetDoctorResponse);
+  rpc GetDoctorsBySpecialty (GetDoctorsBySpecialtyRequest) returns (GetDoctorsBySpecialtyResponse);
+  rpc GetDoctorsByClinic (GetDoctorsByClinicRequest) returns (GetDoctorsByClinicResponse);
+  rpc GetDoctorAvailability (GetDoctorAvailabilityRequest) returns (GetDoctorAvailabilityResponse);
+  rpc UpdateDoctorSchedule (UpdateDoctorScheduleRequest) returns (UpdateDoctorScheduleResponse);
+}
+
+message GetDoctorRequest {
+  string doctor_id = 1;
+}
+
+message GetDoctorResponse {
+  bool success = 1;
+  DoctorInfo doctor = 2;
+  string error_message = 3;
+}
+
+message GetDoctorsBySpecialtyRequest {
+  string specialty_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetDoctorsBySpecialtyResponse {
+  repeated DoctorInfo doctors = 1;
+  int32 total_count = 2;
+}
+
+message GetDoctorsByClinicRequest {
+  string clinic_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetDoctorsByClinicResponse {
+  repeated DoctorInfo doctors = 1;
+  int32 total_count = 2;
+}
+
+message GetDoctorAvailabilityRequest {
+  string doctor_id = 1;
+  string date = 2; // YYYY-MM-DD format
+}
+
+message GetDoctorAvailabilityResponse {
+  repeated TimeSlot available_slots = 1;
+}
+
+message UpdateDoctorScheduleRequest {
+  string doctor_id = 1;
+  repeated DoctorSchedule schedules = 2;
+}
+
+message UpdateDoctorScheduleResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message DoctorInfo {
+  string id = 1;
+  string user_id = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string email = 5;
+  string phone_number = 6;
+  string specialty_id = 7;
+  string specialty_name = 8;
+  string position_id = 9;
+  string position_name = 10;
+  string clinic_id = 11;
+  string clinic_name = 12;
+  string bio = 13;
+  int32 years_of_experience = 14;
+  string education = 15;
+  repeated string certifications = 16;
+  double rating = 17;
+  int32 review_count = 18;
+  double consultation_fee = 19;
+  bool is_active = 20;
+}
+
+message TimeSlot {
+  string start_time = 1; // HH:MM format
+  string end_time = 2;   // HH:MM format
+  bool is_available = 3;
+}
+
+message DoctorSchedule {
+  string day_of_week = 1; // Monday, Tuesday, etc.
+  repeated TimeSlot time_slots = 2;
+}

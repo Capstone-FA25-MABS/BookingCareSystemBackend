@@ -1,0 +1,187 @@
+Tụi em dự định sẽ chia hệ thống thành các services và các tính năng tương ứng với mỗi service như bên dưới. Nhờ cô review qua và góp ý giúp tụi em ạ!
+BookingCare Microservices Architecture:
+
+1. AuthService - SQL Server
+Tables: accounts, roles, permissions, account_roles, role_permissions
+Features:
+- FE-01: Authentication
+  * Sign up with email, phone, Google/Facebook
+  * OTP phone verification
+  * Email verification
+  * Sign in
+  * Sign out
+  * Change password
+  * Forgot password
+  * Manage personal information (phone, email, address, password)
+
+2. UserService - SQL Server
+Tables: users
+Features:
+- FE-02: Account Management
+  * Add, update, or remove user accounts (doctors, patients, hospitals/clinics)
+  * View full user profiles
+  * Monitor account activities
+  * Ban/Unban violating policies
+
+3. DoctorService - SQL Server
+Tables: doctors, positions, specialties, doctor_prices, prices, appointment_times, doctor_schedule_times
+Features:
+- FE-04: Doctor Management
+  * View doctor profiles, experience, and patient reviews
+  * Add, delete, or update doctor information
+  * Assign doctors by specialty or hospital/clinic
+  * Manage doctor schedules and availability (staff)
+  * View doctor performance reports
+- FE-07: Specialty Management
+  * Create, edit, and delete medical specialties
+  * List specialties for filtering
+  * Categorize doctors by specialties
+  * Filter specialty-based
+- FE-12: Search & Discovery
+  * Search doctors by hospital/clinics, doctor name, specialization, or location
+  * Filter doctors by ratings, prices, positions
+
+4. ClinicService - SQL Server
+Tables: clinics, clinic_specialties, clinic_subscriptions, subscription_plans
+Features:
+- FE-05: Hospital/Clinic Management
+  * View hospital/clinic information
+  * Browse list of hospitals/clinics
+  * Search hospitals/clinics by location and services
+  * Add new hospital/clinic or update existing ones
+  * Manage hospital/clinic status
+  * Request hospital/clinic partnership
+  * Register, view subscription plans
+- FE-17: Subscription Plan Management
+  * Create and manage subscription plans
+  * View all subscription plans
+  * Manage subscription types
+
+5. AppointmentService - SQL Server + Redis
+Tables: appointments (SQL Server), doctor availability cache (Redis)
+Features:
+- FE-03: Appointment Management
+  * Search appointments by date, location, specialty, or doctor
+  * View available time slots
+  * Send appointment booking requests
+  * View upcoming appointments
+  * Cancel/reschedule appointments (patient)
+  * View appointment history
+  * Receive confirmation notifications
+  * Get calendar reminders
+  * Cancel appointments (clinic/hospital)
+  * Approve appointments (clinic/hospital)
+  * View list all patient appointments across system
+  * View appointment analytics
+
+6. PaymentService - SQL Server
+Tables: payments, payment_methods
+Features:
+- FE-09: Payment & Invoice Management
+  * Payment integration (PayOS, VNPay)
+  * Make deposits or complete payments
+  * View payment history
+  * View, download electronic invoices
+  * Process refunds
+
+7. ReviewService - MongoDB
+Tables: reviews
+Features:
+- FE-10: Review & Feedback Management
+  * Rate doctors and services (1-5 stars)
+  * Submit patient feedback
+  * Reply to patient reviews (doctors, clinics/hospital)
+
+8. ContentService - MongoDB
+Tables: blogs, blog_types, blog_authors, faqs, faqs_category
+Features:
+- FE-11: Content Management
+  * Create and manage health-related content (blogs)
+  * Categorize content by topic or type
+  * Moderate posts before publishing
+  * View health detail blogs
+  * Create, edit, and categorize FAQs
+  * Banner management for advertising
+  * Set banner visibility and time range
+
+9. ServiceMedicalService - MongoDB
+Tables: services, service_types
+Features:
+- FE-06: Medical Services Management
+  * View available medical services
+  * Browse service descriptions
+  * Add, update, or delete services
+  * Request service
+  * Approve hospital/clinic service registration requests
+  * Manage service categories
+
+10. CommunicationService - MongoDB + Redis
+Tables: messages (MongoDB), active sessions (Redis)
+Features:
+- FE-08: Communication & Consultation
+  * Real-time chat for consultation preparation
+  * Video call for remote consultation (Telehealth)
+  * Auto-generate medical notes from voice
+  * Direct messaging between patients and doctors
+
+11. NotificationService - MongoDB + Redis
+Tables: notifications (MongoDB), real-time notifications (Redis)
+Features:
+- FE-15: Notification Management
+  * Email notifications for appointments
+  * SMS notifications for confirmations
+  * Appointment reminders
+  * View notifications for the patient
+
+12. PromotionService - SQL Server
+Tables: discounts
+Features:
+- FE-16: Promotion & Discount Management
+  * Create and manage discount programs
+  * View ongoing promotions and offers
+  * Manage banners
+  * Track promotion effectiveness
+
+13. FavoriteService - Redis/MongoDB 
+Tables: favourites
+Features:
+- FE-04: Doctor Management (Favorites)
+  * Add doctor to favorites
+
+14. AnalyticsService - MongoDB
+Features:
+- FE-14: Reports & Analytics
+  * Generate reports by day, month, year
+  * View performance dashboards with charts
+  * Filter reports by hospital/clinic, doctor, specialty
+  * Export reports to Excel or PDF
+  * View appointment analytics
+  * Track revenue and patient feedback
+  * Hospital/clinic performance reports
+
+15. AIService - MongoDB + SQLServer + Redis
+Features:
+- FE-13: AI Features & Smart Assistance
+  * AI symptom checker, specialty suggestions, doctor suggestions, slot suggestions
+  * Chatbot for health advice and guidance
+  * AI relies on the doctor's examination results to give advice to help the patient improve their health
+  * AI suggests appointments
+  * AI-Powered Health Recommendations(Telehealth)
+
+Cache Strategy (Redis)
+- Session Management: User sessions, authentication tokens
+- Real-time Data: Doctor availability, appointment slots
+- Frequently Accessed Data: Popular doctors, clinic information
+- Temporary Data: Search results, user preferences
+- Guest Access: Cached content for non-authenticated users
+
+Data Consistency Strategy
+- Strong Consistency: Auth, User, Doctor, Clinic, Appointment, Payment, Promotion services
+- Eventual Consistency: Review, Content, Service Catalog, Communication, Notification, Analytics services
+- Hybrid: Services using both SQL Server and Redis/MongoDB for different data types
+
+Service Distribution:
+- SQL Server Services (8): Auth, User, Doctor, Clinic, Appointment, Payment, Promotion + strong consistency requirements
+- MongoDB Services (6): Review, Content, ServiceCatalog, Communication, Notification, Analytics + flexible schema needs
+- Redis Services (3): FavoriteService, AIService cache, GuestService + high-speed operations
+- Hybrid Services (3): Appointment, Communication, Notification + mixed consistency requirements

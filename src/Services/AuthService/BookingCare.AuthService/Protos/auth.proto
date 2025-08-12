@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.AuthService.Grpc";
+
+package auth;
+
+service AuthGrpcService {
+  rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc GetUserClaims (GetUserClaimsRequest) returns (GetUserClaimsResponse);
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse);
+}
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool is_valid = 1;
+  string user_id = 2;
+  string email = 3;
+  repeated string roles = 4;
+  string error_message = 5;
+}
+
+message GetUserClaimsRequest {
+  string user_id = 1;
+}
+
+message GetUserClaimsResponse {
+  string user_id = 1;
+  string email = 2;
+  repeated string roles = 3;
+  map<string, string> claims = 4;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  bool success = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  int64 expires_at = 4;
+  string error_message = 5;
+}
