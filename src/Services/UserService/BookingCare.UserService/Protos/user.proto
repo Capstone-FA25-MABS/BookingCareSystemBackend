@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.UserService.Grpc";
+
+package user;
+
+service UserGrpcService {
+  rpc GetUser (GetUserRequest) returns (GetUserResponse);
+  rpc GetUsersByIds (GetUsersByIdsRequest) returns (GetUsersByIdsResponse);
+  rpc UpdateUserProfile (UpdateUserProfileRequest) returns (UpdateUserProfileResponse);
+  rpc BanUser (BanUserRequest) returns (BanUserResponse);
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  bool success = 1;
+  UserInfo user = 2;
+  string error_message = 3;
+}
+
+message GetUsersByIdsRequest {
+  repeated string user_ids = 1;
+}
+
+message GetUsersByIdsResponse {
+  repeated UserInfo users = 1;
+}
+
+message UpdateUserProfileRequest {
+  string user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string phone_number = 4;
+  string address = 5;
+}
+
+message UpdateUserProfileResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message BanUserRequest {
+  string user_id = 1;
+  string reason = 2;
+  string banned_by = 3;
+}
+
+message BanUserResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message UserInfo {
+  string id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string phone_number = 5;
+  string address = 6;
+  bool is_active = 7;
+  bool is_banned = 8;
+  int64 created_at = 9;
+}

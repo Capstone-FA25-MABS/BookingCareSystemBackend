@@ -1,0 +1,233 @@
+# Docker Compose for BookingCare Microservices
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  consul:
+    image: consul:1.15
+    command: consul agent -dev -log-level=warn -ui-content-path /ui
+    ports:
+      - "8500:8500"
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=bookingcare
+      - RABBITMQ_DEFAULT_PASS=password123
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Databases
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=BookingCare123!
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=bookingcare
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+    volumes:
+      - mongodb_data:/data/db
+
+  # Infrastructure Services
+  api-gateway:
+    build:
+      context: ./src/Infrastructure/BookingCare.Gateway
+      dockerfile: Dockerfile
+    ports:
+      - "5000:80"
+    depends_on:
+      - consul
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Consul__Host=http://consul:8500
+
+  service-discovery:
+    build:
+      context: ./src/Infrastructure/BookingCare.ServiceDiscovery
+      dockerfile: Dockerfile
+    ports:
+      - "5100:80"
+    depends_on:
+      - consul
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Consul__Host=http://consul:8500
+
+  # Core Services
+  auth-service:
+    build:
+      context: ./src/Services/AuthService/BookingCare.AuthService
+      dockerfile: Dockerfile
+    ports:
+      - "5001:80"
+      - "5101:443"
+    depends_on:
+      - sqlserver
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Auth;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  user-service:
+    build:
+      context: ./src/Services/UserService/BookingCare.UserService
+      dockerfile: Dockerfile
+    ports:
+      - "5002:80"
+    depends_on:
+      - sqlserver
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Users;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  doctor-service:
+    build:
+      context: ./src/Services/DoctorService/BookingCare.DoctorService
+      dockerfile: Dockerfile
+    ports:
+      - "5003:80"
+    depends_on:
+      - sqlserver
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Doctors;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  clinic-service:
+    build:
+      context: ./src/Services/ClinicService/BookingCare.ClinicService
+      dockerfile: Dockerfile
+    ports:
+      - "5004:80"
+    depends_on:
+      - sqlserver
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Clinics;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  appointment-service:
+    build:
+      context: ./src/Services/AppointmentService/BookingCare.AppointmentService
+      dockerfile: Dockerfile
+    ports:
+      - "5005:80"
+    depends_on:
+      - sqlserver
+      - redis
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Appointments;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
+      - ConnectionStrings__Redis=redis:6379
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  payment-service:
+    build:
+      context: ./src/Services/PaymentService/BookingCare.PaymentService
+      dockerfile: Dockerfile
+    ports:
+      - "5006:80"
+    depends_on:
+      - sqlserver
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Payments;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  review-service:
+    build:
+      context: ./src/Services/ReviewService/BookingCare.ReviewService
+      dockerfile: Dockerfile
+    ports:
+      - "5007:80"
+    depends_on:
+      - mongodb
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Reviews?authSource=admin
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  content-service:
+    build:
+      context: ./src/Services/ContentService/BookingCare.ContentService
+      dockerfile: Dockerfile
+    ports:
+      - "5008:80"
+    depends_on:
+      - mongodb
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Content?authSource=admin
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  notification-service:
+    build:
+      context: ./src/Services/NotificationService/BookingCare.NotificationService
+      dockerfile: Dockerfile
+    ports:
+      - "5011:80"
+    depends_on:
+      - mongodb
+      - redis
+      - consul
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Notifications?authSource=admin
+      - ConnectionStrings__Redis=redis:6379
+      - Consul__Host=http://consul:8500
+      - RabbitMQ__Host=rabbitmq
+
+  # Additional services would follow the same pattern...
+
+volumes:
+  sqlserver_data:
+  mongodb_data:
+
+networks:
+  default:
+    name: bookingcare-network
