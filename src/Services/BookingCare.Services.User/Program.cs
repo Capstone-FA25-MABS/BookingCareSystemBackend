@@ -1,4 +1,4 @@
-using BookingCare.Services.Content.Services;
+using BookingCare.Services.User.Services;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
@@ -8,11 +8,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(6006, listenOptions =>
+    options.ListenAnyIP(6014, listenOptions =>
     {
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
     });
-    options.ListenAnyIP(6016, listenOptions =>
+    options.ListenAnyIP(6024, listenOptions =>
     {
         // listenOptions.UseHttps();
         listenOptions.Protocols = HttpProtocols.Http2;
@@ -38,5 +38,6 @@ app.MapControllers();
 
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();
+app.MapGet("/", () => "BookingCare User Service is running...");
 
 app.Run();

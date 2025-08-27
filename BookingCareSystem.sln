@@ -3,6 +3,9 @@
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{BBC343F1-4BDC-42D3-8D71-3F244FB8CB48}"
+	ProjectSection(SolutionItems) = preProject
+		src\ApiGateway\BookingCare.ApiGateway.Ocelot\BookingCare.ApiGateway.Ocelot.csproj = src\ApiGateway\BookingCare.ApiGateway.Ocelot\BookingCare.ApiGateway.Ocelot.csproj
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{07096F17-DDBF-4413-B603-C9D3A38BAD19}"
 EndProject
