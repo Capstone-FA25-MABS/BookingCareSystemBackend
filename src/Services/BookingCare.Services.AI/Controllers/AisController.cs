@@ -1,11 +1,20 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace BookingCare.Services.AI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AiController : ControllerBase
+[Authorize] // This requires authentication for all endpoints
+public class AisController : ControllerBase
 {
+    [HttpGet("health")]
+    [AllowAnonymous] // Allow health check without authentication
+    public IActionResult Health()
+    {
+        return Ok(new { Status = "Healthy", Service = "AI", Timestamp = DateTime.UtcNow });
+    }
+
     [HttpGet("{id}")]
     public IActionResult GetAiResult(int id)
     {
