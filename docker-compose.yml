@@ -2,23 +2,29 @@
 version: '3.8'
 
 services:
-  # Infrastructure Services
-  consul:
-    image: consul:1.15
-    command: consul agent -dev -log-level=warn -ui-content-path /ui
-    ports:
-      - "8500:8500"
-    environment:
-      - CONSUL_BIND_INTERFACE=eth0
-
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:3.12-management
+    container_name: bookingcare_rabbitmq
+    hostname: rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
     environment:
-      - RABBITMQ_DEFAULT_USER=bookingcare
-      - RABBITMQ_DEFAULT_PASS=password123
+      # - RABBITMQ_DEFAULT_USER=bookingcare
+      # - RABBITMQ_DEFAULT_PASS=bookingcare@1234
+      # - RABBITMQ_DEFAULT_VHOST=/
+      - RABBITMQ_CONFIG_FILE=/etc/rabbitmq/rabbitmq
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    networks:
+      - bookingcare-network
+    restart: unless-stopped
+    # healthcheck:
+    #   test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+    #   interval: 30s
+    #   timeout: 30s
+    #   retries: 3
 
   redis:
     image: redis:7-alpine
@@ -54,23 +60,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:80"
-    depends_on:
-      - consul
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - Consul__Host=http://consul:8500
-
-  service-discovery:
-    build:
-      context: ./src/Infrastructure/BookingCare.ServiceDiscovery
-      dockerfile: Dockerfile
-    ports:
-      - "5100:80"
-    depends_on:
-      - consul
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - Consul__Host=http://consul:8500
 
   # Core Services
   auth-service:
@@ -82,12 +73,10 @@ services:
       - "5101:443"
     depends_on:
       - sqlserver
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Auth;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
 
   user-service:
@@ -98,12 +87,10 @@ services:
       - "5002:80"
     depends_on:
       - sqlserver
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Users;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
 
   doctor-service:
@@ -114,12 +101,10 @@ services:
       - "5003:80"
     depends_on:
       - sqlserver
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Doctors;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
 
   clinic-service:
@@ -130,12 +115,10 @@ services:
       - "5004:80"
     depends_on:
       - sqlserver
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Clinics;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
 
   appointment-service:
@@ -147,13 +130,11 @@ services:
     depends_on:
       - sqlserver
       - redis
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Appointments;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
       - ConnectionStrings__Redis=redis:6379
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
 
   payment-service:
@@ -164,12 +145,10 @@ services:
       - "5006:80"
     depends_on:
       - sqlserver
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Payments;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
 
   review-service:
@@ -180,12 +159,10 @@ services:
       - "5007:80"
     depends_on:
       - mongodb
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Reviews?authSource=admin
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
 
   content-service:
@@ -196,12 +173,10 @@ services:
       - "5008:80"
     depends_on:
       - mongodb
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Content?authSource=admin
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
 
   notification-service:
@@ -213,21 +188,45 @@ services:
     depends_on:
       - mongodb
       - redis
-      - consul
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Notifications?authSource=admin
       - ConnectionStrings__Redis=redis:6379
-      - Consul__Host=http://consul:8500
       - RabbitMQ__Host=rabbitmq
+
+  # EventBus Integration Test Service
+  eventbus-test-service:
+    build:
+      context: .
+      dockerfile: tests/EventBusIntegrationTest/Dockerfile
+    ports:
+      - "5099:80"
+    depends_on:
+      - rabbitmq
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=80
+      - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__UserName=bookingcare
+      - RabbitMQ__Password=bookingcare@1234
+      - RabbitMQ__VirtualHost=/
+      - RabbitMQ__ExchangeName=booking_care_event_bus
+      - RabbitMQ__QueueName=eventbus-test-service-queue
+      - RabbitMQ__RetryCount=3
+    networks:
+      - bookingcare-network
+    restart: unless-stopped
 
   # Additional services would follow the same pattern...
 
 volumes:
   sqlserver_data:
   mongodb_data:
+  rabbitmq_data:
+    driver: local
 
 networks:
-  default:
-    name: bookingcare-network
+  bookingcare-network:
+    driver: bridge
