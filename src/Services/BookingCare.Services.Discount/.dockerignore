@@ -1,0 +1,99 @@
+# .dockerignore file for BookingCare Discount Service
+
+# Git and version control
+.git
+.gitignore
+.gitattributes
+**/.git
+**/.gitignore
+
+# Documentation
+*.md
+README*
+docs/
+**/*.md
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# NuGet packages
+**/packages/
+*.nupkg
+
+# Test results
+**/TestResults/
+**/*.trx
+
+# Coverage reports
+**/coverage/
+**/*.coverage
+**/*.coveragexml
+
+# Logs
+**/logs/
+**/*.log
+
+# Runtime files
+**/*.user
+**/*.suo
+**/*.cache
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+**/tmp/
+**/temp/
+**/*.tmp
+**/*.temp
+
+# Node.js (if any frontend assets)
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database files
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Migrations (optional - include if you want to run migrations in container)
+# **/Migrations/
+
+# Docker files (avoid recursive copying)
+**/Dockerfile*
+**/docker-compose*
+**/.dockerignore
+
+# Package manager lock files
+**/package-lock.json
+**/yarn.lock
+
+# JetBrains Rider
+**/.idea/
+**/rider.project.restore.info

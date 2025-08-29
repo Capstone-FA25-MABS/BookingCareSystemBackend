@@ -1,43 +1,127 @@
+using BookingCare.Services.Discount.Data;
+using BookingCare.Services.Discount.Repositories;
 using BookingCare.Services.Discount.Services;
+using BookingCare.Services.Discount.Mappings;
+using BookingCare.Services.Discount.Middlewares;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using BookingCare.Shared.Common.Extensions;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Kestrel for dual HTTP/gRPC support
 builder.WebHost.ConfigureKestrel(options =>
 {
+    // HTTP endpoint for REST API
     options.ListenAnyIP(6007, listenOptions =>
     {
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
     });
+    
+    // gRPC endpoint
     options.ListenAnyIP(6017, listenOptions =>
     {
-        // listenOptions.UseHttps();
+        // listenOptions.UseHttps(); // Enable in production
         listenOptions.Protocols = HttpProtocols.Http2;
     });
 });
 
+// Add services
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "BookingCare Discount Service", Version = "v1" });
+});
+
+// Add global exception handling
+builder.Services.AddGlobalExceptionHandling();
+
+// Database configuration
+builder.Services.AddDbContext<DiscountDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    options.UseSqlServer(connectionString);
+});
+
+// Repository registration
+builder.Services.AddScoped<IDiscountRepository, DiscountRepository>();
+
+// Service registration
+builder.Services.AddScoped<IDiscountService, DiscountService>();
+
+// Background services
+builder.Services.AddHostedService<DiscountExpirationBackgroundService>();
+
+// AutoMapper configuration
+builder.Services.AddAutoMapper(typeof(DiscountMappingProfile));
+
+// Add logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BookingCare Discount Service V1");
+        c.RoutePrefix = "swagger";
+    });
 }
 
+// Add global exception handling
+app.UseGlobalExceptionHandling();
+
+// Add custom middleware
+app.UseMiddleware<DiscountExpirationMiddleware>();
+
+// Configure routing
 app.UseRouting();
+
+// Authentication and authorization (if needed)
+// app.UseAuthentication();
+// app.UseAuthorization();
+
+// Map controllers for REST API
 app.MapControllers();
 
-// Configure the HTTP request pipeline.
-app.MapGrpcService<GreeterService>();
-app.MapGet("/", () => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
+// Map gRPC services
+app.MapGrpcService<DiscountGrpcService>();
+
+// Default endpoint
+app.MapGet("/", () => "BookingCare Discount Service is running. REST API: /swagger, gRPC: port 6017");
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new { 
+    Service = "Discount", 
+    Status = "Healthy", 
+    Timestamp = DateTime.UtcNow,
+    Version = "1.0.0"
+}));
+
+// Database migration and seeding (development only)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    try
+    {
+        var context = scope.ServiceProvider.GetRequiredService<DiscountDbContext>();
+        await context.Database.EnsureCreatedAsync();
+        app.Logger.LogInformation("Database ensured created successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "An error occurred while ensuring database creation");
+    }
+}
 
 app.Run();

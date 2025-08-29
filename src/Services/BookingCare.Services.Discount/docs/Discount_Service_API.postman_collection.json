@@ -1,0 +1,443 @@
+{
+  "info": {
+    "name": "Discount Service API",
+    "description": "Comprehensive API collection for BookingCare Discount Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/health",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "health"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success field\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('success');",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Discount by ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/{{discount_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "{{discount_id}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 or 404\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+              "});",
+              "",
+              "if (pm.response.code === 200) {",
+              "    pm.test(\"Response has discount data\", function () {",
+              "        var jsonData = pm.response.json();",
+              "        pm.expect(jsonData.data).to.have.property('id');",
+              "        pm.expect(jsonData.data).to.have.property('code');",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Discount by Code",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/by-code/{{discount_code}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "by-code", "{{discount_code}}"]
+        }
+      }
+    },
+    {
+      "name": "Get Discounts with Filtering",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts?clinicId={{clinic_id}}&status=ACTIVE&pageNumber=1&pageSize=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts"],
+          "query": [
+            {
+              "key": "clinicId",
+              "value": "{{clinic_id}}"
+            },
+            {
+              "key": "status",
+              "value": "ACTIVE"
+            },
+            {
+              "key": "pageNumber",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "10"
+            },
+            {
+              "key": "searchTerm",
+              "value": "summer",
+              "disabled": true
+            },
+            {
+              "key": "applicableTo",
+              "value": "ALL",
+              "disabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Active Discounts by Clinic",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/clinic/{{clinic_id}}/active",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "clinic", "{{clinic_id}}", "active"]
+        }
+      }
+    },
+    {
+      "name": "Get Applicable Discounts",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/applicable?clinicId={{clinic_id}}&specialtyId=2&doctorId=3",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "applicable"],
+          "query": [
+            {
+              "key": "clinicId",
+              "value": "{{clinic_id}}"
+            },
+            {
+              "key": "specialtyId",
+              "value": "2",
+              "disabled": true
+            },
+            {
+              "key": "doctorId",
+              "value": "3",
+              "disabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Create Discount",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"TESTCODE2025\",\n  \"name\": \"Test Discount\",\n  \"description\": \"Test discount for API testing\",\n  \"clinicId\": {{clinic_id}},\n  \"specialtyId\": null,\n  \"doctorId\": null,\n  \"applicableTo\": \"ALL\",\n  \"amount\": 20.00,\n  \"discountType\": \"PERCENTAGE\",\n  \"startDate\": \"2025-08-29T00:00:00\",\n  \"endDate\": \"2025-12-31T23:59:59\",\n  \"maxUses\": 100,\n  \"status\": \"ACTIVE\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/discounts",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    pm.test(\"Discount created successfully\", function () {",
+              "        var jsonData = pm.response.json();",
+              "        pm.expect(jsonData.success).to.eql(true);",
+              "        pm.expect(jsonData.data).to.have.property('id');",
+              "        ",
+              "        // Store the created discount ID for other tests",
+              "        pm.collectionVariables.set('created_discount_id', jsonData.data.id);",
+              "        pm.collectionVariables.set('created_discount_code', jsonData.data.code);",
+              "    });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update Discount",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": {{created_discount_id}},\n  \"name\": \"Updated Test Discount\",\n  \"description\": \"Updated test discount for API testing\",\n  \"amount\": 25.00,\n  \"endDate\": \"2025-11-30T23:59:59\",\n  \"maxUses\": 150\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/discounts/{{created_discount_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "{{created_discount_id}}"]
+        }
+      }
+    },
+    {
+      "name": "Validate Discount",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"{{created_discount_code}}\",\n  \"clinicId\": {{clinic_id}},\n  \"specialtyId\": 2,\n  \"doctorId\": 3,\n  \"totalAmount\": 100.00\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/discounts/validate",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "validate"]
+        }
+      }
+    },
+    {
+      "name": "Use Discount",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"{{created_discount_code}}\",\n  \"clinicId\": {{clinic_id}},\n  \"specialtyId\": 2,\n  \"doctorId\": 3,\n  \"totalAmount\": 100.00\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/discounts/use",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "use"]
+        }
+      }
+    },
+    {
+      "name": "Revert Discount Usage",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"{{created_discount_code}}\",\n  \"clinicId\": {{clinic_id}}\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/discounts/revert",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "revert"]
+        }
+      }
+    },
+    {
+      "name": "Activate Discount",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/{{created_discount_id}}/activate",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "{{created_discount_id}}", "activate"]
+        }
+      }
+    },
+    {
+      "name": "Deactivate Discount",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/{{created_discount_id}}/deactivate",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "{{created_discount_id}}", "deactivate"]
+        }
+      }
+    },
+    {
+      "name": "Calculate Discount Amount",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"code\": \"{{created_discount_code}}\",\n  \"originalAmount\": 150.00,\n  \"clinicId\": {{clinic_id}},\n  \"specialtyId\": 2,\n  \"doctorId\": 3\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/discounts/calculate",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "calculate"]
+        }
+      }
+    },
+    {
+      "name": "Update Expired Discounts",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/update-expired",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "update-expired"]
+        }
+      }
+    },
+    {
+      "name": "Delete Discount",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/discounts/{{created_discount_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "discounts", "{{created_discount_id}}"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:6007",
+      "type": "string"
+    },
+    {
+      "key": "discount_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "clinic_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "discount_code",
+      "value": "SUMMER2025",
+      "type": "string"
+    },
+    {
+      "key": "created_discount_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "created_discount_code",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
