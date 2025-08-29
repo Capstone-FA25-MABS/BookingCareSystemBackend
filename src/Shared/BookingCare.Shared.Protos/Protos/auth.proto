@@ -1,0 +1,326 @@
+syntax = "proto3";
+
+package bookingcare.auth;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Auth";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "Protos/common.proto";
+
+// Authentication Service
+service AuthService {
+  // Account management
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  rpc UpdateAccount(UpdateAccountRequest) returns (UpdateAccountResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+  rpc GetAccounts(GetAccountsRequest) returns (GetAccountsResponse);
+  
+  // Authentication
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+  rpc ForgotPassword(ForgotPasswordRequest) returns (ForgotPasswordResponse);
+  
+  // Role and Permission management
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse);
+  rpc GetRole(GetRoleRequest) returns (GetRoleResponse);
+  rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse);
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse);
+  rpc GetRoles(GetRolesRequest) returns (GetRolesResponse);
+  
+  rpc CreatePermission(CreatePermissionRequest) returns (CreatePermissionResponse);
+  rpc GetPermission(GetPermissionRequest) returns (GetPermissionResponse);
+  rpc UpdatePermission(UpdatePermissionRequest) returns (UpdatePermissionResponse);
+  rpc DeletePermission(DeletePermissionRequest) returns (DeletePermissionResponse);
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse);
+  
+  // Role-Permission assignment
+  rpc AssignPermissionToRole(AssignPermissionToRoleRequest) returns (AssignPermissionToRoleResponse);
+  rpc RemovePermissionFromRole(RemovePermissionFromRoleRequest) returns (RemovePermissionFromRoleResponse);
+  
+  // Account-Role assignment
+  rpc AssignRoleToAccount(AssignRoleToAccountRequest) returns (AssignRoleToAccountResponse);
+  rpc RemoveRoleFromAccount(RemoveRoleFromAccountRequest) returns (RemoveRoleFromAccountResponse);
+  
+  // Token validation
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc GetAccountFromToken(GetAccountFromTokenRequest) returns (GetAccountFromTokenResponse);
+}
+
+// Account messages
+message CreateAccountRequest {
+  string email = 1;
+  string password = 2;
+  repeated int64 role_ids = 3;
+  bookingcare.common.Status status = 4;
+}
+
+message CreateAccountResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Account account = 2;
+}
+
+message GetAccountRequest {
+  int64 id = 1;
+}
+
+message GetAccountResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Account account = 2;
+}
+
+message UpdateAccountRequest {
+  int64 id = 1;
+  google.protobuf.StringValue email = 2;
+  bookingcare.common.Status status = 3;
+}
+
+message UpdateAccountResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Account account = 2;
+}
+
+message DeleteAccountRequest {
+  int64 id = 1;
+}
+
+message DeleteAccountResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetAccountsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  bookingcare.common.Status status_filter = 2;
+}
+
+message GetAccountsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated bookingcare.common.Account accounts = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Authentication messages
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  bookingcare.common.ApiResponse response = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  google.protobuf.Timestamp expires_at = 4;
+  bookingcare.common.Account account = 5;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  bookingcare.common.ApiResponse response = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+message LogoutRequest {
+  string access_token = 1;
+}
+
+message LogoutResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message ChangePasswordRequest {
+  int64 account_id = 1;
+  string current_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message ResetPasswordRequest {
+  string email = 1;
+  string reset_token = 2;
+  string new_password = 3;
+}
+
+message ResetPasswordResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message ForgotPasswordRequest {
+  string email = 1;
+}
+
+message ForgotPasswordResponse {
+  bookingcare.common.ApiResponse response = 1;
+  string reset_token = 2;
+}
+
+// Role messages
+message CreateRoleRequest {
+  string name = 1;
+  string description = 2;
+  repeated int64 permission_ids = 3;
+}
+
+message CreateRoleResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Role role = 2;
+}
+
+message GetRoleRequest {
+  int64 id = 1;
+}
+
+message GetRoleResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Role role = 2;
+}
+
+message UpdateRoleRequest {
+  int64 id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue description = 3;
+}
+
+message UpdateRoleResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Role role = 2;
+}
+
+message DeleteRoleRequest {
+  int64 id = 1;
+}
+
+message DeleteRoleResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetRolesRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+}
+
+message GetRolesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated bookingcare.common.Role roles = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Permission messages
+message CreatePermissionRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message CreatePermissionResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Permission permission = 2;
+}
+
+message GetPermissionRequest {
+  int64 id = 1;
+}
+
+message GetPermissionResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Permission permission = 2;
+}
+
+message UpdatePermissionRequest {
+  int64 id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue description = 3;
+}
+
+message UpdatePermissionResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Permission permission = 2;
+}
+
+message DeletePermissionRequest {
+  int64 id = 1;
+}
+
+message DeletePermissionResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetPermissionsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+}
+
+message GetPermissionsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated bookingcare.common.Permission permissions = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Role-Permission assignment messages
+message AssignPermissionToRoleRequest {
+  int64 role_id = 1;
+  int64 permission_id = 2;
+}
+
+message AssignPermissionToRoleResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message RemovePermissionFromRoleRequest {
+  int64 role_id = 1;
+  int64 permission_id = 2;
+}
+
+message RemovePermissionFromRoleResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+// Account-Role assignment messages
+message AssignRoleToAccountRequest {
+  int64 account_id = 1;
+  int64 role_id = 2;
+}
+
+message AssignRoleToAccountResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message RemoveRoleFromAccountRequest {
+  int64 account_id = 1;
+  int64 role_id = 2;
+}
+
+message RemoveRoleFromAccountResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+// Token validation messages
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bool is_valid = 2;
+  int64 account_id = 3;
+  repeated string roles = 4;
+  repeated string permissions = 5;
+  google.protobuf.Timestamp expires_at = 6;
+}
+
+message GetAccountFromTokenRequest {
+  string token = 1;
+}
+
+message GetAccountFromTokenResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bookingcare.common.Account account = 2;
+}

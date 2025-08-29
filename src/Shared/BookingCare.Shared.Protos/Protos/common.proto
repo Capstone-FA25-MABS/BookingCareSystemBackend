@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package bookingcare.common;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Common";
+
+import "google/protobuf/timestamp.proto";
+
+// Common response wrapper
+message ApiResponse {
+  bool success = 1;
+  string message = 2;
+  repeated string errors = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+// Pagination request
+message PaginationRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string search = 3;
+  string sort_by = 4;
+  string sort_direction = 5; // ASC, DESC
+}
+
+// Pagination response
+message PaginationResponse {
+  int32 total_count = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  int32 total_pages = 4;
+  bool has_next_page = 5;
+  bool has_previous_page = 6;
+}
+
+// Address information (from database address fields)
+message Address {
+  string street = 1;
+  string city = 2;
+  string state = 3;
+  string postal_code = 4;
+  string country = 5;
+  double latitude = 6;
+  double longitude = 7;
+}
+
+// Contact information
+message ContactInfo {
+  string phone = 1;
+  string email = 2;
+  string website = 3;
+}
+
+// Subscription plan (from subscription_plans table)
+message SubscriptionPlan {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  double price = 4;
+  BillingCycle billing_cycle = 5;
+  int32 max_doctors = 6;
+  int32 max_specialties = 7;
+  string features = 8;
+  Status status = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// Enums based on database constraints
+enum Status {
+  UNKNOWN_STATUS = 0;
+  ACTIVE = 1;
+  INACTIVE = 2;
+}
+
+enum Gender {
+  UNKNOWN_GENDER = 0;
+  MALE = 1;
+  FEMALE = 2;
+  OTHER = 3;
+}
+
+enum BillingCycle {
+  UNKNOWN_BILLING = 0;
+  MONTHLY = 1;
+  QUARTERLY = 2;
+  YEARLY = 3;
+}
+
+// Role and permission (from roles and permissions tables)
+message Role {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  repeated Permission permissions = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message Permission {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// Account (from accounts table)
+message Account {
+  int64 id = 1;
+  string email = 2;
+  Status status = 3;
+  repeated Role roles = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}

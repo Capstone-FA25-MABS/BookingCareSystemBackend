@@ -1,0 +1,458 @@
+syntax = "proto3";
+
+package bookingcare.appointment;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Appointment";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "Protos/common.proto";
+import "Protos/user.proto";
+import "Protos/doctor.proto";
+import "Protos/clinic.proto";
+
+// Appointment Management Service
+service AppointmentService {
+  // Appointment management
+  rpc CreateAppointment(CreateAppointmentRequest) returns (CreateAppointmentResponse);
+  rpc GetAppointment(GetAppointmentRequest) returns (GetAppointmentResponse);
+  rpc UpdateAppointment(UpdateAppointmentRequest) returns (UpdateAppointmentResponse);
+  rpc CancelAppointment(CancelAppointmentRequest) returns (CancelAppointmentResponse);
+  rpc GetAppointments(GetAppointmentsRequest) returns (GetAppointmentsResponse);
+  
+  // Appointment scheduling
+  rpc CheckAvailability(CheckAvailabilityRequest) returns (CheckAvailabilityResponse);
+  rpc GetAvailableSlots(GetAvailableSlotsRequest) returns (GetAvailableSlotsResponse);
+  rpc RescheduleAppointment(RescheduleAppointmentRequest) returns (RescheduleAppointmentResponse);
+  
+  // Appointment status management
+  rpc ConfirmAppointment(ConfirmAppointmentRequest) returns (ConfirmAppointmentResponse);
+  rpc CheckInPatient(CheckInPatientRequest) returns (CheckInPatientResponse);
+  rpc StartConsultation(StartConsultationRequest) returns (StartConsultationResponse);
+  rpc CompleteAppointment(CompleteAppointmentRequest) returns (CompleteAppointmentResponse);
+  rpc MarkNoShow(MarkNoShowRequest) returns (MarkNoShowResponse);
+  
+  // Appointment queries
+  rpc GetUserAppointments(GetUserAppointmentsRequest) returns (GetUserAppointmentsResponse);
+  rpc GetDoctorAppointments(GetDoctorAppointmentsRequest) returns (GetDoctorAppointmentsResponse);
+  rpc GetClinicAppointments(GetClinicAppointmentsRequest) returns (GetClinicAppointmentsResponse);
+  
+  // Appointment reminders
+  rpc SendAppointmentReminder(SendAppointmentReminderRequest) returns (SendAppointmentReminderResponse);
+  rpc GetUpcomingAppointments(GetUpcomingAppointmentsRequest) returns (GetUpcomingAppointmentsResponse);
+  
+  // Wait list management
+  rpc AddToWaitList(AddToWaitListRequest) returns (AddToWaitListResponse);
+  rpc RemoveFromWaitList(RemoveFromWaitListRequest) returns (RemoveFromWaitListResponse);
+  rpc GetWaitList(GetWaitListRequest) returns (GetWaitListResponse);
+  rpc NotifyWaitListAvailability(NotifyWaitListAvailabilityRequest) returns (NotifyWaitListAvailabilityResponse);
+}
+
+// Appointment model (from appointments table)
+message Appointment {
+  int64 id = 1;
+  int64 user_id = 2;
+  int64 doctor_id = 3;
+  int64 clinic_id = 4;
+  int64 service_id = 5;
+  google.protobuf.Timestamp appointment_date = 6;
+  google.protobuf.Timestamp start_time = 7;
+  google.protobuf.Timestamp end_time = 8;
+  AppointmentStatus status = 9;
+  string chief_complaint = 10;
+  string notes = 11;
+  double consultation_fee = 12;
+  string booking_reference = 13;
+  google.protobuf.Timestamp confirmed_at = 14;
+  google.protobuf.Timestamp checked_in_at = 15;
+  google.protobuf.Timestamp consultation_started_at = 16;
+  google.protobuf.Timestamp completed_at = 17;
+  string cancellation_reason = 18;
+  google.protobuf.Timestamp cancelled_at = 19;
+  AppointmentType type = 20;
+  bool is_follow_up = 21;
+  int64 parent_appointment_id = 22;
+  
+  // Related entities
+  bookingcare.user.User user = 23;
+  bookingcare.doctor.Doctor doctor = 24;
+  bookingcare.clinic.Clinic clinic = 25;
+  bookingcare.clinic.ClinicMedicalService service = 26;
+  
+  google.protobuf.Timestamp created_at = 27;
+  google.protobuf.Timestamp updated_at = 28;
+}
+
+// Wait list entry (from appointment_wait_list table)
+message WaitListEntry {
+  int64 id = 1;
+  int64 user_id = 2;
+  int64 doctor_id = 3;
+  int64 clinic_id = 4;
+  google.protobuf.Timestamp preferred_date = 5;
+  string preferred_time_start = 6;
+  string preferred_time_end = 7;
+  string notes = 8;
+  WaitListStatus status = 9;
+  int32 priority = 10;
+  google.protobuf.Timestamp notified_at = 11;
+  google.protobuf.Timestamp expires_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+// Time slot for appointments
+message TimeSlot {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  bool is_available = 3;
+  bool is_blocked = 4;
+  string block_reason = 5;
+}
+
+// Appointment reminder
+message AppointmentReminder {
+  int64 id = 1;
+  int64 appointment_id = 2;
+  ReminderType type = 3;
+  google.protobuf.Timestamp scheduled_time = 4;
+  google.protobuf.Timestamp sent_at = 5;
+  ReminderStatus status = 6;
+  string message = 7;
+  int32 retry_count = 8;
+}
+
+// Enums
+enum AppointmentStatus {
+  UNKNOWN_APPOINTMENT_STATUS = 0;
+  SCHEDULED = 1;
+  CONFIRMED = 2;
+  CHECKED_IN = 3;
+  IN_CONSULTATION = 4;
+  COMPLETED = 5;
+  CANCELLED = 6;
+  NO_SHOW = 7;
+  RESCHEDULED = 8;
+}
+
+enum AppointmentType {
+  UNKNOWN_APPOINTMENT_TYPE = 0;
+  IN_PERSON = 1;
+  TELEMEDICINE = 2;
+  PHONE_CONSULTATION = 3;
+  HOME_VISIT = 4;
+}
+
+enum WaitListStatus {
+  UNKNOWN_WAIT_LIST_STATUS = 0;
+  ACTIVE_WAIT = 1;
+  NOTIFIED = 2;
+  EXPIRED = 3;
+  CONVERTED = 4;
+  CANCELLED_WAIT = 5;
+}
+
+enum ReminderType {
+  UNKNOWN_REMINDER_TYPE = 0;
+  EMAIL_REMINDER = 1;
+  SMS_REMINDER = 2;
+  PUSH_NOTIFICATION = 3;
+}
+
+enum ReminderStatus {
+  UNKNOWN_REMINDER_STATUS = 0;
+  PENDING_REMINDER = 1;
+  SENT_REMINDER = 2;
+  FAILED_REMINDER = 3;
+  CANCELLED_REMINDER = 4;
+}
+
+// Appointment management requests/responses
+message CreateAppointmentRequest {
+  int64 user_id = 1;
+  int64 doctor_id = 2;
+  int64 clinic_id = 3;
+  int64 service_id = 4;
+  google.protobuf.Timestamp appointment_date = 5;
+  google.protobuf.Timestamp start_time = 6;
+  google.protobuf.Timestamp end_time = 7;
+  string chief_complaint = 8;
+  string notes = 9;
+  AppointmentType type = 10;
+  bool is_follow_up = 11;
+  google.protobuf.Int64Value parent_appointment_id = 12;
+}
+
+message CreateAppointmentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+message GetAppointmentRequest {
+  int64 id = 1;
+}
+
+message GetAppointmentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+message UpdateAppointmentRequest {
+  int64 id = 1;
+  google.protobuf.Timestamp appointment_date = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  google.protobuf.StringValue chief_complaint = 5;
+  google.protobuf.StringValue notes = 6;
+  AppointmentType type = 7;
+}
+
+message UpdateAppointmentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+message CancelAppointmentRequest {
+  int64 id = 1;
+  string cancellation_reason = 2;
+  int64 cancelled_by_user_id = 3;
+}
+
+message CancelAppointmentResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetAppointmentsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  AppointmentStatus status_filter = 2;
+  google.protobuf.Timestamp date_from = 3;
+  google.protobuf.Timestamp date_to = 4;
+  AppointmentType type_filter = 5;
+}
+
+message GetAppointmentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Appointment appointments = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Appointment scheduling requests/responses
+message CheckAvailabilityRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+  google.protobuf.Timestamp date = 3;
+  google.protobuf.Timestamp start_time = 4;
+  google.protobuf.Timestamp end_time = 5;
+}
+
+message CheckAvailabilityResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bool is_available = 2;
+  string reason = 3;
+}
+
+message GetAvailableSlotsRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+  google.protobuf.Timestamp date_from = 3;
+  google.protobuf.Timestamp date_to = 4;
+  google.protobuf.Int32Value duration_minutes = 5;
+}
+
+message GetAvailableSlotsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated TimeSlot time_slots = 2;
+}
+
+message RescheduleAppointmentRequest {
+  int64 id = 1;
+  google.protobuf.Timestamp new_appointment_date = 2;
+  google.protobuf.Timestamp new_start_time = 3;
+  google.protobuf.Timestamp new_end_time = 4;
+  string reason = 5;
+}
+
+message RescheduleAppointmentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+// Appointment status management requests/responses
+message ConfirmAppointmentRequest {
+  int64 id = 1;
+  int64 confirmed_by_user_id = 2;
+}
+
+message ConfirmAppointmentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+message CheckInPatientRequest {
+  int64 id = 1;
+  int64 checked_in_by_user_id = 2;
+}
+
+message CheckInPatientResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+message StartConsultationRequest {
+  int64 id = 1;
+  int64 started_by_doctor_id = 2;
+}
+
+message StartConsultationResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+message CompleteAppointmentRequest {
+  int64 id = 1;
+  string consultation_notes = 2;
+  string diagnosis = 3;
+  string treatment_plan = 4;
+  string prescription = 5;
+  bool follow_up_required = 6;
+  google.protobuf.Timestamp follow_up_date = 7;
+}
+
+message CompleteAppointmentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+message MarkNoShowRequest {
+  int64 id = 1;
+  int64 marked_by_user_id = 2;
+  string notes = 3;
+}
+
+message MarkNoShowResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Appointment appointment = 2;
+}
+
+// Appointment queries requests/responses
+message GetUserAppointmentsRequest {
+  int64 user_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  AppointmentStatus status_filter = 3;
+  google.protobuf.Timestamp date_from = 4;
+  google.protobuf.Timestamp date_to = 5;
+}
+
+message GetUserAppointmentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Appointment appointments = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message GetDoctorAppointmentsRequest {
+  int64 doctor_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  AppointmentStatus status_filter = 3;
+  google.protobuf.Timestamp date_from = 4;
+  google.protobuf.Timestamp date_to = 5;
+  google.protobuf.Int64Value clinic_id = 6;
+}
+
+message GetDoctorAppointmentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Appointment appointments = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message GetClinicAppointmentsRequest {
+  int64 clinic_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  AppointmentStatus status_filter = 3;
+  google.protobuf.Timestamp date_from = 4;
+  google.protobuf.Timestamp date_to = 5;
+  google.protobuf.Int64Value doctor_id = 6;
+}
+
+message GetClinicAppointmentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Appointment appointments = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Appointment reminders requests/responses
+message SendAppointmentReminderRequest {
+  int64 appointment_id = 1;
+  ReminderType type = 2;
+  google.protobuf.Timestamp scheduled_time = 3;
+  string custom_message = 4;
+}
+
+message SendAppointmentReminderResponse {
+  bookingcare.common.ApiResponse response = 1;
+  AppointmentReminder reminder = 2;
+}
+
+message GetUpcomingAppointmentsRequest {
+  google.protobuf.Int64Value user_id = 1;
+  google.protobuf.Int64Value doctor_id = 2;
+  google.protobuf.Int64Value clinic_id = 3;
+  int32 hours_ahead = 4; // Look ahead X hours
+}
+
+message GetUpcomingAppointmentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Appointment appointments = 2;
+}
+
+// Wait list management requests/responses
+message AddToWaitListRequest {
+  int64 user_id = 1;
+  int64 doctor_id = 2;
+  int64 clinic_id = 3;
+  google.protobuf.Timestamp preferred_date = 4;
+  string preferred_time_start = 5;
+  string preferred_time_end = 6;
+  string notes = 7;
+}
+
+message AddToWaitListResponse {
+  bookingcare.common.ApiResponse response = 1;
+  WaitListEntry entry = 2;
+}
+
+message RemoveFromWaitListRequest {
+  int64 id = 1;
+}
+
+message RemoveFromWaitListResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetWaitListRequest {
+  google.protobuf.Int64Value doctor_id = 1;
+  google.protobuf.Int64Value clinic_id = 2;
+  google.protobuf.Int64Value user_id = 3;
+  WaitListStatus status_filter = 4;
+  bookingcare.common.PaginationRequest pagination = 5;
+}
+
+message GetWaitListResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated WaitListEntry entries = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message NotifyWaitListAvailabilityRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+  google.protobuf.Timestamp available_date = 3;
+  google.protobuf.Timestamp available_start_time = 4;
+  google.protobuf.Timestamp available_end_time = 5;
+  int32 max_notifications = 6;
+}
+
+message NotifyWaitListAvailabilityResponse {
+  bookingcare.common.ApiResponse response = 1;
+  int32 notifications_sent = 2;
+  repeated int64 notified_entry_ids = 3;
+}

@@ -1,0 +1,496 @@
+syntax = "proto3";
+
+package bookingcare.payment;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Payment";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "Protos/common.proto";
+import "Protos/appointment.proto";
+import "Protos/user.proto";
+import "Protos/clinic.proto";
+
+// Payment Management Service
+service PaymentService {
+  // Payment processing
+  rpc ProcessPayment(ProcessPaymentRequest) returns (ProcessPaymentResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+  rpc GetPayments(GetPaymentsRequest) returns (GetPaymentsResponse);
+  rpc CancelPayment(CancelPaymentRequest) returns (CancelPaymentResponse);
+  rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
+  
+  // Payment methods
+  rpc AddPaymentMethod(AddPaymentMethodRequest) returns (AddPaymentMethodResponse);
+  rpc GetPaymentMethods(GetPaymentMethodsRequest) returns (GetPaymentMethodsResponse);
+  rpc UpdatePaymentMethod(UpdatePaymentMethodRequest) returns (UpdatePaymentMethodResponse);
+  rpc DeletePaymentMethod(DeletePaymentMethodRequest) returns (DeletePaymentMethodResponse);
+  rpc SetDefaultPaymentMethod(SetDefaultPaymentMethodRequest) returns (SetDefaultPaymentMethodResponse);
+  
+  // Billing and invoices
+  rpc CreateInvoice(CreateInvoiceRequest) returns (CreateInvoiceResponse);
+  rpc GetInvoice(GetInvoiceRequest) returns (GetInvoiceResponse);
+  rpc GetInvoices(GetInvoicesRequest) returns (GetInvoicesResponse);
+  rpc SendInvoice(SendInvoiceRequest) returns (SendInvoiceResponse);
+  rpc MarkInvoicePaid(MarkInvoicePaidRequest) returns (MarkInvoicePaidResponse);
+  
+  // Subscription payments
+  rpc ProcessSubscriptionPayment(ProcessSubscriptionPaymentRequest) returns (ProcessSubscriptionPaymentResponse);
+  rpc GetSubscriptionPayments(GetSubscriptionPaymentsRequest) returns (GetSubscriptionPaymentsResponse);
+  
+  // Payment analytics
+  rpc GetPaymentSummary(GetPaymentSummaryRequest) returns (GetPaymentSummaryResponse);
+  rpc GetRevenueReport(GetRevenueReportRequest) returns (GetRevenueReportResponse);
+  
+  // Payment gateway integration
+  rpc CreatePaymentIntent(CreatePaymentIntentRequest) returns (CreatePaymentIntentResponse);
+  rpc ConfirmPaymentIntent(ConfirmPaymentIntentRequest) returns (ConfirmPaymentIntentResponse);
+  rpc HandleWebhook(HandleWebhookRequest) returns (HandleWebhookResponse);
+}
+
+// Payment model (from payments table)
+message Payment {
+  int64 id = 1;
+  int64 user_id = 2;
+  int64 appointment_id = 3;
+  int64 invoice_id = 4;
+  string payment_reference = 5;
+  double amount = 6;
+  string currency = 7;
+  PaymentStatus status = 8;
+  PaymentMethod payment_method = 9;
+  string gateway_transaction_id = 10;
+  string gateway_reference = 11;
+  string description = 12;
+  google.protobuf.Timestamp processed_at = 13;
+  google.protobuf.Timestamp failed_at = 14;
+  string failure_reason = 15;
+  google.protobuf.Timestamp refunded_at = 16;
+  double refund_amount = 17;
+  string refund_reason = 18;
+  PaymentMetadata metadata = 19;
+  
+  // Related entities
+  bookingcare.user.User user = 20;
+  bookingcare.appointment.Appointment appointment = 21;
+  Invoice invoice = 22;
+  
+  google.protobuf.Timestamp created_at = 23;
+  google.protobuf.Timestamp updated_at = 24;
+}
+
+// Payment method model (from payment_methods table)
+message PaymentMethod {
+  int64 id = 1;
+  int64 user_id = 2;
+  PaymentMethodType type = 3;
+  string provider = 4; // stripe, paypal, vnpay, etc.
+  string token = 5;
+  string last_four_digits = 6;
+  string card_brand = 7; // visa, mastercard, etc.
+  string expiry_month = 8;
+  string expiry_year = 9;
+  string billing_name = 10;
+  bookingcare.common.Address billing_address = 11;
+  bool is_default = 12;
+  bool is_active = 13;
+  google.protobuf.Timestamp expires_at = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+}
+
+// Invoice model (from invoices table)
+message Invoice {
+  int64 id = 1;
+  string invoice_number = 2;
+  int64 user_id = 3;
+  int64 clinic_id = 4;
+  int64 appointment_id = 5;
+  double subtotal = 6;
+  double tax_amount = 7;
+  double discount_amount = 8;
+  double total_amount = 9;
+  string currency = 10;
+  InvoiceStatus status = 11;
+  google.protobuf.Timestamp due_date = 12;
+  google.protobuf.Timestamp issued_date = 13;
+  google.protobuf.Timestamp paid_date = 14;
+  repeated InvoiceItem items = 15;
+  string notes = 16;
+  string pdf_url = 17;
+  
+  // Related entities
+  bookingcare.user.User user = 18;
+  bookingcare.clinic.Clinic clinic = 19;
+  bookingcare.appointment.Appointment appointment = 20;
+  
+  google.protobuf.Timestamp created_at = 21;
+  google.protobuf.Timestamp updated_at = 22;
+}
+
+// Invoice item model (from invoice_items table)
+message InvoiceItem {
+  int64 id = 1;
+  int64 invoice_id = 2;
+  string description = 3;
+  int32 quantity = 4;
+  double unit_price = 5;
+  double total_price = 6;
+  string service_code = 7;
+}
+
+// Payment metadata for additional info
+message PaymentMetadata {
+  string ip_address = 1;
+  string user_agent = 2;
+  string device_info = 3;
+  string gateway_response = 4;
+  repeated PaymentFee fees = 5;
+}
+
+// Payment fee breakdown
+message PaymentFee {
+  string type = 1; // gateway_fee, service_fee, tax
+  double amount = 2;
+  string description = 3;
+}
+
+// Payment summary for analytics
+message PaymentSummary {
+  double total_revenue = 1;
+  int32 total_transactions = 2;
+  int32 successful_payments = 3;
+  int32 failed_payments = 4;
+  int32 refunded_payments = 5;
+  double total_refunds = 6;
+  double average_transaction_amount = 7;
+  google.protobuf.Timestamp period_start = 8;
+  google.protobuf.Timestamp period_end = 9;
+}
+
+// Revenue report
+message RevenueReport {
+  repeated RevenueByPeriod daily_revenue = 1;
+  repeated RevenueByService service_revenue = 2;
+  repeated RevenueByPaymentMethod payment_method_revenue = 3;
+  PaymentSummary summary = 4;
+}
+
+message RevenueByPeriod {
+  google.protobuf.Timestamp date = 1;
+  double revenue = 2;
+  int32 transaction_count = 3;
+}
+
+message RevenueByService {
+  string service_name = 1;
+  double revenue = 2;
+  int32 transaction_count = 3;
+}
+
+message RevenueByPaymentMethod {
+  PaymentMethodType method_type = 1;
+  double revenue = 2;
+  int32 transaction_count = 3;
+}
+
+// Enums
+enum PaymentStatus {
+  UNKNOWN_PAYMENT_STATUS = 0;
+  PENDING_PAYMENT = 1;
+  PROCESSING = 2;
+  COMPLETED = 3;
+  FAILED = 4;
+  CANCELLED_PAYMENT = 5;
+  REFUNDED = 6;
+  PARTIALLY_REFUNDED = 7;
+}
+
+enum PaymentMethodType {
+  UNKNOWN_PAYMENT_METHOD = 0;
+  CREDIT_CARD = 1;
+  DEBIT_CARD = 2;
+  BANK_TRANSFER = 3;
+  DIGITAL_WALLET = 4;
+  CRYPTOCURRENCY = 5;
+  CASH = 6;
+  INSURANCE = 7;
+}
+
+enum InvoiceStatus {
+  UNKNOWN_INVOICE_STATUS = 0;
+  DRAFT = 1;
+  SENT = 2;
+  VIEWED = 3;
+  PAID = 4;
+  OVERDUE = 5;
+  CANCELLED_INVOICE = 6;
+}
+
+// Payment processing requests/responses
+message ProcessPaymentRequest {
+  int64 user_id = 1;
+  int64 appointment_id = 2;
+  double amount = 3;
+  string currency = 4;
+  int64 payment_method_id = 5;
+  string description = 6;
+  PaymentMetadata metadata = 7;
+}
+
+message ProcessPaymentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Payment payment = 2;
+  string client_secret = 3; // For frontend payment confirmation
+}
+
+message GetPaymentRequest {
+  int64 id = 1;
+}
+
+message GetPaymentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Payment payment = 2;
+}
+
+message GetPaymentsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  google.protobuf.Int64Value user_id = 2;
+  google.protobuf.Int64Value appointment_id = 3;
+  PaymentStatus status_filter = 4;
+  google.protobuf.Timestamp date_from = 5;
+  google.protobuf.Timestamp date_to = 6;
+}
+
+message GetPaymentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Payment payments = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message CancelPaymentRequest {
+  int64 id = 1;
+  string reason = 2;
+}
+
+message CancelPaymentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Payment payment = 2;
+}
+
+message RefundPaymentRequest {
+  int64 id = 1;
+  double refund_amount = 2;
+  string reason = 3;
+}
+
+message RefundPaymentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Payment payment = 2;
+}
+
+// Payment methods requests/responses
+message AddPaymentMethodRequest {
+  int64 user_id = 1;
+  PaymentMethodType type = 2;
+  string provider = 3;
+  string token = 4;
+  string billing_name = 5;
+  bookingcare.common.Address billing_address = 6;
+  bool set_as_default = 7;
+}
+
+message AddPaymentMethodResponse {
+  bookingcare.common.ApiResponse response = 1;
+  PaymentMethod payment_method = 2;
+}
+
+message GetPaymentMethodsRequest {
+  int64 user_id = 1;
+  google.protobuf.BoolValue is_active_filter = 2;
+}
+
+message GetPaymentMethodsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated PaymentMethod payment_methods = 2;
+}
+
+message UpdatePaymentMethodRequest {
+  int64 id = 1;
+  google.protobuf.StringValue billing_name = 2;
+  bookingcare.common.Address billing_address = 3;
+  google.protobuf.BoolValue is_active = 4;
+}
+
+message UpdatePaymentMethodResponse {
+  bookingcare.common.ApiResponse response = 1;
+  PaymentMethod payment_method = 2;
+}
+
+message DeletePaymentMethodRequest {
+  int64 id = 1;
+}
+
+message DeletePaymentMethodResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message SetDefaultPaymentMethodRequest {
+  int64 user_id = 1;
+  int64 payment_method_id = 2;
+}
+
+message SetDefaultPaymentMethodResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+// Invoice requests/responses
+message CreateInvoiceRequest {
+  int64 user_id = 1;
+  int64 clinic_id = 2;
+  int64 appointment_id = 3;
+  repeated InvoiceItem items = 4;
+  double tax_rate = 5;
+  double discount_amount = 6;
+  google.protobuf.Timestamp due_date = 7;
+  string notes = 8;
+}
+
+message CreateInvoiceResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Invoice invoice = 2;
+}
+
+message GetInvoiceRequest {
+  int64 id = 1;
+}
+
+message GetInvoiceResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Invoice invoice = 2;
+}
+
+message GetInvoicesRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  google.protobuf.Int64Value user_id = 2;
+  google.protobuf.Int64Value clinic_id = 3;
+  InvoiceStatus status_filter = 4;
+  google.protobuf.Timestamp date_from = 5;
+  google.protobuf.Timestamp date_to = 6;
+}
+
+message GetInvoicesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Invoice invoices = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message SendInvoiceRequest {
+  int64 id = 1;
+  string recipient_email = 2;
+  string custom_message = 3;
+}
+
+message SendInvoiceResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message MarkInvoicePaidRequest {
+  int64 id = 1;
+  int64 payment_id = 2;
+  google.protobuf.Timestamp paid_date = 3;
+}
+
+message MarkInvoicePaidResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Invoice invoice = 2;
+}
+
+// Subscription payment requests/responses
+message ProcessSubscriptionPaymentRequest {
+  int64 clinic_id = 1;
+  int64 subscription_id = 2;
+  double amount = 3;
+  string currency = 4;
+  int64 payment_method_id = 5;
+}
+
+message ProcessSubscriptionPaymentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Payment payment = 2;
+}
+
+message GetSubscriptionPaymentsRequest {
+  int64 clinic_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  google.protobuf.Timestamp date_from = 3;
+  google.protobuf.Timestamp date_to = 4;
+}
+
+message GetSubscriptionPaymentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Payment payments = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Analytics requests/responses
+message GetPaymentSummaryRequest {
+  google.protobuf.Int64Value clinic_id = 1;
+  google.protobuf.Timestamp date_from = 2;
+  google.protobuf.Timestamp date_to = 3;
+}
+
+message GetPaymentSummaryResponse {
+  bookingcare.common.ApiResponse response = 1;
+  PaymentSummary summary = 2;
+}
+
+message GetRevenueReportRequest {
+  google.protobuf.Int64Value clinic_id = 1;
+  google.protobuf.Timestamp date_from = 2;
+  google.protobuf.Timestamp date_to = 3;
+  string grouping = 4; // daily, weekly, monthly
+}
+
+message GetRevenueReportResponse {
+  bookingcare.common.ApiResponse response = 1;
+  RevenueReport report = 2;
+}
+
+// Payment gateway requests/responses
+message CreatePaymentIntentRequest {
+  double amount = 1;
+  string currency = 2;
+  int64 user_id = 3;
+  int64 appointment_id = 4;
+  string description = 5;
+  PaymentMetadata metadata = 6;
+}
+
+message CreatePaymentIntentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  string client_secret = 2;
+  string payment_intent_id = 3;
+}
+
+message ConfirmPaymentIntentRequest {
+  string payment_intent_id = 1;
+  int64 payment_method_id = 2;
+}
+
+message ConfirmPaymentIntentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Payment payment = 2;
+}
+
+message HandleWebhookRequest {
+  string provider = 1; // stripe, paypal, etc.
+  string event_type = 2;
+  string payload = 3;
+  string signature = 4;
+}
+
+message HandleWebhookResponse {
+  bookingcare.common.ApiResponse response = 1;
+  bool processed = 2;
+}

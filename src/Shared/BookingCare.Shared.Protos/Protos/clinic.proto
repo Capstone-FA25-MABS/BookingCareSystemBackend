@@ -1,0 +1,387 @@
+syntax = "proto3";
+
+package bookingcare.clinic;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Clinic";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "Protos/common.proto";
+
+// Clinic Management Service
+service ClinicService {
+  // Clinic management
+  rpc CreateClinic(CreateClinicRequest) returns (CreateClinicResponse);
+  rpc GetClinic(GetClinicRequest) returns (GetClinicResponse);
+  rpc UpdateClinic(UpdateClinicRequest) returns (UpdateClinicResponse);
+  rpc DeleteClinic(DeleteClinicRequest) returns (DeleteClinicResponse);
+  rpc GetClinics(GetClinicsRequest) returns (GetClinicsResponse);
+  rpc SearchClinics(SearchClinicsRequest) returns (SearchClinicsResponse);
+  
+  // Clinic subscription management
+  rpc SubscribeToService(SubscribeToServiceRequest) returns (SubscribeToServiceResponse);
+  rpc GetClinicSubscriptions(GetClinicSubscriptionsRequest) returns (GetClinicSubscriptionsResponse);
+  rpc CancelSubscription(CancelSubscriptionRequest) returns (CancelSubscriptionResponse);
+  
+  // Specialty management
+  rpc CreateSpecialty(CreateSpecialtyRequest) returns (CreateSpecialtyResponse);
+  rpc GetSpecialty(GetSpecialtyRequest) returns (GetSpecialtyResponse);
+  rpc UpdateSpecialty(UpdateSpecialtyRequest) returns (UpdateSpecialtyResponse);
+  rpc DeleteSpecialty(DeleteSpecialtyRequest) returns (DeleteSpecialtyResponse);
+  rpc GetSpecialties(GetSpecialtiesRequest) returns (GetSpecialtiesResponse);
+  
+  // Clinic operating hours
+  rpc UpdateOperatingHours(UpdateOperatingHoursRequest) returns (UpdateOperatingHoursResponse);
+  rpc GetOperatingHours(GetOperatingHoursRequest) returns (GetOperatingHoursResponse);
+  
+  // Clinic services
+  rpc AddClinicService(AddClinicServiceRequest) returns (AddClinicServiceResponse);
+  rpc UpdateClinicService(UpdateClinicServiceRequest) returns (UpdateClinicServiceResponse);
+  rpc RemoveClinicService(RemoveClinicServiceRequest) returns (RemoveClinicServiceResponse);
+  rpc GetClinicServices(GetClinicServicesRequest) returns (GetClinicServicesResponse);
+}
+
+// Clinic model (from clinics table)
+message Clinic {
+  int64 id = 1;
+  int64 account_id = 2;
+  string name = 3;
+  string description = 4;
+  bookingcare.common.Address address = 5;
+  bookingcare.common.ContactInfo contact_info = 6;
+  string license_number = 7;
+  google.protobuf.Timestamp license_expiry = 8;
+  repeated string certifications = 9;
+  string logo_url = 10;
+  repeated string images = 11;
+  OperatingHours operating_hours = 12;
+  bool is_verified = 13;
+  bookingcare.common.Status status = 14;
+  repeated ClinicSpecialty specialties = 15;
+  repeated ClinicMedicalService services = 16;
+  ClinicSubscription subscription = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+}
+
+// Specialty model (from specialties table)
+message Specialty {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  string icon_url = 4;
+  bool is_active = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// Clinic specialty relationship (from clinic_specialties table)
+message ClinicSpecialty {
+  int64 id = 1;
+  int64 clinic_id = 2;
+  int64 specialty_id = 3;
+  Specialty specialty = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// Operating hours
+message OperatingHours {
+  DaySchedule monday = 1;
+  DaySchedule tuesday = 2;
+  DaySchedule wednesday = 3;
+  DaySchedule thursday = 4;
+  DaySchedule friday = 5;
+  DaySchedule saturday = 6;
+  DaySchedule sunday = 7;
+}
+
+message DaySchedule {
+  bool is_open = 1;
+  string open_time = 2; // Format: "09:00"
+  string close_time = 3; // Format: "17:00"
+  repeated BreakTime breaks = 4;
+}
+
+message BreakTime {
+  string start_time = 1;
+  string end_time = 2;
+  string description = 3;
+}
+
+// Clinic service (from clinic_services table)
+message ClinicMedicalService {
+  int64 id = 1;
+  int64 clinic_id = 2;
+  string name = 3;
+  string description = 4;
+  double price = 5;
+  int32 duration_minutes = 6;
+  bool is_active = 7;
+  int64 specialty_id = 8;
+  Specialty specialty = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// Clinic subscription (from clinic_subscriptions table)
+message ClinicSubscription {
+  int64 id = 1;
+  int64 clinic_id = 2;
+  int64 plan_id = 3;
+  bookingcare.common.SubscriptionPlan plan = 4;
+  google.protobuf.Timestamp start_date = 5;
+  google.protobuf.Timestamp end_date = 6;
+  SubscriptionStatus status = 7;
+  double amount_paid = 8;
+  google.protobuf.Timestamp next_billing_date = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// Enums
+enum SubscriptionStatus {
+  UNKNOWN_SUBSCRIPTION_STATUS = 0;
+  TRIAL = 1;
+  ACTIVE_SUBSCRIPTION = 2;
+  PAST_DUE = 3;
+  CANCELLED = 4;
+  EXPIRED = 5;
+}
+
+// Clinic management requests/responses
+message CreateClinicRequest {
+  int64 account_id = 1;
+  string name = 2;
+  string description = 3;
+  bookingcare.common.Address address = 4;
+  bookingcare.common.ContactInfo contact_info = 5;
+  string license_number = 6;
+  google.protobuf.Timestamp license_expiry = 7;
+  repeated string certifications = 8;
+  string logo_url = 9;
+  repeated string images = 10;
+  OperatingHours operating_hours = 11;
+  repeated int64 specialty_ids = 12;
+}
+
+message CreateClinicResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Clinic clinic = 2;
+}
+
+message GetClinicRequest {
+  int64 id = 1;
+}
+
+message GetClinicResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Clinic clinic = 2;
+}
+
+message UpdateClinicRequest {
+  int64 id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue description = 3;
+  bookingcare.common.Address address = 4;
+  bookingcare.common.ContactInfo contact_info = 5;
+  google.protobuf.StringValue license_number = 6;
+  google.protobuf.Timestamp license_expiry = 7;
+  repeated string certifications = 8;
+  google.protobuf.StringValue logo_url = 9;
+  repeated string images = 10;
+  google.protobuf.BoolValue is_verified = 11;
+  bookingcare.common.Status status = 12;
+}
+
+message UpdateClinicResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Clinic clinic = 2;
+}
+
+message DeleteClinicRequest {
+  int64 id = 1;
+}
+
+message DeleteClinicResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetClinicsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  bookingcare.common.Status status_filter = 2;
+  google.protobuf.BoolValue is_verified_filter = 3;
+  repeated int64 specialty_ids = 4;
+}
+
+message GetClinicsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Clinic clinics = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message SearchClinicsRequest {
+  string query = 1;
+  bookingcare.common.Address location = 2;
+  double radius_km = 3;
+  repeated int64 specialty_ids = 4;
+  bookingcare.common.PaginationRequest pagination = 5;
+}
+
+message SearchClinicsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Clinic clinics = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Subscription requests/responses
+message SubscribeToServiceRequest {
+  int64 clinic_id = 1;
+  int64 plan_id = 2;
+  google.protobuf.Timestamp start_date = 3;
+}
+
+message SubscribeToServiceResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ClinicSubscription subscription = 2;
+}
+
+message GetClinicSubscriptionsRequest {
+  int64 clinic_id = 1;
+  SubscriptionStatus status_filter = 2;
+}
+
+message GetClinicSubscriptionsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated ClinicSubscription subscriptions = 2;
+}
+
+message CancelSubscriptionRequest {
+  int64 subscription_id = 1;
+  string reason = 2;
+}
+
+message CancelSubscriptionResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+// Specialty requests/responses
+message CreateSpecialtyRequest {
+  string name = 1;
+  string description = 2;
+  string icon_url = 3;
+}
+
+message CreateSpecialtyResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Specialty specialty = 2;
+}
+
+message GetSpecialtyRequest {
+  int64 id = 1;
+}
+
+message GetSpecialtyResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Specialty specialty = 2;
+}
+
+message UpdateSpecialtyRequest {
+  int64 id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue description = 3;
+  google.protobuf.StringValue icon_url = 4;
+  google.protobuf.BoolValue is_active = 5;
+}
+
+message UpdateSpecialtyResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Specialty specialty = 2;
+}
+
+message DeleteSpecialtyRequest {
+  int64 id = 1;
+}
+
+message DeleteSpecialtyResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetSpecialtiesRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  google.protobuf.BoolValue is_active_filter = 2;
+}
+
+message GetSpecialtiesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Specialty specialties = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Operating hours requests/responses
+message UpdateOperatingHoursRequest {
+  int64 clinic_id = 1;
+  OperatingHours operating_hours = 2;
+}
+
+message UpdateOperatingHoursResponse {
+  bookingcare.common.ApiResponse response = 1;
+  OperatingHours operating_hours = 2;
+}
+
+message GetOperatingHoursRequest {
+  int64 clinic_id = 1;
+}
+
+message GetOperatingHoursResponse {
+  bookingcare.common.ApiResponse response = 1;
+  OperatingHours operating_hours = 2;
+}
+
+// Clinic service requests/responses
+message AddClinicServiceRequest {
+  int64 clinic_id = 1;
+  string name = 2;
+  string description = 3;
+  double price = 4;
+  int32 duration_minutes = 5;
+  int64 specialty_id = 6;
+}
+
+message AddClinicServiceResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ClinicMedicalService service = 2;
+}
+
+message UpdateClinicServiceRequest {
+  int64 id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue description = 3;
+  google.protobuf.DoubleValue price = 4;
+  google.protobuf.Int32Value duration_minutes = 5;
+  google.protobuf.BoolValue is_active = 6;
+  google.protobuf.Int64Value specialty_id = 7;
+}
+
+message UpdateClinicServiceResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ClinicMedicalService service = 2;
+}
+
+message RemoveClinicServiceRequest {
+  int64 id = 1;
+}
+
+message RemoveClinicServiceResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetClinicServicesRequest {
+  int64 clinic_id = 1;
+  google.protobuf.BoolValue is_active_filter = 2;
+  google.protobuf.Int64Value specialty_id_filter = 3;
+}
+
+message GetClinicServicesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated ClinicMedicalService services = 2;
+}

@@ -1,0 +1,537 @@
+syntax = "proto3";
+
+package bookingcare.notification;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Notification";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "Protos/common.proto";
+
+// Notification Management Service
+service NotificationService {
+  // Notification management
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse);
+  rpc GetNotification(GetNotificationRequest) returns (GetNotificationResponse);
+  rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse);
+  rpc MarkAsRead(MarkAsReadRequest) returns (MarkAsReadResponse);
+  rpc MarkAsUnread(MarkAsUnreadRequest) returns (MarkAsUnreadResponse);
+  rpc DeleteNotification(DeleteNotificationRequest) returns (DeleteNotificationResponse);
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+  
+  // Bulk operations
+  rpc MarkAllAsRead(MarkAllAsReadRequest) returns (MarkAllAsReadResponse);
+  rpc DeleteAllNotifications(DeleteAllNotificationsRequest) returns (DeleteAllNotificationsResponse);
+  rpc BulkSendNotifications(BulkSendNotificationsRequest) returns (BulkSendNotificationsResponse);
+  
+  // Notification preferences
+  rpc UpdateNotificationPreferences(UpdateNotificationPreferencesRequest) returns (UpdateNotificationPreferencesResponse);
+  rpc GetNotificationPreferences(GetNotificationPreferencesRequest) returns (GetNotificationPreferencesResponse);
+  
+  // Notification templates
+  rpc CreateNotificationTemplate(CreateNotificationTemplateRequest) returns (CreateNotificationTemplateResponse);
+  rpc GetNotificationTemplate(GetNotificationTemplateRequest) returns (GetNotificationTemplateResponse);
+  rpc UpdateNotificationTemplate(UpdateNotificationTemplateRequest) returns (UpdateNotificationTemplateResponse);
+  rpc DeleteNotificationTemplate(DeleteNotificationTemplateRequest) returns (DeleteNotificationTemplateResponse);
+  rpc GetNotificationTemplates(GetNotificationTemplatesRequest) returns (GetNotificationTemplatesResponse);
+  
+  // Push notification management
+  rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
+  rpc UpdateDevice(UpdateDeviceRequest) returns (UpdateDeviceResponse);
+  rpc UnregisterDevice(UnregisterDeviceRequest) returns (UnregisterDeviceResponse);
+  rpc GetUserDevices(GetUserDevicesRequest) returns (GetUserDevicesResponse);
+  
+  // Scheduled notifications
+  rpc ScheduleNotification(ScheduleNotificationRequest) returns (ScheduleNotificationResponse);
+  rpc CancelScheduledNotification(CancelScheduledNotificationRequest) returns (CancelScheduledNotificationResponse);
+  rpc GetScheduledNotifications(GetScheduledNotificationsRequest) returns (GetScheduledNotificationsResponse);
+}
+
+// Notification model (from notifications table)
+message Notification {
+  int64 id = 1;
+  int64 user_id = 2;
+  NotificationType type = 3;
+  string title = 4;
+  string message = 5;
+  NotificationData data = 6;
+  NotificationChannel channel = 7;
+  bool is_read = 8;
+  google.protobuf.Timestamp read_at = 9;
+  google.protobuf.Timestamp sent_at = 10;
+  bool is_delivered = 11;
+  google.protobuf.Timestamp delivered_at = 12;
+  string delivery_error = 13;
+  int32 retry_count = 14;
+  NotificationPriority priority = 15;
+  google.protobuf.Timestamp expires_at = 16;
+  string action_url = 17;
+  repeated NotificationAction actions = 18;
+  google.protobuf.Timestamp created_at = 19;
+  google.protobuf.Timestamp updated_at = 20;
+}
+
+// Notification data for additional context
+message NotificationData {
+  google.protobuf.Int64Value appointment_id = 1;
+  google.protobuf.Int64Value doctor_id = 2;
+  google.protobuf.Int64Value clinic_id = 3;
+  google.protobuf.Int64Value payment_id = 4;
+  google.protobuf.Int64Value review_id = 5;
+  google.protobuf.Int64Value blog_id = 6;
+  string custom_data = 7; // JSON string for additional data
+}
+
+// Notification action buttons
+message NotificationAction {
+  string id = 1;
+  string label = 2;
+  string action_url = 3;
+  NotificationActionType type = 4;
+}
+
+// Notification preferences (from notification_preferences table)
+message NotificationPreferences {
+  int64 id = 1;
+  int64 user_id = 2;
+  bool email_enabled = 3;
+  bool sms_enabled = 4;
+  bool push_enabled = 5;
+  bool appointment_reminders = 6;
+  bool appointment_confirmations = 7;
+  bool appointment_cancellations = 8;
+  bool payment_confirmations = 9;
+  bool marketing_notifications = 10;
+  bool system_updates = 11;
+  bool doctor_notifications = 12;
+  bool review_requests = 13;
+  string quiet_hours_start = 14; // Format: "22:00"
+  string quiet_hours_end = 15; // Format: "08:00"
+  string timezone = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+}
+
+// Notification template (from notification_templates table)
+message NotificationTemplate {
+  int64 id = 1;
+  string name = 2;
+  NotificationType type = 3;
+  NotificationChannel channel = 4;
+  string subject = 5;
+  string title_template = 6;
+  string message_template = 7;
+  string html_template = 8;
+  bool is_active = 9;
+  string language = 10;
+  repeated TemplateVariable variables = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// Template variable for dynamic content
+message TemplateVariable {
+  string name = 1;
+  string description = 2;
+  string default_value = 3;
+  bool is_required = 4;
+}
+
+// Device registration for push notifications
+message Device {
+  int64 id = 1;
+  int64 user_id = 2;
+  string device_token = 3;
+  DevicePlatform platform = 4;
+  string device_id = 5;
+  string app_version = 6;
+  string os_version = 7;
+  bool is_active = 8;
+  google.protobuf.Timestamp last_used_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// Scheduled notification
+message ScheduledNotification {
+  int64 id = 1;
+  int64 user_id = 2;
+  NotificationType type = 3;
+  string title = 4;
+  string message = 5;
+  NotificationData data = 6;
+  NotificationChannel channel = 7;
+  google.protobuf.Timestamp scheduled_at = 8;
+  bool is_sent = 9;
+  google.protobuf.Timestamp sent_at = 10;
+  bool is_cancelled = 11;
+  google.protobuf.Timestamp cancelled_at = 12;
+  string cancellation_reason = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+// Enums
+enum NotificationType {
+  UNKNOWN_NOTIFICATION_TYPE = 0;
+  APPOINTMENT_REMINDER = 1;
+  APPOINTMENT_CONFIRMATION = 2;
+  APPOINTMENT_CANCELLATION = 3;
+  APPOINTMENT_RESCHEDULED = 4;
+  PAYMENT_CONFIRMATION = 5;
+  PAYMENT_FAILED = 6;
+  PAYMENT_REFUND = 7;
+  DOCTOR_ASSIGNMENT = 8;
+  REVIEW_REQUEST = 9;
+  SYSTEM_UPDATE = 10;
+  MARKETING = 11;
+  SECURITY_ALERT = 12;
+  ACCOUNT_VERIFICATION = 13;
+  PASSWORD_RESET = 14;
+  WAIT_LIST_NOTIFICATION = 15;
+  SUBSCRIPTION_EXPIRY = 16;
+  CLINIC_VERIFICATION = 17;
+  DOCTOR_VERIFICATION = 18;
+  NEW_MESSAGE = 19;
+  BLOG_PUBLISHED = 20;
+}
+
+enum NotificationChannel {
+  UNKNOWN_CHANNEL = 0;
+  EMAIL = 1;
+  SMS = 2;
+  PUSH_NOTIFICATION = 3;
+  IN_APP = 4;
+  WEBHOOK = 5;
+}
+
+enum NotificationPriority {
+  UNKNOWN_PRIORITY = 0;
+  LOW = 1;
+  NORMAL = 2;
+  HIGH = 3;
+  URGENT = 4;
+}
+
+enum NotificationActionType {
+  UNKNOWN_ACTION = 0;
+  CONFIRM = 1;
+  CANCEL = 2;
+  RESCHEDULE = 3;
+  VIEW = 4;
+  PAYMENT = 5;
+  REVIEW = 6;
+}
+
+enum DevicePlatform {
+  UNKNOWN_PLATFORM = 0;
+  IOS = 1;
+  ANDROID = 2;
+  WEB = 3;
+  WINDOWS = 4;
+  MACOS = 5;
+}
+
+// Notification management requests/responses
+message SendNotificationRequest {
+  int64 user_id = 1;
+  NotificationType type = 2;
+  string title = 3;
+  string message = 4;
+  NotificationData data = 5;
+  NotificationChannel channel = 6;
+  NotificationPriority priority = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  string action_url = 9;
+  repeated NotificationAction actions = 10;
+  google.protobuf.Int64Value template_id = 11;
+  string template_variables = 12; // JSON string
+}
+
+message SendNotificationResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Notification notification = 2;
+}
+
+message GetNotificationRequest {
+  int64 id = 1;
+}
+
+message GetNotificationResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Notification notification = 2;
+}
+
+message GetNotificationsRequest {
+  int64 user_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  google.protobuf.BoolValue is_read_filter = 3;
+  NotificationType type_filter = 4;
+  NotificationChannel channel_filter = 5;
+  google.protobuf.Timestamp date_from = 6;
+  google.protobuf.Timestamp date_to = 7;
+}
+
+message GetNotificationsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Notification notifications = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message MarkAsReadRequest {
+  int64 id = 1;
+}
+
+message MarkAsReadResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message MarkAsUnreadRequest {
+  int64 id = 1;
+}
+
+message MarkAsUnreadResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message DeleteNotificationRequest {
+  int64 id = 1;
+}
+
+message DeleteNotificationResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetUnreadCountRequest {
+  int64 user_id = 1;
+  NotificationType type_filter = 2;
+}
+
+message GetUnreadCountResponse {
+  bookingcare.common.ApiResponse response = 1;
+  int32 unread_count = 2;
+}
+
+// Bulk operations requests/responses
+message MarkAllAsReadRequest {
+  int64 user_id = 1;
+  NotificationType type_filter = 2;
+}
+
+message MarkAllAsReadResponse {
+  bookingcare.common.ApiResponse response = 1;
+  int32 marked_count = 2;
+}
+
+message DeleteAllNotificationsRequest {
+  int64 user_id = 1;
+  google.protobuf.BoolValue is_read_filter = 2;
+  NotificationType type_filter = 3;
+}
+
+message DeleteAllNotificationsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  int32 deleted_count = 2;
+}
+
+message BulkSendNotificationsRequest {
+  repeated int64 user_ids = 1;
+  NotificationType type = 2;
+  string title = 3;
+  string message = 4;
+  NotificationData data = 5;
+  NotificationChannel channel = 6;
+  NotificationPriority priority = 7;
+  google.protobuf.Int64Value template_id = 8;
+  string template_variables = 9; // JSON string
+}
+
+message BulkSendNotificationsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  int32 sent_count = 2;
+  int32 failed_count = 3;
+  repeated string errors = 4;
+}
+
+// Notification preferences requests/responses
+message UpdateNotificationPreferencesRequest {
+  int64 user_id = 1;
+  google.protobuf.BoolValue email_enabled = 2;
+  google.protobuf.BoolValue sms_enabled = 3;
+  google.protobuf.BoolValue push_enabled = 4;
+  google.protobuf.BoolValue appointment_reminders = 5;
+  google.protobuf.BoolValue appointment_confirmations = 6;
+  google.protobuf.BoolValue appointment_cancellations = 7;
+  google.protobuf.BoolValue payment_confirmations = 8;
+  google.protobuf.BoolValue marketing_notifications = 9;
+  google.protobuf.BoolValue system_updates = 10;
+  google.protobuf.BoolValue doctor_notifications = 11;
+  google.protobuf.BoolValue review_requests = 12;
+  google.protobuf.StringValue quiet_hours_start = 13;
+  google.protobuf.StringValue quiet_hours_end = 14;
+  google.protobuf.StringValue timezone = 15;
+}
+
+message UpdateNotificationPreferencesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  NotificationPreferences preferences = 2;
+}
+
+message GetNotificationPreferencesRequest {
+  int64 user_id = 1;
+}
+
+message GetNotificationPreferencesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  NotificationPreferences preferences = 2;
+}
+
+// Notification template requests/responses
+message CreateNotificationTemplateRequest {
+  string name = 1;
+  NotificationType type = 2;
+  NotificationChannel channel = 3;
+  string subject = 4;
+  string title_template = 5;
+  string message_template = 6;
+  string html_template = 7;
+  string language = 8;
+  repeated TemplateVariable variables = 9;
+}
+
+message CreateNotificationTemplateResponse {
+  bookingcare.common.ApiResponse response = 1;
+  NotificationTemplate template = 2;
+}
+
+message GetNotificationTemplateRequest {
+  int64 id = 1;
+}
+
+message GetNotificationTemplateResponse {
+  bookingcare.common.ApiResponse response = 1;
+  NotificationTemplate template = 2;
+}
+
+message UpdateNotificationTemplateRequest {
+  int64 id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue subject = 3;
+  google.protobuf.StringValue title_template = 4;
+  google.protobuf.StringValue message_template = 5;
+  google.protobuf.StringValue html_template = 6;
+  google.protobuf.BoolValue is_active = 7;
+  repeated TemplateVariable variables = 8;
+}
+
+message UpdateNotificationTemplateResponse {
+  bookingcare.common.ApiResponse response = 1;
+  NotificationTemplate template = 2;
+}
+
+message DeleteNotificationTemplateRequest {
+  int64 id = 1;
+}
+
+message DeleteNotificationTemplateResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetNotificationTemplatesRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  NotificationType type_filter = 2;
+  NotificationChannel channel_filter = 3;
+  google.protobuf.BoolValue is_active_filter = 4;
+  google.protobuf.StringValue language_filter = 5;
+}
+
+message GetNotificationTemplatesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated NotificationTemplate templates = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Device management requests/responses
+message RegisterDeviceRequest {
+  int64 user_id = 1;
+  string device_token = 2;
+  DevicePlatform platform = 3;
+  string device_id = 4;
+  string app_version = 5;
+  string os_version = 6;
+}
+
+message RegisterDeviceResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Device device = 2;
+}
+
+message UpdateDeviceRequest {
+  int64 id = 1;
+  google.protobuf.StringValue device_token = 2;
+  google.protobuf.StringValue app_version = 3;
+  google.protobuf.StringValue os_version = 4;
+  google.protobuf.BoolValue is_active = 5;
+}
+
+message UpdateDeviceResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Device device = 2;
+}
+
+message UnregisterDeviceRequest {
+  int64 id = 1;
+}
+
+message UnregisterDeviceResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetUserDevicesRequest {
+  int64 user_id = 1;
+  google.protobuf.BoolValue is_active_filter = 2;
+}
+
+message GetUserDevicesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Device devices = 2;
+}
+
+// Scheduled notification requests/responses
+message ScheduleNotificationRequest {
+  int64 user_id = 1;
+  NotificationType type = 2;
+  string title = 3;
+  string message = 4;
+  NotificationData data = 5;
+  NotificationChannel channel = 6;
+  google.protobuf.Timestamp scheduled_at = 7;
+}
+
+message ScheduleNotificationResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ScheduledNotification scheduled_notification = 2;
+}
+
+message CancelScheduledNotificationRequest {
+  int64 id = 1;
+  string reason = 2;
+}
+
+message CancelScheduledNotificationResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetScheduledNotificationsRequest {
+  google.protobuf.Int64Value user_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  google.protobuf.BoolValue is_sent_filter = 3;
+  google.protobuf.BoolValue is_cancelled_filter = 4;
+  NotificationType type_filter = 5;
+}
+
+message GetScheduledNotificationsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated ScheduledNotification scheduled_notifications = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}

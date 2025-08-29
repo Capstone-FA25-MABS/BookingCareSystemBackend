@@ -1,0 +1,902 @@
+syntax = "proto3";
+
+package bookingcare.content;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Content";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "Protos/common.proto";
+import "Protos/user.proto";
+import "Protos/doctor.proto";
+import "Protos/clinic.proto";
+
+// Content Management Service
+service ContentService {
+  // Blog management
+  rpc CreateBlog(CreateBlogRequest) returns (CreateBlogResponse);
+  rpc GetBlog(GetBlogRequest) returns (GetBlogResponse);
+  rpc UpdateBlog(UpdateBlogRequest) returns (UpdateBlogResponse);
+  rpc DeleteBlog(DeleteBlogRequest) returns (DeleteBlogResponse);
+  rpc GetBlogs(GetBlogsRequest) returns (GetBlogsResponse);
+  rpc SearchBlogs(SearchBlogsRequest) returns (SearchBlogsResponse);
+  rpc PublishBlog(PublishBlogRequest) returns (PublishBlogResponse);
+  rpc UnpublishBlog(UnpublishBlogRequest) returns (UnpublishBlogResponse);
+  
+  // Blog category management
+  rpc CreateBlogCategory(CreateBlogCategoryRequest) returns (CreateBlogCategoryResponse);
+  rpc GetBlogCategory(GetBlogCategoryRequest) returns (GetBlogCategoryResponse);
+  rpc UpdateBlogCategory(UpdateBlogCategoryRequest) returns (UpdateBlogCategoryResponse);
+  rpc DeleteBlogCategory(DeleteBlogCategoryRequest) returns (DeleteBlogCategoryResponse);
+  rpc GetBlogCategories(GetBlogCategoriesRequest) returns (GetBlogCategoriesResponse);
+  
+  // Blog tag management
+  rpc CreateBlogTag(CreateBlogTagRequest) returns (CreateBlogTagResponse);
+  rpc GetBlogTag(GetBlogTagRequest) returns (GetBlogTagResponse);
+  rpc UpdateBlogTag(UpdateBlogTagRequest) returns (UpdateBlogTagResponse);
+  rpc DeleteBlogTag(DeleteBlogTagRequest) returns (DeleteBlogTagResponse);
+  rpc GetBlogTags(GetBlogTagsRequest) returns (GetBlogTagsResponse);
+  
+  // Blog interaction
+  rpc LikeBlog(LikeBlogRequest) returns (LikeBlogResponse);
+  rpc UnlikeBlog(UnlikeBlogRequest) returns (UnlikeBlogResponse);
+  rpc GetBlogLikes(GetBlogLikesRequest) returns (GetBlogLikesResponse);
+  rpc AddBlogComment(AddBlogCommentRequest) returns (AddBlogCommentResponse);
+  rpc UpdateBlogComment(UpdateBlogCommentRequest) returns (UpdateBlogCommentResponse);
+  rpc DeleteBlogComment(DeleteBlogCommentRequest) returns (DeleteBlogCommentResponse);
+  rpc GetBlogComments(GetBlogCommentsRequest) returns (GetBlogCommentsResponse);
+  
+  // FAQ management
+  rpc CreateFAQ(CreateFAQRequest) returns (CreateFAQResponse);
+  rpc GetFAQ(GetFAQRequest) returns (GetFAQResponse);
+  rpc UpdateFAQ(UpdateFAQRequest) returns (UpdateFAQResponse);
+  rpc DeleteFAQ(DeleteFAQRequest) returns (DeleteFAQResponse);
+  rpc GetFAQs(GetFAQsRequest) returns (GetFAQsResponse);
+  rpc SearchFAQs(SearchFAQsRequest) returns (SearchFAQsResponse);
+  
+  // Health tip management
+  rpc CreateHealthTip(CreateHealthTipRequest) returns (CreateHealthTipResponse);
+  rpc GetHealthTip(GetHealthTipRequest) returns (GetHealthTipResponse);
+  rpc UpdateHealthTip(UpdateHealthTipRequest) returns (UpdateHealthTipResponse);
+  rpc DeleteHealthTip(DeleteHealthTipRequest) returns (DeleteHealthTipResponse);
+  rpc GetHealthTips(GetHealthTipsRequest) returns (GetHealthTipsResponse);
+  rpc GetHealthTipOfDay(GetHealthTipOfDayRequest) returns (GetHealthTipOfDayResponse);
+  
+  // Medical content
+  rpc CreateMedicalContent(CreateMedicalContentRequest) returns (CreateMedicalContentResponse);
+  rpc GetMedicalContent(GetMedicalContentRequest) returns (GetMedicalContentResponse);
+  rpc UpdateMedicalContent(UpdateMedicalContentRequest) returns (UpdateMedicalContentResponse);
+  rpc DeleteMedicalContent(DeleteMedicalContentRequest) returns (DeleteMedicalContentResponse);
+  rpc GetMedicalContents(GetMedicalContentsRequest) returns (GetMedicalContentsResponse);
+  rpc SearchMedicalContent(SearchMedicalContentRequest) returns (SearchMedicalContentResponse);
+  
+  // Content analytics
+  rpc GetContentStatistics(GetContentStatisticsRequest) returns (GetContentStatisticsResponse);
+  rpc GetPopularContent(GetPopularContentRequest) returns (GetPopularContentResponse);
+  rpc GetContentTrends(GetContentTrendsRequest) returns (GetContentTrendsResponse);
+}
+
+// Blog model (from blogs table)
+message Blog {
+  int64 id = 1;
+  string title = 2;
+  string slug = 3;
+  string excerpt = 4;
+  string content = 5;
+  string featured_image_url = 6;
+  int64 author_id = 7;
+  int64 category_id = 8;
+  repeated int64 tag_ids = 9;
+  ContentStatus status = 10;
+  bool is_featured = 11;
+  int32 view_count = 12;
+  int32 like_count = 13;
+  int32 comment_count = 14;
+  int32 reading_time_minutes = 15;
+  string meta_title = 16;
+  string meta_description = 17;
+  repeated string keywords = 18;
+  google.protobuf.Timestamp published_at = 19;
+  
+  // Related entities
+  bookingcare.user.User author = 20;
+  BlogCategory category = 21;
+  repeated BlogTag tags = 22;
+  repeated BlogComment comments = 23;
+  
+  google.protobuf.Timestamp created_at = 24;
+  google.protobuf.Timestamp updated_at = 25;
+}
+
+// Blog category model (from blog_categories table)
+message BlogCategory {
+  int64 id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+  string color = 5;
+  string icon_url = 6;
+  int32 sort_order = 7;
+  bool is_active = 8;
+  int32 blog_count = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// Blog tag model (from blog_tags table)
+message BlogTag {
+  int64 id = 1;
+  string name = 2;
+  string slug = 3;
+  string color = 4;
+  bool is_active = 5;
+  int32 usage_count = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// Blog comment model (from blog_comments table)
+message BlogComment {
+  int64 id = 1;
+  int64 blog_id = 2;
+  int64 user_id = 3;
+  int64 parent_comment_id = 4;
+  string content = 5;
+  CommentStatus status = 6;
+  int32 like_count = 7;
+  bool is_pinned = 8;
+  
+  // Related entities
+  bookingcare.user.User user = 9;
+  repeated BlogComment replies = 10;
+  
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+// Blog like model
+message BlogLike {
+  int64 id = 1;
+  int64 blog_id = 2;
+  int64 user_id = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+// FAQ model (from faqs table)
+message FAQ {
+  int64 id = 1;
+  string question = 2;
+  string answer = 3;
+  int64 category_id = 4;
+  int32 sort_order = 5;
+  bool is_active = 6;
+  int32 view_count = 7;
+  repeated string tags = 8;
+  
+  // Related entities
+  FAQCategory category = 9;
+  
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// FAQ category model
+message FAQCategory {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  string icon_url = 4;
+  int32 sort_order = 5;
+  bool is_active = 6;
+  int32 faq_count = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// Health tip model (from health_tips table)
+message HealthTip {
+  int64 id = 1;
+  string title = 2;
+  string tip = 3;
+  string description = 4;
+  string image_url = 5;
+  int64 category_id = 6;
+  int64 doctor_id = 7;
+  HealthTipType type = 8;
+  int32 view_count = 9;
+  int32 like_count = 10;
+  repeated string tags = 11;
+  bool is_featured = 12;
+  google.protobuf.Timestamp scheduled_date = 13;
+  
+  // Related entities
+  HealthTipCategory category = 14;
+  bookingcare.doctor.Doctor doctor = 15;
+  
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+// Health tip category model
+message HealthTipCategory {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  string icon_url = 4;
+  string color = 5;
+  int32 sort_order = 6;
+  bool is_active = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// Medical content model (from medical_contents table)
+message MedicalContent {
+  int64 id = 1;
+  string title = 2;
+  string slug = 3;
+  string content = 4;
+  string summary = 5;
+  MedicalContentType type = 6;
+  int64 specialty_id = 7;
+  int64 author_doctor_id = 8;
+  ContentStatus status = 9;
+  int32 view_count = 10;
+  repeated string symptoms = 11;
+  repeated string treatments = 12;
+  repeated string references = 13;
+  string medical_disclaimer = 14;
+  bool requires_professional_review = 15;
+  google.protobuf.Timestamp reviewed_at = 16;
+  int64 reviewed_by_doctor_id = 17;
+  
+  // Related entities
+  bookingcare.clinic.Specialty specialty = 18;
+  bookingcare.doctor.Doctor author_doctor = 19;
+  bookingcare.doctor.Doctor reviewed_by_doctor = 20;
+  
+  google.protobuf.Timestamp created_at = 21;
+  google.protobuf.Timestamp updated_at = 22;
+}
+
+// Content statistics
+message ContentStatistics {
+  int32 total_blogs = 1;
+  int32 published_blogs = 2;
+  int32 draft_blogs = 3;
+  int32 total_views = 4;
+  int32 total_likes = 5;
+  int32 total_comments = 6;
+  int32 total_faqs = 7;
+  int32 total_health_tips = 8;
+  int32 total_medical_contents = 9;
+  double average_reading_time = 10;
+  google.protobuf.Timestamp period_start = 11;
+  google.protobuf.Timestamp period_end = 12;
+}
+
+// Popular content item
+message PopularContentItem {
+  int64 id = 1;
+  string title = 2;
+  string slug = 3;
+  ContentType content_type = 4;
+  int32 view_count = 5;
+  int32 like_count = 6;
+  int32 comment_count = 7;
+  double engagement_score = 8;
+  google.protobuf.Timestamp published_at = 9;
+}
+
+// Content trend data
+message ContentTrend {
+  google.protobuf.Timestamp date = 1;
+  int32 views = 2;
+  int32 likes = 3;
+  int32 comments = 4;
+  int32 new_content = 5;
+}
+
+// Enums
+enum ContentStatus {
+  UNKNOWN_CONTENT_STATUS = 0;
+  DRAFT_CONTENT = 1;
+  PENDING_REVIEW = 2;
+  PUBLISHED_CONTENT = 3;
+  ARCHIVED = 4;
+  DELETED_CONTENT = 5;
+}
+
+enum CommentStatus {
+  UNKNOWN_COMMENT_STATUS = 0;
+  PENDING_COMMENT = 1;
+  APPROVED = 2;
+  REJECTED_COMMENT = 3;
+  SPAM_COMMENT = 4;
+}
+
+enum HealthTipType {
+  UNKNOWN_HEALTH_TIP_TYPE = 0;
+  DAILY_TIP = 1;
+  SEASONAL_TIP = 2;
+  EMERGENCY_TIP = 3;
+  PREVENTIVE_TIP = 4;
+  NUTRITION_TIP = 5;
+  EXERCISE_TIP = 6;
+  MENTAL_HEALTH_TIP = 7;
+}
+
+enum MedicalContentType {
+  UNKNOWN_MEDICAL_CONTENT_TYPE = 0;
+  CONDITION_INFO = 1;
+  TREATMENT_GUIDE = 2;
+  PROCEDURE_INFO = 3;
+  MEDICATION_INFO = 4;
+  PREVENTION_GUIDE = 5;
+  SYMPTOM_CHECKER = 6;
+  FIRST_AID = 7;
+}
+
+enum ContentType {
+  UNKNOWN_CONTENT_TYPE = 0;
+  BLOG_CONTENT = 1;
+  FAQ_CONTENT = 2;
+  HEALTH_TIP_CONTENT = 3;
+  MEDICAL_CONTENT = 4;
+}
+
+// Blog management requests/responses
+message CreateBlogRequest {
+  string title = 1;
+  string excerpt = 2;
+  string content = 3;
+  string featured_image_url = 4;
+  int64 author_id = 5;
+  int64 category_id = 6;
+  repeated int64 tag_ids = 7;
+  bool is_featured = 8;
+  string meta_title = 9;
+  string meta_description = 10;
+  repeated string keywords = 11;
+  ContentStatus status = 12;
+}
+
+message CreateBlogResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Blog blog = 2;
+}
+
+message GetBlogRequest {
+  oneof identifier {
+    int64 id = 1;
+    string slug = 2;
+  }
+  bool increment_view_count = 3;
+}
+
+message GetBlogResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Blog blog = 2;
+}
+
+message UpdateBlogRequest {
+  int64 id = 1;
+  google.protobuf.StringValue title = 2;
+  google.protobuf.StringValue excerpt = 3;
+  google.protobuf.StringValue content = 4;
+  google.protobuf.StringValue featured_image_url = 5;
+  google.protobuf.Int64Value category_id = 6;
+  repeated int64 tag_ids = 7;
+  google.protobuf.BoolValue is_featured = 8;
+  google.protobuf.StringValue meta_title = 9;
+  google.protobuf.StringValue meta_description = 10;
+  repeated string keywords = 11;
+  ContentStatus status = 12;
+}
+
+message UpdateBlogResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Blog blog = 2;
+}
+
+message DeleteBlogRequest {
+  int64 id = 1;
+}
+
+message DeleteBlogResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetBlogsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  ContentStatus status_filter = 2;
+  google.protobuf.Int64Value category_id = 3;
+  repeated int64 tag_ids = 4;
+  google.protobuf.Int64Value author_id = 5;
+  google.protobuf.BoolValue is_featured_filter = 6;
+  string sort_by = 7; // created_at, published_at, view_count, like_count
+  google.protobuf.Timestamp date_from = 8;
+  google.protobuf.Timestamp date_to = 9;
+}
+
+message GetBlogsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Blog blogs = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message SearchBlogsRequest {
+  string query = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  ContentStatus status_filter = 3;
+  google.protobuf.Int64Value category_id = 4;
+  repeated int64 tag_ids = 5;
+}
+
+message SearchBlogsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Blog blogs = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message PublishBlogRequest {
+  int64 id = 1;
+  google.protobuf.Timestamp publish_at = 2;
+}
+
+message PublishBlogResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Blog blog = 2;
+}
+
+message UnpublishBlogRequest {
+  int64 id = 1;
+}
+
+message UnpublishBlogResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Blog blog = 2;
+}
+
+// Blog category requests/responses
+message CreateBlogCategoryRequest {
+  string name = 1;
+  string description = 2;
+  string color = 3;
+  string icon_url = 4;
+  int32 sort_order = 5;
+}
+
+message CreateBlogCategoryResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogCategory category = 2;
+}
+
+message GetBlogCategoryRequest {
+  oneof identifier {
+    int64 id = 1;
+    string slug = 2;
+  }
+}
+
+message GetBlogCategoryResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogCategory category = 2;
+}
+
+message UpdateBlogCategoryRequest {
+  int64 id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue description = 3;
+  google.protobuf.StringValue color = 4;
+  google.protobuf.StringValue icon_url = 5;
+  google.protobuf.Int32Value sort_order = 6;
+  google.protobuf.BoolValue is_active = 7;
+}
+
+message UpdateBlogCategoryResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogCategory category = 2;
+}
+
+message DeleteBlogCategoryRequest {
+  int64 id = 1;
+}
+
+message DeleteBlogCategoryResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetBlogCategoriesRequest {
+  google.protobuf.BoolValue is_active_filter = 1;
+  string sort_by = 2; // name, sort_order, blog_count
+}
+
+message GetBlogCategoriesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated BlogCategory categories = 2;
+}
+
+// Additional requests/responses for other entities would follow similar patterns...
+
+// Analytics requests/responses
+message GetContentStatisticsRequest {
+  google.protobuf.Timestamp date_from = 1;
+  google.protobuf.Timestamp date_to = 2;
+  google.protobuf.Int64Value author_id = 3;
+  ContentType content_type_filter = 4;
+}
+
+message GetContentStatisticsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ContentStatistics statistics = 2;
+}
+
+message GetPopularContentRequest {
+  ContentType content_type = 1;
+  string period = 2; // today, week, month, year, all_time
+  int32 limit = 3;
+}
+
+message GetPopularContentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated PopularContentItem popular_content = 2;
+}
+
+message GetContentTrendsRequest {
+  google.protobuf.Timestamp date_from = 1;
+  google.protobuf.Timestamp date_to = 2;
+  ContentType content_type_filter = 3;
+  string period = 4; // daily, weekly, monthly
+}
+
+message GetContentTrendsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated ContentTrend trends = 2;
+}
+
+// Blog interaction requests/responses
+message LikeBlogRequest {
+  int64 blog_id = 1;
+  int64 user_id = 2;
+}
+
+message LikeBlogResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogLike like = 2;
+}
+
+message UnlikeBlogRequest {
+  int64 blog_id = 1;
+  int64 user_id = 2;
+}
+
+message UnlikeBlogResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetBlogLikesRequest {
+  int64 blog_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+}
+
+message GetBlogLikesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated BlogLike likes = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message AddBlogCommentRequest {
+  int64 blog_id = 1;
+  int64 user_id = 2;
+  google.protobuf.Int64Value parent_comment_id = 3;
+  string content = 4;
+}
+
+message AddBlogCommentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogComment comment = 2;
+}
+
+message UpdateBlogCommentRequest {
+  int64 id = 1;
+  string content = 2;
+}
+
+message UpdateBlogCommentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogComment comment = 2;
+}
+
+message DeleteBlogCommentRequest {
+  int64 id = 1;
+}
+
+message DeleteBlogCommentResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetBlogCommentsRequest {
+  int64 blog_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  CommentStatus status_filter = 3;
+  google.protobuf.Int64Value parent_comment_id = 4;
+}
+
+message GetBlogCommentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated BlogComment comments = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Placeholder requests for other entities (similar patterns)
+message CreateBlogTagRequest {
+  string name = 1;
+  string color = 2;
+}
+
+message CreateBlogTagResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogTag tag = 2;
+}
+
+message GetBlogTagRequest {
+  int64 id = 1;
+}
+
+message GetBlogTagResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogTag tag = 2;
+}
+
+message UpdateBlogTagRequest {
+  int64 id = 1;
+  google.protobuf.StringValue name = 2;
+  google.protobuf.StringValue color = 3;
+  google.protobuf.BoolValue is_active = 4;
+}
+
+message UpdateBlogTagResponse {
+  bookingcare.common.ApiResponse response = 1;
+  BlogTag tag = 2;
+}
+
+message DeleteBlogTagRequest {
+  int64 id = 1;
+}
+
+message DeleteBlogTagResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetBlogTagsRequest {
+  google.protobuf.BoolValue is_active_filter = 1;
+  string sort_by = 2; // name, usage_count
+}
+
+message GetBlogTagsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated BlogTag tags = 2;
+}
+
+// FAQ requests/responses (simplified)
+message CreateFAQRequest {
+  string question = 1;
+  string answer = 2;
+  int64 category_id = 3;
+  repeated string tags = 4;
+}
+
+message CreateFAQResponse {
+  bookingcare.common.ApiResponse response = 1;
+  FAQ faq = 2;
+}
+
+message GetFAQRequest {
+  int64 id = 1;
+}
+
+message GetFAQResponse {
+  bookingcare.common.ApiResponse response = 1;
+  FAQ faq = 2;
+}
+
+message UpdateFAQRequest {
+  int64 id = 1;
+  google.protobuf.StringValue question = 2;
+  google.protobuf.StringValue answer = 3;
+  google.protobuf.Int64Value category_id = 4;
+  repeated string tags = 5;
+}
+
+message UpdateFAQResponse {
+  bookingcare.common.ApiResponse response = 1;
+  FAQ faq = 2;
+}
+
+message DeleteFAQRequest {
+  int64 id = 1;
+}
+
+message DeleteFAQResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetFAQsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  google.protobuf.Int64Value category_id = 2;
+  google.protobuf.BoolValue is_active_filter = 3;
+}
+
+message GetFAQsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated FAQ faqs = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message SearchFAQsRequest {
+  string query = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+}
+
+message SearchFAQsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated FAQ faqs = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Health tip requests/responses (simplified)
+message CreateHealthTipRequest {
+  string title = 1;
+  string tip = 2;
+  string description = 3;
+  string image_url = 4;
+  int64 category_id = 5;
+  int64 doctor_id = 6;
+  HealthTipType type = 7;
+  repeated string tags = 8;
+  google.protobuf.Timestamp scheduled_date = 9;
+}
+
+message CreateHealthTipResponse {
+  bookingcare.common.ApiResponse response = 1;
+  HealthTip health_tip = 2;
+}
+
+message GetHealthTipRequest {
+  int64 id = 1;
+}
+
+message GetHealthTipResponse {
+  bookingcare.common.ApiResponse response = 1;
+  HealthTip health_tip = 2;
+}
+
+message UpdateHealthTipRequest {
+  int64 id = 1;
+  google.protobuf.StringValue title = 2;
+  google.protobuf.StringValue tip = 3;
+  google.protobuf.StringValue description = 4;
+  google.protobuf.StringValue image_url = 5;
+  google.protobuf.Int64Value category_id = 6;
+  HealthTipType type = 7;
+  repeated string tags = 8;
+}
+
+message UpdateHealthTipResponse {
+  bookingcare.common.ApiResponse response = 1;
+  HealthTip health_tip = 2;
+}
+
+message DeleteHealthTipRequest {
+  int64 id = 1;
+}
+
+message DeleteHealthTipResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetHealthTipsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  google.protobuf.Int64Value category_id = 2;
+  google.protobuf.Int64Value doctor_id = 3;
+  HealthTipType type_filter = 4;
+  google.protobuf.BoolValue is_featured_filter = 5;
+}
+
+message GetHealthTipsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated HealthTip health_tips = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message GetHealthTipOfDayRequest {
+  google.protobuf.Timestamp date = 1;
+}
+
+message GetHealthTipOfDayResponse {
+  bookingcare.common.ApiResponse response = 1;
+  HealthTip health_tip = 2;
+}
+
+// Medical content requests/responses (simplified)
+message CreateMedicalContentRequest {
+  string title = 1;
+  string content = 2;
+  string summary = 3;
+  MedicalContentType type = 4;
+  int64 specialty_id = 5;
+  int64 author_doctor_id = 6;
+  repeated string symptoms = 7;
+  repeated string treatments = 8;
+  repeated string references = 9;
+}
+
+message CreateMedicalContentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  MedicalContent medical_content = 2;
+}
+
+message GetMedicalContentRequest {
+  oneof identifier {
+    int64 id = 1;
+    string slug = 2;
+  }
+}
+
+message GetMedicalContentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  MedicalContent medical_content = 2;
+}
+
+message UpdateMedicalContentRequest {
+  int64 id = 1;
+  google.protobuf.StringValue title = 2;
+  google.protobuf.StringValue content = 3;
+  google.protobuf.StringValue summary = 4;
+  MedicalContentType type = 5;
+  google.protobuf.Int64Value specialty_id = 6;
+  repeated string symptoms = 7;
+  repeated string treatments = 8;
+  repeated string references = 9;
+}
+
+message UpdateMedicalContentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  MedicalContent medical_content = 2;
+}
+
+message DeleteMedicalContentRequest {
+  int64 id = 1;
+}
+
+message DeleteMedicalContentResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetMedicalContentsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  MedicalContentType type_filter = 2;
+  google.protobuf.Int64Value specialty_id = 3;
+  google.protobuf.Int64Value author_doctor_id = 4;
+  ContentStatus status_filter = 5;
+}
+
+message GetMedicalContentsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated MedicalContent medical_contents = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message SearchMedicalContentRequest {
+  string query = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  MedicalContentType type_filter = 3;
+  google.protobuf.Int64Value specialty_id = 4;
+}
+
+message SearchMedicalContentResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated MedicalContent medical_contents = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}

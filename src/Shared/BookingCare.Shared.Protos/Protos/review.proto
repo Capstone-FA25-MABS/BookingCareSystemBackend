@@ -1,0 +1,483 @@
+syntax = "proto3";
+
+package bookingcare.review;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Review";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "Protos/common.proto";
+import "Protos/user.proto";
+import "Protos/doctor.proto";
+import "Protos/clinic.proto";
+import "Protos/appointment.proto";
+
+// Review Management Service
+service ReviewService {
+  // Review management
+  rpc CreateReview(CreateReviewRequest) returns (CreateReviewResponse);
+  rpc GetReview(GetReviewRequest) returns (GetReviewResponse);
+  rpc UpdateReview(UpdateReviewRequest) returns (UpdateReviewResponse);
+  rpc DeleteReview(DeleteReviewRequest) returns (DeleteReviewResponse);
+  rpc GetReviews(GetReviewsRequest) returns (GetReviewsResponse);
+  
+  // Doctor reviews
+  rpc GetDoctorReviews(GetDoctorReviewsRequest) returns (GetDoctorReviewsResponse);
+  rpc GetDoctorRating(GetDoctorRatingRequest) returns (GetDoctorRatingResponse);
+  
+  // Clinic reviews
+  rpc GetClinicReviews(GetClinicReviewsRequest) returns (GetClinicReviewsResponse);
+  rpc GetClinicRating(GetClinicRatingRequest) returns (GetClinicRatingResponse);
+  
+  // User reviews
+  rpc GetUserReviews(GetUserReviewsRequest) returns (GetUserReviewsResponse);
+  
+  // Review moderation
+  rpc ReportReview(ReportReviewRequest) returns (ReportReviewResponse);
+  rpc ModerateReview(ModerateReviewRequest) returns (ModerateReviewResponse);
+  rpc GetReportedReviews(GetReportedReviewsRequest) returns (GetReportedReviewsResponse);
+  
+  // Review responses
+  rpc AddReviewReply(AddReviewResponseRequest) returns (AddReviewResponseResponse);
+  rpc UpdateReviewReply(UpdateReviewResponseRequest) returns (UpdateReviewResponseResponse);
+  rpc DeleteReviewReply(DeleteReviewResponseRequest) returns (DeleteReviewResponseResponse);
+  
+  // Review analytics
+  rpc GetReviewStatistics(GetReviewStatisticsRequest) returns (GetReviewStatisticsResponse);
+  rpc GetRatingTrends(GetRatingTrendsRequest) returns (GetRatingTrendsResponse);
+  
+  // Review helpful votes
+  rpc VoteHelpful(VoteHelpfulRequest) returns (VoteHelpfulResponse);
+  rpc RemoveHelpfulVote(RemoveHelpfulVoteRequest) returns (RemoveHelpfulVoteResponse);
+  
+  // Review verification
+  rpc VerifyReview(VerifyReviewRequest) returns (VerifyReviewResponse);
+  rpc GetVerifiedReviews(GetVerifiedReviewsRequest) returns (GetVerifiedReviewsResponse);
+}
+
+// Review model (from reviews table)
+message Review {
+  int64 id = 1;
+  int64 user_id = 2;
+  int64 doctor_id = 3;
+  int64 clinic_id = 4;
+  int64 appointment_id = 5;
+  int32 rating = 6; // 1-5 stars
+  string title = 7;
+  string comment = 8;
+  repeated ReviewCategory categories = 9;
+  bool is_anonymous = 10;
+  bool is_verified = 11;
+  google.protobuf.Timestamp verified_at = 12;
+  ReviewStatus status = 13;
+  int32 helpful_votes = 14;
+  int32 total_votes = 15;
+  repeated string tags = 16;
+  ReviewResponse response = 17;
+  repeated ReviewReport reports = 18;
+  
+  // Related entities
+  bookingcare.user.User user = 19;
+  bookingcare.doctor.Doctor doctor = 20;
+  bookingcare.clinic.Clinic clinic = 21;
+  bookingcare.appointment.Appointment appointment = 22;
+  
+  google.protobuf.Timestamp created_at = 23;
+  google.protobuf.Timestamp updated_at = 24;
+}
+
+// Review category ratings
+message ReviewCategory {
+  string category = 1; // e.g., "bedside_manner", "wait_time", "communication", "cleanliness"
+  int32 rating = 2; // 1-5 stars
+}
+
+// Review response from doctor/clinic
+message ReviewResponse {
+  int64 id = 1;
+  int64 review_id = 2;
+  int64 responder_id = 3; // doctor_id or clinic admin user_id
+  ResponderType responder_type = 4;
+  string response_text = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// Review report for moderation
+message ReviewReport {
+  int64 id = 1;
+  int64 review_id = 2;
+  int64 reporter_user_id = 3;
+  ReportReason reason = 4;
+  string description = 5;
+  ReportStatus status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// Review helpful vote
+message ReviewHelpfulVote {
+  int64 id = 1;
+  int64 review_id = 2;
+  int64 user_id = 3;
+  bool is_helpful = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// Review statistics
+message ReviewStatistics {
+  int64 total_reviews = 1;
+  double average_rating = 2;
+  repeated RatingDistribution rating_distribution = 3;
+  int32 verified_reviews_count = 4;
+  double verified_average_rating = 5;
+  repeated CategoryRating category_ratings = 6;
+  int32 total_responses = 7;
+  double response_rate = 8;
+}
+
+// Rating distribution by star count
+message RatingDistribution {
+  int32 stars = 1;
+  int32 count = 2;
+  double percentage = 3;
+}
+
+// Category average rating
+message CategoryRating {
+  string category = 1;
+  double average_rating = 2;
+  int32 review_count = 3;
+}
+
+// Rating trend over time
+message RatingTrend {
+  google.protobuf.Timestamp period = 1;
+  double average_rating = 2;
+  int32 review_count = 3;
+}
+
+// Enums
+enum ReviewStatus {
+  UNKNOWN_REVIEW_STATUS = 0;
+  PUBLISHED = 1;
+  PENDING_MODERATION = 2;
+  REJECTED = 3;
+  HIDDEN = 4;
+  FLAGGED = 5;
+}
+
+enum ResponderType {
+  UNKNOWN_RESPONDER = 0;
+  DOCTOR = 1;
+  CLINIC_ADMIN = 2;
+  CLINIC_STAFF = 3;
+}
+
+enum ReportReason {
+  UNKNOWN_REPORT_REASON = 0;
+  INAPPROPRIATE_CONTENT = 1;
+  FAKE_REVIEW = 2;
+  SPAM = 3;
+  PERSONAL_INFORMATION = 4;
+  HARASSMENT = 5;
+  COPYRIGHT_VIOLATION = 6;
+  OTHER_REASON = 7;
+}
+
+enum ReportStatus {
+  UNKNOWN_REPORT_STATUS = 0;
+  PENDING_REVIEW = 1;
+  REVIEWED = 2;
+  RESOLVED = 3;
+  DISMISSED = 4;
+}
+
+// Review management requests/responses
+message CreateReviewRequest {
+  int64 user_id = 1;
+  int64 doctor_id = 2;
+  int64 clinic_id = 3;
+  int64 appointment_id = 4;
+  int32 rating = 5;
+  string title = 6;
+  string comment = 7;
+  repeated ReviewCategory categories = 8;
+  bool is_anonymous = 9;
+  repeated string tags = 10;
+}
+
+message CreateReviewResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Review review = 2;
+}
+
+message GetReviewRequest {
+  int64 id = 1;
+}
+
+message GetReviewResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Review review = 2;
+}
+
+message UpdateReviewRequest {
+  int64 id = 1;
+  google.protobuf.Int32Value rating = 2;
+  google.protobuf.StringValue title = 3;
+  google.protobuf.StringValue comment = 4;
+  repeated ReviewCategory categories = 5;
+  google.protobuf.BoolValue is_anonymous = 6;
+  repeated string tags = 7;
+}
+
+message UpdateReviewResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Review review = 2;
+}
+
+message DeleteReviewRequest {
+  int64 id = 1;
+  int64 user_id = 2; // For authorization
+}
+
+message DeleteReviewResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetReviewsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  ReviewStatus status_filter = 2;
+  google.protobuf.Int32Value min_rating = 3;
+  google.protobuf.Int32Value max_rating = 4;
+  google.protobuf.BoolValue verified_only = 5;
+  google.protobuf.Timestamp date_from = 6;
+  google.protobuf.Timestamp date_to = 7;
+  repeated string tags = 8;
+}
+
+message GetReviewsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Review reviews = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+  ReviewStatistics statistics = 4;
+}
+
+// Doctor reviews requests/responses
+message GetDoctorReviewsRequest {
+  int64 doctor_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  ReviewStatus status_filter = 3;
+  google.protobuf.Int32Value min_rating = 4;
+  google.protobuf.Int32Value max_rating = 5;
+  google.protobuf.BoolValue verified_only = 6;
+  string sort_by = 7; // rating, date, helpful_votes
+}
+
+message GetDoctorReviewsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Review reviews = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+  ReviewStatistics statistics = 4;
+}
+
+message GetDoctorRatingRequest {
+  int64 doctor_id = 1;
+  google.protobuf.BoolValue verified_only = 2;
+}
+
+message GetDoctorRatingResponse {
+  bookingcare.common.ApiResponse response = 1;
+  double average_rating = 2;
+  int32 total_reviews = 3;
+  repeated RatingDistribution rating_distribution = 4;
+  repeated CategoryRating category_ratings = 5;
+}
+
+// Clinic reviews requests/responses
+message GetClinicReviewsRequest {
+  int64 clinic_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  ReviewStatus status_filter = 3;
+  google.protobuf.Int32Value min_rating = 4;
+  google.protobuf.Int32Value max_rating = 5;
+  google.protobuf.BoolValue verified_only = 6;
+  string sort_by = 7;
+}
+
+message GetClinicReviewsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Review reviews = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+  ReviewStatistics statistics = 4;
+}
+
+message GetClinicRatingRequest {
+  int64 clinic_id = 1;
+  google.protobuf.BoolValue verified_only = 2;
+}
+
+message GetClinicRatingResponse {
+  bookingcare.common.ApiResponse response = 1;
+  double average_rating = 2;
+  int32 total_reviews = 3;
+  repeated RatingDistribution rating_distribution = 4;
+  repeated CategoryRating category_ratings = 5;
+}
+
+// User reviews requests/responses
+message GetUserReviewsRequest {
+  int64 user_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  ReviewStatus status_filter = 3;
+}
+
+message GetUserReviewsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Review reviews = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Review moderation requests/responses
+message ReportReviewRequest {
+  int64 review_id = 1;
+  int64 reporter_user_id = 2;
+  ReportReason reason = 3;
+  string description = 4;
+}
+
+message ReportReviewResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ReviewReport report = 2;
+}
+
+message ModerateReviewRequest {
+  int64 review_id = 1;
+  int64 moderator_user_id = 2;
+  ReviewStatus new_status = 3;
+  string moderation_reason = 4;
+}
+
+message ModerateReviewResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Review review = 2;
+}
+
+message GetReportedReviewsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  ReportStatus status_filter = 2;
+  ReportReason reason_filter = 3;
+}
+
+message GetReportedReviewsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated ReviewReport reports = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Review responses requests/responses
+message AddReviewResponseRequest {
+  int64 review_id = 1;
+  int64 responder_id = 2;
+  ResponderType responder_type = 3;
+  string response_text = 4;
+}
+
+message AddReviewResponseResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ReviewResponse review_response = 2;
+}
+
+message UpdateReviewResponseRequest {
+  int64 id = 1;
+  string response_text = 2;
+}
+
+message UpdateReviewResponseResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ReviewResponse review_response = 2;
+}
+
+message DeleteReviewResponseRequest {
+  int64 id = 1;
+}
+
+message DeleteReviewResponseResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+// Review analytics requests/responses
+message GetReviewStatisticsRequest {
+  google.protobuf.Int64Value doctor_id = 1;
+  google.protobuf.Int64Value clinic_id = 2;
+  google.protobuf.Timestamp date_from = 3;
+  google.protobuf.Timestamp date_to = 4;
+  google.protobuf.BoolValue verified_only = 5;
+}
+
+message GetReviewStatisticsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ReviewStatistics statistics = 2;
+}
+
+message GetRatingTrendsRequest {
+  google.protobuf.Int64Value doctor_id = 1;
+  google.protobuf.Int64Value clinic_id = 2;
+  google.protobuf.Timestamp date_from = 3;
+  google.protobuf.Timestamp date_to = 4;
+  string period = 5; // daily, weekly, monthly
+}
+
+message GetRatingTrendsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated RatingTrend trends = 2;
+}
+
+// Review helpful votes requests/responses
+message VoteHelpfulRequest {
+  int64 review_id = 1;
+  int64 user_id = 2;
+  bool is_helpful = 3;
+}
+
+message VoteHelpfulResponse {
+  bookingcare.common.ApiResponse response = 1;
+  ReviewHelpfulVote vote = 2;
+}
+
+message RemoveHelpfulVoteRequest {
+  int64 review_id = 1;
+  int64 user_id = 2;
+}
+
+message RemoveHelpfulVoteResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+// Review verification requests/responses
+message VerifyReviewRequest {
+  int64 review_id = 1;
+  int64 verifier_user_id = 2;
+  bool is_verified = 3;
+  string verification_notes = 4;
+}
+
+message VerifyReviewResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Review review = 2;
+}
+
+message GetVerifiedReviewsRequest {
+  google.protobuf.Int64Value doctor_id = 1;
+  google.protobuf.Int64Value clinic_id = 2;
+  bookingcare.common.PaginationRequest pagination = 3;
+  google.protobuf.Int32Value min_rating = 4;
+  google.protobuf.Int32Value max_rating = 5;
+}
+
+message GetVerifiedReviewsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Review reviews = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+  ReviewStatistics statistics = 4;
+}

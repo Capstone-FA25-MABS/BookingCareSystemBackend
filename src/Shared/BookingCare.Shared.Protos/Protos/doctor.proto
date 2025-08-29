@@ -1,0 +1,386 @@
+syntax = "proto3";
+
+package bookingcare.doctor;
+
+option csharp_namespace = "BookingCare.Shared.Protos.Doctor";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "Protos/common.proto";
+import "Protos/clinic.proto";
+
+// Doctor Management Service
+service DoctorService {
+  // Doctor profile management
+  rpc CreateDoctor(CreateDoctorRequest) returns (CreateDoctorResponse);
+  rpc GetDoctor(GetDoctorRequest) returns (GetDoctorResponse);
+  rpc UpdateDoctor(UpdateDoctorRequest) returns (UpdateDoctorResponse);
+  rpc DeleteDoctor(DeleteDoctorRequest) returns (DeleteDoctorResponse);
+  rpc GetDoctors(GetDoctorsRequest) returns (GetDoctorsResponse);
+  rpc SearchDoctors(SearchDoctorsRequest) returns (SearchDoctorsResponse);
+  rpc GetDoctorByAccountId(GetDoctorByAccountIdRequest) returns (GetDoctorByAccountIdResponse);
+  
+  // Doctor clinic associations
+  rpc AssignDoctorToClinic(AssignDoctorToClinicRequest) returns (AssignDoctorToClinicResponse);
+  rpc RemoveDoctorFromClinic(RemoveDoctorFromClinicRequest) returns (RemoveDoctorFromClinicResponse);
+  rpc GetDoctorClinics(GetDoctorClinicsRequest) returns (GetDoctorClinicsResponse);
+  rpc GetClinicDoctors(GetClinicDoctorsRequest) returns (GetClinicDoctorsResponse);
+  
+  // Doctor availability management
+  rpc SetDoctorAvailability(SetDoctorAvailabilityRequest) returns (SetDoctorAvailabilityResponse);
+  rpc GetDoctorAvailability(GetDoctorAvailabilityRequest) returns (GetDoctorAvailabilityResponse);
+  rpc UpdateAvailability(UpdateAvailabilityRequest) returns (UpdateAvailabilityResponse);
+  rpc DeleteAvailability(DeleteAvailabilityRequest) returns (DeleteAvailabilityResponse);
+  
+  // Doctor time slots
+  rpc GetAvailableTimeSlots(GetAvailableTimeSlotsRequest) returns (GetAvailableTimeSlotsResponse);
+  rpc BlockTimeSlot(BlockTimeSlotRequest) returns (BlockTimeSlotResponse);
+  rpc UnblockTimeSlot(UnblockTimeSlotRequest) returns (UnblockTimeSlotResponse);
+  
+  // Doctor specialties
+  rpc AddDoctorSpecialty(AddDoctorSpecialtyRequest) returns (AddDoctorSpecialtyResponse);
+  rpc RemoveDoctorSpecialty(RemoveDoctorSpecialtyRequest) returns (RemoveDoctorSpecialtyResponse);
+  rpc GetDoctorSpecialties(GetDoctorSpecialtiesRequest) returns (GetDoctorSpecialtiesResponse);
+}
+
+// Doctor model (from doctors table)
+message Doctor {
+  int64 id = 1;
+  int64 account_id = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string phone = 5;
+  bookingcare.common.Gender gender = 6;
+  google.protobuf.Timestamp date_of_birth = 7;
+  string medical_license_number = 8;
+  google.protobuf.Timestamp license_expiry = 9;
+  int32 years_of_experience = 10;
+  string education = 11;
+  repeated string certifications = 12;
+  string bio = 13;
+  string profile_picture_url = 14;
+  double consultation_fee = 15;
+  bool is_verified = 16;
+  bookingcare.common.Status status = 17;
+  repeated DoctorSpecialty specialties = 18;
+  repeated DoctorClinic clinics = 19;
+  repeated DoctorAvailability availabilities = 20;
+  google.protobuf.Timestamp created_at = 21;
+  google.protobuf.Timestamp updated_at = 22;
+}
+
+// Doctor specialty relationship (from doctor_specialties table)
+message DoctorSpecialty {
+  int64 id = 1;
+  int64 doctor_id = 2;
+  int64 specialty_id = 3;
+  bookingcare.clinic.Specialty specialty = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// Doctor clinic relationship (from doctor_clinics table)
+message DoctorClinic {
+  int64 id = 1;
+  int64 doctor_id = 2;
+  int64 clinic_id = 3;
+  bool is_primary = 4;
+  double consultation_fee_override = 5;
+  google.protobuf.Timestamp joined_date = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// Doctor availability (from doctor_availabilities table)
+message DoctorAvailability {
+  int64 id = 1;
+  int64 doctor_id = 2;
+  int64 clinic_id = 3;
+  DayOfWeek day_of_week = 4;
+  string start_time = 5; // Format: "09:00"
+  string end_time = 6; // Format: "17:00"
+  int32 slot_duration_minutes = 7;
+  bool is_active = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// Time slot for appointments
+message TimeSlot {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  bool is_available = 3;
+  bool is_blocked = 4;
+  string block_reason = 5;
+}
+
+// Enums
+enum DayOfWeek {
+  UNKNOWN_DAY = 0;
+  MONDAY = 1;
+  TUESDAY = 2;
+  WEDNESDAY = 3;
+  THURSDAY = 4;
+  FRIDAY = 5;
+  SATURDAY = 6;
+  SUNDAY = 7;
+}
+
+// Doctor management requests/responses
+message CreateDoctorRequest {
+  int64 account_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string phone = 4;
+  bookingcare.common.Gender gender = 5;
+  google.protobuf.Timestamp date_of_birth = 6;
+  string medical_license_number = 7;
+  google.protobuf.Timestamp license_expiry = 8;
+  int32 years_of_experience = 9;
+  string education = 10;
+  repeated string certifications = 11;
+  string bio = 12;
+  string profile_picture_url = 13;
+  double consultation_fee = 14;
+  repeated int64 specialty_ids = 15;
+}
+
+message CreateDoctorResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Doctor doctor = 2;
+}
+
+message GetDoctorRequest {
+  int64 id = 1;
+}
+
+message GetDoctorResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Doctor doctor = 2;
+}
+
+message GetDoctorByAccountIdRequest {
+  int64 account_id = 1;
+}
+
+message GetDoctorByAccountIdResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Doctor doctor = 2;
+}
+
+message UpdateDoctorRequest {
+  int64 id = 1;
+  google.protobuf.StringValue first_name = 2;
+  google.protobuf.StringValue last_name = 3;
+  google.protobuf.StringValue phone = 4;
+  bookingcare.common.Gender gender = 5;
+  google.protobuf.Timestamp date_of_birth = 6;
+  google.protobuf.StringValue medical_license_number = 7;
+  google.protobuf.Timestamp license_expiry = 8;
+  google.protobuf.Int32Value years_of_experience = 9;
+  google.protobuf.StringValue education = 10;
+  repeated string certifications = 11;
+  google.protobuf.StringValue bio = 12;
+  google.protobuf.StringValue profile_picture_url = 13;
+  google.protobuf.DoubleValue consultation_fee = 14;
+  google.protobuf.BoolValue is_verified = 15;
+  bookingcare.common.Status status = 16;
+}
+
+message UpdateDoctorResponse {
+  bookingcare.common.ApiResponse response = 1;
+  Doctor doctor = 2;
+}
+
+message DeleteDoctorRequest {
+  int64 id = 1;
+}
+
+message DeleteDoctorResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetDoctorsRequest {
+  bookingcare.common.PaginationRequest pagination = 1;
+  bookingcare.common.Status status_filter = 2;
+  google.protobuf.BoolValue is_verified_filter = 3;
+  repeated int64 specialty_ids = 4;
+  repeated int64 clinic_ids = 5;
+  bookingcare.common.Gender gender_filter = 6;
+}
+
+message GetDoctorsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Doctor doctors = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+message SearchDoctorsRequest {
+  string query = 1;
+  repeated int64 specialty_ids = 2;
+  repeated int64 clinic_ids = 3;
+  bookingcare.common.Address location = 4;
+  double radius_km = 5;
+  google.protobuf.DoubleValue min_consultation_fee = 6;
+  google.protobuf.DoubleValue max_consultation_fee = 7;
+  bookingcare.common.PaginationRequest pagination = 8;
+}
+
+message SearchDoctorsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Doctor doctors = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Doctor clinic association requests/responses
+message AssignDoctorToClinicRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+  bool is_primary = 3;
+  google.protobuf.DoubleValue consultation_fee_override = 4;
+}
+
+message AssignDoctorToClinicResponse {
+  bookingcare.common.ApiResponse response = 1;
+  DoctorClinic doctor_clinic = 2;
+}
+
+message RemoveDoctorFromClinicRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+}
+
+message RemoveDoctorFromClinicResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetDoctorClinicsRequest {
+  int64 doctor_id = 1;
+}
+
+message GetDoctorClinicsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated DoctorClinic doctor_clinics = 2;
+}
+
+message GetClinicDoctorsRequest {
+  int64 clinic_id = 1;
+  bookingcare.common.PaginationRequest pagination = 2;
+  bookingcare.common.Status status_filter = 3;
+}
+
+message GetClinicDoctorsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated Doctor doctors = 2;
+  bookingcare.common.PaginationResponse pagination = 3;
+}
+
+// Doctor availability requests/responses
+message SetDoctorAvailabilityRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+  DayOfWeek day_of_week = 3;
+  string start_time = 4;
+  string end_time = 5;
+  int32 slot_duration_minutes = 6;
+}
+
+message SetDoctorAvailabilityResponse {
+  bookingcare.common.ApiResponse response = 1;
+  DoctorAvailability availability = 2;
+}
+
+message GetDoctorAvailabilityRequest {
+  int64 doctor_id = 1;
+  google.protobuf.Int64Value clinic_id = 2;
+  google.protobuf.BoolValue is_active_filter = 3;
+}
+
+message GetDoctorAvailabilityResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated DoctorAvailability availabilities = 2;
+}
+
+message UpdateAvailabilityRequest {
+  int64 id = 1;
+  google.protobuf.StringValue start_time = 2;
+  google.protobuf.StringValue end_time = 3;
+  google.protobuf.Int32Value slot_duration_minutes = 4;
+  google.protobuf.BoolValue is_active = 5;
+}
+
+message UpdateAvailabilityResponse {
+  bookingcare.common.ApiResponse response = 1;
+  DoctorAvailability availability = 2;
+}
+
+message DeleteAvailabilityRequest {
+  int64 id = 1;
+}
+
+message DeleteAvailabilityResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+// Time slot requests/responses
+message GetAvailableTimeSlotsRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+  google.protobuf.Timestamp date = 3;
+  google.protobuf.Int32Value duration_minutes = 4;
+}
+
+message GetAvailableTimeSlotsResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated TimeSlot time_slots = 2;
+}
+
+message BlockTimeSlotRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  string reason = 5;
+}
+
+message BlockTimeSlotResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message UnblockTimeSlotRequest {
+  int64 doctor_id = 1;
+  int64 clinic_id = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+}
+
+message UnblockTimeSlotResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+// Doctor specialty requests/responses
+message AddDoctorSpecialtyRequest {
+  int64 doctor_id = 1;
+  int64 specialty_id = 2;
+}
+
+message AddDoctorSpecialtyResponse {
+  bookingcare.common.ApiResponse response = 1;
+  DoctorSpecialty doctor_specialty = 2;
+}
+
+message RemoveDoctorSpecialtyRequest {
+  int64 doctor_id = 1;
+  int64 specialty_id = 2;
+}
+
+message RemoveDoctorSpecialtyResponse {
+  bookingcare.common.ApiResponse response = 1;
+}
+
+message GetDoctorSpecialtiesRequest {
+  int64 doctor_id = 1;
+}
+
+message GetDoctorSpecialtiesResponse {
+  bookingcare.common.ApiResponse response = 1;
+  repeated DoctorSpecialty doctor_specialties = 2;
+}
