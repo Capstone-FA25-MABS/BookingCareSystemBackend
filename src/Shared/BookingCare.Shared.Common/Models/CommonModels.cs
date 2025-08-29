@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BookingCare.Shared.Common.Models;
 
 public class ApiResponse<T>
@@ -5,7 +7,10 @@ public class ApiResponse<T>
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
     public T? Data { get; set; }
-    public List<string> Errors { get; set; } = new();
+    
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Errors { get; set; }
+    
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
     public static ApiResponse<T> SuccessResult(T data, string message = "Success")
@@ -14,7 +19,8 @@ public class ApiResponse<T>
         {
             Success = true,
             Message = message,
-            Data = data
+            Data = data,
+            Errors = null // Don't include errors for success
         };
     }
 
@@ -24,7 +30,7 @@ public class ApiResponse<T>
         {
             Success = false,
             Message = message,
-            Errors = errors ?? new List<string>()
+            Errors = (errors != null && errors.Any()) ? errors : null // Only include if there are actual errors
         };
     }
 }
