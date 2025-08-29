@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Discount.Protos";
+
+package discount;
+
+// Discount service for internal gRPC communication
+service DiscountService {
+  // Validate a discount code
+  rpc ValidateDiscount (ValidateDiscountRequest) returns (ValidateDiscountResponse);
+  
+  // Use a discount code (increment usage count)
+  rpc UseDiscount (UseDiscountRequest) returns (UseDiscountResponse);
+  
+  // Revert discount usage (decrement usage count)
+  rpc RevertDiscountUsage (RevertDiscountUsageRequest) returns (RevertDiscountUsageResponse);
+  
+  // Calculate discount amount
+  rpc CalculateDiscountAmount (CalculateDiscountAmountRequest) returns (CalculateDiscountAmountResponse);
+  
+  // Get applicable discounts for clinic/specialty/doctor
+  rpc GetApplicableDiscounts (GetApplicableDiscountsRequest) returns (GetApplicableDiscountsResponse);
+  
+  // Check if discount is valid
+  rpc IsDiscountValid (IsDiscountValidRequest) returns (IsDiscountValidResponse);
+}
+
+// Messages for discount validation
+message ValidateDiscountRequest {
+  string code = 1;
+  int64 clinic_id = 2;
+  optional int64 specialty_id = 3;
+  optional int64 doctor_id = 4;
+  double total_amount = 5;
+}
+
+message ValidateDiscountResponse {
+  bool is_valid = 1;
+  string message = 2;
+  double discount_amount = 3;
+  double final_amount = 4;
+  optional DiscountInfo discount = 5;
+}
+
+// Messages for discount usage
+message UseDiscountRequest {
+  string code = 1;
+  int64 clinic_id = 2;
+  optional int64 specialty_id = 3;
+  optional int64 doctor_id = 4;
+  double total_amount = 5;
+}
+
+message UseDiscountResponse {
+  bool success = 1;
+  string message = 2;
+  double discount_amount = 3;
+  double final_amount = 4;
+  int64 discount_id = 5;
+  int32 remaining_uses = 6;
+}
+
+// Messages for reverting discount usage
+message RevertDiscountUsageRequest {
+  string code = 1;
+  int64 clinic_id = 2;
+}
+
+message RevertDiscountUsageResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Messages for calculating discount amount
+message CalculateDiscountAmountRequest {
+  string code = 1;
+  double original_amount = 2;
+  int64 clinic_id = 3;
+  optional int64 specialty_id = 4;
+  optional int64 doctor_id = 5;
+}
+
+message CalculateDiscountAmountResponse {
+  double discount_amount = 1;
+  double final_amount = 2;
+  bool is_valid = 3;
+}
+
+// Messages for getting applicable discounts
+message GetApplicableDiscountsRequest {
+  int64 clinic_id = 1;
+  optional int64 specialty_id = 2;
+  optional int64 doctor_id = 3;
+}
+
+message GetApplicableDiscountsResponse {
+  repeated DiscountInfo discounts = 1;
+}
+
+// Messages for checking discount validity
+message IsDiscountValidRequest {
+  string code = 1;
+  int64 clinic_id = 2;
+  optional int64 specialty_id = 3;
+  optional int64 doctor_id = 4;
+}
+
+message IsDiscountValidResponse {
+  bool is_valid = 1;
+}
+
+// Common discount information
+message DiscountInfo {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  int64 clinic_id = 5;
+  optional int64 specialty_id = 6;
+  optional int64 doctor_id = 7;
+  string applicable_to = 8;
+  double amount = 9;
+  string discount_type = 10;
+  string start_date = 11;
+  string end_date = 12;
+  optional int32 max_uses = 13;
+  int32 uses_count = 14;
+  string status = 15;
+}

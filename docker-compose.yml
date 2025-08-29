@@ -31,17 +31,32 @@ services:
     ports:
       - "6379:6379"
 
-  # Databases
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver
     ports:
       - "1433:1433"
     environment:
       - ACCEPT_EULA=Y
-      - SA_PASSWORD=BookingCare123!
+      - SA_PASSWORD=Discount123!
+      - MSSQL_DB=MABS_Discount
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - sqlserver:/var/opt/mssql
+
+  # Databases
+  sqlserver-discount-service:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_discount_service
+    ports:
+      - "1434:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Discount123!
+      - MSSQL_DB=MABS_Discount
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_discount_data:/var/opt/mssql
 
   mongodb:
     image: mongo:7
@@ -222,7 +237,8 @@ services:
   # Additional services would follow the same pattern...
 
 volumes:
-  sqlserver_data:
+  sqlserver:
+  sqlserver_discount_data:
   mongodb_data:
   rabbitmq_data:
     driver: local
