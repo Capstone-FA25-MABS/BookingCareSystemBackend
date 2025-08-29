@@ -1,0 +1,32 @@
+name: CI/CD to ECS
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # 2. Configure AWS credentials
+      - name: Configure AWS credentials
+        run: echo "Configuring AWS credentials"
+
+      # 3. Login to Amazon ECR
+      - name: Login to Amazon ECR
+        run: echo "Logging in to Amazon ECR"
+
+      # 4. Build, tag, and push Docker image for OrderService
+      - name: Build, tag, and push OrderService image
+        run: echo "Building, tagging, and pushing OrderService image"
+
+      # 5. Update ECS service
+      - name: Deploy to ECS
+        run: echo "Deploying to ECS"
