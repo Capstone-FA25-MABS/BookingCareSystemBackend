@@ -1,52 +1,65 @@
 using System.Net;
+using BookingCare.Shared.Common.Exceptions;
 
 namespace BookingCare.Services.Discount.Exceptions;
 
-public class DiscountException : Exception
+public class DiscountException : BookingCareException
 {
-    public HttpStatusCode StatusCode { get; }
-
-    public DiscountException(string message, HttpStatusCode statusCode = HttpStatusCode.InternalServerError) 
-        : base(message)
+    public DiscountException(
+        string message, 
+        string errorCode = "DISCOUNT_ERROR",
+        HttpStatusCode statusCode = HttpStatusCode.InternalServerError,
+        Exception? innerException = null,
+        Dictionary<string, object>? details = null) 
+        : base(message, errorCode, statusCode, innerException, details)
     {
-        StatusCode = statusCode;
-    }
-
-    public DiscountException(string message, Exception innerException, HttpStatusCode statusCode = HttpStatusCode.InternalServerError) 
-        : base(message, innerException)
-    {
-        StatusCode = statusCode;
     }
 }
 
-public class DiscountNotFoundException : DiscountException
+public class DiscountNotFoundException : NotFoundException
 {
     public DiscountNotFoundException(string message) 
-        : base(message, HttpStatusCode.NotFound)
+        : base(message, "DISCOUNT_NOT_FOUND")
     {
+    }
+
+    public DiscountNotFoundException(long discountId)
+        : base("Discount", discountId, "DISCOUNT_NOT_FOUND")
+    {
+    }
+
+    public DiscountNotFoundException(string code, bool byCode)
+        : base($"Discount with code '{code}' was not found.", "DISCOUNT_NOT_FOUND")
+    {
+        Details["Code"] = code;
     }
 }
 
-public class DiscountValidationException : DiscountException
+public class DiscountValidationException : ValidationException
 {
     public DiscountValidationException(string message) 
-        : base(message, HttpStatusCode.BadRequest)
+        : base(message, null, "DISCOUNT_VALIDATION_ERROR")
+    {
+    }
+
+    public DiscountValidationException(List<ValidationError> validationErrors)
+        : base("Discount validation failed", validationErrors, "DISCOUNT_VALIDATION_ERROR")
     {
     }
 }
 
-public class DiscountBusinessException : DiscountException
+public class DiscountBusinessException : BusinessException
 {
     public DiscountBusinessException(string message) 
-        : base(message, HttpStatusCode.BadRequest)
+        : base(message, "DISCOUNT_BUSINESS_ERROR")
     {
     }
 }
 
-public class DiscountConflictException : DiscountException
+public class DiscountConflictException : ConflictException
 {
     public DiscountConflictException(string message) 
-        : base(message, HttpStatusCode.Conflict)
+        : base(message, "DISCOUNT_CONFLICT")
     {
     }
 }
