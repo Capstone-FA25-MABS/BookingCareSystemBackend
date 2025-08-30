@@ -1,8 +1,10 @@
 using AutoMapper;
+using BookingCare.Services.Discount.Enums;
 using BookingCare.Services.Discount.Exceptions;
 using BookingCare.Services.Discount.Models.DTOs;
 using BookingCare.Services.Discount.Models.Entities;
 using BookingCare.Services.Discount.Repositories;
+using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -57,7 +59,7 @@ public class DiscountService : BaseService, IDiscountService
             }
 
             // Validate percentage discount
-            if (request.DiscountType == "PERCENTAGE" && request.Amount > 100)
+            if (request.DiscountType == DiscountType.PERCENTAGE && request.Amount > 100)
             {
                 throw new DiscountValidationException(new List<ValidationError>
                 {
@@ -114,7 +116,7 @@ public class DiscountService : BaseService, IDiscountService
             // Validate amount if provided
             if (request.Amount.HasValue)
             {
-                if (existingDiscount.DiscountType == "PERCENTAGE" && request.Amount > 100)
+                if (existingDiscount.DiscountType == DiscountType.PERCENTAGE && request.Amount > 100)
                 {
                     throw new DiscountValidationException(new List<ValidationError>
                     {
@@ -313,12 +315,12 @@ public class DiscountService : BaseService, IDiscountService
 
     public async Task<bool> ActivateDiscountAsync(long id)
     {
-        return await _discountRepository.UpdateStatusAsync(id, "ACTIVE");
+        return await _discountRepository.UpdateStatusAsync(id, DiscountStatus.ACTIVE);
     }
 
     public async Task<bool> DeactivateDiscountAsync(long id)
     {
-        return await _discountRepository.UpdateStatusAsync(id, "INACTIVE");
+        return await _discountRepository.UpdateStatusAsync(id, DiscountStatus.INACTIVE);
     }
 
     public async Task<int> UpdateExpiredDiscountsAsync()
@@ -350,8 +352,8 @@ public class DiscountService : BaseService, IDiscountService
     {
         return discount.DiscountType switch
         {
-            "PERCENTAGE" => originalAmount * (discount.Amount / 100),
-            "FIXED_AMOUNT" => Math.Min(discount.Amount, originalAmount),
+            DiscountType.PERCENTAGE => originalAmount * (discount.Amount / 100),
+            DiscountType.FIXED_AMOUNT => Math.Min(discount.Amount, originalAmount),
             _ => 0
         };
     }
@@ -361,19 +363,19 @@ public class DiscountService : BaseService, IDiscountService
         // Validate applicable_to and related fields
         switch (request.ApplicableTo)
         {
-            case "SPECIALTY":
+            case DiscountApplicableTo.SPECIALTY:
                 if (!request.SpecialtyId.HasValue)
                 {
                     throw new DiscountValidationException("SpecialtyId is required when ApplicableTo is SPECIALTY");
                 }
                 break;
-            case "DOCTOR":
+            case DiscountApplicableTo.DOCTOR:
                 if (!request.DoctorId.HasValue)
                 {
                     throw new DiscountValidationException("DoctorId is required when ApplicableTo is DOCTOR");
                 }
                 break;
-            case "ALL":
+            case DiscountApplicableTo.ALL:
                 // No additional validation needed
                 break;
             default:
@@ -381,13 +383,13 @@ public class DiscountService : BaseService, IDiscountService
         }
 
         // Validate discount type
-        if (request.DiscountType != "PERCENTAGE" && request.DiscountType != "FIXED_AMOUNT")
+        if (request.DiscountType != DiscountType.PERCENTAGE && request.DiscountType != DiscountType.FIXED_AMOUNT)
         {
             throw new DiscountValidationException("DiscountType must be either PERCENTAGE or FIXED_AMOUNT");
         }
 
         // Validate status
-        if (request.Status != "ACTIVE" && request.Status != "INACTIVE")
+        if (request.Status != Status.ACTIVE && request.Status != Status.INACTIVE)
         {
             throw new DiscountValidationException("Status must be either ACTIVE or INACTIVE");
         }

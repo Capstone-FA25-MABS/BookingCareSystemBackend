@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using BookingCare.Services.Discount.Enums;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Discount.Models.Entities;
 
@@ -35,7 +37,7 @@ public class DiscountEntity
 
     [MaxLength(20)]
     [Column("applicable_to")]
-    public string ApplicableTo { get; set; } = "ALL";
+    public DiscountApplicableTo ApplicableTo { get; set; } = DiscountApplicableTo.ALL;
 
     [Required]
     [Column("amount", TypeName = "decimal(10,2)")]
@@ -44,7 +46,7 @@ public class DiscountEntity
     [Required]
     [MaxLength(20)]
     [Column("discount_type")]
-    public string DiscountType { get; set; } = string.Empty;
+    public DiscountType DiscountType { get; set; } = DiscountType.PERCENTAGE;
 
     [Required]
     [Column("start_date")]
@@ -62,7 +64,7 @@ public class DiscountEntity
 
     [MaxLength(10)]
     [Column("status")]
-    public string Status { get; set; } = "ACTIVE";
+    public DiscountStatus Status { get; set; } = DiscountStatus.ACTIVE;
 
     [Required]
     [Column("created_at")]

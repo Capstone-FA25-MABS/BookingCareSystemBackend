@@ -215,14 +215,14 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
             ClinicId = discount.ClinicId,
             SpecialtyId = discount.SpecialtyId ?? 0,
             DoctorId = discount.DoctorId ?? 0,
-            ApplicableTo = discount.ApplicableTo,
+            ApplicableTo = discount.ApplicableTo.ToString(),
             Amount = (double)discount.Amount,
-            DiscountType = discount.DiscountType,
+            DiscountType = discount.DiscountType.ToString(),
             StartDate = discount.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ"),
             EndDate = discount.EndDate.ToString("yyyy-MM-ddTHH:mm:ssZ"),
             MaxUses = discount.MaxUses ?? 0,
             UsesCount = discount.UsesCount,
-            Status = discount.Status
+            Status = discount.Status.ToString()
         };
     }
 }
