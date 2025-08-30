@@ -7,6 +7,7 @@ using BookingCare.Services.Discount.Repositories;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Exceptions;
+using BookingCare.Shared.Common.CircuitBreaker;
 using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Discount.Services;
@@ -15,14 +16,17 @@ public class DiscountService : BaseService, IDiscountService
 {
     private readonly IDiscountRepository _discountRepository;
     private readonly IMapper _mapper;
+    private readonly IDatabaseCircuitBreakerService _databaseCircuitBreaker;
 
     public DiscountService(
         IDiscountRepository discountRepository, 
         IMapper mapper, 
+        IDatabaseCircuitBreakerService databaseCircuitBreaker,
         ILogger<DiscountService> logger) : base(logger)
     {
         _discountRepository = discountRepository;
         _mapper = mapper;
+        _databaseCircuitBreaker = databaseCircuitBreaker;
     }
 
     public async Task<DiscountResponse> CreateDiscountAsync(CreateDiscountRequest request)
@@ -34,8 +38,12 @@ public class DiscountService : BaseService, IDiscountService
             // Validate business rules
             ValidateCreateDiscountRequest(request);
 
-            // Check if code already exists
-            if (await _discountRepository.CodeExistsAsync(request.Code))
+            // Check if code already exists with circuit breaker protection
+            var codeExists = await _databaseCircuitBreaker.ExecuteAsync(
+                () => _discountRepository.CodeExistsAsync(request.Code),
+                "CheckDiscountCodeExists");
+
+            if (codeExists)
             {
                 throw new DiscountBusinessException($"Discount code '{request.Code}' already exists");
             }
@@ -68,7 +76,11 @@ public class DiscountService : BaseService, IDiscountService
             }
 
             var discountEntity = _mapper.Map<DiscountEntity>(request);
-            var createdDiscount = await _discountRepository.CreateAsync(discountEntity);
+            
+            // Create discount with circuit breaker protection
+            var createdDiscount = await _databaseCircuitBreaker.ExecuteAsync(
+                () => _discountRepository.CreateAsync(discountEntity),
+                "CreateDiscount");
 
             LogInfo("Discount created successfully with ID: {Id}", null, createdDiscount.Id);
             return _mapper.Map<DiscountResponse>(createdDiscount);
@@ -77,13 +89,17 @@ public class DiscountService : BaseService, IDiscountService
 
     public async Task<DiscountResponse?> GetDiscountByIdAsync(long id)
     {
-        var discount = await _discountRepository.GetByIdAsync(id);
+        var discount = await _databaseCircuitBreaker.ExecuteAsync(
+            () => _discountRepository.GetByIdAsync(id),
+            "GetDiscountById");
         return discount != null ? _mapper.Map<DiscountResponse>(discount) : null;
     }
 
     public async Task<DiscountResponse?> GetDiscountByCodeAsync(string code)
     {
-        var discount = await _discountRepository.GetByCodeAsync(code);
+        var discount = await _databaseCircuitBreaker.ExecuteAsync(
+            () => _discountRepository.GetByCodeAsync(code),
+            "GetDiscountByCode");
         return discount != null ? _mapper.Map<DiscountResponse>(discount) : null;
     }
 
@@ -94,7 +110,10 @@ public class DiscountService : BaseService, IDiscountService
             LogInfo("Updating discount with ID: {Id}", null, request.Id);
             ValidateRequired(request, nameof(request));
 
-            var existingDiscount = await _discountRepository.GetByIdAsync(request.Id);
+            var existingDiscount = await _databaseCircuitBreaker.ExecuteAsync(
+                () => _discountRepository.GetByIdAsync(request.Id),
+                "GetDiscountForUpdate");
+            
             if (existingDiscount == null)
             {
                 throw new DiscountNotFoundException(request.Id);
@@ -127,7 +146,9 @@ public class DiscountService : BaseService, IDiscountService
 
             // Apply updates
             _mapper.Map(request, existingDiscount);
-            var updatedDiscount = await _discountRepository.UpdateAsync(existingDiscount);
+            var updatedDiscount = await _databaseCircuitBreaker.ExecuteAsync(
+                () => _discountRepository.UpdateAsync(existingDiscount),
+                "UpdateDiscount");
 
             LogInfo("Discount updated successfully with ID: {Id}", null, updatedDiscount.Id);
             return _mapper.Map<DiscountResponse>(updatedDiscount);
@@ -140,7 +161,10 @@ public class DiscountService : BaseService, IDiscountService
         {
             LogInfo("Deleting discount with ID: {Id}", null, id);
 
-            var discount = await _discountRepository.GetByIdAsync(id);
+            var discount = await _databaseCircuitBreaker.ExecuteAsync(
+                () => _discountRepository.GetByIdAsync(id),
+                "GetDiscountForDelete");
+            
             if (discount == null)
             {
                 throw new DiscountNotFoundException(id);
@@ -152,7 +176,9 @@ public class DiscountService : BaseService, IDiscountService
                 throw new DiscountBusinessException("Cannot delete discount that has been used");
             }
 
-            var result = await _discountRepository.DeleteAsync(id);
+            var result = await _databaseCircuitBreaker.ExecuteAsync(
+                () => _discountRepository.DeleteAsync(id),
+                "DeleteDiscount");
             
             if (result)
             {
@@ -171,7 +197,9 @@ public class DiscountService : BaseService, IDiscountService
             
             LogInfo("Getting discounts - Page: {Page}, PageSize: {PageSize}", null, query.PageNumber, query.PageSize);
             
-            var (discounts, totalCount) = await _discountRepository.GetDiscountsAsync(query);
+            var (discounts, totalCount) = await _databaseCircuitBreaker.ExecuteAsync(
+                () => _discountRepository.GetDiscountsAsync(query),
+                "GetDiscounts");
             
             var response = _mapper.Map<DiscountListResponse>((discounts, totalCount));
             response.PageNumber = query.PageNumber;

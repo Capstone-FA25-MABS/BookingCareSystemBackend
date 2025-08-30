@@ -8,7 +8,7 @@ public enum NotificationStatus
     /// <summary>
     /// The notification has been read.
     /// </summary>
-    REaD,
+    READ,
 
     /// <summary>
     /// The notification has not been read.

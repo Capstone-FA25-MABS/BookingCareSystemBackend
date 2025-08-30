@@ -146,6 +146,20 @@ public class ExternalServiceException : BookingCareException
 }
 
 /// <summary>
+/// Exception for service unavailable scenarios (circuit breaker open, etc.)
+/// </summary>
+public class ServiceUnavailableException : BookingCareException
+{
+    public ServiceUnavailableException(
+        string message = "Service temporarily unavailable",
+        string errorCode = "SERVICE_UNAVAILABLE",
+        Exception? innerException = null)
+        : base(message, errorCode, HttpStatusCode.ServiceUnavailable, innerException)
+    {
+    }
+}
+
+/// <summary>
 /// Represents a single validation error
 /// </summary>
 public class ValidationError

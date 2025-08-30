@@ -41,6 +41,9 @@ builder.Services.AddSwaggerGen(c =>
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
+// Add circuit breaker
+builder.Services.AddCircuitBreaker(builder.Configuration);
+
 // Database configuration
 builder.Services.AddDbContext<DiscountDbContext>(options =>
 {
@@ -80,6 +83,9 @@ if (app.Environment.IsDevelopment())
 
 // Add global exception handling
 app.UseGlobalExceptionHandling();
+
+// Add circuit breaker monitoring
+app.UseMiddleware<CircuitBreakerMonitoringMiddleware>();
 
 // Add custom middleware
 app.UseMiddleware<DiscountExpirationMiddleware>();

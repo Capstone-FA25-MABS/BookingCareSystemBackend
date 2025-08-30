@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Discount.Migrations
 {
     [DbContext(typeof(DiscountDbContext))]
-    [Migration("20250829151408_InitialCreate")]
+    [Migration("20250830053353_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -39,12 +39,11 @@ namespace BookingCare.Services.Discount.Migrations
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("amount");
 
-                    b.Property<string>("ApplicableTo")
-                        .IsRequired()
+                    b.Property<int>("ApplicableTo")
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("ALL")
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
                         .HasColumnName("applicable_to");
 
                     b.Property<long>("ClinicId")
@@ -67,10 +66,9 @@ namespace BookingCare.Services.Discount.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
-                    b.Property<string>("DiscountType")
-                        .IsRequired()
+                    b.Property<int>("DiscountType")
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("int")
                         .HasColumnName("discount_type");
 
                     b.Property<long?>("DoctorId")
@@ -99,12 +97,11 @@ namespace BookingCare.Services.Discount.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("start_date");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
+                    b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasDefaultValue("ACTIVE")
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
                         .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")
