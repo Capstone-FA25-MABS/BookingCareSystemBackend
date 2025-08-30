@@ -4,6 +4,7 @@ using BookingCare.Services.Discount.Models.DTOs;
 using BookingCare.Services.Discount.Models.Entities;
 using BookingCare.Services.Discount.Repositories;
 using BookingCare.Shared.Common.Services;
+using BookingCare.Shared.Common.Exceptions;
 using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Discount.Services;
@@ -40,18 +41,28 @@ public class DiscountService : BaseService, IDiscountService
             // Validate dates
             if (request.StartDate >= request.EndDate)
             {
-                throw new DiscountValidationException("Start date must be before end date");
+                throw new DiscountValidationException(new List<ValidationError>
+                {
+                    new("StartDate", "Start date must be before end date", request.StartDate),
+                    new("EndDate", "End date must be after start date", request.EndDate)
+                });
             }
 
             if (request.EndDate <= DateTime.UtcNow)
             {
-                throw new DiscountValidationException("End date must be in the future");
+                throw new DiscountValidationException(new List<ValidationError>
+                {
+                    new("EndDate", "End date must be in the future", request.EndDate)
+                });
             }
 
             // Validate percentage discount
             if (request.DiscountType == "PERCENTAGE" && request.Amount > 100)
             {
-                throw new DiscountValidationException("Percentage discount cannot exceed 100%");
+                throw new DiscountValidationException(new List<ValidationError>
+                {
+                    new("Amount", "Percentage discount cannot exceed 100%", request.Amount)
+                });
             }
 
             var discountEntity = _mapper.Map<DiscountEntity>(request);
@@ -84,7 +95,7 @@ public class DiscountService : BaseService, IDiscountService
             var existingDiscount = await _discountRepository.GetByIdAsync(request.Id);
             if (existingDiscount == null)
             {
-                throw new DiscountNotFoundException($"Discount with ID {request.Id} not found");
+                throw new DiscountNotFoundException(request.Id);
             }
 
             // Validate dates if provided
@@ -93,7 +104,11 @@ public class DiscountService : BaseService, IDiscountService
 
             if (startDate >= endDate)
             {
-                throw new DiscountValidationException("Start date must be before end date");
+                throw new DiscountValidationException(new List<ValidationError>
+                {
+                    new("StartDate", "Start date must be before end date", startDate),
+                    new("EndDate", "End date must be after start date", endDate)
+                });
             }
 
             // Validate amount if provided
@@ -101,7 +116,10 @@ public class DiscountService : BaseService, IDiscountService
             {
                 if (existingDiscount.DiscountType == "PERCENTAGE" && request.Amount > 100)
                 {
-                    throw new DiscountValidationException("Percentage discount cannot exceed 100%");
+                    throw new DiscountValidationException(new List<ValidationError>
+                    {
+                        new("Amount", "Percentage discount cannot exceed 100%", request.Amount)
+                    });
                 }
             }
 
@@ -123,7 +141,7 @@ public class DiscountService : BaseService, IDiscountService
             var discount = await _discountRepository.GetByIdAsync(id);
             if (discount == null)
             {
-                throw new DiscountNotFoundException($"Discount with ID {id} not found");
+                throw new DiscountNotFoundException(id);
             }
 
             // Check if discount has been used
