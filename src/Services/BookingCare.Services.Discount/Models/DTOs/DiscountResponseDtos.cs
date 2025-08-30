@@ -1,3 +1,5 @@
+using BookingCare.Services.Discount.Enums;
+
 namespace BookingCare.Services.Discount.Models.DTOs;
 
 // Response DTOs
@@ -10,14 +12,14 @@ public class DiscountResponse
     public long ClinicId { get; set; }
     public long? SpecialtyId { get; set; }
     public long? DoctorId { get; set; }
-    public string ApplicableTo { get; set; } = string.Empty;
+    public DiscountApplicableTo ApplicableTo { get; set; }
     public decimal Amount { get; set; }
-    public string DiscountType { get; set; } = string.Empty;
+    public DiscountType DiscountType { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     public int? MaxUses { get; set; }
     public int UsesCount { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public DiscountStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
@@ -56,8 +58,8 @@ public class DiscountQueryRequest
     public long? ClinicId { get; set; }
     public long? SpecialtyId { get; set; }
     public long? DoctorId { get; set; }
-    public string? Status { get; set; }
-    public string? ApplicableTo { get; set; }
+    public DiscountStatus? Status { get; set; }
+    public DiscountApplicableTo? ApplicableTo { get; set; }
     public string? SearchTerm { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }

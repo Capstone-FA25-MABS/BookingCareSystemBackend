@@ -1,6 +1,8 @@
 using BookingCare.Services.Discount.Data;
+using BookingCare.Services.Discount.Enums;
 using BookingCare.Services.Discount.Models.DTOs;
 using BookingCare.Services.Discount.Models.Entities;
+using BookingCare.Shared.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Discount.Repositories;
@@ -80,20 +82,20 @@ public class DiscountRepository : IDiscountRepository
 
         if (query.SpecialtyId.HasValue)
         {
-            queryable = queryable.Where(d => d.SpecialtyId == query.SpecialtyId.Value || d.ApplicableTo == "ALL");
+            queryable = queryable.Where(d => d.SpecialtyId == query.SpecialtyId.Value || d.ApplicableTo == DiscountApplicableTo.ALL);
         }
 
         if (query.DoctorId.HasValue)
         {
-            queryable = queryable.Where(d => d.DoctorId == query.DoctorId.Value || d.ApplicableTo == "ALL" || d.ApplicableTo == "SPECIALTY");
+            queryable = queryable.Where(d => d.DoctorId == query.DoctorId.Value || d.ApplicableTo == DiscountApplicableTo.ALL || d.ApplicableTo == DiscountApplicableTo.SPECIALTY);
         }
 
-        if (!string.IsNullOrEmpty(query.Status))
+        if (!string.IsNullOrEmpty(query.Status.ToString()))
         {
             queryable = queryable.Where(d => d.Status == query.Status);
         }
 
-        if (!string.IsNullOrEmpty(query.ApplicableTo))
+        if (!string.IsNullOrEmpty(query.ApplicableTo.ToString()))
         {
             queryable = queryable.Where(d => d.ApplicableTo == query.ApplicableTo);
         }
@@ -132,7 +134,7 @@ public class DiscountRepository : IDiscountRepository
         var now = DateTime.UtcNow;
         return await _context.Discounts
             .Where(d => d.ClinicId == clinicId && 
-                       d.Status == "ACTIVE" && 
+                       d.Status == DiscountStatus.ACTIVE && 
                        d.StartDate <= now && 
                        d.EndDate >= now)
             .OrderBy(d => d.Name)
@@ -144,16 +146,16 @@ public class DiscountRepository : IDiscountRepository
         var now = DateTime.UtcNow;
         var query = _context.Discounts
             .Where(d => d.ClinicId == clinicId && 
-                       d.Status == "ACTIVE" && 
+                       d.Status == DiscountStatus.ACTIVE && 
                        d.StartDate <= now && 
                        d.EndDate >= now &&
                        (d.MaxUses == null || d.UsesCount < d.MaxUses));
 
         // Apply applicability filters
         query = query.Where(d => 
-            d.ApplicableTo == "ALL" ||
-            (d.ApplicableTo == "SPECIALTY" && d.SpecialtyId == specialtyId) ||
-            (d.ApplicableTo == "DOCTOR" && d.DoctorId == doctorId));
+            d.ApplicableTo == DiscountApplicableTo.ALL ||
+            (d.ApplicableTo == DiscountApplicableTo.SPECIALTY && d.SpecialtyId == specialtyId) ||
+            (d.ApplicableTo == DiscountApplicableTo.DOCTOR && d.DoctorId == doctorId));
 
         return await query.OrderBy(d => d.Name).ToListAsync();
     }
@@ -164,16 +166,16 @@ public class DiscountRepository : IDiscountRepository
         var query = _context.Discounts
             .Where(d => d.Code == code && 
                        d.ClinicId == clinicId && 
-                       d.Status == "ACTIVE" && 
+                       d.Status == DiscountStatus.ACTIVE && 
                        d.StartDate <= now && 
                        d.EndDate >= now &&
                        (d.MaxUses == null || d.UsesCount < d.MaxUses));
 
         // Apply applicability filters
         query = query.Where(d => 
-            d.ApplicableTo == "ALL" ||
-            (d.ApplicableTo == "SPECIALTY" && d.SpecialtyId == specialtyId) ||
-            (d.ApplicableTo == "DOCTOR" && d.DoctorId == doctorId));
+            d.ApplicableTo == DiscountApplicableTo.ALL ||
+            (d.ApplicableTo == DiscountApplicableTo.SPECIALTY && d.SpecialtyId == specialtyId) ||
+            (d.ApplicableTo == DiscountApplicableTo.DOCTOR && d.DoctorId == doctorId));
 
         return await query.FirstOrDefaultAsync();
     }
@@ -206,7 +208,7 @@ public class DiscountRepository : IDiscountRepository
         return Math.Max(0, discount.MaxUses.Value - discount.UsesCount);
     }
 
-    public async Task<bool> UpdateStatusAsync(long id, string status)
+    public async Task<bool> UpdateStatusAsync(long id, DiscountStatus status)
     {
         var discount = await GetByIdAsync(id);
         if (discount == null) return false;
@@ -220,7 +222,7 @@ public class DiscountRepository : IDiscountRepository
     {
         var now = DateTime.UtcNow;
         return await _context.Discounts
-            .Where(d => d.Status == "ACTIVE" && d.EndDate < now)
+            .Where(d => d.Status == DiscountStatus.ACTIVE && d.EndDate < now)
             .ToListAsync();
     }
 
@@ -228,12 +230,12 @@ public class DiscountRepository : IDiscountRepository
     {
         var now = DateTime.UtcNow;
         var expiredDiscounts = await _context.Discounts
-            .Where(d => d.Status == "ACTIVE" && d.EndDate < now)
+            .Where(d => d.Status == DiscountStatus.ACTIVE && d.EndDate < now)
             .ToListAsync();
 
         foreach (var discount in expiredDiscounts)
         {
-            discount.Status = "EXPIRED";
+            discount.Status = DiscountStatus.EXPIRED;
         }
 
         return await _context.SaveChangesAsync();

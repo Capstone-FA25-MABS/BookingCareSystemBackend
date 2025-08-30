@@ -1,3 +1,4 @@
+using BookingCare.Services.Discount.Enums;
 using BookingCare.Services.Discount.Models.DTOs;
 using BookingCare.Services.Discount.Models.Entities;
 
@@ -26,7 +27,7 @@ public interface IDiscountRepository
     Task<int> GetRemainingUsesAsync(long discountId);
 
     // Status operations
-    Task<bool> UpdateStatusAsync(long id, string status);
+    Task<bool> UpdateStatusAsync(long id, DiscountStatus status);
     Task<List<DiscountEntity>> GetExpiredDiscountsAsync();
     Task<int> UpdateExpiredDiscountsAsync();
 }
