@@ -72,24 +72,3 @@ public class DiscountEntity
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
-
-// Enums for better type safety
-public enum DiscountApplicableTo
-{
-    ALL,
-    SPECIALTY,
-    DOCTOR
-}
-
-public enum DiscountType
-{
-    FIXED_AMOUNT,
-    PERCENTAGE
-}
-
-public enum DiscountStatus
-{
-    ACTIVE,
-    INACTIVE,
-    EXPIRED
-}

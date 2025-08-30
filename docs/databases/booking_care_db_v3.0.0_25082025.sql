@@ -278,7 +278,7 @@ CREATE TABLE payments (
     amount DECIMAL(10, 2) NOT NULL,
     transaction_type VARCHAR(20) NOT NULL CHECK (transaction_type IN ('APPOINTMENT', 'SUBSCRIPTION')),
     payment_method_id BIGINT NOT NULL,
-    status VARCHAR(10) CHECK (status IN ('PENDING', 'COMPLETED', 'FAILED')) DEFAULT 'PENDING',
+    status VARCHAR(10) CHECK (status IN ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED')) DEFAULT 'PENDING',
     created_at DATETIME NOT NULL DEFAULT GETDATE(),
     FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
     FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE SET NULL,
