@@ -15,14 +15,17 @@ public class DiscountService : BaseService, IDiscountService
 {
     private readonly IDiscountRepository _discountRepository;
     private readonly IMapper _mapper;
+    private readonly IClinicValidationService _clinicValidationService;
 
     public DiscountService(
         IDiscountRepository discountRepository, 
-        IMapper mapper, 
+        IMapper mapper,
+        IClinicValidationService clinicValidationService,
         ILogger<DiscountService> logger) : base(logger)
     {
         _discountRepository = discountRepository;
         _mapper = mapper;
+        _clinicValidationService = clinicValidationService;
     }
 
     public async Task<DiscountResponse> CreateDiscountAsync(CreateDiscountRequest request)
@@ -66,6 +69,18 @@ public class DiscountService : BaseService, IDiscountService
                     new("Amount", "Percentage discount cannot exceed 100%", request.Amount)
                 });
             }
+
+            // // Validate clinic existence via gRPC
+            // LogInfo("Validating clinic ID: {ClinicId} via gRPC", null, request.ClinicId);
+            // var isClinicValid = await _clinicValidationService.ValidateClinicAsync(request.ClinicId);
+            // if (!isClinicValid)
+            // {
+            //     throw new DiscountValidationException(new List<ValidationError>
+            //     {
+            //         new("ClinicId", "Clinic does not exist or is not active", request.ClinicId)
+            //     });
+            // }
+            // LogInfo("Clinic validation successful for ID: {ClinicId}", null, request.ClinicId);
 
             var discountEntity = _mapper.Map<DiscountEntity>(request);
             var createdDiscount = await _discountRepository.CreateAsync(discountEntity);

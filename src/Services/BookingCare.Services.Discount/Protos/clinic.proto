@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Clinic.Protos";
+
+package clinic;
+
+// The clinic service definition for validating clinic operations
+service ClinicValidationService {
+  // Validates if a clinic exists and is active
+  rpc ValidateClinic (ValidateClinicRequest) returns (ValidateClinicResponse);
+  
+  // Gets basic clinic information
+  rpc GetClinicInfo (GetClinicInfoRequest) returns (GetClinicInfoResponse);
+}
+
+// Request message for validating a clinic
+message ValidateClinicRequest {
+  int64 clinic_id = 1;
+}
+
+// Response message for clinic validation
+message ValidateClinicResponse {
+  bool is_valid = 1;
+  bool is_active = 2;
+  string message = 3;
+  ClinicInfo clinic_info = 4;
+}
+
+// Request message for getting clinic information
+message GetClinicInfoRequest {
+  int64 clinic_id = 1;
+}
+
+// Response message for clinic information
+message GetClinicInfoResponse {
+  bool found = 1;
+  ClinicInfo clinic_info = 2;
+  string message = 3;
+}
+
+// Basic clinic information
+message ClinicInfo {
+  int64 id = 1;
+  string name = 2;
+  string address = 3;
+  string phone = 4;
+  string email = 5;
+  bool is_active = 6;
+  string status = 7;
+}

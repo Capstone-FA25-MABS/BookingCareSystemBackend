@@ -38,6 +38,7 @@ app.MapControllers();
 
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();
-app.MapGet("/", () => "BookingCare Clinic Service is running...");
+app.MapGrpcService<ClinicValidationGrpcService>();
+app.MapGet("/", () => "BookingCare Clinic Service is running. REST API: /swagger, gRPC: port 6014");
 
 app.Run();

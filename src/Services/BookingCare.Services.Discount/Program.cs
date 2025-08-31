@@ -59,6 +59,7 @@ builder.Services.AddScoped<IDiscountRepository, DiscountRepository>();
 
 // Service registration
 builder.Services.AddScoped<IDiscountService, DiscountService>();
+builder.Services.AddScoped<IClinicValidationService, ClinicValidationService>();
 
 // Background services
 builder.Services.AddHostedService<DiscountExpirationBackgroundService>();
