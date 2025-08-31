@@ -1,11 +1,13 @@
-using BookingCare.Services.Review.Services;
 using BookingCare.Services.Review.Extensions;
 using BookingCare.Services.Review.Data;
 using BookingCare.Services.Review.Mappings;
 using BookingCare.Services.Review.Validators;
+using BookingCare.Services.Review.Grpc.Services;
+using BookingCare.Services.Review.Filters;
 using BookingCare.Shared.Common.Extensions;
 using FluentValidation;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Mvc;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -26,7 +28,12 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // Suppress automatic model state validation since we use FluentValidation
+    options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+});
+
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -43,8 +50,19 @@ builder.Services.AddReviewServices();
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(ReviewMappingProfile));
 
-// Add FluentValidation
+// Add Model Binding Error Filter (must be first to catch binding errors)
+builder.Services.AddModelBindingErrorFilter();
+
+// Add FluentValidation with automatic validation filter
 builder.Services.AddValidatorsFromAssemblyContaining<CreateReviewRequestValidator>();
+builder.Services.AddValidationFilter();
+
+// Configure FluentValidation options
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    // Disable default model validation behavior since we handle it with FluentValidation
+    options.SuppressModelStateInvalidFilter = true;
+});
 
 var app = builder.Build();
 
@@ -62,7 +80,7 @@ app.UseRouting();
 app.MapControllers();
 
 // Configure gRPC services
-app.MapGrpcService<GreeterService>();
+app.MapGrpcService<ReviewGrpcService>();
 
 // Health check endpoint
 app.MapGet("/", () => "BookingCare Review Service is running...");

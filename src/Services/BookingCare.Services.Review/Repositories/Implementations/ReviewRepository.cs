@@ -307,4 +307,284 @@ public class ReviewRepository : IReviewRepository
         );
         return await _reviews.CountDocumentsAsync(filter);
     }
+
+    /// <summary>
+    /// Gets comprehensive statistics for a doctor
+    /// </summary>
+    public async Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId)
+    {
+        var matchStage = new BsonDocument("$match", new BsonDocument
+        {
+            { "doctorId", doctorId.ToString() },
+            { "targetType", "DOCTOR" }
+        });
+
+        var groupStage = new BsonDocument("$group", new BsonDocument
+        {
+            { "_id", BsonNull.Value },
+            { "averageRating", new BsonDocument("$avg", "$rating") },
+            { "totalReviews", new BsonDocument("$sum", 1) },
+            { "ratingDistribution", new BsonDocument("$push", "$rating") }
+        });
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var result = await _reviews.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+
+        if (result == null || !result.Contains("totalReviews") || result["totalReviews"].ToInt64() == 0)
+        {
+            return new ReviewStatisticsResponse
+            {
+                TargetId = doctorId,
+                TargetType = TargetType.DOCTOR,
+                AverageRating = 0.0,
+                TotalReviews = 0,
+                RatingDistribution = new Dictionary<int, long>()
+            };
+        }
+
+        var averageRating = result.Contains("averageRating") ? result["averageRating"].ToDouble() : 0.0;
+        var totalReviews = result["totalReviews"].ToInt64();
+        
+        // Calculate rating distribution
+        var ratings = result["ratingDistribution"].AsBsonArray.Select(r => r.ToInt32()).ToList();
+        var ratingDistribution = new Dictionary<int, long>();
+        
+        for (int i = 1; i <= 5; i++)
+        {
+            ratingDistribution[i] = ratings.Count(r => r == i);
+        }
+
+        return new ReviewStatisticsResponse
+        {
+            TargetId = doctorId,
+            TargetType = TargetType.DOCTOR,
+            AverageRating = Math.Round(averageRating, 2),
+            TotalReviews = totalReviews,
+            RatingDistribution = ratingDistribution
+        };
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for a clinic service
+    /// </summary>
+    public async Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId)
+    {
+        var matchStage = new BsonDocument("$match", new BsonDocument
+        {
+            { "clinicServiceId", clinicServiceId.ToString() },
+            { "targetType", "SERVICE" }
+        });
+
+        var groupStage = new BsonDocument("$group", new BsonDocument
+        {
+            { "_id", BsonNull.Value },
+            { "averageRating", new BsonDocument("$avg", "$rating") },
+            { "totalReviews", new BsonDocument("$sum", 1) },
+            { "ratingDistribution", new BsonDocument("$push", "$rating") }
+        });
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var result = await _reviews.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+
+        if (result == null || !result.Contains("totalReviews") || result["totalReviews"].ToInt64() == 0)
+        {
+            return new ReviewStatisticsResponse
+            {
+                TargetId = clinicServiceId,
+                TargetType = TargetType.SERVICE,
+                AverageRating = 0.0,
+                TotalReviews = 0,
+                RatingDistribution = new Dictionary<int, long>()
+            };
+        }
+
+        var averageRating = result.Contains("averageRating") ? result["averageRating"].ToDouble() : 0.0;
+        var totalReviews = result["totalReviews"].ToInt64();
+        
+        // Calculate rating distribution
+        var ratings = result["ratingDistribution"].AsBsonArray.Select(r => r.ToInt32()).ToList();
+        var ratingDistribution = new Dictionary<int, long>();
+        
+        for (int i = 1; i <= 5; i++)
+        {
+            ratingDistribution[i] = ratings.Count(r => r == i);
+        }
+
+        return new ReviewStatisticsResponse
+        {
+            TargetId = clinicServiceId,
+            TargetType = TargetType.SERVICE,
+            AverageRating = Math.Round(averageRating, 2),
+            TotalReviews = totalReviews,
+            RatingDistribution = ratingDistribution
+        };
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple doctors in a single query
+    /// </summary>
+    public async Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(List<Guid> doctorIds)
+    {
+        var doctorIdsStrings = doctorIds.Select(id => id.ToString()).ToList();
+
+        var matchStage = new BsonDocument("$match", new BsonDocument
+        {
+            { "doctorId", new BsonDocument("$in", new BsonArray(doctorIdsStrings)) },
+            { "targetType", "DOCTOR" }
+        });
+
+        var groupStage = new BsonDocument("$group", new BsonDocument
+        {
+            { "_id", "$doctorId" },
+            { "averageRating", new BsonDocument("$avg", "$rating") },
+            { "totalReviews", new BsonDocument("$sum", 1) },
+            { "ratingDistribution", new BsonDocument("$push", "$rating") }
+        });
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var results = await _reviews.Aggregate<BsonDocument>(pipeline).ToListAsync();
+
+        var response = new BatchDoctorsStatisticsResponse
+        {
+            TotalProcessed = doctorIds.Count,
+            WithStatistics = results.Count
+        };
+
+        var foundDoctorIds = new HashSet<Guid>();
+
+        foreach (var result in results)
+        {
+            var doctorIdString = result["_id"].AsString;
+            if (Guid.TryParse(doctorIdString, out var doctorId))
+            {
+                foundDoctorIds.Add(doctorId);
+
+                var averageRating = result.Contains("averageRating") ? result["averageRating"].ToDouble() : 0.0;
+                var totalReviews = result["totalReviews"].ToInt64();
+                
+                // Calculate rating distribution
+                var ratings = result["ratingDistribution"].AsBsonArray.Select(r => r.ToInt32()).ToList();
+                var ratingDistribution = new Dictionary<int, long>();
+                
+                for (int i = 1; i <= 5; i++)
+                {
+                    ratingDistribution[i] = ratings.Count(r => r == i);
+                }
+
+                response.DoctorStatistics[doctorId] = new ReviewStatisticsResponse
+                {
+                    TargetId = doctorId,
+                    TargetType = TargetType.DOCTOR,
+                    AverageRating = Math.Round(averageRating, 2),
+                    TotalReviews = totalReviews,
+                    RatingDistribution = ratingDistribution
+                };
+            }
+        }
+
+        // Add doctors with no reviews
+        response.NotFoundDoctorIds = doctorIds.Where(id => !foundDoctorIds.Contains(id)).ToList();
+
+        return response;
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple clinic services in a single query
+    /// </summary>
+    public async Task<BatchServicesStatisticsResponse> GetBatchServicesStatisticsAsync(List<Guid> serviceIds)
+    {
+        var serviceIdsStrings = serviceIds.Select(id => id.ToString()).ToList();
+
+        var matchStage = new BsonDocument("$match", new BsonDocument
+        {
+            { "clinicServiceId", new BsonDocument("$in", new BsonArray(serviceIdsStrings)) },
+            { "targetType", "SERVICE" }
+        });
+
+        var groupStage = new BsonDocument("$group", new BsonDocument
+        {
+            { "_id", "$clinicServiceId" },
+            { "averageRating", new BsonDocument("$avg", "$rating") },
+            { "totalReviews", new BsonDocument("$sum", 1) },
+            { "ratingDistribution", new BsonDocument("$push", "$rating") }
+        });
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var results = await _reviews.Aggregate<BsonDocument>(pipeline).ToListAsync();
+
+        var response = new BatchServicesStatisticsResponse
+        {
+            TotalProcessed = serviceIds.Count,
+            WithStatistics = results.Count
+        };
+
+        var foundServiceIds = new HashSet<Guid>();
+
+        foreach (var result in results)
+        {
+            var serviceIdString = result["_id"].AsString;
+            if (Guid.TryParse(serviceIdString, out var serviceId))
+            {
+                foundServiceIds.Add(serviceId);
+
+                var averageRating = result.Contains("averageRating") ? result["averageRating"].ToDouble() : 0.0;
+                var totalReviews = result["totalReviews"].ToInt64();
+                
+                // Calculate rating distribution
+                var ratings = result["ratingDistribution"].AsBsonArray.Select(r => r.ToInt32()).ToList();
+                var ratingDistribution = new Dictionary<int, long>();
+                
+                for (int i = 1; i <= 5; i++)
+                {
+                    ratingDistribution[i] = ratings.Count(r => r == i);
+                }
+
+                response.ServiceStatistics[serviceId] = new ReviewStatisticsResponse
+                {
+                    TargetId = serviceId,
+                    TargetType = TargetType.SERVICE,
+                    AverageRating = Math.Round(averageRating, 2),
+                    TotalReviews = totalReviews,
+                    RatingDistribution = ratingDistribution
+                };
+            }
+        }
+
+        // Add services with no reviews
+        response.NotFoundServiceIds = serviceIds.Where(id => !foundServiceIds.Contains(id)).ToList();
+
+        return response;
+    }
+
+    /// <summary>
+    /// Checks if a patient has already reviewed a specific doctor
+    /// </summary>
+    public async Task<ReviewEntity?> GetExistingDoctorReviewAsync(Guid patientId, Guid doctorId)
+    {
+        var filter = Builders<ReviewEntity>.Filter.And(
+            Builders<ReviewEntity>.Filter.Eq(r => r.PatientId, patientId),
+            Builders<ReviewEntity>.Filter.Eq(r => r.DoctorId, doctorId),
+            Builders<ReviewEntity>.Filter.Eq(r => r.TargetType, TargetType.DOCTOR)
+        );
+
+        return await _reviews.Find(filter).FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// Checks if a patient has already reviewed a specific clinic service
+    /// </summary>
+    public async Task<ReviewEntity?> GetExistingServiceReviewAsync(Guid patientId, Guid clinicServiceId)
+    {
+        var filter = Builders<ReviewEntity>.Filter.And(
+            Builders<ReviewEntity>.Filter.Eq(r => r.PatientId, patientId),
+            Builders<ReviewEntity>.Filter.Eq(r => r.ClinicServiceId, clinicServiceId),
+            Builders<ReviewEntity>.Filter.Eq(r => r.TargetType, TargetType.SERVICE)
+        );
+
+        return await _reviews.Find(filter).FirstOrDefaultAsync();
+    }
 }

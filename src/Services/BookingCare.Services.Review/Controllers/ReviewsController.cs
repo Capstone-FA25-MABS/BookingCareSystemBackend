@@ -20,15 +20,6 @@ public class ReviewsController : BaseApiController
     }
 
     /// <summary>
-    /// Health check endpoint
-    /// </summary>
-    [HttpGet("health")]
-    public IActionResult Health()
-    {
-        return Ok(new { Status = "Healthy", Service = "Review", Timestamp = DateTime.UtcNow });
-    }
-
-    /// <summary>
     /// Creates a new review
     /// </summary>
     /// <param name="request">Review creation request</param>
@@ -36,8 +27,27 @@ public class ReviewsController : BaseApiController
     [HttpPost]
     public async Task<IActionResult> CreateReview([FromBody] CreateReviewRequest request)
     {
-        var result = await _reviewService.CreateReviewAsync(request);
-        return Created(result, "Review created successfully");
+        // Validation is now handled automatically by ValidationFilter
+        try
+        {
+            var result = await _reviewService.CreateReviewAsync(request);
+            return Created(result, "Review created successfully");
+        }
+        catch (Exceptions.DuplicateReviewException ex)
+        {
+            // Get the existing review to return detailed information
+            var existingReview = await _reviewService.GetReviewByIdAsync(ex.ExistingReviewId);
+            
+            var errorResponse = new DuplicateReviewErrorResponse
+            {
+                Message = ex.Message,
+                ExistingReview = existingReview ?? new ReviewResponse(),
+                SuggestedAction = "Please update the existing review instead of creating a new one.",
+                UpdateEndpoint = "/api/reviews"
+            };
+
+            return Conflict(errorResponse);
+        }
     }
 
     /// <summary>
@@ -48,6 +58,7 @@ public class ReviewsController : BaseApiController
     [HttpPut]
     public async Task<IActionResult> UpdateReview([FromBody] UpdateReviewRequest request)
     {
+        // Validation is now handled automatically by ValidationFilter
         var result = await _reviewService.UpdateReviewAsync(request);
         return Success(result, "Review updated successfully");
     }
@@ -184,6 +195,18 @@ public class ReviewsController : BaseApiController
     }
 
     /// <summary>
+    /// Gets comprehensive statistics for a doctor
+    /// </summary>
+    /// <param name="doctorId">Doctor ID</param>
+    /// <returns>Complete statistics including average rating, count, and rating distribution</returns>
+    [HttpGet("doctor/{doctorId:guid}/statistics")]
+    public async Task<IActionResult> GetDoctorStatistics(Guid doctorId)
+    {
+        var result = await _reviewService.GetDoctorStatisticsAsync(doctorId);
+        return Success(result, "Doctor statistics retrieved successfully");
+    }
+
+    /// <summary>
     /// Gets the average rating for a clinic service
     /// </summary>
     /// <param name="clinicServiceId">Clinic service ID</param>
@@ -196,6 +219,42 @@ public class ReviewsController : BaseApiController
     }
 
     /// <summary>
+    /// Gets comprehensive statistics for a clinic service
+    /// </summary>
+    /// <param name="clinicServiceId">Clinic service ID</param>
+    /// <returns>Complete statistics including average rating, count, and rating distribution</returns>
+    [HttpGet("service/{clinicServiceId:guid}/statistics")]
+    public async Task<IActionResult> GetServiceStatistics(Guid clinicServiceId)
+    {
+        var result = await _reviewService.GetClinicServiceStatisticsAsync(clinicServiceId);
+        return Success(result, "Service statistics retrieved successfully");
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple doctors in a single request
+    /// </summary>
+    /// <param name="request">Batch doctors statistics request</param>
+    /// <returns>Complete statistics for all requested doctors</returns>
+    [HttpPost("doctors/batch-statistics")]
+    public async Task<IActionResult> GetBatchDoctorsStatistics([FromBody] BatchDoctorsStatisticsRequest request)
+    {
+        var result = await _reviewService.GetBatchDoctorsStatisticsAsync(request);
+        return Success(result, $"Batch doctor statistics retrieved successfully - {result.WithStatistics}/{result.TotalProcessed} doctors with reviews");
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple clinic services in a single request
+    /// </summary>
+    /// <param name="request">Batch services statistics request</param>
+    /// <returns>Complete statistics for all requested services</returns>
+    [HttpPost("services/batch-statistics")]
+    public async Task<IActionResult> GetBatchServicesStatistics([FromBody] BatchServicesStatisticsRequest request)
+    {
+        var result = await _reviewService.GetBatchServicesStatisticsAsync(request);
+        return Success(result, $"Batch service statistics retrieved successfully - {result.WithStatistics}/{result.TotalProcessed} services with reviews");
+    }
+
+    /// <summary>
     /// Gets the total count of reviews for a doctor
     /// </summary>
     /// <param name="doctorId">Doctor ID</param>
@@ -205,17 +264,5 @@ public class ReviewsController : BaseApiController
     {
         var result = await _reviewService.GetReviewCountByDoctorAsync(doctorId);
         return Success(new { DoctorId = doctorId, ReviewCount = result }, "Review count retrieved successfully");
-    }
-
-    /// <summary>
-    /// Gets the total count of reviews for a clinic service
-    /// </summary>
-    /// <param name="clinicServiceId">Clinic service ID</param>
-    /// <returns>Review count</returns>
-    [HttpGet("service/{clinicServiceId:guid}/count")]
-    public async Task<IActionResult> GetReviewCountByService(Guid clinicServiceId)
-    {
-        var result = await _reviewService.GetReviewCountByClinicServiceAsync(clinicServiceId);
-        return Success(new { ClinicServiceId = clinicServiceId, ReviewCount = result }, "Review count retrieved successfully");
     }
 }

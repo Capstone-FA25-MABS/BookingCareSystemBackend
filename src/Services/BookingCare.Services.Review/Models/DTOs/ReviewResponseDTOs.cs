@@ -34,6 +34,115 @@ public class ReplyResponse
 }
 
 /// <summary>
+/// Response DTO for review statistics
+/// </summary>
+public class ReviewStatisticsResponse
+{
+    /// <summary>
+    /// ID of the target (Doctor or Service)
+    /// </summary>
+    public Guid TargetId { get; set; }
+
+    /// <summary>
+    /// Type of target being reviewed
+    /// </summary>
+    public TargetType TargetType { get; set; }
+
+    /// <summary>
+    /// Average rating (0.0 - 5.0)
+    /// </summary>
+    public double AverageRating { get; set; }
+
+    /// <summary>
+    /// Total number of reviews
+    /// </summary>
+    public long TotalReviews { get; set; }
+
+    /// <summary>
+    /// Rating distribution breakdown
+    /// </summary>
+    public Dictionary<int, long> RatingDistribution { get; set; } = new();
+}
+
+/// <summary>
+/// Response DTO for duplicate review error
+/// </summary>
+public class DuplicateReviewErrorResponse
+{
+    /// <summary>
+    /// Error message
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The existing review that conflicts
+    /// </summary>
+    public ReviewResponse ExistingReview { get; set; } = new();
+
+    /// <summary>
+    /// Suggested action for the client
+    /// </summary>
+    public string SuggestedAction { get; set; } = "Please update the existing review instead of creating a new one.";
+
+    /// <summary>
+    /// Update endpoint URL
+    /// </summary>
+    public string UpdateEndpoint { get; set; } = "/api/reviews";
+}
+
+/// <summary>
+/// Response DTO for batch doctors statistics
+/// </summary>
+public class BatchDoctorsStatisticsResponse
+{
+    /// <summary>
+    /// Dictionary mapping doctor ID to their statistics
+    /// </summary>
+    public Dictionary<Guid, ReviewStatisticsResponse> DoctorStatistics { get; set; } = new();
+
+    /// <summary>
+    /// List of doctor IDs that were not found or have no reviews
+    /// </summary>
+    public List<Guid> NotFoundDoctorIds { get; set; } = new();
+
+    /// <summary>
+    /// Total number of doctors processed
+    /// </summary>
+    public int TotalProcessed { get; set; }
+
+    /// <summary>
+    /// Number of doctors with statistics
+    /// </summary>
+    public int WithStatistics { get; set; }
+}
+
+/// <summary>
+/// Response DTO for batch services statistics
+/// </summary>
+public class BatchServicesStatisticsResponse
+{
+    /// <summary>
+    /// Dictionary mapping service ID to their statistics
+    /// </summary>
+    public Dictionary<Guid, ReviewStatisticsResponse> ServiceStatistics { get; set; } = new();
+
+    /// <summary>
+    /// List of service IDs that were not found or have no reviews
+    /// </summary>
+    public List<Guid> NotFoundServiceIds { get; set; } = new();
+
+    /// <summary>
+    /// Total number of services processed
+    /// </summary>
+    public int TotalProcessed { get; set; }
+
+    /// <summary>
+    /// Number of services with statistics
+    /// </summary>
+    public int WithStatistics { get; set; }
+}
+
+/// <summary>
 /// Response DTO for a review
 /// </summary>
 public class ReviewResponse

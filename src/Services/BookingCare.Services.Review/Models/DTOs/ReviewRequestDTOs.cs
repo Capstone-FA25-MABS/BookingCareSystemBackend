@@ -102,6 +102,28 @@ public class UpdateReplyRequest
 }
 
 /// <summary>
+/// Request DTO for getting batch statistics for multiple doctors
+/// </summary>
+public class BatchDoctorsStatisticsRequest
+{
+    /// <summary>
+    /// List of doctor IDs to get statistics for
+    /// </summary>
+    public List<Guid> DoctorIds { get; set; } = new();
+}
+
+/// <summary>
+/// Request DTO for getting batch statistics for multiple clinic services
+/// </summary>
+public class BatchServicesStatisticsRequest
+{
+    /// <summary>
+    /// List of clinic service IDs to get statistics for
+    /// </summary>
+    public List<Guid> ServiceIds { get; set; } = new();
+}
+
+/// <summary>
 /// Request DTO for getting reviews with filters
 /// </summary>
 public class GetReviewsRequest

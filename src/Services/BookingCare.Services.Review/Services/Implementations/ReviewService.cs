@@ -1,10 +1,11 @@
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Exceptions;
 using BookingCare.Services.Review.Models.DTOs;
 using BookingCare.Services.Review.Models.Entities;
 using BookingCare.Services.Review.Repositories.Interfaces;
 using BookingCare.Services.Review.Services.Interfaces;
+using BookingCare.Services.Review.Exceptions;
 
 namespace BookingCare.Services.Review.Services.Implementations;
 
@@ -34,25 +35,10 @@ public class ReviewService : BaseService, IReviewService
         {
             LogInfo("Creating new review for patient: {PatientId}", null, request.PatientId);
 
-            // Validation
-            ValidateRequired(request, nameof(request));
-            ValidateGuid(request.PatientId, nameof(request.PatientId));
-
-            // Business logic validation
-            if (request.TargetType == Models.Enums.TargetType.DOCTOR && (!request.DoctorId.HasValue || request.DoctorId == Guid.Empty))
-            {
-                throw new ArgumentException("Doctor ID is required when reviewing a doctor");
-            }
-
-            if (request.TargetType == Models.Enums.TargetType.SERVICE && (!request.ClinicServiceId.HasValue || request.ClinicServiceId == Guid.Empty))
-            {
-                throw new ArgumentException("Clinic Service ID is required when reviewing a service");
-            }
-
-            if (request.Rating < 1 || request.Rating > 5)
-            {
-                throw new ArgumentException("Rating must be between 1 and 5");
-            }
+            // ✅ ValidationFilter đã handle tất cả validation rồi, không cần manual validation nữa
+            
+            // Check for duplicate review (business rule)
+            await CheckForDuplicateReviewAsync(request);
 
             // Create entity
             var reviewEntity = _mapper.Map<ReviewEntity>(request);
@@ -64,6 +50,40 @@ public class ReviewService : BaseService, IReviewService
     }
 
     /// <summary>
+    /// Checks for duplicate review by the same patient for the same target
+    /// </summary>
+    private async Task CheckForDuplicateReviewAsync(CreateReviewRequest request)
+    {
+        ReviewEntity? existingReview = null;
+        string targetName = "";
+
+        if (request.TargetType == Models.Enums.TargetType.DOCTOR && request.DoctorId.HasValue)
+        {
+            existingReview = await _reviewRepository.GetExistingDoctorReviewAsync(request.PatientId, request.DoctorId.Value);
+            targetName = $"doctor {request.DoctorId.Value}";
+        }
+        else if (request.TargetType == Models.Enums.TargetType.SERVICE && request.ClinicServiceId.HasValue)
+        {
+            existingReview = await _reviewRepository.GetExistingServiceReviewAsync(request.PatientId, request.ClinicServiceId.Value);
+            targetName = $"service {request.ClinicServiceId.Value}";
+        }
+
+        if (existingReview != null)
+        {
+            LogWarning("Duplicate review attempt - Patient: {PatientId}, Target: {TargetName}, ExistingReview: {ExistingReviewId}", 
+                null, request.PatientId, targetName, existingReview.Id);
+            
+            throw new DuplicateReviewException(
+                request.PatientId,
+                request.DoctorId,
+                request.ClinicServiceId,
+                existingReview.Id,
+                targetName
+            );
+        }
+    }
+
+    /// <summary>
     /// Updates an existing review
     /// </summary>
     public async Task<ReviewResponse> UpdateReviewAsync(UpdateReviewRequest request)
@@ -72,14 +92,7 @@ public class ReviewService : BaseService, IReviewService
         {
             LogInfo("Updating review with ID: {ReviewId}", null, request.Id);
 
-            // Validation
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.Id, nameof(request.Id));
-
-            if (request.Rating < 1 || request.Rating > 5)
-            {
-                throw new ArgumentException("Rating must be between 1 and 5");
-            }
+            // ✅ ValidationFilter đã handle tất cả validation rồi
 
             // Get existing review
             var existingReview = await _reviewRepository.GetByIdAsync(request.Id);
@@ -113,6 +126,7 @@ public class ReviewService : BaseService, IReviewService
         {
             LogInfo("Deleting review with ID: {ReviewId}", null, id);
 
+            // ✅ Basic validation still needed for simple parameters
             ValidateRequiredString(id, nameof(id));
 
             var result = await _reviewRepository.DeleteAsync(id);
@@ -145,17 +159,7 @@ public class ReviewService : BaseService, IReviewService
             LogInfo("Getting reviews with filters - PatientId: {PatientId}, DoctorId: {DoctorId}, ClinicServiceId: {ClinicServiceId}", 
                 null, request.PatientId, request.DoctorId, request.ClinicServiceId);
 
-            ValidateRequired(request, nameof(request));
-
-            if (request.Page < 1)
-            {
-                throw new ArgumentException("Page must be greater than 0");
-            }
-
-            if (request.PageSize < 1 || request.PageSize > 100)
-            {
-                throw new ArgumentException("Page size must be between 1 and 100");
-            }
+            // ✅ ValidationFilter đã handle tất cả validation rồi
 
             var result = await _reviewRepository.GetReviewsAsync(request);
             
@@ -200,11 +204,7 @@ public class ReviewService : BaseService, IReviewService
         {
             LogInfo("Adding reply to review: {ReviewId} by author: {AuthorId}", null, request.ReviewId, request.AuthorId);
 
-            // Validation
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.ReviewId, nameof(request.ReviewId));
-            ValidateGuid(request.AuthorId, nameof(request.AuthorId));
-            ValidateRequiredString(request.Content, nameof(request.Content));
+            // ✅ ValidationFilter đã handle tất cả validation rồi
 
             // Check if review exists
             var existingReview = await _reviewRepository.GetByIdAsync(request.ReviewId);
@@ -273,11 +273,7 @@ public class ReviewService : BaseService, IReviewService
         {
             LogInfo("Updating reply: {ReplyId} in review: {ReviewId}", null, request.ReplyId, request.ReviewId);
 
-            // Validation
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.ReviewId, nameof(request.ReviewId));
-            ValidateRequiredString(request.ReplyId, nameof(request.ReplyId));
-            ValidateRequiredString(request.Content, nameof(request.Content));
+            // ✅ ValidationFilter đã handle tất cả validation rồi
 
             // Check if review exists
             var existingReview = await _reviewRepository.GetByIdAsync(request.ReviewId);
@@ -338,5 +334,65 @@ public class ReviewService : BaseService, IReviewService
     {
         ValidateGuid(clinicServiceId, nameof(clinicServiceId));
         return await _reviewRepository.GetReviewCountByClinicServiceAsync(clinicServiceId);
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for a doctor
+    /// </summary>
+    public async Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId)
+    {
+        ValidateGuid(doctorId, nameof(doctorId));
+        return await _reviewRepository.GetDoctorStatisticsAsync(doctorId);
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for a clinic service
+    /// </summary>
+    public async Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId)
+    {
+        ValidateGuid(clinicServiceId, nameof(clinicServiceId));
+        return await _reviewRepository.GetClinicServiceStatisticsAsync(clinicServiceId);
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple doctors in a single request
+    /// </summary>
+    public async Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(BatchDoctorsStatisticsRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Getting batch statistics for {Count} doctors", null, request.DoctorIds.Count);
+
+            // ✅ ValidationFilter đã handle tất cả validation rồi
+
+            // Remove duplicates (business logic)
+            var uniqueDoctorIds = request.DoctorIds.Distinct().ToList();
+
+            var result = await _reviewRepository.GetBatchDoctorsStatisticsAsync(uniqueDoctorIds);
+
+            LogInfo("Batch doctor statistics retrieved: {WithStats}/{Total}", null, result.WithStatistics, result.TotalProcessed);
+            return result;
+        }, "GetBatchDoctorsStatistics");
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple clinic services in a single request
+    /// </summary>
+    public async Task<BatchServicesStatisticsResponse> GetBatchServicesStatisticsAsync(BatchServicesStatisticsRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Getting batch statistics for {Count} services", null, request.ServiceIds.Count);
+
+            // ✅ ValidationFilter đã handle tất cả validation rồi
+
+            // Remove duplicates (business logic)
+            var uniqueServiceIds = request.ServiceIds.Distinct().ToList();
+
+            var result = await _reviewRepository.GetBatchServicesStatisticsAsync(uniqueServiceIds);
+
+            LogInfo("Batch service statistics retrieved: {WithStats}/{Total}", null, result.WithStatistics, result.TotalProcessed);
+            return result;
+        }, "GetBatchServicesStatistics");
     }
 }

@@ -95,27 +95,55 @@ public interface IReviewService
     /// Gets the average rating for a doctor
     /// </summary>
     /// <param name="doctorId">The doctor ID</param>
-    /// <returns>The average rating</returns>
+    /// <returns>Average rating</returns>
     Task<double> GetAverageRatingByDoctorAsync(Guid doctorId);
 
     /// <summary>
     /// Gets the average rating for a clinic service
     /// </summary>
     /// <param name="clinicServiceId">The clinic service ID</param>
-    /// <returns>The average rating</returns>
+    /// <returns>Average rating</returns>
     Task<double> GetAverageRatingByClinicServiceAsync(Guid clinicServiceId);
 
     /// <summary>
     /// Gets the total count of reviews for a doctor
     /// </summary>
     /// <param name="doctorId">The doctor ID</param>
-    /// <returns>The total count of reviews</returns>
+    /// <returns>Review count</returns>
     Task<long> GetReviewCountByDoctorAsync(Guid doctorId);
 
     /// <summary>
     /// Gets the total count of reviews for a clinic service
     /// </summary>
     /// <param name="clinicServiceId">The clinic service ID</param>
-    /// <returns>The total count of reviews</returns>
+    /// <returns>Review count</returns>
     Task<long> GetReviewCountByClinicServiceAsync(Guid clinicServiceId);
+
+    /// <summary>
+    /// Gets comprehensive statistics for a doctor
+    /// </summary>
+    /// <param name="doctorId">The doctor ID</param>
+    /// <returns>Review statistics including average rating, count, and distribution</returns>
+    Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId);
+
+    /// <summary>
+    /// Gets comprehensive statistics for a clinic service
+    /// </summary>
+    /// <param name="clinicServiceId">The clinic service ID</param>
+    /// <returns>Review statistics including average rating, count, and distribution</returns>
+    Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId);
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple doctors in a single request
+    /// </summary>
+    /// <param name="request">Batch doctors statistics request</param>
+    /// <returns>Batch statistics response for all doctors</returns>
+    Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(BatchDoctorsStatisticsRequest request);
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple clinic services in a single request
+    /// </summary>
+    /// <param name="request">Batch services statistics request</param>
+    /// <returns>Batch statistics response for all services</returns>
+    Task<BatchServicesStatisticsResponse> GetBatchServicesStatisticsAsync(BatchServicesStatisticsRequest request);
 }

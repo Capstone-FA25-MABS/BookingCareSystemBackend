@@ -99,27 +99,71 @@ public interface IReviewRepository
     /// Gets the average rating for a doctor
     /// </summary>
     /// <param name="doctorId">The doctor ID</param>
-    /// <returns>The average rating</returns>
+    /// <returns>Average rating</returns>
     Task<double> GetAverageRatingByDoctorAsync(Guid doctorId);
 
     /// <summary>
     /// Gets the average rating for a clinic service
     /// </summary>
     /// <param name="clinicServiceId">The clinic service ID</param>
-    /// <returns>The average rating</returns>
+    /// <returns>Average rating</returns>
     Task<double> GetAverageRatingByClinicServiceAsync(Guid clinicServiceId);
 
     /// <summary>
     /// Gets the total count of reviews for a doctor
     /// </summary>
     /// <param name="doctorId">The doctor ID</param>
-    /// <returns>The total count of reviews</returns>
+    /// <returns>Review count</returns>
     Task<long> GetReviewCountByDoctorAsync(Guid doctorId);
 
     /// <summary>
     /// Gets the total count of reviews for a clinic service
     /// </summary>
     /// <param name="clinicServiceId">The clinic service ID</param>
-    /// <returns>The total count of reviews</returns>
+    /// <returns>Review count</returns>
     Task<long> GetReviewCountByClinicServiceAsync(Guid clinicServiceId);
+
+    /// <summary>
+    /// Gets comprehensive statistics for a doctor
+    /// </summary>
+    /// <param name="doctorId">The doctor ID</param>
+    /// <returns>Review statistics including average rating, count, and distribution</returns>
+    Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId);
+
+    /// <summary>
+    /// Gets comprehensive statistics for a clinic service
+    /// </summary>
+    /// <param name="clinicServiceId">The clinic service ID</param>
+    /// <returns>Review statistics including average rating, count, and distribution</returns>
+    Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId);
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple doctors in a single query
+    /// </summary>
+    /// <param name="doctorIds">List of doctor IDs</param>
+    /// <returns>Batch statistics response for all doctors</returns>
+    Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(List<Guid> doctorIds);
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple clinic services in a single query
+    /// </summary>
+    /// <param name="serviceIds">List of clinic service IDs</param>
+    /// <returns>Batch statistics response for all services</returns>
+    Task<BatchServicesStatisticsResponse> GetBatchServicesStatisticsAsync(List<Guid> serviceIds);
+
+    /// <summary>
+    /// Checks if a patient has already reviewed a specific doctor
+    /// </summary>
+    /// <param name="patientId">The patient ID</param>
+    /// <param name="doctorId">The doctor ID</param>
+    /// <returns>The existing review if found, null otherwise</returns>
+    Task<ReviewEntity?> GetExistingDoctorReviewAsync(Guid patientId, Guid doctorId);
+
+    /// <summary>
+    /// Checks if a patient has already reviewed a specific clinic service
+    /// </summary>
+    /// <param name="patientId">The patient ID</param>
+    /// <param name="clinicServiceId">The clinic service ID</param>
+    /// <returns>The existing review if found, null otherwise</returns>
+    Task<ReviewEntity?> GetExistingServiceReviewAsync(Guid patientId, Guid clinicServiceId);
 }
