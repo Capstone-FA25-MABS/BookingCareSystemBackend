@@ -1,0 +1,331 @@
+syntax = "proto3"; // Specify the protocol buffer version
+
+package BookingCare.Services.Doctor; // Define the package namespace
+
+import "google/protobuf/timestamp.proto"; // Import Google's timestamp type
+import "google/protobuf/empty.proto"; // Import Google's empty type
+
+// Service definition for Doctor operations
+service DoctorService {
+  // Doctor CRUD operations
+  rpc CreateDoctor(CreateDoctorRequest) returns (CreateDoctorResponse);
+  rpc GetDoctorById(GetDoctorByIdRequest) returns (GetDoctorResponse);
+  rpc GetDoctorByEmail(GetDoctorByEmailRequest) returns (GetDoctorResponse);
+  rpc UpdateDoctor(UpdateDoctorRequest) returns (UpdateDoctorResponse);
+  rpc DeleteDoctor(DeleteDoctorRequest) returns (DeleteDoctorResponse);
+  rpc GetDoctors(GetDoctorsRequest) returns (GetDoctorsResponse);
+
+  // Position CRUD operations
+  rpc CreatePosition(CreatePositionRequest) returns (CreatePositionResponse);
+  rpc GetPositionById(GetPositionByIdRequest) returns (GetPositionResponse);
+  rpc GetPositions(GetPositionsRequest) returns (GetPositionsResponse);
+
+  // Price CRUD operations
+  rpc CreatePrice(CreatePriceRequest) returns (CreatePriceResponse);
+  rpc GetPriceById(GetPriceByIdRequest) returns (GetPriceResponse);
+  rpc GetPrices(GetPricesRequest) returns (GetPricesResponse);
+
+  // DoctorPrice operations
+  rpc AssignPriceToDoctor(AssignPriceToDoctorRequest) returns (AssignPriceToDoctorResponse);
+  rpc RemovePriceFromDoctor(RemovePriceFromDoctorRequest) returns (RemovePriceFromDoctorResponse);
+  rpc GetDoctorPrices(GetDoctorPricesRequest) returns (GetDoctorPricesResponse);
+
+  // Validation operations
+  rpc ValidateDoctor(ValidateDoctorRequest) returns (ValidateDoctorResponse);
+}
+
+// =============================================================================
+// DOCTOR MESSAGES
+// =============================================================================
+
+// Request to create a new doctor
+message CreateDoctorRequest {
+  string account_id = 1;        // GUID of the associated account
+  string email = 2;             // Doctor's email address
+  string address = 3;           // Doctor's address (optional)
+  string first_name = 4;        // Doctor's first name
+  string last_name = 5;         // Doctor's last name
+  string gender = 6;            // Gender: "MALE", "FEMALE", "OTHER"
+  string position_id = 7;       // GUID of the position (optional)
+  string specialty_id = 8;      // GUID of the specialty (optional)
+  string clinic_id = 9;         // GUID of the clinic (optional)
+  string bio = 10;              // Doctor's biography (optional)
+  int32 years_of_experience = 11; // Years of experience
+  string avatar_url = 12;       // URL to doctor's avatar (optional)
+}
+
+// Response for doctor creation
+message CreateDoctorResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  DoctorInfo doctor = 3;        // Created doctor information
+}
+
+// Request to get doctor by ID
+message GetDoctorByIdRequest {
+  string id = 1;                // GUID of the doctor
+}
+
+// Request to get doctor by email
+message GetDoctorByEmailRequest {
+  string email = 1;             // Doctor's email address
+}
+
+// Response for getting doctor information
+message GetDoctorResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  DoctorInfo doctor = 3;        // Doctor information
+}
+
+// Request to update doctor information
+message UpdateDoctorRequest {
+  string id = 1;                // GUID of the doctor to update
+  string email = 2;             // Updated email address
+  string address = 3;           // Updated address
+  string first_name = 4;        // Updated first name
+  string last_name = 5;         // Updated last name
+  string gender = 6;            // Updated gender
+  string position_id = 7;       // Updated position ID
+  string specialty_id = 8;      // Updated specialty ID
+  string clinic_id = 9;         // Updated clinic ID
+  string bio = 10;              // Updated biography
+  int32 years_of_experience = 11; // Updated years of experience
+  string avatar_url = 12;       // Updated avatar URL
+}
+
+// Response for doctor update
+message UpdateDoctorResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  DoctorInfo doctor = 3;        // Updated doctor information
+}
+
+// Request to delete doctor
+message DeleteDoctorRequest {
+  string id = 1;                // GUID of the doctor to delete
+}
+
+// Response for doctor deletion
+message DeleteDoctorResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+}
+
+// Request to get doctors with filtering and pagination
+message GetDoctorsRequest {
+  int32 page_number = 1;        // Page number for pagination
+  int32 page_size = 2;          // Number of items per page
+  string search_term = 3;       // Search term for filtering
+  string account_id = 4;        // Filter by account ID
+  string position_id = 5;       // Filter by position ID
+  string specialty_id = 6;      // Filter by specialty ID
+  string clinic_id = 7;         // Filter by clinic ID
+  string gender = 8;            // Filter by gender
+  int32 min_years_of_experience = 9; // Minimum years of experience
+  int32 max_years_of_experience = 10; // Maximum years of experience
+}
+
+// Response for getting doctors list
+message GetDoctorsResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  repeated DoctorInfo doctors = 3; // List of doctors
+  int32 total_count = 4;        // Total number of doctors
+  int32 page_number = 5;        // Current page number
+  int32 page_size = 6;          // Page size
+  int32 total_pages = 7;        // Total number of pages
+}
+
+// Doctor information structure
+message DoctorInfo {
+  string id = 1;                // Doctor's GUID
+  string account_id = 2;        // Associated account GUID
+  string email = 3;             // Email address
+  string address = 4;           // Address
+  string first_name = 5;        // First name
+  string last_name = 6;         // Last name
+  string gender = 7;            // Gender
+  string position_id = 8;       // Position GUID
+  string specialty_id = 9;      // Specialty GUID
+  string clinic_id = 10;        // Clinic GUID
+  string bio = 11;              // Biography
+  int32 years_of_experience = 12; // Years of experience
+  string avatar_url = 13;       // Avatar URL
+  google.protobuf.Timestamp created_at = 14; // Creation timestamp
+  google.protobuf.Timestamp updated_at = 15; // Last update timestamp
+}
+
+// =============================================================================
+// POSITION MESSAGES
+// =============================================================================
+
+// Request to create a new position
+message CreatePositionRequest {
+  string name = 1;              // Position name
+}
+
+// Response for position creation
+message CreatePositionResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  PositionInfo position = 3;    // Created position information
+}
+
+// Request to get position by ID
+message GetPositionByIdRequest {
+  string id = 1;                // GUID of the position
+}
+
+// Response for getting position information
+message GetPositionResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  PositionInfo position = 3;    // Position information
+}
+
+// Request to get positions list
+message GetPositionsRequest {
+  int32 page_number = 1;        // Page number for pagination
+  int32 page_size = 2;          // Number of items per page
+  string search_term = 3;       // Search term for filtering
+}
+
+// Response for getting positions list
+message GetPositionsResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  repeated PositionInfo positions = 3; // List of positions
+  int32 total_count = 4;        // Total number of positions
+  int32 page_number = 5;        // Current page number
+  int32 page_size = 6;          // Page size
+  int32 total_pages = 7;        // Total number of pages
+}
+
+// Position information structure
+message PositionInfo {
+  string id = 1;                // Position's GUID
+  string name = 2;              // Position name
+  google.protobuf.Timestamp created_at = 3; // Creation timestamp
+  google.protobuf.Timestamp updated_at = 4; // Last update timestamp
+}
+
+// =============================================================================
+// PRICE MESSAGES
+// =============================================================================
+
+// Request to create a new price
+message CreatePriceRequest {
+  double amount = 1;            // Price amount
+}
+
+// Response for price creation
+message CreatePriceResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  PriceInfo price = 3;          // Created price information
+}
+
+// Request to get price by ID
+message GetPriceByIdRequest {
+  string id = 1;                // GUID of the price
+}
+
+// Response for getting price information
+message GetPriceResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  PriceInfo price = 3;          // Price information
+}
+
+// Request to get prices list
+message GetPricesRequest {
+  int32 page_number = 1;        // Page number for pagination
+  int32 page_size = 2;          // Number of items per page
+  double min_amount = 3;        // Minimum amount filter
+  double max_amount = 4;        // Maximum amount filter
+}
+
+// Response for getting prices list
+message GetPricesResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  repeated PriceInfo prices = 3; // List of prices
+  int32 total_count = 4;        // Total number of prices
+  int32 page_number = 5;        // Current page number
+  int32 page_size = 6;          // Page size
+  int32 total_pages = 7;        // Total number of pages
+}
+
+// Price information structure
+message PriceInfo {
+  string id = 1;                // Price's GUID
+  double amount = 2;            // Price amount
+  google.protobuf.Timestamp created_at = 3; // Creation timestamp
+  google.protobuf.Timestamp updated_at = 4; // Last update timestamp
+}
+
+// =============================================================================
+// DOCTOR-PRICE RELATIONSHIP MESSAGES
+// =============================================================================
+
+// Request to assign price to doctor
+message AssignPriceToDoctorRequest {
+  string doctor_id = 1;         // Doctor's GUID
+  string price_id = 2;          // Price's GUID
+}
+
+// Response for assigning price to doctor
+message AssignPriceToDoctorResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  DoctorPriceInfo doctor_price = 3; // Created relationship information
+}
+
+// Request to remove price from doctor
+message RemovePriceFromDoctorRequest {
+  string doctor_id = 1;         // Doctor's GUID
+  string price_id = 2;          // Price's GUID
+}
+
+// Response for removing price from doctor
+message RemovePriceFromDoctorResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+}
+
+// Request to get doctor's prices
+message GetDoctorPricesRequest {
+  string doctor_id = 1;         // Doctor's GUID
+}
+
+// Response for getting doctor's prices
+message GetDoctorPricesResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  repeated PriceInfo prices = 3; // List of prices assigned to doctor
+}
+
+// Doctor-Price relationship information structure
+message DoctorPriceInfo {
+  string doctor_id = 1;         // Doctor's GUID
+  string price_id = 2;          // Price's GUID
+  DoctorInfo doctor = 3;        // Doctor information
+  PriceInfo price = 4;          // Price information
+}
+
+// =============================================================================
+// VALIDATION MESSAGES
+// =============================================================================
+
+// Request to validate doctor existence
+message ValidateDoctorRequest {
+  string id = 1;                // Doctor's GUID to validate
+}
+
+// Response for doctor validation
+message ValidateDoctorResponse {
+  bool success = 1;             // Whether the operation was successful
+  string error_message = 2;     // Error message if operation failed
+  bool exists = 3;              // Whether the doctor exists
+}
