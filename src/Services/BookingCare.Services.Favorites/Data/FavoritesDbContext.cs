@@ -62,17 +62,5 @@ public class FavoritesDbContext
 
         await Favorites.Indexes.CreateOneAsync(
             new CreateIndexModel<Models.Entities.FavoriteEntity>(doctorIndexKeys, doctorIndexOptions));
-
-        // Create index on created_at for time-based queries
-        var createdAtIndexKeys = Builders<Models.Entities.FavoriteEntity>.IndexKeys
-            .Descending(f => f.CreatedAt);
-
-        var createdAtIndexOptions = new CreateIndexOptions
-        {
-            Name = "created_at_idx"
-        };
-
-        await Favorites.Indexes.CreateOneAsync(
-            new CreateIndexModel<Models.Entities.FavoriteEntity>(createdAtIndexKeys, createdAtIndexOptions));
     }
 }
