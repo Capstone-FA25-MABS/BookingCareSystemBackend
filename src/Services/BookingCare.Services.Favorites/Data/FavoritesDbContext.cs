@@ -25,20 +25,6 @@ public class FavoritesDbContext
     /// </summary>
     public async Task CreateIndexesAsync()
     {
-        // Create compound index for patient_id and doctor_id to prevent duplicates
-        var indexKeysDefinition = Builders<Models.Entities.FavoriteEntity>.IndexKeys
-            .Ascending(f => f.PatientId)
-            .Ascending(f => f.DoctorId);
-
-        var indexOptions = new CreateIndexOptions
-        {
-            Unique = true,
-            Name = "patient_doctor_unique_idx"
-        };
-
-        await Favorites.Indexes.CreateOneAsync(
-            new CreateIndexModel<Models.Entities.FavoriteEntity>(indexKeysDefinition, indexOptions));
-
         // Create index on patient_id for fast queries
         var patientIndexKeys = Builders<Models.Entities.FavoriteEntity>.IndexKeys
             .Ascending(f => f.PatientId);
@@ -50,17 +36,5 @@ public class FavoritesDbContext
 
         await Favorites.Indexes.CreateOneAsync(
             new CreateIndexModel<Models.Entities.FavoriteEntity>(patientIndexKeys, patientIndexOptions));
-
-        // Create index on doctor_id for analytics
-        var doctorIndexKeys = Builders<Models.Entities.FavoriteEntity>.IndexKeys
-            .Ascending(f => f.DoctorId);
-
-        var doctorIndexOptions = new CreateIndexOptions
-        {
-            Name = "doctor_id_idx"
-        };
-
-        await Favorites.Indexes.CreateOneAsync(
-            new CreateIndexModel<Models.Entities.FavoriteEntity>(doctorIndexKeys, doctorIndexOptions));
     }
 }

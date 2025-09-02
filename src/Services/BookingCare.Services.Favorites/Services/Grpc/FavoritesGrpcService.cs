@@ -131,7 +131,7 @@ public class FavoritesGrpcService : FavoritesService.FavoritesServiceBase
             var patientId = Guid.Parse(request.PatientId);
 
             // Get patient's favorites and count them
-            var favoritesRequest = new GetPatientFavoritesRequest
+            var favoritesRequest = new Models.DTOs.GetPatientFavoritesRequest
             {
                 PatientId = patientId,
                 Page = 1,
@@ -163,5 +163,73 @@ public class FavoritesGrpcService : FavoritesService.FavoritesServiceBase
             _logger.LogError(ex, "Error in gRPC GetPatientFavoriteCount for Patient {PatientId}", request.PatientId);
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }
+    }
+
+    /// <summary>
+    /// Get patient's favorites with pagination via gRPC
+    /// </summary>
+    public override async Task<GrpcModels.GetPatientFavoritesResponse> GetPatientFavorites(
+        GrpcModels.GetPatientFavoritesRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("gRPC GetPatientFavorites called for Patient {PatientId}, Page {Page}, PageSize {PageSize}",
+                request.PatientId, request.Page, request.PageSize);
+
+            var patientId = Guid.Parse(request.PatientId);
+
+            // Convert gRPC request to service DTO
+            var serviceRequest = new Models.DTOs.GetPatientFavoritesRequest
+            {
+                PatientId = patientId,
+                Page = request.Page > 0 ? request.Page : 1,
+                PageSize = request.PageSize > 0 ? request.PageSize : 20
+            };
+
+            // Call service
+            var serviceResponse = await _favoriteService.GetPatientFavoritesAsync(serviceRequest);
+
+            // Convert service response to gRPC response
+            var grpcResponse = new GrpcModels.GetPatientFavoritesResponse
+            {
+                PatientId = request.PatientId,
+                TotalCount = serviceResponse.TotalCount,
+                PageNumber = serviceResponse.PageNumber,
+                PageSize = serviceResponse.PageSize,
+                TotalPages = serviceResponse.TotalPages,
+                HasNextPage = serviceResponse.HasNextPage,
+                HasPreviousPage = serviceResponse.HasPreviousPage,
+                Success = true,
+                Message = "Patient favorites retrieved successfully"
+            };
+
+            // Convert items to gRPC format (without redundant patient_id)
+            foreach (var item in serviceResponse.Items)
+            {
+                grpcResponse.Items.Add(new GrpcModels.FavoriteItem
+                {
+                    Id = item.Id.ToString(),
+                    DoctorId = item.DoctorId.ToString(),
+                    CreatedAt = item.CreatedAt.ToString("O") // ISO 8601 format
+                });
+            }
+
+            _logger.LogInformation("gRPC GetPatientFavorites completed for Patient {PatientId}, returned {ItemCount} items of {TotalCount} total",
+                request.PatientId, serviceResponse.Items.Count, serviceResponse.TotalCount);
+
+            return grpcResponse;
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid argument in gRPC GetPatientFavorites for Patient {PatientId}", request.PatientId);
+            throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in gRPC GetPatientFavorites for Patient {PatientId}", request.PatientId);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+
     }
 }
