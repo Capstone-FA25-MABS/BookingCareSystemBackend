@@ -75,7 +75,7 @@ public class DiscountService : BaseService, IDiscountService
         }, "CreateDiscount");
     }
 
-    public async Task<DiscountResponse?> GetDiscountByIdAsync(long id)
+    public async Task<DiscountResponse?> GetDiscountByIdAsync(Guid id)
     {
         var discount = await _discountRepository.GetByIdAsync(id);
         return discount != null ? _mapper.Map<DiscountResponse>(discount) : null;
@@ -134,7 +134,7 @@ public class DiscountService : BaseService, IDiscountService
         }, "UpdateDiscount");
     }
 
-    public async Task<bool> DeleteDiscountAsync(long id)
+    public async Task<bool> DeleteDiscountAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
@@ -182,13 +182,13 @@ public class DiscountService : BaseService, IDiscountService
         }, "GetDiscounts");
     }
 
-    public async Task<List<DiscountResponse>> GetActiveDiscountsByClinicAsync(long clinicId)
+    public async Task<List<DiscountResponse>> GetActiveDiscountsByClinicAsync(Guid clinicId)
     {
         var discounts = await _discountRepository.GetActiveDiscountsByClinicAsync(clinicId);
         return _mapper.Map<List<DiscountResponse>>(discounts);
     }
 
-    public async Task<List<DiscountResponse>> GetApplicableDiscountsAsync(long clinicId, long? specialtyId = null, long? doctorId = null)
+    public async Task<List<DiscountResponse>> GetApplicableDiscountsAsync(Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
     {
         var discounts = await _discountRepository.GetApplicableDiscountsAsync(clinicId, specialtyId, doctorId);
         return _mapper.Map<List<DiscountResponse>>(discounts);
@@ -289,7 +289,7 @@ public class DiscountService : BaseService, IDiscountService
         }, "UseDiscount");
     }
 
-    public async Task<bool> RevertDiscountUsageAsync(string code, long clinicId)
+    public async Task<bool> RevertDiscountUsageAsync(string code, Guid clinicId)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
@@ -313,12 +313,12 @@ public class DiscountService : BaseService, IDiscountService
         }, "RevertDiscountUsage");
     }
 
-    public async Task<bool> ActivateDiscountAsync(long id)
+    public async Task<bool> ActivateDiscountAsync(Guid id)
     {
         return await _discountRepository.UpdateStatusAsync(id, DiscountStatus.ACTIVE);
     }
 
-    public async Task<bool> DeactivateDiscountAsync(long id)
+    public async Task<bool> DeactivateDiscountAsync(Guid id)
     {
         return await _discountRepository.UpdateStatusAsync(id, DiscountStatus.INACTIVE);
     }
@@ -334,13 +334,13 @@ public class DiscountService : BaseService, IDiscountService
         }, "UpdateExpiredDiscounts");
     }
 
-    public async Task<bool> IsDiscountValidAsync(string code, long clinicId, long? specialtyId = null, long? doctorId = null)
+    public async Task<bool> IsDiscountValidAsync(string code, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
     {
         var discount = await _discountRepository.GetValidDiscountAsync(code, clinicId, specialtyId, doctorId);
         return discount != null;
     }
 
-    public async Task<decimal> CalculateDiscountAmountAsync(string code, decimal originalAmount, long clinicId, long? specialtyId = null, long? doctorId = null)
+    public async Task<decimal> CalculateDiscountAmountAsync(string code, decimal originalAmount, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
     {
         var discount = await _discountRepository.GetValidDiscountAsync(code, clinicId, specialtyId, doctorId);
         if (discount == null) return 0;

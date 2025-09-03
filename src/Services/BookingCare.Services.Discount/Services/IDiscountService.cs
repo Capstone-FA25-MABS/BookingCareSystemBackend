@@ -6,27 +6,27 @@ public interface IDiscountService
 {
     // Basic CRUD operations
     Task<DiscountResponse> CreateDiscountAsync(CreateDiscountRequest request);
-    Task<DiscountResponse?> GetDiscountByIdAsync(long id);
+    Task<DiscountResponse?> GetDiscountByIdAsync(Guid id);
     Task<DiscountResponse?> GetDiscountByCodeAsync(string code);
     Task<DiscountResponse> UpdateDiscountAsync(UpdateDiscountRequest request);
-    Task<bool> DeleteDiscountAsync(long id);
+    Task<bool> DeleteDiscountAsync(Guid id);
 
     // Query operations
     Task<DiscountListResponse> GetDiscountsAsync(DiscountQueryRequest query);
-    Task<List<DiscountResponse>> GetActiveDiscountsByClinicAsync(long clinicId);
-    Task<List<DiscountResponse>> GetApplicableDiscountsAsync(long clinicId, long? specialtyId = null, long? doctorId = null);
+    Task<List<DiscountResponse>> GetActiveDiscountsByClinicAsync(Guid clinicId);
+    Task<List<DiscountResponse>> GetApplicableDiscountsAsync(Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
 
     // Validation and usage operations
     Task<DiscountValidationResponse> ValidateDiscountAsync(ValidateDiscountRequest request);
     Task<DiscountUsageResponse> UseDiscountAsync(UseDiscountRequest request);
-    Task<bool> RevertDiscountUsageAsync(string code, long clinicId);
+    Task<bool> RevertDiscountUsageAsync(string code, Guid clinicId);
 
     // Administrative operations
-    Task<bool> ActivateDiscountAsync(long id);
-    Task<bool> DeactivateDiscountAsync(long id);
+    Task<bool> ActivateDiscountAsync(Guid id);
+    Task<bool> DeactivateDiscountAsync(Guid id);
     Task<int> UpdateExpiredDiscountsAsync();
-    Task<bool> IsDiscountValidAsync(string code, long clinicId, long? specialtyId = null, long? doctorId = null);
+    Task<bool> IsDiscountValidAsync(string code, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
 
     // Calculation helpers
-    Task<decimal> CalculateDiscountAmountAsync(string code, decimal originalAmount, long clinicId, long? specialtyId = null, long? doctorId = null);
+    Task<decimal> CalculateDiscountAmountAsync(string code, decimal originalAmount, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
 }
