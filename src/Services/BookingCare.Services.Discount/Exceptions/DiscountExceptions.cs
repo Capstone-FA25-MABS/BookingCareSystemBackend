@@ -23,8 +23,8 @@ public class DiscountNotFoundException : NotFoundException
     {
     }
 
-    public DiscountNotFoundException(long discountId)
-        : base("Discount", discountId, "DISCOUNT_NOT_FOUND")
+    public DiscountNotFoundException(Guid discountId)
+        : base("Discount", discountId.ToString(), "DISCOUNT_NOT_FOUND")
     {
     }
 

@@ -3,6 +3,7 @@ using BookingCare.Services.Discount.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
+using DiscountRequestDto = BookingCare.Services.Discount.Models.DTOs;
 
 namespace BookingCare.Services.Discount.Controllers;
 
@@ -26,7 +27,7 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetDiscount(long id)
+    public async Task<IActionResult> GetDiscount(Guid id)
     {
         var discount = await _discountService.GetDiscountByIdAsync(id);
         if (discount == null)
@@ -69,7 +70,7 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpGet("clinic/{clinicId}/active")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDiscountsByClinic(long clinicId)
+    public async Task<IActionResult> GetActiveDiscountsByClinic(Guid clinicId)
     {
         var discounts = await _discountService.GetActiveDiscountsByClinicAsync(clinicId);
         return Success(discounts, $"Active discounts for clinic {clinicId} retrieved successfully");
@@ -81,9 +82,9 @@ public class DiscountsController : BaseApiController
     [HttpGet("applicable")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetApplicableDiscounts(
-        [FromQuery] long clinicId,
-        [FromQuery] long? specialtyId = null,
-        [FromQuery] long? doctorId = null)
+        [FromQuery] Guid clinicId,
+        [FromQuery] Guid? specialtyId = null,
+        [FromQuery] Guid? doctorId = null)
     {
         var discounts = await _discountService.GetApplicableDiscountsAsync(clinicId, specialtyId, doctorId);
         return Success(discounts, "Applicable discounts retrieved successfully");
@@ -113,7 +114,7 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> UpdateDiscount(long id, [FromBody] UpdateDiscountRequest request)
+    public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateDiscountRequest request)
     {
         if (id != request.Id)
         {
@@ -137,7 +138,7 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> DeleteDiscount(long id)
+    public async Task<IActionResult> DeleteDiscount(Guid id)
     {
         var result = await _discountService.DeleteDiscountAsync(id);
         if (!result)
@@ -190,7 +191,7 @@ public class DiscountsController : BaseApiController
     /// Revert discount usage (for order cancellations)
     /// </summary>
     [HttpPost("revert")]
-    public async Task<IActionResult> RevertDiscountUsage([FromBody] RevertDiscountUsageRequest request)
+    public async Task<IActionResult> RevertDiscountUsage([FromBody] DiscountRequestDto.RevertDiscountUsageRequest request)
     {
         var result = await _discountService.RevertDiscountUsageAsync(request.Code, request.ClinicId);
         if (!result)
@@ -206,7 +207,7 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpPatch("{id}/activate")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> ActivateDiscount(long id)
+    public async Task<IActionResult> ActivateDiscount(Guid id)
     {
         var result = await _discountService.ActivateDiscountAsync(id);
         if (!result)
@@ -222,7 +223,7 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpPatch("{id}/deactivate")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> DeactivateDiscount(long id)
+    public async Task<IActionResult> DeactivateDiscount(Guid id)
     {
         var result = await _discountService.DeactivateDiscountAsync(id);
         if (!result)
@@ -249,7 +250,7 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpPost("calculate")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> CalculateDiscountAmount([FromBody] CalculateDiscountRequest request)
+    public async Task<IActionResult> CalculateDiscountAmount([FromBody] DiscountRequestDto.CalculateDiscountRequest request)
     {
         if (!ModelState.IsValid)
         {

@@ -28,9 +28,9 @@ service DiscountService {
 // Messages for discount validation
 message ValidateDiscountRequest {
   string code = 1;
-  int64 clinic_id = 2;
-  optional int64 specialty_id = 3;
-  optional int64 doctor_id = 4;
+  string clinic_id = 2;
+  optional string specialty_id = 3;
+  optional string doctor_id = 4;
   double total_amount = 5;
 }
 
@@ -45,9 +45,9 @@ message ValidateDiscountResponse {
 // Messages for discount usage
 message UseDiscountRequest {
   string code = 1;
-  int64 clinic_id = 2;
-  optional int64 specialty_id = 3;
-  optional int64 doctor_id = 4;
+  string clinic_id = 2;
+  optional string specialty_id = 3;
+  optional string doctor_id = 4;
   double total_amount = 5;
 }
 
@@ -56,14 +56,14 @@ message UseDiscountResponse {
   string message = 2;
   double discount_amount = 3;
   double final_amount = 4;
-  int64 discount_id = 5;
+  string discount_id = 5;
   int32 remaining_uses = 6;
 }
 
 // Messages for reverting discount usage
 message RevertDiscountUsageRequest {
   string code = 1;
-  int64 clinic_id = 2;
+  string clinic_id = 2;
 }
 
 message RevertDiscountUsageResponse {
@@ -75,9 +75,9 @@ message RevertDiscountUsageResponse {
 message CalculateDiscountAmountRequest {
   string code = 1;
   double original_amount = 2;
-  int64 clinic_id = 3;
-  optional int64 specialty_id = 4;
-  optional int64 doctor_id = 5;
+  string clinic_id = 3;
+  optional string specialty_id = 4;
+  optional string doctor_id = 5;
 }
 
 message CalculateDiscountAmountResponse {
@@ -88,9 +88,9 @@ message CalculateDiscountAmountResponse {
 
 // Messages for getting applicable discounts
 message GetApplicableDiscountsRequest {
-  int64 clinic_id = 1;
-  optional int64 specialty_id = 2;
-  optional int64 doctor_id = 3;
+  string clinic_id = 1;
+  optional string specialty_id = 2;
+  optional string doctor_id = 3;
 }
 
 message GetApplicableDiscountsResponse {
@@ -100,9 +100,9 @@ message GetApplicableDiscountsResponse {
 // Messages for checking discount validity
 message IsDiscountValidRequest {
   string code = 1;
-  int64 clinic_id = 2;
-  optional int64 specialty_id = 3;
-  optional int64 doctor_id = 4;
+  string clinic_id = 2;
+  optional string specialty_id = 3;
+  optional string doctor_id = 4;
 }
 
 message IsDiscountValidResponse {
@@ -111,13 +111,13 @@ message IsDiscountValidResponse {
 
 // Common discount information
 message DiscountInfo {
-  int64 id = 1;
+  string id = 1;
   string code = 2;
   string name = 3;
   string description = 4;
-  int64 clinic_id = 5;
-  optional int64 specialty_id = 6;
-  optional int64 doctor_id = 7;
+  string clinic_id = 5;
+  optional string specialty_id = 6;
+  optional string doctor_id = 7;
   string applicable_to = 8;
   double amount = 9;
   string discount_type = 10;
