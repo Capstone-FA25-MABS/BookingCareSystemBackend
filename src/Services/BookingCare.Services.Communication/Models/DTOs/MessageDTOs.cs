@@ -218,3 +218,75 @@ public class SearchMessageRequest
     /// </summary>
     public int PageSize { get; set; } = 20;
 }
+
+/// <summary>
+/// Request ?? t?o tin nh?n v?i file upload
+/// </summary>
+public class CreateMessageWithFilesRequest
+{
+    /// <summary>
+    /// ID c?a cu?c h?i tho?i
+    /// </summary>
+    public string ConversationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID c?a ng??i g?i
+    /// </summary>
+    public string SenderId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// </summary>
+    public string? ReceiverId { get; set; }
+
+    /// <summary>
+    /// N?i dung tin nh?n
+    /// </summary>
+    public string Content { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Lo?i tin nh?n (Image, File, Video, Audio)
+    /// </summary>
+    public MessageType Type { get; set; } = MessageType.File;
+
+    /// <summary>
+    /// Danh sách files ?? upload
+    /// </summary>
+    public List<IFormFile> Files { get; set; } = new();
+}
+
+/// <summary>
+/// Request ?? t?o tin nh?n v?i attachments có s?n
+/// </summary>
+public class CreateMessageWithAttachmentsRequest
+{
+    /// <summary>
+    /// ID c?a cu?c h?i tho?i
+    /// </summary>
+    public string ConversationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID c?a ng??i g?i
+    /// </summary>
+    public string SenderId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// </summary>
+    public string? ReceiverId { get; set; }
+
+    /// <summary>
+    /// N?i dung tin nh?n
+    /// </summary>
+    public string Content { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Lo?i tin nh?n
+    /// </summary>
+    public MessageType Type { get; set; } = MessageType.Text;
+
+    /// <summary>
+    /// Danh sách attachment URLs ?ã upload
+    /// </summary>
+    public List<MessageAttachmentRequest> Attachments { get; set; } = new();
+}

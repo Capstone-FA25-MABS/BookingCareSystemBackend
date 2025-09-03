@@ -14,6 +14,11 @@ public interface IMessageService
     Task<MessageResponse> CreateAsync(CreateMessageRequest request);
 
     /// <summary>
+    /// T?o tin nh?n v?i file upload (Complete Flow)
+    /// </summary>
+    Task<MessageResponse> CreateMessageWithFilesAsync(CreateMessageWithFilesRequest request);
+
+    /// <summary>
     /// C?p nh?t tin nh?n
     /// </summary>
     Task<MessageResponse> UpdateAsync(UpdateMessageRequest request);

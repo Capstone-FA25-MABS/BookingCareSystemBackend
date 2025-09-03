@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+Ôªøusing Microsoft.AspNetCore.Mvc;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Data.Seeding;
@@ -39,11 +39,11 @@ public class CommunicationsController : BaseApiController
     public IActionResult Health()
     {
         return Success(new { Status = "Healthy", Service = "Communication", Timestamp = DateTime.UtcNow }, 
-            "Communication service ?ang ho?t ??ng bÏnh th??ng");
+            "Communication service ?ang ho?t ??ng b√¨nh th??ng");
     }
 
     /// <summary>
-    /// Seed d? li?u m?u v‡o database (ch? d˘ng trong development)
+    /// Seed d? li?u m?u v√†o database (ch? d√πng trong development)
     /// </summary>
     [HttpPost("seed-data")]
     public async Task<IActionResult> SeedData()
@@ -51,7 +51,7 @@ public class CommunicationsController : BaseApiController
         try
         {
             await CommunicationDataSeeder.SeedAsync(_dbContext);
-            return Success(new { Message = "D? li?u m?u ?„ ???c t?o th‡nh cÙng!" }, "D? li?u m?u ?„ ???c t?o th‡nh cÙng!");
+            return Success(new { Message = "D? li?u m?u ?√£ ???c t?o th√†nh c√¥ng!" }, "D? li?u m?u ?√£ ???c t?o th√†nh c√¥ng!");
         }
         catch (Exception ex)
         {
@@ -62,13 +62,81 @@ public class CommunicationsController : BaseApiController
     #region Messages
 
     /// <summary>
-    /// T?o tin nh?n m?i
+    /// T·∫°o tin nh·∫Øn m·ªõi
     /// </summary>
     [HttpPost("messages")]
     public async Task<IActionResult> CreateMessage([FromBody] CreateMessageRequest request)
     {
         var result = await _messageService.CreateAsync(request);
-        return Created(result, "Tin nh?n ?„ ???c t?o th‡nh cÙng!");
+        return Created(result, "Tin nh·∫Øn ƒë√£ ƒë∆∞·ª£c t·∫°o th√†nh c√¥ng!");
+    }
+
+    /// <summary>
+    /// T·∫°o tin nh·∫Øn v·ªõi file upload (Complete Flow) - One-step upload & send
+    /// </summary>
+    [HttpPost("messages/with-files")]
+    public async Task<IActionResult> CreateMessageWithFiles([FromForm] CreateMessageWithFilesRequest request)
+    {
+        try
+        {
+            // Validate request
+            if (request.Type == MessageType.Text && request.Files.Any())
+            {
+                return BadRequest("Tin nh·∫Øn text kh√¥ng ƒë∆∞·ª£c c√≥ file ƒë√≠nh k√®m");
+            }
+
+            if (request.Type != MessageType.Text && !request.Files.Any())
+            {
+                return BadRequest($"Tin nh·∫Øn lo·∫°i {request.Type} y√™u c·∫ßu ph·∫£i c√≥ file ƒë√≠nh k√®m");
+            }
+
+            // Use the complete file upload flow
+            var result = await _messageService.CreateMessageWithFilesAsync(request);
+            
+            return Created(result, "Tin nh·∫Øn v·ªõi file ƒë√£ ƒë∆∞·ª£c g·ª≠i th√†nh c√¥ng!");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"L·ªói khi t·∫°o tin nh·∫Øn v·ªõi file: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// T·∫°o tin nh·∫Øn v·ªõi attachments ƒë√£ upload s·∫µn
+    /// </summary>
+    [HttpPost("messages/with-attachments")]
+    public async Task<IActionResult> CreateMessageWithAttachments([FromBody] CreateMessageWithAttachmentsRequest request)
+    {
+        try
+        {
+            // Validate attachments cho non-text messages
+            if (request.Type != MessageType.Text && request.Type != MessageType.System && !request.Attachments.Any())
+            {
+                return BadRequest($"Tin nh·∫Øn lo·∫°i {request.Type} y√™u c·∫ßu ph·∫£i c√≥ attachments");
+            }
+
+            if ((request.Type == MessageType.Text || request.Type == MessageType.System) && request.Attachments.Any())
+            {
+                return BadRequest($"Tin nh·∫Øn lo·∫°i {request.Type} kh√¥ng ƒë∆∞·ª£c c√≥ attachments");
+            }
+
+            // Create message v·ªõi attachments
+            var result = await _messageService.CreateAsync(new CreateMessageRequest
+            {
+                ConversationId = request.ConversationId,
+                SenderId = request.SenderId,
+                ReceiverId = request.ReceiverId,
+                Content = request.Content,
+                Type = request.Type,
+                Attachments = request.Attachments
+            });
+
+            return Created(result, "Tin nh·∫Øn v·ªõi attachments ƒë√£ ƒë∆∞·ª£c t·∫°o th√†nh c√¥ng!");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"L·ªói khi t·∫°o tin nh·∫Øn v·ªõi attachments: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -79,11 +147,11 @@ public class CommunicationsController : BaseApiController
     {
         if (id != request.Id)
         {
-            return BadRequest("ID trong URL v‡ request body khÙng kh?p");
+            return BadRequest("ID trong URL v√† request body kh√¥ng kh?p");
         }
 
         var result = await _messageService.UpdateAsync(request);
-        return Success(result, "Tin nh?n ?„ ???c c?p nh?t th‡nh cÙng!");
+        return Success(result, "Tin nh?n ?√£ ???c c?p nh?t th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -95,9 +163,9 @@ public class CommunicationsController : BaseApiController
         var result = await _messageService.GetByIdAsync(id);
         if (result == null)
         {
-            return NotFound($"Tin nh?n v?i ID {id} khÙng tÏm th?y");
+            return NotFound($"Tin nh?n v?i ID {id} kh√¥ng t√¨m th?y");
         }
-        return Success(result, "L?y tin nh?n th‡nh cÙng!");
+        return Success(result, "L?y tin nh?n th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -110,11 +178,11 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 50)
     {
         var result = await _messageService.GetByConversationIdAsync(conversationId, page, pageSize);
-        return Success(result, "L?y tin nh?n th‡nh cÙng!");
+        return Success(result, "L?y tin nh?n th√†nh c√¥ng!");
     }
 
     /// <summary>
-    /// XÛa tin nh?n
+    /// X√≥a tin nh?n
     /// </summary>
     [HttpDelete("messages/{id}")]
     public async Task<IActionResult> DeleteMessage(string id)
@@ -122,13 +190,13 @@ public class CommunicationsController : BaseApiController
         var result = await _messageService.DeleteAsync(id);
         if (!result)
         {
-            return NotFound($"Tin nh?n v?i ID {id} khÙng tÏm th?y");
+            return NotFound($"Tin nh?n v?i ID {id} kh√¥ng t√¨m th?y");
         }
-        return Success(new { Deleted = true }, "XÛa tin nh?n th‡nh cÙng!");
+        return Success(new { Deleted = true }, "X√≥a tin nh?n th√†nh c√¥ng!");
     }
 
     /// <summary>
-    /// ?·nh d?u tin nh?n ?„ ??c
+    /// ?√°nh d?u tin nh?n ?√£ ??c
     /// </summary>
     [HttpPost("messages/mark-as-read")]
     public async Task<IActionResult> MarkMessageAsRead([FromBody] MarkMessageAsReadRequest request)
@@ -136,9 +204,9 @@ public class CommunicationsController : BaseApiController
         var result = await _messageService.MarkAsReadAsync(request);
         if (!result)
         {
-            return BadRequest("KhÙng th? ?·nh d?u tin nh?n ?„ ??c");
+            return BadRequest("Kh√¥ng th? ?√°nh d?u tin nh?n ?√£ ??c");
         }
-        return Success(new { MarkedAsRead = true }, "?·nh d?u tin nh?n ?„ ??c th‡nh cÙng!");
+        return Success(new { MarkedAsRead = true }, "?√°nh d?u tin nh?n ?√£ ??c th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -148,17 +216,17 @@ public class CommunicationsController : BaseApiController
     public async Task<IActionResult> GetUnreadCount(string conversationId, [FromQuery] string userId)
     {
         var count = await _messageService.GetUnreadCountAsync(conversationId, userId);
-        return Success(new { UnreadCount = count }, "L?y s? tin nh?n ch?a ??c th‡nh cÙng!");
+        return Success(new { UnreadCount = count }, "L?y s? tin nh?n ch?a ??c th√†nh c√¥ng!");
     }
 
     /// <summary>
-    /// TÏm ki?m tin nh?n
+    /// T√¨m ki?m tin nh?n
     /// </summary>
     [HttpPost("messages/search")]
     public async Task<IActionResult> SearchMessages([FromBody] SearchMessageRequest request)
     {
         var result = await _messageService.SearchAsync(request);
-        return Success(result, "TÏm ki?m tin nh?n th‡nh cÙng!");
+        return Success(result, "T√¨m ki?m tin nh?n th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -169,11 +237,11 @@ public class CommunicationsController : BaseApiController
     {
         if (request.Type != MessageType.Text)
         {
-            return BadRequest("Endpoint n‡y ch? d‡nh cho tin nh?n text");
+            return BadRequest("Endpoint n√†y ch? d√†nh cho tin nh?n text");
         }
 
         var result = await _messageService.CreateAsync(request);
-        return Created(result, "Tin nh?n text ?„ ???c g?i th‡nh cÙng!");
+        return Created(result, "Tin nh?n text ?√£ ???c g?i th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -187,7 +255,7 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 20)
     {
         var result = await _messageService.GetMessagesByTypeAsync(conversationId, messageType, page, pageSize);
-        return Success(result, "L?y tin nh?n theo lo?i th‡nh cÙng!");
+        return Success(result, "L?y tin nh?n theo lo?i th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -201,7 +269,7 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 50)
     {
         var result = await _messageService.GetConversationAttachmentsAsync(conversationId, messageType, page, pageSize);
-        return Success(result, "L?y attachments th‡nh cÙng!");
+        return Success(result, "L?y attachments th√†nh c√¥ng!");
     }
 
     #endregion
@@ -215,7 +283,7 @@ public class CommunicationsController : BaseApiController
     public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
     {
         var result = await _conversationService.CreateAsync(request);
-        return Created(result, "Cu?c h?i tho?i ?„ ???c t?o th‡nh cÙng!");
+        return Created(result, "Cu?c h?i tho?i ?√£ ???c t?o th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -227,9 +295,9 @@ public class CommunicationsController : BaseApiController
         var result = await _conversationService.GetByIdAsync(id);
         if (result == null)
         {
-            return NotFound($"Cu?c h?i tho?i v?i ID {id} khÙng tÏm th?y");
+            return NotFound($"Cu?c h?i tho?i v?i ID {id} kh√¥ng t√¨m th?y");
         }
-        return Success(result, "L?y cu?c h?i tho?i th‡nh cÙng!");
+        return Success(result, "L?y cu?c h?i tho?i th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -242,11 +310,11 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 20)
     {
         var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize);
-        return Success(result, "L?y cu?c h?i tho?i th‡nh cÙng!");
+        return Success(result, "L?y cu?c h?i tho?i th√†nh c√¥ng!");
     }
 
     /// <summary>
-    /// TÏm cu?c h?i tho?i gi?a 2 users
+    /// T√¨m cu?c h?i tho?i gi?a 2 users
     /// </summary>
     [HttpGet("conversations/between")]
     public async Task<IActionResult> GetConversationBetweenUsers([FromQuery] string userId1, [FromQuery] string userId2)
@@ -254,9 +322,9 @@ public class CommunicationsController : BaseApiController
         var result = await _conversationService.GetConversationBetweenUsersAsync(userId1, userId2);
         if (result == null)
         {
-            return NotFound("KhÙng tÏm th?y cu?c h?i tho?i gi?a 2 users n‡y");
+            return NotFound("Kh√¥ng t√¨m th?y cu?c h?i tho?i gi?a 2 users n√†y");
         }
-        return Success(result, "TÏm cu?c h?i tho?i th‡nh cÙng!");
+        return Success(result, "T√¨m cu?c h?i tho?i th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -268,9 +336,9 @@ public class CommunicationsController : BaseApiController
         var result = await _conversationService.BlockConversationAsync(request);
         if (!result)
         {
-            return BadRequest("KhÙng th? ch?n cu?c h?i tho?i");
+            return BadRequest("Kh√¥ng th? ch?n cu?c h?i tho?i");
         }
-        return Success(new { Blocked = true }, "Ch?n cu?c h?i tho?i th‡nh cÙng!");
+        return Success(new { Blocked = true }, "Ch?n cu?c h?i tho?i th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -282,9 +350,9 @@ public class CommunicationsController : BaseApiController
         var result = await _conversationService.UnblockConversationAsync(request);
         if (!result)
         {
-            return BadRequest("KhÙng th? b? ch?n cu?c h?i tho?i");
+            return BadRequest("Kh√¥ng th? b? ch?n cu?c h?i tho?i");
         }
-        return Success(new { Unblocked = true }, "B? ch?n cu?c h?i tho?i th‡nh cÙng!");
+        return Success(new { Unblocked = true }, "B? ch?n cu?c h?i tho?i th√†nh c√¥ng!");
     }
 
     #endregion
@@ -298,7 +366,7 @@ public class CommunicationsController : BaseApiController
     public async Task<IActionResult> CreateCallLog([FromBody] CreateCallLogRequest request)
     {
         var result = await _callLogService.CreateAsync(request);
-        return Created(result, "Call log ?„ ???c t?o th‡nh cÙng!");
+        return Created(result, "Call log ?√£ ???c t?o th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -309,11 +377,11 @@ public class CommunicationsController : BaseApiController
     {
         if (id != request.Id)
         {
-            return BadRequest("ID trong URL v‡ request body khÙng kh?p");
+            return BadRequest("ID trong URL v√† request body kh√¥ng kh?p");
         }
 
         var result = await _callLogService.UpdateAsync(request);
-        return Success(result, "Call log ?„ ???c c?p nh?t th‡nh cÙng!");
+        return Success(result, "Call log ?√£ ???c c?p nh?t th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -325,9 +393,9 @@ public class CommunicationsController : BaseApiController
         var result = await _callLogService.GetByIdAsync(id);
         if (result == null)
         {
-            return NotFound($"Call log v?i ID {id} khÙng tÏm th?y");
+            return NotFound($"Call log v?i ID {id} kh√¥ng t√¨m th?y");
         }
-        return Success(result, "L?y call log th‡nh cÙng!");
+        return Success(result, "L?y call log th√†nh c√¥ng!");
     }
 
     /// <summary>
@@ -340,17 +408,17 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 20)
     {
         var result = await _callLogService.GetByUserIdAsync(userId, page, pageSize);
-        return Success(result, "L?y call logs th‡nh cÙng!");
+        return Success(result, "L?y call logs th√†nh c√¥ng!");
     }
 
     /// <summary>
-    /// L?y th?ng kÍ cu?c g?i
+    /// L?y th?ng k√™ cu?c g?i
     /// </summary>
     [HttpPost("call-logs/statistics")]
     public async Task<IActionResult> GetCallStatistics([FromBody] GetCallStatisticsRequest request)
     {
         var result = await _callLogService.GetCallStatisticsAsync(request);
-        return Success(result, "L?y th?ng kÍ cu?c g?i th‡nh cÙng!");
+        return Success(result, "L?y th?ng k√™ cu?c g?i th√†nh c√¥ng!");
     }
 
     #endregion
@@ -375,7 +443,7 @@ public class CommunicationsController : BaseApiController
                 ConnectionStatus = "Connected"
             };
 
-            return Success(data, "K?t n?i database th‡nh cÙng!");
+            return Success(data, "K?t n?i database th√†nh c√¥ng!");
         }
         catch (Exception ex)
         {

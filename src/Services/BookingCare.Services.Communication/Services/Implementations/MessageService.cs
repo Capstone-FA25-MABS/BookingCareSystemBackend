@@ -9,22 +9,25 @@ using BookingCare.Shared.Common.Services;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Implementation c?a Message service v?i BaseService
+/// Implementation c?a Message service v?i BaseService và File Upload integration
 /// </summary>
 public class MessageService : BaseService, IMessageService
 {
     private readonly IMessageRepository _messageRepository;
     private readonly IConversationRepository _conversationRepository;
+    private readonly IFileUploadService _fileUploadService;
     private readonly IMapper _mapper;
 
     public MessageService(
         IMessageRepository messageRepository,
         IConversationRepository conversationRepository,
+        IFileUploadService fileUploadService,
         IMapper mapper,
         ILogger<MessageService> logger) : base(logger)
     {
         _messageRepository = messageRepository;
         _conversationRepository = conversationRepository;
+        _fileUploadService = fileUploadService;
         _mapper = mapper;
     }
 
@@ -74,6 +77,92 @@ public class MessageService : BaseService, IMessageService
             LogInfo("T?o tin nh?n thành công v?i ID: {MessageId}", null, createdMessage.Id);
             return _mapper.Map<MessageResponse>(createdMessage);
         }, "CreateMessage");
+    }
+
+    /// <summary>
+    /// T?o tin nh?n v?i file upload (Complete Flow)
+    /// </summary>
+    public async Task<MessageResponse> CreateMessageWithFilesAsync(CreateMessageWithFilesRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("B?t ??u t?o tin nh?n v?i files cho conversation: {ConversationId}", null, request.ConversationId);
+
+            // Validation
+            ValidateRequired(request, nameof(request));
+            ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
+            ValidateRequiredString(request.SenderId, nameof(request.SenderId));
+
+            if (request.Type == MessageType.Text && request.Files.Any())
+            {
+                throw new ArgumentException("Text message không ???c có files");
+            }
+
+            if (request.Type != MessageType.Text && !request.Files.Any())
+            {
+                throw new ArgumentException($"Message type {request.Type} yêu c?u ph?i có files");
+            }
+
+            // Ki?m tra conversation
+            var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId);
+            if (conversation == null)
+            {
+                throw new ArgumentException($"Conversation v?i ID {request.ConversationId} không t?n t?i");
+            }
+
+            if (!conversation.Participants.Contains(request.SenderId))
+            {
+                throw new UnauthorizedAccessException("User không có quy?n g?i tin nh?n trong conversation này");
+            }
+
+            // Upload files
+            var attachments = new List<MessageAttachment>();
+            if (request.Files.Any())
+            {
+                var uploadResults = await _fileUploadService.UploadMultipleFilesAsync(request.Files, request.SenderId, request.Type);
+                
+                attachments = uploadResults.Select(result => new MessageAttachment
+                {
+                    Url = result.Url,
+                    Name = result.FileName,
+                    Size = result.Size,
+                    MimeType = result.MimeType,
+                    ThumbnailUrl = result.ThumbnailUrl,
+                    Width = result.Width,
+                    Height = result.Height,
+                    Duration = result.Duration
+                }).ToList();
+            }
+
+            // T?o message entity
+            var messageEntity = new MessageEntity
+            {
+                ConversationId = request.ConversationId,
+                SenderId = request.SenderId,
+                ReceiverId = request.ReceiverId,
+                Content = request.Content,
+                Type = request.Type,
+                Attachments = attachments,
+                Status = MessageStatus.SENT,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var createdMessage = await _messageRepository.CreateAsync(messageEntity);
+
+            // C?p nh?t last message
+            var lastMessage = new LastMessage
+            {
+                MessageId = createdMessage.Id,
+                Content = attachments.Any() ? $"?? {attachments.Count} file(s)" : createdMessage.Content,
+                SenderId = createdMessage.SenderId,
+                CreatedAt = createdMessage.CreatedAt
+            };
+            await _conversationRepository.UpdateLastMessageAsync(request.ConversationId, lastMessage);
+
+            LogInfo("T?o tin nh?n v?i files thành công v?i ID: {MessageId}", null, createdMessage.Id);
+            return _mapper.Map<MessageResponse>(createdMessage);
+        }, "CreateMessageWithFiles");
     }
 
     /// <summary>
@@ -143,6 +232,24 @@ public class MessageService : BaseService, IMessageService
         {
             LogInfo("B?t ??u xóa tin nh?n v?i ID: {MessageId}", null, id);
 
+            // L?y tin nh?n ?? xóa attachments
+            var message = await _messageRepository.GetByIdAsync(id);
+            if (message != null && message.Attachments.Any())
+            {
+                // Xóa files t? cloud storage
+                foreach (var attachment in message.Attachments)
+                {
+                    try
+                    {
+                        await _fileUploadService.DeleteFileAsync(attachment.Url);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogWarning("Failed to delete attachment {Url}: {Error}", null, attachment.Url, ex.Message);
+                    }
+                }
+            }
+
             var result = await _messageRepository.DeleteAsync(id);
             
             if (result)
@@ -211,9 +318,9 @@ public class MessageService : BaseService, IMessageService
     }
 
     /// <summary>
-    /// L?y tin nh?n theo lo?i
+    /// L?y tin nh?n theo lo?i (simplified implementation using existing methods)
     /// </summary>
-    public async Task<IEnumerable<MessageResponse>> GetMessagesByTypeAsync(string conversationId, MessageType messageType, int page = 1, int pageSize = 20)
+    public async Task<IEnumerable<MessageResponse>> GetMessagesByTypeAsync(String conversationId, MessageType messageType, int page = 1, int pageSize = 20)
     {
         // Get all messages for the conversation and filter by type in memory
         // This is not optimal for production but works for now
@@ -227,7 +334,7 @@ public class MessageService : BaseService, IMessageService
     }
 
     /// <summary>
-    /// L?y t?t c? file attachments trong conversation
+    /// L?y t?t c? file attachments trong conversation (simplified implementation)
     /// </summary>
     public async Task<IEnumerable<MessageAttachmentResponse>> GetConversationAttachmentsAsync(string conversationId, MessageType? messageType = null, int page = 1, int pageSize = 50)
     {

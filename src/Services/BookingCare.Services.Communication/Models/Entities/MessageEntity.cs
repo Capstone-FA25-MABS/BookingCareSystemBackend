@@ -108,4 +108,28 @@ public class MessageAttachment
     /// </summary>
     [BsonElement("mimeType")]
     public string? MimeType { get; set; }
+
+    /// <summary>
+    /// URL thumbnail cho images/videos
+    /// </summary>
+    [BsonElement("thumbnailUrl")]
+    public string? ThumbnailUrl { get; set; }
+
+    /// <summary>
+    /// Chi?u r?ng (cho images/videos)
+    /// </summary>
+    [BsonElement("width")]
+    public int? Width { get; set; }
+
+    /// <summary>
+    /// Chi?u cao (cho images/videos)
+    /// </summary>
+    [BsonElement("height")]
+    public int? Height { get; set; }
+
+    /// <summary>
+    /// Th?i l??ng (cho videos/audios) tính b?ng giây
+    /// </summary>
+    [BsonElement("duration")]
+    public int? Duration { get; set; }
 }
