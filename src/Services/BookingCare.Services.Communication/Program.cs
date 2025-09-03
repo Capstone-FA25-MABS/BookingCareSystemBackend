@@ -1,4 +1,6 @@
 using BookingCare.Services.Communication.Services;
+using BookingCare.Services.Communication.Extensions;
+using BookingCare.Shared.Common.Extensions;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
@@ -19,12 +21,28 @@ builder.WebHost.ConfigureKestrel(options =>
     });
 });
 
+// Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Add MongoDB configuration
+builder.Services.AddMongoDb(builder.Configuration);
+
+// Add health checks
+builder.Services.AddHealthChecks();
+
+// Add global exception handling
+builder.Services.AddGlobalExceptionHandling();
+
 var app = builder.Build();
+
+// Initialize MongoDB indexes
+await app.Services.InitializeMongoDbAsync();
+
+// Use global exception handling (early in pipeline)
+app.UseGlobalExceptionHandling();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -34,6 +52,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
+
+// Add health check endpoint
+app.MapHealthChecks("/health");
+
 app.MapControllers();
 
 // Configure the HTTP request pipeline.
