@@ -3,7 +3,7 @@ using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.DTOs;
 
-// Request DTOs
+// Doctor Request DTOs
 public class CreateDoctorRequest
 {
     [Required(ErrorMessage = "AccountId is required")]
@@ -83,47 +83,47 @@ public class UpdateDoctorRequest
     public string? AvatarUrl { get; set; }
 }
 
-public class CreatePositionRequest
+public class DoctorQueryRequest
 {
-    [Required(ErrorMessage = "Position name is required")]
-    [StringLength(255, MinimumLength = 2, ErrorMessage = "Position name must be between 2 and 255 characters")]
-    [RegularExpression(@"^[a-zA-Z0-9\s\-_()]+$", ErrorMessage = "Position name can only contain letters, numbers, spaces, hyphens, underscores, and parentheses")]
-    public string Name { get; set; } = string.Empty;
-
-    [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
-    public string? Description { get; set; }
+    public Guid? AccountId { get; set; }
+    public Guid? PositionId { get; set; }
+    public Guid? SpecialtyId { get; set; }
+    public Guid? ClinicId { get; set; }
+    public Gender? Gender { get; set; }
+    public string? SearchTerm { get; set; }
+    public int? MinYearsOfExperience { get; set; }
+    public int? MaxYearsOfExperience { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+    public string? AvailableTime { get; set; } // ISO 8601 hoặc custom format
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+    public string? ServiceType { get; set; }
+    public string? Language { get; set; }
+    public double? MinRating { get; set; }
+    public string? Address { get; set; }
+    public string? SortBy { get; set; }
+    public string? SortOrder { get; set; } // asc/desc
 }
 
-public class UpdatePositionRequest
+public class DoctorAdvancedFilterRequest
 {
-    [Required(ErrorMessage = "Position ID is required")]
-    public Guid Id { get; set; }
-
-    [StringLength(255, MinimumLength = 2, ErrorMessage = "Position name must be between 2 and 255 characters")]
-    [RegularExpression(@"^[a-zA-Z0-9\s\-_()]+$", ErrorMessage = "Position name can only contain letters, numbers, spaces, hyphens, underscores, and parentheses")]
-    public string? Name { get; set; }
-
-    [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
-    public string? Description { get; set; }
-}
-
-public class CreatePriceRequest
-{
-    [Required(ErrorMessage = "Amount is required")]
-    [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
-    [RegularExpression(@"^\d+(\.\d{1,2})?$", ErrorMessage = "Amount must be a valid decimal number with up to 2 decimal places")]
-    public decimal Amount { get; set; }
-}
-
-public class UpdatePriceRequest
-{
-    [Required(ErrorMessage = "Price ID is required")]
-    public Guid Id { get; set; }
-
-    [Required(ErrorMessage = "Amount is required")]
-    [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
-    [RegularExpression(@"^\d+(\.\d{1,2})?$", ErrorMessage = "Amount must be a valid decimal number with up to 2 decimal places")]
-    public decimal Amount { get; set; }
+    public Guid? SpecialtyId { get; set; }
+    public string? AvailableTime { get; set; }
+    public Gender? Gender { get; set; }
+    public int? MinYearsOfExperience { get; set; }
+    public int? MaxYearsOfExperience { get; set; }
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+    public Guid? ClinicId { get; set; }
+    public string? ServiceType { get; set; }
+    public string? Language { get; set; }
+    public double? MinRating { get; set; }
+    public string? Address { get; set; }
+    public string? SortBy { get; set; }
+    public string? SortOrder { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
 }
 
 public class AssignPriceToDoctorRequest

@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using BookingCare.Services.Doctor.Enums;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.Entities;

@@ -13,6 +13,7 @@ public class DoctorDbContext : DbContext
     public DbSet<PositionEntity> Positions { get; set; }
     public DbSet<PriceEntity> Prices { get; set; }
     public DbSet<DoctorPriceEntity> DoctorPrices { get; set; }
+    public DbSet<PriceRuleEntity> PriceRules { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +43,7 @@ public class DoctorDbContext : DbContext
                 .IsRequired();
 
             entity.Property(e => e.Gender)
+                .HasConversion<string>()
                 .HasMaxLength(20);
 
             entity.Property(e => e.AvatarUrl)
@@ -118,6 +120,23 @@ public class DoctorDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.PriceId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.IsOverride).HasDefaultValue(false);
+        });
+
+        // Configure PriceRuleEntity
+        modelBuilder.Entity<PriceRuleEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Position).HasMaxLength(100);
+            entity.Property(e => e.BasePrice).HasPrecision(10, 2).IsRequired();
+            entity.Property(e => e.BonusFamous).HasPrecision(10, 2);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.Status)
+                .HasConversion<string>()
+                .HasDefaultValue(BookingCare.Shared.Common.Enums.Status.ACTIVE);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETDATE()");
         });
     }
 

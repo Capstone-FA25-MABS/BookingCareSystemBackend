@@ -1,0 +1,48 @@
+version: '3.8'
+
+# Production override for Docker Compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  doctor-db:
+    environment:
+      SA_PASSWORD: ${DOCTOR_DB_PASSWORD:-YourStrongPassword123!}
+    volumes:
+      - doctor_db_prod_data:/var/opt/mssql
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  doctor-service:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:6008;http://+:6018
+      - ConnectionStrings__DefaultConnection=Server=doctor-db,1433;Database=MABS_Doctor;User Id=sa;Password=${DOCTOR_DB_PASSWORD:-YourStrongPassword123!};TrustServerCertificate=true;
+      - Logging__LogLevel__Default=Warning
+      - Logging__LogLevel__Microsoft.AspNetCore=Warning
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  doctor_db_prod_data:
+    driver: local

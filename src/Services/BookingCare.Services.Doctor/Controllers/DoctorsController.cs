@@ -33,7 +33,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Doctor with ID {id} not found");
         }
 
-        return Success(doctor, "Doctor retrieved successfully");
+        return Success<DoctorResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Doctor with email '{email}' not found");
         }
 
-        return Success(doctor, "Doctor retrieved successfully");
+        return Success<DoctorResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
@@ -57,13 +57,13 @@ public class DoctorsController : BaseApiController
     [HttpGet("by-account/{accountId}")]
     public async Task<IActionResult> GetDoctorByAccountId(Guid accountId)
     {
-        var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
+        var doctor = await _doctorService.GetDoctorByIdAsync(accountId);
         if (doctor == null)
         {
             return NotFound($"Doctor with account ID {accountId} not found");
         }
 
-        return Success(doctor, "Doctor retrieved successfully");
+        return Success<DoctorResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
@@ -73,7 +73,17 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctors([FromQuery] DoctorQueryRequest query)
     {
         var result = await _doctorService.GetDoctorsAsync(query);
-        return Success(result, "Doctors retrieved successfully");
+        return Success<DoctorListResponse>(result, "Doctors retrieved successfully");
+    }
+
+    /// <summary>
+    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ)
+    /// </summary>
+    [HttpPost("filter")]
+    public async Task<IActionResult> FilterDoctors([FromBody] DoctorAdvancedFilterRequest filter)
+    {
+        var result = await _doctorService.FilterDoctorsAsync(filter);
+        return Success<DoctorListResponse>(result, "Doctors filtered successfully");
     }
 
     /// <summary>
@@ -83,7 +93,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorsByClinic(Guid clinicId)
     {
         var doctors = await _doctorService.GetDoctorsByClinicAsync(clinicId);
-        return Success(doctors, $"Doctors for clinic {clinicId} retrieved successfully");
+        return Success<List<DoctorResponse>>(doctors, $"Doctors for clinic {clinicId} retrieved successfully");
     }
 
     /// <summary>
@@ -93,7 +103,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorsBySpecialty(Guid specialtyId)
     {
         var doctors = await _doctorService.GetDoctorsBySpecialtyAsync(specialtyId);
-        return Success(doctors, $"Doctors for specialty {specialtyId} retrieved successfully");
+        return Success<List<DoctorResponse>>(doctors, $"Doctors for specialty {specialtyId} retrieved successfully");
     }
 
     /// <summary>
@@ -103,7 +113,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorsByPosition(Guid positionId)
     {
         var doctors = await _doctorService.GetDoctorsByPositionAsync(positionId);
-        return Success(doctors, $"Doctors for position {positionId} retrieved successfully");
+        return Success<List<DoctorResponse>>(doctors, $"Doctors for position {positionId} retrieved successfully");
     }
 
     /// <summary>
@@ -113,7 +123,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetActiveDoctors()
     {
         var doctors = await _doctorService.GetActiveDoctorsAsync();
-        return Success(doctors, "Active doctors retrieved successfully");
+        return Success<List<DoctorResponse>>(doctors, "Active doctors retrieved successfully");
     }
 
     /// <summary>
@@ -150,7 +160,7 @@ public class DoctorsController : BaseApiController
 
         request.Id = id; // Ensure the ID in the request matches the route parameter
         var doctor = await _doctorService.UpdateDoctorAsync(request);
-        return Success(doctor, "Doctor updated successfully");
+        return Success<DoctorResponse>(doctor, "Doctor updated successfully");
     }
 
     /// <summary>
@@ -165,7 +175,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Doctor with ID {id} not found");
         }
 
-        return Success(null, "Doctor deleted successfully");
+        return Success<object?>(null, "Doctor deleted successfully");
     }
 
     /// <summary>
@@ -175,204 +185,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> ValidateDoctor(Guid id)
     {
         var exists = await _doctorService.DoctorExistsAsync(id);
-        return Success(new { exists }, "Doctor validation completed");
-    }
-
-    #endregion
-
-    #region Position Endpoints
-
-    /// <summary>
-    /// Get position by ID
-    /// </summary>
-    [HttpGet("positions/{id}")]
-    public async Task<IActionResult> GetPosition(Guid id)
-    {
-        var position = await _doctorService.GetPositionByIdAsync(id);
-        if (position == null)
-        {
-            return NotFound($"Position with ID {id} not found");
-        }
-
-        return Success(position, "Position retrieved successfully");
-    }
-
-    /// <summary>
-    /// Get position by name
-    /// </summary>
-    [HttpGet("positions/by-name/{name}")]
-    public async Task<IActionResult> GetPositionByName(string name)
-    {
-        var position = await _doctorService.GetPositionByNameAsync(name);
-        if (position == null)
-        {
-            return NotFound($"Position with name '{name}' not found");
-        }
-
-        return Success(position, "Position retrieved successfully");
-    }
-
-    /// <summary>
-    /// Get all positions
-    /// </summary>
-    [HttpGet("positions")]
-    public async Task<IActionResult> GetPositions([FromQuery] PositionQueryRequest query)
-    {
-        var result = await _doctorService.GetPositionsAsync(query);
-        return Success(result, "Positions retrieved successfully");
-    }
-
-    /// <summary>
-    /// Get all positions (no pagination)
-    /// </summary>
-    [HttpGet("positions/all")]
-    public async Task<IActionResult> GetAllPositions()
-    {
-        var positions = await _doctorService.GetAllPositionsAsync();
-        return Success(positions, "All positions retrieved successfully");
-    }
-
-    /// <summary>
-    /// Create a new position
-    /// </summary>
-    [HttpPost("positions")]
-    public async Task<IActionResult> CreatePosition([FromBody] CreatePositionRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
-
-        var position = await _doctorService.CreatePositionAsync(request);
-        return Created(position, "Position created successfully");
-    }
-
-    /// <summary>
-    /// Update position
-    /// </summary>
-    [HttpPut("positions/{id}")]
-    public async Task<IActionResult> UpdatePosition(Guid id, [FromBody] UpdatePositionRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
-
-        request.Id = id;
-        var position = await _doctorService.UpdatePositionAsync(request);
-        return Success(position, "Position updated successfully");
-    }
-
-    /// <summary>
-    /// Delete position
-    /// </summary>
-    [HttpDelete("positions/{id}")]
-    public async Task<IActionResult> DeletePosition(Guid id)
-    {
-        var result = await _doctorService.DeletePositionAsync(id);
-        if (!result)
-        {
-            return NotFound($"Position with ID {id} not found");
-        }
-
-        return Success(null, "Position deleted successfully");
-    }
-
-    #endregion
-
-    #region Price Endpoints
-
-    /// <summary>
-    /// Get price by ID
-    /// </summary>
-    [HttpGet("prices/{id}")]
-    public async Task<IActionResult> GetPrice(Guid id)
-    {
-        var price = await _doctorService.GetPriceByIdAsync(id);
-        if (price == null)
-        {
-            return NotFound($"Price with ID {id} not found");
-        }
-
-        return Success(price, "Price retrieved successfully");
-    }
-
-    /// <summary>
-    /// Get all prices
-    /// </summary>
-    [HttpGet("prices")]
-    public async Task<IActionResult> GetPrices([FromQuery] PriceQueryRequest query)
-    {
-        var result = await _doctorService.GetPricesAsync(query);
-        return Success(result, "Prices retrieved successfully");
-    }
-
-    /// <summary>
-    /// Get all prices (no pagination)
-    /// </summary>
-    [HttpGet("prices/all")]
-    public async Task<IActionResult> GetAllPrices()
-    {
-        var prices = await _doctorService.GetAllPricesAsync();
-        return Success(prices, "All prices retrieved successfully");
-    }
-
-    /// <summary>
-    /// Create a new price
-    /// </summary>
-    [HttpPost("prices")]
-    public async Task<IActionResult> CreatePrice([FromBody] CreatePriceRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
-
-        var price = await _doctorService.CreatePriceAsync(request);
-        return Created(price, "Price created successfully");
-    }
-
-    /// <summary>
-    /// Update price
-    /// </summary>
-    [HttpPut("prices/{id}")]
-    public async Task<IActionResult> UpdatePrice(Guid id, [FromBody] UpdatePriceRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
-
-        request.Id = id;
-        var price = await _doctorService.UpdatePriceAsync(request);
-        return Success(price, "Price updated successfully");
-    }
-
-    /// <summary>
-    /// Delete price
-    /// </summary>
-    [HttpDelete("prices/{id}")]
-    public async Task<IActionResult> DeletePrice(Guid id)
-    {
-        var result = await _doctorService.DeletePriceAsync(id);
-        if (!result)
-        {
-            return NotFound($"Price with ID {id} not found");
-        }
-
-        return Success(null, "Price deleted successfully");
+        return Success<object>(new { exists }, "Doctor validation completed");
     }
 
     #endregion
@@ -386,7 +199,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorPrices(Guid doctorId)
     {
         var prices = await _doctorService.GetDoctorPricesAsync(doctorId);
-        return Success(prices, $"Prices for doctor {doctorId} retrieved successfully");
+        return Success<List<PriceResponse>>(prices, $"Prices for doctor {doctorId} retrieved successfully");
     }
 
     /// <summary>
@@ -396,7 +209,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorsByPrice(Guid priceId)
     {
         var doctors = await _doctorService.GetDoctorsByPriceAsync(priceId);
-        return Success(doctors, $"Doctors for price {priceId} retrieved successfully");
+        return Success<List<DoctorResponse>>(doctors, $"Doctors for price {priceId} retrieved successfully");
     }
 
     /// <summary>
@@ -429,7 +242,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Price {priceId} not assigned to doctor {doctorId}");
         }
 
-        return Success(null, "Price removed from doctor successfully");
+        return Success<object?>(null, "Price removed from doctor successfully");
     }
 
     #endregion
@@ -443,7 +256,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> ValidateDoctorEmail(string email, [FromQuery] Guid? excludeId = null)
     {
         var exists = await _doctorService.DoctorEmailExistsAsync(email, excludeId);
-        return Success(new { exists }, "Email validation completed");
+        return Success<object>(new { exists }, "Email validation completed");
     }
 
     /// <summary>
@@ -453,17 +266,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> ValidateDoctorAccount(Guid accountId, [FromQuery] Guid? excludeId = null)
     {
         var exists = await _doctorService.DoctorAccountExistsAsync(accountId, excludeId);
-        return Success(new { exists }, "Account validation completed");
-    }
-
-    /// <summary>
-    /// Check if position name exists
-    /// </summary>
-    [HttpGet("positions/validate/name/{name}")]
-    public async Task<IActionResult> ValidatePositionName(string name, [FromQuery] Guid? excludeId = null)
-    {
-        var exists = await _doctorService.PositionNameExistsAsync(name, excludeId);
-        return Success(new { exists }, "Position name validation completed");
+        return Success<object>(new { exists }, "Account validation completed");
     }
 
     /// <summary>
@@ -473,7 +276,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> ValidateDoctorPrice([FromQuery] Guid doctorId, [FromQuery] Guid priceId)
     {
         var exists = await _doctorService.DoctorPriceExistsAsync(doctorId, priceId);
-        return Success(new { exists }, "Doctor-price relationship validation completed");
+        return Success<object>(new { exists }, "Doctor-price relationship validation completed");
     }
 
     #endregion

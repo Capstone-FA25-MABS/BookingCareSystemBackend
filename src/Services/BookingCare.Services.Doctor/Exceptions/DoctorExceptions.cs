@@ -24,21 +24,25 @@ public class DoctorNotFoundException : NotFoundException
     {
     }
 
-    public DoctorNotFoundException(Guid doctorId)
-        : base("Doctor", doctorId, "DOCTOR_NOT_FOUND")
+    public static DoctorNotFoundException WithId(Guid doctorId)
     {
+        var exception = new DoctorNotFoundException($"Doctor with ID '{doctorId}' was not found.");
+        exception.Details["DoctorId"] = doctorId;
+        return exception;
     }
 
-    public DoctorNotFoundException(string email, bool byEmail)
-        : base($"Doctor with email '{email}' was not found.", "DOCTOR_NOT_FOUND")
+    public static DoctorNotFoundException WithEmail(string email)
     {
-        Details["Email"] = email;
+        var exception = new DoctorNotFoundException($"Doctor with email '{email}' was not found.");
+        exception.Details["Email"] = email;
+        return exception;
     }
 
-    public DoctorNotFoundException(Guid accountId, bool byAccountId)
-        : base($"Doctor with account ID '{accountId}' was not found.", "DOCTOR_NOT_FOUND")
+    public static DoctorNotFoundException WithAccountId(Guid accountId)
     {
-        Details["AccountId"] = accountId;
+        var exception = new DoctorNotFoundException($"Doctor with account ID '{accountId}' was not found.");
+        exception.Details["AccountId"] = accountId;
+        return exception;
     }
 }
 
@@ -70,84 +74,18 @@ public class DoctorConflictException : ConflictException
     {
     }
 
-    public DoctorConflictException(string email)
-        : base($"Doctor with email '{email}' already exists.", "DOCTOR_CONFLICT")
+    public static DoctorConflictException WithEmail(string email)
     {
-        Details["Email"] = email;
+        var exception = new DoctorConflictException($"Doctor with email '{email}' already exists.");
+        exception.Details["Email"] = email;
+        return exception;
     }
 
-    public DoctorConflictException(Guid accountId)
-        : base($"Doctor with account ID '{accountId}' already exists.", "DOCTOR_CONFLICT")
+    public static DoctorConflictException WithAccountId(Guid accountId)
     {
-        Details["AccountId"] = accountId;
-    }
-}
-
-// Position Exceptions
-public class PositionNotFoundException : NotFoundException
-{
-    public PositionNotFoundException(string message) 
-        : base(message, "POSITION_NOT_FOUND")
-    {
-    }
-
-    public PositionNotFoundException(Guid positionId)
-        : base("Position", positionId, "POSITION_NOT_FOUND")
-    {
-    }
-}
-
-public class PositionValidationException : ValidationException
-{
-    public PositionValidationException(string message) 
-        : base(message, null, "POSITION_VALIDATION_ERROR")
-    {
-    }
-
-    public PositionValidationException(List<ValidationError> validationErrors)
-        : base("Position validation failed", validationErrors, "POSITION_VALIDATION_ERROR")
-    {
-    }
-}
-
-public class PositionConflictException : ConflictException
-{
-    public PositionConflictException(string message) 
-        : base(message, "POSITION_CONFLICT")
-    {
-    }
-
-    public PositionConflictException(string name)
-        : base($"Position with name '{name}' already exists.", "POSITION_CONFLICT")
-    {
-        Details["Name"] = name;
-    }
-}
-
-// Price Exceptions
-public class PriceNotFoundException : NotFoundException
-{
-    public PriceNotFoundException(string message) 
-        : base(message, "PRICE_NOT_FOUND")
-    {
-    }
-
-    public PriceNotFoundException(Guid priceId)
-        : base("Price", priceId, "PRICE_NOT_FOUND")
-    {
-    }
-}
-
-public class PriceValidationException : ValidationException
-{
-    public PriceValidationException(string message) 
-        : base(message, null, "PRICE_VALIDATION_ERROR")
-    {
-    }
-
-    public PriceValidationException(List<ValidationError> validationErrors)
-        : base("Price validation failed", validationErrors, "PRICE_VALIDATION_ERROR")
-    {
+        var exception = new DoctorConflictException($"Doctor with account ID '{accountId}' already exists.");
+        exception.Details["AccountId"] = accountId;
+        return exception;
     }
 }
 
@@ -159,11 +97,12 @@ public class DoctorPriceNotFoundException : NotFoundException
     {
     }
 
-    public DoctorPriceNotFoundException(Guid doctorId, Guid priceId)
-        : base($"Doctor price relationship not found for doctor ID '{doctorId}' and price ID '{priceId}'.", "DOCTOR_PRICE_NOT_FOUND")
+    public static DoctorPriceNotFoundException WithIds(Guid doctorId, Guid priceId)
     {
-        Details["DoctorId"] = doctorId;
-        Details["PriceId"] = priceId;
+        var exception = new DoctorPriceNotFoundException($"Doctor price relationship not found for doctor ID '{doctorId}' and price ID '{priceId}'.");
+        exception.Details["DoctorId"] = doctorId;
+        exception.Details["PriceId"] = priceId;
+        return exception;
     }
 }
 
@@ -174,11 +113,12 @@ public class DoctorPriceConflictException : ConflictException
     {
     }
 
-    public DoctorPriceConflictException(Guid doctorId, Guid priceId)
-        : base($"Doctor price relationship already exists for doctor ID '{doctorId}' and price ID '{priceId}'.", "DOCTOR_PRICE_CONFLICT")
+    public static DoctorPriceConflictException WithIds(Guid doctorId, Guid priceId)
     {
-        Details["DoctorId"] = doctorId;
-        Details["PriceId"] = priceId;
+        var exception = new DoctorPriceConflictException($"Doctor price relationship already exists for doctor ID '{doctorId}' and price ID '{priceId}'.");
+        exception.Details["DoctorId"] = doctorId;
+        exception.Details["PriceId"] = priceId;
+        return exception;
     }
 }
 

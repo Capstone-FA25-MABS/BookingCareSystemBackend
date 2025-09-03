@@ -30,7 +30,11 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 // Add services
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -50,15 +54,19 @@ builder.Services.AddDbContext<DoctorDbContext>(options =>
 
 // Repository registration
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
+builder.Services.AddScoped<IPositionRepository, PositionRepository>();
+builder.Services.AddScoped<IPriceRepository, PriceRepository>();
 
 // Service registration
 builder.Services.AddScoped<IDoctorService, DoctorService>();
+builder.Services.AddScoped<IPositionService, PositionService>();
+builder.Services.AddScoped<IPriceService, PriceService>();
 
 // Background services
 builder.Services.AddHostedService<DoctorBackgroundService>();
 
 // AutoMapper configuration
-builder.Services.AddAutoMapper(typeof(DoctorMappingProfile));
+builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(PriceMappingProfile));
 
 // Add logging
 builder.Logging.ClearProviders();
@@ -98,11 +106,34 @@ app.MapControllers();
 
 // Map gRPC services
 app.MapGrpcService<DoctorGrpcService>();
+app.MapGrpcService<PositionGrpcService>();
+app.MapGrpcService<PriceGrpcService>();
 
 // Default endpoint
-app.MapGet("/", () => "BookingCare Doctor Service is running!");
+app.MapGet("/", () => "BookingCare Doctor Service is running. REST API: /swagger, gRPC: port 6018");
 
 // Health check endpoint
-app.MapGet("/health", () => new { Status = "Healthy", Service = "Doctor", Timestamp = DateTime.UtcNow });
+app.MapGet("/health", () => Results.Ok(new { 
+    Service = "Doctor", 
+    Status = "Healthy", 
+    Timestamp = DateTime.UtcNow,
+    Version = "1.0.0"
+}));
+
+// Database migration and seeding (development only)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    try
+    {
+        var context = scope.ServiceProvider.GetRequiredService<DoctorDbContext>();
+        await context.Database.EnsureCreatedAsync();
+        app.Logger.LogInformation("Database ensured created successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "An error occurred while ensuring database creation");
+    }
+}
 
 app.Run();

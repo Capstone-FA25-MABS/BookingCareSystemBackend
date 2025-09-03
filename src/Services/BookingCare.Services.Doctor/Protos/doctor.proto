@@ -1,6 +1,7 @@
 syntax = "proto3"; // Specify the protocol buffer version
 
-package BookingCare.Services.Doctor; // Define the package namespace
+package doctor;
+option csharp_namespace = "BookingCare.Services.Doctor.Protos";
 
 import "google/protobuf/timestamp.proto"; // Import Google's timestamp type
 import "google/protobuf/empty.proto"; // Import Google's empty type
@@ -163,6 +164,7 @@ message DoctorInfo {
 // Request to create a new position
 message CreatePositionRequest {
   string name = 1;              // Position name
+  string description = 2;       // Position description (optional)
 }
 
 // Response for position creation
@@ -206,8 +208,9 @@ message GetPositionsResponse {
 message PositionInfo {
   string id = 1;                // Position's GUID
   string name = 2;              // Position name
-  google.protobuf.Timestamp created_at = 3; // Creation timestamp
-  google.protobuf.Timestamp updated_at = 4; // Last update timestamp
+  string description = 3;       // Position description
+  google.protobuf.Timestamp created_at = 4; // Creation timestamp
+  google.protobuf.Timestamp updated_at = 5; // Last update timestamp
 }
 
 // =============================================================================
@@ -273,6 +276,7 @@ message PriceInfo {
 message AssignPriceToDoctorRequest {
   string doctor_id = 1;         // Doctor's GUID
   string price_id = 2;          // Price's GUID
+  string description = 3;       // Description for the relationship (optional)
 }
 
 // Response for assigning price to doctor
@@ -310,8 +314,9 @@ message GetDoctorPricesResponse {
 message DoctorPriceInfo {
   string doctor_id = 1;         // Doctor's GUID
   string price_id = 2;          // Price's GUID
-  DoctorInfo doctor = 3;        // Doctor information
-  PriceInfo price = 4;          // Price information
+  string description = 3;       // Description for the relationship
+  DoctorInfo doctor = 4;        // Doctor information
+  PriceInfo price = 5;          // Price information
 }
 
 // =============================================================================

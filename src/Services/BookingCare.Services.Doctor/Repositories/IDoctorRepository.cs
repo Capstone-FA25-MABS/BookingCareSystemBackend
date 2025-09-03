@@ -1,6 +1,5 @@
 using BookingCare.Services.Doctor.Models.DTOs;
 using BookingCare.Services.Doctor.Models.Entities;
-using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Repositories;
 
@@ -23,30 +22,7 @@ public interface IDoctorRepository
     Task<List<DoctorEntity>> GetDoctorsBySpecialtyAsync(Guid specialtyId);
     Task<List<DoctorEntity>> GetDoctorsByPositionAsync(Guid positionId);
     Task<List<DoctorEntity>> GetActiveDoctorsAsync();
-
-    // Position CRUD operations
-    Task<PositionEntity?> GetPositionByIdAsync(Guid id);
-    Task<PositionEntity?> GetPositionByNameAsync(string name);
-    Task<PositionEntity> CreatePositionAsync(PositionEntity position);
-    Task<PositionEntity> UpdatePositionAsync(PositionEntity position);
-    Task<bool> DeletePositionAsync(Guid id);
-    Task<bool> PositionExistsAsync(Guid id);
-    Task<bool> PositionNameExistsAsync(string name, Guid? excludeId = null);
-
-    // Position Query operations
-    Task<(List<PositionEntity> Positions, int TotalCount)> GetPositionsAsync(PositionQueryRequest query);
-    Task<List<PositionEntity>> GetAllPositionsAsync();
-
-    // Price CRUD operations
-    Task<PriceEntity?> GetPriceByIdAsync(Guid id);
-    Task<PriceEntity> CreatePriceAsync(PriceEntity price);
-    Task<PriceEntity> UpdatePriceAsync(PriceEntity price);
-    Task<bool> DeletePriceAsync(Guid id);
-    Task<bool> PriceExistsAsync(Guid id);
-
-    // Price Query operations
-    Task<(List<PriceEntity> Prices, int TotalCount)> GetPricesAsync(PriceQueryRequest query);
-    Task<List<PriceEntity>> GetAllPricesAsync();
+    IQueryable<DoctorEntity> GetQueryableDoctors();
 
     // DoctorPrice CRUD operations
     Task<DoctorPriceEntity?> GetDoctorPriceAsync(Guid doctorId, Guid priceId);

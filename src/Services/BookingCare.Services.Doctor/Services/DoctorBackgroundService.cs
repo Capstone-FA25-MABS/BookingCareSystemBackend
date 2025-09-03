@@ -26,9 +26,11 @@ public class DoctorBackgroundService : BackgroundService
 
                 using var scope = _serviceProvider.CreateScope();
                 var doctorService = scope.ServiceProvider.GetRequiredService<IDoctorService>();
+                var positionService = scope.ServiceProvider.GetRequiredService<IPositionService>();
+                var priceService = scope.ServiceProvider.GetRequiredService<IPriceService>();
 
                 // Perform background tasks
-                await PerformDoctorMaintenanceTasksAsync(doctorService);
+                await PerformDoctorMaintenanceTasksAsync(doctorService, positionService, priceService);
                 
                 _logger.LogInformation("Doctor background service tasks completed successfully");
             }
@@ -41,12 +43,12 @@ public class DoctorBackgroundService : BackgroundService
         }
     }
 
-    private async Task PerformDoctorMaintenanceTasksAsync(IDoctorService doctorService)
+    private async Task PerformDoctorMaintenanceTasksAsync(IDoctorService doctorService, IPositionService positionService, IPriceService priceService)
     {
         try
         {
             // Task 1: Clean up orphaned doctor-price relationships
-            await CleanupOrphanedDoctorPricesAsync(doctorService);
+            await CleanupOrphanedDoctorPricesAsync(doctorService, priceService);
 
             // Task 2: Validate doctor data integrity
             await ValidateDoctorDataIntegrityAsync(doctorService);
@@ -58,7 +60,7 @@ public class DoctorBackgroundService : BackgroundService
             await ArchiveInactiveDoctorsAsync(doctorService);
 
             // Task 5: Update doctor statistics and metrics
-            await UpdateDoctorStatisticsAsync(doctorService);
+            await UpdateDoctorStatisticsAsync(doctorService, positionService, priceService);
 
             _logger.LogInformation("All Doctor maintenance tasks completed");
         }
@@ -68,14 +70,14 @@ public class DoctorBackgroundService : BackgroundService
         }
     }
 
-    private async Task CleanupOrphanedDoctorPricesAsync(IDoctorService doctorService)
+    private async Task CleanupOrphanedDoctorPricesAsync(IDoctorService doctorService, IPriceService priceService)
     {
         try
         {
             _logger.LogInformation("Checking for orphaned Doctor-Price relationships...");
 
             // Get all prices to check if they have associated doctors
-            var prices = await doctorService.GetAllPricesAsync();
+            var prices = await priceService.GetAllPricesAsync();
             int orphanedCount = 0;
 
             foreach (var price in prices)
@@ -249,14 +251,14 @@ public class DoctorBackgroundService : BackgroundService
         }
     }
 
-    private async Task UpdateDoctorStatisticsAsync(IDoctorService doctorService)
+    private async Task UpdateDoctorStatisticsAsync(IDoctorService doctorService, IPositionService positionService, IPriceService priceService)
     {
         try
         {
             _logger.LogInformation("Updating Doctor statistics...");
 
             // Get all positions to update statistics
-            var positions = await doctorService.GetAllPositionsAsync();
+            var positions = await positionService.GetAllPositionsAsync();
             var positionStats = new Dictionary<string, int>();
 
             foreach (var position in positions)
@@ -269,7 +271,7 @@ public class DoctorBackgroundService : BackgroundService
             }
 
             // Get all prices to update statistics
-            var prices = await doctorService.GetAllPricesAsync();
+            var prices = await priceService.GetAllPricesAsync();
             var priceStats = new Dictionary<decimal, int>();
 
             foreach (var price in prices)

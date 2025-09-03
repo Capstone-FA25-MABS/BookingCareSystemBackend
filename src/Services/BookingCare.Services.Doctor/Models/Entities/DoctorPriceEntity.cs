@@ -17,6 +17,9 @@ public class DoctorPriceEntity
     [Column("description")]
     public string? Description { get; set; }
 
+    [Column("is_override")]
+    public bool IsOverride { get; set; } = false;
+
     // Navigation properties
     public virtual DoctorEntity Doctor { get; set; } = null!;
     public virtual PriceEntity Price { get; set; } = null!;

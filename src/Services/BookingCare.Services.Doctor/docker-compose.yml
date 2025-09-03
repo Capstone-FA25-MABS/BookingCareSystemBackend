@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # SQL Server database for Doctor Service
+  doctor-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: doctor-sqlserver
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: Doctor123!
+      MSSQL_PID: Developer
+    ports:
+      - "1435:1433"
+    volumes:
+      - doctor_db_data:/var/opt/mssql
+    networks:
+      - doctor-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Doctor123! -Q 'SELECT 1' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Doctor Service
+  doctor-service:
+    build:
+      context: ../../..
+      dockerfile: src/Services/BookingCare.Services.Doctor/Dockerfile
+    container_name: doctor-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:6008;http://+:6018
+      - ConnectionStrings__DefaultConnection=Server=doctor-db,1433;Database=MABS_Doctor;User Id=sa;Password=Doctor123!;TrustServerCertificate=true;
+    ports:
+      - "6008:6008"  # HTTP/REST API
+      - "6018:6018"  # gRPC
+    depends_on:
+      doctor-db:
+        condition: service_healthy
+    networks:
+      - doctor-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - ./logs:/app/logs  # Optional: for log persistence
+
+volumes:
+  doctor_db_data:
+    driver: local
+
+networks:
+  doctor-network:
+    driver: bridge

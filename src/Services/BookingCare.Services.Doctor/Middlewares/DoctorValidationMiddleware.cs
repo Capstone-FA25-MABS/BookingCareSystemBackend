@@ -13,7 +13,7 @@ public class DoctorValidationMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, IDoctorService doctorService)
+    public async Task InvokeAsync(HttpContext context, IDoctorService doctorService, IPositionService positionService, IPriceService priceService)
     {
         // Log request information
         LogRequestInfo(context);
@@ -23,7 +23,7 @@ public class DoctorValidationMiddleware
         {
             try
             {
-                await PerformValidationChecks(context, doctorService);
+                await PerformValidationChecks(context, doctorService, positionService, priceService);
             }
             catch (Exception ex)
             {
@@ -73,7 +73,7 @@ public class DoctorValidationMiddleware
         );
     }
 
-    private async Task PerformValidationChecks(HttpContext context, IDoctorService doctorService)
+    private async Task PerformValidationChecks(HttpContext context, IDoctorService doctorService, IPositionService positionService, IPriceService priceService)
     {
         var path = context.Request.Path.Value?.ToLower();
 
@@ -84,12 +84,12 @@ public class DoctorValidationMiddleware
 
         if (path?.Contains("/positions/create") == true)
         {
-            await ValidatePositionDataIntegrity(doctorService);
+            await ValidatePositionDataIntegrity(positionService);
         }
 
         if (path?.Contains("/prices/create") == true)
         {
-            await ValidatePriceDataIntegrity(doctorService);
+            await ValidatePriceDataIntegrity(priceService);
         }
 
         if (path?.Contains("/assign-price") == true)
@@ -122,11 +122,11 @@ public class DoctorValidationMiddleware
         }
     }
 
-    private async Task ValidatePositionDataIntegrity(IDoctorService doctorService)
+    private async Task ValidatePositionDataIntegrity(IPositionService positionService)
     {
         try
         {
-            var positions = await doctorService.GetAllPositionsAsync();
+            var positions = await positionService.GetAllPositionsAsync();
             
             if (positions.Any())
             {
@@ -139,11 +139,11 @@ public class DoctorValidationMiddleware
         }
     }
 
-    private async Task ValidatePriceDataIntegrity(IDoctorService doctorService)
+    private async Task ValidatePriceDataIntegrity(IPriceService priceService)
     {
         try
         {
-            var prices = await doctorService.GetAllPricesAsync();
+            var prices = await priceService.GetAllPricesAsync();
             
             if (prices.Any())
             {

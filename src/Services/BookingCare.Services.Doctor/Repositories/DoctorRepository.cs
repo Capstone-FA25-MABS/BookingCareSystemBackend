@@ -112,59 +112,70 @@ public class DoctorRepository : IDoctorRepository
 
         // Apply filters
         if (query.AccountId.HasValue)
-        {
             queryable = queryable.Where(d => d.AccountId == query.AccountId.Value);
-        }
-
         if (query.PositionId.HasValue)
-        {
             queryable = queryable.Where(d => d.PositionId == query.PositionId.Value);
-        }
-
         if (query.SpecialtyId.HasValue)
-        {
             queryable = queryable.Where(d => d.SpecialtyId == query.SpecialtyId.Value);
-        }
-
         if (query.ClinicId.HasValue)
-        {
             queryable = queryable.Where(d => d.ClinicId == query.ClinicId.Value);
-        }
-
         if (query.Gender.HasValue)
-        {
             queryable = queryable.Where(d => d.Gender == query.Gender.Value);
-        }
-
         if (!string.IsNullOrEmpty(query.SearchTerm))
         {
             var searchTerm = query.SearchTerm.ToLower();
-            queryable = queryable.Where(d => 
+            queryable = queryable.Where(d =>
                 d.FirstName.ToLower().Contains(searchTerm) ||
                 d.LastName.ToLower().Contains(searchTerm) ||
                 d.Email.ToLower().Contains(searchTerm));
         }
-
         if (query.MinYearsOfExperience.HasValue)
-        {
             queryable = queryable.Where(d => d.YearsOfExperience >= query.MinYearsOfExperience.Value);
-        }
-
         if (query.MaxYearsOfExperience.HasValue)
-        {
             queryable = queryable.Where(d => d.YearsOfExperience <= query.MaxYearsOfExperience.Value);
+        if (!string.IsNullOrEmpty(query.Address))
+            queryable = queryable.Where(d => d.Address != null && d.Address.Contains(query.Address));
+        if (!string.IsNullOrEmpty(query.Language))
+            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains(query.Language)); // cần trường riêng cho Language
+        if (!string.IsNullOrEmpty(query.ServiceType))
+            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains(query.ServiceType)); // cần trường riêng cho ServiceType
+        if (query.MinRating.HasValue)
+            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value)); // cần trường riêng cho Rating
+        // Price filter (dùng giá override hoặc dynamic, cần join hoặc xử lý ở service)
+        if (query.MinPrice.HasValue || query.MaxPrice.HasValue)
+        {
+            // Lọc theo giá override (nếu có), nếu không thì sẽ filter ở service sau khi tính giá động
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.IsOverride &&
+                (!query.MinPrice.HasValue || dp.Price.Amount >= query.MinPrice.Value) &&
+                (!query.MaxPrice.HasValue || dp.Price.Amount <= query.MaxPrice.Value)));
         }
-
+        // AvailableTime filter: cần join với bảng lịch, chưa implement ở đây
+        // Sort
+        if (!string.IsNullOrEmpty(query.SortBy))
+        {
+            if (query.SortBy == "YearsOfExperience")
+                queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(d => d.YearsOfExperience) : queryable.OrderBy(d => d.YearsOfExperience);
+            else if (query.SortBy == "CreatedAt")
+                queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(d => d.CreatedAt) : queryable.OrderBy(d => d.CreatedAt);
+            // Có thể bổ sung sort theo các trường khác
+        }
         // Get total count
         var totalCount = await queryable.CountAsync();
-
         // Apply pagination
         var doctors = await queryable
             .Skip((query.PageNumber - 1) * query.PageSize)
             .Take(query.PageSize)
             .ToListAsync();
-
         return (doctors, totalCount);
+    }
+
+    public IQueryable<DoctorEntity> GetQueryableDoctors()
+    {
+        return _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.Price)
+            .AsQueryable();
     }
 
     public async Task<List<DoctorEntity>> GetDoctorsByClinicAsync(Guid clinicId)
@@ -204,172 +215,6 @@ public class DoctorRepository : IDoctorRepository
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.Price)
             .ToListAsync();
-    }
-
-    #endregion
-
-    #region Position CRUD Operations
-
-    public async Task<PositionEntity?> GetPositionByIdAsync(Guid id)
-    {
-        return await _context.Positions
-            .FirstOrDefaultAsync(p => p.Id == id);
-    }
-
-    public async Task<PositionEntity?> GetPositionByNameAsync(string name)
-    {
-        return await _context.Positions
-            .FirstOrDefaultAsync(p => p.Name == name);
-    }
-
-    public async Task<PositionEntity> CreatePositionAsync(PositionEntity position)
-    {
-        _context.Positions.Add(position);
-        await _context.SaveChangesAsync();
-        return position;
-    }
-
-    public async Task<PositionEntity> UpdatePositionAsync(PositionEntity position)
-    {
-        _context.Positions.Update(position);
-        await _context.SaveChangesAsync();
-        return position;
-    }
-
-    public async Task<bool> DeletePositionAsync(Guid id)
-    {
-        var position = await GetPositionByIdAsync(id);
-        if (position == null) return false;
-
-        _context.Positions.Remove(position);
-        await _context.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> PositionExistsAsync(Guid id)
-    {
-        return await _context.Positions
-            .AnyAsync(p => p.Id == id);
-    }
-
-    public async Task<bool> PositionNameExistsAsync(string name, Guid? excludeId = null)
-    {
-        var query = _context.Positions.Where(p => p.Name == name);
-        
-        if (excludeId.HasValue)
-        {
-            query = query.Where(p => p.Id != excludeId.Value);
-        }
-
-        return await query.AnyAsync();
-    }
-
-    #endregion
-
-    #region Position Query Operations
-
-    public async Task<(List<PositionEntity> Positions, int TotalCount)> GetPositionsAsync(PositionQueryRequest query)
-    {
-        var queryable = _context.Positions.AsQueryable();
-
-        // Apply search filter
-        if (!string.IsNullOrEmpty(query.SearchTerm))
-        {
-            var searchTerm = query.SearchTerm.ToLower();
-            queryable = queryable.Where(p => p.Name.ToLower().Contains(searchTerm));
-        }
-
-        // Get total count
-        var totalCount = await queryable.CountAsync();
-
-        // Apply pagination
-        var positions = await queryable
-            .Skip((query.PageNumber - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .ToListAsync();
-
-        return (positions, totalCount);
-    }
-
-    public async Task<List<PositionEntity>> GetAllPositionsAsync()
-    {
-        return await _context.Positions.ToListAsync();
-    }
-
-    #endregion
-
-    #region Price CRUD Operations
-
-    public async Task<PriceEntity?> GetPriceByIdAsync(Guid id)
-    {
-        return await _context.Prices
-            .FirstOrDefaultAsync(p => p.Id == id);
-    }
-
-    public async Task<PriceEntity> CreatePriceAsync(PriceEntity price)
-    {
-        _context.Prices.Add(price);
-        await _context.SaveChangesAsync();
-        return price;
-    }
-
-    public async Task<PriceEntity> UpdatePriceAsync(PriceEntity price)
-    {
-        _context.Prices.Update(price);
-        await _context.SaveChangesAsync();
-        return price;
-    }
-
-    public async Task<bool> DeletePriceAsync(Guid id)
-    {
-        var price = await GetPriceByIdAsync(id);
-        if (price == null) return false;
-
-        _context.Prices.Remove(price);
-        await _context.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> PriceExistsAsync(Guid id)
-    {
-        return await _context.Prices
-            .AnyAsync(p => p.Id == id);
-    }
-
-    #endregion
-
-    #region Price Query Operations
-
-    public async Task<(List<PriceEntity> Prices, int TotalCount)> GetPricesAsync(PriceQueryRequest query)
-    {
-        var queryable = _context.Prices.AsQueryable();
-
-        // Apply amount filters
-        if (query.MinAmount.HasValue)
-        {
-            queryable = queryable.Where(p => p.Amount >= query.MinAmount.Value);
-        }
-
-        if (query.MaxAmount.HasValue)
-        {
-            queryable = queryable.Where(p => p.Amount <= query.MaxAmount.Value);
-        }
-
-        // Get total count
-        var totalCount = await queryable.CountAsync();
-
-        // Apply pagination
-        var prices = await queryable
-            .Skip((query.PageNumber - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .ToListAsync();
-
-        return (prices, totalCount);
-    }
-
-    public async Task<List<PriceEntity>> GetAllPricesAsync()
-    {
-        return await _context.Prices.ToListAsync();
     }
 
     #endregion
