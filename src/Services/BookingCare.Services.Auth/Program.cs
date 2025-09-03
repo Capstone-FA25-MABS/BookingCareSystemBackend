@@ -1,7 +1,8 @@
 using BookingCare.Services.Auth.Services;
 using BookingCare.Services.Auth.Services.Interfaces;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -24,7 +25,15 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Auth API", Version = "v1.0" });
+});
+
 builder.Services.AddGlobalExceptionHandling();
 
 // Your existing services
@@ -40,7 +49,12 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1.0/swagger.json", "BookingCare Auth API V1.0");
+        c.SwaggerEndpoint("/swagger/v1.1/swagger.json", "BookingCare Auth API V1.1");
+        c.RoutePrefix = "swagger";
+    });
 }
 
 app.UseGlobalExceptionHandling();

@@ -16,7 +16,7 @@ public class DiscountRepository : IDiscountRepository
         _context = context;
     }
 
-    public async Task<DiscountEntity?> GetByIdAsync(long id)
+    public async Task<DiscountEntity?> GetByIdAsync(Guid id)
     {
         return await _context.Discounts
             .FirstOrDefaultAsync(d => d.Id == id);
@@ -42,7 +42,7 @@ public class DiscountRepository : IDiscountRepository
         return discount;
     }
 
-    public async Task<bool> DeleteAsync(long id)
+    public async Task<bool> DeleteAsync(Guid id)
     {
         var discount = await GetByIdAsync(id);
         if (discount == null) return false;
@@ -52,13 +52,13 @@ public class DiscountRepository : IDiscountRepository
         return true;
     }
 
-    public async Task<bool> ExistsAsync(long id)
+    public async Task<bool> ExistsAsync(Guid id)
     {
         return await _context.Discounts
             .AnyAsync(d => d.Id == id);
     }
 
-    public async Task<bool> CodeExistsAsync(string code, long? excludeId = null)
+    public async Task<bool> CodeExistsAsync(string code, Guid? excludeId = null)
     {
         var query = _context.Discounts.Where(d => d.Code == code);
         
@@ -129,7 +129,7 @@ public class DiscountRepository : IDiscountRepository
         return (discounts, totalCount);
     }
 
-    public async Task<List<DiscountEntity>> GetActiveDiscountsByClinicAsync(long clinicId)
+    public async Task<List<DiscountEntity>> GetActiveDiscountsByClinicAsync(Guid clinicId)
     {
         var now = DateTime.UtcNow;
         return await _context.Discounts
@@ -141,7 +141,7 @@ public class DiscountRepository : IDiscountRepository
             .ToListAsync();
     }
 
-    public async Task<List<DiscountEntity>> GetApplicableDiscountsAsync(long clinicId, long? specialtyId = null, long? doctorId = null)
+    public async Task<List<DiscountEntity>> GetApplicableDiscountsAsync(Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
     {
         var now = DateTime.UtcNow;
         var query = _context.Discounts
@@ -160,7 +160,7 @@ public class DiscountRepository : IDiscountRepository
         return await query.OrderBy(d => d.Name).ToListAsync();
     }
 
-    public async Task<DiscountEntity?> GetValidDiscountAsync(string code, long clinicId, long? specialtyId = null, long? doctorId = null)
+    public async Task<DiscountEntity?> GetValidDiscountAsync(string code, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
     {
         var now = DateTime.UtcNow;
         var query = _context.Discounts
@@ -180,7 +180,7 @@ public class DiscountRepository : IDiscountRepository
         return await query.FirstOrDefaultAsync();
     }
 
-    public async Task<bool> IncrementUsageAsync(long discountId)
+    public async Task<bool> IncrementUsageAsync(Guid discountId)
     {
         var discount = await GetByIdAsync(discountId);
         if (discount == null) return false;
@@ -190,7 +190,7 @@ public class DiscountRepository : IDiscountRepository
         return true;
     }
 
-    public async Task<bool> DecrementUsageAsync(long discountId)
+    public async Task<bool> DecrementUsageAsync(Guid discountId)
     {
         var discount = await GetByIdAsync(discountId);
         if (discount == null || discount.UsesCount <= 0) return false;
@@ -200,7 +200,7 @@ public class DiscountRepository : IDiscountRepository
         return true;
     }
 
-    public async Task<int> GetRemainingUsesAsync(long discountId)
+    public async Task<int> GetRemainingUsesAsync(Guid discountId)
     {
         var discount = await GetByIdAsync(discountId);
         if (discount == null || discount.MaxUses == null) return int.MaxValue;
@@ -208,7 +208,7 @@ public class DiscountRepository : IDiscountRepository
         return Math.Max(0, discount.MaxUses.Value - discount.UsesCount);
     }
 
-    public async Task<bool> UpdateStatusAsync(long id, DiscountStatus status)
+    public async Task<bool> UpdateStatusAsync(Guid id, DiscountStatus status)
     {
         var discount = await GetByIdAsync(id);
         if (discount == null) return false;

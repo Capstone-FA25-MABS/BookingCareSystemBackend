@@ -6,6 +6,7 @@ using BookingCare.Services.Discount.Middlewares;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -33,10 +34,15 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
+
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
+
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "BookingCare Discount Service", Version = "v1" });
+    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Auth API", Version = "v1.0" });
 });
+
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();

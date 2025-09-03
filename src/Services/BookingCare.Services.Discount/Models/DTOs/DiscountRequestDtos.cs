@@ -19,14 +19,11 @@ public class CreateDiscountRequest
     public string? Description { get; set; }
 
     [Required]
-    [Range(1, long.MaxValue, ErrorMessage = "ClinicId must be greater than 0")]
-    public long ClinicId { get; set; }
+    public Guid ClinicId { get; set; }
 
-    [Range(1, long.MaxValue, ErrorMessage = "SpecialtyId must be greater than 0")]
-    public long? SpecialtyId { get; set; }
+    public Guid? SpecialtyId { get; set; }
 
-    [Range(1, long.MaxValue, ErrorMessage = "DoctorId must be greater than 0")]
-    public long? DoctorId { get; set; }
+    public Guid? DoctorId { get; set; }
 
     [Required]
     public DiscountApplicableTo ApplicableTo { get; set; } = DiscountApplicableTo.ALL;
@@ -53,8 +50,7 @@ public class CreateDiscountRequest
 public class UpdateDiscountRequest
 {
     [Required]
-    [Range(1, long.MaxValue, ErrorMessage = "Id must be greater than 0")]
-    public long Id { get; set; }
+    public Guid Id { get; set; }
 
     [StringLength(50, MinimumLength = 3)]
     public string? Name { get; set; }
@@ -82,14 +78,11 @@ public class ValidateDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    [Range(1, long.MaxValue, ErrorMessage = "ClinicId must be greater than 0")]
-    public long ClinicId { get; set; }
+    public Guid ClinicId { get; set; }
 
-    [Range(1, long.MaxValue, ErrorMessage = "SpecialtyId must be greater than 0")]
-    public long? SpecialtyId { get; set; }
+    public Guid? SpecialtyId { get; set; }
 
-    [Range(1, long.MaxValue, ErrorMessage = "DoctorId must be greater than 0")]
-    public long? DoctorId { get; set; }
+    public Guid? DoctorId { get; set; }
 
     [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
@@ -103,16 +96,41 @@ public class UseDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    [Range(1, long.MaxValue, ErrorMessage = "ClinicId must be greater than 0")]
-    public long ClinicId { get; set; }
+    public Guid ClinicId { get; set; }
 
-    [Range(1, long.MaxValue, ErrorMessage = "SpecialtyId must be greater than 0")]
-    public long? SpecialtyId { get; set; }
+    public Guid? SpecialtyId { get; set; }
 
-    [Range(1, long.MaxValue, ErrorMessage = "DoctorId must be greater than 0")]
-    public long? DoctorId { get; set; }
+    public Guid? DoctorId { get; set; }
 
     [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
     public decimal TotalAmount { get; set; }
+}
+
+public class RevertDiscountUsageRequest
+{
+    [Required]
+    [StringLength(50)]
+    public string Code { get; set; } = string.Empty;
+
+    [Required]
+    public Guid ClinicId { get; set; }
+}
+
+public class CalculateDiscountRequest
+{
+    [Required]
+    [StringLength(50)]
+    public string Code { get; set; } = string.Empty;
+
+    [Required]
+    [Range(0.01, double.MaxValue, ErrorMessage = "Original amount must be greater than 0")]
+    public decimal OriginalAmount { get; set; }
+
+    [Required]
+    public Guid ClinicId { get; set; }
+
+    public Guid? SpecialtyId { get; set; }
+
+    public Guid? DoctorId { get; set; }
 }

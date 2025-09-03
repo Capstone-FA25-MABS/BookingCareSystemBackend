@@ -1,12 +1,12 @@
 -- Discounts
 CREATE TABLE discounts (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
     code VARCHAR(50) NOT NULL UNIQUE,
     name NVARCHAR(50) NOT NULL,
     description NVARCHAR(MAX),
-    clinic_id BIGINT NOT NULL,
-    specialty_id BIGINT,
-    doctor_id BIGINT,
+    clinic_id UNIQUEIDENTIFIER NOT NULL,
+    specialty_id UNIQUEIDENTIFIER,
+    doctor_id UNIQUEIDENTIFIER,
     applicable_to VARCHAR(20) CHECK (applicable_to IN ('ALL', 'SPECIALTY', 'DOCTOR')) DEFAULT 'ALL',
     amount DECIMAL(10, 2) NOT NULL,
     discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('FIXED_AMOUNT', 'PERCENTAGE')),
