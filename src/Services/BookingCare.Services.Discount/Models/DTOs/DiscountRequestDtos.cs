@@ -49,9 +49,6 @@ public class CreateDiscountRequest
 
 public class UpdateDiscountRequest
 {
-    [Required]
-    public Guid Id { get; set; }
-
     [StringLength(50, MinimumLength = 3)]
     public string? Name { get; set; }
 
