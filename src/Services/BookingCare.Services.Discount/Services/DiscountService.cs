@@ -87,17 +87,17 @@ public class DiscountService : BaseService, IDiscountService
         return discount != null ? _mapper.Map<DiscountResponse>(discount) : null;
     }
 
-    public async Task<DiscountResponse> UpdateDiscountAsync(UpdateDiscountRequest request)
+    public async Task<DiscountResponse> UpdateDiscountAsync(Guid id, UpdateDiscountRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Updating discount with ID: {Id}", null, request.Id);
+            LogInfo("Updating discount with ID: {Id}", null, id);
             ValidateRequired(request, nameof(request));
 
-            var existingDiscount = await _discountRepository.GetByIdAsync(request.Id);
+            var existingDiscount = await _discountRepository.GetByIdAsync(id);
             if (existingDiscount == null)
             {
-                throw new DiscountNotFoundException(request.Id);
+                throw new DiscountNotFoundException(id);
             }
 
             // Validate dates if provided

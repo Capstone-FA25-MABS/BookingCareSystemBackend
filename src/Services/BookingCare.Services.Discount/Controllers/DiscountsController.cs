@@ -116,11 +116,6 @@ public class DiscountsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateDiscountRequest request)
     {
-        if (id != request.Id)
-        {
-            return BadRequest("ID mismatch between route and request body");
-        }
-
         if (!ModelState.IsValid)
         {
             return BadRequest("Invalid request data", ModelState.Values
@@ -129,7 +124,7 @@ public class DiscountsController : BaseApiController
                 .ToList());
         }
 
-        var discount = await _discountService.UpdateDiscountAsync(request);
+        var discount = await _discountService.UpdateDiscountAsync(id, request);
         return Success(discount, "Discount updated successfully");
     }
 

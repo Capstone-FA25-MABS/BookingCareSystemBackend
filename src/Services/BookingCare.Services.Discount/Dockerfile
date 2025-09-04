@@ -38,6 +38,13 @@ RUN dotnet publish "BookingCare.Services.Discount.csproj" -c $BUILD_CONFIGURATIO
 
 # Final stage: create the runtime image
 FROM base AS final
+
+# Install curl for health checks (do this as root before switching to app user)
+USER root
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Switch back to app user for security
+USER app
 WORKDIR /app
 
 # Copy the published application from the publish stage
@@ -48,13 +55,8 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:6007;http://+:6017
 
 # Health check configuration
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:6007/api/discounts/health || exit 1
-
-# Install curl for health checks
-USER root
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-USER app
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+#     CMD curl -f http://localhost:6007/api/health || exit 1
 
 # Set the entry point
 ENTRYPOINT ["dotnet", "BookingCare.Services.Discount.dll"]
