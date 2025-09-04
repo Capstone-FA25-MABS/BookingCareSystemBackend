@@ -1,395 +1,1595 @@
+using AutoMapper;
+using BookingCare.Services.Auth.Exceptions;
 using BookingCare.Services.Auth.Models.DTOs;
-using BookingCare.Services.Auth.Services.Interfaces;
+using BookingCare.Services.Auth.Models.Entities;
+using BookingCare.Services.Auth.Repositories;
 using BookingCare.Shared.Common.Services;
-using BookingCare.Shared.Common.Exceptions.Domain;
-using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Exceptions;
+using BookingCare.Shared.Common.Enums;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
+using Microsoft.Extensions.Caching.Distributed;
+using BookingCare.Shared.Common.AppRouting;
+using Microsoft.Extensions.Options;
 
 namespace BookingCare.Services.Auth.Services;
 
+/// <summary>
+/// Service implementation for Auth service operations
+/// </summary>
 public class AuthService : BaseService, IAuthService
 {
+    private readonly IAuthRepository _authRepository;
+    private readonly IMapper _mapper;
+    private readonly IConfiguration _configuration;
+    private readonly JwtService _jwtService;
+    private readonly RefreshTokenService _refreshTokenService;
+    private readonly CookieService _cookieService;
+    private readonly IEventBus _eventBus;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IDistributedCache? _distributedCache;
+    private readonly FrontendOptions _frontendOptions;
 
     public AuthService(
-        ILogger<AuthService> logger) : base(logger)
+        IAuthRepository authRepository,
+        IMapper mapper,
+        ILogger<AuthService> logger,
+        IConfiguration configuration,
+        JwtService jwtService,
+        RefreshTokenService refreshTokenService,
+        CookieService cookieService,
+        IEventBus eventBus,
+        IHttpContextAccessor httpContextAccessor,
+        IDistributedCache? distributedCache = null,
+        IOptions<FrontendOptions>? frontendOptions = null) : base(logger)
     {
+        _authRepository = authRepository;
+        _mapper = mapper;
+        _configuration = configuration;
+        _jwtService = jwtService;
+        _refreshTokenService = refreshTokenService;
+        _cookieService = cookieService;
+        _eventBus = eventBus;
+        _httpContextAccessor = httpContextAccessor;
+        _distributedCache = distributedCache;
+        _frontendOptions = frontendOptions?.Value ?? new FrontendOptions();
     }
 
-    public async Task<LoginResponse> LoginAsync(LoginRequest request)
+    #region Authentication Operations
+
+    /// <summary>
+    /// Authenticate account and generate JWT token with refresh token
+    /// </summary>
+    public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            // Validate input
-            ValidateRequiredString(request.Email, nameof(request.Email));
-            ValidateRequiredString(request.Password, nameof(request.Password));
+            LogInfo("Login attempt for: {EmailOrPhone}", null, request.EmailOrPhone);
 
-            if (!ValidationHelper.IsValidEmail(request.Email))
+            // Validate business rules
+            ValidateLoginRequest(request);
+
+            // Find account by email or phone number
+            var account = await FindAccountByEmailOrPhoneAsync(request.EmailOrPhone);
+            if (account == null)
             {
-                throw new ValidationException(ValidationHelper.InvalidEmail("Email", request.Email));
+                throw new AuthenticationException($"Account with email or phone '{request.EmailOrPhone}' not found");
             }
 
-            // TODO: Implement actual authentication logic here
-            // - Check user exists in database
-            // - Verify password hash
-            // - Generate JWT tokens
-            // - Update last login time
-
-            // Simulate authentication for now
-            if (request.Email == "invalid@test.com")
+            // Check if account is locked out first
+            if (await _authRepository.IsAccountLockedOutAsync(account.Id))
             {
-                throw new AuthExceptions.InvalidCredentialsException();
+                throw new AuthenticationException($"Account '{request.EmailOrPhone}' is temporarily locked due to too many failed login attempts");
             }
 
-            if (request.Email == "locked@test.com")
+            // Validate credentials with lockout support
+            var isValid = await _authRepository.ValidateCredentialsWithLockoutAsync(account.Email!, request.Password);
+            if (!isValid)
             {
-                throw new AuthExceptions.AccountLockedException();
+                throw new AuthenticationException($"Invalid password for account '{request.EmailOrPhone}'");
             }
 
-            // Simulate async operation
-            await Task.CompletedTask;
-
-            // Return mock response
-            return new LoginResponse
+            // Check account status
+            if (account.Status != Status.ACTIVE)
             {
-                AccessToken = "mock-jwt-token",
-                RefreshToken = "mock-refresh-token",
-                ExpiresIn = 3600,
-                TokenType = "Bearer",
-                User = new UserInfo
+                throw new AuthenticationException($"Account '{request.EmailOrPhone}' is not active");
+            }
+
+            // Generate JWT access token with roles and permissions
+            var accessToken = await _jwtService.GenerateAccessTokenAsync(account);
+        
+            // Generate and store refresh token
+            var refreshTokenEntity = await _refreshTokenService.CreateRefreshTokenAsync(account.Id);
+
+            // Save tokens in cookies
+            _cookieService.SaveTokensInCookies(account.Id, accessToken, refreshTokenEntity.Token);
+
+            LogInfo("Login successful for: {EmailOrPhone}", null, request.EmailOrPhone);
+
+            return new AuthResponse
+            {
+                IsSuccess = true,
+                Message = "Login successful",
+                AccessToken = accessToken,
+                RefreshToken = refreshTokenEntity.Token,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(15), // Match JWT expiration
+                Account = _mapper.Map<AccountResponse>(account)
+            };
+        }, "Login");
+    }
+
+    /// <summary>
+    /// Register new account
+    /// </summary>
+    public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Registration attempt for email: {Email}", null, request.Email);
+
+            // Validate business rules
+            ValidateRegisterRequest(request);
+
+            // Check if email already exists
+            if (await _authRepository.EmailExistsAsync(request.Email))
+            {
+                throw new AccountConflictException(request.Email, "Email");
+            }
+
+            // Check if phone number already exists
+            if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
+            {
+                throw new AccountConflictException(request.PhoneNumber, "PhoneNumber");
+            }
+
+            // Create account entity
+            var account = _mapper.Map<AccountEntity>(request);
+
+            // Create account
+            var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
+
+            // Assign default "Patient" role to the new account
+            try
+            {
+                var defaultRole = await _authRepository.GetRoleByNameAsync("Patient");
+                if (defaultRole != null)
                 {
-                    Id = Guid.NewGuid(),
-                    Email = request.Email,
-                    Name = "Test User",
-                    Role = "Patient",
-                    IsEmailVerified = true,
-                    IsActive = true
-                },
-                Permissions = new List<string> { "read:profile", "write:profile" },
-                Message = "Login successful"
-            };
+                    await _authRepository.AssignRoleToAccountAsync(createdAccount.Id, defaultRole.Id);
+                    LogInfo("Default role 'Patient' assigned to account: {Email}", null, request.Email);
+                }
+                else
+                {
+                    LogWarning("Default role 'Patient' not found. Account created without role: {Email}", null, request.Email);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail registration
+                LogError(ex, "Failed to assign default role to account: {Email}", null, request.Email);
+            }
 
-        }, "LoginUser");
+            // Generate JWT token
+            //var token = GenerateJwtToken(createdAccount);
+            //var refreshToken = GenerateRefreshToken();
+
+            LogInfo("Registration successful for email: {Email}", null, request.Email);
+
+            return new AuthResponse
+            {
+                IsSuccess = true,
+                Message = "Registration successful",
+            };
+        }, "Register");
     }
 
-    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
+    /// <summary>
+    /// Refresh JWT token using refresh token
+    /// </summary>
+    public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            // Validate input
-            var validationErrors = new List<ValidationError>();
+            LogInfo("Refresh token attempt");
 
-            if (string.IsNullOrEmpty(request.Email))
-                validationErrors.Add(ValidationHelper.RequiredField("Email"));
-            else if (!ValidationHelper.IsValidEmail(request.Email))
-                validationErrors.Add(ValidationHelper.InvalidEmail("Email", request.Email));
-
-            if (string.IsNullOrEmpty(request.Password))
-                validationErrors.Add(ValidationHelper.RequiredField("Password"));
-            else if (request.Password.Length < 8)
-                validationErrors.Add(ValidationHelper.TooShort("Password", 8, request.Password));
-
-            if (string.IsNullOrEmpty(request.Name))
-                validationErrors.Add(ValidationHelper.RequiredField("Name"));
-
-            if (!string.IsNullOrEmpty(request.ConfirmPassword) && request.Password != request.ConfirmPassword)
-                validationErrors.Add(new ValidationError("ConfirmPassword", "Passwords do not match"));
-
-            if (validationErrors.Any())
-                throw new ValidationException("Registration validation failed", validationErrors);
-
-            // TODO: Implement actual registration logic here
-            // - Check if user already exists
-            // - Hash password
-            // - Save user to database
-            // - Send verification email
-            // - Generate verification token
-
-            // Simulate user already exists
-            if (request.Email == "existing@test.com")
+            if (string.IsNullOrEmpty(refreshToken))
             {
-                throw new UserExceptions.UserAlreadyExistsException(request.Email);
+                throw new AuthenticationException("Refresh token is required");
             }
 
-            // Simulate async operation
-            await Task.CompletedTask;
-
-            // Return mock response
-            return new RegisterResponse
-            {
-                UserId = Guid.NewGuid(),
-                Email = request.Email,
-                Name = request.Name,
-                Role = request.Role,
-                RequiresEmailVerification = true,
-                Message = "Registration successful. Please check your email for verification.",
-                RegisteredAt = DateTime.UtcNow
-            };
-        }, "RegisterUser");
-    }
-
-    public async Task<RefreshTokenResponse> RefreshTokenAsync(RefreshTokenRequest request)
-    {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            ValidateRequiredString(request.RefreshToken, nameof(request.RefreshToken));
-
-            // TODO: Implement actual token refresh logic here
-            // - Validate refresh token
-            // - Check if token is not expired
-            // - Check if token is not revoked
-            // - Generate new access token
-            // - Optionally rotate refresh token
-
-            // Simulate invalid refresh token
-            if (request.RefreshToken == "invalid-token")
-            {
-                throw new AuthExceptions.InvalidTokenException("Invalid refresh token");
+            // Validate refresh token
+            var (isValid, account, tokenEntity) = await _refreshTokenService.ValidateRefreshTokenAsync(refreshToken);
+            
+            if (!isValid || account == null)
+            {    
+                throw new AuthenticationException("Invalid or expired refresh token");
             }
 
-            if (request.RefreshToken == "expired-token")
+            // Check if account is still active
+            if (account.Status != Status.ACTIVE)
             {
-                throw new AuthExceptions.TokenExpiredException("Refresh token has expired");
+                throw new AuthenticationException($"Account is not active");
             }
 
-            // Simulate async operation
-            await Task.CompletedTask;
+            // Generate new access token
+            var newAccessToken = await _jwtService.GenerateAccessTokenAsync(account);
 
-            // Return mock response
-            return new RefreshTokenResponse
+            // Save tokens in cookies (reuse same refresh token if still valid)
+            _cookieService.SaveTokensInCookies(account.Id, newAccessToken, tokenEntity!.Token);
+
+            LogInfo("Token refreshed successfully for account: {AccountId}", null, account.Id);
+
+            return new AuthResponse
             {
-                AccessToken = "new-mock-jwt-token",
-                RefreshToken = "new-mock-refresh-token",
-                ExpiresIn = 3600,
-                TokenType = "Bearer",
+                IsSuccess = true,
                 Message = "Token refreshed successfully",
-                IssuedAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.AddHours(1),
-                IsNewRefreshToken = true
             };
-
         }, "RefreshToken");
     }
 
-    public async Task<RevokeTokenResponse> RevokeTokenAsync(RevokeTokenRequest request)
+    /// <summary>
+    /// Logout account and revoke refresh token
+    /// </summary>
+    public async Task<bool> LogoutAsync(string refreshToken)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            ValidateRequiredString(request.RefreshToken, nameof(request.RefreshToken));
+            LogInfo("Logout attempt");
 
-            // TODO: Implement actual token revocation logic here
-            // - Mark refresh token as revoked in database
-            // - Optionally revoke all tokens if RevokeAll is true
-            // - Log the revocation event
-
-            await Task.CompletedTask;
-
-            return new RevokeTokenResponse
+            if (!string.IsNullOrEmpty(refreshToken))
             {
-                Success = true,
-                Message = request.RevokeAll ? "All tokens revoked successfully" : "Token revoked successfully",
-                TokensRevoked = request.RevokeAll ? 5 : 1, // Mock count
-                RevokedAt = DateTime.UtcNow
-            };
-
-        }, "RevokeToken");
-    }
-
-    public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request)
-    {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            ValidateRequiredString(request.Email, nameof(request.Email));
-
-            if (!ValidationHelper.IsValidEmail(request.Email))
-            {
-                throw new ValidationException(ValidationHelper.InvalidEmail("Email", request.Email));
+                await _refreshTokenService.DeleteRefreshTokenAsync(refreshToken);
             }
 
-            // TODO: Implement actual password reset logic here
-            // - Check if user exists
-            // - Generate reset token
-            // - Send reset email
-            // - Store reset token with expiration
+            // Clear authentication cookies
+            _cookieService.ClearAuthenticationCookies();
 
-            await Task.CompletedTask;
+            LogInfo("Logout successful");
+            return true;
+        }, "Logout");
+    }
 
-            return new ForgotPasswordResponse
+    /// <summary>
+    /// Change account password
+    /// </summary>
+    public async Task<bool> ChangePasswordAsync(ChangePasswordRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Password change attempt for account: {AccountId}", null, request.AccountId);
+
+            // Validate business rules
+            ValidateChangePasswordRequest(request);
+
+            // Get account
+            var account = await _authRepository.GetAccountByIdAsync(request.AccountId);
+            if (account == null)
             {
-                Message = "If the email exists, a password reset link has been sent.",
-                RequestedAt = DateTime.UtcNow,
-                ExpiresInMinutes = 30
-            };
+                throw new AccountNotFoundException(request.AccountId);
+            }
 
+            // Check if account has external login providers
+            var hasExternalLogin = await _authRepository.HasExternalLoginAsync(request.AccountId);
+
+            // Validate current password for regular accounts
+            if (!hasExternalLogin)
+            {
+                if (string.IsNullOrEmpty(request.CurrentPassword))
+                {
+                    throw new AuthenticationException("Current password is required for regular accounts");
+                }
+
+                // Validate current password
+                var isValidCurrentPassword = await _authRepository.ValidateCredentialsAsync(account.Email!, request.CurrentPassword);
+                if (!isValidCurrentPassword)
+                {
+                    throw new AuthenticationException("Current password is incorrect");
+                }
+            }
+            else
+            {
+                // For external login accounts, current password is not required
+                LogInfo("Account has external login providers, skipping current password validation", null, request.AccountId);
+            }
+
+            // Validate NewPassword and ConfirmNewPassword
+            if (request.NewPassword != request.ConfirmNewPassword)
+            {
+                throw new ValidationException("New password and confirm password do not match");
+            }
+
+            // Validate password complexity
+            var passwordCheck = await _authRepository.ValidatePasswordAsync(account, request.NewPassword);
+            if (!passwordCheck.IsValid)
+            {
+                var errors = string.Join(", ", passwordCheck.Errors);
+                throw new ValidationException($"Password validation failed: {errors}");
+            }
+
+            // Change password
+            var result = await _authRepository.ChangePasswordAsync(request.AccountId, request.NewPassword);
+            if (!result)
+            {
+                throw new AuthException("Failed to change password");
+            }
+
+            LogInfo("Password changed successfully for account: {AccountId}", null, request.AccountId);
+            return true;
+        }, "ChangePassword");
+    }
+
+    /// <summary>
+    /// Request password reset
+    /// </summary>
+    public async Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            // Validate input: either Email or PhoneNumber must be provided
+            if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.PhoneNumber))
+            {
+                throw new ValidationException("Either Email or PhoneNumber is required");
+            }
+
+            // Determine app origin for building reset URL
+            var origin = _httpContextAccessor.HttpContext?.Request.Headers["Origin"].FirstOrDefault() ?? string.Empty;
+            var appPrefix = AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
+            var baseUrl = AppRoutingHelper.ResolveBaseUrl(appPrefix, _frontendOptions);
+            if (string.IsNullOrEmpty(baseUrl))
+            {
+                baseUrl = _configuration["Frontend:default:BaseUrl"] ?? string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Email))
+            {
+                // Email flow: generate reset token and publish email event with reset link
+                var (found, accountId, token) = await _authRepository.GeneratePasswordResetTokenAsync(request.Email);
+                if (!found)
+                {
+                    LogWarning("Forgot Password requested for non-existent email: {Email}", request.Email);
+                    // Do not reveal existence. Always return success.
+                    return true;
+                }
+
+                var resetUrl = BuildResetUrl(baseUrl, request.Email, token);
+                var message = $"Click the link to reset your password: {resetUrl}";
+
+                var @event = new NotificationSendEvent
+                {
+                    UserId = accountId,
+                    Title = "Password Reset",
+                    Message = message,
+                    Type = "email",
+                    Data = new Dictionary<string, object>
+                    {
+                        { "email", request.Email! },
+                        { "subject", "Reset your password" },
+                        { "html", false },
+                        { "purpose", "forgot-password" },
+                        { "resetUrl", resetUrl }
+                    },
+                    ScheduledAt = DateTime.UtcNow
+                };
+
+                await _eventBus.PublishAsync(@event);
+                LogInfo("Password reset email event published for {Email}", null, request.Email);
+                return true;
+            }
+            else
+            {
+                // Phone flow: publish OTP request event to Notification service
+                if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+                {
+                    throw new ValidationException("PhoneNumber is required when Email is not provided");
+                }
+
+                // Check if account exists for this phone number before sending OTP
+                var phoneAccount = await _authRepository.GetAccountByPhoneNumberAsync(request.PhoneNumber);
+                if (phoneAccount == null)
+                {
+                    LogWarning("Forgot Password requested for non-existent phone: {Phone}", null, request.PhoneNumber);
+                    // Do not reveal existence. Always return success.
+                    return true;
+                }
+
+                var deviceId = request.DeviceId ?? string.Empty;
+                var smsMessage = "OTP verification for password reset";
+                var @event = new NotificationSendEvent
+                {
+                    UserId = phoneAccount.Id,
+                    Title = "OTP Verification",
+                    Message = smsMessage,
+                    Type = "sms",
+                    Data = new Dictionary<string, object>
+                    {
+                        { "phone", request.PhoneNumber! },
+                        { "deviceId", deviceId },
+                        { "purpose", "forgot-password" }
+                    },
+                    ScheduledAt = DateTime.UtcNow
+                };
+
+                await _eventBus.PublishAsync(@event);
+                LogInfo("Password reset OTP SMS event published for {Phone}", null, request.PhoneNumber);
+
+                // After OTP verification (handled by Notification service), client will receive a reset URL
+                // via a separate channel. We intentionally return success here without revealing status.
+                return true;
+            }
         }, "ForgotPassword");
     }
 
-    public async Task<ResetPasswordResponse> ResetPasswordAsync(ResetPasswordRequest request)
+    /// <summary>
+    /// Issue reset token and URL after successful OTP verification (phone flow)
+    /// </summary>
+    public async Task<IssueResetTokenResponse> IssueResetTokenAsync(IssueResetTokenRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            ValidateRequiredString(request.Token, nameof(request.Token));
-            ValidateRequiredString(request.Email, nameof(request.Email));
-            ValidateRequiredString(request.NewPassword, nameof(request.NewPassword));
+            ValidateRequired(request, nameof(request));
+            ValidateRequiredString(request.PhoneNumber, nameof(request.PhoneNumber));
 
-            if (!ValidationHelper.IsValidEmail(request.Email))
+            // Verify OTP verification flag set by Notification service
+            var purpose = string.IsNullOrWhiteSpace(request.Purpose) ? "forgot-password" : request.Purpose;
+            var flagKey = $"otp:verified:{purpose}:phone:{request.PhoneNumber}".ToLowerInvariant();
+
+            var verified = false;
+            if (_distributedCache != null)
             {
-                throw new ValidationException(ValidationHelper.InvalidEmail("Email", request.Email));
+                var val = await _distributedCache.GetStringAsync(flagKey);
+                if (!string.IsNullOrEmpty(val))
+                {
+                    verified = true;
+                    await _distributedCache.RemoveAsync(flagKey);
+                }
             }
 
-            if (request.NewPassword != request.ConfirmPassword)
+            // Fallback: verify HMAC proof if no Redis flag found
+            if (!verified)
             {
-                throw new ValidationException("Passwords do not match");
+                var secret = _configuration.GetSection("OtpVerification").GetValue<string>("Secret") ?? string.Empty;
+                if (!string.IsNullOrEmpty(secret) && !string.IsNullOrEmpty(request.Proof) && request.IssuedAt.HasValue)
+                {
+                    var subject = $"phone:{request.PhoneNumber}";
+                    var data = $"{purpose}:{subject}:{request.IssuedAt.Value}";
+                    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+                    var expected = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(data)));
+                    // time window 5 minutes
+                    var age = Math.Abs((DateTimeOffset.UtcNow.Ticks - request.IssuedAt.Value) / TimeSpan.TicksPerMinute);
+                    if (age <= 5 && string.Equals(expected, request.Proof, StringComparison.OrdinalIgnoreCase))
+                    {
+                        verified = true;
+                    }
+                }
             }
 
-            // TODO: Implement actual password reset logic here
-            // - Validate reset token
-            // - Check token expiration
-            // - Update user password
-            // - Invalidate reset token
-
-            await Task.CompletedTask;
-
-            return new ResetPasswordResponse
+            if (!verified)
             {
-                Message = "Password has been reset successfully.",
-                ResetAt = DateTime.UtcNow,
-                AutoLogin = false
+                // Return neutral response without revealing status
+                return new IssueResetTokenResponse { Email = string.Empty, ResetToken = string.Empty, ResetUrl = string.Empty };
+            }
+
+            var (found, email, accountId, token) = await _authRepository.GeneratePasswordResetTokenByPhoneAsync(request.PhoneNumber);
+            if (!found)
+            {
+                // Do not reveal
+                return new IssueResetTokenResponse { Email = string.Empty, ResetToken = string.Empty, ResetUrl = string.Empty };
+            }
+
+            var origin = _httpContextAccessor.HttpContext?.Request.Headers["Origin"].FirstOrDefault() ?? string.Empty;
+            var appPrefix = AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
+            var baseUrl = AppRoutingHelper.ResolveBaseUrl(appPrefix, _frontendOptions);
+            if (string.IsNullOrEmpty(baseUrl))
+            {
+                baseUrl = _configuration["Frontend:default:BaseUrl"] ?? string.Empty;
+            }
+
+            var resetUrl = BuildResetUrl(baseUrl, email, token);
+            return new IssueResetTokenResponse
+            {
+                Email = email,
+                ResetToken = token,
+                ResetUrl = resetUrl
             };
+        }, "IssueResetToken");
+    }
 
+    /// <summary>
+    /// Reset password with token
+    /// </summary>
+    public async Task<bool> ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            // Layered validation
+            ValidateRequired(request, nameof(request));
+            ValidateRequiredString(request.Email, nameof(request.Email));
+            ValidateRequiredString(request.ResetToken, nameof(request.ResetToken));
+            ValidateRequiredString(request.NewPassword, nameof(request.NewPassword));
+            ValidateRequiredString(request.ConfirmNewPassword, nameof(request.ConfirmNewPassword));
+
+            if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal))
+            {
+                throw new ValidationException("New password and confirm password do not match");
+            }
+
+            // Normalize email (handle %40 etc.)
+            var normalizedEmail = request.Email;
+            try { normalizedEmail = Uri.UnescapeDataString(normalizedEmail); } catch { /* ignore */ }
+
+            // Validate password complexity with Identity's password validator
+            var account = await _authRepository.GetAccountByEmailAsync(normalizedEmail);
+            if (account == null)
+            {
+                LogWarning("Reset password attempt for non-existent account with email: {Email}", request.Email);
+                // Do not reveal account existence
+                return true;
+            }
+
+            var complexity = await _authRepository.ValidatePasswordAsync(account, request.NewPassword);
+            if (!complexity.IsValid)
+            {
+                var errors = string.Join(", ", complexity.Errors);
+                throw new ValidationException($"Password validation failed: {errors}");
+            }
+
+            // Normalize reset token (handle URL encoding and '+' space issue)
+            var normalizedToken = request.ResetToken.Replace(' ', '+');
+            try { normalizedToken = Uri.UnescapeDataString(normalizedToken); } catch { /* keep original if invalid encoding */ }
+
+            // Validate reset token via Identity and reset
+            var success = await _authRepository.ResetPasswordWithTokenAsync(normalizedEmail, normalizedToken, request.NewPassword);
+            if (!success)
+            {
+                throw new ValidationException("Invalid or expired reset token");
+            }
+
+            return true;
         }, "ResetPassword");
     }
 
-    public async Task<VerifyEmailResponse> VerifyEmailAsync(VerifyEmailRequest request)
-    {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            ValidateRequiredString(request.Token, nameof(request.Token));
-            ValidateRequiredString(request.Email, nameof(request.Email));
+    #endregion
 
-            if (!ValidationHelper.IsValidEmail(request.Email))
+    #region Account Operations
+
+    /// <summary>
+    /// Create new account
+    /// </summary>
+    public async Task<AccountResponse> CreateAccountAsync(CreateAccountRequest request)
+    {
+        try
+        {
+            // Check if email already exists
+            if (await _authRepository.EmailExistsAsync(request.Email))
             {
-                throw new ValidationException(ValidationHelper.InvalidEmail("Email", request.Email));
+                throw new AccountConflictException(request.Email, "Email");
             }
 
-            // TODO: Implement actual email verification logic here
-            // - Validate verification token
-            // - Check token expiration
-            // - Mark email as verified
-            // - Update user status
-
-            await Task.CompletedTask;
-
-            return new VerifyEmailResponse
+            // Check if phone number already exists (if provided)
+            if (!string.IsNullOrEmpty(request.PhoneNumber) && await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
             {
-                Message = "Email has been verified successfully.",
-                VerifiedAt = DateTime.UtcNow,
-                AutoLogin = false
-            };
-
-        }, "VerifyEmail");
-    }
-
-    public async Task<ResendVerificationResponse> ResendVerificationAsync(ResendVerificationRequest request)
-    {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            ValidateRequiredString(request.Email, nameof(request.Email));
-
-            if (!ValidationHelper.IsValidEmail(request.Email))
-            {
-                throw new ValidationException(ValidationHelper.InvalidEmail("Email", request.Email));
+                throw new AccountConflictException(request.PhoneNumber, "phone number");
             }
 
-            // TODO: Implement actual resend verification logic here
-            // - Check if user exists
-            // - Generate new verification token
-            // - Send verification email
-            // - Store new token with expiration
+            var account = _mapper.Map<AccountEntity>(request);
+            var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
 
-            await Task.CompletedTask;
-
-            return new ResendVerificationResponse
-            {
-                Message = "Verification email has been sent.",
-                SentAt = DateTime.UtcNow,
-                ExpiresInMinutes = 60
-            };
-
-        }, "ResendVerification");
+            return _mapper.Map<AccountResponse>(createdAccount);
+        }
+        catch (AccountConflictException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating account for email: {Email}", request.Email);
+            throw new AuthException("Account creation failed", innerException: ex);
+        }
     }
 
-    public async Task<UserInfo> GetUserInfoAsync(Guid userId)
+    /// <summary>
+    /// Get account by ID
+    /// </summary>
+    public async Task<AccountResponse?> GetAccountByIdAsync(Guid id)
     {
-        return await ExecuteWithErrorHandling(async () =>
+        try
         {
-            ValidateGuid(userId, nameof(userId));
+            var account = await _authRepository.GetAccountByIdAsync(id);
+            return account != null ? _mapper.Map<AccountResponse>(account) : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting account by ID: {AccountId}", id);
+            throw new AuthException("Failed to get account", innerException: ex);
+        }
+    }
 
-            // TODO: Implement actual user info retrieval logic here
-            // - Fetch user from database
-            // - Map to UserInfo DTO
-            // - Return user information
+    /// <summary>
+    /// Get account by email
+    /// </summary>
+    public async Task<AccountResponse?> GetAccountByEmailAsync(string email)
+    {
+        try
+        {
+            var account = await _authRepository.GetAccountByEmailAsync(email);
+            return account != null ? _mapper.Map<AccountResponse>(account) : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting account by email: {Email}", email);
+            throw new AuthException("Failed to get account", innerException: ex);
+        }
+    }
 
-            // Simulate user not found
-            if (userId == Guid.Empty)
+    /// <summary>
+    /// Get account by phone number
+    /// </summary>
+    public async Task<AccountResponse?> GetAccountByPhoneNumberAsync(string phoneNumber)
+    {
+        try
+        {
+            var account = await _authRepository.GetAccountByPhoneNumberAsync(phoneNumber);
+            return account != null ? _mapper.Map<AccountResponse>(account) : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting account by phone number: {PhoneNumber}", phoneNumber);
+            throw new AuthException("Failed to get account", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Update account
+    /// </summary>
+    public async Task<AccountResponse> UpdateAccountAsync(UpdateAccountRequest request)
+    {
+        try
+        {
+            var existingAccount = await _authRepository.GetAccountByIdAsync(request.Id);
+            if (existingAccount == null)
             {
-                throw new UserExceptions.UserNotFoundException(userId);
+                throw new AccountNotFoundException(request.Id);
             }
 
-            await Task.CompletedTask;
-
-            return new UserInfo
+            // Check email uniqueness if changed
+            if (request.Email != null && request.Email != existingAccount.Email)
             {
-                Id = userId,
-                Email = "user@example.com",
-                Name = "Test User",
-                Role = "Patient",
-                PhoneNumber = "+1234567890",
-                IsEmailVerified = true,
-                IsActive = true,
-                PreferredLanguage = "en",
-                Timezone = "UTC",
-                LastLoginAt = DateTime.UtcNow.AddHours(-2)
+                if (await _authRepository.EmailExistsAsync(request.Email, request.Id))
+                {
+                    throw new AccountConflictException(request.Email, "Email");
+                }
+            }
+
+            // Check phone number uniqueness if changed
+            if (request.PhoneNumber != null && request.PhoneNumber != existingAccount.PhoneNumber)
+            {
+                if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber, request.Id))
+                {
+                    throw new AccountConflictException(request.PhoneNumber, "phone number");
+                }
+            }
+
+            var account = _mapper.Map<AccountEntity>(request);
+            account.UpdatedAt = DateTime.UtcNow;
+
+            var updatedAccount = await _authRepository.UpdateAccountAsync(account);
+            return _mapper.Map<AccountResponse>(updatedAccount);
+        }
+        catch (AccountNotFoundException)
+        {
+            throw;
+        }
+        catch (AccountConflictException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating account: {AccountId}", request.Id);
+            throw new AuthException("Account update failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Delete account
+    /// </summary>
+    public async Task<bool> DeleteAccountAsync(Guid id)
+    {
+        try
+        {
+            return await _authRepository.DeleteAccountAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting account: {AccountId}", id);
+            throw new AuthException("Account deletion failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get accounts with filtering and pagination
+    /// </summary>
+    public async Task<AccountListResponse> GetAccountsAsync(AccountQueryRequest query)
+    {
+        try
+        {
+            var (accounts, totalCount) = await _authRepository.GetAccountsAsync(query);
+            var accountResponses = _mapper.Map<List<AccountResponse>>(accounts);
+
+            return new AccountListResponse
+            {
+                Accounts = accountResponses,
+                TotalCount = totalCount,
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
             };
-
-        }, "GetUserInfo");
-    }
-
-    public async Task<bool> ValidateTokenAsync(string token)
-    {
-        return await ExecuteWithErrorHandling(async () =>
+        }
+        catch (Exception ex)
         {
-            ValidateRequiredString(token, nameof(token));
-
-            // TODO: Implement actual token validation logic here
-            // - Parse JWT token
-            // - Validate signature
-            // - Check expiration
-            // - Verify issuer and audience
-
-            await Task.CompletedTask;
-
-            // Simulate token validation
-            return !token.Contains("invalid") && !token.Contains("expired");
-
-        }, "ValidateToken");
+            Logger.LogError(ex, "Error getting accounts with query");
+            throw new AuthException("Failed to get accounts", innerException: ex);
+        }
     }
 
-    public async Task LogoutAsync(string userId, string? refreshToken = null)
+    /// <summary>
+    /// Activate account
+    /// </summary>
+    public async Task<bool> ActivateAccountAsync(Guid id)
     {
-        await ExecuteWithErrorHandling(async () =>
+        try
         {
-            ValidateRequiredString(userId, nameof(userId));
+            var account = await _authRepository.GetAccountByIdAsync(id);
+            if (account == null)
+                return false;
 
-            // TODO: Implement actual logout logic here
-            // - Revoke refresh tokens for user
-            // - Blacklist current access token (if using blacklist approach)
-            // - Log logout event
-            // - Clear user session data
-
-            await Task.CompletedTask;
-
-            LogInfo($"User {userId} logged out successfully");
-
-        }, "Logout");
+            account.Status = BookingCare.Shared.Common.Enums.Status.ACTIVE;
+            account.UpdatedAt = DateTime.UtcNow;
+            
+            await _authRepository.UpdateAccountAsync(account);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error activating account: {AccountId}", id);
+            throw new AuthException("Account activation failed", innerException: ex);
+        }
     }
+
+    /// <summary>
+    /// Deactivate account
+    /// </summary>
+    public async Task<bool> DeactivateAccountAsync(Guid id)
+    {
+        try
+        {
+            var account = await _authRepository.GetAccountByIdAsync(id);
+            if (account == null)
+                return false;
+
+            account.Status = BookingCare.Shared.Common.Enums.Status.INACTIVE;
+            account.UpdatedAt = DateTime.UtcNow;
+            
+            await _authRepository.UpdateAccountAsync(account);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deactivating account: {AccountId}", id);
+            throw new AuthException("Account deactivation failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Lock account
+    /// </summary>
+    public async Task<bool> LockAccountAsync(Guid id)
+    {
+        try
+        {
+            return await _authRepository.LockAccountAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error locking account: {AccountId}", id);
+            throw new AuthException("Account lock failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Unlock account
+    /// </summary>
+    public async Task<bool> UnlockAccountAsync(Guid id)
+    {
+        try
+        {
+            return await _authRepository.UnlockAccountAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error unlocking account: {AccountId}", id);
+            throw new AuthException("Account unlock failed", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Role Operations
+
+    /// <summary>
+    /// Create new role
+    /// </summary>
+    public async Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request)
+    {
+        try
+        {
+            // Check if role name already exists
+            if (await _authRepository.RoleNameExistsAsync(request.Name))
+            {
+                throw new RoleConflictException(request.Name, true);
+            }
+
+            var role = _mapper.Map<RoleEntity>(request);
+            var createdRole = await _authRepository.CreateRoleAsync(role);
+
+            return _mapper.Map<RoleResponse>(createdRole);
+        }
+        catch (RoleConflictException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating role: {RoleName}", request.Name);
+            throw new AuthException("Role creation failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get role by ID
+    /// </summary>
+    public async Task<RoleResponse?> GetRoleByIdAsync(Guid id)
+    {
+        try
+        {
+            var role = await _authRepository.GetRoleByIdAsync(id);
+            return role != null ? _mapper.Map<RoleResponse>(role) : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting role by ID: {RoleId}", id);
+            throw new AuthException("Failed to get role", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get role by name
+    /// </summary>
+    public async Task<RoleResponse?> GetRoleByNameAsync(string name)
+    {
+        try
+        {
+            var role = await _authRepository.GetRoleByNameAsync(name);
+            return role != null ? _mapper.Map<RoleResponse>(role) : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting role by name: {RoleName}", name);
+            throw new AuthException("Failed to get role", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Update role
+    /// </summary>
+    public async Task<RoleResponse> UpdateRoleAsync(UpdateRoleRequest request)
+    {
+        try
+        {
+            var existingRole = await _authRepository.GetRoleByIdAsync(request.Id);
+            if (existingRole == null)
+            {
+                throw new RoleNotFoundException(request.Id);
+            }
+
+            // Check name uniqueness if changed
+            if (request.Name != null && request.Name != existingRole.Name)
+            {
+                if (await _authRepository.RoleNameExistsAsync(request.Name, request.Id))
+                {
+                    throw new RoleConflictException(request.Name, true);
+                }
+            }
+
+            var role = _mapper.Map<RoleEntity>(request);
+            role.UpdatedAt = DateTime.UtcNow;
+
+            var updatedRole = await _authRepository.UpdateRoleAsync(role);
+            return _mapper.Map<RoleResponse>(updatedRole);
+        }
+        catch (RoleNotFoundException)
+        {
+            throw;
+        }
+        catch (RoleConflictException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating role: {RoleId}", request.Id);
+            throw new AuthException("Role update failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Delete role
+    /// </summary>
+    public async Task<bool> DeleteRoleAsync(Guid id)
+    {
+        try
+        {
+            return await _authRepository.DeleteRoleAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting role: {RoleId}", id);
+            throw new AuthException("Role deletion failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get roles with filtering and pagination
+    /// </summary>
+    public async Task<RoleListResponse> GetRolesAsync(RoleQueryRequest query)
+    {
+        try
+        {
+            var (roles, totalCount) = await _authRepository.GetRolesAsync(query);
+            var roleResponses = _mapper.Map<List<RoleResponse>>(roles);
+
+            return new RoleListResponse
+            {
+                Roles = roleResponses,
+                TotalCount = totalCount,
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting roles with query");
+            throw new AuthException("Failed to get roles", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Permission Operations
+
+    /// <summary>
+    /// Create new permission
+    /// </summary>
+    public async Task<PermissionResponse> CreatePermissionAsync(CreatePermissionRequest request)
+    {
+        try
+        {
+            // Check if permission name already exists
+            if (await _authRepository.PermissionNameExistsAsync(request.Name))
+            {
+                throw new PermissionConflictException(request.Name, true);
+            }
+
+            var permission = _mapper.Map<PermissionEntity>(request);
+            var createdPermission = await _authRepository.CreatePermissionAsync(permission);
+
+            return _mapper.Map<PermissionResponse>(createdPermission);
+        }
+        catch (PermissionConflictException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating permission: {PermissionName}", request.Name);
+            throw new AuthException("Permission creation failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get permission by ID
+    /// </summary>
+    public async Task<PermissionResponse?> GetPermissionByIdAsync(Guid id)
+    {
+        try
+        {
+            var permission = await _authRepository.GetPermissionByIdAsync(id);
+            return permission != null ? _mapper.Map<PermissionResponse>(permission) : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting permission by ID: {PermissionId}", id);
+            throw new AuthException("Failed to get permission", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get permission by name
+    /// </summary>
+    public async Task<PermissionResponse?> GetPermissionByNameAsync(string name)
+    {
+        try
+        {
+            var permission = await _authRepository.GetPermissionByNameAsync(name);
+            return permission != null ? _mapper.Map<PermissionResponse>(permission) : null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting permission by name: {PermissionName}", name);
+            throw new AuthException("Failed to get permission", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Update permission
+    /// </summary>
+    public async Task<PermissionResponse> UpdatePermissionAsync(UpdatePermissionRequest request)
+    {
+        try
+        {
+            var existingPermission = await _authRepository.GetPermissionByIdAsync(request.Id);
+            if (existingPermission == null)
+            {
+                throw new PermissionNotFoundException(request.Id);
+            }
+
+            // Check name uniqueness if changed
+            if (request.Name != null && request.Name != existingPermission.Name)
+            {
+                if (await _authRepository.PermissionNameExistsAsync(request.Name, request.Id))
+                {
+                    throw new PermissionConflictException(request.Name, true);
+                }
+            }
+
+            var permission = _mapper.Map<PermissionEntity>(request);
+            permission.UpdatedAt = DateTime.UtcNow;
+
+            var updatedPermission = await _authRepository.UpdatePermissionAsync(permission);
+            return _mapper.Map<PermissionResponse>(updatedPermission);
+        }
+        catch (PermissionNotFoundException)
+        {
+            throw;
+        }
+        catch (PermissionConflictException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating permission: {PermissionId}", request.Id);
+            throw new AuthException("Permission update failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Delete permission
+    /// </summary>
+    public async Task<bool> DeletePermissionAsync(Guid id)
+    {
+        try
+        {
+            return await _authRepository.DeletePermissionAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting permission: {PermissionId}", id);
+            throw new AuthException("Permission deletion failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get permissions with filtering and pagination
+    /// </summary>
+    public async Task<PermissionListResponse> GetPermissionsAsync(PermissionQueryRequest query)
+    {
+        try
+        {
+            var (permissions, totalCount) = await _authRepository.GetPermissionsAsync(query);
+            var permissionResponses = _mapper.Map<List<PermissionResponse>>(permissions);
+
+            return new PermissionListResponse
+            {
+                Permissions = permissionResponses,
+                TotalCount = totalCount,
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting permissions with query");
+            throw new AuthException("Failed to get permissions", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Account-Role Operations
+
+    /// <summary>
+    /// Assign role to account
+    /// </summary>
+    public async Task<AccountRoleResponse> AssignRoleToAccountAsync(AssignRoleRequest request)
+    {
+        try
+        {
+            var accountRole = await _authRepository.AssignRoleToAccountAsync(request.AccountId, request.RoleId);
+            return _mapper.Map<AccountRoleResponse>(accountRole);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error assigning role to account: AccountId={AccountId}, RoleId={RoleId}", request.AccountId, request.RoleId);
+            throw new AuthException("Role assignment failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Remove role from account
+    /// </summary>
+    public async Task<bool> RemoveRoleFromAccountAsync(RemoveRoleRequest request)
+    {
+        try
+        {
+            return await _authRepository.RemoveRoleFromAccountAsync(request.AccountId, request.RoleId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error removing role from account: AccountId={AccountId}, RoleId={RoleId}", request.AccountId, request.RoleId);
+            throw new AuthException("Role removal failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get account roles
+    /// </summary>
+    public async Task<List<RoleResponse>> GetAccountRolesAsync(Guid accountId)
+    {
+        try
+        {
+            var roles = await _authRepository.GetAccountRolesAsync(accountId);
+            return _mapper.Map<List<RoleResponse>>(roles);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting account roles: {AccountId}", accountId);
+            throw new AuthException("Failed to get account roles", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get accounts by role
+    /// </summary>
+    public async Task<List<AccountResponse>> GetAccountsByRoleAsync(Guid roleId)
+    {
+        try
+        {
+            var accounts = await _authRepository.GetAccountsByRoleAsync(roleId);
+            return _mapper.Map<List<AccountResponse>>(accounts);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting accounts by role: {RoleId}", roleId);
+            throw new AuthException("Failed to get accounts by role", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Check if account has role
+    /// </summary>
+    public async Task<bool> AccountHasRoleAsync(Guid accountId, Guid roleId)
+    {
+        try
+        {
+            return await _authRepository.AccountHasRoleAsync(accountId, roleId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking if account has role: AccountId={AccountId}, RoleId={RoleId}", accountId, roleId);
+            throw new AuthException("Failed to check account role", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Check if account has role by name
+    /// </summary>
+    public async Task<bool> AccountHasRoleAsync(Guid accountId, string roleName)
+    {
+        try
+        {
+            return await _authRepository.AccountHasRoleAsync(accountId, roleName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking if account has role: AccountId={AccountId}, RoleName={RoleName}", accountId, roleName);
+            throw new AuthException("Failed to check account role", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Role-Permission Operations
+
+    /// <summary>
+    /// Assign permission to role
+    /// </summary>
+    public async Task<RolePermissionResponse> AssignPermissionToRoleAsync(AssignPermissionRequest request)
+    {
+        try
+        {
+            var rolePermission = await _authRepository.AssignPermissionToRoleAsync(request.RoleId, request.PermissionId);
+            return _mapper.Map<RolePermissionResponse>(rolePermission);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error assigning permission to role: RoleId={RoleId}, PermissionId={PermissionId}", request.RoleId, request.PermissionId);
+            throw new AuthException("Permission assignment failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Remove permission from role
+    /// </summary>
+    public async Task<bool> RemovePermissionFromRoleAsync(RemovePermissionRequest request)
+    {
+        try
+        {
+            return await _authRepository.RemovePermissionFromRoleAsync(request.RoleId, request.PermissionId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error removing permission from role: RoleId={RoleId}, PermissionId={PermissionId}", request.RoleId, request.PermissionId);
+            throw new AuthException("Permission removal failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get role permissions
+    /// </summary>
+    public async Task<List<PermissionResponse>> GetRolePermissionsAsync(Guid roleId)
+    {
+        try
+        {
+            var permissions = await _authRepository.GetRolePermissionsAsync(roleId);
+            return _mapper.Map<List<PermissionResponse>>(permissions);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting role permissions: {RoleId}", roleId);
+            throw new AuthException("Failed to get role permissions", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get roles by permission
+    /// </summary>
+    public async Task<List<RoleResponse>> GetRolesByPermissionAsync(Guid permissionId)
+    {
+        try
+        {
+            var roles = await _authRepository.GetRolesByPermissionAsync(permissionId);
+            return _mapper.Map<List<RoleResponse>>(roles);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting roles by permission: {PermissionId}", permissionId);
+            throw new AuthException("Failed to get roles by permission", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Check if role has permission
+    /// </summary>
+    public async Task<bool> RoleHasPermissionAsync(Guid roleId, Guid permissionId)
+    {
+        try
+        {
+            return await _authRepository.RoleHasPermissionAsync(roleId, permissionId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking if role has permission: RoleId={RoleId}, PermissionId={PermissionId}", roleId, permissionId);
+            throw new AuthException("Failed to check role permission", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Check if role has permission by name
+    /// </summary>
+    public async Task<bool> RoleHasPermissionAsync(Guid roleId, string permissionName)
+    {
+        try
+        {
+            return await _authRepository.RoleHasPermissionAsync(roleId, permissionName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking if role has permission: RoleId={RoleId}, PermissionName={PermissionName}", roleId, permissionName);
+            throw new AuthException("Failed to check role permission", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Authorization Operations
+
+    /// <summary>
+    /// Check if account is authorized for specific permission
+    /// </summary>
+    public async Task<bool> IsAuthorizedAsync(Guid accountId, string permissionName)
+    {
+        try
+        {
+            var accountRoles = await _authRepository.GetAccountRolesAsync(accountId);
+            
+            foreach (var role in accountRoles)
+            {
+                if (await _authRepository.RoleHasPermissionAsync(role.Id, permissionName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking authorization: AccountId={AccountId}, Permission={Permission}", accountId, permissionName);
+            throw new AuthException("Authorization check failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Check if account is authorized for any of the specified permissions
+    /// </summary>
+    public async Task<bool> IsAuthorizedAsync(Guid accountId, List<string> permissionNames)
+    {
+        try
+        {
+            foreach (var permissionName in permissionNames)
+            {
+                if (await IsAuthorizedAsync(accountId, permissionName))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking authorization: AccountId={AccountId}, Permissions={Permissions}", accountId, string.Join(", ", permissionNames));
+            throw new AuthException("Authorization check failed", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get all permissions for an account
+    /// </summary>
+    public async Task<List<string>> GetAccountPermissionsAsync(Guid accountId)
+    {
+        try
+        {
+            var permissions = new List<string>();
+            var accountRoles = await _authRepository.GetAccountRolesAsync(accountId);
+            
+            foreach (var role in accountRoles)
+            {
+                var rolePermissions = await _authRepository.GetRolePermissionsAsync(role.Id);
+                foreach (var permission in rolePermissions)
+                {
+                    if (!permissions.Contains(permission.Name))
+                    {
+                        permissions.Add(permission.Name);
+                    }
+                }
+            }
+
+            return permissions;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting account permissions: {AccountId}", accountId);
+            throw new AuthException("Failed to get account permissions", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Validation Methods
+
+    /// <summary>
+    /// Validates login request
+    /// </summary>
+    private void ValidateLoginRequest(LoginRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        
+        if (string.IsNullOrWhiteSpace(request.EmailOrPhone))
+        {
+            throw new ValidationException("Email or phone number is required");
+        }
+        
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            throw new ValidationException("Password is required");
+        }
+    }
+
+    /// <summary>
+    /// Validates registration request
+    /// </summary>
+    private void ValidateRegisterRequest(RegisterRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateRequiredString(request.Email, nameof(request.Email));
+        ValidateRequiredString(request.Password, nameof(request.Password));
+        ValidateRequiredString(request.ConfirmPassword, nameof(request.ConfirmPassword));
+        ValidateRequiredString(request.FullName, nameof(request.FullName));
+        ValidateRequiredString(request.PhoneNumber, nameof(request.PhoneNumber));  
+
+        // Validate password length (DTO already has MinLength(8) attribute, but double-check here)
+        if (request.Password.Length < 8)
+        {
+            throw new AccountValidationException("Password must be at least 8 characters long");
+        }
+
+        // Validate password complexity (DTO already has RegularExpression attribute, but double-check here)
+        if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]"))
+        {
+            throw new AccountValidationException("Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character");
+        }
+
+        // Validate password confirmation
+        if (request.Password != request.ConfirmPassword)
+        {
+            throw new AccountValidationException("Password and confirm password do not match");
+        }
+
+        // Validate address length
+        if (string.IsNullOrEmpty(request.Address) || request.Address.Length > 500)
+        {
+            throw new AccountValidationException("Address is required and must not exceed 500 characters");
+        }
+
+        // Validate birthday (should not be in the future and reasonable past date)
+        if (request.Birthday >= DateTime.Today)
+        {
+            throw new AccountValidationException("Birthday cannot be today or in the future");
+        }
+
+        if (request.Birthday < DateTime.Today.AddYears(-120))
+        {
+            throw new AccountValidationException("Birthday seems invalid (too far in the past)");
+        }
+    }
+
+    /// <summary>
+    /// Validates account update request
+    /// </summary>
+    private void ValidateUpdateAccountRequest(UpdateAccountRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateGuid(request.Id, nameof(request.Id));
+    }
+
+    /// <summary>
+    /// Validates role creation request
+    /// </summary>
+    private void ValidateCreateRoleRequest(CreateRoleRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateRequiredString(request.Name, nameof(request.Name));
+    }
+
+    /// <summary>
+    /// Validates role update request
+    /// </summary>
+    private void ValidateUpdateRoleRequest(UpdateRoleRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateGuid(request.Id, nameof(request.Id));
+        ValidateRequiredString(request.Name, nameof(request.Name));
+    }
+
+    /// <summary>
+    /// Validates permission creation request
+    /// </summary>
+    private void ValidateCreatePermissionRequest(CreatePermissionRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateRequiredString(request.Name, nameof(request.Name));
+    }
+
+    /// <summary>
+    /// Validates permission update request
+    /// </summary>
+    private void ValidateUpdatePermissionRequest(UpdatePermissionRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateGuid(request.Id, nameof(request.Id));
+        ValidateRequiredString(request.Name, nameof(request.Name));
+    }
+
+    /// <summary>
+    /// Validates change password request
+    /// </summary>
+    private void ValidateChangePasswordRequest(ChangePasswordRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateGuid(request.AccountId, nameof(request.AccountId));
+        ValidateRequiredString(request.NewPassword, nameof(request.NewPassword));
+        ValidateRequiredString(request.ConfirmNewPassword, nameof(request.ConfirmNewPassword));
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Generate device ID for refresh token tracking
+    /// </summary>
+    private string GenerateDeviceId(string emailOrPhone)
+    {
+        // Simple device identification - in production, this should be more sophisticated
+        // Could use browser fingerprinting, device UUID, etc.
+        var hash = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(emailOrPhone + DateTime.UtcNow.Date.ToString("yyyy-MM-dd")));
+        return Convert.ToBase64String(hash)[..16]; // Take first 16 characters
+    }
+
+    /// <summary>
+    /// Find account by email or phone number
+    /// </summary>
+    private async Task<AccountEntity?> FindAccountByEmailOrPhoneAsync(string emailOrPhone)
+    {
+        // Try to find by email first
+        var account = await _authRepository.GetAccountByEmailAsync(emailOrPhone);
+        if (account != null)
+        {
+            return account;
+        }
+
+        // If not found by email, try to find by phone number
+        account = await _authRepository.GetAccountByPhoneNumberAsync(emailOrPhone);
+        return account;
+    }
+
+    private static string BuildResetUrl(string baseUrl, string email, string token)
+    {
+        if (string.IsNullOrEmpty(baseUrl))
+        {
+            return $"/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+        }
+        var separator = baseUrl.EndsWith('/') ? string.Empty : "/";
+        return $"{baseUrl}{separator}reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+    }
+
+    private static string GetAppPrefix(string origin)
+    {
+        if (string.IsNullOrEmpty(origin)) return "default";
+        if (origin.Contains("3002")) return "admin";
+        if (origin.Contains("3000")) return "client";
+        return "default";
+    }
+
+    #endregion
 }
