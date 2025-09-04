@@ -8,7 +8,7 @@ public interface IDiscountService
     Task<DiscountResponse> CreateDiscountAsync(CreateDiscountRequest request);
     Task<DiscountResponse?> GetDiscountByIdAsync(Guid id);
     Task<DiscountResponse?> GetDiscountByCodeAsync(string code);
-    Task<DiscountResponse> UpdateDiscountAsync(UpdateDiscountRequest request);
+    Task<DiscountResponse> UpdateDiscountAsync(Guid id, UpdateDiscountRequest request);
     Task<bool> DeleteDiscountAsync(Guid id);
 
     // Query operations
