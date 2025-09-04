@@ -26,6 +26,9 @@ public static class ExceptionHandlingExtensions
             options.Filters.Add<GlobalExceptionFilter>();
         });
 
+        // Add custom validation behavior for consistent API responses
+        services.AddCustomValidation();
+
         return services;
     }
 
