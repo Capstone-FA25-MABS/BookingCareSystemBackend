@@ -44,6 +44,11 @@ public interface IMessageService
     Task<bool> MarkAsReadAsync(MarkMessageAsReadRequest request);
 
     /// <summary>
+    /// ?ánh d?u t?t c? tin nh?n ch?a ??c trong conversation là ?ã ??c
+    /// </summary>
+    Task<bool> MarkAllAsReadAsync(MarkAllMessagesAsReadRequest request);
+
+    /// <summary>
     /// L?y s? tin nh?n ch?a ??c
     /// </summary>
     Task<long> GetUnreadCountAsync(string conversationId, string userId);

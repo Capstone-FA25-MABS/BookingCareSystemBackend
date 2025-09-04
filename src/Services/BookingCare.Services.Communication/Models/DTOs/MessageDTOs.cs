@@ -1,4 +1,4 @@
-using BookingCare.Services.Communication.Enums;
+ï»¿using BookingCare.Services.Communication.Enums;
 
 namespace BookingCare.Services.Communication.Models.DTOs;
 
@@ -18,7 +18,7 @@ public class CreateMessageRequest
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// ID c?a ng??i nh?n (dÃ¹ng cho chat 1-1)
     /// </summary>
     public string? ReceiverId { get; set; }
 
@@ -33,7 +33,7 @@ public class CreateMessageRequest
     public MessageType Type { get; set; } = MessageType.Text;
 
     /// <summary>
-    /// Danh sách file ?ính kèm
+    /// Danh sÃ¡ch file ?Ã­nh kÃ¨m
     /// </summary>
     public List<MessageAttachmentRequest> Attachments { get; set; } = new();
 }
@@ -59,7 +59,7 @@ public class UpdateMessageRequest
     public MessageType Type { get; set; } = MessageType.Text;
 
     /// <summary>
-    /// Danh sách file ?ính kèm
+    /// Danh sÃ¡ch file ?Ã­nh kÃ¨m
     /// </summary>
     public List<MessageAttachmentRequest> Attachments { get; set; } = new();
 }
@@ -100,7 +100,7 @@ public class MessageResponse
     public MessageType Type { get; set; }
 
     /// <summary>
-    /// Danh sách file ?ính kèm
+    /// Danh sÃ¡ch file ?Ã­nh kÃ¨m
     /// </summary>
     public List<MessageAttachmentResponse> Attachments { get; set; } = new();
 
@@ -115,7 +115,7 @@ public class MessageResponse
     public DateTime UpdatedAt { get; set; }
 
     /// <summary>
-    /// Tr?ng thái tin nh?n
+    /// Tr?ng thÃ¡i tin nh?n
     /// </summary>
     public MessageStatus Status { get; set; }
 
@@ -126,7 +126,7 @@ public class MessageResponse
 }
 
 /// <summary>
-/// Request cho file ?ính kèm
+/// Request cho file ?Ã­nh kÃ¨m
 /// </summary>
 public class MessageAttachmentRequest
 {
@@ -136,12 +136,12 @@ public class MessageAttachmentRequest
     public string Url { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tên file
+    /// TÃªn file
     /// </summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Kích th??c file
+    /// KÃ­ch th??c file
     /// </summary>
     public long Size { get; set; }
 
@@ -152,7 +152,7 @@ public class MessageAttachmentRequest
 }
 
 /// <summary>
-/// Response cho file ?ính kèm
+/// Response cho file ?Ã­nh kÃ¨m
 /// </summary>
 public class MessageAttachmentResponse
 {
@@ -162,12 +162,12 @@ public class MessageAttachmentResponse
     public string Url { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tên file
+    /// TÃªn file
     /// </summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Kích th??c file
+    /// KÃ­ch th??c file
     /// </summary>
     public long Size { get; set; }
 
@@ -178,7 +178,7 @@ public class MessageAttachmentResponse
 }
 
 /// <summary>
-/// Request ?? ?ánh d?u tin nh?n ?ã ??c
+/// Request ?? ?Ã¡nh d?u tin nh?n ?Ã£ ??c
 /// </summary>
 public class MarkMessageAsReadRequest
 {
@@ -189,7 +189,23 @@ public class MarkMessageAsReadRequest
 }
 
 /// <summary>
-/// Request ?? tìm ki?m tin nh?n
+/// Request ?? ?Ã¡nh d?u táº¥t cáº£ tin nh?n trong conversation lÃ  ??c
+/// </summary>
+public class MarkAllMessagesAsReadRequest
+{
+    /// <summary>
+    /// ID c?a cu?c h?i tho?i
+    /// </summary>
+    public string ConversationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID c?a ng??i d?c tin nh?n
+    /// </summary>
+    public string UserId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request ?? tÃ¬m ki?m tin nh?n
 /// </summary>
 public class SearchMessageRequest
 {
@@ -199,12 +215,12 @@ public class SearchMessageRequest
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// T? khóa tìm ki?m
+    /// T? khÃ³a tÃ¬m ki?m
     /// </summary>
     public string SearchTerm { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n c?n tìm (tùy ch?n)
+    /// Lo?i tin nh?n c?n tÃ¬m (tÃ¹y ch?n)
     /// </summary>
     public MessageType? MessageType { get; set; }
 
@@ -235,14 +251,14 @@ public class CreateMessageWithFilesRequest
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// ID c?a ng??i nh?n (dÃ¹ng cho chat 1-1)
     /// </summary>
     public string? ReceiverId { get; set; }
 
     /// <summary>
     /// N?i dung tin nh?n
     /// </summary>
-    public string Content { get; set; } = string.Empty;
+    public string? Content { get; set; } = string.Empty;
 
     /// <summary>
     /// Lo?i tin nh?n (Image, File, Video, Audio)
@@ -250,13 +266,13 @@ public class CreateMessageWithFilesRequest
     public MessageType Type { get; set; } = MessageType.File;
 
     /// <summary>
-    /// Danh sách files ?? upload
+    /// Danh sÃ¡ch files ?? upload
     /// </summary>
     public List<IFormFile> Files { get; set; } = new();
 }
 
 /// <summary>
-/// Request ?? t?o tin nh?n v?i attachments có s?n
+/// Request ?? t?o tin nh?n v?i attachments cÃ³ s?n
 /// </summary>
 public class CreateMessageWithAttachmentsRequest
 {
@@ -271,7 +287,7 @@ public class CreateMessageWithAttachmentsRequest
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// ID c?a ng??i nh?n (dÃ¹ng cho chat 1-1)
     /// </summary>
     public string? ReceiverId { get; set; }
 
@@ -286,7 +302,23 @@ public class CreateMessageWithAttachmentsRequest
     public MessageType Type { get; set; } = MessageType.Text;
 
     /// <summary>
-    /// Danh sách attachment URLs ?ã upload
+    /// Danh sÃ¡ch attachment URLs ?Ã£ upload
     /// </summary>
     public List<MessageAttachmentRequest> Attachments { get; set; } = new();
+}
+
+/// <summary>
+/// Request Ä‘á»ƒ test SignalR
+/// </summary>
+public class TestSignalRRequest
+{
+    /// <summary>
+    /// ID cá»§a conversation
+    /// </summary>
+    public string ConversationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Tin nháº¯n test
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
 }

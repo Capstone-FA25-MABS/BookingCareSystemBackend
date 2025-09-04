@@ -9,7 +9,7 @@ using BookingCare.Shared.Common.Controllers;
 namespace BookingCare.Services.Communication.Controllers;
 
 /// <summary>
-/// Controller cho Communication service s? d?ng BaseApiController
+/// Controller cho Communication service sử dụng BaseApiController
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -38,12 +38,12 @@ public class CommunicationsController : BaseApiController
     [HttpGet("health")]
     public IActionResult Health()
     {
-        return Success(new { Status = "Healthy", Service = "Communication", Timestamp = DateTime.UtcNow }, 
-            "Communication service ?ang ho?t ??ng bình th??ng");
+        return Success(new { Status = "Healthy", Service = "Communication", Timestamp = DateTime.UtcNow },
+            "Communication service đang hoạt động bình thường");
     }
 
     /// <summary>
-    /// Seed d? li?u m?u vào database (ch? dùng trong development)
+    /// Seed dữ liệu mẫu vào database (chỉ dùng trong development)
     /// </summary>
     [HttpPost("seed-data")]
     public async Task<IActionResult> SeedData()
@@ -51,11 +51,11 @@ public class CommunicationsController : BaseApiController
         try
         {
             await CommunicationDataSeeder.SeedAsync(_dbContext);
-            return Success(new { Message = "D? li?u m?u ?ã ???c t?o thành công!" }, "D? li?u m?u ?ã ???c t?o thành công!");
+            return Success(new { Message = "Dữ liệu mẫu đã được tạo thành công!" }, "Dữ liệu mẫu đã được tạo thành công!");
         }
         catch (Exception ex)
         {
-            return BadRequest($"L?i khi t?o d? li?u m?u: {ex.Message}");
+            return BadRequest($"Lỗi khi tạo dữ liệu mẫu: {ex.Message}");
         }
     }
 
@@ -140,22 +140,22 @@ public class CommunicationsController : BaseApiController
     }
 
     /// <summary>
-    /// C?p nh?t tin nh?n
+    /// Cập nhật tin nhắn
     /// </summary>
     [HttpPut("messages/{id}")]
     public async Task<IActionResult> UpdateMessage(string id, [FromBody] UpdateMessageRequest request)
     {
         if (id != request.Id)
         {
-            return BadRequest("ID trong URL và request body không kh?p");
+            return BadRequest("ID trong URL và request body không khớp");
         }
 
         var result = await _messageService.UpdateAsync(request);
-        return Success(result, "Tin nh?n ?ã ???c c?p nh?t thành công!");
+        return Success(result, "Tin nhắn đã được cập nhật thành công!");
     }
 
     /// <summary>
-    /// L?y tin nh?n theo ID
+    /// Lấy tin nhắn theo ID
     /// </summary>
     [HttpGet("messages/{id}")]
     public async Task<IActionResult> GetMessage(string id)
@@ -163,13 +163,13 @@ public class CommunicationsController : BaseApiController
         var result = await _messageService.GetByIdAsync(id);
         if (result == null)
         {
-            return NotFound($"Tin nh?n v?i ID {id} không tìm th?y");
+            return NotFound($"Tin nhắn với ID {id} không tìm thấy");
         }
-        return Success(result, "L?y tin nh?n thành công!");
+        return Success(result, "Lấy tin nhắn thành công!");
     }
 
     /// <summary>
-    /// L?y tin nh?n theo conversation ID
+    /// Lấy tin nhắn theo conversation ID
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages")]
     public async Task<IActionResult> GetMessagesByConversationId(
@@ -178,11 +178,11 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 50)
     {
         var result = await _messageService.GetByConversationIdAsync(conversationId, page, pageSize);
-        return Success(result, "L?y tin nh?n thành công!");
+        return Success(result, "Lấy tin nhắn thành công!");
     }
 
     /// <summary>
-    /// Xóa tin nh?n
+    /// Xóa tin nhắn
     /// </summary>
     [HttpDelete("messages/{id}")]
     public async Task<IActionResult> DeleteMessage(string id)
@@ -190,13 +190,13 @@ public class CommunicationsController : BaseApiController
         var result = await _messageService.DeleteAsync(id);
         if (!result)
         {
-            return NotFound($"Tin nh?n v?i ID {id} không tìm th?y");
+            return NotFound($"Tin nhắn với ID {id} không tìm thấy");
         }
-        return Success(new { Deleted = true }, "Xóa tin nh?n thành công!");
+        return Success(new { Deleted = true }, "Xóa tin nhắn thành công!");
     }
 
     /// <summary>
-    /// ?ánh d?u tin nh?n ?ã ??c
+    /// Đánh dấu tin nhắn đã đọc
     /// </summary>
     [HttpPost("messages/mark-as-read")]
     public async Task<IActionResult> MarkMessageAsRead([FromBody] MarkMessageAsReadRequest request)
@@ -204,48 +204,101 @@ public class CommunicationsController : BaseApiController
         var result = await _messageService.MarkAsReadAsync(request);
         if (!result)
         {
-            return BadRequest("Không th? ?ánh d?u tin nh?n ?ã ??c");
+            return BadRequest("Không thể đánh dấu tin nhắn đã đọc");
         }
-        return Success(new { MarkedAsRead = true }, "?ánh d?u tin nh?n ?ã ??c thành công!");
+        return Success(new { MarkedAsRead = true }, "Đánh dấu tin nhắn đã đọc thành công!");
     }
 
     /// <summary>
-    /// L?y s? tin nh?n ch?a ??c
+    /// Đánh dấu tất cả tin nhắn chưa đọc trong conversation là đã đọc
+    /// </summary>
+    [HttpPost("messages/mark-all-as-read")]
+    public async Task<IActionResult> MarkAllMessagesAsRead([FromBody] MarkAllMessagesAsReadRequest request)
+    {
+        var result = await _messageService.MarkAllAsReadAsync(request);
+        if (!result)
+        {
+            return BadRequest("Không thể đánh dấu tất cả tin nhắn là đã đọc hoặc không có tin nhắn chưa đọc");
+        }
+        return Success(new { MarkedAllAsRead = true }, "Đánh dấu tất cả tin nhắn đã đọc thành công!");
+    }
+
+    /// <summary>
+    /// Lấy số tin nhắn chưa đọc
     /// </summary>
     [HttpGet("conversations/{conversationId}/unread-count")]
     public async Task<IActionResult> GetUnreadCount(string conversationId, [FromQuery] string userId)
     {
         var count = await _messageService.GetUnreadCountAsync(conversationId, userId);
-        return Success(new { UnreadCount = count }, "L?y s? tin nh?n ch?a ??c thành công!");
+
+        return Success(new { UnreadCount = count }, "Lấy số tin nhắn chưa đọc thành công!");
     }
 
     /// <summary>
-    /// Tìm ki?m tin nh?n
+    /// Tìm kiếm tin nhắn
     /// </summary>
     [HttpPost("messages/search")]
     public async Task<IActionResult> SearchMessages([FromBody] SearchMessageRequest request)
     {
         var result = await _messageService.SearchAsync(request);
-        return Success(result, "Tìm ki?m tin nh?n thành công!");
+        return Success(result, "Tìm kiếm tin nhắn thành công!");
     }
 
     /// <summary>
-    /// T?o tin nh?n text v?i real-time notification (basic implementation)
+    /// Tạo tin nhắn text với real-time notification
     /// </summary>
     [HttpPost("messages/text")]
     public async Task<IActionResult> CreateTextMessage([FromBody] CreateMessageRequest request)
     {
-        if (request.Type != MessageType.Text)
+        try
         {
-            return BadRequest("Endpoint này ch? dành cho tin nh?n text");
-        }
+            if (request.Type != MessageType.Text)
+            {
+                return BadRequest("Endpoint này chỉ dành cho tin nhắn text");
+            }
 
-        var result = await _messageService.CreateAsync(request);
-        return Created(result, "Tin nh?n text ?ã ???c g?i thành công!");
+            var result = await _messageService.CreateAsync(request);
+            
+            // SignalR notification được gửi tự động trong MessageService
+            return Created(result, "Tin nhắn text đã được gửi thành công!");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Lỗi khi tạo tin nhắn text: {ex.Message}");
+        }
     }
 
     /// <summary>
-    /// L?y tin nh?n theo lo?i
+    /// API endpoint để test SignalR connection
+    /// </summary>
+    [HttpPost("test-signalr")]
+    public async Task<IActionResult> TestSignalR([FromBody] TestSignalRRequest request)
+    {
+        try
+        {
+            var signalRService = HttpContext.RequestServices.GetRequiredService<ISignalRNotificationService>();
+            
+            await signalRService.SendMessageToConversationAsync(request.ConversationId, new MessageResponse
+            {
+                Id = Guid.NewGuid().ToString(),
+                ConversationId = request.ConversationId,
+                SenderId = "system",
+                Content = request.Message,
+                Type = MessageType.System,
+                CreatedAt = DateTime.UtcNow,
+                Status = MessageStatus.SENT
+            });
+
+            return Success(new { Sent = true }, "Test SignalR message sent successfully!");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Error testing SignalR: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Lấy tin nhắn theo loại
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages/by-type/{messageType}")]
     public async Task<IActionResult> GetMessagesByType(
@@ -255,11 +308,11 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 20)
     {
         var result = await _messageService.GetMessagesByTypeAsync(conversationId, messageType, page, pageSize);
-        return Success(result, "L?y tin nh?n theo lo?i thành công!");
+        return Success(result, "Lấy tin nhắn theo loại thành công!");
     }
 
     /// <summary>
-    /// L?y t?t c? attachments trong conversation
+    /// Lấy tất cả attachments trong conversation
     /// </summary>
     [HttpGet("conversations/{conversationId}/attachments")]
     public async Task<IActionResult> GetConversationAttachments(
@@ -269,7 +322,7 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 50)
     {
         var result = await _messageService.GetConversationAttachmentsAsync(conversationId, messageType, page, pageSize);
-        return Success(result, "L?y attachments thành công!");
+        return Success(result, "Lấy attachments thành công!");
     }
 
     #endregion
@@ -277,17 +330,17 @@ public class CommunicationsController : BaseApiController
     #region Conversations
 
     /// <summary>
-    /// T?o cu?c h?i tho?i m?i
+    /// Tạo cuộc hội thoại mới
     /// </summary>
     [HttpPost("conversations")]
     public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
     {
         var result = await _conversationService.CreateAsync(request);
-        return Created(result, "Cu?c h?i tho?i ?ã ???c t?o thành công!");
+        return Created(result, "Cuộc hội thoại đã được tạo thành công!");
     }
 
     /// <summary>
-    /// L?y cu?c h?i tho?i theo ID
+    /// Lấy cuộc hội thoại theo ID
     /// </summary>
     [HttpGet("conversations/{id}")]
     public async Task<IActionResult> GetConversation(string id)
@@ -295,13 +348,13 @@ public class CommunicationsController : BaseApiController
         var result = await _conversationService.GetByIdAsync(id);
         if (result == null)
         {
-            return NotFound($"Cu?c h?i tho?i v?i ID {id} không tìm th?y");
+            return NotFound($"Cuộc hội thoại với ID {id} không tìm thấy");
         }
-        return Success(result, "L?y cu?c h?i tho?i thành công!");
+        return Success(result, "Lấy cuộc hội thoại thành công!");
     }
 
     /// <summary>
-    /// L?y cu?c h?i tho?i theo user ID
+    /// Lấy cuộc hội thoại theo user ID
     /// </summary>
     [HttpGet("users/{userId}/conversations")]
     public async Task<IActionResult> GetConversationsByUserId(
@@ -310,11 +363,11 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 20)
     {
         var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize);
-        return Success(result, "L?y cu?c h?i tho?i thành công!");
+        return Success(result, "Lấy cuộc hội thoại thành công!");
     }
 
     /// <summary>
-    /// Tìm cu?c h?i tho?i gi?a 2 users
+    /// Tìm cuộc hội thoại giữa 2 users
     /// </summary>
     [HttpGet("conversations/between")]
     public async Task<IActionResult> GetConversationBetweenUsers([FromQuery] string userId1, [FromQuery] string userId2)
@@ -322,13 +375,13 @@ public class CommunicationsController : BaseApiController
         var result = await _conversationService.GetConversationBetweenUsersAsync(userId1, userId2);
         if (result == null)
         {
-            return NotFound("Không tìm th?y cu?c h?i tho?i gi?a 2 users này");
+            return NotFound("Không tìm thấy cuộc hội thoại giữa 2 users này");
         }
-        return Success(result, "Tìm cu?c h?i tho?i thành công!");
+        return Success(result, "Tìm cuộc hội thoại thành công!");
     }
 
     /// <summary>
-    /// Ch?n cu?c h?i tho?i
+    /// Chặn cuộc hội thoại
     /// </summary>
     [HttpPost("conversations/block")]
     public async Task<IActionResult> BlockConversation([FromBody] BlockConversationRequest request)
@@ -336,13 +389,13 @@ public class CommunicationsController : BaseApiController
         var result = await _conversationService.BlockConversationAsync(request);
         if (!result)
         {
-            return BadRequest("Không th? ch?n cu?c h?i tho?i");
+            return BadRequest("Không thể chặn cuộc hội thoại");
         }
-        return Success(new { Blocked = true }, "Ch?n cu?c h?i tho?i thành công!");
+        return Success(new { Blocked = true }, "Chặn cuộc hội thoại thành công!");
     }
 
     /// <summary>
-    /// B? ch?n cu?c h?i tho?i
+    /// Bỏ chặn cuộc hội thoại
     /// </summary>
     [HttpPost("conversations/unblock")]
     public async Task<IActionResult> UnblockConversation([FromBody] UnblockConversationRequest request)
@@ -350,9 +403,9 @@ public class CommunicationsController : BaseApiController
         var result = await _conversationService.UnblockConversationAsync(request);
         if (!result)
         {
-            return BadRequest("Không th? b? ch?n cu?c h?i tho?i");
+            return BadRequest("Không thể bỏ chặn cuộc hội thoại");
         }
-        return Success(new { Unblocked = true }, "B? ch?n cu?c h?i tho?i thành công!");
+        return Success(new { Unblocked = true }, "Bỏ chặn cuộc hội thoại thành công!");
     }
 
     #endregion
@@ -360,32 +413,32 @@ public class CommunicationsController : BaseApiController
     #region Call Logs
 
     /// <summary>
-    /// T?o call log m?i
+    /// Tạo call log mới
     /// </summary>
     [HttpPost("call-logs")]
     public async Task<IActionResult> CreateCallLog([FromBody] CreateCallLogRequest request)
     {
         var result = await _callLogService.CreateAsync(request);
-        return Created(result, "Call log ?ã ???c t?o thành công!");
+        return Created(result, "Call log đã được tạo thành công!");
     }
 
     /// <summary>
-    /// C?p nh?t call log
+    /// Cập nhật call log
     /// </summary>
     [HttpPut("call-logs/{id}")]
     public async Task<IActionResult> UpdateCallLog(string id, [FromBody] UpdateCallLogRequest request)
     {
         if (id != request.Id)
         {
-            return BadRequest("ID trong URL và request body không kh?p");
+            return BadRequest("ID trong URL và request body không khớp");
         }
 
         var result = await _callLogService.UpdateAsync(request);
-        return Success(result, "Call log ?ã ???c c?p nh?t thành công!");
+        return Success(result, "Call log đã được cập nhật thành công!");
     }
 
     /// <summary>
-    /// L?y call log theo ID
+    /// Lấy call log theo ID
     /// </summary>
     [HttpGet("call-logs/{id}")]
     public async Task<IActionResult> GetCallLog(string id)
@@ -393,13 +446,13 @@ public class CommunicationsController : BaseApiController
         var result = await _callLogService.GetByIdAsync(id);
         if (result == null)
         {
-            return NotFound($"Call log v?i ID {id} không tìm th?y");
+            return NotFound($"Call log với ID {id} không tìm thấy");
         }
-        return Success(result, "L?y call log thành công!");
+        return Success(result, "Lấy call log thành công!");
     }
 
     /// <summary>
-    /// L?y call logs theo user ID
+    /// Lấy call logs theo user ID
     /// </summary>
     [HttpGet("users/{userId}/call-logs")]
     public async Task<IActionResult> GetCallLogsByUserId(
@@ -408,23 +461,23 @@ public class CommunicationsController : BaseApiController
         [FromQuery] int pageSize = 20)
     {
         var result = await _callLogService.GetByUserIdAsync(userId, page, pageSize);
-        return Success(result, "L?y call logs thành công!");
+        return Success(result, "Lấy call logs thành công!");
     }
 
     /// <summary>
-    /// L?y th?ng kê cu?c g?i
+    /// Lấy thống kê cuộc gọi
     /// </summary>
     [HttpPost("call-logs/statistics")]
     public async Task<IActionResult> GetCallStatistics([FromBody] GetCallStatisticsRequest request)
     {
         var result = await _callLogService.GetCallStatisticsAsync(request);
-        return Success(result, "L?y th?ng kê cu?c g?i thành công!");
+        return Success(result, "Lấy thống kê cuộc gọi thành công!");
     }
 
     #endregion
 
     /// <summary>
-    /// Test k?t n?i database
+    /// Test kết nối database
     /// </summary>
     [HttpGet("test-connection")]
     public async Task<IActionResult> TestConnection()
@@ -443,11 +496,11 @@ public class CommunicationsController : BaseApiController
                 ConnectionStatus = "Connected"
             };
 
-            return Success(data, "K?t n?i database thành công!");
+            return Success(data, "Kết nối database thành công!");
         }
         catch (Exception ex)
         {
-            return BadRequest($"L?i k?t n?i database: {ex.Message}");
+            return BadRequest($"Lỗi kết nối database: {ex.Message}");
         }
     }
 }

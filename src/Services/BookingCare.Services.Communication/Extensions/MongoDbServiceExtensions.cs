@@ -24,7 +24,7 @@ public static class MongoDbServiceExtensions
     /// </summary>
     public static IServiceCollection AddMongoDb(this IServiceCollection services, IConfiguration configuration)
     {
-        // L?y connection string t? configuration
+        // Lấy connection string từ configuration
         var connectionString = configuration.GetConnectionString("MongoDB") 
             ?? configuration["MongoDB:ConnectionString"];
         
@@ -40,41 +40,42 @@ public static class MongoDbServiceExtensions
             throw new InvalidOperationException("MongoDB database name is not configured");
         }
 
-        // ??ng ký MongoDB client
+        // Đăng ký MongoDB client
         services.AddSingleton<IMongoClient>(serviceProvider =>
         {
             return new MongoClient(connectionString);
         });
 
-        // ??ng ký MongoDB database
+        // Đăng ký MongoDB database
         services.AddScoped<IMongoDatabase>(serviceProvider =>
         {
             var client = serviceProvider.GetRequiredService<IMongoClient>();
             return client.GetDatabase(databaseName);
         });
         services.AddAutoMapper(typeof(CommunicationMappingProfile));
-        // ??ng ký DbContext
+        // Đăng ký DbContext
         services.AddScoped<CommunicationDbContext>();
 
-        // ??ng ký repositories
+        // Đăng ký repositories
         services.AddScoped<IMessageRepository, MessageRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
         services.AddScoped<ICallLogRepository, CallLogRepository>();
 
-        // ??ng ký services
+        // Đăng ký services
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<IConversationService, ConversationService>();
         services.AddScoped<ICallLogService, CallLogService>();
 
-
+        // Đăng ký SignalR Notification Service
+        services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
         
-        // ??ng ký File Upload services v?i Cloudinary
+        // Đăng ký File Upload services v?i Cloudinary
         services.AddScoped<IFileUploadService, FileUploadService>();
         services.AddScoped<ICloudStorageProvider, CloudinaryStorageProvider>();
 
-        // ??ng ký File Upload Configuration
+        // Đăng ký File Upload Configuration
         services.Configure<FileUploadConfiguration>(configuration.GetSection(FileUploadConfiguration.SectionName));
-        // ??ng k� FluentValidation
+        // Đăng k� FluentValidation
         services.AddFluentValidationAutoValidation();
         services.AddFluentValidationClientsideAdapters();
         services.AddValidatorsFromAssemblyContaining<CommunicationMappingProfile>();

@@ -38,6 +38,11 @@ public interface IMessageRepository
     Task<bool> MarkAsReadAsync(string messageId, DateTime readAt);
 
     /// <summary>
+    /// ?ánh d?u t?t c? tin nh?n ch?a ??c c?a user trong conversation là ?ã ??c
+    /// </summary>
+    Task<bool> MarkAllAsReadAsync(string conversationId, string userId, DateTime readAt);
+
+    /// <summary>
     /// L?y s? tin nh?n ch?a ??c theo conversation
     /// </summary>
     Task<long> GetUnreadCountAsync(string conversationId, string userId);

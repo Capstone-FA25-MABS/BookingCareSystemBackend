@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using BookingCare.Services.Communication.Data;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
@@ -27,7 +27,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// L?y danh s�ch tin nh?n theo conversation ID v?i ph�n trang
+    /// L?y danh sách tin nh?n theo conversation ID v?i phân trang
     /// </summary>
     public async Task<IEnumerable<MessageEntity>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50)
     {
@@ -62,7 +62,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// X�a tin nh?n
+    /// Xóa tin nh?n
     /// </summary>
     public async Task<bool> DeleteAsync(string id)
     {
@@ -71,7 +71,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// ?�nh d?u tin nh?n ?� ??c
+    /// Đánh dấu tin nhắn đã đọc
     /// </summary>
     public async Task<bool> MarkAsReadAsync(string messageId, DateTime readAt)
     {
@@ -81,6 +81,26 @@ public class MessageRepository : IMessageRepository
             .Set(m => m.UpdatedAt, DateTime.UtcNow);
 
         var result = await _messages.UpdateOneAsync(m => m.Id == messageId, update);
+        return result.ModifiedCount > 0;
+    }
+
+    /// <summary>
+    /// Đánh dấu tất cả tin nhắn chưa đọc của user trong conversation là đã đọc
+    /// </summary>
+    public async Task<bool> MarkAllAsReadAsync(string conversationId, string userId, DateTime readAt)
+    {
+        var filter = Builders<MessageEntity>.Filter.And(
+            Builders<MessageEntity>.Filter.Eq(m => m.ConversationId, conversationId),
+            Builders<MessageEntity>.Filter.Eq(m => m.ReceiverId, userId),
+            Builders<MessageEntity>.Filter.Eq(m => m.Status, MessageStatus.UNREAD)
+        );
+
+        var update = Builders<MessageEntity>.Update
+            .Set(m => m.Status, MessageStatus.READ)
+            .Set(m => m.ReadAt, readAt)
+            .Set(m => m.UpdatedAt, DateTime.UtcNow);
+
+        var result = await _messages.UpdateManyAsync(filter, update);
         return result.ModifiedCount > 0;
     }
 
@@ -96,7 +116,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// T�m ki?m tin nh?n theo n?i dung
+    /// Tìm ki?m tin nh?n theo n?i dung
     /// </summary>
     public async Task<IEnumerable<MessageEntity>> SearchAsync(string conversationId, string searchTerm, int page = 1, int pageSize = 20)
     {
