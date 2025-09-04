@@ -8,6 +8,7 @@ using BookingCare.Shared.Common.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Hosting;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Auth.Controllers;
 
@@ -68,9 +69,51 @@ public class AuthController : BaseApiController
                 .ToList());
         }
 
-        var result = await _authService.RegisterAsync(request);
+        var result = await _authService.RegisterAsync(request, Role.PATIENT);
         return Created(result, "Account registered successfully");             
     }
+
+    /// <summary>
+    /// Register new account
+    /// </summary>
+    /// <param name="request">Registration information</param>
+    /// <returns>Authentication response with JWT token</returns>
+    [HttpPost("register/doctor")]
+    public async Task<IActionResult> RegisterDoctor([FromBody] RegisterRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
+
+        var result = await _authService.RegisterAsync(request, Role.DOCTOR);
+        return Created(result, "Account registered successfully");
+    }
+
+    /// <summary>
+    /// Register new account
+    /// </summary>
+    /// <param name="request">Registration information</param>
+    /// <returns>Authentication response with JWT token</returns>
+    [HttpPost("register/clinic")]
+    public async Task<IActionResult> RegisterClinic([FromBody] RegisterRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
+
+        var result = await _authService.RegisterAsync(request, Role.CLINIC);
+        return Created(result, "Account registered successfully");
+    }
+
+
 
     /// <summary>
     /// Refresh JWT token using refresh token
@@ -203,8 +246,6 @@ public class AuthController : BaseApiController
     }
 
     #endregion
-
-    
 
     #region Account Operations
 

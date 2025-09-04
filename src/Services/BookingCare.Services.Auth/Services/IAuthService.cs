@@ -1,4 +1,5 @@
 using BookingCare.Services.Auth.Models.DTOs;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Auth.Services;
 
@@ -9,7 +10,7 @@ public interface IAuthService
 {
     // Authentication operations
     Task<AuthResponse> LoginAsync(LoginRequest request);
-    Task<AuthResponse> RegisterAsync(RegisterRequest request);
+    Task<AuthResponse> RegisterAsync(RegisterRequest request, Role role);
     Task<AuthResponse> RefreshTokenAsync(string refreshToken);
     Task<bool> LogoutAsync(string refreshToken);
     Task<bool> ChangePasswordAsync(ChangePasswordRequest request);

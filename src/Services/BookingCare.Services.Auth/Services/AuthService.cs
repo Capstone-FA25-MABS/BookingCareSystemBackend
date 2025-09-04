@@ -112,7 +112,7 @@ public class AuthService : BaseService, IAuthService
             _cookieService.SaveTokensInCookies(account.Id, accessToken, refreshTokenEntity.Token);
 
             LogInfo("Login successful for: {EmailOrPhone}", null, request.EmailOrPhone);
-
+                    
             return new AuthResponse
             {
                 IsSuccess = true,
@@ -128,7 +128,7 @@ public class AuthService : BaseService, IAuthService
     /// <summary>
     /// Register new account
     /// </summary>
-    public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
+    public async Task<AuthResponse> RegisterAsync(RegisterRequest request, Role role)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
@@ -136,6 +136,19 @@ public class AuthService : BaseService, IAuthService
 
             // Validate business rules
             ValidateRegisterRequest(request);
+
+            // Role-specific validation
+            ValidateRegisterByRole(request, role);
+
+            // Additional security: for Patient registration, require prior OTP verification (phone or email)
+            if (role == Role.PATIENT)
+            {
+                var purpose = request.Purpose.ToKey();
+                var channel = string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant();
+                var subject = channel == "email" ? $"email:{request.Email}" : $"phone:{request.PhoneNumber}";
+                var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt, consumeFlag: true);
+                if (!verified) throw new ValidationException("OTP verification required before registration");
+            }
 
             // Check if email already exists
             if (await _authRepository.EmailExistsAsync(request.Email))
@@ -155,24 +168,25 @@ public class AuthService : BaseService, IAuthService
             // Create account
             var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
 
-            // Assign default "Patient" role to the new account
+            // Assign role based on request (default Patient)
             try
             {
-                var defaultRole = await _authRepository.GetRoleByNameAsync("Patient");
+                var targetRoleName = role switch { Role.DOCTOR => "Doctor", Role.CLINIC => "Clinic", _ => "Patient" };
+                var defaultRole = await _authRepository.GetRoleByNameAsync(targetRoleName);
                 if (defaultRole != null)
                 {
                     await _authRepository.AssignRoleToAccountAsync(createdAccount.Id, defaultRole.Id);
-                    LogInfo("Default role 'Patient' assigned to account: {Email}", null, request.Email);
+                    LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRoleName, request.Email);
                 }
                 else
                 {
-                    LogWarning("Default role 'Patient' not found. Account created without role: {Email}", null, request.Email);
+                    LogWarning("Role '{Role}' not found. Account created without role: {Email}", null, targetRoleName, request.Email);
                 }
             }
             catch (Exception ex)
             {
                 // Log error but don't fail registration
-                LogError(ex, "Failed to assign default role to account: {Email}", null, request.Email);
+                LogError(ex, "Failed to assign role to account: {Email}", null, request.Email);
             }
 
             // Generate JWT token
@@ -371,7 +385,7 @@ public class AuthService : BaseService, IAuthService
                         { "email", request.Email! },
                         { "subject", "Reset your password" },
                         { "html", false },
-                        { "purpose", "forgot-password" },
+                        { "purpose", OtpPurpose.FORGOT_PASSWORD.ToKey() },
                         { "resetUrl", resetUrl }
                     },
                     ScheduledAt = DateTime.UtcNow
@@ -379,8 +393,8 @@ public class AuthService : BaseService, IAuthService
 
                 await _eventBus.PublishAsync(@event);
                 LogInfo("Password reset email event published for {Email}", null, request.Email);
-                return true;
-            }
+            return true;
+        }
             else
             {
                 // Phone flow: publish OTP request event to Notification service
@@ -410,7 +424,7 @@ public class AuthService : BaseService, IAuthService
                     {
                         { "phone", request.PhoneNumber! },
                         { "deviceId", deviceId },
-                        { "purpose", "forgot-password" }
+                        { "purpose", OtpPurpose.FORGOT_PASSWORD.ToKey() }
                     },
                     ScheduledAt = DateTime.UtcNow
                 };
@@ -435,40 +449,10 @@ public class AuthService : BaseService, IAuthService
             ValidateRequired(request, nameof(request));
             ValidateRequiredString(request.PhoneNumber, nameof(request.PhoneNumber));
 
-            // Verify OTP verification flag set by Notification service
-            var purpose = string.IsNullOrWhiteSpace(request.Purpose) ? "forgot-password" : request.Purpose;
-            var flagKey = $"otp:verified:{purpose}:phone:{request.PhoneNumber}".ToLowerInvariant();
-
-            var verified = false;
-            if (_distributedCache != null)
-            {
-                var val = await _distributedCache.GetStringAsync(flagKey);
-                if (!string.IsNullOrEmpty(val))
-                {
-                    verified = true;
-                    await _distributedCache.RemoveAsync(flagKey);
-                }
-            }
-
-            // Fallback: verify HMAC proof if no Redis flag found
-            if (!verified)
-            {
-                var secret = _configuration.GetSection("OtpVerification").GetValue<string>("Secret") ?? string.Empty;
-                if (!string.IsNullOrEmpty(secret) && !string.IsNullOrEmpty(request.Proof) && request.IssuedAt.HasValue)
-                {
-                    var subject = $"phone:{request.PhoneNumber}";
-                    var data = $"{purpose}:{subject}:{request.IssuedAt.Value}";
-                    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-                    var expected = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(data)));
-                    // time window 5 minutes
-                    var age = Math.Abs((DateTimeOffset.UtcNow.Ticks - request.IssuedAt.Value) / TimeSpan.TicksPerMinute);
-                    if (age <= 5 && string.Equals(expected, request.Proof, StringComparison.OrdinalIgnoreCase))
-                    {
-                        verified = true;
-                    }
-                }
-            }
-
+            // Unified verification (Redis flag or HMAC proof)
+            var purpose = request.Purpose.ToKey();
+            var subject = $"phone:{request.PhoneNumber}";
+            var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt, consumeFlag: true);
             if (!verified)
             {
                 // Return neutral response without revealing status
@@ -498,6 +482,45 @@ public class AuthService : BaseService, IAuthService
                 ResetUrl = resetUrl
             };
         }, "IssueResetToken");
+    }
+
+    private bool VerifyOtpProof(string purpose, string? proof, long? issuedAt, IEnumerable<string> subjects)
+    {
+        var secret = _configuration.GetSection("OtpVerification").GetValue<string>("Secret") ?? string.Empty;
+        if (string.IsNullOrEmpty(secret) || string.IsNullOrEmpty(proof) || !issuedAt.HasValue)
+            return false;
+
+        var age = Math.Abs((DateTimeOffset.UtcNow.Ticks - issuedAt.Value) / TimeSpan.TicksPerMinute);
+        if (age > 5) return false;
+
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        foreach (var subject in subjects)
+        {
+            var data = $"{purpose}:{subject}:{issuedAt.Value}";
+            var expected = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(data)));
+            if (string.Equals(expected, proof, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    private async Task<bool> VerifyOtpOrProofAsync(string purpose, string subject, string? proof, long? issuedAt, bool consumeFlag)
+    {
+        var flagKey = $"otp:verified:{purpose}:{subject}".ToLowerInvariant();
+        if (_distributedCache != null)
+        {
+            var val = await _distributedCache.GetStringAsync(flagKey);
+            if (!string.IsNullOrEmpty(val))
+            {
+                if (consumeFlag)
+                {
+                    await _distributedCache.RemoveAsync(flagKey);
+                }
+                return true;
+            }
+        }
+
+        return VerifyOtpProof(purpose, proof, issuedAt, new[] { subject });
     }
 
     /// <summary>
@@ -749,7 +772,7 @@ public class AuthService : BaseService, IAuthService
             if (account == null)
                 return false;
 
-            account.Status = BookingCare.Shared.Common.Enums.Status.ACTIVE;
+            account.Status = Status.ACTIVE;
             account.UpdatedAt = DateTime.UtcNow;
             
             await _authRepository.UpdateAccountAsync(account);
@@ -773,7 +796,7 @@ public class AuthService : BaseService, IAuthService
             if (account == null)
                 return false;
 
-            account.Status = BookingCare.Shared.Common.Enums.Status.INACTIVE;
+            account.Status = Status.INACTIVE;
             account.UpdatedAt = DateTime.UtcNow;
             
             await _authRepository.UpdateAccountAsync(account);
@@ -1444,7 +1467,6 @@ public class AuthService : BaseService, IAuthService
         ValidateRequiredString(request.Email, nameof(request.Email));
         ValidateRequiredString(request.Password, nameof(request.Password));
         ValidateRequiredString(request.ConfirmPassword, nameof(request.ConfirmPassword));
-        ValidateRequiredString(request.FullName, nameof(request.FullName));
         ValidateRequiredString(request.PhoneNumber, nameof(request.PhoneNumber));  
 
         // Validate password length (DTO already has MinLength(8) attribute, but double-check here)
@@ -1470,16 +1492,62 @@ public class AuthService : BaseService, IAuthService
         {
             throw new AccountValidationException("Address is required and must not exceed 500 characters");
         }
+    }
 
-        // Validate birthday (should not be in the future and reasonable past date)
-        if (request.Birthday >= DateTime.Today)
+    private void ValidateRegisterByRole(RegisterRequest request, Role role)
+    {
+        var normalizedRole = role;
+
+        // Common password confirmation
+        if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
         {
-            throw new AccountValidationException("Birthday cannot be today or in the future");
+            throw new AccountValidationException("Password and confirm password do not match");
         }
 
-        if (request.Birthday < DateTime.Today.AddYears(-120))
+        if (normalizedRole == Role.PATIENT)
         {
-            throw new AccountValidationException("Birthday seems invalid (too far in the past)");
+            if (string.IsNullOrWhiteSpace(request.FullName))
+                throw new AccountValidationException("FullName is required for Patient");
+            if (!request.Gender.HasValue)
+                throw new AccountValidationException("Gender is required for Patient");
+            if (!request.Birthday.HasValue)
+                throw new AccountValidationException("Birthday is required for Patient");
+            if (request.Birthday.Value >= DateTime.Today)
+                throw new AccountValidationException("Birthday cannot be today or in the future");
+            if (request.Birthday.Value < DateTime.Today.AddYears(-120))
+                throw new AccountValidationException("Birthday seems invalid (too far in the past)");
+        }
+        else if (normalizedRole == Role.DOCTOR)
+        {
+            if (string.IsNullOrWhiteSpace(request.FullName))
+                throw new AccountValidationException("FullName is required for Doctor");
+            if (!request.Gender.HasValue)
+                throw new AccountValidationException("Gender is required for Doctor");
+            if (request.DoctorProfile == null)
+                throw new AccountValidationException("DoctorProfile is required for Doctor");
+            if (request.DoctorProfile.PositionId == Guid.Empty)
+                throw new AccountValidationException("DoctorProfile.PositionId is required");
+            if (request.DoctorProfile.SpecialtyId == Guid.Empty)
+                throw new AccountValidationException("DoctorProfile.SpecialtyId is required");
+            if (request.DoctorProfile.ClinicId == Guid.Empty)
+                throw new AccountValidationException("DoctorProfile.ClinicId is required");
+            if (string.IsNullOrWhiteSpace(request.DoctorProfile.Bio))
+                throw new AccountValidationException("DoctorProfile.Bio is required");
+            if (request.DoctorProfile.YearsOfExperience < 0 || request.DoctorProfile.YearsOfExperience > 80)
+                throw new AccountValidationException("DoctorProfile.YearsOfExperience must be between 0 and 80");
+        }
+        else if (normalizedRole == Role.CLINIC)
+        {
+            if (request.ClinicProfile == null)
+                throw new AccountValidationException("ClinicProfile is required for Clinic");
+            if (string.IsNullOrWhiteSpace(request.ClinicProfile.Name))
+                throw new AccountValidationException("ClinicProfile.Name is required");
+            if (string.IsNullOrWhiteSpace(request.ClinicProfile.Description))
+                throw new AccountValidationException("ClinicProfile.Description is required");
+            if (request.ClinicProfile.Name.Length > 200)
+                throw new AccountValidationException("ClinicProfile.Name must not exceed 200 characters");
+            if (request.ClinicProfile.Description.Length > 2000)
+                throw new AccountValidationException("ClinicProfile.Description must not exceed 2000 characters");
         }
     }
 
