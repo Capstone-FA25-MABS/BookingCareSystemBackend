@@ -1,0 +1,99 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert.rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # BookingCare Services
+  - job_name: 'bookingcare-auth-service'
+    static_configs:
+      - targets: ['auth-service:6003']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-discount-service'
+    static_configs:
+      - targets: ['discount-service:6007']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-clinic-service'
+    static_configs:
+      - targets: ['clinic-service:6001']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-doctor-service'
+    static_configs:
+      - targets: ['doctor-service:6002']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-user-service'
+    static_configs:
+      - targets: ['user-service:6004']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-appointment-service'
+    static_configs:
+      - targets: ['appointment-service:6005']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-payment-service'
+    static_configs:
+      - targets: ['payment-service:6006']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-notification-service'
+    static_configs:
+      - targets: ['notification-service:6011']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-ai-service'
+    static_configs:
+      - targets: ['ai-service:6000']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-analytics-service'
+    static_configs:
+      - targets: ['analytics-service:6008']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-favorites-service'
+    static_configs:
+      - targets: ['favorites-service:6009']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # External dependencies
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+    metrics_path: /metrics
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis_exporter:9121']
