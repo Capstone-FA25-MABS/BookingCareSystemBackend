@@ -40,11 +40,13 @@ builder.Services.AddApiVersioningSupport();
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Auth API", Version = "v1.0" });
+    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Discount API", Version = "v1.0" });
 });
 
+// Add monitoring (Prometheus, Grafana, Jaeger)
+builder.Services.AddBookingCareMonitoring("BookingCare.Services.Discount", "1.0.0");
 
-// Add global exception handling
+// Add global exception handling (includes monitoring integration)
 builder.Services.AddGlobalExceptionHandling();
 
 // Database configuration
@@ -84,7 +86,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Add global exception handling
+// Add monitoring middleware (must be early in pipeline)
+app.UseBookingCareMonitoring();
+
+// Add global exception handling (includes monitoring integration)
 app.UseGlobalExceptionHandling();
 
 // Add custom middleware
