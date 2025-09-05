@@ -18,6 +18,7 @@ using BookingCare.Shared.EventBus.Events;
 using Microsoft.Extensions.Caching.Distributed;
 using BookingCare.Shared.Common.AppRouting;
 using Microsoft.Extensions.Options;
+using BookingCare.Services.Notification.Protos;
 
 namespace BookingCare.Services.Auth.Services;
 
@@ -36,6 +37,7 @@ public class AuthService : BaseService, IAuthService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IDistributedCache? _distributedCache;
     private readonly FrontendOptions _frontendOptions;
+    private readonly OtpVerifier.OtpVerifierClient _otpClient;
 
     public AuthService(
         IAuthRepository authRepository,
@@ -48,7 +50,8 @@ public class AuthService : BaseService, IAuthService
         IEventBus eventBus,
         IHttpContextAccessor httpContextAccessor,
         IDistributedCache? distributedCache = null,
-        IOptions<FrontendOptions>? frontendOptions = null) : base(logger)
+        IOptions<FrontendOptions>? frontendOptions = null,
+        OtpVerifier.OtpVerifierClient? otpClient = null) : base(logger)
     {
         _authRepository = authRepository;
         _mapper = mapper;
@@ -60,6 +63,7 @@ public class AuthService : BaseService, IAuthService
         _httpContextAccessor = httpContextAccessor;
         _distributedCache = distributedCache;
         _frontendOptions = frontendOptions?.Value ?? new FrontendOptions();
+        _otpClient = otpClient!;
     }
 
     #region Authentication Operations
@@ -506,20 +510,47 @@ public class AuthService : BaseService, IAuthService
 
     private async Task<bool> VerifyOtpOrProofAsync(string purpose, string subject, string? proof, long? issuedAt, bool consumeFlag)
     {
-        var flagKey = $"otp:verified:{purpose}:{subject}".ToLowerInvariant();
-        if (_distributedCache != null)
-        {
-            var val = await _distributedCache.GetStringAsync(flagKey);
-            if (!string.IsNullOrEmpty(val))
-            {
-                if (consumeFlag)
-                {
-                    await _distributedCache.RemoveAsync(flagKey);
-                }
-                return true;
-            }
-        }
+        // 1) Try gRPC if enabled
+        var otpSection = _configuration.GetSection("OtpVerification");
+        var useGrpc = otpSection.GetValue<bool>("UseGrpc");
+        var allowProofFallback = otpSection.GetValue<bool>("AllowProofFallback", true);
+        var timeoutMs = otpSection.GetValue<int>("TimeoutMs", 1000);
 
+        // 2) Try Redis local flag (best-effort, ignore connectivity errors)
+        var flagKey = $"otp:verified:{purpose}:{subject}".ToLowerInvariant();
+        if (useGrpc && _otpClient != null)
+        {
+            bool grpcOk = false;
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeoutMs));
+                var resp = await _otpClient.VerifyAsync(new VerifyRequest
+                {
+                    Key = flagKey,
+                    Otp = "1"
+                }, cancellationToken: cts.Token);
+                grpcOk = resp.Verified;
+            }
+            catch (Grpc.Core.RpcException ex)
+            {
+                LogWarning("gRPC OTP verify failed: {Message}", ex.Message);
+            }
+            catch (OperationCanceledException)
+            {
+                LogWarning("gRPC OTP verify timeout after {TimeoutMs}ms", null, timeoutMs);
+            }
+            catch (Exception ex)
+            {
+                LogWarning("gRPC OTP verify unexpected error: {Message}", ex.Message);
+            }
+
+            if (grpcOk)
+                return true;
+            if (!allowProofFallback)
+                return false;
+        }     
+
+        // 3) Fallback to proof
         return VerifyOtpProof(purpose, proof, issuedAt, new[] { subject });
     }
 
@@ -582,72 +613,18 @@ public class AuthService : BaseService, IAuthService
     #region Account Operations
 
     /// <summary>
-    /// Create new account
-    /// </summary>
-    public async Task<AccountResponse> CreateAccountAsync(CreateAccountRequest request)
-    {
-        try
-        {
-            // Check if email already exists
-            if (await _authRepository.EmailExistsAsync(request.Email))
-            {
-                throw new AccountConflictException(request.Email, "Email");
-            }
-
-            // Check if phone number already exists (if provided)
-            if (!string.IsNullOrEmpty(request.PhoneNumber) && await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
-            {
-                throw new AccountConflictException(request.PhoneNumber, "phone number");
-            }
-
-            var account = _mapper.Map<AccountEntity>(request);
-            var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
-
-            return _mapper.Map<AccountResponse>(createdAccount);
-        }
-        catch (AccountConflictException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating account for email: {Email}", request.Email);
-            throw new AuthException("Account creation failed", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Get account by ID
-    /// </summary>
-    public async Task<AccountResponse?> GetAccountByIdAsync(Guid id)
-    {
-        try
-        {
-            var account = await _authRepository.GetAccountByIdAsync(id);
-            return account != null ? _mapper.Map<AccountResponse>(account) : null;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting account by ID: {AccountId}", id);
-            throw new AuthException("Failed to get account", innerException: ex);
-        }
-    }
-
-    /// <summary>
     /// Get account by email
     /// </summary>
     public async Task<AccountResponse?> GetAccountByEmailAsync(string email)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            ValidateRequiredString(email, nameof(email));
+            LogInfo("Fetching account by email: {Email}", null, email);
+
             var account = await _authRepository.GetAccountByEmailAsync(email);
             return account != null ? _mapper.Map<AccountResponse>(account) : null;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting account by email: {Email}", email);
-            throw new AuthException("Failed to get account", innerException: ex);
-        }
+        }, "GetAccountByEmail");
     }
 
     /// <summary>
@@ -655,158 +632,34 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<AccountResponse?> GetAccountByPhoneNumberAsync(string phoneNumber)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            ValidateRequiredString(phoneNumber, nameof(phoneNumber));
+            LogInfo("Fetching account by phone: {Phone}", null, phoneNumber);
+
             var account = await _authRepository.GetAccountByPhoneNumberAsync(phoneNumber);
             return account != null ? _mapper.Map<AccountResponse>(account) : null;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting account by phone number: {PhoneNumber}", phoneNumber);
-            throw new AuthException("Failed to get account", innerException: ex);
-        }
+        }, "GetAccountByPhoneNumber");
     }
 
     /// <summary>
-    /// Update account
+    /// Toggle account active status (ACTIVE <-> INACTIVE)
     /// </summary>
-    public async Task<AccountResponse> UpdateAccountAsync(UpdateAccountRequest request)
+    public async Task<Status?> ToggleAccountActiveStatusAsync(Guid id)  
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            var existingAccount = await _authRepository.GetAccountByIdAsync(request.Id);
-            if (existingAccount == null)
-            {
-                throw new AccountNotFoundException(request.Id);
-            }
+            LogInfo("Toggling account active status: {AccountId}", null, id);
 
-            // Check email uniqueness if changed
-            if (request.Email != null && request.Email != existingAccount.Email)
-            {
-                if (await _authRepository.EmailExistsAsync(request.Email, request.Id))
-                {
-                    throw new AccountConflictException(request.Email, "Email");
-                }
-            }
-
-            // Check phone number uniqueness if changed
-            if (request.PhoneNumber != null && request.PhoneNumber != existingAccount.PhoneNumber)
-            {
-                if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber, request.Id))
-                {
-                    throw new AccountConflictException(request.PhoneNumber, "phone number");
-                }
-            }
-
-            var account = _mapper.Map<AccountEntity>(request);
-            account.UpdatedAt = DateTime.UtcNow;
-
-            var updatedAccount = await _authRepository.UpdateAccountAsync(account);
-            return _mapper.Map<AccountResponse>(updatedAccount);
-        }
-        catch (AccountNotFoundException)
-        {
-            throw;
-        }
-        catch (AccountConflictException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error updating account: {AccountId}", request.Id);
-            throw new AuthException("Account update failed", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Delete account
-    /// </summary>
-    public async Task<bool> DeleteAccountAsync(Guid id)
-    {
-        try
-        {
-            return await _authRepository.DeleteAccountAsync(id);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error deleting account: {AccountId}", id);
-            throw new AuthException("Account deletion failed", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Get accounts with filtering and pagination
-    /// </summary>
-    public async Task<AccountListResponse> GetAccountsAsync(AccountQueryRequest query)
-    {
-        try
-        {
-            var (accounts, totalCount) = await _authRepository.GetAccountsAsync(query);
-            var accountResponses = _mapper.Map<List<AccountResponse>>(accounts);
-
-            return new AccountListResponse
-            {
-                Accounts = accountResponses,
-                TotalCount = totalCount,
-                PageNumber = query.PageNumber,
-                PageSize = query.PageSize,
-                TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
-            };
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting accounts with query");
-            throw new AuthException("Failed to get accounts", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Activate account
-    /// </summary>
-    public async Task<bool> ActivateAccountAsync(Guid id)
-    {
-        try
-        {
             var account = await _authRepository.GetAccountByIdAsync(id);
             if (account == null)
-                return false;
+                return (Status?)null;
 
-            account.Status = Status.ACTIVE;
-            account.UpdatedAt = DateTime.UtcNow;
-            
+            account.Status = account.Status == Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
+
             await _authRepository.UpdateAccountAsync(account);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error activating account: {AccountId}", id);
-            throw new AuthException("Account activation failed", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Deactivate account
-    /// </summary>
-    public async Task<bool> DeactivateAccountAsync(Guid id)
-    {
-        try
-        {
-            var account = await _authRepository.GetAccountByIdAsync(id);
-            if (account == null)
-                return false;
-
-            account.Status = Status.INACTIVE;
-            account.UpdatedAt = DateTime.UtcNow;
-            
-            await _authRepository.UpdateAccountAsync(account);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error deactivating account: {AccountId}", id);
-            throw new AuthException("Account deactivation failed", innerException: ex);
-        }
+            return account.Status;
+        }, "ToggleAccountActiveStatus");
     }
 
     /// <summary>
@@ -814,15 +667,11 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<bool> LockAccountAsync(Guid id)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Locking account: {AccountId}", null, id);
             return await _authRepository.LockAccountAsync(id);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error locking account: {AccountId}", id);
-            throw new AuthException("Account lock failed", innerException: ex);
-        }
+        }, "LockAccount");
     }
 
     /// <summary>
@@ -830,15 +679,11 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<bool> UnlockAccountAsync(Guid id)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Unlocking account: {AccountId}", null, id);
             return await _authRepository.UnlockAccountAsync(id);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error unlocking account: {AccountId}", id);
-            throw new AuthException("Account unlock failed", innerException: ex);
-        }
+        }, "UnlockAccount");
     }
 
     #endregion

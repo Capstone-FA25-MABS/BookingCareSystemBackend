@@ -58,8 +58,8 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <param name="request">Registration information</param>
     /// <returns>Authentication response with JWT token</returns>
-    [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    [HttpPost("register/patient")]
+    public async Task<IActionResult> RegisterPatient([FromBody] RegisterRequest request)
     {      
         if (!ModelState.IsValid)
         {
@@ -79,6 +79,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Registration information</param>
     /// <returns>Authentication response with JWT token</returns>
     [HttpPost("register/doctor")]
+    [Authorize(Policy = "Role:Clinic")]
     public async Task<IActionResult> RegisterDoctor([FromBody] RegisterRequest request)
     {
         if (!ModelState.IsValid)
@@ -99,6 +100,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Registration information</param>
     /// <returns>Authentication response with JWT token</returns>
     [HttpPost("register/clinic")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> RegisterClinic([FromBody] RegisterRequest request)
     {
         if (!ModelState.IsValid)
@@ -247,268 +249,25 @@ public class AuthController : BaseApiController
 
     #endregion
 
-    #region Account Operations
+    #region Account Operations   
 
     /// <summary>
-    /// Create new account
-    /// </summary>
-    /// <param name="request">Account creation request</param>
-    /// <returns>Created account information</returns>
-    [HttpPost("accounts")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<AccountResponse>), 201)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 409)]
-    public async Task<IActionResult> CreateAccount([FromBody] CreateAccountRequest request)
-    {
-        try
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
-
-            var result = await _authService.CreateAccountAsync(request);
-            return Created(result, "Account created successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating account for email: {Email}", request.Email);
-            return BadRequest("Account creation failed: " + ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Get account by ID
-    /// </summary>
-    /// <param name="id">Account ID</param>
-    /// <returns>Account information</returns>
-    [HttpGet("accounts/{id}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<AccountResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    public async Task<IActionResult> GetAccount(Guid id)
-    {
-        try
-        {
-            var account = await _authService.GetAccountByIdAsync(id);
-            if (account == null)
-            {
-                return NotFound($"Account with ID {id} not found");
-            }
-
-            return Success(account, "Account retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting account by ID: {AccountId}", id);
-            return BadRequest("Failed to get account: " + ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Get account by email
-    /// </summary>
-    /// <param name="email">Account email</param>
-    /// <returns>Account information</returns>
-    [HttpGet("accounts/by-email/{email}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<AccountResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    public async Task<IActionResult> GetAccountByEmail(string email)
-    {
-        try
-        {
-            var account = await _authService.GetAccountByEmailAsync(email);
-            if (account == null)
-            {
-                return NotFound($"Account with email '{email}' not found");
-            }
-
-            return Success(account, "Account retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting account by email: {Email}", email);
-            return BadRequest("Failed to get account: " + ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Get account by phone number
-    /// </summary>
-    /// <param name="phoneNumber">Account phone number</param>
-    /// <returns>Account information</returns>
-    [HttpGet("accounts/by-phone/{phoneNumber}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<AccountResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    public async Task<IActionResult> GetAccountByPhoneNumber(string phoneNumber)
-    {
-        try
-        {
-            var account = await _authService.GetAccountByPhoneNumberAsync(phoneNumber);
-            if (account == null)
-            {
-                return NotFound($"Account with phone number '{phoneNumber}' not found");
-            }
-
-            return Success(account, "Account retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting account by phone number: {PhoneNumber}", phoneNumber);
-            return BadRequest("Failed to get account: " + ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Update account information
-    /// </summary>
-    /// <param name="id">Account ID</param>
-    /// <param name="request">Account update request</param>
-    /// <returns>Updated account information</returns>
-    [HttpPut("accounts/{id}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<AccountResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 409)]
-    public async Task<IActionResult> UpdateAccount(Guid id, [FromBody] UpdateAccountRequest request)
-    {
-        try
-        {
-            if (id != request.Id)
-            {
-                return BadRequest("ID mismatch between route and request body");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
-
-            var result = await _authService.UpdateAccountAsync(request);
-            return Success(result, "Account updated successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating account: {AccountId}", id);
-            return BadRequest("Account update failed: " + ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Delete account
+    /// Ban/Unban account (toggle ACTIVE/INACTIVE)
     /// </summary>
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
-    [HttpDelete("accounts/{id}")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    public async Task<IActionResult> DeleteAccount(Guid id)
+    [HttpPatch("accounts/ban-unban/{id}")]
+    [Authorize(Policy = "Role:Admin")]
+    public async Task<IActionResult> BanUnban(Guid id)
     {
-        try
+        var status = await _authService.ToggleAccountActiveStatusAsync(id);
+        if (status == null)
         {
-            var result = await _authService.DeleteAccountAsync(id);
-            if (!result)
-            {
-                return NotFound($"Account with ID {id} not found");
-            }
+            return NotFound($"Account with ID {id} not found");
+        }
 
-            return Success("Account deleted successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting account: {AccountId}", id);
-            return BadRequest("Account deletion failed: " + ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Get accounts with filtering and pagination
-    /// </summary>
-    /// <param name="query">Query parameters</param>
-    /// <returns>Paginated list of accounts</returns>
-    [HttpGet("accounts")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<AccountListResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    public async Task<IActionResult> GetAccounts([FromQuery] AccountQueryRequest query)
-    {
-        try
-        {
-            var result = await _authService.GetAccountsAsync(query);
-            return Success(result, "Accounts retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting accounts with query");
-            return BadRequest("Failed to get accounts: " + ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Activate account
-    /// </summary>
-    /// <param name="id">Account ID</param>
-    /// <returns>Success response</returns>
-    [HttpPatch("accounts/{id}/activate")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    public async Task<IActionResult> ActivateAccount(Guid id)
-    {
-        try
-        {
-            var result = await _authService.ActivateAccountAsync(id);
-            if (!result)
-            {
-                return NotFound($"Account with ID {id} not found");
-            }
-
-            return Success("Account activated successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error activating account: {AccountId}", id);
-            return BadRequest("Account activation failed: " + ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Deactivate account
-    /// </summary>
-    /// <param name="id">Account ID</param>
-    /// <returns>Success response</returns>
-    [HttpPatch("accounts/{id}/deactivate")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    public async Task<IActionResult> DeactivateAccount(Guid id)
-    {
-        try
-        {
-            var result = await _authService.DeactivateAccountAsync(id);
-            if (!result)
-            {
-                return NotFound($"Account with ID {id} not found");
-            }
-
-            return Success("Account deactivated successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deactivating account: {AccountId}", id);
-            return BadRequest("Account deactivation failed: " + ex.Message);
-        }
+        var message = status == Status.ACTIVE ? "Account unbanned (activated) successfully" : "Account banned (deactivated) successfully";
+        return Success(message);
     }
 
     /// <summary>
@@ -516,27 +275,17 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
-    [HttpPatch("accounts/{id}/lock")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [HttpPatch("accounts/lock/{id}")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> LockAccount(Guid id)
     {
-        try
+        var result = await _authService.LockAccountAsync(id);
+        if (!result)
         {
-            var result = await _authService.LockAccountAsync(id);
-            if (!result)
-            {
-                return NotFound($"Account with ID {id} not found");
-            }
+            return NotFound($"Account with ID {id} not found");
+        }
 
-            return Success("Account locked successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error locking account: {AccountId}", id);
-            return BadRequest("Account lock failed: " + ex.Message);
-        }
+        return Success("Account locked successfully");
     }
 
     /// <summary>
@@ -544,27 +293,17 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
-    [HttpPatch("accounts/{id}/unlock")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [HttpPatch("accounts/unlock/{id}")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UnlockAccount(Guid id)
     {
-        try
+        var result = await _authService.UnlockAccountAsync(id);
+        if (!result)
         {
-            var result = await _authService.UnlockAccountAsync(id);
-            if (!result)
-            {
-                return NotFound($"Account with ID {id} not found");
-            }
+            return NotFound($"Account with ID {id} not found");
+        }
 
-            return Success("Account unlocked successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error unlocking account: {AccountId}", id);
-            return BadRequest("Account unlock failed: " + ex.Message);
-        }
+        return Success("Account unlocked successfully");
     }
 
     #endregion
@@ -583,24 +322,16 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 409)]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
 
-            var result = await _authService.CreateRoleAsync(request);
-            return Created(result, "Role created successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating role: {RoleName}", request.Name);
-            return BadRequest("Role creation failed: " + ex.Message);
-        }
+        var result = await _authService.CreateRoleAsync(request);
+        return Created(result, "Role created successfully");
     }
 
     /// <summary>
@@ -614,21 +345,13 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 404)]
     public async Task<IActionResult> GetRole(Guid id)
     {
-        try
+        var role = await _authService.GetRoleByIdAsync(id);
+        if (role == null)
         {
-            var role = await _authService.GetRoleByIdAsync(id);
-            if (role == null)
-            {
-                return NotFound($"Role with ID {id} not found");
-            }
+            return NotFound($"Role with ID {id} not found");
+        }
 
-            return Success(role, "Role retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting role by ID: {RoleId}", id);
-            return BadRequest("Failed to get role: " + ex.Message);
-        }
+        return Success(role, "Role retrieved successfully");
     }
 
     /// <summary>
@@ -642,21 +365,13 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 404)]
     public async Task<IActionResult> GetRoleByName(string name)
     {
-        try
+        var role = await _authService.GetRoleByNameAsync(name);
+        if (role == null)
         {
-            var role = await _authService.GetRoleByNameAsync(name);
-            if (role == null)
-            {
-                return NotFound($"Role with name '{name}' not found");
-            }
+            return NotFound($"Role with name '{name}' not found");
+        }
 
-            return Success(role, "Role retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting role by name: {RoleName}", name);
-            return BadRequest("Failed to get role: " + ex.Message);
-        }
+        return Success(role, "Role retrieved successfully");
     }
 
     /// <summary>
@@ -673,29 +388,21 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 409)]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request)
     {
-        try
+        if (id != request.Id)
         {
-            if (id != request.Id)
-            {
-                return BadRequest("ID mismatch between route and request body");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
-
-            var result = await _authService.UpdateRoleAsync(request);
-            return Success(result, "Role updated successfully");
+            return BadRequest("ID mismatch between route and request body");
         }
-        catch (Exception ex)
+
+        if (!ModelState.IsValid)
         {
-            _logger.LogError(ex, "Error updating role: {RoleId}", id);
-            return BadRequest("Role update failed: " + ex.Message);
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
         }
+
+        var result = await _authService.UpdateRoleAsync(request);
+        return Success(result, "Role updated successfully");
     }
 
     /// <summary>
@@ -709,21 +416,13 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 404)]
     public async Task<IActionResult> DeleteRole(Guid id)
     {
-        try
+        var result = await _authService.DeleteRoleAsync(id);
+        if (!result)
         {
-            var result = await _authService.DeleteRoleAsync(id);
-            if (!result)
-            {
-                return NotFound($"Role with ID {id} not found");
-            }
+            return NotFound($"Role with ID {id} not found");
+        }
 
-            return Success("Role deleted successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting role: {RoleId}", id);
-            return BadRequest("Role deletion failed: " + ex.Message);
-        }
+        return Success("Role deleted successfully");
     }
 
     /// <summary>
@@ -737,16 +436,8 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> GetRoles([FromQuery] RoleQueryRequest query)
     {
-        try
-        {
-            var result = await _authService.GetRolesAsync(query);
-            return Success(result, "Roles retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting roles with query");
-            return BadRequest("Failed to get roles: " + ex.Message);
-        }
+        var result = await _authService.GetRolesAsync(query);
+        return Success(result, "Roles retrieved successfully");
     }
 
     #endregion
@@ -765,24 +456,16 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 409)]
     public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequest request)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
 
-            var result = await _authService.CreatePermissionAsync(request);
-            return Created(result, "Permission created successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating permission: {PermissionName}", request.Name);
-            return BadRequest("Permission creation failed: " + ex.Message);
-        }
+        var result = await _authService.CreatePermissionAsync(request);
+        return Created(result, "Permission created successfully");
     }
 
     /// <summary>
@@ -796,21 +479,13 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 404)]
     public async Task<IActionResult> GetPermission(Guid id)
     {
-        try
+        var permission = await _authService.GetPermissionByIdAsync(id);
+        if (permission == null)
         {
-            var permission = await _authService.GetPermissionByIdAsync(id);
-            if (permission == null)
-            {
-                return NotFound($"Permission with ID {id} not found");
-            }
+            return NotFound($"Permission with ID {id} not found");
+        }
 
-            return Success(permission, "Permission retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting permission by ID: {PermissionId}", id);
-            return BadRequest("Failed to get permission: " + ex.Message);
-        }
+        return Success(permission, "Permission retrieved successfully");
     }
 
     /// <summary>
@@ -824,21 +499,13 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 404)]
     public async Task<IActionResult> GetPermissionByName(string name)
     {
-        try
+        var permission = await _authService.GetPermissionByNameAsync(name);
+        if (permission == null)
         {
-            var permission = await _authService.GetPermissionByNameAsync(name);
-            if (permission == null)
-            {
-                return NotFound($"Permission with name '{name}' not found");
-            }
+            return NotFound($"Permission with name '{name}' not found");
+        }
 
-            return Success(permission, "Permission retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting permission by name: {PermissionName}", name);
-            return BadRequest("Failed to get permission: " + ex.Message);
-        }
+        return Success(permission, "Permission retrieved successfully");
     }
 
     /// <summary>
@@ -855,29 +522,21 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 409)]
     public async Task<IActionResult> UpdatePermission(Guid id, [FromBody] UpdatePermissionRequest request)
     {
-        try
+        if (id != request.Id)
         {
-            if (id != request.Id)
-            {
-                return BadRequest("ID mismatch between route and request body");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
-
-            var result = await _authService.UpdatePermissionAsync(request);
-            return Success(result, "Permission updated successfully");
+            return BadRequest("ID mismatch between route and request body");
         }
-        catch (Exception ex)
+
+        if (!ModelState.IsValid)
         {
-            _logger.LogError(ex, "Error updating permission: {PermissionId}", id);
-            return BadRequest("Permission update failed: " + ex.Message);
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
         }
+
+        var result = await _authService.UpdatePermissionAsync(request);
+        return Success(result, "Permission updated successfully");
     }
 
     /// <summary>
@@ -891,21 +550,13 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 404)]
     public async Task<IActionResult> DeletePermission(Guid id)
     {
-        try
+        var result = await _authService.DeletePermissionAsync(id);
+        if (!result)
         {
-            var result = await _authService.DeletePermissionAsync(id);
-            if (!result)
-            {
-                return NotFound($"Permission with ID {id} not found");
-            }
+            return NotFound($"Permission with ID {id} not found");
+        }
 
-            return Success("Permission deleted successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting permission: {PermissionId}", id);
-            return BadRequest("Permission deletion failed: " + ex.Message);
-        }
+        return Success("Permission deleted successfully");
     }
 
     /// <summary>
@@ -919,16 +570,8 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> GetPermissions([FromQuery] PermissionQueryRequest query)
     {
-        try
-        {
-            var result = await _authService.GetPermissionsAsync(query);
-            return Success(result, "Permissions retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting permissions with query");
-            return BadRequest("Failed to get permissions: " + ex.Message);
-        }
+        var result = await _authService.GetPermissionsAsync(query);
+        return Success(result, "Permissions retrieved successfully");
     }
 
     #endregion
@@ -946,24 +589,16 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> AssignRoleToAccount([FromBody] AssignRoleRequest request)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
 
-            var result = await _authService.AssignRoleToAccountAsync(request);
-            return Success(result, "Role assigned to account successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error assigning role to account: AccountId={AccountId}, RoleId={RoleId}", request.AccountId, request.RoleId);
-            return BadRequest("Role assignment failed: " + ex.Message);
-        }
+        var result = await _authService.AssignRoleToAccountAsync(request);
+        return Success(result, "Role assigned to account successfully");
     }
 
     /// <summary>
@@ -977,24 +612,16 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> RemoveRoleFromAccount([FromBody] RemoveRoleRequest request)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
 
-            var result = await _authService.RemoveRoleFromAccountAsync(request);
-            return Success("Role removed from account successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error removing role from account: AccountId={AccountId}, RoleId={RoleId}", request.AccountId, request.RoleId);
-            return BadRequest("Role removal failed: " + ex.Message);
-        }
+        var result = await _authService.RemoveRoleFromAccountAsync(request);
+        return Success("Role removed from account successfully");
     }
 
     /// <summary>
@@ -1008,16 +635,8 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> GetAccountRoles(Guid accountId)
     {
-        try
-        {
-            var result = await _authService.GetAccountRolesAsync(accountId);
-            return Success(result, "Account roles retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting account roles: {AccountId}", accountId);
-            return BadRequest("Failed to get account roles: " + ex.Message);
-        }
+        var result = await _authService.GetAccountRolesAsync(accountId);
+        return Success(result, "Account roles retrieved successfully");
     }
 
     /// <summary>
@@ -1031,16 +650,8 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> GetAccountsByRole(Guid roleId)
     {
-        try
-        {
-            var result = await _authService.GetAccountsByRoleAsync(roleId);
-            return Success(result, "Accounts by role retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting accounts by role: {RoleId}", roleId);
-            return BadRequest("Failed to get accounts by role: " + ex.Message);
-        }
+        var result = await _authService.GetAccountsByRoleAsync(roleId);
+        return Success(result, "Accounts by role retrieved successfully");
     }
 
     #endregion
@@ -1058,24 +669,16 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> AssignPermissionToRole([FromBody] AssignPermissionRequest request)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
 
-            var result = await _authService.AssignPermissionToRoleAsync(request);
-            return Success(result, "Permission assigned to role successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error assigning permission to role: RoleId={RoleId}, PermissionId={PermissionId}", request.RoleId, request.PermissionId);
-            return BadRequest("Permission assignment failed: " + ex.Message);
-        }
+        var result = await _authService.AssignPermissionToRoleAsync(request);
+        return Success(result, "Permission assigned to role successfully");
     }
 
     /// <summary>
@@ -1089,24 +692,16 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> RemovePermissionFromRole([FromBody] RemovePermissionRequest request)
     {
-        try
+        if (!ModelState.IsValid)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest("Invalid request data", ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
-            }
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
 
-            var result = await _authService.RemovePermissionFromRoleAsync(request);
-            return Success("Permission removed from role successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error removing permission from role: RoleId={RoleId}, PermissionId={PermissionId}", request.RoleId, request.PermissionId);
-            return BadRequest("Permission removal failed: " + ex.Message);
-        }
+        var result = await _authService.RemovePermissionFromRoleAsync(request);
+        return Success("Permission removed from role successfully");
     }
 
     /// <summary>
@@ -1120,16 +715,8 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> GetRolePermissions(Guid roleId)
     {
-        try
-        {
-            var result = await _authService.GetRolePermissionsAsync(roleId);
-            return Success(result, "Role permissions retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting role permissions: {RoleId}", roleId);
-            return BadRequest("Failed to get role permissions: " + ex.Message);
-        }
+        var result = await _authService.GetRolePermissionsAsync(roleId);
+        return Success(result, "Role permissions retrieved successfully");
     }
 
     /// <summary>
@@ -1143,16 +730,8 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> GetRolesByPermission(Guid permissionId)
     {
-        try
-        {
-            var result = await _authService.GetRolesByPermissionAsync(permissionId);
-            return Success(result, "Roles by permission retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting roles by permission: {PermissionId}", permissionId);
-            return BadRequest("Failed to get roles by permission: " + ex.Message);
-        }
+        var result = await _authService.GetRolesByPermissionAsync(permissionId);
+        return Success(result, "Roles by permission retrieved successfully");
     }
 
     #endregion
@@ -1171,16 +750,8 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> IsAuthorized(Guid accountId, string permissionName)
     {
-        try
-        {
-            var result = await _authService.IsAuthorizedAsync(accountId, permissionName);
-            return Success(result, result ? "Account is authorized" : "Account is not authorized");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking authorization: AccountId={AccountId}, Permission={Permission}", accountId, permissionName);
-            return BadRequest("Authorization check failed: " + ex.Message);
-        }
+        var result = await _authService.IsAuthorizedAsync(accountId, permissionName);
+        return Success(result, result ? "Account is authorized" : "Account is not authorized");
     }
 
     /// <summary>
@@ -1194,16 +765,8 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> GetAccountPermissions(Guid accountId)
     {
-        try
-        {
-            var result = await _authService.GetAccountPermissionsAsync(accountId);
-            return Success(result, "Account permissions retrieved successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting account permissions: {AccountId}", accountId);
-            return BadRequest("Failed to get account permissions: " + ex.Message);
-        }
+        var result = await _authService.GetAccountPermissionsAsync(accountId);
+        return Success(result, "Account permissions retrieved successfully");
     }
 
     #endregion
@@ -1237,74 +800,66 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 401)]
     public IActionResult TestMiddleware()
     {
-        try
+        // Get user context from AuthenticationMiddleware
+        var userId = HttpContext.Items["UserId"]?.ToString();
+        var userEmail = HttpContext.Items["UserEmail"]?.ToString();
+        var userName = HttpContext.Items["UserName"]?.ToString();
+        var userRoles = HttpContext.Items["UserRoles"] as List<string>;
+        var userPermissions = HttpContext.Items["UserPermissions"] as List<string>;
+        var accountStatus = HttpContext.Items["AccountStatus"]?.ToString();
+        var jwtId = HttpContext.Items["JwtId"]?.ToString();
+
+        // Get request headers for analysis
+        var authorizationHeader = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
+        var userAgent = HttpContext.Request.Headers["User-Agent"].FirstOrDefault();
+        var xForwardedFor = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var xRealIp = HttpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
+
+        // Get response headers (set by RefreshTokenMiddleware if token was refreshed)
+        var newAccessToken = HttpContext.Response.Headers["X-New-Access-Token"].FirstOrDefault();
+        var tokenRefreshed = !string.IsNullOrEmpty(newAccessToken);
+
+        var middlewareTestData = new
         {
-            // Get user context from AuthenticationMiddleware
-            var userId = HttpContext.Items["UserId"]?.ToString();
-            var userEmail = HttpContext.Items["UserEmail"]?.ToString();
-            var userName = HttpContext.Items["UserName"]?.ToString();
-            var userRoles = HttpContext.Items["UserRoles"] as List<string>;
-            var userPermissions = HttpContext.Items["UserPermissions"] as List<string>;
-            var accountStatus = HttpContext.Items["AccountStatus"]?.ToString();
-            var jwtId = HttpContext.Items["JwtId"]?.ToString();
-
-            // Get request headers for analysis
-            var authorizationHeader = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
-            var userAgent = HttpContext.Request.Headers["User-Agent"].FirstOrDefault();
-            var xForwardedFor = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            var xRealIp = HttpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
-
-            // Get response headers (set by RefreshTokenMiddleware if token was refreshed)
-            var newAccessToken = HttpContext.Response.Headers["X-New-Access-Token"].FirstOrDefault();
-            var tokenRefreshed = !string.IsNullOrEmpty(newAccessToken);
-
-            var middlewareTestData = new
+            // AuthenticationMiddleware results
+            AuthenticationMiddleware = new
             {
-                // AuthenticationMiddleware results
-                AuthenticationMiddleware = new
-                {
-                    IsAuthenticated = !string.IsNullOrEmpty(userId),
-                    UserId = userId,
-                    UserEmail = userEmail,
-                    UserName = userName,
-                    UserRoles = userRoles ?? new List<string>(),
-                    UserPermissions = userPermissions ?? new List<string>(),
-                    AccountStatus = accountStatus,
-                    JwtId = jwtId
-                },
+                IsAuthenticated = !string.IsNullOrEmpty(userId),
+                UserId = userId,
+                UserEmail = userEmail,
+                UserName = userName,
+                UserRoles = userRoles ?? new List<string>(),
+                UserPermissions = userPermissions ?? new List<string>(),
+                AccountStatus = accountStatus,
+                JwtId = jwtId
+            },
 
-                // RefreshTokenMiddleware results
-                RefreshTokenMiddleware = new
-                {
-                    TokenRefreshed = tokenRefreshed,
-                    NewAccessToken = tokenRefreshed ? "Token was refreshed" : "No refresh needed"
-                },
+            // RefreshTokenMiddleware results
+            RefreshTokenMiddleware = new
+            {
+                TokenRefreshed = tokenRefreshed,
+                NewAccessToken = tokenRefreshed ? "Token was refreshed" : "No refresh needed"
+            },
 
-                // Request information
-                RequestInfo = new
-                {
-                    AuthorizationHeader = authorizationHeader?.Substring(0, Math.Min(20, authorizationHeader.Length)) + "...",
-                    UserAgent = userAgent,
-                    ClientIp = xRealIp ?? xForwardedFor ?? HttpContext.Connection.RemoteIpAddress?.ToString(),
-                    RequestTime = DateTime.UtcNow
-                },
+            // Request information
+            RequestInfo = new
+            {
+                AuthorizationHeader = authorizationHeader?.Substring(0, Math.Min(20, authorizationHeader.Length)) + "...",
+                UserAgent = userAgent,
+                ClientIp = xRealIp ?? xForwardedFor ?? HttpContext.Connection.RemoteIpAddress?.ToString(),
+                RequestTime = DateTime.UtcNow
+            },
 
-                // Middleware pipeline status
-                MiddlewareStatus = new
-                {
-                    AuthenticationMiddlewareExecuted = !string.IsNullOrEmpty(userId),
-                    RefreshTokenMiddlewareExecuted = true, // Always executed
-                    GlobalExceptionFilterActive = true
-                }
-            };
+            // Middleware pipeline status
+            MiddlewareStatus = new
+            {
+                AuthenticationMiddlewareExecuted = !string.IsNullOrEmpty(userId),
+                RefreshTokenMiddlewareExecuted = true, // Always executed
+                GlobalExceptionFilterActive = true
+            }
+        };
 
-            return Success(middlewareTestData, "Middleware test completed successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in middleware test endpoint");
-            return BadRequest("Middleware test failed: " + ex.Message);
-        }
+        return Success(middlewareTestData, "Middleware test completed successfully");
     }
 
     /// <summary>
@@ -1319,27 +874,19 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 403)]
     public IActionResult TestPermission()
     {
-        try
-        {
-            var userPermissions = HttpContext.Items["UserPermissions"] as List<string>;
-            var userRoles = HttpContext.Items["UserRoles"] as List<string>;
+        var userPermissions = HttpContext.Items["UserPermissions"] as List<string>;
+        var userRoles = HttpContext.Items["UserRoles"] as List<string>;
 
-            var permissionTestData = new
-            {
-                UserPermissions = userPermissions ?? new List<string>(),
-                UserRoles = userRoles ?? new List<string>(),
-                HasAnyPermission = (userPermissions?.Count ?? 0) > 0,
-                HasAnyRole = (userRoles?.Count ?? 0) > 0,
-                TestMessage = "Permission test endpoint accessed successfully"
-            };
-
-            return Success(permissionTestData, "Permission test completed successfully");
-        }
-        catch (Exception ex)
+        var permissionTestData = new
         {
-            _logger.LogError(ex, "Error in permission test endpoint");
-            return BadRequest("Permission test failed: " + ex.Message);
-        }
+            UserPermissions = userPermissions ?? new List<string>(),
+            UserRoles = userRoles ?? new List<string>(),
+            HasAnyPermission = (userPermissions?.Count ?? 0) > 0,
+            HasAnyRole = (userRoles?.Count ?? 0) > 0,
+            TestMessage = "Permission test endpoint accessed successfully"
+        };
+
+        return Success(permissionTestData, "Permission test completed successfully");
     }
 
     /// <summary>
@@ -1353,28 +900,20 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 401)]
     public IActionResult TestRefreshToken()
     {
-        try
-        {
-            var userId = HttpContext.Items["UserId"]?.ToString();
-            var jwtId = HttpContext.Items["JwtId"]?.ToString();
-            var newAccessToken = HttpContext.Response.Headers["X-New-Access-Token"].FirstOrDefault();
+        var userId = HttpContext.Items["UserId"]?.ToString();
+        var jwtId = HttpContext.Items["JwtId"]?.ToString();
+        var newAccessToken = HttpContext.Response.Headers["X-New-Access-Token"].FirstOrDefault();
 
-            var refreshTokenTestData = new
-            {
-                UserId = userId,
-                JwtId = jwtId,
-                TokenRefreshed = !string.IsNullOrEmpty(newAccessToken),
-                RefreshTokenMiddlewareStatus = "Active",
-                TestMessage = "Refresh token test endpoint accessed successfully"
-            };
-
-            return Success(refreshTokenTestData, "Refresh token test completed successfully");
-        }
-        catch (Exception ex)
+        var refreshTokenTestData = new
         {
-            _logger.LogError(ex, "Error in refresh token test endpoint");
-            return BadRequest("Refresh token test failed: " + ex.Message);
-        }
+            UserId = userId,
+            JwtId = jwtId,
+            TokenRefreshed = !string.IsNullOrEmpty(newAccessToken),
+            RefreshTokenMiddlewareStatus = "Active",
+            TestMessage = "Refresh token test endpoint accessed successfully"
+        };
+
+        return Success(refreshTokenTestData, "Refresh token test completed successfully");
     }
 
     /// <summary>
@@ -1388,31 +927,23 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 403)]
     public IActionResult TestRoleAdmin()
     {
-        try
+        var userContext = new
         {
-            var userContext = new
-            {
-                UserId = HttpContext.Items["UserId"]?.ToString(),
-                UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
-                UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
-                UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
-            };
+            UserId = HttpContext.Items["UserId"]?.ToString(),
+            UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
+            UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
+            UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
+        };
 
-            var roleTestData = new
-            {
-                UserContext = userContext,
-                RequiredRole = "Admin",
-                AccessGranted = true,
-                TestMessage = "Admin role test endpoint accessed successfully"
-            };
-
-            return Success(roleTestData, "Admin role authorization test passed");
-        }
-        catch (Exception ex)
+        var roleTestData = new
         {
-            _logger.LogError(ex, "Error in admin role test endpoint");
-            return BadRequest("Admin role test failed: " + ex.Message);
-        }
+            UserContext = userContext,
+            RequiredRole = "Admin",
+            AccessGranted = true,
+            TestMessage = "Admin role test endpoint accessed successfully"
+        };
+
+        return Success(roleTestData, "Admin role authorization test passed");
     }
 
     /// <summary>
@@ -1426,31 +957,23 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 403)]
     public IActionResult TestRoleDoctor()
     {
-        try
+        var userContext = new
         {
-            var userContext = new
-            {
-                UserId = HttpContext.Items["UserId"]?.ToString(),
-                UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
-                UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
-                UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
-            };
+            UserId = HttpContext.Items["UserId"]?.ToString(),
+            UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
+            UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
+            UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
+        };
 
-            var roleTestData = new
-            {
-                UserContext = userContext,
-                RequiredRole = "Doctor",
-                AccessGranted = true,
-                TestMessage = "Doctor role test endpoint accessed successfully"
-            };
-
-            return Success(roleTestData, "Doctor role authorization test passed");
-        }
-        catch (Exception ex)
+        var roleTestData = new
         {
-            _logger.LogError(ex, "Error in doctor role test endpoint");
-            return BadRequest("Doctor role test failed: " + ex.Message);
-        }
+            UserContext = userContext,
+            RequiredRole = "Doctor",
+            AccessGranted = true,
+            TestMessage = "Doctor role test endpoint accessed successfully"
+        };
+
+        return Success(roleTestData, "Doctor role authorization test passed");
     }
 
     /// <summary>
@@ -1464,31 +987,23 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 403)]
     public IActionResult TestPermissionWrite()
     {
-        try
+        var userContext = new
         {
-            var userContext = new
-            {
-                UserId = HttpContext.Items["UserId"]?.ToString(),
-                UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
-                UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
-                UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
-            };
+            UserId = HttpContext.Items["UserId"]?.ToString(),
+            UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
+            UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
+            UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
+        };
 
-            var permissionTestData = new
-            {
-                UserContext = userContext,
-                RequiredPermission = "Content.Write",
-                HasRequiredPermission = true,
-                TestMessage = "Content.Write permission test endpoint accessed successfully"
-            };
-
-            return Success(permissionTestData, "Content.Write permission authorization test passed");
-        }
-        catch (Exception ex)
+        var permissionTestData = new
         {
-            _logger.LogError(ex, "Error in content write permission test endpoint");
-            return BadRequest("Content write permission test failed: " + ex.Message);
-        }
+            UserContext = userContext,
+            RequiredPermission = "Content.Write",
+            HasRequiredPermission = true,
+            TestMessage = "Content.Write permission test endpoint accessed successfully"
+        };
+
+        return Success(permissionTestData, "Content.Write permission authorization test passed");
     }
 
     /// <summary>
@@ -1502,32 +1017,24 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 403)]
     public IActionResult TestCombinedAdminContent()
     {
-        try
+        var userContext = new
         {
-            var userContext = new
-            {
-                UserId = HttpContext.Items["UserId"]?.ToString(),
-                UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
-                UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
-                UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
-            };
+            UserId = HttpContext.Items["UserId"]?.ToString(),
+            UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
+            UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
+            UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
+        };
 
-            var combinedTestData = new
-            {
-                UserContext = userContext,
-                RequiredRole = "Admin",
-                RequiredPermission = "Content.Write",
-                AccessGranted = true,
-                TestMessage = "Combined Admin role + Content.Write permission test endpoint accessed successfully"
-            };
-
-            return Success(combinedTestData, "Combined authorization test passed");
-        }
-        catch (Exception ex)
+        var combinedTestData = new
         {
-            _logger.LogError(ex, "Error in combined authorization test endpoint");
-            return BadRequest("Combined authorization test failed: " + ex.Message);
-        }
+            UserContext = userContext,
+            RequiredRole = "Admin",
+            RequiredPermission = "Content.Write",
+            AccessGranted = true,
+            TestMessage = "Combined Admin role + Content.Write permission test endpoint accessed successfully"
+        };
+
+        return Success(combinedTestData, "Combined authorization test passed");
     }
 
     /// <summary>
@@ -1539,24 +1046,16 @@ public class AuthController : BaseApiController
     [ProducesResponseType(typeof(ApiResponse<object>), 400)]
     public async Task<IActionResult> InitializeDefaultData()
     {
-        try
+        // This endpoint should only be available in development
+        if (!HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
         {
-            // This endpoint should only be available in development
-            if (!HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
-            {
-                return BadRequest("This endpoint is only available in development environment");
-            }
-
-            var dataInitializationService = HttpContext.RequestServices.GetRequiredService<DataInitializationService>();
-            await dataInitializationService.InitializeDefaultDataAsync();
-
-            return Success("Default data initialized successfully");
+            return BadRequest("This endpoint is only available in development environment");
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error initializing default data");
-            return BadRequest("Failed to initialize default data: " + ex.Message);
-        }
+
+        var dataInitializationService = HttpContext.RequestServices.GetRequiredService<DataInitializationService>();
+        await dataInitializationService.InitializeDefaultDataAsync();
+
+        return Success("Default data initialized successfully");
     }
 
     #endregion

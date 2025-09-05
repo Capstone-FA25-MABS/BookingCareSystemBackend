@@ -19,15 +19,9 @@ public interface IAuthService
     Task<IssueResetTokenResponse> IssueResetTokenAsync(IssueResetTokenRequest request);
 
     // Account operations
-    Task<AccountResponse> CreateAccountAsync(CreateAccountRequest request);
-    Task<AccountResponse?> GetAccountByIdAsync(Guid id);
     Task<AccountResponse?> GetAccountByEmailAsync(string email);
     Task<AccountResponse?> GetAccountByPhoneNumberAsync(string phoneNumber);
-    Task<AccountResponse> UpdateAccountAsync(UpdateAccountRequest request);
-    Task<bool> DeleteAccountAsync(Guid id);
-    Task<AccountListResponse> GetAccountsAsync(AccountQueryRequest query);
-    Task<bool> ActivateAccountAsync(Guid id);
-    Task<bool> DeactivateAccountAsync(Guid id);
+    Task<Status?> ToggleAccountActiveStatusAsync(Guid id);
     Task<bool> LockAccountAsync(Guid id);
     Task<bool> UnlockAccountAsync(Guid id);
 
