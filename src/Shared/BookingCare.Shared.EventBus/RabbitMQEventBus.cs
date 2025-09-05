@@ -62,7 +62,7 @@ public class RabbitMQEventBus : IEventBus, IDisposable
         }
     }
 
-    public async Task PublishAsync<T>(T @event, string? routingKey = null, CancellationToken cancellationToken = default) 
+    public async Task PublishAsync<T>(T @event, string? routingKey = null, CancellationToken cancellationToken = default)
         where T : IntegrationEvent
     {
         if (!_persistentConnection.IsConnected)
@@ -129,7 +129,7 @@ public class RabbitMQEventBus : IEventBus, IDisposable
         var eventName = _subsManager.GetEventKey<T>();
         DoInternalSubscription(eventName, routingKey);
 
-        _logger.LogInformation("Subscribing to event {EventName} with {EventHandler} and routing key {RoutingKey}", 
+        _logger.LogInformation("Subscribing to event {EventName} with {EventHandler} and routing key {RoutingKey}",
             eventName, typeof(TH).GetGenericTypeName(), routingKey);
 
         _subsManager.AddSubscription<T, TH>(routingKey);
@@ -299,18 +299,18 @@ public class RabbitMQEventBus : IEventBus, IDisposable
             {
                 retryCount++;
                 var delay = TimeSpan.FromSeconds(Math.Pow(2, retryCount));
-                _logger.LogWarning(ex, "Could not publish event, retry {RetryCount}/{MaxRetries} after {Delay}s", 
+                _logger.LogWarning(ex, "Could not publish event, retry {RetryCount}/{MaxRetries} after {Delay}s",
                     retryCount, maxRetries, delay.TotalSeconds);
-                
+
                 Thread.Sleep(delay);
             }
             catch (SocketException ex) when (retryCount < maxRetries)
             {
                 retryCount++;
                 var delay = TimeSpan.FromSeconds(Math.Pow(2, retryCount));
-                _logger.LogWarning(ex, "Could not publish event, retry {RetryCount}/{MaxRetries} after {Delay}s", 
+                _logger.LogWarning(ex, "Could not publish event, retry {RetryCount}/{MaxRetries} after {Delay}s",
                     retryCount, maxRetries, delay.TotalSeconds);
-                
+
                 Thread.Sleep(delay);
             }
         }

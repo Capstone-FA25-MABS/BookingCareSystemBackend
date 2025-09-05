@@ -1,0 +1,220 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  DOTNET_VERSION: '8.0.204'
+  AWS_REGION: us-east-1
+#   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+jobs:
+  # Code Quality and Testing
+  quality-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore BookingCareSystem.sln
+
+      - name: Format check
+        run: dotnet format BookingCareSystem.sln --verify-no-changes --verbosity diagnostic
+
+      - name: Build solution
+        run: dotnet build BookingCareSystem.sln --configuration Release --no-restore
+
+      - name: Run unit tests
+        run: dotnet test BookingCareSystem.sln --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./coverage
+          flags: unittests
+          name: codecov-umbrella
+
+#   # Security Scanning
+#   security-scan:
+#     runs-on: ubuntu-latest
+#     needs: quality-check
+    
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Setup .NET
+#         uses: actions/setup-dotnet@v4
+#         with:
+#           dotnet-version: ${{ env.DOTNET_VERSION }}
+
+#     #   - name: Restore dependencies
+#     #     run: dotnet restore BookingCareSystem.sln
+
+#     #   - name: Security scan with Snyk
+#     #     uses: snyk/actions/dotnet@master
+#     #     env:
+#     #       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+#     #     with:
+#     #       args: --severity-threshold=high
+
+#   # Build and Push Docker Images
+#   build-and-push:
+#     runs-on: ubuntu-latest
+#     needs: [quality-check, security-scan]
+#     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+#     strategy:
+#       matrix:
+#         service: [
+#           { name: 'apigateway', path: 'src/ApiGateway', dockerfile: 'Dockerfile' },
+#           { name: 'orderservice', path: 'src/Services/OrderService', dockerfile: 'Dockerfile' },
+#           { name: 'userservice', path: 'src/Services/UserService', dockerfile: 'Dockerfile' },
+#           { name: 'notificationservice', path: 'src/Services/NotificationService', dockerfile: 'Dockerfile' }
+#         ]
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+    #   - name: Configure AWS credentials
+    #     uses: aws-actions/configure-aws-credentials@v4
+    #     with:
+    #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #       aws-region: ${{ env.AWS_REGION }}
+
+    #   - name: Login to Amazon ECR
+    #     id: login-ecr
+    #     uses: aws-actions/amazon-ecr-login@v2
+
+    #   - name: Extract metadata
+    #     id: meta
+    #     uses: docker/metadata-action@v5
+    #     with:
+    #       images: ${{ env.ECR_REGISTRY }}/${{ matrix.service.name }}
+    #       tags: |
+    #         type=ref,event=branch
+    #         type=ref,event=pr
+    #         type=sha,prefix={{branch}}-
+    #         type=raw,value=latest,enable={{is_default_branch}}
+
+    #   - name: Build and push Docker image
+    #     uses: docker/build-push-action@v5
+    #     with:
+    #       context: .
+    #       file: ${{ matrix.service.path }}/${{ matrix.service.dockerfile }}
+    #       push: true
+    #       tags: ${{ steps.meta.outputs.tags }}
+    #       labels: ${{ steps.meta.outputs.labels }}
+    #       cache-from: type=gha
+    #       cache-to: type=gha,mode=max
+
+#   # Deploy to Development Environment
+#   deploy-dev:
+#     runs-on: ubuntu-latest
+#     needs: build-and-push
+#     if: github.ref == 'refs/heads/develop'
+#     environment: development
+    
+#     steps:
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Deploy to ECS Development
+#         run: |
+#           # Update ECS services with new images
+#           aws ecs update-service --cluster booking-care-dev --service apigateway-dev --force-new-deployment
+#           aws ecs update-service --cluster booking-care-dev --service orderservice-dev --force-new-deployment
+#           aws ecs update-service --cluster booking-care-dev --service userservice-dev --force-new-deployment
+#           aws ecs update-service --cluster booking-care-dev --service notificationservice-dev --force-new-deployment
+
+#       - name: Wait for deployment to complete
+#         run: |
+#           aws ecs wait services-stable --cluster booking-care-dev --services apigateway-dev orderservice-dev userservice-dev notificationservice-dev
+
+#   # Deploy to Production Environment
+#   deploy-prod:
+#     runs-on: ubuntu-latest
+#     needs: build-and-push
+#     if: github.ref == 'refs/heads/main'
+#     environment: production
+    
+#     steps:
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Deploy to ECS Production
+#         run: |
+#           # Update ECS services with new images
+#           aws ecs update-service --cluster booking-care-prod --service apigateway-prod --force-new-deployment
+#           aws ecs update-service --cluster booking-care-prod --service orderservice-prod --force-new-deployment
+#           aws ecs update-service --cluster booking-care-prod --service userservice-prod --force-new-deployment
+#           aws ecs update-service --cluster booking-care-prod --service notificationservice-prod --force-new-deployment
+
+#       - name: Wait for deployment to complete
+#         run: |
+#           aws ecs wait services-stable --cluster booking-care-prod --services apigateway-prod orderservice-prod userservice-prod notificationservice-prod
+
+#       - name: Send deployment notification
+#         if: always()
+#         uses: 8398a7/action-slack@v3
+#         with:
+#           status: ${{ job.status }}
+#           channel: '#deployments'
+#           webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+#   # Database Migration (Production only)
+#   database-migration:
+#     runs-on: ubuntu-latest
+#     needs: deploy-prod
+#     if: github.ref == 'refs/heads/main'
+#     environment: production
+    
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+
+#       - name: Setup .NET
+#         uses: actions/setup-dotnet@v4
+#         with:
+#           dotnet-version: ${{ env.DOTNET_VERSION }}
+
+#       - name: Install EF Core tools
+#         run: dotnet tool install --global dotnet-ef
+
+#       - name: Run database migrations
+#         run: |
+#           dotnet ef database update --project src/Infrastructure --startup-project src/Services/UserService
+#         env:
+#           ConnectionStrings__DefaultConnection: ${{ secrets.PROD_DB_CONNECTION_STRING }}

@@ -14,13 +14,13 @@ public class Program
     public static async Task Main(string[] args)
     {
         var host = CreateHostBuilder(args).Build();
-        
+
         var monitor = host.Services.GetRequiredService<EventMonitor>();
         await monitor.StartMonitoringAsync();
-        
+
         Console.WriteLine("Press any key to stop monitoring...");
         Console.ReadKey();
-        
+
         await monitor.StopMonitoringAsync();
     }
 
@@ -30,7 +30,7 @@ public class Program
             {
                 services.Configure<RabbitMQConfig>(
                     context.Configuration.GetSection("RabbitMQ"));
-                
+
                 services.AddSingleton<EventMonitor>();
                 services.AddLogging(builder =>
                 {
@@ -69,7 +69,7 @@ public class EventMonitor
         try
         {
             _logger.LogInformation("Starting Event Monitor...");
-            
+
             var factory = new ConnectionFactory
             {
                 HostName = _config.HostName,
@@ -123,30 +123,30 @@ public class EventMonitor
         {
             var body = ea.Body.ToArray();
             var message = Encoding.UTF8.GetString(body);
-            
+
             var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
             var routingKey = ea.RoutingKey;
             var exchange = ea.Exchange;
-            
+
             Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"🔔 EVENT RECEIVED [{timestamp}]");
             Console.ResetColor();
-            
+
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.WriteLine($"📍 Exchange: {exchange}");
             Console.WriteLine($"🗝️  Routing Key: {routingKey}");
             Console.ResetColor();
-            
+
             // Try to parse as JSON for better formatting
             try
             {
                 var jsonDoc = JsonDocument.Parse(message);
-                var formattedJson = JsonSerializer.Serialize(jsonDoc, new JsonSerializerOptions 
-                { 
-                    WriteIndented = true 
+                var formattedJson = JsonSerializer.Serialize(jsonDoc, new JsonSerializerOptions
+                {
+                    WriteIndented = true
                 });
-                
+
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("📄 Event Data:");
                 Console.ResetColor();
@@ -159,7 +159,7 @@ public class EventMonitor
                 Console.ResetColor();
                 Console.WriteLine(message);
             }
-            
+
             // Show properties if available
             if (ea.BasicProperties?.Headers?.Count > 0)
             {
@@ -172,9 +172,9 @@ public class EventMonitor
                     Console.WriteLine($"  {header.Key}: {value}");
                 }
             }
-            
+
             Console.WriteLine("=====================================");
-            
+
             await Task.CompletedTask;
         }
         catch (Exception ex)
@@ -186,13 +186,13 @@ public class EventMonitor
     public async Task StopMonitoringAsync()
     {
         _cancellationTokenSource.Cancel();
-        
+
         _channel?.Close();
         _connection?.Close();
-        
+
         _channel?.Dispose();
         _connection?.Dispose();
-        
+
         _logger.LogInformation("Event Monitor stopped.");
         await Task.CompletedTask;
     }

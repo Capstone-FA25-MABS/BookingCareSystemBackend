@@ -28,7 +28,7 @@ public class DiscountExpirationBackgroundService : BackgroundService
                 var discountService = scope.ServiceProvider.GetRequiredService<IDiscountService>();
 
                 var expiredCount = await discountService.UpdateExpiredDiscountsAsync();
-                
+
                 if (expiredCount > 0)
                 {
                     _logger.LogInformation("Updated {Count} expired discounts", expiredCount);

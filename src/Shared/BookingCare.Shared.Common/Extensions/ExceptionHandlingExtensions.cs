@@ -19,12 +19,15 @@ public static class ExceptionHandlingExtensions
     {
         // Add the global exception filter
         services.AddScoped<GlobalExceptionFilter>();
-        
+
         // Configure MVC options to include the global exception filter
         services.Configure<Microsoft.AspNetCore.Mvc.MvcOptions>(options =>
         {
             options.Filters.Add<GlobalExceptionFilter>();
         });
+
+        // Add custom validation behavior for consistent API responses
+        services.AddCustomValidation();
 
         return services;
     }

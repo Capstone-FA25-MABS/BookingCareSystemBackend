@@ -7,27 +7,27 @@ namespace BookingCare.Services.Discount.Repositories;
 public interface IDiscountRepository
 {
     // Basic CRUD operations
-    Task<DiscountEntity?> GetByIdAsync(long id);
+    Task<DiscountEntity?> GetByIdAsync(Guid id);
     Task<DiscountEntity?> GetByCodeAsync(string code);
     Task<DiscountEntity> CreateAsync(DiscountEntity discount);
     Task<DiscountEntity> UpdateAsync(DiscountEntity discount);
-    Task<bool> DeleteAsync(long id);
-    Task<bool> ExistsAsync(long id);
-    Task<bool> CodeExistsAsync(string code, long? excludeId = null);
+    Task<bool> DeleteAsync(Guid id);
+    Task<bool> ExistsAsync(Guid id);
+    Task<bool> CodeExistsAsync(string code, Guid? excludeId = null);
 
     // Query operations
     Task<(List<DiscountEntity> Discounts, int TotalCount)> GetDiscountsAsync(DiscountQueryRequest query);
-    Task<List<DiscountEntity>> GetActiveDiscountsByClinicAsync(long clinicId);
-    Task<List<DiscountEntity>> GetApplicableDiscountsAsync(long clinicId, long? specialtyId = null, long? doctorId = null);
-    Task<DiscountEntity?> GetValidDiscountAsync(string code, long clinicId, long? specialtyId = null, long? doctorId = null);
+    Task<List<DiscountEntity>> GetActiveDiscountsByClinicAsync(Guid clinicId);
+    Task<List<DiscountEntity>> GetApplicableDiscountsAsync(Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
+    Task<DiscountEntity?> GetValidDiscountAsync(string code, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
 
     // Usage operations
-    Task<bool> IncrementUsageAsync(long discountId);
-    Task<bool> DecrementUsageAsync(long discountId);
-    Task<int> GetRemainingUsesAsync(long discountId);
+    Task<bool> IncrementUsageAsync(Guid discountId);
+    Task<bool> DecrementUsageAsync(Guid discountId);
+    Task<int> GetRemainingUsesAsync(Guid discountId);
 
     // Status operations
-    Task<bool> UpdateStatusAsync(long id, DiscountStatus status);
+    Task<bool> UpdateStatusAsync(Guid id, DiscountStatus status);
     Task<List<DiscountEntity>> GetExpiredDiscountsAsync();
     Task<int> UpdateExpiredDiscountsAsync();
 }

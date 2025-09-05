@@ -10,7 +10,7 @@ public class DiscountEntity
 {
     [Key]
     [Column("id")]
-    public long Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
     [MaxLength(50)]
@@ -27,13 +27,13 @@ public class DiscountEntity
 
     [Required]
     [Column("clinic_id")]
-    public long ClinicId { get; set; }
+    public Guid ClinicId { get; set; }
 
     [Column("specialty_id")]
-    public long? SpecialtyId { get; set; }
+    public Guid? SpecialtyId { get; set; }
 
     [Column("doctor_id")]
-    public long? DoctorId { get; set; }
+    public Guid? DoctorId { get; set; }
 
     [MaxLength(20)]
     [Column("applicable_to")]

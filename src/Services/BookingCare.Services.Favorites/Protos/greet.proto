@@ -4,18 +4,91 @@ option csharp_namespace = "BookingCare.Services.Favorite";
 
 package greet;
 
-// The greeting service definition.
-service Greeter {
-  // Sends a greeting
-  rpc SayHello (HelloRequest) returns (HelloReply);
+
+// The favorites service definition for inter-service communication.
+service FavoritesService {
+  // Check multiple doctors favorite status for a patient
+  rpc CheckMultipleFavorites (CheckMultipleFavoritesRequest) returns (CheckMultipleFavoritesResponse);
+  
+  // Check single doctor favorite status for a patient
+  rpc CheckSingleFavorite (CheckSingleFavoriteRequest) returns (CheckSingleFavoriteResponse);
+  
+  // Get patient's favorite count
+  rpc GetPatientFavoriteCount (GetPatientFavoriteCountRequest) returns (GetPatientFavoriteCountResponse);
+  
+  // Get patient's favorites with pagination
+  rpc GetPatientFavorites (GetPatientFavoritesRequest) returns (GetPatientFavoritesResponse);
 }
 
-// The request message containing the user's name.
-message HelloRequest {
-  string name = 1;
+
+// Check multiple favorites request
+message CheckMultipleFavoritesRequest {
+  string patient_id = 1;
+  repeated string doctor_ids = 2;
 }
 
-// The response message containing the greetings.
-message HelloReply {
-  string message = 1;
+// Check multiple favorites response
+message CheckMultipleFavoritesResponse {
+  string patient_id = 1;
+  repeated string favorited_doctor_ids = 2;
+  int32 total_checked = 3;
+  int32 total_favorited = 4;
+  bool success = 5;
+  string message = 6;
+}
+
+// Check single favorite request
+message CheckSingleFavoriteRequest {
+  string patient_id = 1;
+  string doctor_id = 2;
+}
+
+// Check single favorite response
+message CheckSingleFavoriteResponse {
+  string patient_id = 1;
+  string doctor_id = 2;
+  bool is_favorited = 3;
+  bool success = 4;
+  string message = 5;
+}
+
+// Get patient favorite count request
+message GetPatientFavoriteCountRequest {
+  string patient_id = 1;
+}
+
+// Get patient favorite count response
+message GetPatientFavoriteCountResponse {
+  string patient_id = 1;
+  int64 favorite_count = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+// Get patient favorites request
+message GetPatientFavoritesRequest {
+  string patient_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+// Favorite item message
+message FavoriteItem {
+  string id = 1;
+  string doctor_id = 2;
+  string created_at = 3; // ISO 8601 format
+}
+
+// Get patient favorites response
+message GetPatientFavoritesResponse {
+  string patient_id = 1;
+  repeated FavoriteItem items = 2;
+  int32 total_count = 3;
+  int32 page_number = 4;
+  int32 page_size = 5;
+  int32 total_pages = 6;
+  bool has_next_page = 7;
+  bool has_previous_page = 8;
+  bool success = 9;
+  string message = 10;
 }

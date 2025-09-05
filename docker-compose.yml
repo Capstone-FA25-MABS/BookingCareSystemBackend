@@ -31,6 +31,86 @@ services:
     ports:
       - "6379:6379"
 
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: bookingcare_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - bookingcare-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: bookingcare_grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    networks:
+      - bookingcare-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: bookingcare_jaeger
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14250:14250"
+      - "14268:14268"
+      - "14269:14269"
+      - "9411:9411"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    networks:
+      - bookingcare-network
+    restart: unless-stopped
+
+  # Node Exporter for system metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: bookingcare_node_exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - bookingcare-network
+    restart: unless-stopped
+
   sqlserver:
     image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: bookingcare_sqlserver
@@ -57,6 +137,8 @@ services:
       - MSSQL_PID=Developer
     volumes:
       - sqlserver_discount_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
 
   mongodb:
     image: mongo:7
@@ -67,6 +149,8 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=password123
     volumes:
       - mongodb_data:/data/db
+    networks:
+      - bookingcare-network
 
   # Infrastructure Services
   api-gateway:
@@ -77,6 +161,8 @@ services:
       - "5000:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+    networks:
+      - bookingcare-network
 
   # Core Services
   auth-service:
@@ -93,6 +179,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Auth;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
       - RabbitMQ__Host=rabbitmq
+    networks:
+      - bookingcare-network
 
   user-service:
     build:
@@ -107,6 +195,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Users;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
       - RabbitMQ__Host=rabbitmq
+    networks:
+      - bookingcare-network
 
   doctor-service:
     build:
@@ -122,6 +212,21 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Doctors;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
       - RabbitMQ__Host=rabbitmq
 
+  discount-service:
+    build:
+      context: .
+      dockerfile: src/Services/BookingCare.Services.Discount/Dockerfile
+    ports:
+      - "5009:6007"
+      - "5109:6017"
+    depends_on:
+      - sqlserver-discount-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver-discount-service,1433;Database=MABS_Discount;User Id=sa;Password=Discount123!;TrustServerCertificate=true
+    networks:
+      - bookingcare-network
+
   clinic-service:
     build:
       context: ./src/Services/ClinicService/BookingCare.ClinicService
@@ -135,6 +240,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Clinics;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
       - RabbitMQ__Host=rabbitmq
+    networks:
+      - bookingcare-network
 
   appointment-service:
     build:
@@ -151,6 +258,8 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Appointments;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
+    networks:
+      - bookingcare-network
 
   payment-service:
     build:
@@ -165,6 +274,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Payments;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
       - RabbitMQ__Host=rabbitmq
+    networks:
+      - bookingcare-network
 
   review-service:
     build:
@@ -179,6 +290,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Reviews?authSource=admin
       - RabbitMQ__Host=rabbitmq
+    networks:
+      - bookingcare-network
 
   content-service:
     build:
@@ -193,6 +306,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Content?authSource=admin
       - RabbitMQ__Host=rabbitmq
+    networks:
+      - bookingcare-network
 
   notification-service:
     build:
@@ -209,6 +324,8 @@ services:
       - ConnectionStrings__MongoDB=mongodb://bookingcare:password123@mongodb:27017/BookingCare_Notifications?authSource=admin
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
+    networks:
+      - bookingcare-network
 
   # EventBus Integration Test Service
   eventbus-test-service:
@@ -241,6 +358,10 @@ volumes:
   sqlserver_discount_data:
   mongodb_data:
   rabbitmq_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 networks:
