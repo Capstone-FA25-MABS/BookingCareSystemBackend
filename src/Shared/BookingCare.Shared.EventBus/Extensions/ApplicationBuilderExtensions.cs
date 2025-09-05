@@ -15,11 +15,11 @@ public static class ApplicationBuilderExtensions
     public static IApplicationBuilder UseEventBus(this IApplicationBuilder app, Action<IEventBus> configureSubscriptions)
     {
         var eventBus = app.ApplicationServices.GetRequiredService<IEventBus>();
-        
+
         configureSubscriptions(eventBus);
-        
+
         eventBus.StartConsuming();
-        
+
         return app;
     }
 

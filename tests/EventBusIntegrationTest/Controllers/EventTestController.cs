@@ -33,9 +33,10 @@ public class EventTestController : ControllerBase
 
             _logger.LogInformation("📤 Publishing UserRegisteredEvent: {UserId}", @event.UserId);
             await _eventBus.PublishAsync(@event);
-            
-            return Ok(new { 
-                Success = true, 
+
+            return Ok(new
+            {
+                Success = true,
                 Message = "UserRegisteredEvent published successfully",
                 EventId = @event.Id,
                 UserId = @event.UserId
@@ -66,9 +67,10 @@ public class EventTestController : ControllerBase
 
             _logger.LogInformation("📤 Publishing AppointmentCreatedEvent: {AppointmentId}", @event.AppointmentId);
             await _eventBus.PublishAsync(@event);
-            
-            return Ok(new { 
-                Success = true, 
+
+            return Ok(new
+            {
+                Success = true,
                 Message = "AppointmentCreatedEvent published successfully",
                 EventId = @event.Id,
                 AppointmentId = @event.AppointmentId
@@ -100,9 +102,10 @@ public class EventTestController : ControllerBase
 
             _logger.LogInformation("📤 Publishing PaymentProcessedEvent: {PaymentId}", @event.PaymentId);
             await _eventBus.PublishAsync(@event);
-            
-            return Ok(new { 
-                Success = true, 
+
+            return Ok(new
+            {
+                Success = true,
                 Message = "PaymentProcessedEvent published successfully",
                 EventId = @event.Id,
                 PaymentId = @event.PaymentId
@@ -130,7 +133,7 @@ public class EventTestController : ControllerBase
             };
 
             _logger.LogInformation("📤 Publishing NotificationSendEvent: {EventId}", @event.Id);
-            
+
             // Publish with routing key if specified
             if (!string.IsNullOrEmpty(request.RoutingKey))
             {
@@ -140,9 +143,10 @@ public class EventTestController : ControllerBase
             {
                 await _eventBus.PublishAsync(@event);
             }
-            
-            return Ok(new { 
-                Success = true, 
+
+            return Ok(new
+            {
+                Success = true,
                 Message = "NotificationSendEvent published successfully",
                 EventId = @event.Id,
                 NotificationId = @event.Id,

@@ -22,6 +22,6 @@ public abstract class IntegrationEvent
 
     [JsonInclude]
     public DateTime CreatedDate { get; private init; }
-    
+
     public string EventName => GetType().Name;
 }

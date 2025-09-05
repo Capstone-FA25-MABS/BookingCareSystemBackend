@@ -134,7 +134,7 @@ public static class ValidationHelper
 
         // Remove common formatting characters
         var cleanNumber = phoneNumber.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Replace("+", "");
-        
+
         // Check if it contains only digits and has reasonable length
         return cleanNumber.All(char.IsDigit) && cleanNumber.Length >= 10 && cleanNumber.Length <= 15;
     }

@@ -17,8 +17,8 @@ public class DiscountService : BaseService, IDiscountService
     private readonly IMapper _mapper;
 
     public DiscountService(
-        IDiscountRepository discountRepository, 
-        IMapper mapper, 
+        IDiscountRepository discountRepository,
+        IMapper mapper,
         ILogger<DiscountService> logger) : base(logger)
     {
         _discountRepository = discountRepository;
@@ -153,7 +153,7 @@ public class DiscountService : BaseService, IDiscountService
             }
 
             var result = await _discountRepository.DeleteAsync(id);
-            
+
             if (result)
             {
                 LogInfo("Discount deleted successfully with ID: {Id}", null, id);
@@ -168,11 +168,11 @@ public class DiscountService : BaseService, IDiscountService
         return await ExecuteWithErrorHandling(async () =>
         {
             ValidateRequired(query, "Query request is required");
-            
+
             LogInfo("Getting discounts - Page: {Page}, PageSize: {PageSize}", null, query.PageNumber, query.PageSize);
-            
+
             var (discounts, totalCount) = await _discountRepository.GetDiscountsAsync(query);
-            
+
             var response = _mapper.Map<DiscountListResponse>((discounts, totalCount));
             response.PageNumber = query.PageNumber;
             response.PageSize = query.PageSize;
@@ -203,9 +203,9 @@ public class DiscountService : BaseService, IDiscountService
             ValidateRequiredString(request.Code, nameof(request.Code));
 
             var discount = await _discountRepository.GetValidDiscountAsync(
-                request.Code, 
-                request.ClinicId, 
-                request.SpecialtyId, 
+                request.Code,
+                request.ClinicId,
+                request.SpecialtyId,
                 request.DoctorId);
 
             if (discount == null)
@@ -240,9 +240,9 @@ public class DiscountService : BaseService, IDiscountService
             ValidateRequiredString(request.Code, nameof(request.Code));
 
             var discount = await _discountRepository.GetValidDiscountAsync(
-                request.Code, 
-                request.ClinicId, 
-                request.SpecialtyId, 
+                request.Code,
+                request.ClinicId,
+                request.SpecialtyId,
                 request.DoctorId);
 
             if (discount == null)
@@ -270,11 +270,11 @@ public class DiscountService : BaseService, IDiscountService
             // Increment usage count
             await _discountRepository.IncrementUsageAsync(discount.Id);
 
-            var remainingUses = discount.MaxUses.HasValue 
+            var remainingUses = discount.MaxUses.HasValue
                 ? Math.Max(0, discount.MaxUses.Value - discount.UsesCount - 1)
                 : int.MaxValue;
 
-            LogInfo("Discount used successfully. ID: {Id}, Remaining uses: {RemainingUses}", 
+            LogInfo("Discount used successfully. ID: {Id}, Remaining uses: {RemainingUses}",
                 null, discount.Id, remainingUses);
 
             return new DiscountUsageResponse
@@ -303,7 +303,7 @@ public class DiscountService : BaseService, IDiscountService
             }
 
             var result = await _discountRepository.DecrementUsageAsync(discount.Id);
-            
+
             if (result)
             {
                 LogInfo("Discount usage reverted successfully for ID: {Id}", null, discount.Id);

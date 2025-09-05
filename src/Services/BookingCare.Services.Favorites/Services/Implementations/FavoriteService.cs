@@ -39,7 +39,7 @@ public class FavoriteService : BaseService, IFavoriteService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Adding favorite for Patient {PatientId} and Doctor {DoctorId}", 
+            LogInfo("Adding favorite for Patient {PatientId} and Doctor {DoctorId}",
                 null, request.PatientId, request.DoctorId);
 
             // Validation
@@ -53,7 +53,7 @@ public class FavoriteService : BaseService, IFavoriteService
 
             if (existingFavorite != null)
             {
-                LogWarning("Favorite already exists for Patient {PatientId} and Doctor {DoctorId}", 
+                LogWarning("Favorite already exists for Patient {PatientId} and Doctor {DoctorId}",
                     null, request.PatientId, request.DoctorId);
                 return _mapper.Map<FavoriteResponse>(existingFavorite);
             }
@@ -62,7 +62,7 @@ public class FavoriteService : BaseService, IFavoriteService
             var favoriteEntity = _mapper.Map<FavoriteEntity>(request);
             var createdFavorite = await _favoriteRepository.CreateAsync(favoriteEntity);
 
-            LogInfo("Successfully added favorite with ID {FavoriteId} for Patient {PatientId} and Doctor {DoctorId}", 
+            LogInfo("Successfully added favorite with ID {FavoriteId} for Patient {PatientId} and Doctor {DoctorId}",
                 null, createdFavorite.Id, request.PatientId, request.DoctorId);
 
             return _mapper.Map<FavoriteResponse>(createdFavorite);
@@ -74,7 +74,7 @@ public class FavoriteService : BaseService, IFavoriteService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Toggling favorite for Patient {PatientId} and Doctor {DoctorId}", 
+            LogInfo("Toggling favorite for Patient {PatientId} and Doctor {DoctorId}",
                 null, request.PatientId, request.DoctorId);
 
             // Validation
@@ -90,8 +90,8 @@ public class FavoriteService : BaseService, IFavoriteService
             {
                 // Favorite exists - remove it
                 var removeResult = await _favoriteRepository.RemoveAsync(request.PatientId, request.DoctorId);
-                
-                LogInfo("Toggled (removed) favorite for Patient {PatientId} and Doctor {DoctorId}", 
+
+                LogInfo("Toggled (removed) favorite for Patient {PatientId} and Doctor {DoctorId}",
                     null, request.PatientId, request.DoctorId);
 
                 return new ToggleFavoriteResponse
@@ -109,8 +109,8 @@ public class FavoriteService : BaseService, IFavoriteService
                 // Favorite doesn't exist - add it
                 var favoriteEntity = _mapper.Map<FavoriteEntity>(request);
                 var createdFavorite = await _favoriteRepository.CreateAsync(favoriteEntity);
-                
-                LogInfo("Toggled (added) favorite with ID {FavoriteId} for Patient {PatientId} and Doctor {DoctorId}", 
+
+                LogInfo("Toggled (added) favorite with ID {FavoriteId} for Patient {PatientId} and Doctor {DoctorId}",
                     null, createdFavorite.Id, request.PatientId, request.DoctorId);
 
                 return new ToggleFavoriteResponse
@@ -131,7 +131,7 @@ public class FavoriteService : BaseService, IFavoriteService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Removing favorite for Patient {PatientId} and Doctor {DoctorId}", 
+            LogInfo("Removing favorite for Patient {PatientId} and Doctor {DoctorId}",
                 null, request.PatientId, request.DoctorId);
 
             // Validation
@@ -143,12 +143,12 @@ public class FavoriteService : BaseService, IFavoriteService
 
             if (result)
             {
-                LogInfo("Successfully removed favorite for Patient {PatientId} and Doctor {DoctorId}", 
+                LogInfo("Successfully removed favorite for Patient {PatientId} and Doctor {DoctorId}",
                     null, request.PatientId, request.DoctorId);
             }
             else
             {
-                LogWarning("Favorite not found for Patient {PatientId} and Doctor {DoctorId}", 
+                LogWarning("Favorite not found for Patient {PatientId} and Doctor {DoctorId}",
                     null, request.PatientId, request.DoctorId);
             }
 
@@ -161,7 +161,7 @@ public class FavoriteService : BaseService, IFavoriteService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Getting favorites for Patient {PatientId}, Page {Page}, PageSize {PageSize}", 
+            LogInfo("Getting favorites for Patient {PatientId}, Page {Page}, PageSize {PageSize}",
                 null, request.PatientId, request.Page, request.PageSize);
 
             // Validation
@@ -176,7 +176,7 @@ public class FavoriteService : BaseService, IFavoriteService
 
             var mappedItems = _mapper.Map<List<FavoriteResponse>>(pagedResult.Items);
 
-            LogInfo("Retrieved {Count} favorites for Patient {PatientId}", 
+            LogInfo("Retrieved {Count} favorites for Patient {PatientId}",
                 null, mappedItems.Count, request.PatientId);
 
             return new PagedResult<FavoriteResponse>
@@ -221,7 +221,7 @@ public class FavoriteService : BaseService, IFavoriteService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Getting favorites for Doctor {DoctorId}, Page {Page}, PageSize {PageSize}", 
+            LogInfo("Getting favorites for Doctor {DoctorId}, Page {Page}, PageSize {PageSize}",
                 null, doctorId, page, pageSize);
 
             // Validation
@@ -233,7 +233,7 @@ public class FavoriteService : BaseService, IFavoriteService
             var pagedResult = await _favoriteRepository.GetDoctorFavoritesAsync(doctorId, page, pageSize);
             var mappedItems = _mapper.Map<List<FavoriteResponse>>(pagedResult.Items);
 
-            LogInfo("Retrieved {Count} favorites for Doctor {DoctorId}", 
+            LogInfo("Retrieved {Count} favorites for Doctor {DoctorId}",
                 null, mappedItems.Count, doctorId);
 
             return new PagedResult<FavoriteResponse>
@@ -251,13 +251,13 @@ public class FavoriteService : BaseService, IFavoriteService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Checking multiple favorites for Patient {PatientId}, Doctor count: {DoctorCount}", 
+            LogInfo("Checking multiple favorites for Patient {PatientId}, Doctor count: {DoctorCount}",
                 null, request.PatientId, request.DoctorIds.Count);
 
             // Validation
             ValidateRequired(request, nameof(request));
             ValidateGuid(request.PatientId, nameof(request.PatientId));
-            
+
             if (request.DoctorIds == null || !request.DoctorIds.Any())
             {
                 LogWarning("Empty doctor IDs list provided for Patient {PatientId}", null, request.PatientId);
@@ -279,10 +279,10 @@ public class FavoriteService : BaseService, IFavoriteService
 
             // Remove duplicates and validate
             var uniqueDoctorIds = request.DoctorIds.Distinct().ToList();
-            
+
             if (uniqueDoctorIds.Count > 100)
             {
-                LogWarning("Too many doctor IDs ({Count}) provided for Patient {PatientId}, limiting to 100", 
+                LogWarning("Too many doctor IDs ({Count}) provided for Patient {PatientId}, limiting to 100",
                     null, uniqueDoctorIds.Count, request.PatientId);
                 uniqueDoctorIds = uniqueDoctorIds.Take(100).ToList();
             }
@@ -291,7 +291,7 @@ public class FavoriteService : BaseService, IFavoriteService
             var favoritedDoctorIds = await _favoriteRepository.CheckMultipleFavoritesAsync(
                 request.PatientId, uniqueDoctorIds);
 
-            LogInfo("Found {FavoritedCount} favorites out of {TotalChecked} doctors for Patient {PatientId}", 
+            LogInfo("Found {FavoritedCount} favorites out of {TotalChecked} doctors for Patient {PatientId}",
                 null, favoritedDoctorIds.Count, uniqueDoctorIds.Count, request.PatientId);
 
             return new CheckMultipleFavoritesResponse

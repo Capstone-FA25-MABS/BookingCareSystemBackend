@@ -90,10 +90,10 @@ public class FavoriteRepository : IFavoriteRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking multiple favorites for Patient {PatientId}", patientId);
-            
+
             // Fallback to full entity approach if projection fails
             _logger.LogInformation("Falling back to full entity retrieval for Patient {PatientId}", patientId);
-            
+
             var favorites = await _context.Favorites
                 .Find(filter)
                 .ToListAsync();

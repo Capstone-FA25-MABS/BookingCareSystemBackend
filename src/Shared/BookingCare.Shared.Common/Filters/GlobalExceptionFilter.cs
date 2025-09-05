@@ -42,7 +42,7 @@ public class GlobalExceptionFilter : IExceptionFilter
     private ExceptionResponse HandleBookingCareException(BookingCareException exception)
     {
         List<string>? errors = null;
-        
+
         // Add validation errors if available
         if (exception is ValidationException validationEx && validationEx.ValidationErrors.Any())
         {
@@ -56,7 +56,7 @@ public class GlobalExceptionFilter : IExceptionFilter
                 exception.Message,
                 errors
             )
-        };      
+        };
     }
 
     private ExceptionResponse HandleGenericException(Exception exception)

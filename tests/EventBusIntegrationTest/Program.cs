@@ -45,7 +45,7 @@ app.UseEventBus(eventBus =>
     eventBus.Subscribe<UserRegisteredEvent, TestUserRegisteredEventHandler>();
     eventBus.Subscribe<AppointmentCreatedEvent, TestAppointmentCreatedEventHandler>();
     eventBus.Subscribe<PaymentProcessedEvent, TestPaymentProcessedEventHandler>();
-    
+
     // Subscribe with routing keys
     eventBus.Subscribe<NotificationSendEvent, TestNotificationSendEventHandler>("notification.email");
 });

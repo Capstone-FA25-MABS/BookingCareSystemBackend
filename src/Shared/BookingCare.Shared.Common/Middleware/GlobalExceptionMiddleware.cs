@@ -68,7 +68,7 @@ public class GlobalExceptionMiddleware
                 OperationCanceledException => "cancelled",
                 _ => "server_error"
             };
-            
+
             // This will only work if MonitoringExtensions is available
             var monitoringType = Type.GetType("BookingCare.Shared.Common.Extensions.MonitoringExtensions");
             if (monitoringType != null)
@@ -104,7 +104,7 @@ public class GlobalExceptionMiddleware
     private static ExceptionResponse HandleBookingCareException(BookingCareException exception)
     {
         List<string>? errors = null;
-        
+
         // Add validation errors if available
         if (exception is ValidationException validationEx && validationEx.ValidationErrors.Any())
         {
@@ -160,7 +160,7 @@ public class GlobalExceptionMiddleware
     private void LogException(Exception exception, HttpContext context)
     {
         var correlationId = context.Request.Headers["X-Correlation-ID"].FirstOrDefault() ?? Guid.NewGuid().ToString();
-        
+
         switch (exception)
         {
             case BookingCareException bookingCareException:
@@ -168,17 +168,17 @@ public class GlobalExceptionMiddleware
                     "BookingCare Exception occurred. CorrelationId: {CorrelationId}, StatusCode: {StatusCode}, Message: {Message}",
                     correlationId, bookingCareException.StatusCode, bookingCareException.Message);
                 break;
-                
+
             case TaskCanceledException:
                 _logger.LogInformation("Request was cancelled. CorrelationId: {CorrelationId}, Path: {Path}",
                     correlationId, context.Request.Path);
                 break;
-                
+
             case OperationCanceledException:
                 _logger.LogInformation("Operation was cancelled. CorrelationId: {CorrelationId}, Path: {Path}",
                     correlationId, context.Request.Path);
                 break;
-                
+
             default:
                 _logger.LogError(exception,
                     "Unhandled exception occurred. CorrelationId: {CorrelationId}, Path: {Path}, Method: {Method}",
