@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace BookingCare.Shared.Common.Authorization;
 
@@ -17,7 +18,9 @@ public sealed class RoleHandler : AuthorizationHandler<RoleRequirement>
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, RoleRequirement requirement)
     {
-        if (context.User?.IsInRole(requirement.RoleName) == true) context.Succeed(requirement);
+        var hasRole = context.User?.Claims
+            .Any(c => c.Type == ClaimTypes.Role && string.Equals(c.Value, requirement.RoleName, StringComparison.OrdinalIgnoreCase)) == true;
+        if (hasRole) context.Succeed(requirement);
         return Task.CompletedTask;
     }
 }

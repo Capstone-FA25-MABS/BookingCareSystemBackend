@@ -40,7 +40,6 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.RolePermissions, opt => opt.Ignore());
 
         CreateMap<UpdateRoleRequest, RoleEntity>()
-            .ForMember(dest => dest.Name, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.UserRoles, opt => opt.Ignore())

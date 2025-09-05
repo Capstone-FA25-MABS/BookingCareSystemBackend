@@ -695,8 +695,10 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<RoleResponse> CreateRoleAsync(CreateRoleRequest request)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Creating new role: {RoleName}", null, request.Name);
+
             // Check if role name already exists
             if (await _authRepository.RoleNameExistsAsync(request.Name))
             {
@@ -706,17 +708,9 @@ public class AuthService : BaseService, IAuthService
             var role = _mapper.Map<RoleEntity>(request);
             var createdRole = await _authRepository.CreateRoleAsync(role);
 
+            LogInfo("Role created successfully: {RoleId}", null, createdRole.Id);
             return _mapper.Map<RoleResponse>(createdRole);
-        }
-        catch (RoleConflictException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating role: {RoleName}", request.Name);
-            throw new AuthException("Role creation failed", innerException: ex);
-        }
+        }, "CreateRole");
     }
 
     /// <summary>
@@ -724,16 +718,20 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<RoleResponse?> GetRoleByIdAsync(Guid id)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Getting role by ID: {RoleId}", null, id);
+
             var role = await _authRepository.GetRoleByIdAsync(id);
-            return role != null ? _mapper.Map<RoleResponse>(role) : null;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting role by ID: {RoleId}", id);
-            throw new AuthException("Failed to get role", innerException: ex);
-        }
+            if (role == null)
+            {
+                LogWarning("Role not found: {RoleId}", null, id);
+                return null;
+            }
+
+            LogInfo("Role found: {RoleId}", null, role.Id);
+            return _mapper.Map<RoleResponse>(role);
+        }, "GetRoleById");
     }
 
     /// <summary>
@@ -741,16 +739,20 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<RoleResponse?> GetRoleByNameAsync(string name)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Getting role by name: {RoleName}", null, name);
+
             var role = await _authRepository.GetRoleByNameAsync(name);
-            return role != null ? _mapper.Map<RoleResponse>(role) : null;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting role by name: {RoleName}", name);
-            throw new AuthException("Failed to get role", innerException: ex);
-        }
+            if (role == null)
+            {
+                LogWarning("Role not found: {RoleName}", null, name);
+                return null;
+            }
+
+            LogInfo("Role found: {RoleId}", null, role.Id);
+            return _mapper.Map<RoleResponse>(role);
+        }, "GetRoleByName");
     }
 
     /// <summary>
@@ -758,8 +760,10 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<RoleResponse> UpdateRoleAsync(UpdateRoleRequest request)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Updating role: {RoleId}", null, request.Id);
+
             var existingRole = await _authRepository.GetRoleByIdAsync(request.Id);
             if (existingRole == null)
             {
@@ -767,33 +771,25 @@ public class AuthService : BaseService, IAuthService
             }
 
             // Check name uniqueness if changed
-            if (request.Name != null && request.Name != existingRole.Name)
+            if (request.Name != existingRole.Name)
             {
-                if (await _authRepository.RoleNameExistsAsync(request.Name, request.Id))
+                if (await _authRepository.RoleNameExistsAsync(request.Name, existingRole.Id))
                 {
                     throw new RoleConflictException(request.Name, true);
                 }
             }
 
-            var role = _mapper.Map<RoleEntity>(request);
-            role.UpdatedAt = DateTime.UtcNow;
+            // Update tracked entity to avoid EF Core double-tracking issues
+            existingRole.Name = request.Name;
+            if (!string.IsNullOrEmpty(request.Description))
+            {
+                existingRole.Description = request.Description;
+            }
 
-            var updatedRole = await _authRepository.UpdateRoleAsync(role);
+            var updatedRole = await _authRepository.UpdateRoleAsync(existingRole);
+            LogInfo("Role updated successfully: {RoleId}", null, updatedRole.Id);
             return _mapper.Map<RoleResponse>(updatedRole);
-        }
-        catch (RoleNotFoundException)
-        {
-            throw;
-        }
-        catch (RoleConflictException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error updating role: {RoleId}", request.Id);
-            throw new AuthException("Role update failed", innerException: ex);
-        }
+        }, "UpdateRole");
     }
 
     /// <summary>
@@ -801,15 +797,22 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<bool> DeleteRoleAsync(Guid id)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            return await _authRepository.DeleteRoleAsync(id);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error deleting role: {RoleId}", id);
-            throw new AuthException("Role deletion failed", innerException: ex);
-        }
+            LogInfo("Deleting role: {RoleId}", null, id);
+
+            var result = await _authRepository.DeleteRoleAsync(id);
+            if (result)
+            {
+                LogInfo("Role deleted successfully: {RoleId}", null, id);
+            }
+            else
+            {
+                LogWarning("Role not found for deletion: {RoleId}", null, id);
+            }
+
+            return result;
+        }, "DeleteRole");
     }
 
     /// <summary>
@@ -817,12 +820,14 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<RoleListResponse> GetRolesAsync(RoleQueryRequest query)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Getting roles with query: Page={PageNumber}, Size={PageSize}", null, query.PageNumber, query.PageSize);
+
             var (roles, totalCount) = await _authRepository.GetRolesAsync(query);
             var roleResponses = _mapper.Map<List<RoleResponse>>(roles);
 
-            return new RoleListResponse
+            var response = new RoleListResponse
             {
                 Roles = roleResponses,
                 TotalCount = totalCount,
@@ -830,12 +835,10 @@ public class AuthService : BaseService, IAuthService
                 PageSize = query.PageSize,
                 TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
             };
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting roles with query");
-            throw new AuthException("Failed to get roles", innerException: ex);
-        }
+
+            LogInfo("Retrieved {Count} roles out of {TotalCount}", null, roles.Count, totalCount);
+            return response;
+        }, "GetRoles");
     }
 
     #endregion
@@ -847,8 +850,10 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<PermissionResponse> CreatePermissionAsync(CreatePermissionRequest request)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Creating new permission: {PermissionName}", null, request.Name);
+
             // Check if permission name already exists
             if (await _authRepository.PermissionNameExistsAsync(request.Name))
             {
@@ -858,17 +863,9 @@ public class AuthService : BaseService, IAuthService
             var permission = _mapper.Map<PermissionEntity>(request);
             var createdPermission = await _authRepository.CreatePermissionAsync(permission);
 
+            LogInfo("Permission created successfully: {PermissionId}", null, createdPermission.Id);
             return _mapper.Map<PermissionResponse>(createdPermission);
-        }
-        catch (PermissionConflictException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error creating permission: {PermissionName}", request.Name);
-            throw new AuthException("Permission creation failed", innerException: ex);
-        }
+        }, "CreatePermission");
     }
 
     /// <summary>
@@ -876,16 +873,20 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<PermissionResponse?> GetPermissionByIdAsync(Guid id)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Getting permission by ID: {PermissionId}", null, id);
+
             var permission = await _authRepository.GetPermissionByIdAsync(id);
-            return permission != null ? _mapper.Map<PermissionResponse>(permission) : null;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting permission by ID: {PermissionId}", id);
-            throw new AuthException("Failed to get permission", innerException: ex);
-        }
+            if (permission == null)
+            {
+                LogWarning("Permission not found: {PermissionId}", null, id);
+                return null;
+            }
+
+            LogInfo("Permission found: {PermissionId}", null, permission.Id);
+            return _mapper.Map<PermissionResponse>(permission);
+        }, "GetPermissionById");
     }
 
     /// <summary>
@@ -893,16 +894,20 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<PermissionResponse?> GetPermissionByNameAsync(string name)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Getting permission by name: {PermissionName}", null, name);
+
             var permission = await _authRepository.GetPermissionByNameAsync(name);
-            return permission != null ? _mapper.Map<PermissionResponse>(permission) : null;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting permission by name: {PermissionName}", name);
-            throw new AuthException("Failed to get permission", innerException: ex);
-        }
+            if (permission == null)
+            {
+                LogWarning("Permission not found: {PermissionName}", null, name);
+                return null;
+            }
+
+            LogInfo("Permission found: {PermissionId}", null, permission.Id);
+            return _mapper.Map<PermissionResponse>(permission);
+        }, "GetPermissionByName");
     }
 
     /// <summary>
@@ -910,8 +915,10 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<PermissionResponse> UpdatePermissionAsync(UpdatePermissionRequest request)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Updating permission: {PermissionId}", null, request.Id);
+
             var existingPermission = await _authRepository.GetPermissionByIdAsync(request.Id);
             if (existingPermission == null)
             {
@@ -919,7 +926,7 @@ public class AuthService : BaseService, IAuthService
             }
 
             // Check name uniqueness if changed
-            if (request.Name != null && request.Name != existingPermission.Name)
+            if (request.Name != existingPermission.Name)
             {
                 if (await _authRepository.PermissionNameExistsAsync(request.Name, request.Id))
                 {
@@ -931,21 +938,9 @@ public class AuthService : BaseService, IAuthService
             permission.UpdatedAt = DateTime.UtcNow;
 
             var updatedPermission = await _authRepository.UpdatePermissionAsync(permission);
+            LogInfo("Permission updated successfully: {PermissionId}", null, updatedPermission.Id);
             return _mapper.Map<PermissionResponse>(updatedPermission);
-        }
-        catch (PermissionNotFoundException)
-        {
-            throw;
-        }
-        catch (PermissionConflictException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error updating permission: {PermissionId}", request.Id);
-            throw new AuthException("Permission update failed", innerException: ex);
-        }
+        }, "UpdatePermission");
     }
 
     /// <summary>
@@ -953,15 +948,22 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<bool> DeletePermissionAsync(Guid id)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            return await _authRepository.DeletePermissionAsync(id);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error deleting permission: {PermissionId}", id);
-            throw new AuthException("Permission deletion failed", innerException: ex);
-        }
+            LogInfo("Deleting permission: {PermissionId}", null, id);
+
+            var result = await _authRepository.DeletePermissionAsync(id);
+            if (result)
+            {
+                LogInfo("Permission deleted successfully: {PermissionId}", null, id);
+            }
+            else
+            {
+                LogWarning("Permission not found for deletion: {PermissionId}", null, id);
+            }
+
+            return result;
+        }, "DeletePermission");
     }
 
     /// <summary>
@@ -969,12 +971,14 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<PermissionListResponse> GetPermissionsAsync(PermissionQueryRequest query)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Getting permissions with query: Page={PageNumber}, Size={PageSize}", null, query.PageNumber, query.PageSize);
+
             var (permissions, totalCount) = await _authRepository.GetPermissionsAsync(query);
             var permissionResponses = _mapper.Map<List<PermissionResponse>>(permissions);
 
-            return new PermissionListResponse
+            var response = new PermissionListResponse
             {
                 Permissions = permissionResponses,
                 TotalCount = totalCount,
@@ -982,12 +986,10 @@ public class AuthService : BaseService, IAuthService
                 PageSize = query.PageSize,
                 TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
             };
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting permissions with query");
-            throw new AuthException("Failed to get permissions", innerException: ex);
-        }
+
+            LogInfo("Retrieved {Count} permissions out of {TotalCount}", null, permissions.Count, totalCount);
+            return response;
+        }, "GetPermissions");
     }
 
     #endregion

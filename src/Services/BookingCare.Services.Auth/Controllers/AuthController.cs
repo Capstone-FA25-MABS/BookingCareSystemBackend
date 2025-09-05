@@ -316,10 +316,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Role creation request</param>
     /// <returns>Created role information</returns>
     [HttpPost("roles")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<RoleResponse>), 201)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
     {
         if (!ModelState.IsValid)
@@ -340,9 +337,7 @@ public class AuthController : BaseApiController
     /// <param name="id">Role ID</param>
     /// <returns>Role information</returns>
     [HttpGet("roles/{id}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<RoleResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetRole(Guid id)
     {
         var role = await _authService.GetRoleByIdAsync(id);
@@ -360,9 +355,7 @@ public class AuthController : BaseApiController
     /// <param name="name">Role name</param>
     /// <returns>Role information</returns>
     [HttpGet("roles/by-name/{name}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<RoleResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetRoleByName(string name)
     {
         var role = await _authService.GetRoleByNameAsync(name);
@@ -381,11 +374,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Role update request</param>
     /// <returns>Updated role information</returns>
     [HttpPut("roles/{id}")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<RoleResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request)
     {
         if (id != request.Id)
@@ -411,9 +400,7 @@ public class AuthController : BaseApiController
     /// <param name="id">Role ID</param>
     /// <returns>Success response</returns>
     [HttpDelete("roles/{id}")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> DeleteRole(Guid id)
     {
         var result = await _authService.DeleteRoleAsync(id);
@@ -431,9 +418,7 @@ public class AuthController : BaseApiController
     /// <param name="query">Query parameters</param>
     /// <returns>Paginated list of roles</returns>
     [HttpGet("roles")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<RoleListResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetRoles([FromQuery] RoleQueryRequest query)
     {
         var result = await _authService.GetRolesAsync(query);
