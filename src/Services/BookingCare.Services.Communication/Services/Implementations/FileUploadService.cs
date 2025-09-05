@@ -1,4 +1,4 @@
-using BookingCare.Services.Communication.Services.Interfaces;
+ï»¿using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Configuration;
 using BookingCare.Services.Communication.Enums;
 using Microsoft.Extensions.Options;
@@ -9,7 +9,7 @@ using SixLabors.ImageSharp.Formats.Jpeg;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Implementation c?a File Upload service v?i Cloudinary
+/// Implementation cá»§a File Upload service vá»›i Cloudinary
 /// </summary>
 public class FileUploadService : IFileUploadService
 {
@@ -28,13 +28,13 @@ public class FileUploadService : IFileUploadService
     }
 
     /// <summary>
-    /// Upload single file lên cloud storage
+    /// Upload single file lÃªn cloud storage
     /// </summary>
     public async Task<FileUploadResult> UploadFileAsync(IFormFile file, string userId, MessageType messageType)
     {
         try
         {
-            _logger.LogInformation("Starting file upload for user {UserId}, file {FileName}, type {MessageType}", 
+            _logger.LogInformation("Starting file upload for user {UserId}, file {FileName}, type {MessageType}",
                 userId, file.FileName, messageType);
 
             // Validate file
@@ -83,7 +83,7 @@ public class FileUploadService : IFileUploadService
     }
 
     /// <summary>
-    /// Upload multiple files cùng lúc
+    /// Upload multiple files cÃ¹ng lÃºc
     /// </summary>
     public async Task<List<FileUploadResult>> UploadMultipleFilesAsync(IEnumerable<IFormFile> files, string userId, MessageType messageType)
     {
@@ -133,16 +133,16 @@ public class FileUploadService : IFileUploadService
     }
 
     /// <summary>
-    /// Xóa file t? cloud storage
+    /// XÃ³a file tá»« cloud storage
     /// </summary>
     public async Task<bool> DeleteFileAsync(string fileUrl)
     {
         try
         {
             _logger.LogInformation("Deleting file: {FileUrl}", fileUrl);
-            
+
             var result = await _storageProvider.DeleteFileAsync(fileUrl);
-            
+
             if (result)
             {
                 _logger.LogInformation("File deleted successfully: {FileUrl}", fileUrl);
@@ -190,7 +190,7 @@ public class FileUploadService : IFileUploadService
     }
 
     /// <summary>
-    /// Validate file type và size
+    /// Validate file type vÃ  size
     /// </summary>
     public async Task<FileValidationResult> ValidateFileAsync(IFormFile file, MessageType messageType)
     {
@@ -251,8 +251,8 @@ public class FileUploadService : IFileUploadService
     private MessageTypeConstraints GetConstraints(MessageType messageType)
     {
         var messageTypeKey = messageType.ToString();
-        return _config.Constraints.TryGetValue(messageTypeKey, out var constraints) 
-            ? constraints 
+        return _config.Constraints.TryGetValue(messageTypeKey, out var constraints)
+            ? constraints
             : new MessageTypeConstraints { MaxSizeBytes = 10 * 1024 * 1024 }; // Default 10MB
     }
 
@@ -270,7 +270,7 @@ public class FileUploadService : IFileUploadService
     private bool ShouldGenerateThumbnail(MessageType messageType, string contentType)
     {
         var constraints = GetConstraints(messageType);
-        return constraints.GenerateThumbnail && 
+        return constraints.GenerateThumbnail &&
                (contentType.StartsWith("image/") || contentType.StartsWith("video/"));
     }
 
@@ -278,7 +278,7 @@ public class FileUploadService : IFileUploadService
     {
         // Simple MIME type detection based on file extension and content
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        
+
         // Read first few bytes to detect file signature
         using var stream = file.OpenReadStream();
         var buffer = new byte[8];

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Enums;
@@ -32,7 +32,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// User k?t n?i v�o hub
+    /// User kết nối vào hub
     /// </summary>
     public override async Task OnConnectedAsync()
     {
@@ -60,7 +60,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// User ng?t k?t n?i kh?i hub
+    /// User ngắt kết nối khỏi hub
     /// </summary>
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
@@ -88,7 +88,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// Join conversation group
+    /// Tham gia group conversation
     /// </summary>
     public async Task JoinConversation(string conversationId)
     {
@@ -105,7 +105,7 @@ public class ChatHub : Hub
             var conversation = await _conversationService.GetByIdAsync(conversationId);
             if (conversation == null || !conversation.Participants.Contains(userId))
             {
-                await Clients.Caller.SendAsync("Error", "Kh�ng c� quy?n truy c?p conversation n�y");
+                await Clients.Caller.SendAsync("Error", "Không có quyền truy cập conversation này");
                 return;
             }
 
@@ -117,12 +117,12 @@ public class ChatHub : Hub
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error joining conversation {ConversationId} for user {UserId}", conversationId, userId);
-            await Clients.Caller.SendAsync("Error", "L?i khi tham gia conversation");
+            await Clients.Caller.SendAsync("Error", "Lỗi khi tham gia conversation");
         }
     }
 
     /// <summary>
-    /// Leave conversation group
+    /// Rời group conversation
     /// </summary>
     public async Task LeaveConversation(string conversationId)
     {
@@ -134,7 +134,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// G?i tin nh?n real-time
+    /// Gửi tin nhắn real-time
     /// </summary>
     public async Task SendMessage(SendMessageHub request)
     {
@@ -180,12 +180,12 @@ public class ChatHub : Hub
         {
             _logger.LogError(ex, "Error sending message for user {UserId} in conversation {ConversationId}", 
                 userId, request.ConversationId);
-            await Clients.Caller.SendAsync("Error", "L?i khi g?i tin nh?n");
+            await Clients.Caller.SendAsync("Error", "Lỗi khi gửi tin nhắn");
         }
     }
 
     /// <summary>
-    /// ?�nh d?u tin nh?n ?� ??c
+    /// Đánh dấu tin nhắn đã đọc
     /// </summary>
     public async Task MarkMessageAsRead(string messageId)
     {
@@ -220,12 +220,12 @@ public class ChatHub : Hub
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error marking message as read: {MessageId} by user {UserId}", messageId, userId);
-            await Clients.Caller.SendAsync("Error", "L?i khi ?�nh d?u tin nh?n ?� ??c");
+            await Clients.Caller.SendAsync("Error", "Lỗi khi đánh dấu tin nhắn đã đọc");
         }
     }
 
     /// <summary>
-    /// ?�nh d?u t?t c? tin nh?n trong conversation ?� ??c
+    /// Đánh dấu tất cả tin nhắn trong conversation đã đọc
     /// </summary>
     public async Task MarkAllMessagesAsRead(string conversationId)
     {
@@ -261,12 +261,12 @@ public class ChatHub : Hub
         {
             _logger.LogError(ex, "Error marking all messages as read in conversation {ConversationId} by user {UserId}", 
                 conversationId, userId);
-            await Clients.Caller.SendAsync("Error", "L?i khi ?�nh d?u t?t c? tin nh?n ?� ??c");
+            await Clients.Caller.SendAsync("Error", "Lỗi khi đánh dấu tất cả tin nhắn đã đọc");
         }
     }
 
     /// <summary>
-    /// User ?ang g� tin nh?n
+    /// User đang gõ tin nhắn
     /// </summary>
     public async Task StartTyping(string conversationId)
     {
@@ -283,7 +283,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// User d?ng g� tin nh?n
+    /// User dừng gõ tin nhắn
     /// </summary>
     public async Task StopTyping(string conversationId)
     {
@@ -300,7 +300,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// L?y danh s�ch users online
+    /// Lấy danh sách users online
     /// </summary>
     public async Task GetOnlineUsers()
     {
@@ -311,7 +311,7 @@ public class ChatHub : Hub
     #region Private Methods
 
     /// <summary>
-    /// L?y User ID t? context
+    /// Lấy User ID từ context
     /// </summary>
     private string GetUserId()
     {
@@ -322,7 +322,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// T?o t�n group cho conversation
+    /// Tạo tên group cho conversation
     /// </summary>
     private static string GetConversationGroupName(string conversationId)
     {
@@ -330,7 +330,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// Ki?m tra user c� online kh�ng
+    /// Kiểm tra user có online không
     /// </summary>
     public static bool IsUserOnline(string userId)
     {
@@ -338,7 +338,7 @@ public class ChatHub : Hub
     }
 
     /// <summary>
-    /// L?y connection IDs c?a user
+    /// Lấy connection IDs của user
     /// </summary>
     public static HashSet<string> GetUserConnections(string userId)
     {
@@ -349,7 +349,7 @@ public class ChatHub : Hub
 }
 
 /// <summary>
-/// DTO cho g?i tin nh?n qua SignalR
+/// DTO cho gửi tin nhắn qua SignalR
 /// </summary>
 public class SendMessageHub
 {

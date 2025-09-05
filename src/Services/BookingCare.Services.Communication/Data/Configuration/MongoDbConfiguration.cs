@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 
 namespace BookingCare.Services.Communication.Data.Configuration;
 
@@ -13,7 +13,7 @@ public class MongoDbConfiguration
     public string ConnectionString { get; set; } = string.Empty;
 
     /// <summary>
-    /// T�n database
+    /// Tên database
     /// </summary>
     public string DatabaseName { get; set; } = string.Empty;
 }
@@ -35,12 +35,12 @@ public class MongoDbConnection
     }
 
     /// <summary>
-    /// L?y MongoDB database instance
+    /// Lấy MongoDB database instance
     /// </summary>
     public IMongoDatabase Database => _database;
 
     /// <summary>
-    /// L?y MongoDB client instance
+    /// Lấy MongoDB client instance
     /// </summary>
     public IMongoClient Client => _client;
 }

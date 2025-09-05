@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
@@ -8,7 +8,7 @@ using BookingCare.Shared.Common.Services;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Implementation c?a Conversation service v?i BaseService
+/// Implementation của Conversation service với BaseService
 /// </summary>
 public class ConversationService : BaseService, IConversationService
 {
@@ -25,22 +25,22 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// T?o cu?c h?i tho?i m?i
+    /// Tạo cuộc hội thoại mới
     /// </summary>
     public async Task<ConversationResponse> CreateAsync(CreateConversationRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("B?t ??u t?o cu?c h?i tho?i v?i {Count} th�nh vi�n", null, request.Participants.Count);
+            LogInfo("Bắt đầu tạo cuộc hội thoại với {Count} thành viên", null, request.Participants.Count);
 
             // Validation
             ValidateRequired(request, nameof(request));
             if (request.Participants == null || request.Participants.Count < 2)
             {
-                throw new ArgumentException("Cu?c h?i tho?i ph?i c� �t nh?t 2 th�nh vi�n");
+                throw new ArgumentException("Cuộc hội thoại phải có ít nhất 2 thành viên");
             }
 
-            // Ki?m tra xem conversation gi?a 2 user ?� t?n t?i ch?a (n?u l� chat 1-1)
+            // Kiểm tra xem conversation giữa 2 user đã tồn tại chưa (nếu là chat 1-1)
             if (request.Participants.Count == 2)
             {
                 var existingConversation = await _conversationRepository
@@ -48,22 +48,22 @@ public class ConversationService : BaseService, IConversationService
                 
                 if (existingConversation != null)
                 {
-                    LogInfo("Cu?c h?i tho?i gi?a 2 user ?� t?n t?i: {ConversationId}", null, existingConversation.Id);
+                    LogInfo("Cuộc hội thoại giữa 2 user đã tồn tại: {ConversationId}", null, existingConversation.Id);
                     return _mapper.Map<ConversationResponse>(existingConversation);
                 }
             }
 
-            // T?o conversation m?i
+            // Tạo conversation mới
             var conversationEntity = _mapper.Map<ConversationEntity>(request);
             var createdConversation = await _conversationRepository.CreateAsync(conversationEntity);
 
-            LogInfo("T?o cu?c h?i tho?i th�nh c�ng v?i ID: {ConversationId}", null, createdConversation.Id);
+            LogInfo("Tạo cuộc hội thoại thành công với ID: {ConversationId}", null, createdConversation.Id);
             return _mapper.Map<ConversationResponse>(createdConversation);
         }, "CreateConversation");
     }
 
     /// <summary>
-    /// L?y cu?c h?i tho?i theo ID
+    /// Lấy cuộc hội thoại theo ID
     /// </summary>
     public async Task<ConversationResponse?> GetByIdAsync(string id)
     {
@@ -72,7 +72,7 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// L?y danh s�ch cu?c h?i tho?i c?a user
+    /// Lấy danh sách cuộc hội thoại của user
     /// </summary>
     public async Task<IEnumerable<ConversationResponse>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20)
     {
@@ -81,7 +81,7 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// T�m cu?c h?i tho?i gi?a 2 ng??i d�ng
+    /// Tìm cuộc hội thoại giữa 2 người dùng
     /// </summary>
     public async Task<ConversationResponse?> GetConversationBetweenUsersAsync(string userId1, string userId2)
     {
@@ -90,24 +90,24 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// X�a cu?c h?i tho?i
+    /// Xóa cuộc hội thoại
     /// </summary>
     public async Task<bool> DeleteAsync(string id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("B?t ??u x�a cu?c h?i tho?i: {ConversationId}", null, id);
+            LogInfo("Bắt đầu xóa cuộc hội thoại: {ConversationId}", null, id);
 
             ValidateRequiredString(id, nameof(id));
 
             var result = await _conversationRepository.DeleteAsync(id);
             if (result)
             {
-                LogInfo("X�a cu?c h?i tho?i th�nh c�ng: {ConversationId}", null, id);
+                LogInfo("Xóa cuộc hội thoại thành công: {ConversationId}", null, id);
             }
             else
             {
-                LogWarning("Kh�ng th? x�a cu?c h?i tho?i: {ConversationId}", null, id);
+                LogWarning("Không thể xóa cuộc hội thoại: {ConversationId}", null, id);
             }
 
             return result;
@@ -115,13 +115,13 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// C?p nh?t tin nh?n cu?i c�ng
+    /// Cập nhật tin nhắn cuối cùng
     /// </summary>
     public async Task<bool> UpdateLastMessageAsync(string conversationId, string messageId, string content, string senderId)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("C?p nh?t tin nh?n cu?i cho conversation: {ConversationId}", null, conversationId);
+            LogInfo("Cập nhật tin nhắn cuối cho conversation: {ConversationId}", null, conversationId);
 
             ValidateRequiredString(conversationId, nameof(conversationId));
             ValidateRequiredString(messageId, nameof(messageId));
@@ -140,7 +140,7 @@ public class ConversationService : BaseService, IConversationService
             
             if (result)
             {
-                LogInfo("C?p nh?t tin nh?n cu?i th�nh c�ng cho conversation: {ConversationId}", null, conversationId);
+                LogInfo("Cập nhật tin nhắn cuối thành công cho conversation: {ConversationId}", null, conversationId);
             }
 
             return result;
@@ -148,13 +148,13 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// Ch?n cu?c h?i tho?i
+    /// Chặn cuộc hội thoại
     /// </summary>
     public async Task<bool> BlockConversationAsync(BlockConversationRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Ch?n cu?c h?i tho?i: {ConversationId} b?i user: {UserId}", null, request.ConversationId, request.BlockedBy);
+            LogInfo("Chặn cuộc hội thoại: {ConversationId} bởi user: {UserId}", null, request.ConversationId, request.BlockedBy);
 
             ValidateRequired(request, nameof(request));
             ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
@@ -164,7 +164,7 @@ public class ConversationService : BaseService, IConversationService
             
             if (result)
             {
-                LogInfo("Ch?n cu?c h?i tho?i th�nh c�ng: {ConversationId}", null, request.ConversationId);
+                LogInfo("Chặn cuộc hội thoại thành công: {ConversationId}", null, request.ConversationId);
             }
 
             return result;
@@ -172,13 +172,13 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// B? ch?n cu?c h?i tho?i
+    /// Bỏ chặn cuộc hội thoại
     /// </summary>
     public async Task<bool> UnblockConversationAsync(UnblockConversationRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("B? ch?n cu?c h?i tho?i: {ConversationId}", null, request.ConversationId);
+            LogInfo("Bỏ chặn cuộc hội thoại: {ConversationId}", null, request.ConversationId);
 
             ValidateRequired(request, nameof(request));
             ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
@@ -187,7 +187,7 @@ public class ConversationService : BaseService, IConversationService
             
             if (result)
             {
-                LogInfo("B? ch?n cu?c h?i tho?i th�nh c�ng: {ConversationId}", null, request.ConversationId);
+                LogInfo("Bỏ chặn cuộc hội thoại thành công: {ConversationId}", null, request.ConversationId);
             }
 
             return result;
@@ -195,7 +195,7 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// Ki?m tra cu?c h?i tho?i c� b? ch?n kh�ng
+    /// Kiểm tra cuộc hội thoại có bị chặn không
     /// </summary>
     public async Task<bool> IsConversationBlockedAsync(string conversationId)
     {

@@ -25,9 +25,9 @@ public static class MongoDbServiceExtensions
     public static IServiceCollection AddMongoDb(this IServiceCollection services, IConfiguration configuration)
     {
         // Lấy connection string từ configuration
-        var connectionString = configuration.GetConnectionString("MongoDB") 
+        var connectionString = configuration.GetConnectionString("MongoDB")
             ?? configuration["MongoDB:ConnectionString"];
-        
+
         var databaseName = configuration["MongoDB:DatabaseName"];
 
         if (string.IsNullOrEmpty(connectionString))
@@ -68,14 +68,14 @@ public static class MongoDbServiceExtensions
 
         // Đăng ký SignalR Notification Service
         services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
-        
+
         // Đăng ký File Upload services v?i Cloudinary
         services.AddScoped<IFileUploadService, FileUploadService>();
         services.AddScoped<ICloudStorageProvider, CloudinaryStorageProvider>();
 
         // Đăng ký File Upload Configuration
         services.Configure<FileUploadConfiguration>(configuration.GetSection(FileUploadConfiguration.SectionName));
-        // Đăng k� FluentValidation
+        // Đăng ký FluentValidation
         services.AddFluentValidationAutoValidation();
         services.AddFluentValidationClientsideAdapters();
         services.AddValidatorsFromAssemblyContaining<CommunicationMappingProfile>();
@@ -88,7 +88,7 @@ public static class MongoDbServiceExtensions
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<CommunicationDbContext>();
 
-        // T?o indexes
+        // Tạo indexes
         await MongoDbIndexConfiguration.CreateIndexesAsync(context);
     }
 }

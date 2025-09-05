@@ -1,4 +1,4 @@
-namespace BookingCare.Services.Communication.Services.Interfaces;
+﻿namespace BookingCare.Services.Communication.Services.Interfaces;
 
 /// <summary>
 /// Interface cho cloud storage providers
@@ -6,17 +6,17 @@ namespace BookingCare.Services.Communication.Services.Interfaces;
 public interface ICloudStorageProvider
 {
     /// <summary>
-    /// Upload file l�n cloud storage
+    /// Upload file lên cloud storage
     /// </summary>
     Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType, string folder);
 
     /// <summary>
-    /// T?o presigned URL cho direct upload
+    /// Tạo presigned URL cho direct upload
     /// </summary>
     Task<PresignedUrlResult> GeneratePresignedUrlAsync(string fileName, string contentType, string folder, TimeSpan expiration);
 
     /// <summary>
-    /// X�a file t? cloud storage
+    /// Xóa file từ cloud storage
     /// </summary>
     Task<bool> DeleteFileAsync(string fileUrl);
 
@@ -26,18 +26,18 @@ public interface ICloudStorageProvider
     Task<string> CopyFileAsync(string sourceUrl, string destinationPath);
 
     /// <summary>
-    /// Ki?m tra file c� t?n t?i kh�ng
+    /// Kiểm tra file có tồn tại không
     /// </summary>
     Task<bool> FileExistsAsync(string fileUrl);
 
     /// <summary>
-    /// L?y metadata c?a file
+    /// Lấy metadata của file
     /// </summary>
     Task<CloudFileMetadata> GetFileMetadataAsync(string fileUrl);
 }
 
 /// <summary>
-/// Metadata c?a file trong cloud storage
+/// Metadata của file trong cloud storage
 /// </summary>
 public class CloudFileMetadata
 {
@@ -47,28 +47,4 @@ public class CloudFileMetadata
     public DateTime LastModified { get; set; }
     public string ETag { get; set; } = string.Empty;
     public Dictionary<string, string> CustomMetadata { get; set; } = new();
-}
-
-/// <summary>
-/// Azure Blob Storage implementation
-/// </summary>
-public interface IAzureBlobStorageProvider : ICloudStorageProvider
-{
-    Task<string> GetSharedAccessSignatureAsync(string fileName, TimeSpan expiration);
-}
-
-/// <summary>
-/// AWS S3 implementation
-/// </summary>
-public interface IAwsS3StorageProvider : ICloudStorageProvider
-{
-    Task<string> GetCloudFrontUrlAsync(string s3Url);
-}
-
-/// <summary>
-/// Google Cloud Storage implementation
-/// </summary>
-public interface IGoogleCloudStorageProvider : ICloudStorageProvider
-{
-    Task<string> GetSignedUrlAsync(string fileName, TimeSpan expiration);
 }

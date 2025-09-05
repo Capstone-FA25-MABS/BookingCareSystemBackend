@@ -1,4 +1,4 @@
-using BookingCare.Services.Communication.Models.Entities;
+﻿using BookingCare.Services.Communication.Models.Entities;
 
 namespace BookingCare.Services.Communication.Repositories.Interfaces;
 
@@ -8,47 +8,47 @@ namespace BookingCare.Services.Communication.Repositories.Interfaces;
 public interface IMessageRepository
 {
     /// <summary>
-    /// L?y tin nh?n theo ID
+    /// Lấy tin nhắn theo ID
     /// </summary>
     Task<MessageEntity?> GetByIdAsync(string id);
 
     /// <summary>
-    /// L?y danh s�ch tin nh?n theo conversation ID
+    /// Lấy danh sách tin nhắn theo conversation ID
     /// </summary>
     Task<IEnumerable<MessageEntity>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50);
 
     /// <summary>
-    /// T?o tin nh?n m?i
+    /// Tạo tin nhắn mới
     /// </summary>
     Task<MessageEntity> CreateAsync(MessageEntity message);
 
     /// <summary>
-    /// C?p nh?t tin nh?n
+    /// Cập nhật tin nhắn
     /// </summary>
     Task<MessageEntity> UpdateAsync(MessageEntity message);
 
     /// <summary>
-    /// X�a tin nh?n
+    /// Xóa tin nhắn
     /// </summary>
     Task<bool> DeleteAsync(string id);
 
     /// <summary>
-    /// ?�nh d?u tin nh?n ?� ??c
+    /// Đánh dấu tin nhắn đã đọc
     /// </summary>
     Task<bool> MarkAsReadAsync(string messageId, DateTime readAt);
 
     /// <summary>
-    /// ?�nh d?u t?t c? tin nh?n ch?a ??c c?a user trong conversation l� ?� ??c
+    /// Đánh dấu tất cả tin nhắn chưa đọc của user trong conversation là đã đọc
     /// </summary>
     Task<bool> MarkAllAsReadAsync(string conversationId, string userId, DateTime readAt);
 
     /// <summary>
-    /// L?y s? tin nh?n ch?a ??c theo conversation
+    /// Lấy số tin nhắn chưa đọc theo conversation
     /// </summary>
     Task<long> GetUnreadCountAsync(string conversationId, string userId);
 
     /// <summary>
-    /// T�m ki?m tin nh?n theo n?i dung
+    /// Tìm kiếm tin nhắn theo nội dung
     /// </summary>
     Task<IEnumerable<MessageEntity>> SearchAsync(string conversationId, string searchTerm, int page = 1, int pageSize = 20);
 }

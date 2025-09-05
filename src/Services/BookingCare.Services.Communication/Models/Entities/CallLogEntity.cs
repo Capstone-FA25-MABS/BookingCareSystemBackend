@@ -1,67 +1,67 @@
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using BookingCare.Services.Communication.Enums;
 
 namespace BookingCare.Services.Communication.Models.Entities;
 
 /// <summary>
-/// Entity ??i di?n cho l?ch s? cu?c g?i
+/// Entity đại diện cho lịch sử cuộc gọi
 /// </summary>
 public class CallLogEntity
 {
     /// <summary>
-    /// ID duy nh?t c?a cu?c g?i
+    /// ID duy nhất của cuộc gọi
     /// </summary>
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a cu?c h?i tho?i li�n quan (ObjectId c?a MongoDB)
+    /// ID của cuộc hội thoại liên quan (ObjectId của MongoDB)
     /// </summary>
     [BsonElement("conversationId")]
     [BsonRepresentation(BsonType.ObjectId)]
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i th?c hi?n cu?c g?i (Guid t? UserService ???c l?u d?ng string)
+    /// ID của người thực hiện cuộc gọi (Guid từ UserService được lưu dạng string)
     /// </summary>
     [BsonElement("callerId")]
     public string CallerId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n cu?c g?i (Guid t? UserService ???c l?u d?ng string)
+    /// ID của người nhận cuộc gọi (Guid từ UserService được lưu dạng string)
     /// </summary>
     [BsonElement("receiverId")]
     public string ReceiverId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i l??ng cu?c g?i (t�nh b?ng ph�t)
+    /// Thời lượng cuộc gọi (tính bằng phút)
     /// </summary>
     [BsonElement("duration")]
     public int Duration { get; set; }
 
     /// <summary>
-    /// Lo?i cu?c g?i (audio ho?c video)
+    /// Loại cuộc gọi (audio hoặc video)
     /// </summary>
     [BsonElement("type")]
     [BsonRepresentation(BsonType.String)]
     public CallType Type { get; set; } = CallType.Audio;
 
     /// <summary>
-    /// Th?i gian b?t ??u cu?c g?i
+    /// Thời gian bắt đầu cuộc gọi
     /// </summary>
     [BsonElement("startedAt")]
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Th?i gian k?t th�c cu?c g?i
+    /// Thời gian kết thúc cuộc gọi
     /// </summary>
     [BsonElement("endedAt")]
     public DateTime? EndedAt { get; set; }
 
     /// <summary>
-    /// Tr?ng th�i cu?c g?i
+    /// Trạng thái cuộc gọi
     /// </summary>
     [BsonElement("status")]
     [BsonRepresentation(BsonType.String)]

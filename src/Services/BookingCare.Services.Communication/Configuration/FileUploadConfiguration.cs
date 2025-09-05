@@ -1,4 +1,4 @@
-namespace BookingCare.Services.Communication.Configuration;
+﻿namespace BookingCare.Services.Communication.Configuration;
 
 /// <summary>
 /// Configuration cho file upload constraints
@@ -23,7 +23,7 @@ public class FileUploadConfiguration
     public string ContainerName { get; set; } = "communication-files";
 
     /// <summary>
-    /// Constraints cho t?ng lo?i message
+    /// Constraints cho tổng loại message
     /// </summary>
     public Dictionary<string, MessageTypeConstraints> Constraints { get; set; } = new()
     {
@@ -62,10 +62,10 @@ public class FileUploadConfiguration
         ["File"] = new MessageTypeConstraints
         {
             MaxSizeBytes = 200 * 1024 * 1024, // 200MB
-            AllowedMimeTypes = new[] 
-            { 
-                "application/pdf", 
-                "application/msword", 
+            AllowedMimeTypes = new[]
+            {
+                "application/pdf",
+                "application/msword",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 "application/vnd.ms-excel",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

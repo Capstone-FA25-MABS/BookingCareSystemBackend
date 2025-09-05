@@ -3,135 +3,135 @@
 namespace BookingCare.Services.Communication.Models.DTOs;
 
 /// <summary>
-/// Request ?? t?o tin nh?n m?i
+/// Request để tạo tin nhắn mới
 /// </summary>
 public class CreateMessageRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i
+    /// ID của người gửi
     /// </summary>
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// ID của người nhận (dùng cho chat 1-1)
     /// </summary>
     public string? ReceiverId { get; set; }
 
     /// <summary>
-    /// N?i dung tin nh?n
+    /// Nội dung tin nhắn
     /// </summary>
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n (Text, Image, File, Video, Audio, System)
+    /// Loại tin nhắn (Text, Image, File, Video, Audio, System)
     /// </summary>
     public MessageType Type { get; set; } = MessageType.Text;
 
     /// <summary>
-    /// Danh sách file ?ính kèm
+    /// Danh sách file đính kèm
     /// </summary>
     public List<MessageAttachmentRequest> Attachments { get; set; } = new();
 }
 
 /// <summary>
-/// Request ?? c?p nh?t tin nh?n
+/// Request để cập nhật tin nhắn
 /// </summary>
 public class UpdateMessageRequest
 {
     /// <summary>
-    /// ID c?a tin nh?n
+    /// ID của tin nhắn
     /// </summary>
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// N?i dung tin nh?n
+    /// Nội dung tin nhắn
     /// </summary>
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n
+    /// Loại tin nhắn
     /// </summary>
     public MessageType Type { get; set; } = MessageType.Text;
 
     /// <summary>
-    /// Danh sách file ?ính kèm
+    /// Danh sách file đính kèm
     /// </summary>
     public List<MessageAttachmentRequest> Attachments { get; set; } = new();
 }
 
 /// <summary>
-/// Response cho tin nh?n
+/// Response cho tin nhắn
 /// </summary>
 public class MessageResponse
 {
     /// <summary>
-    /// ID c?a tin nh?n
+    /// ID của tin nhắn
     /// </summary>
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i
+    /// ID của người gửi
     /// </summary>
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n
+    /// ID của người nhận
     /// </summary>
     public string? ReceiverId { get; set; }
 
     /// <summary>
-    /// N?i dung tin nh?n
+    /// Nội dung tin nhắn
     /// </summary>
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n
+    /// Loại tin nhắn
     /// </summary>
     public MessageType Type { get; set; }
 
     /// <summary>
-    /// Danh sách file ?ính kèm
+    /// Danh sách file đính kèm
     /// </summary>
     public List<MessageAttachmentResponse> Attachments { get; set; } = new();
 
     /// <summary>
-    /// Th?i gian t?o
+    /// Thời gian tạo
     /// </summary>
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
-    /// Th?i gian c?p nh?t
+    /// Thời gian cập nhật
     /// </summary>
     public DateTime UpdatedAt { get; set; }
 
     /// <summary>
-    /// Tr?ng thái tin nh?n
+    /// Trạng thái tin nhắn
     /// </summary>
     public MessageStatus Status { get; set; }
 
     /// <summary>
-    /// Th?i gian ??c tin nh?n
+    /// Thời gian đọc tin nhắn
     /// </summary>
     public DateTime? ReadAt { get; set; }
 }
 
 /// <summary>
-/// Request cho file ?ính kèm
+/// Request cho file đính kèm
 /// </summary>
 public class MessageAttachmentRequest
 {
     /// <summary>
-    /// URL c?a file
+    /// URL của file
     /// </summary>
     public string Url { get; set; } = string.Empty;
 
@@ -141,23 +141,23 @@ public class MessageAttachmentRequest
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Kích th??c file
+    /// Kích thước file
     /// </summary>
     public long Size { get; set; }
 
     /// <summary>
-    /// MIME type c?a file
+    /// MIME type của file
     /// </summary>
     public string? MimeType { get; set; }
 }
 
 /// <summary>
-/// Response cho file ?ính kèm
+/// Response cho file đính kèm
 /// </summary>
 public class MessageAttachmentResponse
 {
     /// <summary>
-    /// URL c?a file
+    /// URL của file
     /// </summary>
     public string Url { get; set; } = string.Empty;
 
@@ -167,142 +167,142 @@ public class MessageAttachmentResponse
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Kích th??c file
+    /// Kích thước file
     /// </summary>
     public long Size { get; set; }
 
     /// <summary>
-    /// MIME type c?a file
+    /// MIME type của file
     /// </summary>
     public string? MimeType { get; set; }
 }
 
 /// <summary>
-/// Request ?? ?ánh d?u tin nh?n ?ã ??c
+/// Request để đánh dấu tin nhắn đã đọc
 /// </summary>
 public class MarkMessageAsReadRequest
 {
     /// <summary>
-    /// ID c?a tin nh?n
+    /// ID của tin nhắn
     /// </summary>
     public string MessageId { get; set; } = string.Empty;
 }
 
 /// <summary>
-/// Request ?? ?ánh d?u tất cả tin nh?n trong conversation là ??c
+/// Request để đánh dấu tất cả tin nhắn trong conversation là đã đọc
 /// </summary>
 public class MarkAllMessagesAsReadRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i d?c tin nh?n
+    /// ID của người đọc tin nhắn
     /// </summary>
     public string UserId { get; set; } = string.Empty;
 }
 
 /// <summary>
-/// Request ?? tìm ki?m tin nh?n
+/// Request để tìm kiếm tin nhắn
 /// </summary>
 public class SearchMessageRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// T? khóa tìm ki?m
+    /// Từ khóa tìm kiếm
     /// </summary>
     public string SearchTerm { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n c?n tìm (tùy ch?n)
+    /// Loại tin nhắn cần tìm (tùy chọn)
     /// </summary>
     public MessageType? MessageType { get; set; }
 
     /// <summary>
-    /// Trang hi?n t?i
+    /// Trang hiện tại
     /// </summary>
     public int Page { get; set; } = 1;
 
     /// <summary>
-    /// S? l??ng items m?i trang
+    /// Số lượng items mỗi trang
     /// </summary>
     public int PageSize { get; set; } = 20;
 }
 
 /// <summary>
-/// Request ?? t?o tin nh?n v?i file upload
+/// Request để tạo tin nhắn với file upload
 /// </summary>
 public class CreateMessageWithFilesRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i
+    /// ID của người gửi
     /// </summary>
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// ID của người nhận (dùng cho chat 1-1)
     /// </summary>
     public string? ReceiverId { get; set; }
 
     /// <summary>
-    /// N?i dung tin nh?n
+    /// Nội dung tin nhắn
     /// </summary>
     public string? Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n (Image, File, Video, Audio)
+    /// Loại tin nhắn (Image, File, Video, Audio)
     /// </summary>
     public MessageType Type { get; set; } = MessageType.File;
 
     /// <summary>
-    /// Danh sách files ?? upload
+    /// Danh sách files để upload
     /// </summary>
     public List<IFormFile> Files { get; set; } = new();
 }
 
 /// <summary>
-/// Request ?? t?o tin nh?n v?i attachments có s?n
+/// Request để tạo tin nhắn với attachments có sẵn
 /// </summary>
 public class CreateMessageWithAttachmentsRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i
+    /// ID của người gửi
     /// </summary>
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// ID của người nhận (dùng cho chat 1-1)
     /// </summary>
     public string? ReceiverId { get; set; }
 
     /// <summary>
-    /// N?i dung tin nh?n
+    /// Nội dung tin nhắn
     /// </summary>
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n
+    /// Loại tin nhắn
     /// </summary>
     public MessageType Type { get; set; } = MessageType.Text;
 
     /// <summary>
-    /// Danh sách attachment URLs ?ã upload
+    /// Danh sách attachment URLs đã upload
     /// </summary>
     public List<MessageAttachmentRequest> Attachments { get; set; } = new();
 }

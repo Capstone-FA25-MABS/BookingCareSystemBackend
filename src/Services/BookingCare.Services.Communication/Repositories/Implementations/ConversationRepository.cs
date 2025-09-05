@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using BookingCare.Services.Communication.Data;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
@@ -6,7 +6,7 @@ using BookingCare.Services.Communication.Repositories.Interfaces;
 namespace BookingCare.Services.Communication.Repositories.Implementations;
 
 /// <summary>
-/// Implementation c?a Conversation repository s? d?ng MongoDB
+/// Implementation của Conversation repository sử dụng MongoDB
 /// </summary>
 public class ConversationRepository : IConversationRepository
 {
@@ -18,7 +18,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// L?y cu?c h?i tho?i theo ID
+    /// Lấy cuộc hội thoại theo ID
     /// </summary>
     public async Task<ConversationEntity?> GetByIdAsync(string id)
     {
@@ -26,7 +26,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// L?y danh s�ch cu?c h?i tho?i c?a user v?i ph�n trang
+    /// Lấy danh sách cuộc hội thoại của user với phân trang
     /// </summary>
     public async Task<IEnumerable<ConversationEntity>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20)
     {
@@ -40,7 +40,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// T�m cu?c h?i tho?i gi?a 2 ng??i d�ng
+    /// Tìm cuộc hội thoại giữa 2 người dùng
     /// </summary>
     public async Task<ConversationEntity?> GetConversationBetweenUsersAsync(string userId1, string userId2)
     {
@@ -53,7 +53,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// T?o cu?c h?i tho?i m?i
+    /// Tạo cuộc hội thoại mới
     /// </summary>
     public async Task<ConversationEntity> CreateAsync(ConversationEntity conversation)
     {
@@ -64,7 +64,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// C?p nh?t cu?c h?i tho?i
+    /// Cập nhật cuộc hội thoại
     /// </summary>
     public async Task<ConversationEntity> UpdateAsync(ConversationEntity conversation)
     {
@@ -74,7 +74,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// X�a cu?c h?i tho?i (soft delete)
+    /// Xóa cuộc hội thoại (soft delete)
     /// </summary>
     public async Task<bool> DeleteAsync(string id)
     {
@@ -87,7 +87,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// C?p nh?t tin nh?n cu?i c�ng
+    /// Cập nhật tin nhắn cuối cùng
     /// </summary>
     public async Task<bool> UpdateLastMessageAsync(string conversationId, LastMessage lastMessage)
     {
@@ -100,7 +100,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// Ch?n cu?c h?i tho?i
+    /// Chặn cuộc hội thoại
     /// </summary>
     public async Task<bool> BlockConversationAsync(string conversationId, string blockedBy)
     {
@@ -119,7 +119,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// B? ch?n cu?c h?i tho?i
+    /// Bỏ chặn cuộc hội thoại
     /// </summary>
     public async Task<bool> UnblockConversationAsync(string conversationId)
     {
@@ -132,7 +132,7 @@ public class ConversationRepository : IConversationRepository
     }
 
     /// <summary>
-    /// Ki?m tra cu?c h?i tho?i c� b? ch?n kh�ng
+    /// Kiểm tra cuộc hội thoại có bị chặn không
     /// </summary>
     public async Task<bool> IsConversationBlockedAsync(string conversationId)
     {

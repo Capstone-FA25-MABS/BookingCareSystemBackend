@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Models.DTOs;
 
@@ -17,7 +17,7 @@ public class CommunicationMappingProfile : Profile
     }
 
     /// <summary>
-    /// T?o mappings cho Message
+    /// Tạo mappings cho Message
     /// </summary>
     private void CreateMessageMappings()
     {
@@ -51,7 +51,7 @@ public class CommunicationMappingProfile : Profile
     }
 
     /// <summary>
-    /// T?o mappings cho Conversation
+    /// Tạo mappings cho Conversation
     /// </summary>
     private void CreateConversationMappings()
     {
@@ -75,7 +75,7 @@ public class CommunicationMappingProfile : Profile
     }
 
     /// <summary>
-    /// T?o mappings cho CallLog
+    /// Tạo mappings cho CallLog
     /// </summary>
     private void CreateCallLogMappings()
     {

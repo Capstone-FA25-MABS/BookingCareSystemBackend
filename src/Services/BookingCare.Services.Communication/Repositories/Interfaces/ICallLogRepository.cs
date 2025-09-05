@@ -1,4 +1,4 @@
-using BookingCare.Services.Communication.Models.Entities;
+﻿using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Enums;
 
 namespace BookingCare.Services.Communication.Repositories.Interfaces;
@@ -9,48 +9,48 @@ namespace BookingCare.Services.Communication.Repositories.Interfaces;
 public interface ICallLogRepository
 {
     /// <summary>
-    /// L?y call log theo ID
+    /// Lấy call log theo ID
     /// </summary>
     Task<CallLogEntity?> GetByIdAsync(string id);
 
     /// <summary>
-    /// L?y danh s�ch call logs theo user ID
+    /// Lấy danh sách call logs theo user ID
     /// </summary>
     Task<IEnumerable<CallLogEntity>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20);
 
     /// <summary>
-    /// L?y danh s�ch call logs theo conversation ID
+    /// Lấy danh sách call logs theo conversation ID
     /// </summary>
     Task<IEnumerable<CallLogEntity>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 20);
 
     /// <summary>
-    /// T?o call log m?i
+    /// Tạo call log mới
     /// </summary>
     Task<CallLogEntity> CreateAsync(CallLogEntity callLog);
 
     /// <summary>
-    /// C?p nh?t call log
+    /// Cập nhật call log
     /// </summary>
     Task<CallLogEntity> UpdateAsync(CallLogEntity callLog);
 
     /// <summary>
-    /// X�a call log
+    /// Xóa call log
     /// </summary>
     Task<bool> DeleteAsync(string id);
 
     /// <summary>
-    /// L?y th?ng k� cu?c g?i theo user
+    /// Lấy thống kê cuộc gọi theo user
     /// </summary>
     Task<CallStatistics> GetCallStatisticsAsync(string userId, DateTime fromDate, DateTime toDate);
 
     /// <summary>
-    /// L?y danh s�ch cu?c g?i theo tr?ng th�i
+    /// Lấy danh sách cuộc gọi theo trạng thái
     /// </summary>
     Task<IEnumerable<CallLogEntity>> GetByStatusAsync(string userId, CallStatus status, int page = 1, int pageSize = 20);
 }
 
 /// <summary>
-/// Model th?ng k� cu?c g?i
+/// Model thống kê cuộc gọi
 /// </summary>
 public class CallStatistics
 {
@@ -60,5 +60,5 @@ public class CallStatistics
     public long RejectedCalls { get; set; }
     public long VideoCalls { get; set; }
     public long AudioCalls { get; set; }
-    public int TotalDuration { get; set; } // T?ng th?i l??ng t�nh b?ng ph�t
+    public int TotalDuration { get; set; } // Tổng thời lượng tính bằng phút
 }

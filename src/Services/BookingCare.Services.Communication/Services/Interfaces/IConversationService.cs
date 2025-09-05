@@ -1,4 +1,4 @@
-using BookingCare.Services.Communication.Models.DTOs;
+﻿using BookingCare.Services.Communication.Models.DTOs;
 
 namespace BookingCare.Services.Communication.Services.Interfaces;
 
@@ -8,47 +8,47 @@ namespace BookingCare.Services.Communication.Services.Interfaces;
 public interface IConversationService
 {
     /// <summary>
-    /// T?o cu?c h?i tho?i m?i
+    /// Tạo cuộc hội thoại mới
     /// </summary>
     Task<ConversationResponse> CreateAsync(CreateConversationRequest request);
 
     /// <summary>
-    /// L?y cu?c h?i tho?i theo ID
+    /// Lấy cuộc hội thoại theo ID
     /// </summary>
     Task<ConversationResponse?> GetByIdAsync(string id);
 
     /// <summary>
-    /// L?y danh s�ch cu?c h?i tho?i c?a user
+    /// Lấy danh sách cuộc hội thoại của user
     /// </summary>
     Task<IEnumerable<ConversationResponse>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20);
 
     /// <summary>
-    /// T�m cu?c h?i tho?i gi?a 2 ng??i d�ng
+    /// Tìm cuộc hội thoại giữa 2 người dùng
     /// </summary>
     Task<ConversationResponse?> GetConversationBetweenUsersAsync(string userId1, string userId2);
 
     /// <summary>
-    /// X�a cu?c h?i tho?i
+    /// Xóa cuộc hội thoại
     /// </summary>
     Task<bool> DeleteAsync(string id);
 
     /// <summary>
-    /// C?p nh?t tin nh?n cu?i c�ng
+    /// Cập nhật tin nhắn cuối cùng
     /// </summary>
     Task<bool> UpdateLastMessageAsync(string conversationId, string messageId, string content, string senderId);
 
     /// <summary>
-    /// Ch?n cu?c h?i tho?i
+    /// Chặn cuộc hội thoại
     /// </summary>
     Task<bool> BlockConversationAsync(BlockConversationRequest request);
 
     /// <summary>
-    /// B? ch?n cu?c h?i tho?i
+    /// Bỏ chặn cuộc hội thoại
     /// </summary>
     Task<bool> UnblockConversationAsync(UnblockConversationRequest request);
 
     /// <summary>
-    /// Ki?m tra cu?c h?i tho?i c� b? ch?n kh�ng
+    /// Kiểm tra cuộc hội thoại có bị chặn không
     /// </summary>
     Task<bool> IsConversationBlockedAsync(string conversationId);
 }

@@ -1,110 +1,110 @@
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using BookingCare.Services.Communication.Enums;
 
 namespace BookingCare.Services.Communication.Models.Entities;
 
 /// <summary>
-/// Entity ??i di?n cho m?t tin nh?n trong h? th?ng chat
+/// Entity đại diện cho một tin nhắn trong hệ thống chat
 /// </summary>
 public class MessageEntity
 {
     /// <summary>
-    /// ID duy nh?t c?a tin nh?n
+    /// ID duy nhất của tin nhắn
     /// </summary>
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a cu?c h?i tho?i ch?a tin nh?n n�y
+    /// ID của cuộc hội thoại chứa tin nhắn này
     /// </summary>
     [BsonElement("conversationId")]
     [BsonRepresentation(BsonType.ObjectId)]
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i tin nh?n (Guid t? UserService ???c l?u d?ng string)
+    /// ID của người gửi tin nhắn (Guid từ UserService được lưu dạng string)
     /// </summary>
     [BsonElement("senderId")]
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n tin nh?n (Guid t? UserService ???c l?u d?ng string, d�ng cho chat 1-1)
+    /// ID của người nhận tin nhắn (Guid từ UserService được lưu dạng string, dùng cho chat 1-1)
     /// </summary>
     [BsonElement("receiverId")]
     public string? ReceiverId { get; set; }
 
     /// <summary>
-    /// N?i dung tin nh?n
+    /// Nội dung tin nhắn
     /// </summary>
     [BsonElement("content")]
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n (Text, Image, File, Video, Audio, System)
+    /// Loại tin nhắn (Text, Image, File, Video, Audio, System)
     /// </summary>
     [BsonElement("type")]
     [BsonRepresentation(BsonType.String)]
     public MessageType Type { get; set; } = MessageType.Text;
 
     /// <summary>
-    /// Danh s�ch file ?�nh k�m
+    /// Danh sách file đính kèm
     /// </summary>
     [BsonElement("attachments")]
     public List<MessageAttachment> Attachments { get; set; } = new();
 
     /// <summary>
-    /// Th?i gian t?o tin nh?n
+    /// Thời gian tạo tin nhắn
     /// </summary>
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Th?i gian c?p nh?t tin nh?n
+    /// Thời gian cập nhật tin nhắn
     /// </summary>
     [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Tr?ng th�i tin nh?n
+    /// Trạng thái tin nhắn
     /// </summary>
     [BsonElement("status")]
     [BsonRepresentation(BsonType.String)]
     public MessageStatus Status { get; set; } = MessageStatus.UNREAD;
 
     /// <summary>
-    /// Th?i gian tin nh?n ???c ??c
+    /// Thời gian tin nhắn được đọc
     /// </summary>
     [BsonElement("readAt")]
     public DateTime? ReadAt { get; set; }
 }
 
 /// <summary>
-/// Model cho file ?�nh k�m trong tin nh?n
+/// Model cho file đính kèm trong tin nhắn
 /// </summary>
 public class MessageAttachment
 {
     /// <summary>
-    /// URL c?a file ?�nh k�m
+    /// URL của file đính kèm
     /// </summary>
     [BsonElement("url")]
     public string Url { get; set; } = string.Empty;
 
     /// <summary>
-    /// T�n file
+    /// Tên file
     /// </summary>
     [BsonElement("name")]
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// K�ch th??c file (bytes)
+    /// Kích thước file (bytes)
     /// </summary>
     [BsonElement("size")]
     public long Size { get; set; }
 
     /// <summary>
-    /// MIME type c?a file
+    /// MIME type của file
     /// </summary>
     [BsonElement("mimeType")]
     public string? MimeType { get; set; }
@@ -116,19 +116,19 @@ public class MessageAttachment
     public string? ThumbnailUrl { get; set; }
 
     /// <summary>
-    /// Chi?u r?ng (cho images/videos)
+    /// Chiều rộng (cho images/videos)
     /// </summary>
     [BsonElement("width")]
     public int? Width { get; set; }
 
     /// <summary>
-    /// Chi?u cao (cho images/videos)
+    /// Chiều cao (cho images/videos)
     /// </summary>
     [BsonElement("height")]
     public int? Height { get; set; }
 
     /// <summary>
-    /// Th?i l??ng (cho videos/audios) t�nh b?ng gi�y
+    /// Thời lượng (cho videos/audios) tính bằng giây
     /// </summary>
     [BsonElement("duration")]
     public int? Duration { get; set; }

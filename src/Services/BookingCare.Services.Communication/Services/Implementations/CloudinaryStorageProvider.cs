@@ -1,4 +1,4 @@
-using CloudinaryDotNet;
+﻿using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Configuration;
@@ -27,12 +27,12 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
             _config.Cloudinary?.CloudName,
             _config.Cloudinary?.ApiKey,
             _config.Cloudinary?.ApiSecret);
-        
+
         _cloudinary = new Cloudinary(account);
     }
 
     /// <summary>
-    /// Upload file l�n Cloudinary
+    /// Upload file lên Cloudinary
     /// </summary>
     public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType, string folder)
     {
@@ -42,7 +42,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
 
             // Determine resource type based on content type
             var resourceType = GetResourceType(contentType);
-            
+
             // Create unique public ID
             var publicId = GeneratePublicId(fileName, folder);
 
@@ -120,7 +120,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
     }
 
     /// <summary>
-    /// Generate presigned URL cho Cloudinary (s? d?ng signed URLs)
+    /// Generate presigned URL cho Cloudinary (sử dụng signed URLs)
     /// </summary>
     public async Task<PresignedUrlResult> GeneratePresignedUrlAsync(string fileName, string contentType, string folder, TimeSpan expiration)
     {
@@ -169,7 +169,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
     }
 
     /// <summary>
-    /// X�a file t? Cloudinary
+    /// Xóa file từ Cloudinary
     /// </summary>
     public async Task<bool> DeleteFileAsync(string fileUrl)
     {
@@ -190,7 +190,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
             var result = await _cloudinary.DestroyAsync(deleteParams);
 
             var success = result.Result == "ok";
-            
+
             if (success)
             {
                 _logger.LogInformation("File deleted successfully: {PublicId}", publicId);
@@ -232,7 +232,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
             };
 
             var result = await _cloudinary.UploadAsync(uploadParams);
-            
+
             if (result.Error != null)
             {
                 throw new Exception($"Cloudinary copy failed: {result.Error.Message}");
@@ -248,7 +248,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
     }
 
     /// <summary>
-    /// Ki?m tra file c� t?n t?i kh�ng
+    /// Kiểm tra file có tồn tại không
     /// </summary>
     public async Task<bool> FileExistsAsync(string fileUrl)
     {
@@ -268,7 +268,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
     }
 
     /// <summary>
-    /// L?y metadata c?a file
+    /// Lấy metadata của file
     /// </summary>
     public async Task<CloudFileMetadata> GetFileMetadataAsync(string fileUrl)
     {
@@ -281,7 +281,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
             }
 
             var result = await _cloudinary.GetResourceAsync(publicId);
-            
+
             return new CloudFileMetadata
             {
                 Url = fileUrl,
@@ -317,7 +317,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
         var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
         var sanitizedName = System.Text.RegularExpressions.Regex.Replace(nameWithoutExtension, @"[^a-zA-Z0-9_-]", "_");
         var uniqueId = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}_{sanitizedName}";
-        
+
         return string.IsNullOrEmpty(folder) ? uniqueId : $"{folder}/{uniqueId}";
     }
 
@@ -337,14 +337,14 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
             // Cloudinary URL format: https://res.cloudinary.com/{cloud_name}/{resource_type}/upload/v{version}/{public_id}.{format}
             var uri = new Uri(url);
             var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            
+
             // Find the upload segment and extract public_id
             for (int i = 0; i < segments.Length - 1; i++)
             {
                 if (segments[i] == "upload" && i + 1 < segments.Length)
                 {
                     var publicIdWithFormat = string.Join("/", segments.Skip(i + 1));
-                    
+
                     // Skip version if present (v{number})
                     if (publicIdWithFormat.StartsWith("v") && publicIdWithFormat.Length > 1 && char.IsDigit(publicIdWithFormat[1]))
                     {
@@ -354,7 +354,7 @@ public class CloudinaryStorageProvider : ICloudStorageProvider
                             publicIdWithFormat = publicIdWithFormat.Substring(versionEnd + 1);
                         }
                     }
-                    
+
                     // Remove file extension
                     var lastDotIndex = publicIdWithFormat.LastIndexOf('.');
                     return lastDotIndex > 0 ? publicIdWithFormat.Substring(0, lastDotIndex) : publicIdWithFormat;

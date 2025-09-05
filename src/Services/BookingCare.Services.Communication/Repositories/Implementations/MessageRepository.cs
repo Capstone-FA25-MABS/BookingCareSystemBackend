@@ -7,7 +7,7 @@ using BookingCare.Services.Communication.Enums;
 namespace BookingCare.Services.Communication.Repositories.Implementations;
 
 /// <summary>
-/// Implementation c?a Message repository s? d?ng MongoDB
+/// Implementation của Message repository sử dụng MongoDB
 /// </summary>
 public class MessageRepository : IMessageRepository
 {
@@ -19,7 +19,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// L?y tin nh?n theo ID
+    /// Lấy tin nhắn theo ID
     /// </summary>
     public async Task<MessageEntity?> GetByIdAsync(string id)
     {
@@ -27,7 +27,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// L?y danh sách tin nh?n theo conversation ID v?i phân trang
+    /// Lấy danh sách tin nhắn theo conversation ID với phân trang
     /// </summary>
     public async Task<IEnumerable<MessageEntity>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50)
     {
@@ -41,7 +41,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// T?o tin nh?n m?i
+    /// Tạo tin nhắn mới
     /// </summary>
     public async Task<MessageEntity> CreateAsync(MessageEntity message)
     {
@@ -52,7 +52,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// C?p nh?t tin nh?n
+    /// Cập nhật tin nhắn
     /// </summary>
     public async Task<MessageEntity> UpdateAsync(MessageEntity message)
     {
@@ -62,7 +62,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// Xóa tin nh?n
+    /// Xóa tin nhắn
     /// </summary>
     public async Task<bool> DeleteAsync(string id)
     {
@@ -105,7 +105,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// L?y s? tin nh?n ch?a ??c theo conversation
+    /// Lấy số tin nhắn chưa đọc theo conversation
     /// </summary>
     public async Task<long> GetUnreadCountAsync(string conversationId, string userId)
     {
@@ -116,7 +116,7 @@ public class MessageRepository : IMessageRepository
     }
 
     /// <summary>
-    /// Tìm ki?m tin nh?n theo n?i dung
+    /// Tìm kiếm tin nhắn theo nội dung
     /// </summary>
     public async Task<IEnumerable<MessageEntity>> SearchAsync(string conversationId, string searchTerm, int page = 1, int pageSize = 20)
     {

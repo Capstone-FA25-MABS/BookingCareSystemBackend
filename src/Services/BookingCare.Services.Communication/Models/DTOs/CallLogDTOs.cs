@@ -1,55 +1,55 @@
-using BookingCare.Services.Communication.Enums;
+﻿using BookingCare.Services.Communication.Enums;
 
 namespace BookingCare.Services.Communication.Models.DTOs;
 
 /// <summary>
-/// Request ?? t?o call log m?i
+/// Request để tạo call log mới
 /// </summary>
 public class CreateCallLogRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i
+    /// ID của người gọi
     /// </summary>
     public string CallerId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n
+    /// ID của người nhận
     /// </summary>
     public string ReceiverId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i cu?c g?i
+    /// Loại cuộc gọi
     /// </summary>
     public CallType Type { get; set; } = CallType.Audio;
 }
 
 /// <summary>
-/// Request ?? c?p nh?t call log
+/// Request để cập nhật call log
 /// </summary>
 public class UpdateCallLogRequest
 {
     /// <summary>
-    /// ID c?a call log
+    /// ID của call log
     /// </summary>
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i l??ng cu?c g?i (ph�t)
+    /// Thời lượng cuộc gọi (phút)
     /// </summary>
     public int Duration { get; set; }
 
     /// <summary>
-    /// Th?i gian k?t th�c
+    /// Thời gian kết thúc
     /// </summary>
     public DateTime? EndedAt { get; set; }
 
     /// <summary>
-    /// Tr?ng th�i cu?c g?i
+    /// Trạng thái cuộc gọi
     /// </summary>
     public CallStatus Status { get; set; }
 }
@@ -60,109 +60,109 @@ public class UpdateCallLogRequest
 public class CallLogResponse
 {
     /// <summary>
-    /// ID c?a call log
+    /// ID của call log
     /// </summary>
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i
+    /// ID của người gọi
     /// </summary>
     public string CallerId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n
+    /// ID của người nhận
     /// </summary>
     public string ReceiverId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i l??ng cu?c g?i
+    /// Thời lượng cuộc gọi
     /// </summary>
     public int Duration { get; set; }
 
     /// <summary>
-    /// Lo?i cu?c g?i
+    /// Loại cuộc gọi
     /// </summary>
     public CallType Type { get; set; }
 
     /// <summary>
-    /// Th?i gian b?t ??u
+    /// Thời gian bắt đầu
     /// </summary>
     public DateTime StartedAt { get; set; }
 
     /// <summary>
-    /// Th?i gian k?t th�c
+    /// Thời gian kết thúc
     /// </summary>
     public DateTime? EndedAt { get; set; }
 
     /// <summary>
-    /// Tr?ng th�i cu?c g?i
+    /// Trạng thái cuộc gọi
     /// </summary>
     public CallStatus Status { get; set; }
 }
 
 /// <summary>
-/// Request ?? l?y th?ng k� cu?c g?i
+/// Request để lấy thống kê cuộc gọi
 /// </summary>
 public class GetCallStatisticsRequest
 {
     /// <summary>
-    /// ID c?a user
+    /// ID của user
     /// </summary>
     public string UserId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Ng�y b?t ??u
+    /// Ngày bắt đầu
     /// </summary>
     public DateTime FromDate { get; set; }
 
     /// <summary>
-    /// Ng�y k?t th�c
+    /// Ngày kết thúc
     /// </summary>
     public DateTime ToDate { get; set; }
 }
 
 /// <summary>
-/// Response cho th?ng k� cu?c g?i
+/// Response cho thống kê cuộc gọi
 /// </summary>
 public class CallStatisticsResponse
 {
     /// <summary>
-    /// T?ng s? cu?c g?i
+    /// Tổng số cuộc gọi
     /// </summary>
     public long TotalCalls { get; set; }
 
     /// <summary>
-    /// S? cu?c g?i ???c ch?p nh?n
+    /// Số cuộc gọi được chấp nhận
     /// </summary>
     public long AcceptedCalls { get; set; }
 
     /// <summary>
-    /// S? cu?c g?i b? nh?
+    /// Số cuộc gọi bị nhỡ
     /// </summary>
     public long MissedCalls { get; set; }
 
     /// <summary>
-    /// S? cu?c g?i b? t? ch?i
+    /// Số cuộc gọi bị từ chối
     /// </summary>
     public long RejectedCalls { get; set; }
 
     /// <summary>
-    /// S? cu?c g?i video
+    /// Số cuộc gọi video
     /// </summary>
     public long VideoCalls { get; set; }
 
     /// <summary>
-    /// S? cu?c g?i audio
+    /// Số cuộc gọi audio
     /// </summary>
     public long AudioCalls { get; set; }
 
     /// <summary>
-    /// T?ng th?i l??ng (ph�t)
+    /// Tổng thời lượng (phút)
     /// </summary>
     public int TotalDuration { get; set; }
 }

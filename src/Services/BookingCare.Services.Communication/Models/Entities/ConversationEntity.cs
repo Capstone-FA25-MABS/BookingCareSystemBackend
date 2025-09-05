@@ -1,101 +1,101 @@
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace BookingCare.Services.Communication.Models.Entities;
 
 /// <summary>
-/// Entity ??i di?n cho m?t cu?c h?i tho?i trong h? th?ng
+/// Entity đại diện cho một cuộc hội thoại trong hệ thống
 /// </summary>
 public class ConversationEntity
 {
     /// <summary>
-    /// ID duy nh?t c?a cu?c h?i tho?i
+    /// ID duy nhất của cuộc hội thoại
     /// </summary>
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// Danh s�ch ID c?a c�c th�nh vi�n tham gia cu?c h?i tho?i (Guid t? UserService ???c l?u d?ng string)
+    /// Danh sách ID của các thành viên tham gia cuộc hội thoại (Guid từ UserService được lưu dạng string)
     /// </summary>
     [BsonElement("participants")]
     public List<string> Participants { get; set; } = new();
 
     /// <summary>
-    /// Th�ng tin tin nh?n cu?i c�ng
+    /// Thông tin tin nhắn cuối cùng
     /// </summary>
     [BsonElement("lastMessage")]
     public LastMessage? LastMessage { get; set; }
 
     /// <summary>
-    /// Th�ng tin ch?n cu?c h?i tho?i
+    /// Thông tin chặn cuộc hội thoại
     /// </summary>
     [BsonElement("blocked")]
     public BlockedInfo? Blocked { get; set; }
 
     /// <summary>
-    /// Th?i gian t?o cu?c h?i tho?i
+    /// Thời gian tạo cuộc hội thoại
     /// </summary>
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Th?i gian c?p nh?t cu?c h?i tho?i
+    /// Thời gian cập nhật cuộc hội thoại
     /// </summary>
     [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Tr?ng th�i ho?t ??ng c?a cu?c h?i tho?i
+    /// Trạng thái hoạt động của cuộc hội thoại
     /// </summary>
     [BsonElement("isActive")]
     public bool IsActive { get; set; } = true;
 }
 
 /// <summary>
-/// Model cho tin nh?n cu?i c�ng trong cu?c h?i tho?i
+/// Model cho tin nhắn cuối cùng trong cuộc hội thoại
 /// </summary>
 public class LastMessage
 {
     /// <summary>
-    /// ID c?a tin nh?n cu?i (ObjectId c?a MongoDB)
+    /// ID của tin nhắn cuối (ObjectId của MongoDB)
     /// </summary>
     [BsonElement("messageId")]
     [BsonRepresentation(BsonType.ObjectId)]
     public string MessageId { get; set; } = string.Empty;
 
     /// <summary>
-    /// N?i dung preview c?a tin nh?n cu?i
+    /// Nội dung preview của tin nhắn cuối
     /// </summary>
     [BsonElement("content")]
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID ng??i g?i tin nh?n cu?i (Guid t? UserService ???c l?u d?ng string)
+    /// ID người gửi tin nhắn cuối (Guid từ UserService được lưu dạng string)
     /// </summary>
     [BsonElement("senderId")]
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i gian g?i tin nh?n cu?i
+    /// Thời gian gửi tin nhắn cuối
     /// </summary>
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; }
 }
 
 /// <summary>
-/// Model cho th�ng tin ch?n cu?c h?i tho?i
+/// Model cho thông tin chặn cuộc hội thoại
 /// </summary>
 public class BlockedInfo
 {
     /// <summary>
-    /// ID c?a ng??i d�ng th?c hi?n ch?n (Guid t? UserService ???c l?u d?ng string)
+    /// ID của người dùng thực hiện chặn (Guid từ UserService được lưu dạng string)
     /// </summary>
     [BsonElement("by")]
     public string By { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i gian th?c hi?n ch?n
+    /// Thời gian thực hiện chặn
     /// </summary>
     [BsonElement("at")]
     public DateTime At { get; set; } = DateTime.UtcNow;

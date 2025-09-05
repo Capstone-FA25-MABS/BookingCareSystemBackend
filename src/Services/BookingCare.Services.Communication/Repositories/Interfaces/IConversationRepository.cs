@@ -1,4 +1,4 @@
-using BookingCare.Services.Communication.Models.Entities;
+﻿using BookingCare.Services.Communication.Models.Entities;
 
 namespace BookingCare.Services.Communication.Repositories.Interfaces;
 
@@ -8,52 +8,52 @@ namespace BookingCare.Services.Communication.Repositories.Interfaces;
 public interface IConversationRepository
 {
     /// <summary>
-    /// L?y cu?c h?i tho?i theo ID
+    /// Lấy cuộc hội thoại theo ID
     /// </summary>
     Task<ConversationEntity?> GetByIdAsync(string id);
 
     /// <summary>
-    /// L?y danh s�ch cu?c h?i tho?i c?a user
+    /// Lấy danh sách cuộc hội thoại của user
     /// </summary>
     Task<IEnumerable<ConversationEntity>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20);
 
     /// <summary>
-    /// T�m cu?c h?i tho?i gi?a 2 ng??i d�ng
+    /// Tìm cuộc hội thoại giữa 2 người dùng
     /// </summary>
     Task<ConversationEntity?> GetConversationBetweenUsersAsync(string userId1, string userId2);
 
     /// <summary>
-    /// T?o cu?c h?i tho?i m?i
+    /// Tạo cuộc hội thoại mới
     /// </summary>
     Task<ConversationEntity> CreateAsync(ConversationEntity conversation);
 
     /// <summary>
-    /// C?p nh?t cu?c h?i tho?i
+    /// Cập nhật cuộc hội thoại
     /// </summary>
     Task<ConversationEntity> UpdateAsync(ConversationEntity conversation);
 
     /// <summary>
-    /// X�a cu?c h?i tho?i
+    /// Xóa cuộc hội thoại
     /// </summary>
     Task<bool> DeleteAsync(string id);
 
     /// <summary>
-    /// C?p nh?t tin nh?n cu?i c�ng
+    /// Cập nhật tin nhắn cuối cùng
     /// </summary>
     Task<bool> UpdateLastMessageAsync(string conversationId, LastMessage lastMessage);
 
     /// <summary>
-    /// Ch?n cu?c h?i tho?i
+    /// Chặn cuộc hội thoại
     /// </summary>
     Task<bool> BlockConversationAsync(string conversationId, string blockedBy);
 
     /// <summary>
-    /// B? ch?n cu?c h?i tho?i
+    /// Bỏ chặn cuộc hội thoại
     /// </summary>
     Task<bool> UnblockConversationAsync(string conversationId);
 
     /// <summary>
-    /// Ki?m tra cu?c h?i tho?i c� b? ch?n kh�ng
+    /// Kiểm tra cuộc hội thoại có bị chặn không
     /// </summary>
     Task<bool> IsConversationBlockedAsync(string conversationId);
 }

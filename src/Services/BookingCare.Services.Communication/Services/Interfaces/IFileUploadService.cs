@@ -1,4 +1,4 @@
-using BookingCare.Services.Communication.Enums;
+﻿using BookingCare.Services.Communication.Enums;
 
 namespace BookingCare.Services.Communication.Services.Interfaces;
 
@@ -8,38 +8,38 @@ namespace BookingCare.Services.Communication.Services.Interfaces;
 public interface IFileUploadService
 {
     /// <summary>
-    /// Upload file l�n cloud storage v� tr? v? URL
+    /// Upload file lên cloud storage và trả về URL
     /// </summary>
     Task<FileUploadResult> UploadFileAsync(IFormFile file, string userId, MessageType messageType);
 
     /// <summary>
-    /// Upload nhi?u files c�ng l�c
+    /// Upload nhiều files cùng lúc
     /// </summary>
     Task<List<FileUploadResult>> UploadMultipleFilesAsync(IEnumerable<IFormFile> files, string userId, MessageType messageType);
 
     /// <summary>
-    /// T?o presigned URL ?? client upload tr?c ti?p l�n cloud
+    /// Tạo presigned URL để client upload trực tiếp lên cloud
     /// </summary>
     Task<PresignedUrlResult> GeneratePresignedUrlAsync(string fileName, string contentType, string userId, MessageType messageType);
 
     /// <summary>
-    /// X�a file t? cloud storage
+    /// Xóa file từ cloud storage
     /// </summary>
     Task<bool> DeleteFileAsync(string fileUrl);
 
     /// <summary>
-    /// T?o thumbnail cho images/videos
+    /// Tạo thumbnail cho images/videos
     /// </summary>
     Task<string?> GenerateThumbnailAsync(string originalUrl);
 
     /// <summary>
-    /// Validate file type v� size
+    /// Validate file type và size
     /// </summary>
     Task<FileValidationResult> ValidateFileAsync(IFormFile file, MessageType messageType);
 }
 
 /// <summary>
-/// Result c?a file upload
+/// Result của file upload
 /// </summary>
 public class FileUploadResult
 {
@@ -54,7 +54,7 @@ public class FileUploadResult
 }
 
 /// <summary>
-/// Result c?a presigned URL
+/// Result của presigned URL
 /// </summary>
 public class PresignedUrlResult
 {
@@ -65,7 +65,7 @@ public class PresignedUrlResult
 }
 
 /// <summary>
-/// Result c?a file validation
+/// Result của file validation
 /// </summary>
 public class FileValidationResult
 {

@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using BookingCare.Services.Communication.Data;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Enums;
@@ -6,12 +6,12 @@ using BookingCare.Services.Communication.Enums;
 namespace BookingCare.Services.Communication.Data.Seeding;
 
 /// <summary>
-/// Class ?? seed d? li?u m?u cho Communication database
+/// Class để seed dữ liệu mẫu cho Communication database
 /// </summary>
 public static class CommunicationDataSeeder
 {
     /// <summary>
-    /// Seed d? li?u m?u v�o database
+    /// Seed dữ liệu mẫu vào database
     /// </summary>
     public static async Task SeedAsync(CommunicationDbContext context)
     {
@@ -21,15 +21,15 @@ public static class CommunicationDataSeeder
     }
 
     /// <summary>
-    /// Seed d? li?u Conversations m?u
+    /// Seed dữ liệu Conversations mẫu
     /// </summary>
     private static async Task SeedConversationsAsync(CommunicationDbContext context)
     {
-        // Ki?m tra xem ?� c� d? li?u ch?a
+        // Kiểm tra xem đã có dữ liệu chưa
         var existingCount = await context.Conversations.CountDocumentsAsync(FilterDefinition<ConversationEntity>.Empty);
         if (existingCount > 0)
         {
-            return; // ?� c� d? li?u, kh�ng c?n seed
+            return; // Đã có dữ liệu, không cần seed
         }
 
         var conversations = new List<ConversationEntity>
@@ -61,18 +61,18 @@ public static class CommunicationDataSeeder
     }
 
     /// <summary>
-    /// Seed d? li?u Messages m?u
+    /// Seed dữ liệu Messages mẫu
     /// </summary>
     private static async Task SeedMessagesAsync(CommunicationDbContext context)
     {
-        // Ki?m tra xem ?� c� d? li?u ch?a
+        // Kiểm tra xem đã có dữ liệu chưa
         var existingCount = await context.Messages.CountDocumentsAsync(FilterDefinition<MessageEntity>.Empty);
         if (existingCount > 0)
         {
-            return; // ?� c� d? li?u, kh�ng c?n seed
+            return; // Đã có dữ liệu, không cần seed
         }
 
-        // L?y conversations ?? t?o messages
+        // Lấy conversations để tạo messages
         var conversations = await context.Conversations.Find(FilterDefinition<ConversationEntity>.Empty).ToListAsync();
         if (!conversations.Any())
         {
@@ -81,7 +81,7 @@ public static class CommunicationDataSeeder
 
         var messages = new List<MessageEntity>();
 
-        foreach (var conversation in conversations.Take(2)) // Ch? t?o messages cho 2 conversation ??u
+        foreach (var conversation in conversations.Take(2)) // Chỉ tạo messages cho 2 conversation đầu
         {
             var participants = conversation.Participants;
             if (participants.Count >= 2)
@@ -93,7 +93,7 @@ public static class CommunicationDataSeeder
                         ConversationId = conversation.Id,
                         SenderId = participants[0],
                         ReceiverId = participants[1],
-                        Content = "Xin ch�o! B?n kh?e kh�ng?",
+                        Content = "Xin chào! Bạn khỏe không?",
                         Type = MessageType.Text,
                         Status = MessageStatus.READ,
                         CreatedAt = DateTime.UtcNow.AddHours(-2),
@@ -105,7 +105,7 @@ public static class CommunicationDataSeeder
                         ConversationId = conversation.Id,
                         SenderId = participants[1],
                         ReceiverId = participants[0],
-                        Content = "Ch�o b?n! M�nh kh?e, c?m ?n b?n.",
+                        Content = "Chào bạn! Mình khỏe, cảm ơn bạn.",
                         Type = MessageType.Text,
                         Status = MessageStatus.READ,
                         CreatedAt = DateTime.UtcNow.AddHours(-1),
@@ -117,7 +117,7 @@ public static class CommunicationDataSeeder
                         ConversationId = conversation.Id,
                         SenderId = participants[0],
                         ReceiverId = participants[1],
-                        Content = "H�m nay b?n c� r?nh kh�ng? M�nh mu?n h?n b?n.",
+                        Content = "Hôm nay bạn có rảnh không? Mình muốn hẹn bạn.",
                         Type = MessageType.Text,
                         Status = MessageStatus.UNREAD,
                         CreatedAt = DateTime.UtcNow.AddMinutes(-10),
@@ -131,7 +131,7 @@ public static class CommunicationDataSeeder
         {
             await context.Messages.InsertManyAsync(messages);
 
-            // C?p nh?t lastMessage cho conversations
+            // Cập nhật lastMessage cho conversations
             foreach (var conversation in conversations.Take(2))
             {
                 var lastMessage = messages
@@ -161,18 +161,18 @@ public static class CommunicationDataSeeder
     }
 
     /// <summary>
-    /// Seed d? li?u CallLogs m?u
+    /// Seed dữ liệu CallLogs mẫu
     /// </summary>
     private static async Task SeedCallLogsAsync(CommunicationDbContext context)
     {
-        // Ki?m tra xem ?� c� d? li?u ch?a
+        // Kiểm tra xem đã có dữ liệu chưa
         var existingCount = await context.CallLogs.CountDocumentsAsync(FilterDefinition<CallLogEntity>.Empty);
         if (existingCount > 0)
         {
-            return; // ?� c� d? li?u, kh�ng c?n seed
+            return; // Đã có dữ liệu, không cần seed
         }
 
-        // L?y conversations ?? t?o call logs
+        // Lấy conversations để tạo call logs
         var conversations = await context.Conversations.Find(FilterDefinition<ConversationEntity>.Empty).ToListAsync();
         if (!conversations.Any())
         {
@@ -232,7 +232,7 @@ public static class CommunicationDataSeeder
     }
 
     /// <summary>
-    /// X�a t?t c? d? li?u (ch? d�ng trong development)
+    /// Xóa tất cả dữ liệu (chỉ dùng trong development)
     /// </summary>
     public static async Task ClearAllDataAsync(CommunicationDbContext context)
     {

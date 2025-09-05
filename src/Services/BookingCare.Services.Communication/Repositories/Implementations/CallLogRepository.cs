@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using BookingCare.Services.Communication.Data;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
@@ -7,7 +7,7 @@ using BookingCare.Services.Communication.Enums;
 namespace BookingCare.Services.Communication.Repositories.Implementations;
 
 /// <summary>
-/// Implementation c?a CallLog repository s? d?ng MongoDB
+/// Implementation của CallLog repository sử dụng MongoDB
 /// </summary>
 public class CallLogRepository : ICallLogRepository
 {
@@ -19,7 +19,7 @@ public class CallLogRepository : ICallLogRepository
     }
 
     /// <summary>
-    /// L?y call log theo ID
+    /// Lấy call log theo ID
     /// </summary>
     public async Task<CallLogEntity?> GetByIdAsync(string id)
     {
@@ -27,7 +27,7 @@ public class CallLogRepository : ICallLogRepository
     }
 
     /// <summary>
-    /// L?y danh s�ch call logs theo user ID v?i ph�n trang
+    /// Lấy danh sách call logs theo user ID với phân trang
     /// </summary>
     public async Task<IEnumerable<CallLogEntity>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20)
     {
@@ -41,7 +41,7 @@ public class CallLogRepository : ICallLogRepository
     }
 
     /// <summary>
-    /// L?y danh s�ch call logs theo conversation ID v?i ph�n trang
+    /// Lấy danh sách call logs theo conversation ID với phân trang
     /// </summary>
     public async Task<IEnumerable<CallLogEntity>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 20)
     {
@@ -55,7 +55,7 @@ public class CallLogRepository : ICallLogRepository
     }
 
     /// <summary>
-    /// T?o call log m?i
+    /// Tạo call log mới
     /// </summary>
     public async Task<CallLogEntity> CreateAsync(CallLogEntity callLog)
     {
@@ -65,7 +65,7 @@ public class CallLogRepository : ICallLogRepository
     }
 
     /// <summary>
-    /// C?p nh?t call log
+    /// Cập nhật call log
     /// </summary>
     public async Task<CallLogEntity> UpdateAsync(CallLogEntity callLog)
     {
@@ -74,7 +74,7 @@ public class CallLogRepository : ICallLogRepository
     }
 
     /// <summary>
-    /// X�a call log
+    /// Xóa call log
     /// </summary>
     public async Task<bool> DeleteAsync(string id)
     {
@@ -83,7 +83,7 @@ public class CallLogRepository : ICallLogRepository
     }
 
     /// <summary>
-    /// L?y th?ng k� cu?c g?i theo user trong kho?ng th?i gian
+    /// Lấy thống kê cuộc gọi theo user trong khoảng thời gian
     /// </summary>
     public async Task<CallStatistics> GetCallStatisticsAsync(string userId, DateTime fromDate, DateTime toDate)
     {
@@ -111,7 +111,7 @@ public class CallLogRepository : ICallLogRepository
     }
 
     /// <summary>
-    /// L?y danh s�ch cu?c g?i theo tr?ng th�i v?i ph�n trang
+    /// Lấy danh sách cuộc gọi theo trạng thái với phân trang
     /// </summary>
     public async Task<IEnumerable<CallLogEntity>> GetByStatusAsync(string userId, CallStatus status, int page = 1, int pageSize = 20)
     {

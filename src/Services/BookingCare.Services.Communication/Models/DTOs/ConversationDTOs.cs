@@ -1,122 +1,122 @@
-namespace BookingCare.Services.Communication.Models.DTOs;
+﻿namespace BookingCare.Services.Communication.Models.DTOs;
 
 /// <summary>
-/// Request ?? t?o cu?c h?i tho?i m?i
+/// Request để tạo cuộc hội thoại mới
 /// </summary>
 public class CreateConversationRequest
 {
     /// <summary>
-    /// Danh s�ch ID c?a c�c th�nh vi�n
+    /// Danh sách ID của các thành viên
     /// </summary>
     public List<string> Participants { get; set; } = new();
 }
 
 /// <summary>
-/// Response cho cu?c h?i tho?i
+/// Response cho cuộc hội thoại
 /// </summary>
 public class ConversationResponse
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// Danh s�ch th�nh vi�n
+    /// Danh sách thành viên
     /// </summary>
     public List<string> Participants { get; set; } = new();
 
     /// <summary>
-    /// Tin nh?n cu?i c�ng
+    /// Tin nhắn cuối cùng
     /// </summary>
     public LastMessageResponse? LastMessage { get; set; }
 
     /// <summary>
-    /// Th�ng tin ch?n
+    /// Thông tin chặn
     /// </summary>
     public BlockedInfoResponse? Blocked { get; set; }
 
     /// <summary>
-    /// Th?i gian t?o
+    /// Thời gian tạo
     /// </summary>
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
-    /// Th?i gian c?p nh?t
+    /// Thời gian cập nhật
     /// </summary>
     public DateTime UpdatedAt { get; set; }
 
     /// <summary>
-    /// Tr?ng th�i ho?t ??ng
+    /// Trạng thái hoạt động
     /// </summary>
     public bool IsActive { get; set; }
 }
 
 /// <summary>
-/// Response cho tin nh?n cu?i c�ng
+/// Response cho tin nhắn cuối cùng
 /// </summary>
 public class LastMessageResponse
 {
     /// <summary>
-    /// ID c?a tin nh?n
+    /// ID của tin nhắn
     /// </summary>
     public string MessageId { get; set; } = string.Empty;
 
     /// <summary>
-    /// N?i dung preview
+    /// Nội dung preview
     /// </summary>
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID ng??i g?i
+    /// ID người gửi
     /// </summary>
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i gian g?i
+    /// Thời gian gửi
     /// </summary>
     public DateTime CreatedAt { get; set; }
 }
 
 /// <summary>
-/// Response cho th�ng tin ch?n
+/// Response cho thông tin chặn
 /// </summary>
 public class BlockedInfoResponse
 {
     /// <summary>
-    /// ID ng??i th?c hi?n ch?n
+    /// ID người thực hiện chặn
     /// </summary>
     public string By { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i gian ch?n
+    /// Thời gian chặn
     /// </summary>
     public DateTime At { get; set; }
 }
 
 /// <summary>
-/// Request ?? ch?n cu?c h?i tho?i
+/// Request để chặn cuộc hội thoại
 /// </summary>
 public class BlockConversationRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID ng??i th?c hi?n ch?n
+    /// ID người thực hiện chặn
     /// </summary>
     public string BlockedBy { get; set; } = string.Empty;
 }
 
 /// <summary>
-/// Request ?? b? ch?n cu?c h?i tho?i
+/// Request để bỏ chặn cuộc hội thoại
 /// </summary>
 public class UnblockConversationRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 }

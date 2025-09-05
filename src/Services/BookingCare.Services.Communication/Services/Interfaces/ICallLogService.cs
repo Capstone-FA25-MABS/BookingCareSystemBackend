@@ -1,4 +1,4 @@
-using BookingCare.Services.Communication.Models.DTOs;
+﻿using BookingCare.Services.Communication.Models.DTOs;
 
 namespace BookingCare.Services.Communication.Services.Interfaces;
 
@@ -8,42 +8,42 @@ namespace BookingCare.Services.Communication.Services.Interfaces;
 public interface ICallLogService
 {
     /// <summary>
-    /// T?o call log m?i
+    /// Tạo call log mới
     /// </summary>
     Task<CallLogResponse> CreateAsync(CreateCallLogRequest request);
 
     /// <summary>
-    /// C?p nh?t call log
+    /// Cập nhật call log
     /// </summary>
     Task<CallLogResponse> UpdateAsync(UpdateCallLogRequest request);
 
     /// <summary>
-    /// L?y call log theo ID
+    /// Lấy call log theo ID
     /// </summary>
     Task<CallLogResponse?> GetByIdAsync(string id);
 
     /// <summary>
-    /// L?y danh s�ch call logs theo user ID
+    /// Lấy danh sách call logs theo user ID
     /// </summary>
     Task<IEnumerable<CallLogResponse>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20);
 
     /// <summary>
-    /// L?y danh s�ch call logs theo conversation ID
+    /// Lấy danh sách call logs theo conversation ID
     /// </summary>
     Task<IEnumerable<CallLogResponse>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 20);
 
     /// <summary>
-    /// X�a call log
+    /// Xóa call log
     /// </summary>
     Task<bool> DeleteAsync(string id);
 
     /// <summary>
-    /// L?y th?ng k� cu?c g?i
+    /// Lấy thống kê cuộc gọi
     /// </summary>
     Task<CallStatisticsResponse> GetCallStatisticsAsync(GetCallStatisticsRequest request);
 
     /// <summary>
-    /// L?y danh s�ch cu?c g?i theo tr?ng th�i
+    /// Lấy danh sách cuộc gọi theo trạng thái
     /// </summary>
     Task<IEnumerable<CallLogResponse>> GetByStatusAsync(string userId, Enums.CallStatus status, int page = 1, int pageSize = 20);
 }

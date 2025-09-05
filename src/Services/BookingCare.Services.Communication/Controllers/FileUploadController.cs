@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Shared.Common.Controllers;
@@ -6,7 +6,7 @@ using BookingCare.Shared.Common.Controllers;
 namespace BookingCare.Services.Communication.Controllers;
 
 /// <summary>
-/// Controller ?? x? l� file uploads cho chat messages
+/// Controller để xử lý file uploads cho chat messages
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -34,12 +34,12 @@ public class FileUploadController : BaseApiController
     {
         if (file == null || file.Length == 0)
         {
-            return BadRequest("File kh�ng ???c ?? tr?ng");
+            return BadRequest("File không được để trống");
         }
 
         try
         {
-            // Validate file tr??c khi upload
+            // Validate file trước khi upload
             var validation = await _fileUploadService.ValidateFileAsync(file, messageType);
             if (!validation.IsValid)
             {
@@ -49,17 +49,17 @@ public class FileUploadController : BaseApiController
             // Upload file
             var result = await _fileUploadService.UploadFileAsync(file, userId, messageType);
             
-            return Success(result, "Upload file th�nh c�ng!");
+            return Success(result, "Upload file thành công!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "L?i khi upload file: {FileName}", file.FileName);
-            return BadRequest("L?i khi upload file");
+            _logger.LogError(ex, "Lỗi khi upload file: {FileName}", file.FileName);
+            return BadRequest("Lỗi khi upload file");
         }
     }
 
     /// <summary>
-    /// Upload multiple files c�ng l�c
+    /// Upload multiple files cùng lúc
     /// </summary>
     [HttpPost("upload-multiple")]
     public async Task<IActionResult> UploadMultipleFiles(
@@ -69,23 +69,23 @@ public class FileUploadController : BaseApiController
     {
         if (!files.Any())
         {
-            return BadRequest("Danh s�ch files kh�ng ???c ?? tr?ng");
+            return BadRequest("Danh sách files không được để trống");
         }
 
         try
         {
             var results = await _fileUploadService.UploadMultipleFilesAsync(files, userId, messageType);
-            return Success(results, "Upload files th�nh c�ng!");
+            return Success(results, "Upload files thành công!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "L?i khi upload multiple files");
-            return BadRequest("L?i khi upload files");
+            _logger.LogError(ex, "Lỗi khi upload multiple files");
+            return BadRequest("Lỗi khi upload files");
         }
     }
 
     /// <summary>
-    /// T?o presigned URL ?? client upload tr?c ti?p l�n cloud
+    /// Tạo presigned URL để client upload trực tiếp lên cloud
     /// </summary>
     [HttpPost("presigned-url")]
     public async Task<IActionResult> GeneratePresignedUrl([FromBody] PresignedUrlRequest request)
@@ -98,12 +98,12 @@ public class FileUploadController : BaseApiController
                 request.UserId, 
                 request.MessageType);
 
-            return Success(result, "T?o presigned URL th�nh c�ng!");
+            return Success(result, "Tạo presigned URL thành công!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "L?i khi t?o presigned URL");
-            return BadRequest("L?i khi t?o presigned URL");
+            _logger.LogError(ex, "Lỗi khi tạo presigned URL");
+            return BadRequest("Lỗi khi tạo presigned URL");
         }
     }
 
@@ -119,20 +119,20 @@ public class FileUploadController : BaseApiController
             
             if (string.IsNullOrEmpty(thumbnailUrl))
             {
-                return BadRequest("Kh�ng th? t?o thumbnail cho file n�y");
+                return BadRequest("Không thể tạo thumbnail cho file này");
             }
 
-            return Success(new { ThumbnailUrl = thumbnailUrl }, "T?o thumbnail th�nh c�ng!");
+            return Success(new { ThumbnailUrl = thumbnailUrl }, "Tạo thumbnail thành công!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "L?i khi t?o thumbnail");
-            return BadRequest("L?i khi t?o thumbnail");
+            _logger.LogError(ex, "Lỗi khi tạo thumbnail");
+            return BadRequest("Lỗi khi tạo thumbnail");
         }
     }
 
     /// <summary>
-    /// X�a file t? cloud storage
+    /// Xóa file từ cloud storage
     /// </summary>
     [HttpDelete("delete")]
     public async Task<IActionResult> DeleteFile([FromBody] DeleteFileRequest request)
@@ -143,21 +143,21 @@ public class FileUploadController : BaseApiController
             
             if (!result)
             {
-                return NotFound("File kh�ng t?n t?i ho?c ?� b? x�a");
+                return NotFound("File không tồn tại hoặc đã bị xóa");
             }
 
-            return Success(new { Deleted = true }, "X�a file th�nh c�ng!");
+            return Success(new { Deleted = true }, "Xóa file thành công!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "L?i khi x�a file");
-            return BadRequest("L?i khi x�a file");
+            _logger.LogError(ex, "Lỗi khi xóa file");
+            return BadRequest("Lỗi khi xóa file");
         }
     }
 }
 
 /// <summary>
-/// Request ?? t?o presigned URL
+/// Request để tạo presigned URL
 /// </summary>
 public class PresignedUrlRequest
 {
@@ -168,7 +168,7 @@ public class PresignedUrlRequest
 }
 
 /// <summary>
-/// Request ?? t?o thumbnail
+/// Request để tạo thumbnail
 /// </summary>
 public class ThumbnailRequest
 {
@@ -176,7 +176,7 @@ public class ThumbnailRequest
 }
 
 /// <summary>
-/// Request ?? x�a file
+/// Request để xóa file
 /// </summary>
 public class DeleteFileRequest
 {
