@@ -13,8 +13,8 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     private readonly ILogger<DiscountGrpcService> _logger;
 
     public DiscountGrpcService(
-        IDiscountService discountService, 
-        IMapper mapper, 
+        IDiscountService discountService,
+        IMapper mapper,
         ILogger<DiscountGrpcService> logger)
     {
         _discountService = discountService;
@@ -23,7 +23,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<ValidateDiscountResponse> ValidateDiscount(
-        Protos.ValidateDiscountRequest request, 
+        Protos.ValidateDiscountRequest request,
         ServerCallContext context)
     {
         try
@@ -64,7 +64,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<UseDiscountResponse> UseDiscount(
-        Protos.UseDiscountRequest request, 
+        Protos.UseDiscountRequest request,
         ServerCallContext context)
     {
         try
@@ -100,7 +100,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<Protos.RevertDiscountUsageResponse> RevertDiscountUsage(
-        Protos.RevertDiscountUsageRequest request, 
+        Protos.RevertDiscountUsageRequest request,
         ServerCallContext context)
     {
         try
@@ -123,7 +123,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<CalculateDiscountAmountResponse> CalculateDiscountAmount(
-        CalculateDiscountAmountRequest request, 
+        CalculateDiscountAmountRequest request,
         ServerCallContext context)
     {
         try
@@ -154,7 +154,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<GetApplicableDiscountsResponse> GetApplicableDiscounts(
-        GetApplicableDiscountsRequest request, 
+        GetApplicableDiscountsRequest request,
         ServerCallContext context)
     {
         try
@@ -179,7 +179,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<IsDiscountValidResponse> IsDiscountValid(
-        IsDiscountValidRequest request, 
+        IsDiscountValidRequest request,
         ServerCallContext context)
     {
         try

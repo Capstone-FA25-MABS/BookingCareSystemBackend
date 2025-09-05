@@ -16,7 +16,7 @@ public class UserRegisteredEventHandler : IIntegrationEventHandler<UserRegistere
 
     public async Task HandleAsync(UserRegisteredEvent @event, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Handling UserRegisteredEvent for user {UserId} - {Email}", 
+        _logger.LogInformation("Handling UserRegisteredEvent for user {UserId} - {Email}",
             @event.UserId, @event.Email);
 
         // Example: Send welcome email, create user profile, etc.
@@ -35,7 +35,7 @@ public class AppointmentCreatedEventHandler : IIntegrationEventHandler<Appointme
 
     public async Task HandleAsync(AppointmentCreatedEvent @event, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Handling AppointmentCreatedEvent for appointment {AppointmentId}", 
+        _logger.LogInformation("Handling AppointmentCreatedEvent for appointment {AppointmentId}",
             @event.AppointmentId);
 
         // Example: Send notification, update availability, etc.
@@ -54,7 +54,7 @@ public class PaymentProcessedEventHandler : IIntegrationEventHandler<PaymentProc
 
     public async Task HandleAsync(PaymentProcessedEvent @event, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Handling PaymentProcessedEvent for payment {PaymentId} - Amount: {Amount}", 
+        _logger.LogInformation("Handling PaymentProcessedEvent for payment {PaymentId} - Amount: {Amount}",
             @event.PaymentId, @event.Amount);
 
         // Example: Update appointment status, send receipt, etc.
@@ -73,7 +73,7 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
 
     public async Task HandleAsync(NotificationSendEvent @event, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Handling NotificationSendEvent for user {UserId} - Type: {Type}", 
+        _logger.LogInformation("Handling NotificationSendEvent for user {UserId} - Type: {Type}",
             @event.UserId, @event.Type);
 
         // Example: Send email, SMS, push notification based on type

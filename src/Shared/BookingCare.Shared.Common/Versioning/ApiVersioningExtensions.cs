@@ -21,7 +21,7 @@ public static class ApiVersioningExtensions
             // Default API version
             opt.DefaultApiVersion = new ApiVersion(1, 0);
             opt.AssumeDefaultVersionWhenUnspecified = true;
-            
+
             // Version reading strategy
             opt.ApiVersionReader = ApiVersionReader.Combine(
                 new UrlSegmentApiVersionReader(), // /api/v1/users

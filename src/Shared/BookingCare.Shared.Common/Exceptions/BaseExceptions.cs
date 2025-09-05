@@ -53,7 +53,7 @@ public class ValidationException : BookingCareException
         : base(message, errorCode, HttpStatusCode.BadRequest)
     {
         ValidationErrors = validationErrors ?? new List<ValidationError>();
-        
+
         if (ValidationErrors.Any())
         {
             Details["ValidationErrors"] = ValidationErrors;

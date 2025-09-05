@@ -61,7 +61,7 @@ public class DiscountRepository : IDiscountRepository
     public async Task<bool> CodeExistsAsync(string code, Guid? excludeId = null)
     {
         var query = _context.Discounts.Where(d => d.Code == code);
-        
+
         if (excludeId.HasValue)
         {
             query = query.Where(d => d.Id != excludeId.Value);
@@ -102,8 +102,8 @@ public class DiscountRepository : IDiscountRepository
 
         if (!string.IsNullOrEmpty(query.SearchTerm))
         {
-            queryable = queryable.Where(d => 
-                d.Code.Contains(query.SearchTerm) || 
+            queryable = queryable.Where(d =>
+                d.Code.Contains(query.SearchTerm) ||
                 d.Name.Contains(query.SearchTerm) ||
                 (d.Description != null && d.Description.Contains(query.SearchTerm)));
         }
@@ -133,9 +133,9 @@ public class DiscountRepository : IDiscountRepository
     {
         var now = DateTime.UtcNow;
         return await _context.Discounts
-            .Where(d => d.ClinicId == clinicId && 
-                       d.Status == DiscountStatus.ACTIVE && 
-                       d.StartDate <= now && 
+            .Where(d => d.ClinicId == clinicId &&
+                       d.Status == DiscountStatus.ACTIVE &&
+                       d.StartDate <= now &&
                        d.EndDate >= now)
             .OrderBy(d => d.Name)
             .ToListAsync();
@@ -145,14 +145,14 @@ public class DiscountRepository : IDiscountRepository
     {
         var now = DateTime.UtcNow;
         var query = _context.Discounts
-            .Where(d => d.ClinicId == clinicId && 
-                       d.Status == DiscountStatus.ACTIVE && 
-                       d.StartDate <= now && 
+            .Where(d => d.ClinicId == clinicId &&
+                       d.Status == DiscountStatus.ACTIVE &&
+                       d.StartDate <= now &&
                        d.EndDate >= now &&
                        (d.MaxUses == null || d.UsesCount < d.MaxUses));
 
         // Apply applicability filters
-        query = query.Where(d => 
+        query = query.Where(d =>
             d.ApplicableTo == DiscountApplicableTo.ALL ||
             (d.ApplicableTo == DiscountApplicableTo.SPECIALTY && d.SpecialtyId == specialtyId) ||
             (d.ApplicableTo == DiscountApplicableTo.DOCTOR && d.DoctorId == doctorId));
@@ -164,15 +164,15 @@ public class DiscountRepository : IDiscountRepository
     {
         var now = DateTime.UtcNow;
         var query = _context.Discounts
-            .Where(d => d.Code == code && 
-                       d.ClinicId == clinicId && 
-                       d.Status == DiscountStatus.ACTIVE && 
-                       d.StartDate <= now && 
+            .Where(d => d.Code == code &&
+                       d.ClinicId == clinicId &&
+                       d.Status == DiscountStatus.ACTIVE &&
+                       d.StartDate <= now &&
                        d.EndDate >= now &&
                        (d.MaxUses == null || d.UsesCount < d.MaxUses));
 
         // Apply applicability filters
-        query = query.Where(d => 
+        query = query.Where(d =>
             d.ApplicableTo == DiscountApplicableTo.ALL ||
             (d.ApplicableTo == DiscountApplicableTo.SPECIALTY && d.SpecialtyId == specialtyId) ||
             (d.ApplicableTo == DiscountApplicableTo.DOCTOR && d.DoctorId == doctorId));
