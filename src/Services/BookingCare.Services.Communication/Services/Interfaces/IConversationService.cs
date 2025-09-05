@@ -18,9 +18,19 @@ public interface IConversationService
     Task<ConversationResponse?> GetByIdAsync(string id);
 
     /// <summary>
-    /// Lấy danh sách cuộc hội thoại của user
+    /// Lấy danh sách cuộc hội thoại của user với lazy loading options
     /// </summary>
-    Task<IEnumerable<ConversationResponse>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20);
+    Task<IEnumerable<ConversationResponse>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20, ConversationLoadOptions? options = null);
+
+    /// <summary>
+    /// Lấy danh sách cuộc hội thoại lightweight (chỉ thông tin cơ bản)
+    /// </summary>
+    Task<IEnumerable<ConversationListResponse>> GetConversationsLightweightAsync(string userId, int page = 1, int pageSize = 20);
+
+    /// <summary>
+    /// Lấy chi tiết conversation với đầy đủ thông tin lazy loading
+    /// </summary>
+    Task<ConversationResponse?> GetConversationDetailsAsync(string id, ConversationLoadOptions? options = null);
 
     /// <summary>
     /// Tìm cuộc hội thoại giữa 2 người dùng

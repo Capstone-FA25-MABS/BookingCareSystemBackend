@@ -354,16 +354,156 @@ public class CommunicationsController : BaseApiController
     }
 
     /// <summary>
-    /// Lấy cuộc hội thoại theo user ID
+    /// Lấy cuộc hội thoại theo user ID với lazy loading support
     /// </summary>
     [HttpGet("users/{userId}/conversations")]
     public async Task<IActionResult> GetConversationsByUserId(
         string userId, 
         [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeParticipantDetails = false,
+        [FromQuery] bool includeUnreadCount = true,
+        [FromQuery] bool includeRecentMessages = false)
+    {
+        var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, new ConversationLoadOptions
+        {
+            IncludeParticipantDetails = includeParticipantDetails,
+            IncludeUnreadCount = includeUnreadCount,
+            IncludeRecentMessages = includeRecentMessages
+        });
+        return Success(result, "Lấy cuộc hội thoại thành công!");
+    }
+
+    /// <summary>
+    /// Lấy cuộc hội thoại theo user ID với lazy loading support - Enhanced version
+    /// </summary>
+    [HttpGet("users/{userId}/conversations/enhanced")]
+    public async Task<IActionResult> GetConversationsEnhanced(
+        string userId, 
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeParticipantDetails = false,
+        [FromQuery] bool includeUnreadCount = true,
+        [FromQuery] bool includeRecentMessages = false,
+        [FromQuery] int recentMessagesCount = 5,
+        [FromQuery] bool includeMetadata = false,
+        [FromQuery] bool includeOnlineStatus = false)
+    {
+        var options = new ConversationLoadOptions
+        {
+            IncludeParticipantDetails = includeParticipantDetails,
+            IncludeUnreadCount = includeUnreadCount,
+            IncludeRecentMessages = includeRecentMessages,
+            RecentMessagesCount = recentMessagesCount,
+            IncludeMetadata = includeMetadata,
+            IncludeOnlineStatus = includeOnlineStatus
+        };
+
+        var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, options);
+        
+        return Success(new 
+        { 
+            Conversations = result,
+            LoadedOptions = options,
+            TotalCount = result.Count(),
+            Page = page,
+            PageSize = pageSize
+        }, "Lấy cuộc hội thoại với lazy loading thành công!");
+    }
+
+    /// <summary>
+    /// Lấy cuộc hội thoại theo user ID - phiên bản performance cao cho mobile
+    /// </summary>
+    [HttpGet("users/{userId}/conversations/mobile")]
+    public async Task<IActionResult> GetConversationsForMobile(
+        string userId, 
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 10)
+    {
+        // Mobile version chỉ load những thông tin cần thiết nhất
+        var options = new ConversationLoadOptions
+        {
+            IncludeParticipantDetails = false,
+            IncludeUnreadCount = true,
+            IncludeRecentMessages = false,
+            IncludeMetadata = false,
+            IncludeOnlineStatus = false
+        };
+
+        var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, options);
+        
+        return Success(new 
+        { 
+            Conversations = result.Select(c => new {
+                c.Id,
+                c.Participants,
+                c.LastMessage,
+                c.UpdatedAt,
+                c.UnreadCount,
+                IsBlocked = c.Blocked != null
+            }),
+            Page = page,
+            PageSize = pageSize,
+            OptimizedForMobile = true
+        }, "Lấy cuộc hội thoại mobile thành công!");
+    }
+
+    /// <summary>
+    /// Lấy cuộc hội thoại theo user ID - phiên bản đầy đủ cho web
+    /// </summary>
+    [HttpGet("users/{userId}/conversations/full")]
+    public async Task<IActionResult> GetConversationsFull(
+        string userId, 
+        [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 20)
     {
-        var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize);
-        return Success(result, "Lấy cuộc hội thoại thành công!");
+        // Web version load đầy đủ thông tin
+        var options = new ConversationLoadOptions
+        {
+            IncludeParticipantDetails = true,
+            IncludeUnreadCount = true,
+            IncludeRecentMessages = true,
+            RecentMessagesCount = 3,
+            IncludeMetadata = true,
+            IncludeOnlineStatus = true
+        };
+
+        var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, options);
+        
+        return Success(new 
+        { 
+            Conversations = result,
+            Page = page,
+            PageSize = pageSize,
+            LoadedWithFullDetails = true,
+            PerformanceNote = "This endpoint loads all available data - use with caution on mobile"
+        }, "Lấy cuộc hội thoại đầy đủ thành công!");
+    }
+
+    /// <summary>
+    /// Lấy chi tiết conversation với các thông tin lazy loading
+    /// </summary>
+    [HttpGet("conversations/{id}/details")]
+    public async Task<IActionResult> GetConversationDetails(
+        string id,
+        [FromQuery] bool includeParticipantDetails = true,
+        [FromQuery] bool includeUnreadCount = true,
+        [FromQuery] bool includeRecentMessages = true,
+        [FromQuery] bool includeMetadata = false)
+    {
+        var result = await _conversationService.GetConversationDetailsAsync(id, new ConversationLoadOptions
+        {
+            IncludeParticipantDetails = includeParticipantDetails,
+            IncludeUnreadCount = includeUnreadCount,
+            IncludeRecentMessages = includeRecentMessages,
+            IncludeMetadata = includeMetadata
+        });
+        
+        if (result == null)
+        {
+            return NotFound($"Cuộc hội thoại với ID {id} không tìm thấy");
+        }
+        return Success(result, "Lấy chi tiết cuộc hội thoại thành công!");
     }
 
     /// <summary>

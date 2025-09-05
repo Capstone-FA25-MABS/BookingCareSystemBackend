@@ -12,7 +12,7 @@ public class CreateConversationRequest
 }
 
 /// <summary>
-/// Response cho cuộc hội thoại
+/// Response cho cuộc hội thoại với lazy loading support
 /// </summary>
 public class ConversationResponse
 {
@@ -22,12 +22,12 @@ public class ConversationResponse
     public string Id { get; set; } = string.Empty;
 
     /// <summary>
-    /// Danh sách thành viên
+    /// Danh sách thành viên (always loaded)
     /// </summary>
     public List<string> Participants { get; set; } = new();
 
     /// <summary>
-    /// Tin nhắn cuối cùng
+    /// Tin nhắn cuối cùng (always loaded for conversation list)
     /// </summary>
     public LastMessageResponse? LastMessage { get; set; }
 
@@ -50,6 +50,67 @@ public class ConversationResponse
     /// Trạng thái hoạt động
     /// </summary>
     public bool IsActive { get; set; }
+
+    // Lazy loading properties - only loaded when requested
+    /// <summary>
+    /// Chi tiết thông tin users (lazy loaded)
+    /// </summary>
+    public List<ConversationParticipant>? ParticipantDetails { get; set; }
+
+    /// <summary>
+    /// Số tin nhắn chưa đọc (lazy loaded)
+    /// </summary>
+    public long? UnreadCount { get; set; }
+
+    /// <summary>
+    /// Tin nhắn gần đây (lazy loaded)
+    /// </summary>
+    public List<MessageResponse>? RecentMessages { get; set; }
+
+    /// <summary>
+    /// Metadata bổ sung (lazy loaded)
+    /// </summary>
+    public ConversationMetadata? Metadata { get; set; }
+}
+
+/// <summary>
+/// Lightweight response cho danh sách conversations (no lazy loading)
+/// </summary>
+public class ConversationListResponse
+{
+    public string Id { get; set; } = string.Empty;
+    public List<string> Participants { get; set; } = new();
+    public LastMessageResponse? LastMessage { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public bool IsActive { get; set; }
+    
+    // Only essential data for list view
+    public long UnreadCount { get; set; }
+    public bool IsBlocked { get; set; }
+}
+
+/// <summary>
+/// Chi tiết participant cho lazy loading
+/// </summary>
+public class ConversationParticipant
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Avatar { get; set; } = string.Empty;
+    public bool IsOnline { get; set; }
+    public DateTime? LastSeen { get; set; }
+}
+
+/// <summary>
+/// Metadata bổ sung cho conversation
+/// </summary>
+public class ConversationMetadata
+{
+    public int TotalMessages { get; set; }
+    public int TotalFiles { get; set; }
+    public int TotalImages { get; set; }
+    public DateTime? FirstMessageDate { get; set; }
+    public List<string> CommonFiles { get; set; } = new();
 }
 
 /// <summary>
