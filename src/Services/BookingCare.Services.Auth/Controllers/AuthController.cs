@@ -626,9 +626,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Permission assignment request</param>
     /// <returns>Role-permission relationship information</returns>
     [HttpPost("roles/assign-permission")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<RolePermissionResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> AssignPermissionToRole([FromBody] AssignPermissionRequest request)
     {
         if (!ModelState.IsValid)
@@ -649,9 +647,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Permission removal request</param>
     /// <returns>Success response</returns>
     [HttpDelete("roles/remove-permission")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> RemovePermissionFromRole([FromBody] RemovePermissionRequest request)
     {
         if (!ModelState.IsValid)
@@ -672,9 +668,7 @@ public class AuthController : BaseApiController
     /// <param name="roleId">Role ID</param>
     /// <returns>List of permissions assigned to role</returns>
     [HttpGet("roles/{roleId}/permissions")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<List<PermissionResponse>>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetRolePermissions(Guid roleId)
     {
         var result = await _authService.GetRolePermissionsAsync(roleId);
@@ -687,48 +681,11 @@ public class AuthController : BaseApiController
     /// <param name="permissionId">Permission ID</param>
     /// <returns>List of roles with specified permission</returns>
     [HttpGet("permissions/{permissionId}/roles")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<List<RoleResponse>>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetRolesByPermission(Guid permissionId)
     {
         var result = await _authService.GetRolesByPermissionAsync(permissionId);
         return Success(result, "Roles by permission retrieved successfully");
-    }
-
-    #endregion
-
-    #region Authorization Operations
-
-    /// <summary>
-    /// Check if account is authorized for specific permission
-    /// </summary>
-    /// <param name="accountId">Account ID</param>
-    /// <param name="permissionName">Permission name</param>
-    /// <returns>Authorization result</returns>
-    [HttpGet("accounts/{accountId}/authorized/{permissionName}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<bool>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    public async Task<IActionResult> IsAuthorized(Guid accountId, string permissionName)
-    {
-        var result = await _authService.IsAuthorizedAsync(accountId, permissionName);
-        return Success(result, result ? "Account is authorized" : "Account is not authorized");
-    }
-
-    /// <summary>
-    /// Get all permissions for an account
-    /// </summary>
-    /// <param name="accountId">Account ID</param>
-    /// <returns>List of permission names</returns>
-    [HttpGet("accounts/{accountId}/permissions")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<List<string>>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    public async Task<IActionResult> GetAccountPermissions(Guid accountId)
-    {
-        var result = await _authService.GetAccountPermissionsAsync(accountId);
-        return Success(result, "Account permissions retrieved successfully");
     }
 
     #endregion
@@ -749,276 +706,5 @@ public class AuthController : BaseApiController
 
     #endregion
 
-    #region Middleware Testing
-
-    /// <summary>
-    /// Test endpoint to verify AuthenticationMiddleware and RefreshTokenMiddleware
-    /// This endpoint requires authentication and will show user context from middleware
-    /// </summary>
-    /// <returns>User context information from middleware</returns>
-    [HttpGet("test-middleware")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    public IActionResult TestMiddleware()
-    {
-        // Get user context from AuthenticationMiddleware
-        var userId = HttpContext.Items["UserId"]?.ToString();
-        var userEmail = HttpContext.Items["UserEmail"]?.ToString();
-        var userName = HttpContext.Items["UserName"]?.ToString();
-        var userRoles = HttpContext.Items["UserRoles"] as List<string>;
-        var userPermissions = HttpContext.Items["UserPermissions"] as List<string>;
-        var accountStatus = HttpContext.Items["AccountStatus"]?.ToString();
-        var jwtId = HttpContext.Items["JwtId"]?.ToString();
-
-        // Get request headers for analysis
-        var authorizationHeader = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
-        var userAgent = HttpContext.Request.Headers["User-Agent"].FirstOrDefault();
-        var xForwardedFor = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        var xRealIp = HttpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
-
-        // Get response headers (set by RefreshTokenMiddleware if token was refreshed)
-        var newAccessToken = HttpContext.Response.Headers["X-New-Access-Token"].FirstOrDefault();
-        var tokenRefreshed = !string.IsNullOrEmpty(newAccessToken);
-
-        var middlewareTestData = new
-        {
-            // AuthenticationMiddleware results
-            AuthenticationMiddleware = new
-            {
-                IsAuthenticated = !string.IsNullOrEmpty(userId),
-                UserId = userId,
-                UserEmail = userEmail,
-                UserName = userName,
-                UserRoles = userRoles ?? new List<string>(),
-                UserPermissions = userPermissions ?? new List<string>(),
-                AccountStatus = accountStatus,
-                JwtId = jwtId
-            },
-
-            // RefreshTokenMiddleware results
-            RefreshTokenMiddleware = new
-            {
-                TokenRefreshed = tokenRefreshed,
-                NewAccessToken = tokenRefreshed ? "Token was refreshed" : "No refresh needed"
-            },
-
-            // Request information
-            RequestInfo = new
-            {
-                AuthorizationHeader = authorizationHeader?.Substring(0, Math.Min(20, authorizationHeader.Length)) + "...",
-                UserAgent = userAgent,
-                ClientIp = xRealIp ?? xForwardedFor ?? HttpContext.Connection.RemoteIpAddress?.ToString(),
-                RequestTime = DateTime.UtcNow
-            },
-
-            // Middleware pipeline status
-            MiddlewareStatus = new
-            {
-                AuthenticationMiddlewareExecuted = !string.IsNullOrEmpty(userId),
-                RefreshTokenMiddlewareExecuted = true, // Always executed
-                GlobalExceptionFilterActive = true
-            }
-        };
-
-        return Success(middlewareTestData, "Middleware test completed successfully");
-    }
-
-    /// <summary>
-    /// Test endpoint that requires specific permission
-    /// This will test the permission claims from AuthenticationMiddleware
-    /// </summary>
-    /// <returns>Permission test result</returns>
-    [HttpGet("test-permission")]
-    [Authorize(Policy = "Perm:Content.Read")] // Requires Content.Read permission
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 403)]
-    public IActionResult TestPermission()
-    {
-        var userPermissions = HttpContext.Items["UserPermissions"] as List<string>;
-        var userRoles = HttpContext.Items["UserRoles"] as List<string>;
-
-        var permissionTestData = new
-        {
-            UserPermissions = userPermissions ?? new List<string>(),
-            UserRoles = userRoles ?? new List<string>(),
-            HasAnyPermission = (userPermissions?.Count ?? 0) > 0,
-            HasAnyRole = (userRoles?.Count ?? 0) > 0,
-            TestMessage = "Permission test endpoint accessed successfully"
-        };
-
-        return Success(permissionTestData, "Permission test completed successfully");
-    }
-
-    /// <summary>
-    /// Test endpoint for refresh token functionality
-    /// This endpoint will help test the RefreshTokenMiddleware behavior
-    /// </summary>
-    /// <returns>Refresh token test result</returns>
-    [HttpGet("test-refresh-token")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    public IActionResult TestRefreshToken()
-    {
-        var userId = HttpContext.Items["UserId"]?.ToString();
-        var jwtId = HttpContext.Items["JwtId"]?.ToString();
-        var newAccessToken = HttpContext.Response.Headers["X-New-Access-Token"].FirstOrDefault();
-
-        var refreshTokenTestData = new
-        {
-            UserId = userId,
-            JwtId = jwtId,
-            TokenRefreshed = !string.IsNullOrEmpty(newAccessToken),
-            RefreshTokenMiddlewareStatus = "Active",
-            TestMessage = "Refresh token test endpoint accessed successfully"
-        };
-
-        return Success(refreshTokenTestData, "Refresh token test completed successfully");
-    }
-
-    /// <summary>
-    /// Test endpoint that requires Admin role
-    /// </summary>
-    /// <returns>Admin role test result</returns>
-    [HttpGet("test-role-admin")]
-    [Authorize(Policy = "AdminOnly")] // Requires Admin role
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 403)]
-    public IActionResult TestRoleAdmin()
-    {
-        var userContext = new
-        {
-            UserId = HttpContext.Items["UserId"]?.ToString(),
-            UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
-            UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
-            UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
-        };
-
-        var roleTestData = new
-        {
-            UserContext = userContext,
-            RequiredRole = "Admin",
-            AccessGranted = true,
-            TestMessage = "Admin role test endpoint accessed successfully"
-        };
-
-        return Success(roleTestData, "Admin role authorization test passed");
-    }
-
-    /// <summary>
-    /// Test endpoint that requires Doctor role
-    /// </summary>
-    /// <returns>Doctor role test result</returns>
-    [HttpGet("test-role-doctor")]
-    [Authorize(Policy = "DoctorOnly")] // Requires Doctor role
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 403)]
-    public IActionResult TestRoleDoctor()
-    {
-        var userContext = new
-        {
-            UserId = HttpContext.Items["UserId"]?.ToString(),
-            UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
-            UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
-            UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
-        };
-
-        var roleTestData = new
-        {
-            UserContext = userContext,
-            RequiredRole = "Doctor",
-            AccessGranted = true,
-            TestMessage = "Doctor role test endpoint accessed successfully"
-        };
-
-        return Success(roleTestData, "Doctor role authorization test passed");
-    }
-
-    /// <summary>
-    /// Test endpoint that requires Content.Write permission
-    /// </summary>
-    /// <returns>Content write permission test result</returns>
-    [HttpGet("test-permission-write")]
-    [Authorize(Policy = "CanWriteContent")] // Requires Content.Write permission
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 403)]
-    public IActionResult TestPermissionWrite()
-    {
-        var userContext = new
-        {
-            UserId = HttpContext.Items["UserId"]?.ToString(),
-            UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
-            UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
-            UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
-        };
-
-        var permissionTestData = new
-        {
-            UserContext = userContext,
-            RequiredPermission = "Content.Write",
-            HasRequiredPermission = true,
-            TestMessage = "Content.Write permission test endpoint accessed successfully"
-        };
-
-        return Success(permissionTestData, "Content.Write permission authorization test passed");
-    }
-
-    /// <summary>
-    /// Test endpoint that requires combined Admin role AND Content.Write permission
-    /// </summary>
-    /// <returns>Combined authorization test result</returns>
-    [HttpGet("test-combined-admin-content")]
-    [Authorize(Policy = "AdminOrContentManager")] // Requires Admin role AND Content.Write permission
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 403)]
-    public IActionResult TestCombinedAdminContent()
-    {
-        var userContext = new
-        {
-            UserId = HttpContext.Items["UserId"]?.ToString(),
-            UserEmail = HttpContext.Items["UserEmail"]?.ToString(),
-            UserRoles = HttpContext.Items["UserRoles"] as List<string> ?? new List<string>(),
-            UserPermissions = HttpContext.Items["UserPermissions"] as List<string> ?? new List<string>()
-        };
-
-        var combinedTestData = new
-        {
-            UserContext = userContext,
-            RequiredRole = "Admin",
-            RequiredPermission = "Content.Write",
-            AccessGranted = true,
-            TestMessage = "Combined Admin role + Content.Write permission test endpoint accessed successfully"
-        };
-
-        return Success(combinedTestData, "Combined authorization test passed");
-    }
-
-    /// <summary>
-    /// Initialize default data (development only)
-    /// </summary>
-    /// <returns>Initialization result</returns>
-    [HttpPost("init-data")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    public async Task<IActionResult> InitializeDefaultData()
-    {
-        // This endpoint should only be available in development
-        if (!HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment())
-        {
-            return BadRequest("This endpoint is only available in development environment");
-        }
-
-        var dataInitializationService = HttpContext.RequestServices.GetRequiredService<DataInitializationService>();
-        await dataInitializationService.InitializeDefaultDataAsync();
-
-        return Success("Default data initialized successfully");
-    }
-
-    #endregion
+   
 }
