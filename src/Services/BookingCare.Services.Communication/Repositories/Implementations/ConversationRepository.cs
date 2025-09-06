@@ -2,6 +2,7 @@
 using BookingCare.Services.Communication.Data;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
+using BookingCare.Services.Communication.Utils;
 
 namespace BookingCare.Services.Communication.Repositories.Implementations;
 
@@ -141,5 +142,68 @@ public class ConversationRepository : IConversationRepository
             .FirstOrDefaultAsync();
         
         return conversation != null;
+    }
+
+    /// <summary>
+    /// Lấy cuộc hội thoại theo user ID với cursor-based pagination
+    /// </summary>
+    public async Task<IEnumerable<ConversationEntity>> GetByUserIdWithCursorAsync(string userId, string? before = null, string? after = null, int limit = 20)
+    {
+        var filterBuilder = Builders<ConversationEntity>.Filter;
+        var filter = filterBuilder.And(
+            filterBuilder.AnyEq(c => c.Participants, userId),
+            filterBuilder.Eq(c => c.IsActive, true)
+        );
+
+        // Parse cursors if provided
+        if (!string.IsNullOrEmpty(before))
+        {
+            try
+            {
+                var (timestamp, conversationId) = CursorHelper.ParseCursor(before);
+                // Get conversations older than the cursor
+                var beforeFilter = filterBuilder.Or(
+                    filterBuilder.Lt(c => c.UpdatedAt, timestamp),
+                    filterBuilder.And(
+                        filterBuilder.Eq(c => c.UpdatedAt, timestamp),
+                        filterBuilder.Lt(c => c.Id, conversationId)
+                    )
+                );
+                filter = filterBuilder.And(filter, beforeFilter);
+            }
+            catch
+            {
+                throw new ArgumentException("Invalid 'before' cursor format");
+            }
+        }
+
+        if (!string.IsNullOrEmpty(after))
+        {
+            try
+            {
+                var (timestamp, conversationId) = CursorHelper.ParseCursor(after);
+                // Get conversations newer than the cursor
+                var afterFilter = filterBuilder.Or(
+                    filterBuilder.Gt(c => c.UpdatedAt, timestamp),
+                    filterBuilder.And(
+                        filterBuilder.Eq(c => c.UpdatedAt, timestamp),
+                        filterBuilder.Gt(c => c.Id, conversationId)
+                    )
+                );
+                filter = filterBuilder.And(filter, afterFilter);
+            }
+            catch
+            {
+                throw new ArgumentException("Invalid 'after' cursor format");
+            }
+        }
+
+        // Sort by updatedAt descending (newest first) for consistent ordering
+        return await _conversations
+            .Find(filter)
+            .SortByDescending(c => c.UpdatedAt)
+            .ThenByDescending(c => c.Id)
+            .Limit(limit)
+            .ToListAsync();
     }
 }

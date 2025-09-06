@@ -51,4 +51,9 @@ public interface IMessageRepository
     /// Tìm kiếm tin nhắn theo nội dung
     /// </summary>
     Task<IEnumerable<MessageEntity>> SearchAsync(string conversationId, string searchTerm, int page = 1, int pageSize = 20);
+
+    /// <summary>
+    /// Lấy tin nhắn với cursor-based pagination
+    /// </summary>
+    Task<IEnumerable<MessageEntity>> GetByConversationIdWithCursorAsync(string conversationId, string? before = null, string? after = null, int limit = 50);
 }

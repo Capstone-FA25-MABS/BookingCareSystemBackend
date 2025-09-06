@@ -34,6 +34,11 @@ public interface IMessageService
     Task<IEnumerable<MessageResponse>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50);
 
     /// <summary>
+    /// Lấy danh sách tin nhắn theo conversation ID với cursor-based pagination
+    /// </summary>
+    Task<CursorPaginatedResponse<MessageResponse>> GetByConversationIdWithCursorAsync(string conversationId, string? before = null, string? after = null, int limit = 50);
+
+    /// <summary>
     /// Xóa tin nhắn
     /// </summary>
     Task<bool> DeleteAsync(string id);

@@ -169,10 +169,24 @@ public class CommunicationsController : BaseApiController
     }
 
     /// <summary>
-    /// Lấy tin nhắn theo conversation ID
+    /// Lấy tin nhắn theo conversation ID với cursor-based pagination (infinite scroll friendly)
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages")]
     public async Task<IActionResult> GetMessagesByConversationId(
+        string conversationId, 
+        [FromQuery] string? before = null,      // MessageId hoặc timestamp để load messages trước đó
+        [FromQuery] string? after = null,       // MessageId hoặc timestamp để load messages sau đó  
+        [FromQuery] int limit = 50)             // Số lượng messages cần load
+    {
+        var result = await _messageService.GetByConversationIdWithCursorAsync(conversationId, before, after, limit);
+        return Success(result, "Lấy tin nhắn thành công!");
+    }
+
+    /// <summary>
+    /// Legacy endpoint với page-based pagination (kept for backward compatibility)
+    /// </summary>
+    [HttpGet("conversations/{conversationId}/messages/paginated")]
+    public async Task<IActionResult> GetMessagesByConversationIdPaginated(
         string conversationId, 
         [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 50)
@@ -361,8 +375,8 @@ public class CommunicationsController : BaseApiController
     [HttpGet("users/{userId}/conversations/mobile")]
     public async Task<IActionResult> GetConversationsForMobile(
         string userId, 
-        [FromQuery] int page = 1, 
-        [FromQuery] int pageSize = 10)
+        [FromQuery] string? before = null,      // Cursor cho mobile cũng dùng cursor-based
+        [FromQuery] int limit = 10)             // Mobile dùng limit nhỏ hơn
     {
         // Mobile version chỉ load những thông tin cần thiết nhất
         var options = new ConversationLoadOptions
@@ -373,11 +387,11 @@ public class CommunicationsController : BaseApiController
             IncludeOnlineStatus = false
         };
 
-        var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, options);
+        var result = await _conversationService.GetByUserIdWithCursorAsync(userId, before, null, limit, options);
         
         return Success(new 
         { 
-            Conversations = result.Select(c => new {
+            Conversations = result.Data.Select(c => new {
                 c.Id,
                 c.Participants,
                 c.LastMessage,
@@ -385,8 +399,9 @@ public class CommunicationsController : BaseApiController
                 c.UnreadCount,
                 IsBlocked = c.Blocked != null
             }),
-            Page = page,
-            PageSize = pageSize,
+            NextCursor = result.NextCursor,
+            HasNext = result.HasNext,
+            Limit = limit,
             OptimizedForMobile = true
         }, "Lấy cuộc hội thoại mobile thành công!");
     }
@@ -395,30 +410,51 @@ public class CommunicationsController : BaseApiController
     /// Lấy cuộc hội thoại theo user ID - phiên bản đầy đủ cho web
     /// </summary>
     [HttpGet("users/{userId}/conversations")]
-    public async Task<IActionResult> GetConversationsFull(
+    public async Task<IActionResult> GetConversationsByUserId(
         string userId, 
-        [FromQuery] int page = 1, 
-        [FromQuery] int pageSize = 20)
+        [FromQuery] string? before = null,              // Cursor để load conversations cũ hơn
+        [FromQuery] string? after = null,               // Cursor để load conversations mới hơn  
+        [FromQuery] int limit = 20,                     // Số lượng conversations cần load
+        [FromQuery] bool includeParticipantDetails = false,
+        [FromQuery] bool includeUnreadCount = true,
+        [FromQuery] bool includeMetadata = false,
+        [FromQuery] bool includeOnlineStatus = false)
     {
-        // Web version load đầy đủ thông tin (trừ recent messages)
         var options = new ConversationLoadOptions
         {
-            IncludeParticipantDetails = true,
-            IncludeUnreadCount = true,
-            IncludeMetadata = true,
-            IncludeOnlineStatus = true
+            IncludeParticipantDetails = includeParticipantDetails,
+            IncludeUnreadCount = includeUnreadCount,
+            IncludeMetadata = includeMetadata,
+            IncludeOnlineStatus = includeOnlineStatus
+        };
+
+        var result = await _conversationService.GetByUserIdWithCursorAsync(userId, before, after, limit, options);
+        return Success(result, "Lấy cuộc hội thoại thành công!");
+    }
+
+    /// <summary>
+    /// Legacy endpoint với page-based pagination (kept for backward compatibility)
+    /// </summary>
+    [HttpGet("users/{userId}/conversations/paginated")]
+    public async Task<IActionResult> GetConversationsByUserIdPaginated(
+        string userId, 
+        [FromQuery] int page = 1, 
+        [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeParticipantDetails = false,
+        [FromQuery] bool includeUnreadCount = true,
+        [FromQuery] bool includeMetadata = false,
+        [FromQuery] bool includeOnlineStatus = false)
+    {
+        var options = new ConversationLoadOptions
+        {
+            IncludeParticipantDetails = includeParticipantDetails,
+            IncludeUnreadCount = includeUnreadCount,
+            IncludeMetadata = includeMetadata,
+            IncludeOnlineStatus = includeOnlineStatus
         };
 
         var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, options);
-        
-        return Success(new 
-        { 
-            Conversations = result,
-            Page = page,
-            PageSize = pageSize,
-            LoadedWithFullDetails = true,
-            Note = "Messages should be loaded separately via /conversations/{id}/messages endpoint"
-        }, "Lấy cuộc hội thoại đầy đủ thành công!");
+        return Success(result, "Lấy cuộc hội thoại thành công!");
     }
 
     /// <summary>

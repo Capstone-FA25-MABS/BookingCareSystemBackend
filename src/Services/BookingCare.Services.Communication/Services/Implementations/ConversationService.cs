@@ -4,6 +4,7 @@ using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Shared.Common.Services;
+using BookingCare.Services.Communication.Utils;
 
 namespace BookingCare.Services.Communication.Services.Implementations;
 
@@ -365,5 +366,82 @@ public class ConversationService : BaseService, IConversationService
     public async Task<bool> IsConversationBlockedAsync(string conversationId)
     {
         return await _conversationRepository.IsConversationBlockedAsync(conversationId);
+    }
+
+    /// <summary>
+    /// Lấy danh sách cuộc hội thoại của user với cursor-based pagination
+    /// </summary>
+    public async Task<CursorPaginatedResponse<ConversationResponse>> GetByUserIdWithCursorAsync(string userId, string? before = null, string? after = null, int limit = 20, ConversationLoadOptions? options = null)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Lấy conversations với cursor pagination cho user: {UserId}, before: {Before}, after: {After}, limit: {Limit}", 
+                null, userId, before, after, limit);
+
+            ValidateRequiredString(userId, nameof(userId));
+
+            if (limit <= 0 || limit > 100)
+            {
+                throw new ArgumentException("Limit phải từ 1 đến 100");
+            }
+
+            // Lấy conversations từ repository với cursor
+            var conversations = await _conversationRepository.GetByUserIdWithCursorAsync(userId, before, after, limit + 1); // +1 để check hasNext
+            var conversationList = conversations.ToList();
+
+            // Determine pagination info
+            var hasNext = conversationList.Count > limit;
+            var hasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after);
+
+            // Remove extra item if exists
+            if (hasNext)
+            {
+                conversationList.RemoveAt(conversationList.Count - 1);
+            }
+
+            // Convert to DTOs
+            var conversationDtos = _mapper.Map<List<ConversationResponse>>(conversationList);
+
+            // Apply lazy loading if options provided
+            if (options != null)
+            {
+                await LoadConversationDataAsync(conversationDtos, userId, options);
+            }
+
+            // Generate cursors
+            string? nextCursor = null;
+            string? previousCursor = null;
+
+            if (conversationDtos.Any())
+            {
+                // For cursor-based pagination, we use conversation ID + timestamp for reliable ordering
+                if (hasNext)
+                {
+                    var lastConversation = conversationDtos.Last();
+                    nextCursor = CursorHelper.GenerateCursor(lastConversation.Id, lastConversation.UpdatedAt);
+                }
+
+                if (hasPrevious || !string.IsNullOrEmpty(before))
+                {
+                    var firstConversation = conversationDtos.First();
+                    previousCursor = CursorHelper.GenerateCursor(firstConversation.Id, firstConversation.UpdatedAt);
+                }
+            }
+
+            var result = new CursorPaginatedResponse<ConversationResponse>
+            {
+                Data = conversationDtos,
+                NextCursor = nextCursor,
+                PreviousCursor = previousCursor,
+                HasNext = hasNext,
+                HasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after),
+                Limit = limit
+            };
+
+            LogInfo("Lấy thành công {Count} conversations với cursor pagination cho user: {UserId}", 
+                null, conversationDtos.Count, userId);
+
+            return result;
+        }, "GetConversationsByUserIdWithCursor");
     }
 }

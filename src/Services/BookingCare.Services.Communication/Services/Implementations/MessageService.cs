@@ -5,6 +5,7 @@ using BookingCare.Services.Communication.Repositories.Interfaces;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Shared.Common.Services;
+using BookingCare.Services.Communication.Utils;
 
 namespace BookingCare.Services.Communication.Services.Implementations;
 
@@ -468,5 +469,76 @@ public class MessageService : BaseService, IMessageService
             .ToList();
 
         return _mapper.Map<IEnumerable<MessageAttachmentResponse>>(attachments);
+    }
+
+    /// <summary>
+    /// Lấy danh sách tin nhắn theo conversation ID với cursor-based pagination
+    /// </summary>
+    public async Task<CursorPaginatedResponse<MessageResponse>> GetByConversationIdWithCursorAsync(string conversationId, string? before = null, string? after = null, int limit = 50)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Lấy tin nhắn với cursor pagination cho conversation: {ConversationId}, before: {Before}, after: {After}, limit: {Limit}", 
+                null, conversationId, before, after, limit);
+
+            ValidateRequiredString(conversationId, nameof(conversationId));
+
+            if (limit <= 0 || limit > 200)
+            {
+                throw new ArgumentException("Limit phải từ 1 đến 200");
+            }
+
+            // Lấy messages từ repository với cursor
+            var messages = await _messageRepository.GetByConversationIdWithCursorAsync(conversationId, before, after, limit + 1); // +1 để check hasNext
+            var messageList = messages.ToList();
+
+            // Determine pagination info
+            var hasNext = messageList.Count > limit;
+            var hasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after);
+
+            // Remove extra item if exists
+            if (hasNext)
+            {
+                messageList.RemoveAt(messageList.Count - 1);
+            }
+
+            // Convert to DTOs
+            var messageDtos = _mapper.Map<List<MessageResponse>>(messageList);
+
+            // Generate cursors
+            string? nextCursor = null;
+            string? previousCursor = null;
+
+            if (messageDtos.Any())
+            {
+                // For cursor-based pagination, we use message ID + timestamp for reliable ordering
+                if (hasNext)
+                {
+                    var lastMessage = messageDtos.Last();
+                    nextCursor = CursorHelper.GenerateCursor(lastMessage.Id, lastMessage.CreatedAt);
+                }
+
+                if (hasPrevious || !string.IsNullOrEmpty(before))
+                {
+                    var firstMessage = messageDtos.First();
+                    previousCursor = CursorHelper.GenerateCursor(firstMessage.Id, firstMessage.CreatedAt);
+                }
+            }
+
+            var result = new CursorPaginatedResponse<MessageResponse>
+            {
+                Data = messageDtos,
+                NextCursor = nextCursor,
+                PreviousCursor = previousCursor,
+                HasNext = hasNext,
+                HasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after),
+                Limit = limit
+            };
+
+            LogInfo("Lấy thành công {Count} tin nhắn với cursor pagination cho conversation: {ConversationId}", 
+                null, messageDtos.Count, conversationId);
+
+            return result;
+        }, "GetByConversationIdWithCursor");
     }
 }

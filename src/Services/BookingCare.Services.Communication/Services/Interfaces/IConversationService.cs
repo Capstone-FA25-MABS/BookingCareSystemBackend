@@ -23,6 +23,11 @@ public interface IConversationService
     Task<IEnumerable<ConversationResponse>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20, ConversationLoadOptions? options = null);
 
     /// <summary>
+    /// Lấy danh sách cuộc hội thoại của user với cursor-based pagination
+    /// </summary>
+    Task<CursorPaginatedResponse<ConversationResponse>> GetByUserIdWithCursorAsync(string userId, string? before = null, string? after = null, int limit = 20, ConversationLoadOptions? options = null);
+
+    /// <summary>
     /// Lấy danh sách cuộc hội thoại lightweight (chỉ thông tin cơ bản)
     /// </summary>
     Task<IEnumerable<ConversationListResponse>> GetConversationsLightweightAsync(string userId, int page = 1, int pageSize = 20);

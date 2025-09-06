@@ -56,4 +56,9 @@ public interface IConversationRepository
     /// Kiểm tra cuộc hội thoại có bị chặn không
     /// </summary>
     Task<bool> IsConversationBlockedAsync(string conversationId);
+
+    /// <summary>
+    /// Lấy cuộc hội thoại theo user ID với cursor-based pagination
+    /// </summary>
+    Task<IEnumerable<ConversationEntity>> GetByUserIdWithCursorAsync(string userId, string? before = null, string? after = null, int limit = 20);
 }

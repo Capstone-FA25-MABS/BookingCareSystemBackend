@@ -3,6 +3,7 @@ using BookingCare.Services.Communication.Data;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
 using BookingCare.Services.Communication.Enums;
+using BookingCare.Services.Communication.Utils;
 
 namespace BookingCare.Services.Communication.Repositories.Implementations;
 
@@ -131,6 +132,66 @@ public class MessageRepository : IMessageRepository
             .SortByDescending(m => m.CreatedAt)
             .Skip(skip)
             .Limit(pageSize)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Lấy tin nhắn với cursor-based pagination
+    /// </summary>
+    public async Task<IEnumerable<MessageEntity>> GetByConversationIdWithCursorAsync(string conversationId, string? before = null, string? after = null, int limit = 50)
+    {
+        var filterBuilder = Builders<MessageEntity>.Filter;
+        var filter = filterBuilder.Eq(m => m.ConversationId, conversationId);
+
+        // Parse cursors if provided
+        if (!string.IsNullOrEmpty(before))
+        {
+            try
+            {
+                var (timestamp, messageId) = CursorHelper.ParseCursor(before);
+                // Get messages older than the cursor (before timestamp or same timestamp but different ID)
+                var beforeFilter = filterBuilder.Or(
+                    filterBuilder.Lt(m => m.CreatedAt, timestamp),
+                    filterBuilder.And(
+                        filterBuilder.Eq(m => m.CreatedAt, timestamp),
+                        filterBuilder.Lt(m => m.Id, messageId)
+                    )
+                );
+                filter = filterBuilder.And(filter, beforeFilter);
+            }
+            catch
+            {
+                throw new ArgumentException("Invalid 'before' cursor format");
+            }
+        }
+
+        if (!string.IsNullOrEmpty(after))
+        {
+            try
+            {
+                var (timestamp, messageId) = CursorHelper.ParseCursor(after);
+                // Get messages newer than the cursor (after timestamp or same timestamp but different ID)
+                var afterFilter = filterBuilder.Or(
+                    filterBuilder.Gt(m => m.CreatedAt, timestamp),
+                    filterBuilder.And(
+                        filterBuilder.Eq(m => m.CreatedAt, timestamp),
+                        filterBuilder.Gt(m => m.Id, messageId)
+                    )
+                );
+                filter = filterBuilder.And(filter, afterFilter);
+            }
+            catch
+            {
+                throw new ArgumentException("Invalid 'after' cursor format");
+            }
+        }
+
+        // Sort by timestamp descending (newest first) for consistent ordering
+        return await _messages
+            .Find(filter)
+            .SortByDescending(m => m.CreatedAt)
+            .ThenByDescending(m => m.Id)
+            .Limit(limit)
             .ToListAsync();
     }
 }
