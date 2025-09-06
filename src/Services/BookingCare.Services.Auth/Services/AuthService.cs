@@ -934,10 +934,13 @@ public class AuthService : BaseService, IAuthService
                 }
             }
 
-            var permission = _mapper.Map<PermissionEntity>(request);
-            permission.UpdatedAt = DateTime.UtcNow;
+            existingPermission.Name = request.Name;
+            if (!string.IsNullOrEmpty(request.Description))
+            {
+                existingPermission.Description = request.Description;
+            }
 
-            var updatedPermission = await _authRepository.UpdatePermissionAsync(permission);
+            var updatedPermission = await _authRepository.UpdatePermissionAsync(existingPermission);
             LogInfo("Permission updated successfully: {PermissionId}", null, updatedPermission.Id);
             return _mapper.Map<PermissionResponse>(updatedPermission);
         }, "UpdatePermission");

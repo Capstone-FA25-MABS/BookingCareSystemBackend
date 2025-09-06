@@ -435,13 +435,10 @@ public class AuthController : BaseApiController
     /// <param name="request">Permission creation request</param>
     /// <returns>Created permission information</returns>
     [HttpPost("permissions")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<PermissionResponse>), 201)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequest request)
     {
-        if (!ModelState.IsValid)
+        if (!ModelState.IsValid)        
         {
             return BadRequest("Invalid request data", ModelState.Values
                 .SelectMany(v => v.Errors)
@@ -459,9 +456,7 @@ public class AuthController : BaseApiController
     /// <param name="id">Permission ID</param>
     /// <returns>Permission information</returns>
     [HttpGet("permissions/{id}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<PermissionResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetPermission(Guid id)
     {
         var permission = await _authService.GetPermissionByIdAsync(id);
@@ -479,9 +474,7 @@ public class AuthController : BaseApiController
     /// <param name="name">Permission name</param>
     /// <returns>Permission information</returns>
     [HttpGet("permissions/by-name/{name}")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<PermissionResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetPermissionByName(string name)
     {
         var permission = await _authService.GetPermissionByNameAsync(name);
@@ -500,11 +493,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Permission update request</param>
     /// <returns>Updated permission information</returns>
     [HttpPut("permissions/{id}")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<PermissionResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdatePermission(Guid id, [FromBody] UpdatePermissionRequest request)
     {
         if (id != request.Id)
@@ -530,9 +519,7 @@ public class AuthController : BaseApiController
     /// <param name="id">Permission ID</param>
     /// <returns>Success response</returns>
     [HttpDelete("permissions/{id}")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> DeletePermission(Guid id)
     {
         var result = await _authService.DeletePermissionAsync(id);
@@ -550,9 +537,7 @@ public class AuthController : BaseApiController
     /// <param name="query">Query parameters</param>
     /// <returns>Paginated list of permissions</returns>
     [HttpGet("permissions")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<PermissionListResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetPermissions([FromQuery] PermissionQueryRequest query)
     {
         var result = await _authService.GetPermissionsAsync(query);
