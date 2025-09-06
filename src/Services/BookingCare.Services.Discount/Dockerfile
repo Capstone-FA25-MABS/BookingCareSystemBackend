@@ -55,8 +55,8 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:6007;http://+:6017
 
 # Health check configuration
-# HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-#     CMD curl -f http://localhost:6007/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:6007/api/v1/health || exit 1
 
 # Set the entry point
 ENTRYPOINT ["dotnet", "BookingCare.Services.Discount.dll"]
