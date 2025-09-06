@@ -256,7 +256,7 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
-    [HttpPatch("accounts/ban-unban/{id}")]
+    [HttpPatch("accounts/{id}/ban-unban")]
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> BanUnban(Guid id)
     {
@@ -275,7 +275,7 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
-    [HttpPatch("accounts/lock/{id}")]
+    [HttpPatch("accounts/{id}/lock")]
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> LockAccount(Guid id)
     {
@@ -293,7 +293,7 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <param name="id">Account ID</param>
     /// <returns>Success response</returns>
-    [HttpPatch("accounts/unlock/{id}")]
+    [HttpPatch("accounts/{id}/unlock")]
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UnlockAccount(Guid id)
     {
@@ -554,9 +554,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Role assignment request</param>
     /// <returns>Account-role relationship information</returns>
     [HttpPost("accounts/assign-role")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<AccountRoleResponse>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> AssignRoleToAccount([FromBody] AssignRoleRequest request)
     {
         if (!ModelState.IsValid)
@@ -577,9 +575,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Role removal request</param>
     /// <returns>Success response</returns>
     [HttpDelete("accounts/remove-role")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> RemoveRoleFromAccount([FromBody] RemoveRoleRequest request)
     {
         if (!ModelState.IsValid)
@@ -600,9 +596,7 @@ public class AuthController : BaseApiController
     /// <param name="accountId">Account ID</param>
     /// <returns>List of roles assigned to account</returns>
     [HttpGet("accounts/{accountId}/roles")]
-    [Authorize]
-    [ProducesResponseType(typeof(ApiResponse<List<RoleResponse>>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetAccountRoles(Guid accountId)
     {
         var result = await _authService.GetAccountRolesAsync(accountId);
@@ -615,9 +609,7 @@ public class AuthController : BaseApiController
     /// <param name="roleId">Role ID</param>
     /// <returns>List of accounts with specified role</returns>
     [HttpGet("roles/{roleId}/accounts")]
-    [Authorize(Roles = "Admin")]
-    [ProducesResponseType(typeof(ApiResponse<List<AccountResponse>>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetAccountsByRole(Guid roleId)
     {
         var result = await _authService.GetAccountsByRoleAsync(roleId);
