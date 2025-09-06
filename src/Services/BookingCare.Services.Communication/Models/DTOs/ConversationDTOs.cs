@@ -63,11 +63,6 @@ public class ConversationResponse
     public long? UnreadCount { get; set; }
 
     /// <summary>
-    /// Tin nhắn gần đây (lazy loaded)
-    /// </summary>
-    public List<MessageResponse>? RecentMessages { get; set; }
-
-    /// <summary>
     /// Metadata bổ sung (lazy loaded)
     /// </summary>
     public ConversationMetadata? Metadata { get; set; }

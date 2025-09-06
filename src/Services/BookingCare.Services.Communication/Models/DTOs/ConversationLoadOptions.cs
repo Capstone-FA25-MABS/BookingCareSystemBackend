@@ -16,16 +16,6 @@ public class ConversationLoadOptions
     public bool IncludeUnreadCount { get; set; } = true;
 
     /// <summary>
-    /// Load m?t s? tin nh?n g?n ?ây
-    /// </summary>
-    public bool IncludeRecentMessages { get; set; } = false;
-
-    /// <summary>
-    /// S? l??ng tin nh?n g?n ?ây c?n load
-    /// </summary>
-    public int RecentMessagesCount { get; set; } = 5;
-
-    /// <summary>
     /// Load metadata b? sung (t?ng s? tin nh?n, files, etc.)
     /// </summary>
     public bool IncludeMetadata { get; set; } = false;

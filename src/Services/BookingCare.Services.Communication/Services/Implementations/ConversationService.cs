@@ -181,25 +181,6 @@ public class ConversationService : BaseService, IConversationService
             }
         }
 
-        // Load recent messages
-        if (options.IncludeRecentMessages)
-        {
-            foreach (var conversation in conversationList)
-            {
-                try
-                {
-                    var recentMessages = await _messageService.GetByConversationIdAsync(conversation.Id, 1, options.RecentMessagesCount);
-                    conversation.RecentMessages = recentMessages.ToList();
-                    LogDebug("Loaded {Count} recent messages for conversation {ConversationId}", null, conversation.RecentMessages.Count, conversation.Id);
-                }
-                catch (Exception ex)
-                {
-                    LogWarning("Lỗi khi load recent messages cho conversation {ConversationId}: {Error}", null, conversation.Id, ex.Message);
-                    conversation.RecentMessages = new List<MessageResponse>();
-                }
-            }
-        }
-
         // Load participant details (placeholder - would require User Service integration)
         if (options.IncludeParticipantDetails)
         {
@@ -246,21 +227,12 @@ public class ConversationService : BaseService, IConversationService
                     // Initialize basic metadata
                     conversation.Metadata = new ConversationMetadata
                     {
-                        TotalMessages = 0, // TODO: Implement repository method
+                        TotalMessages = 0, // TODO: Implement repository method to get actual count
                         TotalFiles = 0,    // TODO: Implement repository method
                         TotalImages = 0,   // TODO: Implement repository method
                         FirstMessageDate = null, // TODO: Implement repository method
                         CommonFiles = new List<string>()
                     };
-
-                    // Basic implementation: get total messages from recent messages query
-                    if (conversation.RecentMessages != null)
-                    {
-                        conversation.Metadata.TotalMessages = conversation.RecentMessages.Count;
-                        conversation.Metadata.FirstMessageDate = conversation.RecentMessages
-                            .OrderBy(m => m.CreatedAt)
-                            .FirstOrDefault()?.CreatedAt;
-                    }
 
                     LogDebug("Metadata loaded for conversation {ConversationId}", null, conversation.Id);
                 }

@@ -353,63 +353,7 @@ public class CommunicationsController : BaseApiController
         return Success(result, "Lấy cuộc hội thoại thành công!");
     }
 
-    /// <summary>
-    /// Lấy cuộc hội thoại theo user ID với lazy loading support
-    /// </summary>
-    [HttpGet("users/{userId}/conversations")]
-    public async Task<IActionResult> GetConversationsByUserId(
-        string userId, 
-        [FromQuery] int page = 1, 
-        [FromQuery] int pageSize = 20,
-        [FromQuery] bool includeParticipantDetails = false,
-        [FromQuery] bool includeUnreadCount = true,
-        [FromQuery] bool includeRecentMessages = false)
-    {
-        var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, new ConversationLoadOptions
-        {
-            IncludeParticipantDetails = includeParticipantDetails,
-            IncludeUnreadCount = includeUnreadCount,
-            IncludeRecentMessages = includeRecentMessages
-        });
-        return Success(result, "Lấy cuộc hội thoại thành công!");
-    }
 
-    /// <summary>
-    /// Lấy cuộc hội thoại theo user ID với lazy loading support - Enhanced version
-    /// </summary>
-    [HttpGet("users/{userId}/conversations/enhanced")]
-    public async Task<IActionResult> GetConversationsEnhanced(
-        string userId, 
-        [FromQuery] int page = 1, 
-        [FromQuery] int pageSize = 20,
-        [FromQuery] bool includeParticipantDetails = false,
-        [FromQuery] bool includeUnreadCount = true,
-        [FromQuery] bool includeRecentMessages = false,
-        [FromQuery] int recentMessagesCount = 5,
-        [FromQuery] bool includeMetadata = false,
-        [FromQuery] bool includeOnlineStatus = false)
-    {
-        var options = new ConversationLoadOptions
-        {
-            IncludeParticipantDetails = includeParticipantDetails,
-            IncludeUnreadCount = includeUnreadCount,
-            IncludeRecentMessages = includeRecentMessages,
-            RecentMessagesCount = recentMessagesCount,
-            IncludeMetadata = includeMetadata,
-            IncludeOnlineStatus = includeOnlineStatus
-        };
-
-        var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, options);
-        
-        return Success(new 
-        { 
-            Conversations = result,
-            LoadedOptions = options,
-            TotalCount = result.Count(),
-            Page = page,
-            PageSize = pageSize
-        }, "Lấy cuộc hội thoại với lazy loading thành công!");
-    }
 
     /// <summary>
     /// Lấy cuộc hội thoại theo user ID - phiên bản performance cao cho mobile
@@ -425,7 +369,6 @@ public class CommunicationsController : BaseApiController
         {
             IncludeParticipantDetails = false,
             IncludeUnreadCount = true,
-            IncludeRecentMessages = false,
             IncludeMetadata = false,
             IncludeOnlineStatus = false
         };
@@ -451,19 +394,17 @@ public class CommunicationsController : BaseApiController
     /// <summary>
     /// Lấy cuộc hội thoại theo user ID - phiên bản đầy đủ cho web
     /// </summary>
-    [HttpGet("users/{userId}/conversations/full")]
+    [HttpGet("users/{userId}/conversations")]
     public async Task<IActionResult> GetConversationsFull(
         string userId, 
         [FromQuery] int page = 1, 
         [FromQuery] int pageSize = 20)
     {
-        // Web version load đầy đủ thông tin
+        // Web version load đầy đủ thông tin (trừ recent messages)
         var options = new ConversationLoadOptions
         {
             IncludeParticipantDetails = true,
             IncludeUnreadCount = true,
-            IncludeRecentMessages = true,
-            RecentMessagesCount = 3,
             IncludeMetadata = true,
             IncludeOnlineStatus = true
         };
@@ -476,7 +417,7 @@ public class CommunicationsController : BaseApiController
             Page = page,
             PageSize = pageSize,
             LoadedWithFullDetails = true,
-            PerformanceNote = "This endpoint loads all available data - use with caution on mobile"
+            Note = "Messages should be loaded separately via /conversations/{id}/messages endpoint"
         }, "Lấy cuộc hội thoại đầy đủ thành công!");
     }
 
@@ -488,14 +429,12 @@ public class CommunicationsController : BaseApiController
         string id,
         [FromQuery] bool includeParticipantDetails = true,
         [FromQuery] bool includeUnreadCount = true,
-        [FromQuery] bool includeRecentMessages = true,
         [FromQuery] bool includeMetadata = false)
     {
         var result = await _conversationService.GetConversationDetailsAsync(id, new ConversationLoadOptions
         {
             IncludeParticipantDetails = includeParticipantDetails,
             IncludeUnreadCount = includeUnreadCount,
-            IncludeRecentMessages = includeRecentMessages,
             IncludeMetadata = includeMetadata
         });
         
