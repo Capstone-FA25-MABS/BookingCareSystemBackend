@@ -72,7 +72,7 @@ public class AuthController : BaseApiController
     [HttpPost("register/patient")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RegisterPatient([FromBody] RegisterRequest request)
-    {      
+    {
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
 
@@ -81,7 +81,7 @@ public class AuthController : BaseApiController
         if (roleValidation != null) return roleValidation;
 
         var result = await _authService.RegisterAsync(request, Role.PATIENT);
-        return Created(result, "Account registered successfully");             
+        return Created(result, "Account registered successfully");
     }
 
     /// <summary>
@@ -171,12 +171,12 @@ public class AuthController : BaseApiController
     [Authorize]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
-    {       
+    {
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
 
         var result = await _authService.ChangePasswordAsync(request);
-        return Success("Password changed successfully");       
+        return Success("Password changed successfully");
     }
 
     /// <summary>
@@ -187,20 +187,21 @@ public class AuthController : BaseApiController
     [HttpPost("forgot-password")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
-    {      
+    {
         var validation = ValidateRequest(request);
         if (validation != null) return validation;
 
         await _authService.ForgotPasswordAsync(request);
 
         // Do not reveal whether the target exists; return generic success
-        var response = new {
+        var response = new
+        {
             NextStep = !string.IsNullOrWhiteSpace(request.Email)
                 ? "If the email exists, a reset link was sent"
                 : "An OTP was sent if the phone is registered"
         };
 
-        return Success(response, "If the account exists, instructions have been sent");      
+        return Success(response, "If the account exists, instructions have been sent");
     }
 
     /// <summary>
@@ -211,12 +212,12 @@ public class AuthController : BaseApiController
     [HttpPost("reset-password")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
-    {       
+    {
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
 
         await _authService.ResetPasswordAsync(request);
-        return Success("Password reset successfully");     
+        return Success("Password reset successfully");
     }
 
     /// <summary>
@@ -231,7 +232,7 @@ public class AuthController : BaseApiController
         var validation = ValidateBasicRequest();
 
         var result = await _authService.ResetTokenAsync(request);
-        return Success(result, "Reset token if the phone is registered");     
+        return Success(result, "Reset token if the phone is registered");
     }
 
     #endregion
@@ -720,5 +721,5 @@ public class AuthController : BaseApiController
 
     #endregion
 
-   
+
 }

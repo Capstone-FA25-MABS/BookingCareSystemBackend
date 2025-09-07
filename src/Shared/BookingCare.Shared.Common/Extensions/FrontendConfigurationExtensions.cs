@@ -20,10 +20,10 @@ public static class FrontendConfigurationExtensions
     {
         // Create FrontendOptions from centralized configuration
         var frontendOptions = FrontendConfiguration.CreateFrontendOptions(configuration);
-        
+
         // Register as singleton
         services.AddSingleton(frontendOptions);
-        
+
         // Also register as IOptions for backward compatibility
         services.Configure<FrontendOptions>(options =>
         {
@@ -47,10 +47,10 @@ public static class FrontendConfigurationExtensions
         // Create default options and apply custom configuration
         var frontendOptions = FrontendConfiguration.CreateFrontendOptions();
         configureOptions(frontendOptions);
-        
+
         // Register as singleton
         services.AddSingleton(frontendOptions);
-        
+
         // Also register as IOptions for backward compatibility
         services.Configure<FrontendOptions>(options =>
         {

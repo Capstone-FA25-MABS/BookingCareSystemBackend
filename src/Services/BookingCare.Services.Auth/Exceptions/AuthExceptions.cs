@@ -9,11 +9,11 @@ namespace BookingCare.Services.Auth.Exceptions;
 public class AuthException : BookingCareException
 {
     public AuthException(
-        string message, 
+        string message,
         string errorCode = "AUTH_ERROR",
         HttpStatusCode statusCode = HttpStatusCode.InternalServerError,
         Exception? innerException = null,
-        Dictionary<string, object>? details = null) 
+        Dictionary<string, object>? details = null)
         : base(message, errorCode, statusCode, innerException, details)
     {
     }
@@ -57,7 +57,7 @@ public class PermissionNotFoundException : NotFoundException
 /// </summary>
 public class AuthenticationException : UnauthorizedException
 {
-    public AuthenticationException(string message) 
+    public AuthenticationException(string message)
         : base(message, "AUTHENTICATION_FAILED")
     {
     }
@@ -69,7 +69,7 @@ public class AuthenticationException : UnauthorizedException
 /// </summary>
 public class AccountValidationException : ValidationException
 {
-    public AccountValidationException(string message) 
+    public AccountValidationException(string message)
         : base(message, null, "ACCOUNT_VALIDATION_ERROR")
     {
     }
@@ -116,7 +116,7 @@ public class PermissionConflictException : ConflictException
 /// </summary>
 public class RoleValidationException : ValidationException
 {
-    public RoleValidationException(string message) 
+    public RoleValidationException(string message)
         : base(message, null, "ROLE_VALIDATION_ERROR")
     {
     }

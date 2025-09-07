@@ -22,7 +22,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
         modelBuilder.Entity<AccountEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
-            
+
             entity.Property(e => e.Email)
                 .HasMaxLength(100)
                 .IsRequired();
@@ -90,7 +90,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        
+
         // Configure Permission
         modelBuilder.Entity<PermissionEntity>(entity =>
         {
@@ -146,7 +146,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
 
             entity.Property(e => e.Token)
                 .HasMaxLength(450)
-                .IsRequired();    
+                .IsRequired();
 
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("GETDATE()");
@@ -178,8 +178,8 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
     private void UpdateTimestamps()
     {
         var entries = ChangeTracker.Entries()
-            .Where(e => e.Entity is AccountEntity || e.Entity is RoleEntity || 
-                       e.Entity is AccountRoleEntity || 
+            .Where(e => e.Entity is AccountEntity || e.Entity is RoleEntity ||
+                       e.Entity is AccountRoleEntity ||
                        e.Entity is PermissionEntity || e.Entity is RolePermissionEntity ||
                        e.Entity is RefreshTokenEntity);
 
@@ -229,7 +229,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
                 {
                     userRole.UpdatedAt = DateTime.UtcNow;
                     entry.Property(nameof(userRole.CreatedAt)).IsModified = false;
-                }     
+                }
                 else if (entry.Entity is PermissionEntity permission)
                 {
                     permission.UpdatedAt = DateTime.UtcNow;

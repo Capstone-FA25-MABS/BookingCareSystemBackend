@@ -111,8 +111,8 @@ public class CookieService
 
             // Get all cookies to remove
             var cookiesToRemove = httpContext.Request.Cookies.Keys
-                .Where(key => key.StartsWith($"access_token_{prefix}_") || 
-                             key.StartsWith($"{prefix}_current_user") || 
+                .Where(key => key.StartsWith($"access_token_{prefix}_") ||
+                             key.StartsWith($"{prefix}_current_user") ||
                              key.StartsWith($"refresh_token_{prefix}"))
                 .ToList();
 

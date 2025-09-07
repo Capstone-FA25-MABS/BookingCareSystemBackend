@@ -94,7 +94,7 @@ public class DataInitializationService
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
-                    
+
                     await _authRepository.CreatePermissionAsync(permissionEntity);
                     _logger.LogInformation("Created permission: {PermissionName}", permission.Name);
                 }
@@ -135,7 +135,7 @@ public class DataInitializationService
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };
-                    
+
                     await _authRepository.CreateRoleAsync(roleEntity);
                     _logger.LogInformation("Created role: {RoleName}", role.Name);
                 }
@@ -174,14 +174,14 @@ public class DataInitializationService
             await AssignPermissionsToRoleAsync(patientRole.Id, patientPermissions, "Patient");
 
             // Doctor role permissions: Medical management + patient read
-            var doctorPermissions = new[] { 
-                "Patient.Read", "Content.Read", "Content.Create", "Content.Update", 
-                "Content.Delete", "Content.Moderate" 
+            var doctorPermissions = new[] {
+                "Patient.Read", "Content.Read", "Content.Create", "Content.Update",
+                "Content.Delete", "Content.Moderate"
             };
             await AssignPermissionsToRoleAsync(doctorRole.Id, doctorPermissions, "Doctor");
 
             // Admin role permissions: Everything
-            var adminPermissions = new[] { 
+            var adminPermissions = new[] {
                 "Patient.Read", "Patient.Create", "Patient.Update", "Patient.Delete",
                 "Role.Read", "Role.Create", "Role.Update", "Role.Delete", "Role.Assign",
                 "Permission.Read", "Permission.Create", "Permission.Update", "Permission.Delete", "Permission.Assign",

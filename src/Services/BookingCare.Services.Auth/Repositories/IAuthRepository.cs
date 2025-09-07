@@ -37,7 +37,7 @@ public interface IAuthRepository
 
     // Account-Role operations
     Task<bool> RoleAlreadyAssignedAsync(AccountEntity account, string roleName);
-    Task<AccountRoleEntity> AssignRoleToAccountAsync(AccountEntity  account, RoleEntity role);
+    Task<AccountRoleEntity> AssignRoleToAccountAsync(AccountEntity account, RoleEntity role);
     Task<bool> RemoveRoleFromAccountAsync(AccountEntity account, RoleEntity role);
     Task<List<RoleEntity>> GetAccountRolesAsync(AccountEntity account);
     Task<List<AccountEntity>> GetAccountsByRoleAsync(RoleEntity role);

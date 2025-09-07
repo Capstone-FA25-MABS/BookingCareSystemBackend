@@ -78,7 +78,7 @@ builder.Services.AddIdentity<AccountEntity, RoleEntity>(options =>
 
     // Cấu hình người dùng: 
     // - RequireUniqueEmail: Yêu cầu email phải là duy nhất.
-    options.User.RequireUniqueEmail = true; 
+    options.User.RequireUniqueEmail = true;
 
 })
 .AddEntityFrameworkStores<AuthDbContext>()

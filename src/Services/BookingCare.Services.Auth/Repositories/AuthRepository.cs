@@ -136,7 +136,7 @@ public class AuthRepository : IAuthRepository
             throw new AuthException("Failed to update account", innerException: ex);
         }
     }
-  
+
     /// <summary>
     /// Check if email exists using AnyAsync for optimal performance
     /// </summary>
@@ -446,7 +446,7 @@ public class AuthRepository : IAuthRepository
             throw new AuthException("Failed to delete permission", innerException: ex);
         }
     }
- 
+
     /// <summary>
     /// Check if permission name exists (case-insensitive)
     /// </summary>
@@ -521,7 +521,7 @@ public class AuthRepository : IAuthRepository
     #endregion
 
     #region Account-Role Operations
-  
+
     /// <summary>
     /// Check if account already has the specified role by name using AnyAsync for optimal performance
     /// </summary>
@@ -544,7 +544,7 @@ public class AuthRepository : IAuthRepository
     public async Task<AccountRoleEntity> AssignRoleToAccountAsync(AccountEntity account, RoleEntity role)
     {
         try
-        {                      
+        {
             var result = await _userManager.AddToRoleAsync(account, role.Name!);
 
             if (!result.Succeeded)
@@ -573,7 +573,7 @@ public class AuthRepository : IAuthRepository
     public async Task<bool> RemoveRoleFromAccountAsync(AccountEntity account, RoleEntity role)
     {
         try
-        {           
+        {
             var result = await _userManager.RemoveFromRoleAsync(account, role.Name!);
             if (!result.Succeeded)
             {
@@ -583,7 +583,7 @@ public class AuthRepository : IAuthRepository
 
             _logger.LogInformation("Successfully removed role {RoleName} from account {AccountId}", role.Name, account.Id);
             return true;
-        }       
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error removing role from account: AccountId={AccountId}, RoleId={RoleId}", account.Id, role.Id);
@@ -708,14 +708,14 @@ public class AuthRepository : IAuthRepository
             var rolePermission = await _context.RolePermissions
                 .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId);
 
-            if(rolePermission == null) return false;
+            if (rolePermission == null) return false;
 
             _context.RolePermissions.Remove(rolePermission);
             await _context.SaveChangesAsync();
-            
+
             _logger.LogInformation("Successfully removed permission {PermissionId} from role {RoleId}", permissionId, roleId);
             return true;
-        }       
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error removing permission from role: RoleId={RoleId}, PermissionId={PermissionId}", roleId, permissionId);
@@ -813,7 +813,7 @@ public class AuthRepository : IAuthRepository
         {
             // Check password
             var isValid = await ValidateCredentialsAsync(account, password);
-            
+
             if (isValid)
             {
                 // Reset failed access count on successful login
@@ -886,7 +886,7 @@ public class AuthRepository : IAuthRepository
             throw new AuthException("Failed to change password", innerException: ex);
         }
     }
-  
+
     /// <summary>
     /// Reset password using Identity reset token
     /// </summary>

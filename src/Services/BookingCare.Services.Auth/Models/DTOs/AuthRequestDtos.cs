@@ -24,7 +24,7 @@ public abstract class EmailOrPhoneRequest : IValidatableObject
         {
             yield return new ValidationResult("Either Email or PhoneNumber is required", new[] { nameof(Email), nameof(PhoneNumber) });
         }
-        
+
         // Both Email and PhoneNumber cannot be provided at the same time
         if (!string.IsNullOrWhiteSpace(Email) && !string.IsNullOrWhiteSpace(PhoneNumber))
         {
@@ -108,10 +108,10 @@ public class RegisterRequest
         {
             if (string.IsNullOrWhiteSpace(FullName))
                 yield return new ValidationResult("FullName is required for Patient", new[] { nameof(FullName) });
-            
+
             if (!Gender.HasValue)
                 yield return new ValidationResult("Gender is required for Patient", new[] { nameof(Gender) });
-            
+
             if (!Birthday.HasValue)
                 yield return new ValidationResult("Birthday is required for Patient", new[] { nameof(Birthday) });
             else if (Birthday.Value >= DateTime.Today)
@@ -125,10 +125,10 @@ public class RegisterRequest
         {
             if (string.IsNullOrWhiteSpace(FullName))
                 yield return new ValidationResult("FullName is required for Doctor", new[] { nameof(FullName) });
-            
+
             if (!Gender.HasValue)
                 yield return new ValidationResult("Gender is required for Doctor", new[] { nameof(Gender) });
-            
+
             if (DoctorProfile == null)
                 yield return new ValidationResult("DoctorProfile is required for Doctor", new[] { nameof(DoctorProfile) });
             // DoctorProfile properties are validated by data annotations

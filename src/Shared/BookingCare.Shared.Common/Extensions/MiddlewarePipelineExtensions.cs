@@ -13,7 +13,7 @@ public static class MiddlewarePipelineExtensions
     /// <param name="app">Application builder</param>
     /// <returns>Application builder for chaining</returns>
     public static IApplicationBuilder UseStandardAuthPipeline(this IApplicationBuilder app)
-    {       
+    {
         app.UseAutoToken(); // Custom middleware to attach token from cookies
         app.UseRouting(); // Must be before UseAuthentication and UseAuthorization
         app.UseAuthentication();

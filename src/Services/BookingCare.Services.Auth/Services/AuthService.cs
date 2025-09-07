@@ -78,7 +78,7 @@ public class AuthService : BaseService, IAuthService
             {
                 throw new AuthenticationException($"Account '{loginIdentifier}' is temporarily locked due to too many failed login attempts");
             }
-            
+
             var isValid = await _authRepository.ValidateCredentialsWithLockoutAsync(account, request.Password);
             if (!isValid)
             {
@@ -87,7 +87,7 @@ public class AuthService : BaseService, IAuthService
 
             // Generate JWT access token with roles and permissions
             var accessToken = await _jwtService.GenerateAccessTokenAsync(account);
-        
+
             // Generate and store refresh token
             var refreshTokenEntity = await _authRepository.CreateRefreshTokenAsync(account.Id);
 
@@ -95,7 +95,7 @@ public class AuthService : BaseService, IAuthService
             _cookieService.SaveTokensInCookies(account.Id, accessToken, refreshTokenEntity.Token);
 
             LogInfo("Login successful for: {LoginIdentifier}", null, loginIdentifier!);
-                    
+
             return new AuthResponse
             {
                 Message = "Login successful",
@@ -172,9 +172,9 @@ public class AuthService : BaseService, IAuthService
 
             // Validate refresh token
             var (isValid, account, tokenEntity) = await _authRepository.ValidateRefreshTokenAsync(refreshToken);
-            
+
             if (!isValid || account == null)
-            {    
+            {
                 throw new AuthenticationException("Invalid or expired refresh token");
             }
 
@@ -203,7 +203,7 @@ public class AuthService : BaseService, IAuthService
             LogInfo("Logout attempt");
 
             await _authRepository.DeleteRefreshTokenAsync(refreshToken);
-            
+
             // Clear authentication cookies
             _cookieService.ClearAuthenticationCookies();
 
@@ -223,7 +223,7 @@ public class AuthService : BaseService, IAuthService
 
             // Get account
             var account = await _authRepository.GetAccountByIdAsync(request.AccountId) ?? throw new AccountNotFoundException(request.AccountId);
-            
+
             // Check if account has external login providers
             var hasExternalLogin = await _authRepository.HasExternalLoginAsync(account);
 
@@ -451,7 +451,7 @@ public class AuthService : BaseService, IAuthService
                 return true;
             if (!allowProofFallback)
                 return false;
-        }     
+        }
 
         // 3) Fallback to proof
         return VerifyOtpProof(purpose, proof, issuedAt, new[] { subject });
@@ -502,18 +502,18 @@ public class AuthService : BaseService, IAuthService
     #endregion
 
     #region Account Operations
-   
+
     /// <summary>
     /// Toggle account active status (ACTIVE <-> INACTIVE)
     /// </summary>
-    public async Task<Status?> ToggleAccountActiveStatusAsync(Guid id)  
+    public async Task<Status?> ToggleAccountActiveStatusAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
             LogInfo("Toggling account active status: {AccountId}", null, id);
 
             var account = await _authRepository.GetAccountByIdAsync(id) ?? throw new AccountNotFoundException(id);
-            
+
             account.Status = account.Status == Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
 
             await _authRepository.UpdateAccountAsync(account);
@@ -634,7 +634,7 @@ public class AuthService : BaseService, IAuthService
             // Check if there are any changes (case-insensitive)
             var nameChanged = !string.Equals(request.Name, existingRole.Name, StringComparison.Ordinal);
             var descriptionChanged = !string.IsNullOrEmpty(request.Description) && request.Description != existingRole.Description;
-            
+
             // If no changes, return existing role without calling repository
             if (!nameChanged && !descriptionChanged)
             {
@@ -651,7 +651,7 @@ public class AuthService : BaseService, IAuthService
                 }
                 existingRole.Name = request.Name;
             }
-            
+
             if (descriptionChanged)
             {
                 existingRole.Description = request.Description;
@@ -799,7 +799,7 @@ public class AuthService : BaseService, IAuthService
             // Check if there are any changes (case-insensitive)
             var nameChanged = !string.Equals(request.Name, existingPermission.Name, StringComparison.Ordinal);
             var descriptionChanged = !string.IsNullOrEmpty(request.Description) && request.Description != existingPermission.Description;
-            
+
             // If no changes, return existing permission without calling repository
             if (!nameChanged && !descriptionChanged)
             {
@@ -816,7 +816,7 @@ public class AuthService : BaseService, IAuthService
                 }
                 existingPermission.Name = request.Name;
             }
-            
+
             if (descriptionChanged)
             {
                 existingPermission.Description = request.Description;
@@ -898,7 +898,7 @@ public class AuthService : BaseService, IAuthService
                 throw new RoleAlreadyAssignedException(account.Id, role.Name!);
             }
             var accountRole = await _authRepository.AssignRoleToAccountAsync(account, role);
-            
+
             LogInfo("Role assigned successfully: AccountId={AccountId}, RoleId={RoleId}", null, request.AccountId, request.RoleId);
             return _mapper.Map<AccountRoleResponse>(accountRole);
         }, "AssignRoleToAccount");
@@ -922,7 +922,7 @@ public class AuthService : BaseService, IAuthService
                 throw new RoleNotAssignedException(account.Id, role.Name!);
             }
             var result = await _authRepository.RemoveRoleFromAccountAsync(account, role);
-            
+
             LogInfo("Role removal result: AccountId={AccountId}, RoleId={RoleId}, Success={Success}", null, request.AccountId, request.RoleId, result);
             return result;
         }, "RemoveRoleFromAccount");
@@ -940,7 +940,7 @@ public class AuthService : BaseService, IAuthService
 
             var roles = await _authRepository.GetAccountRolesAsync(account);
             var roleResponses = _mapper.Map<List<RoleResponse>>(roles);
-            
+
             LogInfo("Retrieved {Count} roles for account: AccountId={AccountId}", null, roleResponses.Count, accountId);
             return roleResponses;
         }, "GetAccountRoles");
@@ -958,12 +958,12 @@ public class AuthService : BaseService, IAuthService
 
             var accounts = await _authRepository.GetAccountsByRoleAsync(role);
             var accountResponses = _mapper.Map<List<AccountResponse>>(accounts);
-            
+
             LogInfo("Retrieved {Count} accounts for role: RoleId={RoleId}", null, accountResponses.Count, roleId);
             return accountResponses;
         }, "GetAccountsByRole");
     }
- 
+
     #endregion
 
     #region Role-Permission Operations
@@ -986,7 +986,7 @@ public class AuthService : BaseService, IAuthService
             }
 
             var rolePermission = await _authRepository.AssignPermissionToRoleAsync(request.RoleId, request.PermissionId);
-            
+
             LogInfo("Permission assigned successfully: RoleId={RoleId}, PermissionId={PermissionId}", null, request.RoleId, request.PermissionId);
             return _mapper.Map<RolePermissionResponse>(rolePermission);
         }, "AssignPermissionToRole");
@@ -1010,7 +1010,7 @@ public class AuthService : BaseService, IAuthService
             }
 
             var result = await _authRepository.RemovePermissionFromRoleAsync(request.RoleId, request.PermissionId);
-            
+
             LogInfo("Permission removal result: RoleId={RoleId}, PermissionId={PermissionId}, Success={Success}", null, request.RoleId, request.PermissionId, result);
             return result;
         }, "RemovePermissionFromRole");
@@ -1028,7 +1028,7 @@ public class AuthService : BaseService, IAuthService
 
             var permissions = await _authRepository.GetRolePermissionsAsync(role.Id);
             var permissionResponses = _mapper.Map<List<PermissionResponse>>(permissions);
-            
+
             LogInfo("Retrieved {Count} permissions for role: RoleId={RoleId}", null, permissionResponses.Count, roleId);
             return permissionResponses;
         }, "GetRolePermissions");
@@ -1046,7 +1046,7 @@ public class AuthService : BaseService, IAuthService
 
             var roles = await _authRepository.GetRolesByPermissionAsync(permissionId);
             var roleResponses = _mapper.Map<List<RoleResponse>>(roles);
-            
+
             LogInfo("Retrieved {Count} roles for permission: PermissionId={PermissionId}", null, roleResponses.Count, permissionId);
             return roleResponses;
         }, "GetRolesByPermission");

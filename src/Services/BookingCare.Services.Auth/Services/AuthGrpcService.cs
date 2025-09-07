@@ -19,12 +19,12 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     }
 
     public override async Task<CheckAccountExistsResponse> CheckAccountExists(
-        CheckAccountExistsRequest request, 
+        CheckAccountExistsRequest request,
         ServerCallContext context)
     {
         try
         {
-            _logger.LogInformation("gRPC CheckAccountExists called for email: {Email}, phone: {Phone}", 
+            _logger.LogInformation("gRPC CheckAccountExists called for email: {Email}, phone: {Phone}",
                 request.Email, request.PhoneNumber);
 
             bool exists = false;

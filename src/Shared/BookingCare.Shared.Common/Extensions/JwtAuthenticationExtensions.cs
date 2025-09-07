@@ -23,16 +23,16 @@ public static class JwtAuthenticationExtensions
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration? configuration = null, bool requireHttpsMetadata = false)
     {
         // Get JWT configuration from centralized source
-        var (secretKey, issuer, audience, _, _) = configuration != null 
+        var (secretKey, issuer, audience, _, _) = configuration != null
             ? JwtConfiguration.GetConfiguration(configuration)
             : JwtConfiguration.GetConfiguration();
 
         if (string.IsNullOrEmpty(secretKey))
             throw new InvalidOperationException("JWT SecretKey is not configured. Please set JWT_SECRET_KEY environment variable or configure in appsettings.json");
-        
+
         if (string.IsNullOrEmpty(issuer))
             throw new InvalidOperationException("JWT Issuer is not configured. Please set JWT_ISSUER environment variable or configure in appsettings.json");
-        
+
         if (string.IsNullOrEmpty(audience))
             throw new InvalidOperationException("JWT Audience is not configured. Please set JWT_AUDIENCE environment variable or configure in appsettings.json");
 
@@ -73,16 +73,16 @@ public static class JwtAuthenticationExtensions
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration? configuration, Action<JwtBearerOptions> configureOptions)
     {
         // Get JWT configuration from centralized source
-        var (secretKey, issuer, audience, _, _) = configuration != null 
+        var (secretKey, issuer, audience, _, _) = configuration != null
             ? JwtConfiguration.GetConfiguration(configuration)
             : JwtConfiguration.GetConfiguration();
 
         if (string.IsNullOrEmpty(secretKey))
             throw new InvalidOperationException("JWT SecretKey is not configured. Please set JWT_SECRET_KEY environment variable or configure in appsettings.json");
-        
+
         if (string.IsNullOrEmpty(issuer))
             throw new InvalidOperationException("JWT Issuer is not configured. Please set JWT_ISSUER environment variable or configure in appsettings.json");
-        
+
         if (string.IsNullOrEmpty(audience))
             throw new InvalidOperationException("JWT Audience is not configured. Please set JWT_AUDIENCE environment variable or configure in appsettings.json");
 

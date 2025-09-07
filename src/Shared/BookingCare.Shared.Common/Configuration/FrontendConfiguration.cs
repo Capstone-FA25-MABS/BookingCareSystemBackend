@@ -15,7 +15,7 @@ public static class FrontendConfiguration
         public const string ClientBaseUrl = "http://localhost:3000/";
         public const string AdminBaseUrl = "http://localhost:3002/";
         public const string DefaultBaseUrl = "http://localhost:3000/";
-        
+
         public static readonly IReadOnlyDictionary<string, string> HostMap =
             new ReadOnlyDictionary<string, string>(new Dictionary<string, string>
             {
@@ -60,7 +60,7 @@ public static class FrontendConfiguration
     /// <returns>FrontendOptions object</returns>
     public static FrontendOptions CreateFrontendOptions(Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
     {
-        var (clientBaseUrl, adminBaseUrl, defaultBaseUrl, hostMap) = configuration != null 
+        var (clientBaseUrl, adminBaseUrl, defaultBaseUrl, hostMap) = configuration != null
             ? GetConfiguration(configuration)
             : GetConfiguration();
 
@@ -88,7 +88,7 @@ public static class FrontendConfiguration
         {
             var hostMap = new Dictionary<string, string>();
             var pairs = hostMapString.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            
+
             foreach (var pair in pairs)
             {
                 var parts = pair.Split(':', 2);
@@ -97,7 +97,7 @@ public static class FrontendConfiguration
                     hostMap[parts[0].Trim()] = parts[1].Trim();
                 }
             }
-            
+
             return hostMap.Count > 0 ? hostMap : null;
         }
         catch
