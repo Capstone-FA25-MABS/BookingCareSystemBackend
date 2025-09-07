@@ -35,10 +35,11 @@ public class CookieService
             var cookieUserName = $"{prefix}_current_user";
 
             // Save access token
+            var isHttps = httpContext.Request.IsHttps;
             httpContext.Response.Cookies.Append(cookieTokenName, accessToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false, // Set to true in production with HTTPS
+                Secure = isHttps,
                 SameSite = SameSiteMode.Strict,
                 Expires = DateTime.UtcNow.AddMinutes(30)
             });
@@ -47,7 +48,7 @@ public class CookieService
             httpContext.Response.Cookies.Append(cookieRefreshTokenName, refreshToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false, // Set to true in production with HTTPS
+                Secure = isHttps,
                 SameSite = SameSiteMode.Strict,
                 Expires = DateTime.UtcNow.AddDays(7)
             });
@@ -56,7 +57,7 @@ public class CookieService
             httpContext.Response.Cookies.Append(cookieUserName, userId.ToString(), new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false, // Set to true in production with HTTPS
+                Secure = isHttps,
                 SameSite = SameSiteMode.Strict,
                 Expires = DateTime.UtcNow.AddMinutes(30)
             });
