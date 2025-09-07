@@ -85,23 +85,4 @@ app.MapGrpcService<ReviewGrpcService>();
 // Health check endpoint
 app.MapGet("/", () => "BookingCare Review Service is running...");
 
-// Initialize MongoDB indexes on startup
-using (var scope = app.Services.CreateScope())
-{
-    try
-    {
-        var indexService = scope.ServiceProvider.GetRequiredService<IIndexInitializationService>();
-        await indexService.InitializeIndexesAsync();
-
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation("MongoDB indexes initialized successfully");
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Failed to initialize MongoDB indexes");
-        // Don't stop the application if index initialization fails
-    }
-}
-
 app.Run();

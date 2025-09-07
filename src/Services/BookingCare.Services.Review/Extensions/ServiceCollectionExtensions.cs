@@ -28,9 +28,6 @@ public static class ServiceCollectionExtensions
         // Register business services
         services.AddScoped<IReviewService, ReviewService>();
 
-        // Register index initialization service
-        services.AddScoped<IIndexInitializationService, IndexInitializationService>();
-
         return services;
     }
 }
