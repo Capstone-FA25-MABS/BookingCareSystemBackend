@@ -14,11 +14,8 @@ public interface IAuthRepository
     Task<AccountEntity?> GetAccountByPhoneNumberAsync(string phoneNumber);
     Task<AccountEntity> CreateAccountAsync(AccountEntity account, string password);
     Task<AccountEntity> UpdateAccountAsync(AccountEntity account);
-    Task<bool> DeleteAccountAsync(Guid id);
-    Task<bool> AccountExistsAsync(Guid id);
-    Task<bool> EmailExistsAsync(string email, Guid? excludeId = null);
-    Task<bool> PhoneNumberExistsAsync(string phoneNumber, Guid? excludeId = null);
-    Task<(List<AccountEntity> Accounts, int TotalCount)> GetAccountsAsync(AccountQueryRequest query);
+    Task<bool> EmailExistsAsync(string email);
+    Task<bool> PhoneNumberExistsAsync(string phoneNumber);
 
     // Role operations
     Task<RoleEntity?> GetRoleByIdAsync(Guid id);
@@ -26,7 +23,6 @@ public interface IAuthRepository
     Task<RoleEntity> CreateRoleAsync(RoleEntity role);
     Task<RoleEntity> UpdateRoleAsync(RoleEntity role);
     Task<bool> DeleteRoleAsync(Guid id);
-    Task<bool> RoleExistsAsync(Guid id);
     Task<bool> RoleNameExistsAsync(string name, Guid? excludeId = null);
     Task<(List<RoleEntity> Roles, int TotalCount)> GetRolesAsync(RoleQueryRequest query);
 
@@ -36,43 +32,45 @@ public interface IAuthRepository
     Task<PermissionEntity> CreatePermissionAsync(PermissionEntity permission);
     Task<PermissionEntity> UpdatePermissionAsync(PermissionEntity permission);
     Task<bool> DeletePermissionAsync(Guid id);
-    Task<bool> PermissionExistsAsync(Guid id);
     Task<bool> PermissionNameExistsAsync(string name, Guid? excludeId = null);
     Task<(List<PermissionEntity> Permissions, int TotalCount)> GetPermissionsAsync(PermissionQueryRequest query);
 
     // Account-Role operations
-    Task<AccountRoleEntity?> GetAccountRoleAsync(Guid accountId, Guid roleId);
-    Task<AccountRoleEntity> AssignRoleToAccountAsync(Guid accountId, Guid roleId);
-    Task<bool> RemoveRoleFromAccountAsync(Guid accountId, Guid roleId);
-    Task<List<RoleEntity>> GetAccountRolesAsync(Guid accountId);
-    Task<List<AccountEntity>> GetAccountsByRoleAsync(Guid roleId);
-    Task<bool> AccountHasRoleAsync(Guid accountId, Guid roleId);
-    Task<bool> AccountHasRoleAsync(Guid accountId, string roleName);
+    Task<bool> RoleAlreadyAssignedAsync(AccountEntity account, string roleName);
+    Task<AccountRoleEntity> AssignRoleToAccountAsync(AccountEntity  account, RoleEntity role);
+    Task<bool> RemoveRoleFromAccountAsync(AccountEntity account, RoleEntity role);
+    Task<List<RoleEntity>> GetAccountRolesAsync(AccountEntity account);
+    Task<List<AccountEntity>> GetAccountsByRoleAsync(RoleEntity role);
+
+    // Account-Permission operations
+    Task<List<string>> GetAccountPermissionsAsync(AccountEntity account);
 
     // Role-Permission operations
-    Task<RolePermissionEntity?> GetRolePermissionAsync(Guid roleId, Guid permissionId);
     Task<RolePermissionEntity> AssignPermissionToRoleAsync(Guid roleId, Guid permissionId);
     Task<bool> RemovePermissionFromRoleAsync(Guid roleId, Guid permissionId);
     Task<List<PermissionEntity>> GetRolePermissionsAsync(Guid roleId);
     Task<List<RoleEntity>> GetRolesByPermissionAsync(Guid permissionId);
     Task<bool> RoleHasPermissionAsync(Guid roleId, Guid permissionId);
-    Task<bool> RoleHasPermissionAsync(Guid roleId, string permissionName);
 
     // Authentication operations
-    Task<bool> ValidateCredentialsAsync(string email, string password);
-    Task<bool> ValidateCredentialsWithLockoutAsync(string email, string password);
-    Task<bool> IsAccountLockedOutAsync(Guid accountId);
-    Task<bool> HasExternalLoginAsync(Guid accountId);
-    Task<bool> ChangePasswordAsync(Guid accountId, string newPassword);
-    Task<bool> ResetPasswordAsync(string email, string newPassword);
-    Task<bool> ResetPasswordWithTokenAsync(string email, string resetToken, string newPassword);
-    Task<bool> LockAccountAsync(Guid accountId);
-    Task<bool> UnlockAccountAsync(Guid accountId);
+    Task<bool> ValidateCredentialsAsync(AccountEntity account, string password);
+    Task<bool> ValidateCredentialsWithLockoutAsync(AccountEntity account, string password);
+    Task<bool> IsAccountLockedOutAsync(AccountEntity account);
+    Task<bool> HasExternalLoginAsync(AccountEntity account);
+    Task<bool> ChangePasswordAsync(AccountEntity account, string newPassword);
+    Task<bool> ResetPasswordWithTokenAsync(AccountEntity account, string resetToken, string newPassword);
+    Task<bool> LockAccountAsync(AccountEntity account);
+    Task<bool> UnlockAccountAsync(AccountEntity account);
 
     // Password reset token
     Task<(bool Found, Guid AccountId, string Token)> GeneratePasswordResetTokenAsync(string email);
-    Task<(bool Found, string Email, Guid AccountId, string Token)> GeneratePasswordResetTokenByPhoneAsync(string phoneNumber);
+    Task<(bool Found, string Email, string Token)> GeneratePasswordResetTokenByPhoneAsync(string phoneNumber);
 
     // Password policy validation via Identity
     Task<(bool IsValid, IEnumerable<string> Errors)> ValidatePasswordAsync(AccountEntity account, string newPassword);
+
+    // Refresh Token operations
+    Task<RefreshTokenEntity> CreateRefreshTokenAsync(Guid accountId);
+    Task<(bool IsValid, AccountEntity? Account, RefreshTokenEntity? Token)> ValidateRefreshTokenAsync(string token);
+    Task<bool> DeleteRefreshTokenAsync(string token);
 }

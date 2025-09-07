@@ -1,14 +1,11 @@
-using AutoMapper;
 using BookingCare.Services.Auth.Models.DTOs;
 using BookingCare.Services.Auth.Services;
-using BookingCare.Services.Auth.Exceptions;
 using BookingCare.Shared.Common.Controllers;
-using BookingCare.Shared.Common.Models;
-using BookingCare.Shared.Common.Exceptions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Hosting;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Auth.Utils;
+using System.ComponentModel.DataAnnotations;
 
 namespace BookingCare.Services.Auth.Controllers;
 
@@ -21,13 +18,11 @@ namespace BookingCare.Services.Auth.Controllers;
 public class AuthController : BaseApiController
 {
     private readonly IAuthService _authService;
-    private readonly ILogger<AuthController> _logger;
     private readonly CookieService _cookieService;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger, CookieService cookieService)
+    public AuthController(IAuthService authService, CookieService cookieService)
     {
         _authService = authService;
-        _logger = logger;
         _cookieService = cookieService;
     }
 
@@ -37,17 +32,12 @@ public class AuthController : BaseApiController
     /// Authenticate account and generate JWT token
     /// </summary>
     /// <param name="request">Login credentials</param>
-    /// <returns>Authentication response with JWT token</returns>
+    /// <returns>Authentication response message</returns>
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
 
         var result = await _authService.LoginAsync(request);
         return Success(result, "Login successful");
@@ -57,17 +47,16 @@ public class AuthController : BaseApiController
     /// Register new account
     /// </summary>
     /// <param name="request">Registration information</param>
-    /// <returns>Authentication response with JWT token</returns>
+    /// <returns>Authentication response message</returns>
     [HttpPost("register/patient")]
     public async Task<IActionResult> RegisterPatient([FromBody] RegisterRequest request)
     {      
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        // Role-specific validation
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.PATIENT);
+        if (roleValidation != null) return roleValidation;
 
         var result = await _authService.RegisterAsync(request, Role.PATIENT);
         return Created(result, "Account registered successfully");             
@@ -76,19 +65,18 @@ public class AuthController : BaseApiController
     /// <summary>
     /// Register new account
     /// </summary>
-    /// <param name="request">Registration information</param>
-    /// <returns>Authentication response with JWT token</returns>
+    /// <param name="request">Registration information Clinic</param>
+    /// <returns>Authentication response message</returns>
     [HttpPost("register/doctor")]
     [Authorize(Policy = "Role:Clinic")]
     public async Task<IActionResult> RegisterDoctor([FromBody] RegisterRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        // Role-specific validation
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.DOCTOR);
+        if (roleValidation != null) return roleValidation;
 
         var result = await _authService.RegisterAsync(request, Role.DOCTOR);
         return Created(result, "Account registered successfully");
@@ -97,25 +85,22 @@ public class AuthController : BaseApiController
     /// <summary>
     /// Register new account
     /// </summary>
-    /// <param name="request">Registration information</param>
-    /// <returns>Authentication response with JWT token</returns>
+    /// <param name="request">Registration information Doctor</param>
+    /// <returns>Authentication response message</returns>
     [HttpPost("register/clinic")]
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> RegisterClinic([FromBody] RegisterRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        // Role-specific validation
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.CLINIC);
+        if (roleValidation != null) return roleValidation;
 
         var result = await _authService.RegisterAsync(request, Role.CLINIC);
         return Created(result, "Account registered successfully");
     }
-
-
 
     /// <summary>
     /// Refresh JWT token using refresh token
@@ -137,7 +122,6 @@ public class AuthController : BaseApiController
     /// <summary>
     /// Logout account and invalidate refresh token
     /// </summary>
-    /// <param name="refreshToken">Refresh token to invalidate</param>
     /// <returns>Success response</returns>
     [HttpPost("logout")]
     [Authorize]
@@ -148,7 +132,7 @@ public class AuthController : BaseApiController
         {
             return BadRequest("Refresh token is missing in cookie");
         }
-        var result = await _authService.LogoutAsync(refreshToken);
+        await _authService.LogoutAsync(refreshToken);
         return Success("Logout successful");
     }
 
@@ -161,13 +145,8 @@ public class AuthController : BaseApiController
     [Authorize]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {       
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.ChangePasswordAsync(request);
         return Success("Password changed successfully");       
@@ -181,19 +160,8 @@ public class AuthController : BaseApiController
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {      
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
-
-        // Ensure either Email or PhoneNumber is provided
-        if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.PhoneNumber))
-        {
-            return BadRequest("Either Email or PhoneNumber is required");
-        }
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
 
         await _authService.ForgotPasswordAsync(request);
 
@@ -215,36 +183,25 @@ public class AuthController : BaseApiController
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {       
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
-        var result = await _authService.ResetPasswordAsync(request);
+        await _authService.ResetPasswordAsync(request);
         return Success("Password reset successfully");     
     }
 
     /// <summary>
-    /// Issue reset token after OTP verification (phone flow)
+    /// Reset token after OTP verification (phone flow)
     /// </summary>
-    /// <param name="request">Issue reset token request</param>
+    /// <param name="request">Reset token request</param>
     /// <returns>Reset token and URL</returns>
-    [HttpPost("issue-reset-token")]
-    public async Task<IActionResult> IssueResetToken([FromBody] IssueResetTokenRequest request)
-    { 
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+    [HttpPost("reset-token")]
+    public async Task<IActionResult> ResetToken([FromBody] ResetTokenRequest request)
+    {
+        var validation = ValidateBasicRequest();
 
-        var result = await _authService.IssueResetTokenAsync(request);
-        return Success(result, "Reset token issued if the phone is registered");     
+        var result = await _authService.ResetTokenAsync(request);
+        return Success(result, "Reset token if the phone is registered");     
     }
 
     #endregion
@@ -261,11 +218,6 @@ public class AuthController : BaseApiController
     public async Task<IActionResult> BanUnban(Guid id)
     {
         var status = await _authService.ToggleAccountActiveStatusAsync(id);
-        if (status == null)
-        {
-            return NotFound($"Account with ID {id} not found");
-        }
-
         var message = status == Status.ACTIVE ? "Account unbanned (activated) successfully" : "Account banned (deactivated) successfully";
         return Success(message);
     }
@@ -319,13 +271,8 @@ public class AuthController : BaseApiController
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.CreateRoleAsync(request);
         return Created(result, "Role created successfully");
@@ -382,13 +329,8 @@ public class AuthController : BaseApiController
             return BadRequest("ID mismatch between route and request body");
         }
 
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.UpdateRoleAsync(request);
         return Success(result, "Role updated successfully");
@@ -438,13 +380,8 @@ public class AuthController : BaseApiController
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequest request)
     {
-        if (!ModelState.IsValid)        
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.CreatePermissionAsync(request);
         return Created(result, "Permission created successfully");
@@ -501,13 +438,8 @@ public class AuthController : BaseApiController
             return BadRequest("ID mismatch between route and request body");
         }
 
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.UpdatePermissionAsync(request);
         return Success(result, "Permission updated successfully");
@@ -557,13 +489,8 @@ public class AuthController : BaseApiController
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> AssignRoleToAccount([FromBody] AssignRoleRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.AssignRoleToAccountAsync(request);
         return Success(result, "Role assigned to account successfully");
@@ -578,15 +505,10 @@ public class AuthController : BaseApiController
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> RemoveRoleFromAccount([FromBody] RemoveRoleRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
-        var result = await _authService.RemoveRoleFromAccountAsync(request);
+        await _authService.RemoveRoleFromAccountAsync(request);
         return Success("Role removed from account successfully");
     }
 
@@ -629,13 +551,8 @@ public class AuthController : BaseApiController
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> AssignPermissionToRole([FromBody] AssignPermissionRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.AssignPermissionToRoleAsync(request);
         return Success(result, "Permission assigned to role successfully");
@@ -650,13 +567,8 @@ public class AuthController : BaseApiController
     [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> RemovePermissionFromRole([FromBody] RemovePermissionRequest request)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
-        }
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.RemovePermissionFromRoleAsync(request);
         return Success("Permission removed from role successfully");
@@ -697,11 +609,74 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <returns>Service health status</returns>
     [HttpGet("health")]
-    [ProducesResponseType(typeof(ApiResponse<object>), 200)]
     public IActionResult Health()
     {
         var healthData = new { Status = "Healthy", Service = "Auth", Timestamp = DateTime.UtcNow };
         return Success(healthData, "Auth service is healthy");
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Validate role-specific requirements for RegisterRequest
+    /// </summary>
+    private IActionResult? ValidateRoleSpecificRequirements(RegisterRequest request, Role role)
+    {
+        var roleValidationResults = request.ValidateByRole(role).ToList();
+        if (roleValidationResults.Any())
+        {
+            return BadRequest("Invalid request data", roleValidationResults.Select(vr => vr.ErrorMessage ?? "Validation error").ToList());
+        }
+        return null; // No validation errors
+    }
+
+    /// <summary>
+    /// Validate custom business rules for IValidatableObject DTOs
+    /// </summary>
+    private IActionResult? ValidateCustomBusinessRules<T>(T request) where T : IValidatableObject
+    {
+        var validationResults = new List<ValidationResult>();
+        var validationContext = new ValidationContext(request);
+        if (!Validator.TryValidateObject(request, validationContext, validationResults, true))
+        {
+            return BadRequest("Invalid request data", validationResults.Select(vr => vr.ErrorMessage ?? "Validation error").ToList());
+        }
+        return null; // No validation errors
+    }
+
+    /// <summary>
+    /// Handle standard validation flow for requests
+    /// </summary>
+    private IActionResult? ValidateRequest<T>(T request) where T : IValidatableObject
+    {
+        // 1. Data Annotations validation (tự động)
+        if (!ModelState.IsValid)
+        {
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage ?? "Validation error")
+                .ToList());
+        }
+
+        // 2. Custom business rules validation
+        return ValidateCustomBusinessRules(request);
+    }
+
+    /// <summary>
+    /// Handle basic validation flow for simple DTOs (only Data Annotations)
+    /// </summary>
+    private IActionResult? ValidateBasicRequest()
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage ?? "Validation error")
+                .ToList());
+        }
+        return null; // No validation errors
     }
 
     #endregion

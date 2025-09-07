@@ -1,8 +1,7 @@
-using Microsoft.AspNetCore.Http;
 using BookingCare.Shared.Common.AppRouting;
 using Microsoft.Extensions.Options;
 
-namespace BookingCare.Services.Auth.Services;
+namespace BookingCare.Services.Auth.Utils;
 
 /// <summary>
 /// Service for managing authentication cookies
@@ -30,8 +29,7 @@ public class CookieService
             var httpContext = _httpContextAccessor.HttpContext;
             if (httpContext == null) return;
 
-            var origin = httpContext.Request.Headers["Origin"].ToString();
-            var prefix = AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
+            var prefix = GetAppPrefix();
             var cookieTokenName = $"access_token_{prefix}_{userId}";
             var cookieRefreshTokenName = $"refresh_token_{prefix}";
             var cookieUserName = $"{prefix}_current_user";
@@ -81,8 +79,7 @@ public class CookieService
             var httpContext = _httpContextAccessor.HttpContext;
             if (httpContext == null) return string.Empty;
 
-            var origin = httpContext.Request.Headers["Origin"].ToString();
-            var prefix = AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
+            var prefix = GetAppPrefix();
             var cookieRefreshTokenName = $"refresh_token_{prefix}";
 
             if (httpContext.Request.Cookies.TryGetValue(cookieRefreshTokenName, out var refreshToken))
@@ -109,7 +106,7 @@ public class CookieService
             var httpContext = _httpContextAccessor.HttpContext;
             if (httpContext == null) return;
 
-            var origin = httpContext.Request.Headers["Origin"].ToString();
+            var origin = GetOrigin();
             var prefix = AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
 
             // Get all cookies to remove
@@ -133,5 +130,37 @@ public class CookieService
         }
     }
 
-    // Prefix resolution moved to AppRoutingHelper
+    #region Helper Methods
+
+    /// <summary>
+    /// Get origin from HTTP context headers
+    /// </summary>
+    public string GetOrigin()
+    {
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext == null) return string.Empty;
+
+        return httpContext.Request.Headers["Origin"].FirstOrDefault() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Get app prefix based on origin
+    /// </summary>
+    public string GetAppPrefix()
+    {
+        var origin = GetOrigin();
+        return AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
+    }
+
+    /// <summary>
+    /// Get base URL for the current request
+    /// </summary>
+    public string GetBaseUrl()
+    {
+        var origin = GetOrigin();
+        var appPrefix = AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
+        return AppRoutingHelper.ResolveBaseUrl(appPrefix, _frontendOptions);
+    }
+
+    #endregion
 }

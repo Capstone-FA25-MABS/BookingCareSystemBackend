@@ -1,8 +1,6 @@
 using Grpc.Core;
-using Microsoft.Extensions.Logging;
-using BookingCare.Services.Auth.Models.DTOs;
-using BookingCare.Services.Auth.Services;
 using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Auth.Repositories;
 
 namespace BookingCare.Services.Auth.Services;
 
@@ -11,12 +9,12 @@ namespace BookingCare.Services.Auth.Services;
 /// </summary>
 public class AuthGrpcService : Protos.AuthService.AuthServiceBase
 {
-    private readonly IAuthService _authService;
+    private readonly IAuthRepository _authRepository;
     private readonly ILogger<AuthGrpcService> _logger;
 
-    public AuthGrpcService(IAuthService authService, ILogger<AuthGrpcService> logger)
+    public AuthGrpcService(IAuthRepository authRepository, ILogger<AuthGrpcService> logger)
     {
-        _authService = authService;
+        _authRepository = authRepository;
         _logger = logger;
     }
 
@@ -35,8 +33,8 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
             // Check by email if provided
             if (!string.IsNullOrWhiteSpace(request.Email))
             {
-                var account = await _authService.GetAccountByEmailAsync(request.Email);
-                if (account != null)
+                var account = await _authRepository.EmailExistsAsync(request.Email);
+                if (account)
                 {
                     exists = true;
                     message = "Account with this email already exists";
@@ -45,8 +43,8 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
             // Check by phone if provided and email not found
             else if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
             {
-                var account = await _authService.GetAccountByPhoneNumberAsync(request.PhoneNumber);
-                if (account != null)
+                var account = await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber);
+                if (account)
                 {
                     exists = true;
                     message = "Account with this phone number already exists";
@@ -62,7 +60,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in gRPC CheckAccountExists");
-            throw new RpcException(new Status(StatusCode.Internal, $"Internal error: {ex.Message}"));
+            throw new RpcException(new Status(StatusCode.Internal, "Internal error occurred"));
         }
     }
 }

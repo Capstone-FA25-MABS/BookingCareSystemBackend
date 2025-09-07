@@ -6,19 +6,12 @@ using BookingCare.Services.Auth.Repositories;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Exceptions;
 using BookingCare.Shared.Common.Enums;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
-using Microsoft.Extensions.Caching.Distributed;
-using BookingCare.Shared.Common.AppRouting;
-using Microsoft.Extensions.Options;
 using BookingCare.Services.Notification.Protos;
+using BookingCare.Services.Auth.Utils;
 
 namespace BookingCare.Services.Auth.Services;
 
@@ -31,12 +24,8 @@ public class AuthService : BaseService, IAuthService
     private readonly IMapper _mapper;
     private readonly IConfiguration _configuration;
     private readonly JwtService _jwtService;
-    private readonly RefreshTokenService _refreshTokenService;
     private readonly CookieService _cookieService;
     private readonly IEventBus _eventBus;
-    private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly IDistributedCache? _distributedCache;
-    private readonly FrontendOptions _frontendOptions;
     private readonly OtpVerifier.OtpVerifierClient _otpClient;
 
     public AuthService(
@@ -45,24 +34,16 @@ public class AuthService : BaseService, IAuthService
         ILogger<AuthService> logger,
         IConfiguration configuration,
         JwtService jwtService,
-        RefreshTokenService refreshTokenService,
         CookieService cookieService,
         IEventBus eventBus,
-        IHttpContextAccessor httpContextAccessor,
-        IDistributedCache? distributedCache = null,
-        IOptions<FrontendOptions>? frontendOptions = null,
         OtpVerifier.OtpVerifierClient? otpClient = null) : base(logger)
     {
         _authRepository = authRepository;
         _mapper = mapper;
         _configuration = configuration;
         _jwtService = jwtService;
-        _refreshTokenService = refreshTokenService;
         _cookieService = cookieService;
         _eventBus = eventBus;
-        _httpContextAccessor = httpContextAccessor;
-        _distributedCache = distributedCache;
-        _frontendOptions = frontendOptions?.Value ?? new FrontendOptions();
         _otpClient = otpClient!;
     }
 
@@ -75,56 +56,49 @@ public class AuthService : BaseService, IAuthService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Login attempt for: {EmailOrPhone}", null, request.EmailOrPhone);
-
-            // Validate business rules
-            ValidateLoginRequest(request);
+            // Determine login identifier for logging
+            var loginIdentifier = !string.IsNullOrEmpty(request.Email) ? request.Email : request.PhoneNumber;
+            LogInfo("Login attempt for: {LoginIdentifier}", null, loginIdentifier!);
 
             // Find account by email or phone number
-            var account = await FindAccountByEmailOrPhoneAsync(request.EmailOrPhone);
+            var account = await FindAccountByEmailOrPhoneAsync(request.Email, request.PhoneNumber);
             if (account == null)
             {
-                throw new AuthenticationException($"Account with email or phone '{request.EmailOrPhone}' not found");
+                throw new AuthenticationException($"Account with email or phone '{loginIdentifier}' not found");
             }
 
-            // Check if account is locked out first
-            if (await _authRepository.IsAccountLockedOutAsync(account.Id))
-            {
-                throw new AuthenticationException($"Account '{request.EmailOrPhone}' is temporarily locked due to too many failed login attempts");
-            }
-
-            // Validate credentials with lockout support
-            var isValid = await _authRepository.ValidateCredentialsWithLockoutAsync(account.Email!, request.Password);
-            if (!isValid)
-            {
-                throw new AuthenticationException($"Invalid password for account '{request.EmailOrPhone}'");
-            }
-
-            // Check account status
+            // Check account status first
             if (account.Status != Status.ACTIVE)
             {
-                throw new AuthenticationException($"Account '{request.EmailOrPhone}' is not active");
+                throw new AuthenticationException($"Account '{loginIdentifier}' is not active");
+            }
+
+            // Check if account is locked out (for specific error message)
+            if (await _authRepository.IsAccountLockedOutAsync(account))
+            {
+                throw new AuthenticationException($"Account '{loginIdentifier}' is temporarily locked due to too many failed login attempts");
+            }
+            
+            var isValid = await _authRepository.ValidateCredentialsWithLockoutAsync(account, request.Password);
+            if (!isValid)
+            {
+                throw new AuthenticationException("Invalid email, phone number, or password");
             }
 
             // Generate JWT access token with roles and permissions
             var accessToken = await _jwtService.GenerateAccessTokenAsync(account);
         
             // Generate and store refresh token
-            var refreshTokenEntity = await _refreshTokenService.CreateRefreshTokenAsync(account.Id);
+            var refreshTokenEntity = await _authRepository.CreateRefreshTokenAsync(account.Id);
 
             // Save tokens in cookies
             _cookieService.SaveTokensInCookies(account.Id, accessToken, refreshTokenEntity.Token);
 
-            LogInfo("Login successful for: {EmailOrPhone}", null, request.EmailOrPhone);
+            LogInfo("Login successful for: {LoginIdentifier}", null, loginIdentifier!);
                     
             return new AuthResponse
             {
-                IsSuccess = true,
                 Message = "Login successful",
-                AccessToken = accessToken,
-                RefreshToken = refreshTokenEntity.Token,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(15), // Match JWT expiration
-                Account = _mapper.Map<AccountResponse>(account)
             };
         }, "Login");
     }
@@ -137,12 +111,6 @@ public class AuthService : BaseService, IAuthService
         return await ExecuteWithErrorHandling(async () =>
         {
             LogInfo("Registration attempt for email: {Email}", null, request.Email);
-
-            // Validate business rules
-            ValidateRegisterRequest(request);
-
-            // Role-specific validation
-            ValidateRegisterByRole(request, role);
 
             // Additional security: for Patient registration, require prior OTP verification (phone or email)
             if (role == Role.PATIENT)
@@ -160,10 +128,18 @@ public class AuthService : BaseService, IAuthService
                 throw new AccountConflictException(request.Email, "Email");
             }
 
-            // Check if phone number already exists
+            // Check if phone number already exists 
             if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
             {
                 throw new AccountConflictException(request.PhoneNumber, "PhoneNumber");
+            }
+
+            // Validate role exists BEFORE creating account
+            var targetRoleName = role switch { Role.DOCTOR => "Doctor", Role.CLINIC => "Clinic", _ => "Patient" };
+            var targetRole = await _authRepository.GetRoleByNameAsync(targetRoleName);
+            if (targetRole == null)
+            {
+                throw new ValidationException($"Role '{targetRoleName}' does not exist in the system. Cannot create account without valid role.");
             }
 
             // Create account entity
@@ -172,36 +148,14 @@ public class AuthService : BaseService, IAuthService
             // Create account
             var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
 
-            // Assign role based on request (default Patient)
-            try
-            {
-                var targetRoleName = role switch { Role.DOCTOR => "Doctor", Role.CLINIC => "Clinic", _ => "Patient" };
-                var defaultRole = await _authRepository.GetRoleByNameAsync(targetRoleName);
-                if (defaultRole != null)
-                {
-                    await _authRepository.AssignRoleToAccountAsync(createdAccount.Id, defaultRole.Id);
-                    LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRoleName, request.Email);
-                }
-                else
-                {
-                    LogWarning("Role '{Role}' not found. Account created without role: {Email}", null, targetRoleName, request.Email);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't fail registration
-                LogError(ex, "Failed to assign role to account: {Email}", null, request.Email);
-            }
-
-            // Generate JWT token
-            //var token = GenerateJwtToken(createdAccount);
-            //var refreshToken = GenerateRefreshToken();
+            // Assign role to account (guaranteed to exist)
+            await _authRepository.AssignRoleToAccountAsync(createdAccount, targetRole);
+            LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRoleName, request.Email);
 
             LogInfo("Registration successful for email: {Email}", null, request.Email);
 
             return new AuthResponse
             {
-                IsSuccess = true,
                 Message = "Registration successful",
             };
         }, "Register");
@@ -216,23 +170,12 @@ public class AuthService : BaseService, IAuthService
         {
             LogInfo("Refresh token attempt");
 
-            if (string.IsNullOrEmpty(refreshToken))
-            {
-                throw new AuthenticationException("Refresh token is required");
-            }
-
             // Validate refresh token
-            var (isValid, account, tokenEntity) = await _refreshTokenService.ValidateRefreshTokenAsync(refreshToken);
+            var (isValid, account, tokenEntity) = await _authRepository.ValidateRefreshTokenAsync(refreshToken);
             
             if (!isValid || account == null)
             {    
                 throw new AuthenticationException("Invalid or expired refresh token");
-            }
-
-            // Check if account is still active
-            if (account.Status != Status.ACTIVE)
-            {
-                throw new AuthenticationException($"Account is not active");
             }
 
             // Generate new access token
@@ -245,7 +188,6 @@ public class AuthService : BaseService, IAuthService
 
             return new AuthResponse
             {
-                IsSuccess = true,
                 Message = "Token refreshed successfully",
             };
         }, "RefreshToken");
@@ -260,11 +202,8 @@ public class AuthService : BaseService, IAuthService
         {
             LogInfo("Logout attempt");
 
-            if (!string.IsNullOrEmpty(refreshToken))
-            {
-                await _refreshTokenService.DeleteRefreshTokenAsync(refreshToken);
-            }
-
+            await _authRepository.DeleteRefreshTokenAsync(refreshToken);
+            
             // Clear authentication cookies
             _cookieService.ClearAuthenticationCookies();
 
@@ -282,18 +221,11 @@ public class AuthService : BaseService, IAuthService
         {
             LogInfo("Password change attempt for account: {AccountId}", null, request.AccountId);
 
-            // Validate business rules
-            ValidateChangePasswordRequest(request);
-
             // Get account
-            var account = await _authRepository.GetAccountByIdAsync(request.AccountId);
-            if (account == null)
-            {
-                throw new AccountNotFoundException(request.AccountId);
-            }
-
+            var account = await _authRepository.GetAccountByIdAsync(request.AccountId) ?? throw new AccountNotFoundException(request.AccountId);
+            
             // Check if account has external login providers
-            var hasExternalLogin = await _authRepository.HasExternalLoginAsync(request.AccountId);
+            var hasExternalLogin = await _authRepository.HasExternalLoginAsync(account);
 
             // Validate current password for regular accounts
             if (!hasExternalLogin)
@@ -304,7 +236,7 @@ public class AuthService : BaseService, IAuthService
                 }
 
                 // Validate current password
-                var isValidCurrentPassword = await _authRepository.ValidateCredentialsAsync(account.Email!, request.CurrentPassword);
+                var isValidCurrentPassword = await _authRepository.ValidateCredentialsAsync(account, request.CurrentPassword);
                 if (!isValidCurrentPassword)
                 {
                     throw new AuthenticationException("Current password is incorrect");
@@ -316,12 +248,6 @@ public class AuthService : BaseService, IAuthService
                 LogInfo("Account has external login providers, skipping current password validation", null, request.AccountId);
             }
 
-            // Validate NewPassword and ConfirmNewPassword
-            if (request.NewPassword != request.ConfirmNewPassword)
-            {
-                throw new ValidationException("New password and confirm password do not match");
-            }
-
             // Validate password complexity
             var passwordCheck = await _authRepository.ValidatePasswordAsync(account, request.NewPassword);
             if (!passwordCheck.IsValid)
@@ -331,7 +257,7 @@ public class AuthService : BaseService, IAuthService
             }
 
             // Change password
-            var result = await _authRepository.ChangePasswordAsync(request.AccountId, request.NewPassword);
+            var result = await _authRepository.ChangePasswordAsync(account, request.NewPassword);
             if (!result)
             {
                 throw new AuthException("Failed to change password");
@@ -349,20 +275,8 @@ public class AuthService : BaseService, IAuthService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            // Validate input: either Email or PhoneNumber must be provided
-            if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.PhoneNumber))
-            {
-                throw new ValidationException("Either Email or PhoneNumber is required");
-            }
-
-            // Determine app origin for building reset URL
-            var origin = _httpContextAccessor.HttpContext?.Request.Headers["Origin"].FirstOrDefault() ?? string.Empty;
-            var appPrefix = AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
-            var baseUrl = AppRoutingHelper.ResolveBaseUrl(appPrefix, _frontendOptions);
-            if (string.IsNullOrEmpty(baseUrl))
-            {
-                baseUrl = _configuration["Frontend:default:BaseUrl"] ?? string.Empty;
-            }
+            // Get base URL for building reset URL
+            var baseUrl = _cookieService.GetBaseUrl();
 
             if (!string.IsNullOrWhiteSpace(request.Email))
             {
@@ -397,8 +311,8 @@ public class AuthService : BaseService, IAuthService
 
                 await _eventBus.PublishAsync(@event);
                 LogInfo("Password reset email event published for {Email}", null, request.Email);
-            return true;
-        }
+                return true;
+            }
             else
             {
                 // Phone flow: publish OTP request event to Notification service
@@ -444,15 +358,12 @@ public class AuthService : BaseService, IAuthService
     }
 
     /// <summary>
-    /// Issue reset token and URL after successful OTP verification (phone flow)
+    /// Reset token and URL after successful OTP verification (phone flow)
     /// </summary>
-    public async Task<IssueResetTokenResponse> IssueResetTokenAsync(IssueResetTokenRequest request)
+    public async Task<ResetTokenResponse> ResetTokenAsync(ResetTokenRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.PhoneNumber, nameof(request.PhoneNumber));
-
             // Unified verification (Redis flag or HMAC proof)
             var purpose = request.Purpose.ToKey();
             var subject = $"phone:{request.PhoneNumber}";
@@ -460,32 +371,24 @@ public class AuthService : BaseService, IAuthService
             if (!verified)
             {
                 // Return neutral response without revealing status
-                return new IssueResetTokenResponse { Email = string.Empty, ResetToken = string.Empty, ResetUrl = string.Empty };
+                return new ResetTokenResponse { ResetUrl = string.Empty };
             }
 
-            var (found, email, accountId, token) = await _authRepository.GeneratePasswordResetTokenByPhoneAsync(request.PhoneNumber);
+            var (found, email, token) = await _authRepository.GeneratePasswordResetTokenByPhoneAsync(request.PhoneNumber);
             if (!found)
             {
                 // Do not reveal
-                return new IssueResetTokenResponse { Email = string.Empty, ResetToken = string.Empty, ResetUrl = string.Empty };
+                return new ResetTokenResponse { ResetUrl = string.Empty };
             }
 
-            var origin = _httpContextAccessor.HttpContext?.Request.Headers["Origin"].FirstOrDefault() ?? string.Empty;
-            var appPrefix = AppRoutingHelper.GetAppPrefix(origin, _frontendOptions);
-            var baseUrl = AppRoutingHelper.ResolveBaseUrl(appPrefix, _frontendOptions);
-            if (string.IsNullOrEmpty(baseUrl))
-            {
-                baseUrl = _configuration["Frontend:default:BaseUrl"] ?? string.Empty;
-            }
+            var baseUrl = _cookieService.GetBaseUrl();
 
             var resetUrl = BuildResetUrl(baseUrl, email, token);
-            return new IssueResetTokenResponse
+            return new ResetTokenResponse
             {
-                Email = email,
-                ResetToken = token,
                 ResetUrl = resetUrl
             };
-        }, "IssueResetToken");
+        }, "ResetToken");
     }
 
     private bool VerifyOtpProof(string purpose, string? proof, long? issuedAt, IEnumerable<string> subjects)
@@ -520,16 +423,16 @@ public class AuthService : BaseService, IAuthService
         var flagKey = $"otp:verified:{purpose}:{subject}".ToLowerInvariant();
         if (useGrpc && _otpClient != null)
         {
-            bool grpcOk = false;
+            bool verify = false;
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeoutMs));
-                var resp = await _otpClient.VerifyAsync(new VerifyRequest
+                var response = await _otpClient.VerifyAsync(new VerifyRequest
                 {
                     Key = flagKey,
                     Otp = "1"
                 }, cancellationToken: cts.Token);
-                grpcOk = resp.Verified;
+                verify = response.Verified;
             }
             catch (Grpc.Core.RpcException ex)
             {
@@ -544,7 +447,7 @@ public class AuthService : BaseService, IAuthService
                 LogWarning("gRPC OTP verify unexpected error: {Message}", ex.Message);
             }
 
-            if (grpcOk)
+            if (verify)
                 return true;
             if (!allowProofFallback)
                 return false;
@@ -561,18 +464,6 @@ public class AuthService : BaseService, IAuthService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            // Layered validation
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.Email, nameof(request.Email));
-            ValidateRequiredString(request.ResetToken, nameof(request.ResetToken));
-            ValidateRequiredString(request.NewPassword, nameof(request.NewPassword));
-            ValidateRequiredString(request.ConfirmNewPassword, nameof(request.ConfirmNewPassword));
-
-            if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal))
-            {
-                throw new ValidationException("New password and confirm password do not match");
-            }
-
             // Normalize email (handle %40 etc.)
             var normalizedEmail = request.Email;
             try { normalizedEmail = Uri.UnescapeDataString(normalizedEmail); } catch { /* ignore */ }
@@ -598,7 +489,7 @@ public class AuthService : BaseService, IAuthService
             try { normalizedToken = Uri.UnescapeDataString(normalizedToken); } catch { /* keep original if invalid encoding */ }
 
             // Validate reset token via Identity and reset
-            var success = await _authRepository.ResetPasswordWithTokenAsync(normalizedEmail, normalizedToken, request.NewPassword);
+            var success = await _authRepository.ResetPasswordWithTokenAsync(account, normalizedToken, request.NewPassword);
             if (!success)
             {
                 throw new ValidationException("Invalid or expired reset token");
@@ -611,37 +502,7 @@ public class AuthService : BaseService, IAuthService
     #endregion
 
     #region Account Operations
-
-    /// <summary>
-    /// Get account by email
-    /// </summary>
-    public async Task<AccountResponse?> GetAccountByEmailAsync(string email)
-    {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            ValidateRequiredString(email, nameof(email));
-            LogInfo("Fetching account by email: {Email}", null, email);
-
-            var account = await _authRepository.GetAccountByEmailAsync(email);
-            return account != null ? _mapper.Map<AccountResponse>(account) : null;
-        }, "GetAccountByEmail");
-    }
-
-    /// <summary>
-    /// Get account by phone number
-    /// </summary>
-    public async Task<AccountResponse?> GetAccountByPhoneNumberAsync(string phoneNumber)
-    {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            ValidateRequiredString(phoneNumber, nameof(phoneNumber));
-            LogInfo("Fetching account by phone: {Phone}", null, phoneNumber);
-
-            var account = await _authRepository.GetAccountByPhoneNumberAsync(phoneNumber);
-            return account != null ? _mapper.Map<AccountResponse>(account) : null;
-        }, "GetAccountByPhoneNumber");
-    }
-
+   
     /// <summary>
     /// Toggle account active status (ACTIVE <-> INACTIVE)
     /// </summary>
@@ -651,10 +512,8 @@ public class AuthService : BaseService, IAuthService
         {
             LogInfo("Toggling account active status: {AccountId}", null, id);
 
-            var account = await _authRepository.GetAccountByIdAsync(id);
-            if (account == null)
-                return (Status?)null;
-
+            var account = await _authRepository.GetAccountByIdAsync(id) ?? throw new AccountNotFoundException(id);
+            
             account.Status = account.Status == Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
 
             await _authRepository.UpdateAccountAsync(account);
@@ -670,7 +529,8 @@ public class AuthService : BaseService, IAuthService
         return await ExecuteWithErrorHandling(async () =>
         {
             LogInfo("Locking account: {AccountId}", null, id);
-            return await _authRepository.LockAccountAsync(id);
+            var account = await _authRepository.GetAccountByIdAsync(id) ?? throw new AccountNotFoundException(id);
+            return await _authRepository.LockAccountAsync(account);
         }, "LockAccount");
     }
 
@@ -682,7 +542,8 @@ public class AuthService : BaseService, IAuthService
         return await ExecuteWithErrorHandling(async () =>
         {
             LogInfo("Unlocking account: {AccountId}", null, id);
-            return await _authRepository.UnlockAccountAsync(id);
+            var account = await _authRepository.GetAccountByIdAsync(id) ?? throw new AccountNotFoundException(id);
+            return await _authRepository.UnlockAccountAsync(account);
         }, "UnlockAccount");
     }
 
@@ -770,18 +631,28 @@ public class AuthService : BaseService, IAuthService
                 throw new RoleNotFoundException(request.Id);
             }
 
-            // Check name uniqueness if changed
-            if (request.Name != existingRole.Name)
+            // Check if there are any changes (case-insensitive)
+            var nameChanged = !string.Equals(request.Name, existingRole.Name, StringComparison.Ordinal);
+            var descriptionChanged = !string.IsNullOrEmpty(request.Description) && request.Description != existingRole.Description;
+            
+            // If no changes, return existing role without calling repository
+            if (!nameChanged && !descriptionChanged)
+            {
+                LogInfo("No changes detected for role: {RoleId}", null, existingRole.Id);
+                return _mapper.Map<RoleResponse>(existingRole);
+            }
+
+            // Check name uniqueness if changed (case-insensitive)
+            if (nameChanged)
             {
                 if (await _authRepository.RoleNameExistsAsync(request.Name, existingRole.Id))
                 {
                     throw new RoleConflictException(request.Name, true);
                 }
+                existingRole.Name = request.Name;
             }
-
-            // Update tracked entity to avoid EF Core double-tracking issues
-            existingRole.Name = request.Name;
-            if (!string.IsNullOrEmpty(request.Description))
+            
+            if (descriptionChanged)
             {
                 existingRole.Description = request.Description;
             }
@@ -925,17 +796,28 @@ public class AuthService : BaseService, IAuthService
                 throw new PermissionNotFoundException(request.Id);
             }
 
-            // Check name uniqueness if changed
-            if (request.Name != existingPermission.Name)
+            // Check if there are any changes (case-insensitive)
+            var nameChanged = !string.Equals(request.Name, existingPermission.Name, StringComparison.Ordinal);
+            var descriptionChanged = !string.IsNullOrEmpty(request.Description) && request.Description != existingPermission.Description;
+            
+            // If no changes, return existing permission without calling repository
+            if (!nameChanged && !descriptionChanged)
+            {
+                LogInfo("No changes detected for permission: {PermissionId}", null, existingPermission.Id);
+                return _mapper.Map<PermissionResponse>(existingPermission);
+            }
+
+            // Check name uniqueness if changed (case-insensitive)
+            if (nameChanged)
             {
                 if (await _authRepository.PermissionNameExistsAsync(request.Name, request.Id))
                 {
                     throw new PermissionConflictException(request.Name, true);
                 }
+                existingPermission.Name = request.Name;
             }
-
-            existingPermission.Name = request.Name;
-            if (!string.IsNullOrEmpty(request.Description))
+            
+            if (descriptionChanged)
             {
                 existingPermission.Description = request.Description;
             }
@@ -1004,16 +886,22 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<AccountRoleResponse> AssignRoleToAccountAsync(AssignRoleRequest request)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            var accountRole = await _authRepository.AssignRoleToAccountAsync(request.AccountId, request.RoleId);
+            LogInfo("Assigning role to account: AccountId={AccountId}, RoleId={RoleId}", null, request.AccountId, request.RoleId);
+            var account = await _authRepository.GetAccountByIdAsync(request.AccountId) ?? throw new AccountNotFoundException(request.AccountId);
+            var role = await _authRepository.GetRoleByIdAsync(request.RoleId) ?? throw new RoleNotFoundException(request.RoleId);
+            // Check if account already has this role
+            if (await _authRepository.RoleAlreadyAssignedAsync(account, role.Name!))
+            {
+                LogWarning("Account {AccountId} already has role {RoleName}", account.Id.ToString(), role.Name!);
+                throw new RoleAlreadyAssignedException(account.Id, role.Name!);
+            }
+            var accountRole = await _authRepository.AssignRoleToAccountAsync(account, role);
+            
+            LogInfo("Role assigned successfully: AccountId={AccountId}, RoleId={RoleId}", null, request.AccountId, request.RoleId);
             return _mapper.Map<AccountRoleResponse>(accountRole);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error assigning role to account: AccountId={AccountId}, RoleId={RoleId}", request.AccountId, request.RoleId);
-            throw new AuthException("Role assignment failed", innerException: ex);
-        }
+        }, "AssignRoleToAccount");
     }
 
     /// <summary>
@@ -1021,15 +909,23 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<bool> RemoveRoleFromAccountAsync(RemoveRoleRequest request)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            return await _authRepository.RemoveRoleFromAccountAsync(request.AccountId, request.RoleId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error removing role from account: AccountId={AccountId}, RoleId={RoleId}", request.AccountId, request.RoleId);
-            throw new AuthException("Role removal failed", innerException: ex);
-        }
+            LogInfo("Removing role from account: AccountId={AccountId}, RoleId={RoleId}", null, request.AccountId, request.RoleId);
+            var account = await _authRepository.GetAccountByIdAsync(request.AccountId) ?? throw new AccountNotFoundException(request.AccountId);
+            var role = await _authRepository.GetRoleByIdAsync(request.RoleId) ?? throw new RoleNotFoundException(request.RoleId);
+
+            // Check if account has this role before attempting removal
+            if (!await _authRepository.RoleAlreadyAssignedAsync(account, role.Name!))
+            {
+                LogWarning("Account {AccountId} does not have role {RoleName}", account.Id.ToString(), role.Name!);
+                throw new RoleNotAssignedException(account.Id, role.Name!);
+            }
+            var result = await _authRepository.RemoveRoleFromAccountAsync(account, role);
+            
+            LogInfo("Role removal result: AccountId={AccountId}, RoleId={RoleId}, Success={Success}", null, request.AccountId, request.RoleId, result);
+            return result;
+        }, "RemoveRoleFromAccount");
     }
 
     /// <summary>
@@ -1037,16 +933,17 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<List<RoleResponse>> GetAccountRolesAsync(Guid accountId)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            var roles = await _authRepository.GetAccountRolesAsync(accountId);
-            return _mapper.Map<List<RoleResponse>>(roles);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting account roles: {AccountId}", accountId);
-            throw new AuthException("Failed to get account roles", innerException: ex);
-        }
+            LogInfo("Getting account roles: AccountId={AccountId}", null, accountId);
+            var account = await _authRepository.GetAccountByIdAsync(accountId) ?? throw new AccountNotFoundException(accountId);
+
+            var roles = await _authRepository.GetAccountRolesAsync(account);
+            var roleResponses = _mapper.Map<List<RoleResponse>>(roles);
+            
+            LogInfo("Retrieved {Count} roles for account: AccountId={AccountId}", null, roleResponses.Count, accountId);
+            return roleResponses;
+        }, "GetAccountRoles");
     }
 
     /// <summary>
@@ -1054,50 +951,19 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<List<AccountResponse>> GetAccountsByRoleAsync(Guid roleId)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            var accounts = await _authRepository.GetAccountsByRoleAsync(roleId);
-            return _mapper.Map<List<AccountResponse>>(accounts);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting accounts by role: {RoleId}", roleId);
-            throw new AuthException("Failed to get accounts by role", innerException: ex);
-        }
-    }
+            LogInfo("Getting accounts by role: RoleId={RoleId}", null, roleId);
+            var role = await _authRepository.GetRoleByIdAsync(roleId) ?? throw new RoleNotFoundException(roleId);
 
-    /// <summary>
-    /// Check if account has role
-    /// </summary>
-    public async Task<bool> AccountHasRoleAsync(Guid accountId, Guid roleId)
-    {
-        try
-        {
-            return await _authRepository.AccountHasRoleAsync(accountId, roleId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error checking if account has role: AccountId={AccountId}, RoleId={RoleId}", accountId, roleId);
-            throw new AuthException("Failed to check account role", innerException: ex);
-        }
+            var accounts = await _authRepository.GetAccountsByRoleAsync(role);
+            var accountResponses = _mapper.Map<List<AccountResponse>>(accounts);
+            
+            LogInfo("Retrieved {Count} accounts for role: RoleId={RoleId}", null, accountResponses.Count, roleId);
+            return accountResponses;
+        }, "GetAccountsByRole");
     }
-
-    /// <summary>
-    /// Check if account has role by name
-    /// </summary>
-    public async Task<bool> AccountHasRoleAsync(Guid accountId, string roleName)
-    {
-        try
-        {
-            return await _authRepository.AccountHasRoleAsync(accountId, roleName);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error checking if account has role: AccountId={AccountId}, RoleName={RoleName}", accountId, roleName);
-            throw new AuthException("Failed to check account role", innerException: ex);
-        }
-    }
-
+ 
     #endregion
 
     #region Role-Permission Operations
@@ -1107,16 +973,23 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<RolePermissionResponse> AssignPermissionToRoleAsync(AssignPermissionRequest request)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Assigning permission to role: RoleId={RoleId}, PermissionId={PermissionId}", null, request.RoleId, request.PermissionId);
+            var role = await _authRepository.GetRoleByIdAsync(request.RoleId) ?? throw new RoleNotFoundException(request.RoleId);
+            var permission = await _authRepository.GetPermissionByIdAsync(request.PermissionId) ?? throw new PermissionNotFoundException(request.PermissionId);
+
+            if (await _authRepository.RoleHasPermissionAsync(role.Id, permission.Id))
+            {
+                LogWarning("Role {RoleId} does not have permission {PermissionName}", role.Id.ToString(), permission.Name);
+                throw new PermissionAlreadyAssignedException(role.Id, permission.Id);
+            }
+
             var rolePermission = await _authRepository.AssignPermissionToRoleAsync(request.RoleId, request.PermissionId);
+            
+            LogInfo("Permission assigned successfully: RoleId={RoleId}, PermissionId={PermissionId}", null, request.RoleId, request.PermissionId);
             return _mapper.Map<RolePermissionResponse>(rolePermission);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error assigning permission to role: RoleId={RoleId}, PermissionId={PermissionId}", request.RoleId, request.PermissionId);
-            throw new AuthException("Permission assignment failed", innerException: ex);
-        }
+        }, "AssignPermissionToRole");
     }
 
     /// <summary>
@@ -1124,15 +997,23 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<bool> RemovePermissionFromRoleAsync(RemovePermissionRequest request)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            return await _authRepository.RemovePermissionFromRoleAsync(request.RoleId, request.PermissionId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error removing permission from role: RoleId={RoleId}, PermissionId={PermissionId}", request.RoleId, request.PermissionId);
-            throw new AuthException("Permission removal failed", innerException: ex);
-        }
+            LogInfo("Removing permission from role: RoleId={RoleId}, PermissionId={PermissionId}", null, request.RoleId, request.PermissionId);
+            var role = await _authRepository.GetRoleByIdAsync(request.RoleId) ?? throw new RoleNotFoundException(request.RoleId);
+            var permission = await _authRepository.GetPermissionByIdAsync(request.PermissionId) ?? throw new PermissionNotFoundException(request.PermissionId);
+
+            if (!await _authRepository.RoleHasPermissionAsync(role.Id, permission.Id))
+            {
+                LogWarning("Role {RoleId} does not have permission {PermissionId}", role.Id.ToString(), permission.Id.ToString());
+                throw new PermissionNotAssignedException(role.Id, permission.Id);
+            }
+
+            var result = await _authRepository.RemovePermissionFromRoleAsync(request.RoleId, request.PermissionId);
+            
+            LogInfo("Permission removal result: RoleId={RoleId}, PermissionId={PermissionId}, Success={Success}", null, request.RoleId, request.PermissionId, result);
+            return result;
+        }, "RemovePermissionFromRole");
     }
 
     /// <summary>
@@ -1140,16 +1021,17 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<List<PermissionResponse>> GetRolePermissionsAsync(Guid roleId)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
-            var permissions = await _authRepository.GetRolePermissionsAsync(roleId);
-            return _mapper.Map<List<PermissionResponse>>(permissions);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting role permissions: {RoleId}", roleId);
-            throw new AuthException("Failed to get role permissions", innerException: ex);
-        }
+            LogInfo("Getting role permissions: RoleId={RoleId}", null, roleId);
+            var role = await _authRepository.GetRoleByIdAsync(roleId) ?? throw new RoleNotFoundException(roleId);
+
+            var permissions = await _authRepository.GetRolePermissionsAsync(role.Id);
+            var permissionResponses = _mapper.Map<List<PermissionResponse>>(permissions);
+            
+            LogInfo("Retrieved {Count} permissions for role: RoleId={RoleId}", null, permissionResponses.Count, roleId);
+            return permissionResponses;
+        }, "GetRolePermissions");
     }
 
     /// <summary>
@@ -1157,306 +1039,17 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     public async Task<List<RoleResponse>> GetRolesByPermissionAsync(Guid permissionId)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Getting roles by permission: PermissionId={PermissionId}", null, permissionId);
+            var permission = await _authRepository.GetPermissionByIdAsync(permissionId) ?? throw new PermissionNotFoundException(permissionId);
+
             var roles = await _authRepository.GetRolesByPermissionAsync(permissionId);
-            return _mapper.Map<List<RoleResponse>>(roles);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting roles by permission: {PermissionId}", permissionId);
-            throw new AuthException("Failed to get roles by permission", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Check if role has permission
-    /// </summary>
-    public async Task<bool> RoleHasPermissionAsync(Guid roleId, Guid permissionId)
-    {
-        try
-        {
-            return await _authRepository.RoleHasPermissionAsync(roleId, permissionId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error checking if role has permission: RoleId={RoleId}, PermissionId={PermissionId}", roleId, permissionId);
-            throw new AuthException("Failed to check role permission", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Check if role has permission by name
-    /// </summary>
-    public async Task<bool> RoleHasPermissionAsync(Guid roleId, string permissionName)
-    {
-        try
-        {
-            return await _authRepository.RoleHasPermissionAsync(roleId, permissionName);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error checking if role has permission: RoleId={RoleId}, PermissionName={PermissionName}", roleId, permissionName);
-            throw new AuthException("Failed to check role permission", innerException: ex);
-        }
-    }
-
-    #endregion
-
-    #region Authorization Operations
-
-    /// <summary>
-    /// Check if account is authorized for specific permission
-    /// </summary>
-    public async Task<bool> IsAuthorizedAsync(Guid accountId, string permissionName)
-    {
-        try
-        {
-            var accountRoles = await _authRepository.GetAccountRolesAsync(accountId);
+            var roleResponses = _mapper.Map<List<RoleResponse>>(roles);
             
-            foreach (var role in accountRoles)
-            {
-                if (await _authRepository.RoleHasPermissionAsync(role.Id, permissionName))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error checking authorization: AccountId={AccountId}, Permission={Permission}", accountId, permissionName);
-            throw new AuthException("Authorization check failed", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Check if account is authorized for any of the specified permissions
-    /// </summary>
-    public async Task<bool> IsAuthorizedAsync(Guid accountId, List<string> permissionNames)
-    {
-        try
-        {
-            foreach (var permissionName in permissionNames)
-            {
-                if (await IsAuthorizedAsync(accountId, permissionName))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error checking authorization: AccountId={AccountId}, Permissions={Permissions}", accountId, string.Join(", ", permissionNames));
-            throw new AuthException("Authorization check failed", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Get all permissions for an account
-    /// </summary>
-    public async Task<List<string>> GetAccountPermissionsAsync(Guid accountId)
-    {
-        try
-        {
-            var permissions = new List<string>();
-            var accountRoles = await _authRepository.GetAccountRolesAsync(accountId);
-            
-            foreach (var role in accountRoles)
-            {
-                var rolePermissions = await _authRepository.GetRolePermissionsAsync(role.Id);
-                foreach (var permission in rolePermissions)
-                {
-                    if (!permissions.Contains(permission.Name))
-                    {
-                        permissions.Add(permission.Name);
-                    }
-                }
-            }
-
-            return permissions;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting account permissions: {AccountId}", accountId);
-            throw new AuthException("Failed to get account permissions", innerException: ex);
-        }
-    }
-
-    #endregion
-
-    #region Validation Methods
-
-    /// <summary>
-    /// Validates login request
-    /// </summary>
-    private void ValidateLoginRequest(LoginRequest request)
-    {
-        ValidateRequired(request, nameof(request));
-        
-        if (string.IsNullOrWhiteSpace(request.EmailOrPhone))
-        {
-            throw new ValidationException("Email or phone number is required");
-        }
-        
-        if (string.IsNullOrWhiteSpace(request.Password))
-        {
-            throw new ValidationException("Password is required");
-        }
-    }
-
-    /// <summary>
-    /// Validates registration request
-    /// </summary>
-    private void ValidateRegisterRequest(RegisterRequest request)
-    {
-        ValidateRequired(request, nameof(request));
-        ValidateRequiredString(request.Email, nameof(request.Email));
-        ValidateRequiredString(request.Password, nameof(request.Password));
-        ValidateRequiredString(request.ConfirmPassword, nameof(request.ConfirmPassword));
-        ValidateRequiredString(request.PhoneNumber, nameof(request.PhoneNumber));  
-
-        // Validate password length (DTO already has MinLength(8) attribute, but double-check here)
-        if (request.Password.Length < 8)
-        {
-            throw new AccountValidationException("Password must be at least 8 characters long");
-        }
-
-        // Validate password complexity (DTO already has RegularExpression attribute, but double-check here)
-        if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]"))
-        {
-            throw new AccountValidationException("Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character");
-        }
-
-        // Validate password confirmation
-        if (request.Password != request.ConfirmPassword)
-        {
-            throw new AccountValidationException("Password and confirm password do not match");
-        }
-
-        // Validate address length
-        if (string.IsNullOrEmpty(request.Address) || request.Address.Length > 500)
-        {
-            throw new AccountValidationException("Address is required and must not exceed 500 characters");
-        }
-    }
-
-    private void ValidateRegisterByRole(RegisterRequest request, Role role)
-    {
-        var normalizedRole = role;
-
-        // Common password confirmation
-        if (!string.Equals(request.Password, request.ConfirmPassword, StringComparison.Ordinal))
-        {
-            throw new AccountValidationException("Password and confirm password do not match");
-        }
-
-        if (normalizedRole == Role.PATIENT)
-        {
-            if (string.IsNullOrWhiteSpace(request.FullName))
-                throw new AccountValidationException("FullName is required for Patient");
-            if (!request.Gender.HasValue)
-                throw new AccountValidationException("Gender is required for Patient");
-            if (!request.Birthday.HasValue)
-                throw new AccountValidationException("Birthday is required for Patient");
-            if (request.Birthday.Value >= DateTime.Today)
-                throw new AccountValidationException("Birthday cannot be today or in the future");
-            if (request.Birthday.Value < DateTime.Today.AddYears(-120))
-                throw new AccountValidationException("Birthday seems invalid (too far in the past)");
-        }
-        else if (normalizedRole == Role.DOCTOR)
-        {
-            if (string.IsNullOrWhiteSpace(request.FullName))
-                throw new AccountValidationException("FullName is required for Doctor");
-            if (!request.Gender.HasValue)
-                throw new AccountValidationException("Gender is required for Doctor");
-            if (request.DoctorProfile == null)
-                throw new AccountValidationException("DoctorProfile is required for Doctor");
-            if (request.DoctorProfile.PositionId == Guid.Empty)
-                throw new AccountValidationException("DoctorProfile.PositionId is required");
-            if (request.DoctorProfile.SpecialtyId == Guid.Empty)
-                throw new AccountValidationException("DoctorProfile.SpecialtyId is required");
-            if (request.DoctorProfile.ClinicId == Guid.Empty)
-                throw new AccountValidationException("DoctorProfile.ClinicId is required");
-            if (string.IsNullOrWhiteSpace(request.DoctorProfile.Bio))
-                throw new AccountValidationException("DoctorProfile.Bio is required");
-            if (request.DoctorProfile.YearsOfExperience < 0 || request.DoctorProfile.YearsOfExperience > 80)
-                throw new AccountValidationException("DoctorProfile.YearsOfExperience must be between 0 and 80");
-        }
-        else if (normalizedRole == Role.CLINIC)
-        {
-            if (request.ClinicProfile == null)
-                throw new AccountValidationException("ClinicProfile is required for Clinic");
-            if (string.IsNullOrWhiteSpace(request.ClinicProfile.Name))
-                throw new AccountValidationException("ClinicProfile.Name is required");
-            if (string.IsNullOrWhiteSpace(request.ClinicProfile.Description))
-                throw new AccountValidationException("ClinicProfile.Description is required");
-            if (request.ClinicProfile.Name.Length > 200)
-                throw new AccountValidationException("ClinicProfile.Name must not exceed 200 characters");
-            if (request.ClinicProfile.Description.Length > 2000)
-                throw new AccountValidationException("ClinicProfile.Description must not exceed 2000 characters");
-        }
-    }
-
-    /// <summary>
-    /// Validates account update request
-    /// </summary>
-    private void ValidateUpdateAccountRequest(UpdateAccountRequest request)
-    {
-        ValidateRequired(request, nameof(request));
-        ValidateGuid(request.Id, nameof(request.Id));
-    }
-
-    /// <summary>
-    /// Validates role creation request
-    /// </summary>
-    private void ValidateCreateRoleRequest(CreateRoleRequest request)
-    {
-        ValidateRequired(request, nameof(request));
-        ValidateRequiredString(request.Name, nameof(request.Name));
-    }
-
-    /// <summary>
-    /// Validates role update request
-    /// </summary>
-    private void ValidateUpdateRoleRequest(UpdateRoleRequest request)
-    {
-        ValidateRequired(request, nameof(request));
-        ValidateGuid(request.Id, nameof(request.Id));
-        ValidateRequiredString(request.Name, nameof(request.Name));
-    }
-
-    /// <summary>
-    /// Validates permission creation request
-    /// </summary>
-    private void ValidateCreatePermissionRequest(CreatePermissionRequest request)
-    {
-        ValidateRequired(request, nameof(request));
-        ValidateRequiredString(request.Name, nameof(request.Name));
-    }
-
-    /// <summary>
-    /// Validates permission update request
-    /// </summary>
-    private void ValidateUpdatePermissionRequest(UpdatePermissionRequest request)
-    {
-        ValidateRequired(request, nameof(request));
-        ValidateGuid(request.Id, nameof(request.Id));
-        ValidateRequiredString(request.Name, nameof(request.Name));
-    }
-
-    /// <summary>
-    /// Validates change password request
-    /// </summary>
-    private void ValidateChangePasswordRequest(ChangePasswordRequest request)
-    {
-        ValidateRequired(request, nameof(request));
-        ValidateGuid(request.AccountId, nameof(request.AccountId));
-        ValidateRequiredString(request.NewPassword, nameof(request.NewPassword));
-        ValidateRequiredString(request.ConfirmNewPassword, nameof(request.ConfirmNewPassword));
+            LogInfo("Retrieved {Count} roles for permission: PermissionId={PermissionId}", null, roleResponses.Count, permissionId);
+            return roleResponses;
+        }, "GetRolesByPermission");
     }
 
     #endregion
@@ -1464,49 +1057,37 @@ public class AuthService : BaseService, IAuthService
     #region Private Helper Methods
 
     /// <summary>
-    /// Generate device ID for refresh token tracking
-    /// </summary>
-    private string GenerateDeviceId(string emailOrPhone)
-    {
-        // Simple device identification - in production, this should be more sophisticated
-        // Could use browser fingerprinting, device UUID, etc.
-        var hash = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(emailOrPhone + DateTime.UtcNow.Date.ToString("yyyy-MM-dd")));
-        return Convert.ToBase64String(hash)[..16]; // Take first 16 characters
-    }
-
-    /// <summary>
     /// Find account by email or phone number
     /// </summary>
-    private async Task<AccountEntity?> FindAccountByEmailOrPhoneAsync(string emailOrPhone)
+    private async Task<AccountEntity?> FindAccountByEmailOrPhoneAsync(string? email, string? phoneNumber)
     {
-        // Try to find by email first
-        var account = await _authRepository.GetAccountByEmailAsync(emailOrPhone);
-        if (account != null)
+        // Try to find by email if provided
+        if (!string.IsNullOrWhiteSpace(email))
         {
-            return account;
+            var account = await _authRepository.GetAccountByEmailAsync(email);
+            if (account != null)
+            {
+                return account;
+            }
         }
 
-        // If not found by email, try to find by phone number
-        account = await _authRepository.GetAccountByPhoneNumberAsync(emailOrPhone);
-        return account;
+        // Try to find by phone number if provided
+        if (!string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            var account = await _authRepository.GetAccountByPhoneNumberAsync(phoneNumber);
+            if (account != null)
+            {
+                return account;
+            }
+        }
+
+        return null;
     }
 
     private static string BuildResetUrl(string baseUrl, string email, string token)
     {
-        if (string.IsNullOrEmpty(baseUrl))
-        {
-            return $"/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
-        }
         var separator = baseUrl.EndsWith('/') ? string.Empty : "/";
         return $"{baseUrl}{separator}reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
-    }
-
-    private static string GetAppPrefix(string origin)
-    {
-        if (string.IsNullOrEmpty(origin)) return "default";
-        if (origin.Contains("3002")) return "admin";
-        if (origin.Contains("3000")) return "client";
-        return "default";
     }
 
     #endregion

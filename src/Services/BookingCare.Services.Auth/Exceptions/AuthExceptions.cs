@@ -24,20 +24,9 @@ public class AuthException : BookingCareException
 /// </summary>
 public class AccountNotFoundException : NotFoundException
 {
-    public AccountNotFoundException(string message) 
-        : base(message, "ACCOUNT_NOT_FOUND")
-    {
-    }
-
     public AccountNotFoundException(Guid accountId)
         : base("Account", accountId, "ACCOUNT_NOT_FOUND")
     {
-    }
-
-    public AccountNotFoundException(string email, bool byEmail)
-        : base($"Account with email '{email}' was not found.", "ACCOUNT_NOT_FOUND")
-    {
-        Details["Email"] = email;
     }
 }
 
@@ -46,20 +35,9 @@ public class AccountNotFoundException : NotFoundException
 /// </summary>
 public class RoleNotFoundException : NotFoundException
 {
-    public RoleNotFoundException(string message) 
-        : base(message, "ROLE_NOT_FOUND")
-    {
-    }
-
     public RoleNotFoundException(Guid roleId)
         : base("Role", roleId, "ROLE_NOT_FOUND")
     {
-    }
-
-    public RoleNotFoundException(string roleName, bool byName)
-        : base($"Role with name '{roleName}' was not found.", "ROLE_NOT_FOUND")
-    {
-        Details["RoleName"] = roleName;
     }
 }
 
@@ -68,20 +46,9 @@ public class RoleNotFoundException : NotFoundException
 /// </summary>
 public class PermissionNotFoundException : NotFoundException
 {
-    public PermissionNotFoundException(string message) 
-        : base(message, "PERMISSION_NOT_FOUND")
-    {
-    }
-
     public PermissionNotFoundException(Guid permissionId)
         : base("Permission", permissionId, "PERMISSION_NOT_FOUND")
     {
-    }
-
-    public PermissionNotFoundException(string permissionName, bool byName)
-        : base($"Permission with name '{permissionName}' was not found.", "PERMISSION_NOT_FOUND")
-    {
-        Details["PermissionName"] = permissionName;
     }
 }
 
@@ -94,31 +61,8 @@ public class AuthenticationException : UnauthorizedException
         : base(message, "AUTHENTICATION_FAILED")
     {
     }
-
-    public AuthenticationException(string email, bool byEmail)
-        : base($"Authentication failed for email '{email}'.", "AUTHENTICATION_FAILED")
-    {
-        Details["Email"] = email;
-    }
 }
 
-/// <summary>
-/// Exception thrown when authorization fails
-/// </summary>
-public class AuthorizationException : ForbiddenException
-{
-    public AuthorizationException(string message) 
-        : base(message, "AUTHORIZATION_FAILED")
-    {
-    }
-
-    public AuthorizationException(string email, string requiredRole)
-        : base($"User '{email}' does not have required role '{requiredRole}'.", "AUTHORIZATION_FAILED")
-    {
-        Details["Email"] = email;
-        Details["RequiredRole"] = requiredRole;
-    }
-}
 
 /// <summary>
 /// Exception thrown when account validation fails
@@ -129,11 +73,6 @@ public class AccountValidationException : ValidationException
         : base(message, null, "ACCOUNT_VALIDATION_ERROR")
     {
     }
-
-    public AccountValidationException(List<ValidationError> validationErrors)
-        : base("Account validation failed", validationErrors, "ACCOUNT_VALIDATION_ERROR")
-    {
-    }
 }
 
 /// <summary>
@@ -141,11 +80,6 @@ public class AccountValidationException : ValidationException
 /// </summary>
 public class AccountConflictException : ConflictException
 {
-    public AccountConflictException(string message) 
-        : base(message, "ACCOUNT_CONFLICT")
-    {
-    }
-
     public AccountConflictException(string value, string fieldType)
         : base($"Account with {fieldType} '{value}' already exists.", "ACCOUNT_CONFLICT")
     {
@@ -158,11 +92,6 @@ public class AccountConflictException : ConflictException
 /// </summary>
 public class RoleConflictException : ConflictException
 {
-    public RoleConflictException(string message) 
-        : base(message, "ROLE_CONFLICT")
-    {
-    }
-
     public RoleConflictException(string roleName, bool byName)
         : base($"Role with name '{roleName}' already exists.", "ROLE_CONFLICT")
     {
@@ -175,11 +104,6 @@ public class RoleConflictException : ConflictException
 /// </summary>
 public class PermissionConflictException : ConflictException
 {
-    public PermissionConflictException(string message) 
-        : base(message, "PERMISSION_CONFLICT")
-    {
-    }
-
     public PermissionConflictException(string permissionName, bool byName)
         : base($"Permission with name '{permissionName}' already exists.", "PERMISSION_CONFLICT")
     {
@@ -196,25 +120,56 @@ public class RoleValidationException : ValidationException
         : base(message, null, "ROLE_VALIDATION_ERROR")
     {
     }
+}
 
-    public RoleValidationException(List<ValidationError> validationErrors)
-        : base("Role validation failed", validationErrors, "ROLE_VALIDATION_ERROR")
+/// <summary>
+/// Exception thrown when trying to assign a role that account already has
+/// </summary>
+public class RoleAlreadyAssignedException : ConflictException
+{
+    public RoleAlreadyAssignedException(Guid accountId, string roleName)
+        : base($"Account already has role '{roleName}'.", "ROLE_ALREADY_ASSIGNED")
     {
+        Details["AccountId"] = accountId;
+        Details["RoleName"] = roleName;
     }
 }
 
 /// <summary>
-/// Exception thrown when permission validation fails
+/// Exception thrown when trying to assign a permission that role already has
 /// </summary>
-public class PermissionValidationException : ValidationException
+public class PermissionAlreadyAssignedException : ConflictException
 {
-    public PermissionValidationException(string message) 
-        : base(message, null, "PERMISSION_VALIDATION_ERROR")
+    public PermissionAlreadyAssignedException(Guid roleId, Guid permissionId)
+        : base($"Role already has this permission.", "PERMISSION_ALREADY_ASSIGNED")
     {
+        Details["RoleId"] = roleId;
+        Details["PermissionId"] = permissionId;
     }
+}
 
-    public PermissionValidationException(List<ValidationError> validationErrors)
-        : base("Permission validation failed", validationErrors, "PERMISSION_VALIDATION_ERROR")
+/// <summary>
+/// Exception thrown when trying to remove a role that account doesn't have
+/// </summary>
+public class RoleNotAssignedException : NotFoundException
+{
+    public RoleNotAssignedException(Guid accountId, string roleName)
+        : base($"Account does not have role '{roleName}'.", "ROLE_NOT_ASSIGNED")
     {
+        Details["AccountId"] = accountId;
+        Details["RoleName"] = roleName;
+    }
+}
+
+/// <summary>
+/// Exception thrown when trying to remove a permission that role doesn't have
+/// </summary>
+public class PermissionNotAssignedException : NotFoundException
+{
+    public PermissionNotAssignedException(Guid roleId, Guid permissionId)
+        : base($"Role does not have this permission.", "PERMISSION_NOT_ASSIGNED")
+    {
+        Details["RoleId"] = roleId;
+        Details["PermissionId"] = permissionId;
     }
 }

@@ -4,7 +4,6 @@ using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Auth.Repositories;
 
@@ -17,17 +16,20 @@ public class AuthRepository : IAuthRepository
     private readonly RoleManager<RoleEntity> _roleManager;
     private readonly AuthDbContext _context;
     private readonly ILogger<AuthRepository> _logger;
+    private readonly IConfiguration _configuration;
 
     public AuthRepository(
         UserManager<AccountEntity> userManager,
         RoleManager<RoleEntity> roleManager,
         AuthDbContext context,
-        ILogger<AuthRepository> logger)
+        ILogger<AuthRepository> logger,
+        IConfiguration configuration)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _context = context;
         _logger = logger;
+        _configuration = configuration;
     }
 
     #region Account Operations
@@ -134,58 +136,16 @@ public class AuthRepository : IAuthRepository
             throw new AuthException("Failed to update account", innerException: ex);
         }
     }
-
+  
     /// <summary>
-    /// Delete account
+    /// Check if email exists using AnyAsync for optimal performance
     /// </summary>
-    public async Task<bool> DeleteAccountAsync(Guid id)
+    public async Task<bool> EmailExistsAsync(string email)
     {
         try
         {
-            var account = await GetAccountByIdAsync(id);
-            if (account == null)
-                return false;
-
-            var result = await _userManager.DeleteAsync(account);
-            return result.Succeeded;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting account: {AccountId}", id);
-            throw new AuthException("Failed to delete account", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Check if account exists
-    /// </summary>
-    public async Task<bool> AccountExistsAsync(Guid id)
-    {
-        try
-        {
-            return await _userManager.FindByIdAsync(id.ToString()) != null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking account existence: {AccountId}", id);
-            throw new AuthException("Failed to check account existence", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Check if email exists
-    /// </summary>
-    public async Task<bool> EmailExistsAsync(string email, Guid? excludeId = null)
-    {
-        try
-        {
-            var account = await _userManager.FindByEmailAsync(email);
-            if (account == null) return false;
-            
-            if (excludeId.HasValue && account.Id == excludeId.Value)
-                return false;
-
-            return true;
+            return await _userManager.Users
+                .AnyAsync(u => u.Email == email);
         }
         catch (Exception ex)
         {
@@ -195,59 +155,19 @@ public class AuthRepository : IAuthRepository
     }
 
     /// <summary>
-    /// Check if phone number exists
+    /// Check if phone number exists using AnyAsync for optimal performance
     /// </summary>
-    public async Task<bool> PhoneNumberExistsAsync(string phoneNumber, Guid? excludeId = null)
+    public async Task<bool> PhoneNumberExistsAsync(string phoneNumber)
     {
         try
         {
-            var account = await _userManager.Users
-                .FirstOrDefaultAsync(a => a.PhoneNumber == phoneNumber);
-            
-            if (account == null) return false;
-            
-            if (excludeId.HasValue && account.Id == excludeId.Value)
-                return false;
-
-            return true;
+            return await _userManager.Users
+                .AnyAsync(u => u.PhoneNumber == phoneNumber);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking phone number existence: {PhoneNumber}", phoneNumber);
             throw new AuthException("Failed to check phone number existence", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Get accounts with filtering and pagination
-    /// </summary>
-    public async Task<(List<AccountEntity> Accounts, int TotalCount)> GetAccountsAsync(AccountQueryRequest query)
-    {
-        try
-        {
-            var queryable = _userManager.Users.AsQueryable();
-
-            // Apply filters
-            if (!string.IsNullOrEmpty(query.SearchTerm))
-                queryable = queryable.Where(a => a.Email.Contains(query.SearchTerm) || a.UserName.Contains(query.SearchTerm));
-
-            //if (!string.IsNullOrEmpty(query.Status))
-            //    queryable = queryable.Where(a => a.Status == query.Status);
-
-            var totalCount = await queryable.CountAsync();
-
-            // Apply pagination
-            var accounts = await queryable
-                .Skip((query.PageNumber - 1) * query.PageSize)
-                .Take(query.PageSize)
-                .ToListAsync();
-
-            return (accounts, totalCount);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting accounts with query");
-            throw new AuthException("Failed to get accounts", innerException: ex);
         }
     }
 
@@ -363,35 +283,20 @@ public class AuthRepository : IAuthRepository
     }
 
     /// <summary>
-    /// Check if role exists
-    /// </summary>
-    public async Task<bool> RoleExistsAsync(Guid id)
-    {
-        try
-        {
-            return await _roleManager.FindByIdAsync(id.ToString()) != null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking role existence: {RoleId}", id);
-            throw new AuthException("Failed to check role existence", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Check if role name exists
+    /// Check if role name exists using AnyAsync for optimal performance (case-insensitive)
     /// </summary>
     public async Task<bool> RoleNameExistsAsync(string name, Guid? excludeId = null)
     {
         try
         {
-            var role = await _roleManager.FindByNameAsync(name);
-            if (role == null) return false;
-            
-            if (excludeId.HasValue && role.Id == excludeId.Value)
-                return false;
+            if (excludeId.HasValue)
+            {
+                return await _roleManager.Roles
+                    .AnyAsync(r => r.Name!.ToLower() == name.ToLower() && r.Id != excludeId.Value);
+            }
 
-            return true;
+            return await _roleManager.Roles
+                .AnyAsync(r => r.Name!.ToLower() == name.ToLower());
         }
         catch (Exception ex)
         {
@@ -401,7 +306,7 @@ public class AuthRepository : IAuthRepository
     }
 
     /// <summary>
-    /// Get roles with filtering and pagination
+    /// Get roles with filtering, sorting and pagination
     /// </summary>
     public async Task<(List<RoleEntity> Roles, int TotalCount)> GetRolesAsync(RoleQueryRequest query)
     {
@@ -411,7 +316,25 @@ public class AuthRepository : IAuthRepository
 
             // Apply filters
             if (!string.IsNullOrEmpty(query.SearchTerm))
-                queryable = queryable.Where(r => r.Name.Contains(query.SearchTerm));
+                queryable = queryable.Where(r => r.Name!.Contains(query.SearchTerm));
+
+            // Apply sorting
+            if (!string.IsNullOrEmpty(query.SortBy))
+            {
+                queryable = query.SortBy.ToLower() switch
+                {
+                    "name" => query.SortDescending ? queryable.OrderByDescending(r => r.Name) : queryable.OrderBy(r => r.Name),
+                    "description" => query.SortDescending ? queryable.OrderByDescending(r => r.Description) : queryable.OrderBy(r => r.Description),
+                    "created_at" => query.SortDescending ? queryable.OrderByDescending(r => r.CreatedAt) : queryable.OrderBy(r => r.CreatedAt),
+                    "updated_at" => query.SortDescending ? queryable.OrderByDescending(r => r.UpdatedAt) : queryable.OrderBy(r => r.UpdatedAt),
+                    _ => queryable.OrderBy(r => r.Name) // Default sort by name
+                };
+            }
+            else
+            {
+                // Default sorting by name if no SortBy specified
+                queryable = queryable.OrderBy(r => r.Name);
+            }
 
             var totalCount = await queryable.CountAsync();
 
@@ -523,35 +446,22 @@ public class AuthRepository : IAuthRepository
             throw new AuthException("Failed to delete permission", innerException: ex);
         }
     }
-
+ 
     /// <summary>
-    /// Check if permission exists
-    /// </summary>
-    public async Task<bool> PermissionExistsAsync(Guid id)
-    {
-        try
-        {
-            return await _context.Permissions.AnyAsync(p => p.Id == id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking permission existence: {PermissionId}", id);
-            throw new AuthException("Failed to check permission existence", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Check if permission name exists
+    /// Check if permission name exists (case-insensitive)
     /// </summary>
     public async Task<bool> PermissionNameExistsAsync(string name, Guid? excludeId = null)
     {
         try
         {
-            var query = _context.Permissions.AsQueryable();
             if (excludeId.HasValue)
-                query = query.Where(p => p.Id != excludeId.Value);
+            {
+                return await _context.Permissions
+                    .AnyAsync(p => p.Name.ToLower() == name.ToLower() && p.Id != excludeId.Value);
+            }
 
-            return await query.AnyAsync(p => p.Name == name);
+            return await _context.Permissions
+                .AnyAsync(p => p.Name.ToLower() == name.ToLower());
         }
         catch (Exception ex)
         {
@@ -561,7 +471,7 @@ public class AuthRepository : IAuthRepository
     }
 
     /// <summary>
-    /// Get permissions with filtering and pagination
+    /// Get permissions with filtering, sorting and pagination
     /// </summary>
     public async Task<(List<PermissionEntity> Permissions, int TotalCount)> GetPermissionsAsync(PermissionQueryRequest query)
     {
@@ -572,6 +482,24 @@ public class AuthRepository : IAuthRepository
             // Apply filters
             if (!string.IsNullOrEmpty(query.SearchTerm))
                 queryable = queryable.Where(p => p.Name.Contains(query.SearchTerm));
+
+            // Apply sorting
+            if (!string.IsNullOrEmpty(query.SortBy))
+            {
+                queryable = query.SortBy.ToLower() switch
+                {
+                    "name" => query.SortDescending ? queryable.OrderByDescending(p => p.Name) : queryable.OrderBy(p => p.Name),
+                    "description" => query.SortDescending ? queryable.OrderByDescending(p => p.Description) : queryable.OrderBy(p => p.Description),
+                    "created_at" => query.SortDescending ? queryable.OrderByDescending(p => p.CreatedAt) : queryable.OrderBy(p => p.CreatedAt),
+                    "updated_at" => query.SortDescending ? queryable.OrderByDescending(p => p.UpdatedAt) : queryable.OrderBy(p => p.UpdatedAt),
+                    _ => queryable.OrderBy(p => p.Name) // Default sort by name
+                };
+            }
+            else
+            {
+                // Default sorting by name if no SortBy specified
+                queryable = queryable.OrderBy(p => p.Name);
+            }
 
             var totalCount = await queryable.CountAsync();
 
@@ -593,45 +521,31 @@ public class AuthRepository : IAuthRepository
     #endregion
 
     #region Account-Role Operations
-
+  
     /// <summary>
-    /// Get account-role relationship
+    /// Check if account already has the specified role by name using AnyAsync for optimal performance
     /// </summary>
-    public async Task<AccountRoleEntity?> GetAccountRoleAsync(Guid accountId, Guid roleId)
+    public async Task<bool> RoleAlreadyAssignedAsync(AccountEntity account, string roleName)
     {
         try
         {
-            var userRole = await _context.UserRoles
-                .FirstOrDefaultAsync(ur => ur.UserId == accountId && ur.RoleId == roleId);
-            
-            if (userRole == null)
-                return null;
-                
-            return new AccountRoleEntity
-            {
-                UserId = userRole.UserId,
-                RoleId = userRole.RoleId,
-                CreatedAt = DateTime.UtcNow, // Note: Identity doesn't store these timestamps
-                UpdatedAt = DateTime.UtcNow
-            };
+            return await _userManager.IsInRoleAsync(account, roleName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting account-role relationship: AccountId={AccountId}, RoleId={RoleId}", accountId, roleId);
-            throw new AuthException("Failed to get account-role relationship", innerException: ex);
+            _logger.LogError(ex, "Error checking if role is already assigned by name: AccountId={AccountId}, RoleName={RoleName}", account.Id, roleName);
+            throw new AuthException("Failed to check if role is already assigned by name", innerException: ex);
         }
     }
 
     /// <summary>
     /// Assign role to account
     /// </summary>
-    public async Task<AccountRoleEntity> AssignRoleToAccountAsync(Guid accountId, Guid roleId)
+    public async Task<AccountRoleEntity> AssignRoleToAccountAsync(AccountEntity account, RoleEntity role)
     {
         try
-        {
-            var result = await _userManager.AddToRoleAsync(
-                await GetAccountByIdAsync(accountId) ?? throw new AccountNotFoundException(accountId),
-                (await GetRoleByIdAsync(roleId))?.Name ?? throw new RoleNotFoundException(roleId));
+        {                      
+            var result = await _userManager.AddToRoleAsync(account, role.Name!);
 
             if (!result.Succeeded)
             {
@@ -639,25 +553,16 @@ public class AuthRepository : IAuthRepository
                 throw new AuthException($"Failed to assign role to account: {errors}");
             }
 
+            _logger.LogInformation("Successfully assigned role {RoleName} to account {AccountId}", role.Name, account.Id);
             return new AccountRoleEntity
             {
-                UserId = accountId,
-                RoleId = roleId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UserId = account.Id,
+                RoleId = role.Id
             };
-        }
-        catch (AccountNotFoundException)
-        {
-            throw;
-        }
-        catch (RoleNotFoundException)
-        {
-            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error assigning role to account: AccountId={AccountId}, RoleId={RoleId}", accountId, roleId);
+            _logger.LogError(ex, "Error assigning role to account: AccountId={AccountId}, RoleId={RoleId}", account.Id, role.Id);
             throw new AuthException("Failed to assign role to account", innerException: ex);
         }
     }
@@ -665,22 +570,23 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Remove role from account
     /// </summary>
-    public async Task<bool> RemoveRoleFromAccountAsync(Guid accountId, Guid roleId)
+    public async Task<bool> RemoveRoleFromAccountAsync(AccountEntity account, RoleEntity role)
     {
         try
-        {
-            var account = await GetAccountByIdAsync(accountId);
-            var role = await GetRoleByIdAsync(roleId);
+        {           
+            var result = await _userManager.RemoveFromRoleAsync(account, role.Name!);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                throw new AuthException($"Failed to remove role from account: {errors}");
+            }
 
-            if (account == null || role == null)
-                return false;
-
-            var result = await _userManager.RemoveFromRoleAsync(account, role.Name);
-            return result.Succeeded;
-        }
+            _logger.LogInformation("Successfully removed role {RoleName} from account {AccountId}", role.Name, account.Id);
+            return true;
+        }       
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing role from account: AccountId={AccountId}, RoleId={RoleId}", accountId, roleId);
+            _logger.LogError(ex, "Error removing role from account: AccountId={AccountId}, RoleId={RoleId}", account.Id, role.Id);
             throw new AuthException("Failed to remove role from account", innerException: ex);
         }
     }
@@ -688,14 +594,10 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Get account roles
     /// </summary>
-    public async Task<List<RoleEntity>> GetAccountRolesAsync(Guid accountId)
+    public async Task<List<RoleEntity>> GetAccountRolesAsync(AccountEntity account)
     {
         try
         {
-            var account = await GetAccountByIdAsync(accountId);
-            if (account == null)
-                return new List<RoleEntity>();
-
             var roleNames = await _userManager.GetRolesAsync(account);
             var roles = new List<RoleEntity>();
 
@@ -710,7 +612,7 @@ public class AuthRepository : IAuthRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting account roles: {AccountId}", accountId);
+            _logger.LogError(ex, "Error getting account roles: {AccountId}", account.Id);
             throw new AuthException("Failed to get account roles", innerException: ex);
         }
     }
@@ -718,86 +620,58 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Get accounts by role
     /// </summary>
-    public async Task<List<AccountEntity>> GetAccountsByRoleAsync(Guid roleId)
+    public async Task<List<AccountEntity>> GetAccountsByRoleAsync(RoleEntity role)
     {
         try
         {
-            var role = await GetRoleByIdAsync(roleId);
-            if (role == null)
-                return new List<AccountEntity>();
-
-            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
+            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!);
             return usersInRole.ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting accounts by role: {RoleId}", roleId);
+            _logger.LogError(ex, "Error getting accounts by role: {RoleId}", role.Id);
             throw new AuthException("Failed to get accounts by role", innerException: ex);
         }
     }
 
+    #endregion
+
+    #region Account-Permission Operations
+
     /// <summary>
-    /// Check if account has role
+    /// Get all permissions for an account through its roles
     /// </summary>
-    public async Task<bool> AccountHasRoleAsync(Guid accountId, Guid roleId)
+    public async Task<List<string>> GetAccountPermissionsAsync(AccountEntity account)
     {
         try
         {
-            var account = await GetAccountByIdAsync(accountId);
-            var role = await GetRoleByIdAsync(roleId);
+            var permissions = new List<string>();
+            var accountRoles = await GetAccountRolesAsync(account);
 
-            if (account == null || role == null)
-                return false;
+            foreach (var role in accountRoles)
+            {
+                var rolePermissions = await GetRolePermissionsAsync(role.Id);
+                foreach (var permission in rolePermissions)
+                {
+                    if (!permissions.Contains(permission.Name))
+                    {
+                        permissions.Add(permission.Name);
+                    }
+                }
+            }
 
-            return await _userManager.IsInRoleAsync(account, role.Name);
+            return permissions;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error checking if account has role: AccountId={AccountId}, RoleId={RoleId}", accountId, roleId);
-            throw new AuthException("Failed to check if account has role", innerException: ex);
-        }
-    }
-
-    /// <summary>
-    /// Check if account has role by name
-    /// </summary>
-    public async Task<bool> AccountHasRoleAsync(Guid accountId, string roleName)
-    {
-        try
-        {
-            var account = await GetAccountByIdAsync(accountId);
-            if (account == null)
-                return false;
-
-            return await _userManager.IsInRoleAsync(account, roleName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking if account has role: AccountId={AccountId}, RoleName={RoleName}", accountId, roleName);
-            throw new AuthException("Failed to check if account has role", innerException: ex);
+            _logger.LogError(ex, "Error getting account permissions: AccountId={AccountId}", account.Id);
+            throw new AuthException("Failed to get account permissions", innerException: ex);
         }
     }
 
     #endregion
 
     #region Role-Permission Operations
-
-    /// <summary>
-    /// Get role-permission relationship
-    /// </summary>
-    public async Task<RolePermissionEntity?> GetRolePermissionAsync(Guid roleId, Guid permissionId)
-    {
-        try
-        {
-            return await _context.RolePermissions
-                .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting role-permission relationship: RoleId={RoleId}, PermissionId={PermissionId}", roleId, permissionId);
-            throw new AuthException("Failed to get role-permission relationship", innerException: ex);
-        }
-    }
 
     /// <summary>
     /// Assign permission to role
@@ -809,13 +683,12 @@ public class AuthRepository : IAuthRepository
             var rolePermission = new RolePermissionEntity
             {
                 RoleId = roleId,
-                PermissionId = permissionId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                PermissionId = permissionId
             };
-
             var result = await _context.RolePermissions.AddAsync(rolePermission);
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully assigned permission {PermissionId} to role {RoleId}", permissionId, roleId);
             return result.Entity;
         }
         catch (Exception ex)
@@ -832,14 +705,17 @@ public class AuthRepository : IAuthRepository
     {
         try
         {
-            var rolePermission = await GetRolePermissionAsync(roleId, permissionId);
-            if (rolePermission == null)
-                return false;
+            var rolePermission = await _context.RolePermissions
+                .FirstOrDefaultAsync(rp => rp.RoleId == roleId && rp.PermissionId == permissionId);
+
+            if(rolePermission == null) return false;
 
             _context.RolePermissions.Remove(rolePermission);
             await _context.SaveChangesAsync();
+            
+            _logger.LogInformation("Successfully removed permission {PermissionId} from role {RoleId}", permissionId, roleId);
             return true;
-        }
+        }       
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error removing permission from role: RoleId={RoleId}, PermissionId={PermissionId}", roleId, permissionId);
@@ -908,26 +784,6 @@ public class AuthRepository : IAuthRepository
         }
     }
 
-    /// <summary>
-    /// Check if role has permission by name
-    /// </summary>
-    public async Task<bool> RoleHasPermissionAsync(Guid roleId, string permissionName)
-    {
-        try
-        {
-            var permission = await GetPermissionByNameAsync(permissionName);
-            if (permission == null)
-                return false;
-
-            return await RoleHasPermissionAsync(roleId, permission.Id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error checking if role has permission: RoleId={RoleId}, PermissionName={PermissionName}", roleId, permissionName);
-            throw new AuthException("Failed to check if role has permission", innerException: ex);
-        }
-    }
-
     #endregion
 
     #region Authentication Operations
@@ -935,19 +791,15 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Validate credentials
     /// </summary>
-    public async Task<bool> ValidateCredentialsAsync(string email, string password)
+    public async Task<bool> ValidateCredentialsAsync(AccountEntity account, string password)
     {
         try
         {
-            var account = await _userManager.FindByEmailAsync(email);
-            if (account == null)
-                return false;
-
             return await _userManager.CheckPasswordAsync(account, password);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error validating credentials for email: {Email}", email);
+            _logger.LogError(ex, "Error validating credentials for email: {Email}", account.Email);
             throw new AuthException("Failed to validate credentials", innerException: ex);
         }
     }
@@ -955,42 +807,31 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Validate credentials with lockout support
     /// </summary>
-    public async Task<bool> ValidateCredentialsWithLockoutAsync(string email, string password)
+    public async Task<bool> ValidateCredentialsWithLockoutAsync(AccountEntity account, string password)
     {
         try
         {
-            var account = await _userManager.FindByEmailAsync(email);
-            if (account == null)
-                return false;
-
-            // Check if account is locked out
-            if (await _userManager.IsLockedOutAsync(account))
-            {
-                _logger.LogWarning("Account is locked out: {Email}", email);
-                return false;
-            }
-
             // Check password
-            var isValid = await _userManager.CheckPasswordAsync(account, password);
+            var isValid = await ValidateCredentialsAsync(account, password);
             
             if (isValid)
             {
                 // Reset failed access count on successful login
                 await _userManager.ResetAccessFailedCountAsync(account);
-                _logger.LogInformation("Successful login for account: {Email}", email);
+                _logger.LogInformation("Successful login for account: {Email}", account.Email);
             }
             else
             {
                 // Increment failed access count
                 await _userManager.AccessFailedAsync(account);
-                _logger.LogWarning("Failed login attempt for account: {Email}", email);
+                _logger.LogWarning("Failed login attempt for account: {Email}", account.Email);
             }
 
             return isValid;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error validating credentials with lockout for email: {Email}", email);
+            _logger.LogError(ex, "Error validating credentials with lockout for email: {Email}", account.Email);
             throw new AuthException("Failed to validate credentials", innerException: ex);
         }
     }
@@ -998,19 +839,15 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Check if account is locked out
     /// </summary>
-    public async Task<bool> IsAccountLockedOutAsync(Guid accountId)
+    public async Task<bool> IsAccountLockedOutAsync(AccountEntity account)
     {
         try
         {
-            var account = await _userManager.FindByIdAsync(accountId.ToString());
-            if (account == null)
-                return false;
-
             return await _userManager.IsLockedOutAsync(account);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error checking lockout status for account: {AccountId}", accountId);
+            _logger.LogError(ex, "Error checking lockout status for account: {AccountId}", account.Id);
             throw new AuthException("Failed to check lockout status", innerException: ex);
         }
     }
@@ -1018,20 +855,16 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Check if account has external login providers (Google, Facebook, etc.)
     /// </summary>
-    public async Task<bool> HasExternalLoginAsync(Guid accountId)
+    public async Task<bool> HasExternalLoginAsync(AccountEntity account)
     {
         try
         {
-            var account = await _userManager.FindByIdAsync(accountId.ToString());
-            if (account == null)
-                return false;
-
             var logins = await _userManager.GetLoginsAsync(account);
             return logins.Any();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error checking external login status for account: {AccountId}", accountId);
+            _logger.LogError(ex, "Error checking external login status for account: {AccountId}", account.Id);
             throw new AuthException("Failed to check external login status", innerException: ex);
         }
     }
@@ -1039,64 +872,34 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Change password
     /// </summary>
-    public async Task<bool> ChangePasswordAsync(Guid accountId, string newPassword)
+    public async Task<bool> ChangePasswordAsync(AccountEntity account, string newPassword)
     {
         try
         {
-            var account = await GetAccountByIdAsync(accountId);
-            if (account == null)
-                return false;
-
             var token = await _userManager.GeneratePasswordResetTokenAsync(account);
             var result = await _userManager.ResetPasswordAsync(account, token, newPassword);
             return result.Succeeded;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error changing password for account: {AccountId}", accountId);
+            _logger.LogError(ex, "Error changing password for account: {AccountId}", account.Id);
             throw new AuthException("Failed to change password", innerException: ex);
         }
     }
-
-    /// <summary>
-    /// Reset password
-    /// </summary>
-    public async Task<bool> ResetPasswordAsync(string email, string newPassword)
-    {
-        try
-        {
-            var account = await _userManager.FindByEmailAsync(email);
-            if (account == null)
-                return false;
-
-            var token = await _userManager.GeneratePasswordResetTokenAsync(account);
-            var result = await _userManager.ResetPasswordAsync(account, token, newPassword);
-            return result.Succeeded;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error resetting password for email: {Email}", email);
-            throw new AuthException("Failed to reset password", innerException: ex);
-        }
-    }
-
+  
     /// <summary>
     /// Reset password using Identity reset token
     /// </summary>
-    public async Task<bool> ResetPasswordWithTokenAsync(string email, string resetToken, string newPassword)
+    public async Task<bool> ResetPasswordWithTokenAsync(AccountEntity account, string resetToken, string newPassword)
     {
         try
         {
-            var account = await _userManager.FindByEmailAsync(email);
-            if (account == null)
-                return false;
-
             var result = await _userManager.ResetPasswordAsync(account, resetToken, newPassword);
             return result.Succeeded;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error resetting password with token for email: {Email}", email);
+            _logger.LogError(ex, "Error resetting password with token for email: {Email}", account.Email);
             throw new AuthException("Failed to reset password with token", innerException: ex);
         }
     }
@@ -1104,20 +907,16 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Lock account
     /// </summary>
-    public async Task<bool> LockAccountAsync(Guid accountId)
+    public async Task<bool> LockAccountAsync(AccountEntity account)
     {
         try
         {
-            var account = await GetAccountByIdAsync(accountId);
-            if (account == null)
-                return false;
-
             var result = await _userManager.SetLockoutEndDateAsync(account, DateTimeOffset.MaxValue);
             return result.Succeeded;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error locking account: {AccountId}", accountId);
+            _logger.LogError(ex, "Error locking account: {AccountId}", account.Id);
             throw new AuthException("Failed to lock account", innerException: ex);
         }
     }
@@ -1125,25 +924,19 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Unlock account
     /// </summary>
-    public async Task<bool> UnlockAccountAsync(Guid accountId)
+    public async Task<bool> UnlockAccountAsync(AccountEntity account)
     {
         try
         {
-            var account = await GetAccountByIdAsync(accountId);
-            if (account == null)
-                return false;
-
             var result = await _userManager.SetLockoutEndDateAsync(account, null);
             return result.Succeeded;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error unlocking account: {AccountId}", accountId);
+            _logger.LogError(ex, "Error unlocking account: {AccountId}", account.Id);
             throw new AuthException("Failed to unlock account", innerException: ex);
         }
     }
-
-
 
     #endregion
 
@@ -1156,7 +949,7 @@ public class AuthRepository : IAuthRepository
     {
         try
         {
-            var account = await _userManager.FindByEmailAsync(email);
+            var account = await GetAccountByEmailAsync(email);
             if (account == null)
             {
                 return (false, Guid.Empty, string.Empty);
@@ -1179,18 +972,18 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Generate password reset token by phone number
     /// </summary>
-    public async Task<(bool Found, string Email, Guid AccountId, string Token)> GeneratePasswordResetTokenByPhoneAsync(string phoneNumber)
+    public async Task<(bool Found, string Email, string Token)> GeneratePasswordResetTokenByPhoneAsync(string phoneNumber)
     {
         try
         {
             var account = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber);
             if (account == null)
             {
-                return (false, string.Empty, Guid.Empty, string.Empty);
+                return (false, string.Empty, string.Empty);
             }
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(account);
-            return (true, account.Email ?? string.Empty, account.Id, token);
+            return (true, account.Email ?? string.Empty, token);
         }
         catch (Exception ex)
         {
@@ -1219,6 +1012,163 @@ public class AuthRepository : IAuthRepository
         {
             _logger.LogError(ex, "Error validating password for account: {AccountId}", account.Id);
             throw new AuthException("Failed to validate password", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Refresh Token Operations
+
+    /// <summary>
+    /// Create new refresh token for account
+    /// </summary>
+    public async Task<RefreshTokenEntity> CreateRefreshTokenAsync(Guid accountId)
+    {
+        try
+        {
+            // Ensure only one active refresh token per account
+            var existingTokens = await _context.RefreshTokens
+                .Where(rt => rt.AccountId == accountId)
+                .ToListAsync();
+            if (existingTokens.Count > 0)
+            {
+                _context.RefreshTokens.RemoveRange(existingTokens);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Deleted {Count} existing refresh tokens for account: {AccountId}", existingTokens.Count, accountId);
+            }
+
+            // Generate a unique refresh token with retries to avoid rare collisions
+            const int maxAttempts = 5;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                var candidateToken = GenerateRefreshToken();
+
+                // Fast existence check to reduce likelihood of hitting DB unique constraint
+                var exists = await _context.RefreshTokens.AnyAsync(rt => rt.Token == candidateToken);
+                if (exists)
+                {
+                    _logger.LogWarning("Collision detected for refresh token on attempt {Attempt}. Retrying...", attempt);
+                    continue;
+                }
+
+                var refreshToken = new RefreshTokenEntity
+                {
+                    Id = Guid.NewGuid(),
+                    Token = candidateToken,
+                    AccountId = accountId,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.AddDays(GetRefreshTokenExpirationDays())
+                };
+
+                _context.RefreshTokens.Add(refreshToken);
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Created refresh token for account: {AccountId}", accountId);
+                    return refreshToken;
+                }
+                catch (DbUpdateException dbEx)
+                {
+                    // Handle race-condition collision on unique index
+                    if (dbEx.InnerException?.Message.Contains("IX_RefreshTokens_Token") == true)
+                    {
+                        _logger.LogWarning(dbEx, "Unique index collision for refresh token on attempt {Attempt}. Retrying...", attempt);
+                        _context.Entry(refreshToken).State = EntityState.Detached;
+                        continue;
+                    }
+                    throw;
+                }
+            }
+
+            // If we got here, something is abnormal
+            throw new InvalidOperationException("Failed to generate a unique refresh token after multiple attempts");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating refresh token for account: {AccountId}", accountId);
+            throw new AuthException("Failed to create refresh token", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Generate secure refresh token
+    /// </summary>
+    private string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[64];
+        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
+    }
+
+    /// <summary>
+    /// Get refresh token expiration time in days
+    /// </summary>
+    public int GetRefreshTokenExpirationDays()
+    {
+        if (int.TryParse(_configuration["Jwt:RefreshTokenExpirationDays"], out int days))
+        {
+            return Math.Max(days, 1); // Minimum 1 day
+        }
+        return 7; // Default 7 days
+    }
+
+    /// <summary>
+    /// Validate refresh token and return account
+    /// </summary>
+    public async Task<(bool IsValid, AccountEntity? Account, RefreshTokenEntity? Token)> ValidateRefreshTokenAsync(string token)
+    {
+        try
+        {
+            var refreshToken = await _context.RefreshTokens
+                .Include(rt => rt.Account)
+                .FirstOrDefaultAsync(rt => rt.Token == token);
+
+            if (refreshToken == null)
+            {
+                _logger.LogWarning("Refresh token not found: {Token}", token.Length > 8 ? token[..8] + "..." : token);
+                return (false, null, null);
+            }
+
+            if (refreshToken.IsExpired)
+            {
+                _logger.LogWarning("Refresh token is expired: {TokenId}", refreshToken.Id);
+                await DeleteRefreshTokenAsync(token);
+                return (false, null, null);
+            }
+
+            _logger.LogInformation("Refresh token validated successfully: {TokenId}", refreshToken.Id);
+            return (true, refreshToken.Account, refreshToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating refresh token");
+            throw new AuthException("Failed to validate refresh token", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Delete a refresh token by raw token string
+    /// </summary>
+    public async Task<bool> DeleteRefreshTokenAsync(string token)
+    {
+        try
+        {
+            var entity = await _context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == token);
+            if (entity == null)
+            {
+                _logger.LogWarning("Delete skipped. Refresh token not found: {TokenPrefix}", token.Length > 8 ? token[..8] + "..." : token);
+                return false;
+            }
+            _context.RefreshTokens.Remove(entity);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Deleted refresh token by string: {TokenId}", entity.Id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting refresh token by string");
+            throw new AuthException("Failed to delete refresh token", innerException: ex);
         }
     }
 

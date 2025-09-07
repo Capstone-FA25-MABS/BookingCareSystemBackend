@@ -1,4 +1,4 @@
-    using AutoMapper;
+using AutoMapper;
 using BookingCare.Services.Auth.Models.DTOs;
 using BookingCare.Services.Auth.Models.Entities;
 
@@ -19,19 +19,6 @@ public class AuthMappingProfile : Profile
         CreateMap<RolePermissionEntity, RolePermissionResponse>();
 
         // Request to Entity mappings
-        CreateMap<CreateAccountRequest, AccountEntity>()
-            .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.UserRoles, opt => opt.Ignore());
-
-        CreateMap<UpdateAccountRequest, AccountEntity>()
-            .ForMember(dest => dest.Email, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.UserRoles, opt => opt.Ignore())
-            .ForAllMembers(opt => opt.Condition((src, dest, srcMember) => srcMember != null));
-
         CreateMap<CreateRoleRequest, RoleEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
@@ -60,13 +47,6 @@ public class AuthMappingProfile : Profile
             .ForAllMembers(opt => opt.Condition((src, dest, srcMember) => srcMember != null));
 
         // Collection mappings
-        CreateMap<(List<AccountEntity> Accounts, int TotalCount), AccountListResponse>()
-            .ForMember(dest => dest.Accounts, opt => opt.MapFrom(src => src.Accounts))
-            .ForMember(dest => dest.TotalCount, opt => opt.MapFrom(src => src.TotalCount))
-            .ForMember(dest => dest.PageNumber, opt => opt.Ignore())
-            .ForMember(dest => dest.PageSize, opt => opt.Ignore())
-            .ForMember(dest => dest.TotalPages, opt => opt.Ignore());
-
         CreateMap<(List<RoleEntity> Roles, int TotalCount), RoleListResponse>()
             .ForMember(dest => dest.Roles, opt => opt.MapFrom(src => src.Roles))
             .ForMember(dest => dest.TotalCount, opt => opt.MapFrom(src => src.TotalCount))
@@ -82,12 +62,6 @@ public class AuthMappingProfile : Profile
             .ForMember(dest => dest.TotalPages, opt => opt.Ignore());
 
         // Authentication mappings
-        CreateMap<LoginRequest, AccountEntity>()
-            .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.UserRoles, opt => opt.Ignore());
-
         CreateMap<RegisterRequest, AccountEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())

@@ -1,6 +1,4 @@
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using BookingCare.Services.Auth.Enums;
 using BookingCare.Shared.Common.Enums;
 using Microsoft.AspNetCore.Identity;
 

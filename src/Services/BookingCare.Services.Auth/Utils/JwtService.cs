@@ -1,31 +1,28 @@
 using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Repositories;
-using Microsoft.Extensions.Configuration;
+using BookingCare.Shared.Common.Services;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 
-namespace BookingCare.Services.Auth.Services;
+namespace BookingCare.Services.Auth.Utils;
 
 /// <summary>
 /// Service for JWT token generation and validation with role-based security
 /// </summary>
-public class JwtService
+public class JwtService : BaseService
 {
     private readonly IConfiguration _configuration;
     private readonly IAuthRepository _authRepository;
-    private readonly ILogger<JwtService> _logger;
 
     public JwtService(
         IConfiguration configuration,
         IAuthRepository authRepository,
-        ILogger<JwtService> logger)
+        ILogger<JwtService> logger) : base(logger)
     {
         _configuration = configuration;
         _authRepository = authRepository;
-        _logger = logger;
     }
 
     /// <summary>
@@ -33,14 +30,16 @@ public class JwtService
     /// </summary>
     public async Task<string> GenerateAccessTokenAsync(AccountEntity account)
     {
-        try
+        return await ExecuteWithErrorHandling(async () =>
         {
+            LogInfo("Generating access token for account: {AccountId}", null, account.Id);
+
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(GetSecretKey());
 
             // Get account roles and permissions
-            var roles = await _authRepository.GetAccountRolesAsync(account.Id);
-            var permissions = await GetAccountPermissionsAsync(account.Id);
+            var roles = await _authRepository.GetAccountRolesAsync(account);
+            var permissions = await _authRepository.GetAccountPermissionsAsync(account);
 
             var claims = new List<Claim>
             {
@@ -82,57 +81,11 @@ public class JwtService
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error generating access token for account: {AccountId}", account.Id);
-            throw new InvalidOperationException("Failed to generate access token", ex);
-        }
-    }
+            var tokenString = tokenHandler.WriteToken(token);
 
-    /// <summary>
-    /// Generate secure refresh token
-    /// </summary>
-    public string GenerateRefreshToken()
-    {
-        var randomNumber = new byte[64];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
-    }
-
-    
-
-    /// <summary>
-    /// Get account permissions for JWT claims
-    /// </summary>
-    private async Task<List<string>> GetAccountPermissionsAsync(Guid accountId)
-    {
-        try
-        {
-            var permissions = new List<string>();
-            var accountRoles = await _authRepository.GetAccountRolesAsync(accountId);
-
-            foreach (var role in accountRoles)
-            {
-                var rolePermissions = await _authRepository.GetRolePermissionsAsync(role.Id);
-                foreach (var permission in rolePermissions)
-                {
-                    if (!permissions.Contains(permission.Name))
-                    {
-                        permissions.Add(permission.Name);
-                    }
-                }
-            }
-
-            return permissions;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting account permissions for JWT: {AccountId}", accountId);
-            return new List<string>();
-        }
+            LogInfo("Access token generated successfully for account: {AccountId}", null, account.Id);
+            return tokenString;
+        }, "GenerateAccessToken");
     }
 
     /// <summary>
@@ -143,11 +96,13 @@ public class JwtService
         var secretKey = _configuration["Jwt:SecretKey"];
         if (string.IsNullOrEmpty(secretKey))
         {
+            LogError(new InvalidOperationException("JWT SecretKey is not configured"), "JWT SecretKey is not configured");
             throw new InvalidOperationException("JWT SecretKey is not configured");
         }
 
         if (secretKey.Length < 32)
         {
+            LogError(new InvalidOperationException("JWT SecretKey must be at least 32 characters long for security"), "JWT SecretKey must be at least 32 characters long for security");
             throw new InvalidOperationException("JWT SecretKey must be at least 32 characters long for security");
         }
 
@@ -182,15 +137,4 @@ public class JwtService
         return 15; // Default 15 minutes
     }
 
-    /// <summary>
-    /// Get refresh token expiration time in days
-    /// </summary>
-    public int GetRefreshTokenExpirationDays()
-    {
-        if (int.TryParse(_configuration["Jwt:RefreshTokenExpirationDays"], out int days))
-        {
-            return Math.Max(days, 1); // Minimum 1 day
-        }
-        return 7; // Default 7 days
-    }
 }

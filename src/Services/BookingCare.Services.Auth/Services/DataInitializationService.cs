@@ -1,6 +1,5 @@
 using BookingCare.Services.Auth.Models.DTOs;
 using BookingCare.Services.Auth.Repositories;
-using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Auth.Services;
 
