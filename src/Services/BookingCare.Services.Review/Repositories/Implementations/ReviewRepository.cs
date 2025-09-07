@@ -340,10 +340,10 @@ public class ReviewRepository : IReviewRepository
     /// Generic method to get comprehensive statistics for any target type
     /// </summary>
     private async Task<ReviewStatisticsResponse> GetStatisticsAsync(
-        string targetIdField, 
-        string targetIdValue, 
-        string targetType, 
-        Guid targetId, 
+        string targetIdField,
+        string targetIdValue,
+        string targetType,
+        Guid targetId,
         TargetType targetTypeEnum)
     {
         var matchStage = new BsonDocument(
