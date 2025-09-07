@@ -250,30 +250,7 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     public async Task<double> GetAverageRatingByDoctorAsync(Guid doctorId)
     {
-        var matchStage = new BsonDocument(
-            "$match",
-            new BsonDocument { { "doctorId", doctorId.ToString() }, { "targetType", "DOCTOR" } }
-        );
-
-        var groupStage = new BsonDocument(
-            "$group",
-            new BsonDocument
-            {
-                { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-            }
-        );
-
-        var pipeline = new[] { matchStage, groupStage };
-
-        var result = await _reviews.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
-
-        if (result != null && result.Contains("averageRating"))
-        {
-            return result["averageRating"].ToDouble();
-        }
-
-        return 0.0;
+        return await GetAverageRatingAsync("doctorId", doctorId.ToString(), "DOCTOR");
     }
 
     /// <summary>
@@ -281,12 +258,20 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     public async Task<double> GetAverageRatingByClinicServiceAsync(Guid clinicServiceId)
     {
+        return await GetAverageRatingAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE");
+    }
+
+    /// <summary>
+    /// Generic method to get average rating for any target type
+    /// </summary>
+    private async Task<double> GetAverageRatingAsync(string targetIdField, string targetIdValue, string targetType)
+    {
         var matchStage = new BsonDocument(
             "$match",
             new BsonDocument
             {
-                { "clinicServiceId", clinicServiceId.ToString() },
-                { "targetType", "SERVICE" },
+                { targetIdField, targetIdValue },
+                { "targetType", targetType },
             }
         );
 
@@ -340,79 +325,33 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     public async Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId)
     {
-        var matchStage = new BsonDocument(
-            "$match",
-            new BsonDocument { { "doctorId", doctorId.ToString() }, { "targetType", "DOCTOR" } }
-        );
-
-        var groupStage = new BsonDocument(
-            "$group",
-            new BsonDocument
-            {
-                { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
-                { "ratingDistribution", new BsonDocument("$push", "$rating") },
-            }
-        );
-
-        var pipeline = new[] { matchStage, groupStage };
-
-        var result = await _reviews.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
-
-        if (
-            result == null
-            || !result.Contains("totalReviews")
-            || result["totalReviews"].ToInt64() == 0
-        )
-        {
-            return new ReviewStatisticsResponse
-            {
-                TargetId = doctorId,
-                TargetType = TargetType.DOCTOR,
-                AverageRating = 0.0,
-                TotalReviews = 0,
-                RatingDistribution = new Dictionary<int, long>(),
-            };
-        }
-
-        var averageRating = result.Contains("averageRating")
-            ? result["averageRating"].ToDouble()
-            : 0.0;
-        var totalReviews = result["totalReviews"].ToInt64();
-
-        // Calculate rating distribution
-        var ratings = result["ratingDistribution"].AsBsonArray.Select(r => r.ToInt32()).ToList();
-        var ratingDistribution = new Dictionary<int, long>();
-
-        for (int i = 1; i <= 5; i++)
-        {
-            ratingDistribution[i] = ratings.Count(r => r == i);
-        }
-
-        return new ReviewStatisticsResponse
-        {
-            TargetId = doctorId,
-            TargetType = TargetType.DOCTOR,
-            AverageRating = Math.Round(averageRating, 2),
-            TotalReviews = totalReviews,
-            RatingDistribution = ratingDistribution,
-        };
+        return await GetStatisticsAsync("doctorId", doctorId.ToString(), "DOCTOR", doctorId, TargetType.DOCTOR);
     }
 
     /// <summary>
     /// Gets comprehensive statistics for a clinic service
     /// </summary>
-    public async Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(
-        Guid clinicServiceId
-    )
+    public async Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId)
+    {
+        return await GetStatisticsAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE", clinicServiceId, TargetType.SERVICE);
+    }
+
+    /// <summary>
+    /// Generic method to get comprehensive statistics for any target type
+    /// </summary>
+    private async Task<ReviewStatisticsResponse> GetStatisticsAsync(
+        string targetIdField, 
+        string targetIdValue, 
+        string targetType, 
+        Guid targetId, 
+        TargetType targetTypeEnum)
     {
         var matchStage = new BsonDocument(
             "$match",
             new BsonDocument
             {
-                { "clinicServiceId", clinicServiceId.ToString() },
-                { "targetType", "SERVICE" },
+                { targetIdField, targetIdValue },
+                { "targetType", targetType },
             }
         );
 
@@ -439,8 +378,8 @@ public class ReviewRepository : IReviewRepository
         {
             return new ReviewStatisticsResponse
             {
-                TargetId = clinicServiceId,
-                TargetType = TargetType.SERVICE,
+                TargetId = targetId,
+                TargetType = targetTypeEnum,
                 AverageRating = 0.0,
                 TotalReviews = 0,
                 RatingDistribution = new Dictionary<int, long>(),
@@ -463,8 +402,8 @@ public class ReviewRepository : IReviewRepository
 
         return new ReviewStatisticsResponse
         {
-            TargetId = clinicServiceId,
-            TargetType = TargetType.SERVICE,
+            TargetId = targetId,
+            TargetType = targetTypeEnum,
             AverageRating = Math.Round(averageRating, 2),
             TotalReviews = totalReviews,
             RatingDistribution = ratingDistribution,
