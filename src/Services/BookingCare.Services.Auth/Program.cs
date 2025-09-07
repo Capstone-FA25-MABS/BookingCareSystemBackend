@@ -25,6 +25,7 @@ builder.WebHost.ConfigureKestrel(options =>
     // HTTP endpoint for REST API
     options.ListenAnyIP(6003, listenOptions =>
     {
+        listenOptions.UseHttps();
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
     });
 
@@ -124,19 +125,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontEnd", policy =>
     {
-        if (allowedOrigins != null && allowedOrigins.Length > 0)
-        {
-            policy.WithOrigins(allowedOrigins)
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials();
-        }
-        else
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
-        }
+        policy.WithOrigins(allowedOrigins!)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 

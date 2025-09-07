@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Builder;
-using BookingCare.Shared.Common.Middleware;
 
 namespace BookingCare.Shared.Common.Extensions;
 
