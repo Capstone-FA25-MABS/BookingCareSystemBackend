@@ -1,4 +1,5 @@
 using BookingCare.Shared.Common.Models;
+using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Shared.Common.Controllers;
@@ -7,7 +8,8 @@ namespace BookingCare.Shared.Common.Controllers;
 /// Base controller class with common functionality for all API controllers
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
 public abstract class BaseApiController : ControllerBase
 {
     /// <summary>

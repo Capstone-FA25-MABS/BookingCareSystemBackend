@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Discount.Migrations
 {
     [DbContext(typeof(DiscountDbContext))]
-    [Migration("20250829151408_InitialCreate")]
+    [Migration("20250903165719_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -27,28 +27,25 @@ namespace BookingCare.Services.Discount.Migrations
 
             modelBuilder.Entity("BookingCare.Services.Discount.Models.Entities.DiscountEntity", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("amount");
 
-                    b.Property<string>("ApplicableTo")
-                        .IsRequired()
+                    b.Property<int>("ApplicableTo")
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("ALL")
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
                         .HasColumnName("applicable_to");
 
-                    b.Property<long>("ClinicId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("clinic_id");
 
                     b.Property<string>("Code")
@@ -67,14 +64,13 @@ namespace BookingCare.Services.Discount.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
-                    b.Property<string>("DiscountType")
-                        .IsRequired()
+                    b.Property<int>("DiscountType")
                         .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
+                        .HasColumnType("int")
                         .HasColumnName("discount_type");
 
-                    b.Property<long?>("DoctorId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("DoctorId")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("doctor_id");
 
                     b.Property<DateTime>("EndDate")
@@ -91,20 +87,19 @@ namespace BookingCare.Services.Discount.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("name");
 
-                    b.Property<long?>("SpecialtyId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("SpecialtyId")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("specialty_id");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2")
                         .HasColumnName("start_date");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
+                    b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasDefaultValue("ACTIVE")
+                        .HasColumnType("int")
+                        .HasDefaultValue(1)
                         .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")

@@ -13,8 +13,8 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     private readonly ILogger<DiscountGrpcService> _logger;
 
     public DiscountGrpcService(
-        IDiscountService discountService, 
-        IMapper mapper, 
+        IDiscountService discountService,
+        IMapper mapper,
         ILogger<DiscountGrpcService> logger)
     {
         _discountService = discountService;
@@ -23,7 +23,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<ValidateDiscountResponse> ValidateDiscount(
-        Protos.ValidateDiscountRequest request, 
+        Protos.ValidateDiscountRequest request,
         ServerCallContext context)
     {
         try
@@ -33,9 +33,9 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
             var validateRequest = new Models.DTOs.ValidateDiscountRequest
             {
                 Code = request.Code,
-                ClinicId = request.ClinicId,
-                SpecialtyId = request.SpecialtyId != 0 ? request.SpecialtyId : null,
-                DoctorId = request.DoctorId != 0 ? request.DoctorId : null,
+                ClinicId = Guid.Parse(request.ClinicId),
+                SpecialtyId = !string.IsNullOrEmpty(request.SpecialtyId) ? Guid.Parse(request.SpecialtyId) : null,
+                DoctorId = !string.IsNullOrEmpty(request.DoctorId) ? Guid.Parse(request.DoctorId) : null,
                 TotalAmount = (decimal)request.TotalAmount
             };
 
@@ -64,7 +64,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<UseDiscountResponse> UseDiscount(
-        Protos.UseDiscountRequest request, 
+        Protos.UseDiscountRequest request,
         ServerCallContext context)
     {
         try
@@ -74,9 +74,9 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
             var useRequest = new Models.DTOs.UseDiscountRequest
             {
                 Code = request.Code,
-                ClinicId = request.ClinicId,
-                SpecialtyId = request.SpecialtyId != 0 ? request.SpecialtyId : null,
-                DoctorId = request.DoctorId != 0 ? request.DoctorId : null,
+                ClinicId = Guid.Parse(request.ClinicId),
+                SpecialtyId = !string.IsNullOrEmpty(request.SpecialtyId) ? Guid.Parse(request.SpecialtyId) : null,
+                DoctorId = !string.IsNullOrEmpty(request.DoctorId) ? Guid.Parse(request.DoctorId) : null,
                 TotalAmount = (decimal)request.TotalAmount
             };
 
@@ -88,7 +88,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
                 Message = result.Message,
                 DiscountAmount = (double)result.DiscountAmount,
                 FinalAmount = (double)result.FinalAmount,
-                DiscountId = result.DiscountId,
+                DiscountId = result.DiscountId.ToString(),
                 RemainingUses = result.RemainingUses
             };
         }
@@ -99,17 +99,17 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
         }
     }
 
-    public override async Task<RevertDiscountUsageResponse> RevertDiscountUsage(
-        RevertDiscountUsageRequest request, 
+    public override async Task<Protos.RevertDiscountUsageResponse> RevertDiscountUsage(
+        Protos.RevertDiscountUsageRequest request,
         ServerCallContext context)
     {
         try
         {
             _logger.LogInformation("gRPC RevertDiscountUsage called for code: {Code}", request.Code);
 
-            var result = await _discountService.RevertDiscountUsageAsync(request.Code, request.ClinicId);
+            var result = await _discountService.RevertDiscountUsageAsync(request.Code, Guid.Parse(request.ClinicId));
 
-            return new RevertDiscountUsageResponse
+            return new Protos.RevertDiscountUsageResponse
             {
                 Success = result,
                 Message = result ? "Discount usage reverted successfully" : "Failed to revert discount usage"
@@ -123,7 +123,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<CalculateDiscountAmountResponse> CalculateDiscountAmount(
-        CalculateDiscountAmountRequest request, 
+        CalculateDiscountAmountRequest request,
         ServerCallContext context)
     {
         try
@@ -133,9 +133,9 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
             var discountAmount = await _discountService.CalculateDiscountAmountAsync(
                 request.Code,
                 (decimal)request.OriginalAmount,
-                request.ClinicId,
-                request.SpecialtyId != 0 ? request.SpecialtyId : null,
-                request.DoctorId != 0 ? request.DoctorId : null);
+                Guid.Parse(request.ClinicId),
+                !string.IsNullOrEmpty(request.SpecialtyId) ? Guid.Parse(request.SpecialtyId) : null,
+                !string.IsNullOrEmpty(request.DoctorId) ? Guid.Parse(request.DoctorId) : null);
 
             var finalAmount = (decimal)request.OriginalAmount - discountAmount;
 
@@ -154,7 +154,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<GetApplicableDiscountsResponse> GetApplicableDiscounts(
-        GetApplicableDiscountsRequest request, 
+        GetApplicableDiscountsRequest request,
         ServerCallContext context)
     {
         try
@@ -162,9 +162,9 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
             _logger.LogInformation("gRPC GetApplicableDiscounts called for clinic: {ClinicId}", request.ClinicId);
 
             var discounts = await _discountService.GetApplicableDiscountsAsync(
-                request.ClinicId,
-                request.SpecialtyId != 0 ? request.SpecialtyId : null,
-                request.DoctorId != 0 ? request.DoctorId : null);
+                Guid.Parse(request.ClinicId),
+                !string.IsNullOrEmpty(request.SpecialtyId) ? Guid.Parse(request.SpecialtyId) : null,
+                !string.IsNullOrEmpty(request.DoctorId) ? Guid.Parse(request.DoctorId) : null);
 
             var response = new GetApplicableDiscountsResponse();
             response.Discounts.AddRange(discounts.Select(MapToDiscountInfo));
@@ -179,7 +179,7 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     }
 
     public override async Task<IsDiscountValidResponse> IsDiscountValid(
-        IsDiscountValidRequest request, 
+        IsDiscountValidRequest request,
         ServerCallContext context)
     {
         try
@@ -188,9 +188,9 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
 
             var isValid = await _discountService.IsDiscountValidAsync(
                 request.Code,
-                request.ClinicId,
-                request.SpecialtyId != 0 ? request.SpecialtyId : null,
-                request.DoctorId != 0 ? request.DoctorId : null);
+                Guid.Parse(request.ClinicId),
+                !string.IsNullOrEmpty(request.SpecialtyId) ? Guid.Parse(request.SpecialtyId) : null,
+                !string.IsNullOrEmpty(request.DoctorId) ? Guid.Parse(request.DoctorId) : null);
 
             return new IsDiscountValidResponse
             {
@@ -208,13 +208,13 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
     {
         return new DiscountInfo
         {
-            Id = discount.Id,
+            Id = discount.Id.ToString(),
             Code = discount.Code,
             Name = discount.Name,
             Description = discount.Description ?? "",
-            ClinicId = discount.ClinicId,
-            SpecialtyId = discount.SpecialtyId ?? 0,
-            DoctorId = discount.DoctorId ?? 0,
+            ClinicId = discount.ClinicId.ToString(),
+            SpecialtyId = discount.SpecialtyId?.ToString() ?? "",
+            DoctorId = discount.DoctorId?.ToString() ?? "",
             ApplicableTo = discount.ApplicableTo.ToString(),
             Amount = (double)discount.Amount,
             DiscountType = discount.DiscountType.ToString(),

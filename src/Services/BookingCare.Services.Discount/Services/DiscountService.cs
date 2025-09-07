@@ -17,8 +17,8 @@ public class DiscountService : BaseService, IDiscountService
     private readonly IMapper _mapper;
 
     public DiscountService(
-        IDiscountRepository discountRepository, 
-        IMapper mapper, 
+        IDiscountRepository discountRepository,
+        IMapper mapper,
         ILogger<DiscountService> logger) : base(logger)
     {
         _discountRepository = discountRepository;
@@ -75,7 +75,7 @@ public class DiscountService : BaseService, IDiscountService
         }, "CreateDiscount");
     }
 
-    public async Task<DiscountResponse?> GetDiscountByIdAsync(long id)
+    public async Task<DiscountResponse?> GetDiscountByIdAsync(Guid id)
     {
         var discount = await _discountRepository.GetByIdAsync(id);
         return discount != null ? _mapper.Map<DiscountResponse>(discount) : null;
@@ -87,17 +87,17 @@ public class DiscountService : BaseService, IDiscountService
         return discount != null ? _mapper.Map<DiscountResponse>(discount) : null;
     }
 
-    public async Task<DiscountResponse> UpdateDiscountAsync(UpdateDiscountRequest request)
+    public async Task<DiscountResponse> UpdateDiscountAsync(Guid id, UpdateDiscountRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Updating discount with ID: {Id}", null, request.Id);
+            LogInfo("Updating discount with ID: {Id}", null, id);
             ValidateRequired(request, nameof(request));
 
-            var existingDiscount = await _discountRepository.GetByIdAsync(request.Id);
+            var existingDiscount = await _discountRepository.GetByIdAsync(id);
             if (existingDiscount == null)
             {
-                throw new DiscountNotFoundException(request.Id);
+                throw new DiscountNotFoundException(id);
             }
 
             // Validate dates if provided
@@ -134,7 +134,7 @@ public class DiscountService : BaseService, IDiscountService
         }, "UpdateDiscount");
     }
 
-    public async Task<bool> DeleteDiscountAsync(long id)
+    public async Task<bool> DeleteDiscountAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
@@ -153,7 +153,7 @@ public class DiscountService : BaseService, IDiscountService
             }
 
             var result = await _discountRepository.DeleteAsync(id);
-            
+
             if (result)
             {
                 LogInfo("Discount deleted successfully with ID: {Id}", null, id);
@@ -168,11 +168,11 @@ public class DiscountService : BaseService, IDiscountService
         return await ExecuteWithErrorHandling(async () =>
         {
             ValidateRequired(query, "Query request is required");
-            
+
             LogInfo("Getting discounts - Page: {Page}, PageSize: {PageSize}", null, query.PageNumber, query.PageSize);
-            
+
             var (discounts, totalCount) = await _discountRepository.GetDiscountsAsync(query);
-            
+
             var response = _mapper.Map<DiscountListResponse>((discounts, totalCount));
             response.PageNumber = query.PageNumber;
             response.PageSize = query.PageSize;
@@ -182,13 +182,13 @@ public class DiscountService : BaseService, IDiscountService
         }, "GetDiscounts");
     }
 
-    public async Task<List<DiscountResponse>> GetActiveDiscountsByClinicAsync(long clinicId)
+    public async Task<List<DiscountResponse>> GetActiveDiscountsByClinicAsync(Guid clinicId)
     {
         var discounts = await _discountRepository.GetActiveDiscountsByClinicAsync(clinicId);
         return _mapper.Map<List<DiscountResponse>>(discounts);
     }
 
-    public async Task<List<DiscountResponse>> GetApplicableDiscountsAsync(long clinicId, long? specialtyId = null, long? doctorId = null)
+    public async Task<List<DiscountResponse>> GetApplicableDiscountsAsync(Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
     {
         var discounts = await _discountRepository.GetApplicableDiscountsAsync(clinicId, specialtyId, doctorId);
         return _mapper.Map<List<DiscountResponse>>(discounts);
@@ -203,9 +203,9 @@ public class DiscountService : BaseService, IDiscountService
             ValidateRequiredString(request.Code, nameof(request.Code));
 
             var discount = await _discountRepository.GetValidDiscountAsync(
-                request.Code, 
-                request.ClinicId, 
-                request.SpecialtyId, 
+                request.Code,
+                request.ClinicId,
+                request.SpecialtyId,
                 request.DoctorId);
 
             if (discount == null)
@@ -240,9 +240,9 @@ public class DiscountService : BaseService, IDiscountService
             ValidateRequiredString(request.Code, nameof(request.Code));
 
             var discount = await _discountRepository.GetValidDiscountAsync(
-                request.Code, 
-                request.ClinicId, 
-                request.SpecialtyId, 
+                request.Code,
+                request.ClinicId,
+                request.SpecialtyId,
                 request.DoctorId);
 
             if (discount == null)
@@ -270,11 +270,11 @@ public class DiscountService : BaseService, IDiscountService
             // Increment usage count
             await _discountRepository.IncrementUsageAsync(discount.Id);
 
-            var remainingUses = discount.MaxUses.HasValue 
+            var remainingUses = discount.MaxUses.HasValue
                 ? Math.Max(0, discount.MaxUses.Value - discount.UsesCount - 1)
                 : int.MaxValue;
 
-            LogInfo("Discount used successfully. ID: {Id}, Remaining uses: {RemainingUses}", 
+            LogInfo("Discount used successfully. ID: {Id}, Remaining uses: {RemainingUses}",
                 null, discount.Id, remainingUses);
 
             return new DiscountUsageResponse
@@ -289,7 +289,7 @@ public class DiscountService : BaseService, IDiscountService
         }, "UseDiscount");
     }
 
-    public async Task<bool> RevertDiscountUsageAsync(string code, long clinicId)
+    public async Task<bool> RevertDiscountUsageAsync(string code, Guid clinicId)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
@@ -303,7 +303,7 @@ public class DiscountService : BaseService, IDiscountService
             }
 
             var result = await _discountRepository.DecrementUsageAsync(discount.Id);
-            
+
             if (result)
             {
                 LogInfo("Discount usage reverted successfully for ID: {Id}", null, discount.Id);
@@ -313,12 +313,12 @@ public class DiscountService : BaseService, IDiscountService
         }, "RevertDiscountUsage");
     }
 
-    public async Task<bool> ActivateDiscountAsync(long id)
+    public async Task<bool> ActivateDiscountAsync(Guid id)
     {
         return await _discountRepository.UpdateStatusAsync(id, DiscountStatus.ACTIVE);
     }
 
-    public async Task<bool> DeactivateDiscountAsync(long id)
+    public async Task<bool> DeactivateDiscountAsync(Guid id)
     {
         return await _discountRepository.UpdateStatusAsync(id, DiscountStatus.INACTIVE);
     }
@@ -334,13 +334,13 @@ public class DiscountService : BaseService, IDiscountService
         }, "UpdateExpiredDiscounts");
     }
 
-    public async Task<bool> IsDiscountValidAsync(string code, long clinicId, long? specialtyId = null, long? doctorId = null)
+    public async Task<bool> IsDiscountValidAsync(string code, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
     {
         var discount = await _discountRepository.GetValidDiscountAsync(code, clinicId, specialtyId, doctorId);
         return discount != null;
     }
 
-    public async Task<decimal> CalculateDiscountAmountAsync(string code, decimal originalAmount, long clinicId, long? specialtyId = null, long? doctorId = null)
+    public async Task<decimal> CalculateDiscountAmountAsync(string code, decimal originalAmount, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
     {
         var discount = await _discountRepository.GetValidDiscountAsync(code, clinicId, specialtyId, doctorId);
         if (discount == null) return 0;

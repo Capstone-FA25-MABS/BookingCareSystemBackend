@@ -6,6 +6,7 @@ using BookingCare.Services.Discount.Middlewares;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -20,7 +21,7 @@ builder.WebHost.ConfigureKestrel(options =>
     {
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
     });
-    
+
     // gRPC endpoint
     options.ListenAnyIP(6017, listenOptions =>
     {
@@ -33,12 +34,19 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
+
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
+
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "BookingCare Discount Service", Version = "v1" });
+    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Discount API", Version = "v1.0" });
 });
 
-// Add global exception handling
+// Add monitoring (Prometheus, Grafana, Jaeger)
+builder.Services.AddBookingCareMonitoring("BookingCare.Services.Discount", "1.0.0");
+
+// Add global exception handling (includes monitoring integration)
 builder.Services.AddGlobalExceptionHandling();
 
 // Database configuration
@@ -78,7 +86,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// Add global exception handling
+// Add monitoring middleware (must be early in pipeline)
+app.UseBookingCareMonitoring();
+
+// Add global exception handling (includes monitoring integration)
 app.UseGlobalExceptionHandling();
 
 // Add custom middleware
@@ -101,9 +112,10 @@ app.MapGrpcService<DiscountGrpcService>();
 app.MapGet("/", () => "BookingCare Discount Service is running. REST API: /swagger, gRPC: port 6017");
 
 // Health check endpoint
-app.MapGet("/health", () => Results.Ok(new { 
-    Service = "Discount", 
-    Status = "Healthy", 
+app.MapGet("/health", () => Results.Ok(new
+{
+    Service = "Discount",
+    Status = "Healthy",
     Timestamp = DateTime.UtcNow,
     Version = "1.0.0"
 }));

@@ -5,13 +5,13 @@ namespace BookingCare.Services.Discount.Models.DTOs;
 // Response DTOs
 public class DiscountResponse
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public long ClinicId { get; set; }
-    public long? SpecialtyId { get; set; }
-    public long? DoctorId { get; set; }
+    public Guid ClinicId { get; set; }
+    public Guid? SpecialtyId { get; set; }
+    public Guid? DoctorId { get; set; }
     public DiscountApplicableTo ApplicableTo { get; set; }
     public decimal Amount { get; set; }
     public DiscountType DiscountType { get; set; }
@@ -39,7 +39,7 @@ public class DiscountUsageResponse
     public string Message { get; set; } = string.Empty;
     public decimal DiscountAmount { get; set; }
     public decimal FinalAmount { get; set; }
-    public long DiscountId { get; set; }
+    public Guid DiscountId { get; set; }
     public int RemainingUses { get; set; }
 }
 
@@ -55,9 +55,9 @@ public class DiscountListResponse
 // Query DTOs
 public class DiscountQueryRequest
 {
-    public long? ClinicId { get; set; }
-    public long? SpecialtyId { get; set; }
-    public long? DoctorId { get; set; }
+    public Guid? ClinicId { get; set; }
+    public Guid? SpecialtyId { get; set; }
+    public Guid? DoctorId { get; set; }
     public DiscountStatus? Status { get; set; }
     public DiscountApplicableTo? ApplicableTo { get; set; }
     public string? SearchTerm { get; set; }

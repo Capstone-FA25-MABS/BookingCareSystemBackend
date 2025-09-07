@@ -2,6 +2,8 @@ using BookingCare.Services.Auth.Models.DTOs;
 using BookingCare.Services.Auth.Services;
 using BookingCare.Shared.Common.Controllers;
 using Microsoft.AspNetCore.Authorization;
+using BookingCare.Shared.Common.Exceptions.Domain;
+using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Auth.Utils;
@@ -10,10 +12,11 @@ using System.ComponentModel.DataAnnotations;
 namespace BookingCare.Services.Auth.Controllers;
 
 /// <summary>
-/// Controller for handling authentication and authorization operations
+/// Authentication controller - handles user authentication and authorization
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
 [Produces("application/json")]
 public class AuthController : BaseApiController
 {
@@ -29,11 +32,29 @@ public class AuthController : BaseApiController
     #region Authentication Operations
 
     /// <summary>
+    /// Health check endpoint - Available in all versions
+    /// </summary>
+    /// <returns>Health status</returns>
+    [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public IActionResult Health()
+    {
+        return Ok(new
+        {
+            Status = "Healthy",
+            Service = "Auth",
+            Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
+            Timestamp = DateTime.UtcNow
+        });
+    }
+
+    /// <summary>
     /// Authenticate account and generate JWT token
     /// </summary>
     /// <param name="request">Login credentials</param>
     /// <returns>Authentication response message</returns>
     [HttpPost("login")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var validation = ValidateRequest(request);
@@ -44,11 +65,12 @@ public class AuthController : BaseApiController
     }
 
     /// <summary>
-    /// Register new account
+    /// Register new patient account
     /// </summary>
     /// <param name="request">Registration information</param>
     /// <returns>Authentication response message</returns>
     [HttpPost("register/patient")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RegisterPatient([FromBody] RegisterRequest request)
     {      
         var validation = ValidateBasicRequest();
@@ -63,12 +85,13 @@ public class AuthController : BaseApiController
     }
 
     /// <summary>
-    /// Register new account
+    /// Register new doctor account
     /// </summary>
-    /// <param name="request">Registration information Clinic</param>
+    /// <param name="request">Registration information</param>
     /// <returns>Authentication response message</returns>
     [HttpPost("register/doctor")]
     [Authorize(Policy = "Role:Clinic")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RegisterDoctor([FromBody] RegisterRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -83,12 +106,13 @@ public class AuthController : BaseApiController
     }
 
     /// <summary>
-    /// Register new account
+    /// Register new clinic account
     /// </summary>
-    /// <param name="request">Registration information Doctor</param>
+    /// <param name="request">Registration information</param>
     /// <returns>Authentication response message</returns>
     [HttpPost("register/clinic")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RegisterClinic([FromBody] RegisterRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -107,6 +131,7 @@ public class AuthController : BaseApiController
     /// </summary>
     /// <returns>New authentication response</returns>
     [HttpPost("refresh-token")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RefreshToken()
     {
         var refreshToken = _cookieService.GetRefreshTokenFromCookies();
@@ -125,6 +150,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpPost("logout")]
     [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> Logout()
     {
         var refreshToken = _cookieService.GetRefreshTokenFromCookies();
@@ -143,6 +169,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpPost("change-password")]
     [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {       
         var validation = ValidateBasicRequest();
@@ -158,6 +185,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Password reset request</param>
     /// <returns>Success response</returns>
     [HttpPost("forgot-password")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {      
         var validation = ValidateRequest(request);
@@ -181,6 +209,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Password reset with token request</param>
     /// <returns>Success response</returns>
     [HttpPost("reset-password")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {       
         var validation = ValidateBasicRequest();
@@ -196,6 +225,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Reset token request</param>
     /// <returns>Reset token and URL</returns>
     [HttpPost("reset-token")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ResetToken([FromBody] ResetTokenRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -215,6 +245,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpPatch("accounts/{id}/ban-unban")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> BanUnban(Guid id)
     {
         var status = await _authService.ToggleAccountActiveStatusAsync(id);
@@ -229,6 +260,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpPatch("accounts/{id}/lock")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> LockAccount(Guid id)
     {
         var result = await _authService.LockAccountAsync(id);
@@ -247,6 +279,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpPatch("accounts/{id}/unlock")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UnlockAccount(Guid id)
     {
         var result = await _authService.UnlockAccountAsync(id);
@@ -269,6 +302,7 @@ public class AuthController : BaseApiController
     /// <returns>Created role information</returns>
     [HttpPost("roles")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -285,6 +319,7 @@ public class AuthController : BaseApiController
     /// <returns>Role information</returns>
     [HttpGet("roles/{id}")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRole(Guid id)
     {
         var role = await _authService.GetRoleByIdAsync(id);
@@ -303,6 +338,7 @@ public class AuthController : BaseApiController
     /// <returns>Role information</returns>
     [HttpGet("roles/by-name/{name}")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRoleByName(string name)
     {
         var role = await _authService.GetRoleByNameAsync(name);
@@ -322,6 +358,7 @@ public class AuthController : BaseApiController
     /// <returns>Updated role information</returns>
     [HttpPut("roles/{id}")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request)
     {
         if (id != request.Id)
@@ -343,6 +380,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpDelete("roles/{id}")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteRole(Guid id)
     {
         var result = await _authService.DeleteRoleAsync(id);
@@ -361,6 +399,7 @@ public class AuthController : BaseApiController
     /// <returns>Paginated list of roles</returns>
     [HttpGet("roles")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRoles([FromQuery] RoleQueryRequest query)
     {
         var result = await _authService.GetRolesAsync(query);
@@ -378,6 +417,7 @@ public class AuthController : BaseApiController
     /// <returns>Created permission information</returns>
     [HttpPost("permissions")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -394,6 +434,7 @@ public class AuthController : BaseApiController
     /// <returns>Permission information</returns>
     [HttpGet("permissions/{id}")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPermission(Guid id)
     {
         var permission = await _authService.GetPermissionByIdAsync(id);
@@ -412,6 +453,7 @@ public class AuthController : BaseApiController
     /// <returns>Permission information</returns>
     [HttpGet("permissions/by-name/{name}")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPermissionByName(string name)
     {
         var permission = await _authService.GetPermissionByNameAsync(name);
@@ -431,6 +473,7 @@ public class AuthController : BaseApiController
     /// <returns>Updated permission information</returns>
     [HttpPut("permissions/{id}")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdatePermission(Guid id, [FromBody] UpdatePermissionRequest request)
     {
         if (id != request.Id)
@@ -452,6 +495,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpDelete("permissions/{id}")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeletePermission(Guid id)
     {
         var result = await _authService.DeletePermissionAsync(id);
@@ -470,6 +514,7 @@ public class AuthController : BaseApiController
     /// <returns>Paginated list of permissions</returns>
     [HttpGet("permissions")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPermissions([FromQuery] PermissionQueryRequest query)
     {
         var result = await _authService.GetPermissionsAsync(query);
@@ -487,6 +532,7 @@ public class AuthController : BaseApiController
     /// <returns>Account-role relationship information</returns>
     [HttpPost("accounts/assign-role")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> AssignRoleToAccount([FromBody] AssignRoleRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -503,6 +549,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpDelete("accounts/remove-role")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RemoveRoleFromAccount([FromBody] RemoveRoleRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -519,6 +566,7 @@ public class AuthController : BaseApiController
     /// <returns>List of roles assigned to account</returns>
     [HttpGet("accounts/{accountId}/roles")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAccountRoles(Guid accountId)
     {
         var result = await _authService.GetAccountRolesAsync(accountId);
@@ -532,6 +580,7 @@ public class AuthController : BaseApiController
     /// <returns>List of accounts with specified role</returns>
     [HttpGet("roles/{roleId}/accounts")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAccountsByRole(Guid roleId)
     {
         var result = await _authService.GetAccountsByRoleAsync(roleId);
@@ -549,6 +598,7 @@ public class AuthController : BaseApiController
     /// <returns>Role-permission relationship information</returns>
     [HttpPost("roles/assign-permission")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> AssignPermissionToRole([FromBody] AssignPermissionRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -565,6 +615,7 @@ public class AuthController : BaseApiController
     /// <returns>Success response</returns>
     [HttpDelete("roles/remove-permission")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RemovePermissionFromRole([FromBody] RemovePermissionRequest request)
     {
         var validation = ValidateBasicRequest();
@@ -581,6 +632,7 @@ public class AuthController : BaseApiController
     /// <returns>List of permissions assigned to role</returns>
     [HttpGet("roles/{roleId}/permissions")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRolePermissions(Guid roleId)
     {
         var result = await _authService.GetRolePermissionsAsync(roleId);
@@ -594,6 +646,7 @@ public class AuthController : BaseApiController
     /// <returns>List of roles with specified permission</returns>
     [HttpGet("permissions/{permissionId}/roles")]
     [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRolesByPermission(Guid permissionId)
     {
         var result = await _authService.GetRolesByPermissionAsync(permissionId);
@@ -602,20 +655,6 @@ public class AuthController : BaseApiController
 
     #endregion
 
-    #region Health Check
-
-    /// <summary>
-    /// Health check endpoint
-    /// </summary>
-    /// <returns>Service health status</returns>
-    [HttpGet("health")]
-    public IActionResult Health()
-    {
-        var healthData = new { Status = "Healthy", Service = "Auth", Timestamp = DateTime.UtcNow };
-        return Success(healthData, "Auth service is healthy");
-    }
-
-    #endregion
 
     #region Private Helper Methods
 

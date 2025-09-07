@@ -1,3 +1,4 @@
+using BookingCare.Services.Discount.Enums;
 using BookingCare.Services.Discount.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,7 +40,7 @@ public class DiscountDbContext : DbContext
 
             entity.Property(e => e.ApplicableTo)
                 .HasMaxLength(20)
-                .HasDefaultValue("ALL");
+                .HasDefaultValue(DiscountApplicableTo.ALL);
 
             entity.Property(e => e.DiscountType)
                 .HasMaxLength(20)
@@ -47,7 +48,7 @@ public class DiscountDbContext : DbContext
 
             entity.Property(e => e.Status)
                 .HasMaxLength(10)
-                .HasDefaultValue("ACTIVE");
+                .HasDefaultValue(DiscountStatus.INACTIVE);
 
             // Configure datetime properties
             entity.Property(e => e.CreatedAt)
