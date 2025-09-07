@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using BookingCare.Shared.Common.AppRouting;
 namespace BookingCare.Shared.Common.Configuration;
 
 /// <summary>
@@ -14,18 +16,19 @@ public static class FrontendConfiguration
         public const string AdminBaseUrl = "http://localhost:3002/";
         public const string DefaultBaseUrl = "http://localhost:3000/";
         
-        public static readonly Dictionary<string, string> HostMap = new()
-        {
-            { "localhost:3002", "admin" },
-            { "localhost:3000", "client" }
-        };
+        public static readonly IReadOnlyDictionary<string, string> HostMap =
+            new ReadOnlyDictionary<string, string>(new Dictionary<string, string>
+            {
+                { "localhost:3002", "admin" },
+                { "localhost:3000", "client" }
+            });
     }
 
     /// <summary>
     /// Get Frontend configuration from environment variables or use defaults
     /// </summary>
     /// <returns>Frontend configuration values</returns>
-    public static (string ClientBaseUrl, string AdminBaseUrl, string DefaultBaseUrl, Dictionary<string, string> HostMap) GetConfiguration()
+    public static (string ClientBaseUrl, string AdminBaseUrl, string DefaultBaseUrl, IReadOnlyDictionary<string, string> HostMap) GetConfiguration()
     {
         return (
             ClientBaseUrl: Environment.GetEnvironmentVariable("FRONTEND_CLIENT_BASE_URL") ?? Defaults.ClientBaseUrl,
@@ -40,7 +43,7 @@ public static class FrontendConfiguration
     /// </summary>
     /// <param name="configuration">Configuration instance</param>
     /// <returns>Frontend configuration values</returns>
-    public static (string ClientBaseUrl, string AdminBaseUrl, string DefaultBaseUrl, Dictionary<string, string> HostMap) GetConfiguration(Microsoft.Extensions.Configuration.IConfiguration configuration)
+    public static (string ClientBaseUrl, string AdminBaseUrl, string DefaultBaseUrl, IReadOnlyDictionary<string, string> HostMap) GetConfiguration(Microsoft.Extensions.Configuration.IConfiguration configuration)
     {
         return (
             ClientBaseUrl: configuration["FrontendOptions:Client:BaseUrl"] ?? Environment.GetEnvironmentVariable("FRONTEND_CLIENT_BASE_URL") ?? Defaults.ClientBaseUrl,
@@ -55,18 +58,18 @@ public static class FrontendConfiguration
     /// </summary>
     /// <param name="configuration">Configuration instance (optional)</param>
     /// <returns>FrontendOptions object</returns>
-    public static AppRouting.FrontendOptions CreateFrontendOptions(Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
+    public static FrontendOptions CreateFrontendOptions(Microsoft.Extensions.Configuration.IConfiguration? configuration = null)
     {
         var (clientBaseUrl, adminBaseUrl, defaultBaseUrl, hostMap) = configuration != null 
             ? GetConfiguration(configuration)
             : GetConfiguration();
 
-        return new AppRouting.FrontendOptions
+        return new FrontendOptions
         {
-            Client = new AppRouting.FrontendTarget { BaseUrl = clientBaseUrl },
-            Admin = new AppRouting.FrontendTarget { BaseUrl = adminBaseUrl },
-            Default = new AppRouting.FrontendTarget { BaseUrl = defaultBaseUrl },
-            HostMap = hostMap
+            Client = new FrontendTarget { BaseUrl = clientBaseUrl },
+            Admin = new FrontendTarget { BaseUrl = adminBaseUrl },
+            Default = new FrontendTarget { BaseUrl = defaultBaseUrl },
+            HostMap = new Dictionary<string, string>(hostMap)
         };
     }
 
