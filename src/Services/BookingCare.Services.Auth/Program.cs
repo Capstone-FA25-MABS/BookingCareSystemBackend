@@ -11,6 +11,7 @@ using BookingCare.Services.Notification.Protos;
 using BookingCare.Services.Auth.Utils;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.Common.AppRouting;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 
@@ -138,7 +139,12 @@ builder.Services.AddApiVersioningSupport();
 
 builder.Services.AddSwaggerGen(c =>
 {
+    // Register common group names to avoid mismatch (some setups produce v1 instead of v1.0)
+    c.SwaggerDoc("v1", new() { Title = "BookingCare Auth API", Version = "v1" });
     c.SwaggerDoc("v1.0", new() { Title = "BookingCare Auth API", Version = "v1.0" });
+    // Ensure endpoints are included in the correct Swagger doc based on ApiExplorer group name (e.g., v1.0)
+    c.DocInclusionPredicate((docName, apiDesc) =>
+        string.Equals(docName, apiDesc.GroupName, StringComparison.OrdinalIgnoreCase));
 });
 
 
@@ -165,10 +171,13 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
+    var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1.0/swagger.json", "BookingCare Auth API V1.0");
-        c.SwaggerEndpoint("/swagger/v1.1/swagger.json", "BookingCare Auth API V1.1");
+        foreach (var description in provider.ApiVersionDescriptions)
+        {
+            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"BookingCare Auth API {description.GroupName.ToUpperInvariant()}");
+        }
         c.RoutePrefix = "swagger";
     });
 }
