@@ -57,7 +57,7 @@ public class OtpService : BaseService, IOtpService
                 var checkResponse = await _authClient.CheckAccountExistsAsync(checkRequest);
                 if (checkResponse.Exists)
                 {
-                    throw new InvalidOperationException(checkResponse.Message);
+                    return !checkResponse.Exists;
                 }
             }
 
@@ -82,7 +82,7 @@ public class OtpService : BaseService, IOtpService
 
     public async Task<object> VerifyAsync(VerifyOtpRequest request)
     {
-        return await ExecuteWithErrorHandling(async () => 
+        return await ExecuteWithErrorHandling(async () =>
         {
             if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Phone))
             {

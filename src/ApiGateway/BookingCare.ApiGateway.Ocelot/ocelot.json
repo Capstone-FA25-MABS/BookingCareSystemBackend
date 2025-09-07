@@ -1,6 +1,24 @@
 {
   "Routes": [
     {
+      "DownstreamPathTemplate": "/api/v{version}/auths/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6003
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/auths/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "RouteClaimsRequirement": {},
+      "AddHeadersToRequest": {},
+      "AddHeadersToDownstream": {},
+      "AddQueriesToRequest": {},
+      "RequestIdKey": "",
+      "FileCacheOptions": { "TtlSeconds": 0 }
+    },
+    {
       "DownstreamPathTemplate": "/api/auths/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -10,10 +28,18 @@
         }
       ],
       "UpstreamPathTemplate": "/api/auths/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ]
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "RouteClaimsRequirement": {},
+      "AddHeadersToRequest": {
+        "X-Version": "1.0"
+      },
+      "AddHeadersToDownstream": {},
+      "AddQueriesToRequest": {},
+      "RequestIdKey": "",
+      "FileCacheOptions": { "TtlSeconds": 0 }
     },
     {
-      "DownstreamPathTemplate": "/api/users/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/users/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -21,7 +47,7 @@
           "Port": 6014
         }
       ],
-      "UpstreamPathTemplate": "/api/users/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/users/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -29,7 +55,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/ais/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/ais/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -37,7 +63,7 @@
           "Port": 6000
         }
       ],
-      "UpstreamPathTemplate": "/api/ais/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/ais/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -45,7 +71,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/analytics/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/analytics/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -53,7 +79,7 @@
           "Port": 6001
         }
       ],
-      "UpstreamPathTemplate": "/api/analytics/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/analytics/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -61,7 +87,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/appointments/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/appointments/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -69,7 +95,7 @@
           "Port": 6002
         }
       ],
-      "UpstreamPathTemplate": "/api/appointments/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/appointments/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -77,7 +103,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/clinics/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/clinics/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -85,7 +111,7 @@
           "Port": 6004
         }
       ],
-      "UpstreamPathTemplate": "/api/clinics/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/clinics/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -93,7 +119,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/communications/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/communications/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -101,7 +127,7 @@
           "Port": 6005
         }
       ],
-      "UpstreamPathTemplate": "/api/communications/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/communications/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -109,7 +135,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/contents/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/contents/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -117,7 +143,7 @@
           "Port": 6006
         }
       ],
-      "UpstreamPathTemplate": "/api/contents/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/contents/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -125,7 +151,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/discounts/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/discounts/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -133,7 +159,7 @@
           "Port": 6007
         }
       ],
-      "UpstreamPathTemplate": "/api/discounts/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/discounts/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -141,7 +167,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/doctors/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/doctors/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -149,7 +175,7 @@
           "Port": 6008
         }
       ],
-      "UpstreamPathTemplate": "/api/doctors/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/doctors/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -157,7 +183,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/favorites/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/favorites/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -165,7 +191,7 @@
           "Port": 6009
         }
       ],
-      "UpstreamPathTemplate": "/api/favorites/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/favorites/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -173,7 +199,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/notifications/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/notifications/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -181,7 +207,7 @@
           "Port": 6010
         }
       ],
-      "UpstreamPathTemplate": "/api/notifications/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/notifications/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -189,7 +215,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/payments/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/payments/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -197,7 +223,7 @@
           "Port": 6011
         }
       ],
-      "UpstreamPathTemplate": "/api/payments/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/payments/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -205,7 +231,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/reviews/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/reviews/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -213,7 +239,7 @@
           "Port": 6012
         }
       ],
-      "UpstreamPathTemplate": "/api/reviews/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/reviews/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -221,7 +247,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/medical-services/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/medical-services/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -229,7 +255,7 @@
           "Port": 6013
         }
       ],
-      "UpstreamPathTemplate": "/api/medical-services/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/medical-services/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",

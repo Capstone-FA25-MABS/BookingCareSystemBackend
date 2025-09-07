@@ -12,6 +12,7 @@ using BookingCare.Services.Auth.Protos;
 using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Extensions;
 
+
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
@@ -65,8 +66,11 @@ builder.Services.Configure<FcmOptions>(builder.Configuration.GetSection(FcmOptio
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<DeviceStore>();
-builder.Services.AddHttpClient();   
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<FcmV1Service>();
+
+// Add JWT Authentication and Authorization using centralized configuration
+builder.Services.AddJwtAuthAndAuthorization();
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -94,10 +98,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseGlobalExceptionHandling(); // Assuming this is already added via AddGlobalExceptionHandling
+app.UseStandardAuthPipeline();
 
-app.UseGlobalExceptionHandling();
-
-app.UseRouting();
 app.MapControllers();
 
 // Configure the HTTP request pipeline.

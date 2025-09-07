@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using BookingCare.Shared.Common.AppRouting;
 using Microsoft.Extensions.Options;
+using BookingCare.Shared.Common.Configuration;
 
 namespace BookingCare.Shared.Common.Middleware;
 
@@ -19,7 +20,7 @@ public class AutoTokenMiddleware
     {
         _next = next;
         _logger = logger;
-        _frontendOptions = frontendOptions?.Value ?? new FrontendOptions();
+        _frontendOptions = frontendOptions?.Value ?? FrontendConfiguration.CreateFrontendOptions();
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -33,7 +34,7 @@ public class AutoTokenMiddleware
                 var token = GetTokenFromCookies(context);
                 if (!string.IsNullOrEmpty(token))
                 {
-                    context.Request.Headers.Add("Authorization", $"Bearer {token}");
+                    context.Request.Headers.Append("Authorization", $"Bearer {token}");
                     _logger.LogDebug("AutoTokenMiddleware: Token attached from cookies");
                 }
             }
@@ -79,6 +80,4 @@ public class AutoTokenMiddleware
             return string.Empty;
         }
     }
-
-    // Prefix resolution moved to AppRoutingHelper
 }

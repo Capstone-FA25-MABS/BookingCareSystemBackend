@@ -14,19 +14,22 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
     private readonly FcmV1Service _fcmService;
     private readonly DeviceStore _deviceStore;
     private readonly ManageOtp _otpManager;
+    private readonly EmailTemplate _emailTemplate;
 
     public NotificationSendEventHandler(
-        ILogger<NotificationSendEventHandler> logger, 
+        ILogger<NotificationSendEventHandler> logger,
         EmailService emailService,
         FcmV1Service fcmService,
         DeviceStore deviceStore,
-        ManageOtp otpManager)
+        ManageOtp otpManager,
+        EmailTemplate emailTemplate)
     {
         _logger = logger;
         _emailService = emailService;
         _fcmService = fcmService;
         _deviceStore = deviceStore;
         _otpManager = otpManager;
+        _emailTemplate = emailTemplate;
     }
 
     public async Task HandleAsync(NotificationSendEvent @event, CancellationToken cancellationToken = default)
@@ -63,9 +66,25 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
         var email = emailObj.ToString() ?? string.Empty;
         var subject = @event.Data.TryGetValue("subject", out var subjectObj) ? subjectObj?.ToString() ?? @event.Title : @event.Title;
         var isHtml = @event.Data.TryGetValue("html", out var htmlObj) && bool.TryParse(htmlObj?.ToString(), out var html) ? html : false;
+        var purpose = @event.Data.TryGetValue("purpose", out var purposeObj) ? purposeObj?.ToString() ?? string.Empty : string.Empty;
 
-        await _emailService.SendEmailAsync(email, subject, @event.Message, isHtml, cancellationToken);
-        _logger.LogInformation("Email notification sent to {Email} for purpose {Purpose}", email, @event.Data.GetValueOrDefault("purpose"));
+        string message = @event.Message;
+
+        // Check if this is a password reset email
+        if (purpose.Equals(OtpPurpose.FORGOT_PASSWORD.ToKey(), StringComparison.OrdinalIgnoreCase))
+        {
+            // Use password reset template if resetUrl is provided
+            if (@event.Data.TryGetValue("resetUrl", out var resetUrlObj) && !string.IsNullOrEmpty(resetUrlObj?.ToString()))
+            {
+                var resetUrl = resetUrlObj.ToString()!;
+                message = _emailTemplate.BuildPasswordResetEmailHtml(resetUrl);
+                isHtml = true; // Force HTML for template
+                _logger.LogInformation("Using password reset email template for {Email}", email);
+            }
+        }
+
+        await _emailService.SendEmailAsync(email, subject, message, isHtml, cancellationToken);
+        _logger.LogInformation("Email notification sent to {Email} for purpose {Purpose}", email, purpose);
     }
 
     private async Task HandleSmsNotification(NotificationSendEvent @event, CancellationToken cancellationToken)
@@ -112,10 +131,10 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
         var data = new { phone = normalizedPhone, message = @event.Message };
 
         var result = await _fcmService.SendDataMessageAsync(device.Token, data);
-        
+
         // Update last used timestamp
         await _deviceStore.UpdateLastUsedAsync(deviceId);
-        
+
         _logger.LogInformation("SMS notification sent to {Phone} via device {DeviceId}. Result: {Result}", phone, deviceId, result);
     }
 }

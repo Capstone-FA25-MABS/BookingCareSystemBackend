@@ -30,14 +30,14 @@ public class RabbitMQHealthCheck : IHealthCheck
             if (_connection.IsConnected)
             {
                 using var channel = _connection.CreateModel();
-                
+
                 // Test basic operations
                 var queueName = $"health-check-{Guid.NewGuid()}";
                 channel.QueueDeclare(queue: queueName, durable: false, exclusive: true, autoDelete: true);
                 channel.QueueDelete(queueName);
 
                 _logger.LogDebug("RabbitMQ health check passed");
-                
+
                 return Task.FromResult(HealthCheckResult.Healthy("RabbitMQ connection is healthy"));
             }
             else

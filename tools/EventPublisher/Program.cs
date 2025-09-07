@@ -13,9 +13,9 @@ public class Program
     public static async Task Main(string[] args)
     {
         var host = CreateHostBuilder(args).Build();
-        
+
         var publisher = host.Services.GetRequiredService<TestEventPublisher>();
-        
+
         Console.WriteLine("BookingCare Event Publisher");
         Console.WriteLine("==========================");
         Console.WriteLine("1. User Registered Event");
@@ -68,7 +68,7 @@ public class Program
             {
                 services.Configure<RabbitMQConfig>(
                     context.Configuration.GetSection("RabbitMQ"));
-                
+
                 services.AddSingleton<TestEventPublisher>();
                 services.AddLogging(builder =>
                 {
@@ -160,7 +160,7 @@ public class TestEventPublisher
     {
         Console.Write("Enter event name: ");
         var eventName = Console.ReadLine() ?? "CustomEvent";
-        
+
         Console.Write("Enter custom message: ");
         var customMessage = Console.ReadLine() ?? "Test message";
 
@@ -210,7 +210,7 @@ public class TestEventPublisher
             body: body);
 
         _logger.LogInformation("Published event: {EventName} with routing key: {RoutingKey}", @event.GetType().Name, routingKey);
-        
+
         await Task.CompletedTask;
     }
 }

@@ -18,7 +18,7 @@ public class FcmV1Service
         _http = http;
         _opt = opt.Value ?? throw new ArgumentNullException(nameof(opt));
         _logger = logger;
-        
+
         if (string.IsNullOrEmpty(_opt.ServiceAccountPath))
             throw new ArgumentException("ServiceAccountPath not configured in appsettings.json");
 
@@ -63,9 +63,9 @@ public class FcmV1Service
             var client = _http.CreateClient();
             var res = await client.SendAsync(req);
             var body = await res.Content.ReadAsStringAsync();
-            
+
             _logger.LogInformation("FCM response: Status: {StatusCode}, Body: {Body}", res.StatusCode, body);
-            
+
             return $"Status: {(int)res.StatusCode}, Body: {body}";
         }
         catch (Exception ex)

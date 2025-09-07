@@ -23,6 +23,7 @@ public class OtpController : BaseApiController
     }
 
     [HttpPost("send")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> Send([FromBody] SendOtpRequest request)
     {
         if (!ModelState.IsValid)

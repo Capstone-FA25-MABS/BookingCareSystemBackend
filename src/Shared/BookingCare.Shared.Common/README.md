@@ -183,6 +183,59 @@ For validation exceptions:
 }
 ```
 
+### Automatic DTO Validation
+
+**🆕 NEW FEATURE**: Starting with the latest version, all ASP.NET Core model validation errors (including DTO validation attributes) are automatically converted to the consistent `ApiResponse<T>` format.
+
+Previously, validation errors returned the default ASP.NET Core ProblemDetails format:
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "errors": {
+    "request": ["The request field is required."],
+    "$.clinicId": ["Invalid GUID format"]
+  },
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+Now they automatically return in the consistent format:
+```json
+{
+  "success": false,
+  "message": "One or more validation errors occurred.",
+  "data": null,
+  "errors": [
+    "request: The request field is required.",
+    "clinicId: Invalid GUID format"
+  ],
+  "timestamp": "2025-09-04T08:42:52.322026Z"
+}
+```
+
+This works automatically with all standard validation attributes:
+```csharp
+public class CreateUserRequest
+{
+    [Required(ErrorMessage = "Name is required")]
+    [MaxLength(100, ErrorMessage = "Name cannot exceed 100 characters")]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email format")]
+    public string Email { get; set; } = string.Empty;
+
+    [Range(18, 120, ErrorMessage = "Age must be between 18 and 120")]
+    public int Age { get; set; }
+}
+```
+
+No additional configuration is required - this is automatically enabled when you call `AddGlobalExceptionHandling()`.
+
+For detailed implementation information, see [CUSTOM_VALIDATION_FORMAT.md](./CUSTOM_VALIDATION_FORMAT.md).
+
 ## Configuration Examples
 
 ### Auth Service Example

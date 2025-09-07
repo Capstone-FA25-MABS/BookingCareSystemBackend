@@ -134,7 +134,7 @@ public class ManageOtp
                 _forceMemoryFallback = true;
             }
         }
-        _memoryCache.Set(cacheKey, "1", ttl);   
+        _memoryCache.Set(cacheKey, "1", ttl);
     }
 
     public async Task<bool> CheckAndConsumeFlagAsync(string key)
