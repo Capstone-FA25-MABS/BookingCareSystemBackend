@@ -21,12 +21,12 @@ public class ValidationFilter : IAsyncActionFilter
         // Get all arguments from the action
         foreach (var argument in context.ActionArguments)
         {
-            if (argument.Value == null) 
+            if (argument.Value == null)
             {
                 // If argument is null, it might be due to model binding failure
                 // This should be handled by ModelBindingErrorFilter, but add safety check
                 var argumentName = argument.Key;
-                
+
                 var errorResponse = new
                 {
                     success = false,
@@ -54,7 +54,7 @@ public class ValidationFilter : IAsyncActionFilter
             }
 
             var argumentType = argument.Value.GetType();
-            
+
             // Try to get validator for this type
             var validatorType = typeof(IValidator<>).MakeGenericType(argumentType);
             var validator = _serviceProvider.GetService(validatorType) as IValidator;
@@ -108,7 +108,7 @@ public static class ValidationFilterExtensions
     public static IServiceCollection AddValidationFilter(this IServiceCollection services)
     {
         services.AddScoped<ValidationFilter>();
-        
+
         services.Configure<MvcOptions>(options =>
         {
             options.Filters.Add<ValidationFilter>();

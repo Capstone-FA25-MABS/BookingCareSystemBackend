@@ -136,7 +136,7 @@ public static class ValidationExtensions
     /// <summary>
     /// Validates that rating range is logical
     /// </summary>
-    public static IRuleBuilderOptions<T, int?> ValidRatingRange<T>(this IRuleBuilder<T, int?> ruleBuilder, 
+    public static IRuleBuilderOptions<T, int?> ValidRatingRange<T>(this IRuleBuilder<T, int?> ruleBuilder,
         Func<T, int?> minRatingSelector)
     {
         return ruleBuilder
@@ -155,10 +155,10 @@ public static class ValidationExtensions
     {
         if (string.IsNullOrEmpty(objectId)) return false;
         if (objectId.Length != 24) return false;
-        
-        return objectId.All(c => 
-            (c >= '0' && c <= '9') || 
-            (c >= 'a' && c <= 'f') || 
+
+        return objectId.All(c =>
+            (c >= '0' && c <= '9') ||
+            (c >= 'a' && c <= 'f') ||
             (c >= 'A' && c <= 'F'));
     }
 

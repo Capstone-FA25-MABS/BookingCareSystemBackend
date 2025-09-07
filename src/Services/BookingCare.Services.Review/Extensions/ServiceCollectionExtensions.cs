@@ -21,13 +21,13 @@ public static class ServiceCollectionExtensions
     {
         // Register database context
         services.AddScoped<IReviewDbContext, ReviewDbContext>();
-        
+
         // Register repositories
         services.AddScoped<IReviewRepository, ReviewRepository>();
-        
+
         // Register business services
         services.AddScoped<IReviewService, ReviewService>();
-        
+
         // Register index initialization service
         services.AddScoped<IIndexInitializationService, IndexInitializationService>();
 

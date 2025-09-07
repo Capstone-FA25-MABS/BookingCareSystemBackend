@@ -9,7 +9,7 @@ public enum TargetType
     /// Review for a doctor
     /// </summary>
     DOCTOR,
-    
+
     /// <summary>
     /// Review for a medical service
     /// </summary>

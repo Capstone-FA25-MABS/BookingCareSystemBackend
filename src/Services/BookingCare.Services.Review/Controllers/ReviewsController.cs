@@ -37,7 +37,7 @@ public class ReviewsController : BaseApiController
         {
             // Get the existing review to return detailed information
             var existingReview = await _reviewService.GetReviewByIdAsync(ex.ExistingReviewId);
-            
+
             var errorResponse = new DuplicateReviewErrorResponse
             {
                 Message = ex.Message,

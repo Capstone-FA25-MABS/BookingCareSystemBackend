@@ -92,7 +92,7 @@ using (var scope = app.Services.CreateScope())
     {
         var indexService = scope.ServiceProvider.GetRequiredService<IIndexInitializationService>();
         await indexService.InitializeIndexesAsync();
-        
+
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         logger.LogInformation("MongoDB indexes initialized successfully");
     }

@@ -14,17 +14,17 @@ public class ModelBindingErrorFilter : IActionFilter
         if (!context.ModelState.IsValid)
         {
             var errors = new List<object>();
-            
+
             foreach (var modelError in context.ModelState)
             {
                 var fieldName = modelError.Key;
                 var fieldErrors = modelError.Value.Errors;
-                
+
                 foreach (var error in fieldErrors)
                 {
                     // Check if it's a conversion error (like invalid GUID format)
                     var errorMessage = GetFriendlyErrorMessage(fieldName, error, modelError.Value.AttemptedValue);
-                    
+
                     errors.Add(new
                     {
                         field = fieldName,
@@ -61,9 +61,9 @@ public class ModelBindingErrorFilter : IActionFilter
     private static string GetFriendlyErrorMessage(string fieldName, ModelError error, string? attemptedValue)
     {
         var errorMessage = error.ErrorMessage;
-        
+
         // Handle common GUID conversion errors
-        if (errorMessage.Contains("is not a valid value for Guid") || 
+        if (errorMessage.Contains("is not a valid value for Guid") ||
             errorMessage.Contains("Unable to convert") ||
             errorMessage.Contains("The value") && errorMessage.Contains("is not valid"))
         {
@@ -72,7 +72,7 @@ public class ModelBindingErrorFilter : IActionFilter
                 return $"'{fieldName}' must be a valid GUID format (e.g., '550e8400-e29b-41d4-a716-446655440000'). Received: '{attemptedValue}'";
             }
         }
-        
+
         // Handle enum conversion errors
         if (errorMessage.Contains("The value") && errorMessage.Contains("is not valid for"))
         {
@@ -81,7 +81,7 @@ public class ModelBindingErrorFilter : IActionFilter
                 return $"'{fieldName}' must be either 'DOCTOR' or 'SERVICE'. Received: '{attemptedValue}'";
             }
         }
-        
+
         // Handle integer conversion errors  
         if (errorMessage.Contains("is not a valid value for Int32"))
         {
@@ -89,13 +89,13 @@ public class ModelBindingErrorFilter : IActionFilter
             {
                 return $"'{fieldName}' must be a valid integer between 1 and 5. Received: '{attemptedValue}'";
             }
-            
+
             if (fieldName.ToLower().Contains("page"))
             {
                 return $"'{fieldName}' must be a valid integer greater than 0. Received: '{attemptedValue}'";
             }
         }
-        
+
         // Handle DateTime conversion errors
         if (errorMessage.Contains("is not a valid value for DateTime"))
         {
@@ -124,7 +124,7 @@ public static class ModelBindingErrorFilterExtensions
     public static IServiceCollection AddModelBindingErrorFilter(this IServiceCollection services)
     {
         services.AddScoped<ModelBindingErrorFilter>();
-        
+
         services.Configure<MvcOptions>(options =>
         {
             options.Filters.Add<ModelBindingErrorFilter>();

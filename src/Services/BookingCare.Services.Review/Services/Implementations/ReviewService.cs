@@ -36,7 +36,7 @@ public class ReviewService : BaseService, IReviewService
             LogInfo("Creating new review for patient: {PatientId}", null, request.PatientId);
 
             // ✅ ValidationFilter đã handle tất cả validation rồi, không cần manual validation nữa
-            
+
             // Check for duplicate review (business rule)
             await CheckForDuplicateReviewAsync(request);
 
@@ -70,9 +70,9 @@ public class ReviewService : BaseService, IReviewService
 
         if (existingReview != null)
         {
-            LogWarning("Duplicate review attempt - Patient: {PatientId}, Target: {TargetName}, ExistingReview: {ExistingReviewId}", 
+            LogWarning("Duplicate review attempt - Patient: {PatientId}, Target: {TargetName}, ExistingReview: {ExistingReviewId}",
                 null, request.PatientId, targetName, existingReview.Id);
-            
+
             throw new DuplicateReviewException(
                 request.PatientId,
                 request.DoctorId,
@@ -156,13 +156,13 @@ public class ReviewService : BaseService, IReviewService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Getting reviews with filters - PatientId: {PatientId}, DoctorId: {DoctorId}, ClinicServiceId: {ClinicServiceId}", 
+            LogInfo("Getting reviews with filters - PatientId: {PatientId}, DoctorId: {DoctorId}, ClinicServiceId: {ClinicServiceId}",
                 null, request.PatientId, request.DoctorId, request.ClinicServiceId);
 
             // ✅ ValidationFilter đã handle tất cả validation rồi
 
             var result = await _reviewRepository.GetReviewsAsync(request);
-            
+
             LogInfo("Retrieved {Count} reviews out of {Total} total", null, result.Reviews.Count, result.TotalCount);
             return result;
         }, "GetReviews");

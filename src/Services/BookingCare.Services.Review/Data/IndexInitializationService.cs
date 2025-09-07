@@ -40,12 +40,12 @@ public class IndexInitializationService : IIndexInitializationService
                 Builders<ReviewEntity>.IndexKeys.Ascending(r => r.PatientId),
                 new CreateIndexOptions { Name = "idx_patientId", Background = true }
             ),
-            
+
             new CreateIndexModel<ReviewEntity>(
                 Builders<ReviewEntity>.IndexKeys.Ascending(r => r.DoctorId),
                 new CreateIndexOptions { Name = "idx_doctorId", Background = true, Sparse = true }
             ),
-            
+
             new CreateIndexModel<ReviewEntity>(
                 Builders<ReviewEntity>.IndexKeys.Ascending(r => r.ClinicServiceId),
                 new CreateIndexOptions { Name = "idx_clinicServiceId", Background = true, Sparse = true }

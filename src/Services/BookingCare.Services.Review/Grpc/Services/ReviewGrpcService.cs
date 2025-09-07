@@ -32,7 +32,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     public override Task<HealthCheckResponse> HealthCheck(HealthCheckRequest request, ServerCallContext context)
     {
         _logger.LogInformation("gRPC Health check called");
-        
+
         return Task.FromResult(new HealthCheckResponse
         {
             Status = "Healthy",
@@ -47,7 +47,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     public override async Task<ReviewStatisticsResponse> GetDoctorStatistics(GetDoctorStatisticsRequest request, ServerCallContext context)
     {
         _logger.LogInformation("Getting doctor statistics for ID: {DoctorId}", request.DoctorId);
-        
+
         try
         {
             if (!Guid.TryParse(request.DoctorId, out var doctorId))
@@ -71,7 +71,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     public override async Task<ReviewStatisticsResponse> GetServiceStatistics(GetServiceStatisticsRequest request, ServerCallContext context)
     {
         _logger.LogInformation("Getting service statistics for ID: {ServiceId}", request.ServiceId);
-        
+
         try
         {
             if (!Guid.TryParse(request.ServiceId, out var serviceId))
@@ -95,7 +95,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     public override async Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatistics(BatchDoctorsStatisticsRequest request, ServerCallContext context)
     {
         _logger.LogInformation("Getting batch doctor statistics for {Count} doctors", request.DoctorIds.Count);
-        
+
         try
         {
             var doctorIds = new List<Guid>();
@@ -114,7 +114,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
             // Create DTO request
             var dtoRequest = new Models.DTOs.BatchDoctorsStatisticsRequest();
             dtoRequest.DoctorIds.AddRange(doctorIds);
-            
+
             var result = await _reviewService.GetBatchDoctorsStatisticsAsync(dtoRequest);
 
             var response = new Grpc.BatchDoctorsStatisticsResponse
@@ -147,7 +147,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     public override async Task<BatchServicesStatisticsResponse> GetBatchServicesStatistics(BatchServicesStatisticsRequest request, ServerCallContext context)
     {
         _logger.LogInformation("Getting batch service statistics for {Count} services", request.ServiceIds.Count);
-        
+
         try
         {
             var serviceIds = new List<Guid>();
@@ -166,7 +166,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
             // Create DTO request
             var dtoRequest = new Models.DTOs.BatchServicesStatisticsRequest();
             dtoRequest.ServiceIds.AddRange(serviceIds);
-            
+
             var result = await _reviewService.GetBatchServicesStatisticsAsync(dtoRequest);
 
             var response = new Grpc.BatchServicesStatisticsResponse
@@ -199,7 +199,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     public override async Task<PagedReviewsResponse> GetDoctorReviews(GetDoctorReviewsRequest request, ServerCallContext context)
     {
         _logger.LogInformation("Getting doctor reviews for ID: {DoctorId}", request.DoctorId);
-        
+
         try
         {
             if (!Guid.TryParse(request.DoctorId, out var doctorId))
@@ -223,7 +223,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     public override async Task<PagedReviewsResponse> GetServiceReviews(GetServiceReviewsRequest request, ServerCallContext context)
     {
         _logger.LogInformation("Getting service reviews for ID: {ServiceId}", request.ServiceId);
-        
+
         try
         {
             if (!Guid.TryParse(request.ServiceId, out var serviceId))

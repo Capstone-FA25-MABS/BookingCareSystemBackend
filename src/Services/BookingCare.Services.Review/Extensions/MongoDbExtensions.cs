@@ -13,7 +13,7 @@ public static class MongoDbExtensions
     /// <returns>The service collection</returns>
     public static IServiceCollection AddMongoDb(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("MongoDB") 
+        var connectionString = configuration.GetConnectionString("MongoDB")
                               ?? configuration["MongoDbSettings:ConnectionString"];
         var databaseName = configuration["MongoDbSettings:DatabaseName"];
 
