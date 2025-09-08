@@ -28,7 +28,10 @@ namespace BookingCare.Shared.Common.AppRouting
                         return mapped;
                     }
                 }
-                catch { }
+                catch
+                {
+                    // Ignore invalid URI format
+                }
             }
             return "default";
         }

@@ -177,17 +177,13 @@ if (app.Environment.IsDevelopment())
     var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
     app.UseSwaggerUI(c =>
     {
-        foreach (var description in provider.ApiVersionDescriptions)
-        {
-            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"BookingCare Auth API {description.GroupName.ToUpperInvariant()}");
-        }
+        provider.ApiVersionDescriptions.ToList().ForEach(description =>
+            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"BookingCare Auth API {description.GroupName.ToUpperInvariant()}"));
         c.RoutePrefix = "swagger";
     });
 }
 
 app.UseGlobalExceptionHandling();
-
-//app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontEnd");
 
