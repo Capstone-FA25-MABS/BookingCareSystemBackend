@@ -53,11 +53,11 @@ public class JwtService : BaseService
             };
 
             // Add roles to claims
-            foreach (var role in roles)
+            claims.AddRange(roles.SelectMany(role => new[]
             {
-                claims.Add(new Claim(ClaimTypes.Role, role.Name ?? ""));
-                claims.Add(new Claim("role", role.Name ?? ""));
-            }
+                    new Claim(ClaimTypes.Role, role.Name ?? ""),
+                    new Claim("role", role.Name ?? "")
+                }));
 
             // Add permissions to claims
             foreach (var permission in permissions)

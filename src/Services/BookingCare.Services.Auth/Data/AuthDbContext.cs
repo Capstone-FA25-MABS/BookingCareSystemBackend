@@ -14,12 +14,12 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
     {
     }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        base.OnModelCreating(modelBuilder);
+        base.OnModelCreating(builder);
 
         // Configure ApplicationUser
-        modelBuilder.Entity<AccountEntity>(entity =>
+        builder.Entity<AccountEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
 
@@ -45,7 +45,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
         });
 
         // Configure ApplicationRole
-        modelBuilder.Entity<RoleEntity>(entity =>
+        builder.Entity<RoleEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
 
@@ -67,7 +67,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
         });
 
         // Configure ApplicationUserRole
-        modelBuilder.Entity<AccountRoleEntity>(entity =>
+        builder.Entity<AccountRoleEntity>(entity =>
         {
             // Key is already configured in base class IdentityUserRole<Guid>
             // We only need to configure additional properties
@@ -92,7 +92,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
 
 
         // Configure Permission
-        modelBuilder.Entity<PermissionEntity>(entity =>
+        builder.Entity<PermissionEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
 
@@ -114,7 +114,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
         });
 
         // Configure RolePermission
-        modelBuilder.Entity<RolePermissionEntity>(entity =>
+        builder.Entity<RolePermissionEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
 
@@ -140,7 +140,7 @@ public class AuthDbContext : IdentityDbContext<AccountEntity, RoleEntity, Guid>
         });
 
         // Configure RefreshToken
-        modelBuilder.Entity<RefreshTokenEntity>(entity =>
+        builder.Entity<RefreshTokenEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
 

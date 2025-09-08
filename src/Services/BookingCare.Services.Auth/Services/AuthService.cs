@@ -118,7 +118,7 @@ public class AuthService : BaseService, IAuthService
                 var purpose = request.Purpose.ToKey();
                 var channel = string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant();
                 var subject = channel == "email" ? $"email:{request.Email}" : $"phone:{request.PhoneNumber}";
-                var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt, consumeFlag: true);
+                var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt);
                 if (!verified) throw new ValidationException("OTP verification required before registration");
             }
 
@@ -367,7 +367,7 @@ public class AuthService : BaseService, IAuthService
             // Unified verification (Redis flag or HMAC proof)
             var purpose = request.Purpose.ToKey();
             var subject = $"phone:{request.PhoneNumber}";
-            var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt, consumeFlag: true);
+            var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt);
             if (!verified)
             {
                 // Return neutral response without revealing status
@@ -411,7 +411,7 @@ public class AuthService : BaseService, IAuthService
         return false;
     }
 
-    private async Task<bool> VerifyOtpOrProofAsync(string purpose, string subject, string? proof, long? issuedAt, bool consumeFlag)
+    private async Task<bool> VerifyOtpOrProofAsync(string purpose, string subject, string? proof, long? issuedAt)
     {
         // 1) Try gRPC if enabled
         var otpSection = _configuration.GetSection("OtpVerification");
@@ -1042,7 +1042,7 @@ public class AuthService : BaseService, IAuthService
         return await ExecuteWithErrorHandling(async () =>
         {
             LogInfo("Getting roles by permission: PermissionId={PermissionId}", null, permissionId);
-            var permission = await _authRepository.GetPermissionByIdAsync(permissionId) ?? throw new PermissionNotFoundException(permissionId);
+            _ = await _authRepository.GetPermissionByIdAsync(permissionId) ?? throw new PermissionNotFoundException(permissionId);
 
             var roles = await _authRepository.GetRolesByPermissionAsync(permissionId);
             var roleResponses = _mapper.Map<List<RoleResponse>>(roles);

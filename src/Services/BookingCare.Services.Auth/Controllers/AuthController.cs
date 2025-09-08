@@ -2,7 +2,6 @@ using BookingCare.Services.Auth.Models.DTOs;
 using BookingCare.Services.Auth.Services;
 using BookingCare.Shared.Common.Controllers;
 using Microsoft.AspNetCore.Authorization;
-using BookingCare.Shared.Common.Exceptions.Domain;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using BookingCare.Shared.Common.Enums;
@@ -14,6 +13,11 @@ namespace BookingCare.Services.Auth.Controllers;
 /// <summary>
 /// Authentication controller - handles user authentication and authorization
 /// </summary>
+public static class AuthConstants
+{
+    public const string InvalidRequestData = "Invalid request data";
+    public const string ValidationError = "Validation error";
+}
 [ApiController]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
@@ -175,7 +179,7 @@ public class AuthController : BaseApiController
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
 
-        var result = await _authService.ChangePasswordAsync(request);
+        await _authService.ChangePasswordAsync(request);
         return Success("Password changed successfully");
     }
 
@@ -230,6 +234,7 @@ public class AuthController : BaseApiController
     public async Task<IActionResult> ResetToken([FromBody] ResetTokenRequest request)
     {
         var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
 
         var result = await _authService.ResetTokenAsync(request);
         return Success(result, "Reset token if the phone is registered");
@@ -622,7 +627,7 @@ public class AuthController : BaseApiController
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
 
-        var result = await _authService.RemovePermissionFromRoleAsync(request);
+        await _authService.RemovePermissionFromRoleAsync(request);
         return Success("Permission removed from role successfully");
     }
 
@@ -667,7 +672,7 @@ public class AuthController : BaseApiController
         var roleValidationResults = request.ValidateByRole(role).ToList();
         if (roleValidationResults.Any())
         {
-            return BadRequest("Invalid request data", roleValidationResults.Select(vr => vr.ErrorMessage ?? "Validation error").ToList());
+            return BadRequest(AuthConstants.InvalidRequestData, roleValidationResults.Select(vr => vr.ErrorMessage ?? AuthConstants.ValidationError).ToList());
         }
         return null; // No validation errors
     }
@@ -681,7 +686,7 @@ public class AuthController : BaseApiController
         var validationContext = new ValidationContext(request);
         if (!Validator.TryValidateObject(request, validationContext, validationResults, true))
         {
-            return BadRequest("Invalid request data", validationResults.Select(vr => vr.ErrorMessage ?? "Validation error").ToList());
+            return BadRequest(AuthConstants.InvalidRequestData, validationResults.Select(vr => vr.ErrorMessage ?? AuthConstants.ValidationError).ToList());
         }
         return null; // No validation errors
     }
@@ -694,9 +699,9 @@ public class AuthController : BaseApiController
         // 1. Data Annotations validation (tự động)
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest(AuthConstants.InvalidRequestData, ModelState.Values
                 .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage ?? "Validation error")
+                .Select(e => e.ErrorMessage ?? AuthConstants.ValidationError)
                 .ToList());
         }
 
@@ -711,9 +716,9 @@ public class AuthController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest(AuthConstants.InvalidRequestData, ModelState.Values
                 .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage ?? "Validation error")
+                .Select(e => e.ErrorMessage ?? AuthConstants.ValidationError)
                 .ToList());
         }
         return null; // No validation errors

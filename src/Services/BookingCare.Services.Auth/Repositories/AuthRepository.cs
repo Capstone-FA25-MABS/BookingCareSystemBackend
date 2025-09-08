@@ -481,7 +481,7 @@ public class AuthRepository : IAuthRepository
 
             // Apply filters
             if (!string.IsNullOrEmpty(query.SearchTerm))
-                queryable = queryable.Where(p => p.Name.Contains(query.SearchTerm));
+                queryable = queryable.Where(p => EF.Functions.Like(p.Name, $"%{query.SearchTerm}%"));
 
             // Apply sorting
             if (!string.IsNullOrEmpty(query.SortBy))
@@ -645,20 +645,16 @@ public class AuthRepository : IAuthRepository
     {
         try
         {
-            var permissions = new List<string>();
             var accountRoles = await GetAccountRolesAsync(account);
+            var tasks = accountRoles.Select(role => GetRolePermissionsAsync(role.Id));
 
-            foreach (var role in accountRoles)
-            {
-                var rolePermissions = await GetRolePermissionsAsync(role.Id);
-                foreach (var permission in rolePermissions)
-                {
-                    if (!permissions.Contains(permission.Name))
-                    {
-                        permissions.Add(permission.Name);
-                    }
-                }
-            }
+            var rolePermissions = await Task.WhenAll(tasks);
+
+            var permissions = rolePermissions
+                .SelectMany(p => p)
+                .Select(p => p.Name)
+                .Distinct()
+                .ToList();
 
             return permissions;
         }
@@ -1093,7 +1089,7 @@ public class AuthRepository : IAuthRepository
     /// <summary>
     /// Generate secure refresh token
     /// </summary>
-    private string GenerateRefreshToken()
+    private static string GenerateRefreshToken()
     {
         var randomNumber = new byte[64];
         using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();

@@ -4,6 +4,60 @@ using BookingCare.Services.Auth.Repositories;
 namespace BookingCare.Services.Auth.Services;
 
 /// <summary>
+/// Constants for permission names and descriptions
+/// </summary>
+public static class PermissionConstants
+{
+    // Permission names
+    public const string PatientRead = "Patient.Read";
+    public const string PatientCreate = "Patient.Create";
+    public const string PatientUpdate = "Patient.Update";
+    public const string PatientDelete = "Patient.Delete";
+
+    public const string RoleRead = "Role.Read";
+    public const string RoleCreate = "Role.Create";
+    public const string RoleUpdate = "Role.Update";
+    public const string RoleDelete = "Role.Delete";
+    public const string RoleAssign = "Role.Assign";
+
+    public const string PermissionRead = "Permission.Read";
+    public const string PermissionCreate = "Permission.Create";
+    public const string PermissionUpdate = "Permission.Update";
+    public const string PermissionDelete = "Permission.Delete";
+    public const string PermissionAssign = "Permission.Assign";
+
+    public const string ContentRead = "Content.Read";
+    public const string ContentCreate = "Content.Create";
+    public const string ContentUpdate = "Content.Update";
+    public const string ContentDelete = "Content.Delete";
+    public const string ContentModerate = "Content.Moderate";
+
+    // Permission descriptions
+    public const string ReadPatientInfo = "Read patient information";
+    public const string CreateNewPatient = "Create new patient";
+    public const string UpdatePatientInfo = "Update patient information";
+    public const string DeletePatient = "Delete patient";
+
+    public const string ReadRoleInfo = "Read role information";
+    public const string CreateNewRole = "Create new role";
+    public const string UpdateRoleInfo = "Update role information";
+    public const string DeleteRole = "Delete role";
+    public const string AssignRoleToUser = "Assign role to user";
+
+    public const string ReadPermissionInfo = "Read permission information";
+    public const string CreateNewPermission = "Create new permission";
+    public const string UpdatePermissionInfo = "Update permission information";
+    public const string DeletePermission = "Delete permission";
+    public const string AssignPermissionToRole = "Assign permission to role";
+
+    public const string ReadContent = "Read content";
+    public const string CreateContent = "Create content";
+    public const string UpdateContent = "Update content";
+    public const string DeleteContent = "Delete content";
+    public const string ModerateContent = "Moderate content";
+}
+
+/// <summary>
 /// Service for initializing default data (permissions, roles, role-permissions)
 /// </summary>
 public class DataInitializationService
@@ -54,31 +108,31 @@ public class DataInitializationService
         var defaultPermissions = new List<CreatePermissionRequest>
         {
             // Patient management permissions
-            new() { Name = "Patient.Read", Description = "Read patient information" },
-            new() { Name = "Patient.Create", Description = "Create new patient" },
-            new() { Name = "Patient.Update", Description = "Update patient information" },
-            new() { Name = "Patient.Delete", Description = "Delete patient" },
+            new() { Name = PermissionConstants.PatientRead, Description = PermissionConstants.ReadPatientInfo },
+            new() { Name = PermissionConstants.PatientCreate, Description = PermissionConstants.CreateNewPatient },
+            new() { Name = PermissionConstants.PatientUpdate, Description = PermissionConstants.UpdatePatientInfo },
+            new() { Name = PermissionConstants.PatientDelete, Description = PermissionConstants.DeletePatient },
             
             // Role management permissions
-            new() { Name = "Role.Read", Description = "Read role information" },
-            new() { Name = "Role.Create", Description = "Create new role" },
-            new() { Name = "Role.Update", Description = "Update role information" },
-            new() { Name = "Role.Delete", Description = "Delete role" },
-            new() { Name = "Role.Assign", Description = "Assign role to patient" },
+            new() { Name = PermissionConstants.RoleRead, Description = PermissionConstants.ReadRoleInfo },
+            new() { Name = PermissionConstants.RoleCreate, Description = PermissionConstants.CreateNewRole },
+            new() { Name = PermissionConstants.RoleUpdate, Description = PermissionConstants.UpdateRoleInfo },
+            new() { Name = PermissionConstants.RoleDelete, Description = PermissionConstants.DeleteRole },
+            new() { Name = PermissionConstants.RoleAssign, Description = PermissionConstants.AssignRoleToUser },
             
             // Permission management permissions
-            new() { Name = "Permission.Read", Description = "Read permission information" },
-            new() { Name = "Permission.Create", Description = "Create new permission" },
-            new() { Name = "Permission.Update", Description = "Update permission information" },
-            new() { Name = "Permission.Delete", Description = "Delete permission" },
-            new() { Name = "Permission.Assign", Description = "Assign permission to role" },
+            new() { Name = PermissionConstants.PermissionRead, Description = PermissionConstants.ReadPermissionInfo },
+            new() { Name = PermissionConstants.PermissionCreate, Description = PermissionConstants.CreateNewPermission },
+            new() { Name = PermissionConstants.PermissionUpdate, Description = PermissionConstants.UpdatePermissionInfo },
+            new() { Name = PermissionConstants.PermissionDelete, Description = PermissionConstants.DeletePermission },
+            new() { Name = PermissionConstants.PermissionAssign, Description = PermissionConstants.AssignPermissionToRole },
             
             // Content management permissions
-            new() { Name = "Content.Read", Description = "Read content" },
-            new() { Name = "Content.Create", Description = "Create content" },
-            new() { Name = "Content.Update", Description = "Update content" },
-            new() { Name = "Content.Delete", Description = "Delete content" },
-            new() { Name = "Content.Moderate", Description = "Moderate content" }
+            new() { Name = PermissionConstants.ContentRead, Description = PermissionConstants.ReadContent },
+            new() { Name = PermissionConstants.ContentCreate, Description = PermissionConstants.CreateContent },
+            new() { Name = PermissionConstants.ContentUpdate, Description = PermissionConstants.UpdateContent },
+            new() { Name = PermissionConstants.ContentDelete, Description = PermissionConstants.DeleteContent },
+            new() { Name = PermissionConstants.ContentModerate, Description = PermissionConstants.ModerateContent }
         };
 
         foreach (var permission in defaultPermissions)
