@@ -1,7 +1,7 @@
 using Grpc.Core;
-using BookingCare.Services.Favorite;
+using BookingCare.Services.Schedule;
 
-namespace BookingCare.Services.Favorite.Services;
+namespace BookingCare.Services.Schedule.Services;
 
 public class GreeterService : Greeter.GreeterBase
 {

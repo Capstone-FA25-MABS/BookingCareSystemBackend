@@ -2,7 +2,7 @@ using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Shared.EventBus.Abstractions;
 
-public interface IIntegrationEventHandler<in TIntegrationEvent> 
+public interface IIntegrationEventHandler<in TIntegrationEvent>
     where TIntegrationEvent : IntegrationEvent
 {
     Task HandleAsync(TIntegrationEvent @event, CancellationToken cancellationToken = default);

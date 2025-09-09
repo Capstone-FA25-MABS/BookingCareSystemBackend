@@ -6,6 +6,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+
 // Add configuration
 builder.Configuration.AddJsonFile("ocelot.json", optional: false, reloadOnChange: true);
 
@@ -37,9 +39,9 @@ builder.Services.AddOcelot();
 // Add CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowFrontEnd", builder =>
     {
-        builder.AllowAnyOrigin()
+        builder.WithOrigins(allowedOrigins ?? [])
                .AllowAnyMethod()
                .AllowAnyHeader();
     });
@@ -54,7 +56,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("AllowFrontEnd");
 app.UseAuthentication();
 app.UseOcelot().Wait();
 
