@@ -6,7 +6,7 @@ using AutoMapper;
 
 namespace BookingCare.Services.Doctor.Services;
 
-public class PositionGrpcService : Protos.DoctorService.DoctorServiceBase
+public class PositionGrpcService : Protos.PositionService.PositionServiceBase
 {
     private readonly IPositionService _positionService;
     private readonly IMapper _mapper;
@@ -102,10 +102,11 @@ public class PositionGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             _logger.LogInformation("gRPC GetPositions called");
 
+            var pageSize = request.PageSize <= 0 ? 1000 : Math.Min(request.PageSize, 1000);
             var queryRequest = new Models.DTOs.PositionQueryRequest
             {
                 PageNumber = request.PageNumber,
-                PageSize = request.PageSize,
+                PageSize = pageSize,
                 SearchTerm = request.SearchTerm
             };
 

@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package doctor_price;
+option csharp_namespace = "BookingCare.Services.Doctor.Protos";
+
+import "Protos/price.proto";
+
+service DoctorPriceService {
+  rpc AssignPriceToDoctor(AssignPriceToDoctorRequest) returns (AssignPriceToDoctorResponse);
+  rpc RemovePriceFromDoctor(RemovePriceFromDoctorRequest) returns (RemovePriceFromDoctorResponse);
+  rpc GetDoctorPrices(GetDoctorPricesRequest) returns (GetDoctorPricesResponse);
+}
+
+message AssignPriceToDoctorRequest {
+  string doctor_id = 1;
+  string price_id = 2;
+  string description = 3;
+}
+
+message AssignPriceToDoctorResponse {
+  bool success = 1;
+  string error_message = 2;
+  DoctorPriceInfo doctor_price = 3;
+}
+
+message RemovePriceFromDoctorRequest { string doctor_id = 1; string price_id = 2; }
+
+message RemovePriceFromDoctorResponse { bool success = 1; string error_message = 2; }
+
+message GetDoctorPricesRequest { string doctor_id = 1; }
+
+message GetDoctorPricesResponse {
+  bool success = 1;
+  string error_message = 2;
+  repeated price.PriceInfo prices = 3;
+}
+
+message DoctorPriceInfo {
+  string doctor_id = 1;
+  string price_id = 2;
+  string description = 3;
+}
+
+

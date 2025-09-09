@@ -54,7 +54,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             return new CreateDoctorResponse
             {
                 Success = true,
-                Doctor = MapToDoctorInfo(result)
+                Doctor = MapToDoctorDetail(result, includePosition: false, includePrices: false)
             };
         }
         catch (Exception ex)
@@ -91,7 +91,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             return new GetDoctorResponse
             {
                 Success = true,
-                Doctor = MapToDoctorInfo(result)
+                Doctor = MapToDoctorDetail(result, request.IncludePosition, request.IncludePrices)
             };
         }
         catch (Exception ex)
@@ -127,7 +127,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             return new GetDoctorResponse
             {
                 Success = true,
-                Doctor = MapToDoctorInfo(result)
+                Doctor = MapToDoctorDetail(result, includePosition: false, includePrices: false)
             };
         }
         catch (Exception ex)
@@ -169,7 +169,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             return new UpdateDoctorResponse
             {
                 Success = true,
-                Doctor = MapToDoctorInfo(result)
+                Doctor = MapToDoctorDetail(result, includePosition: false, includePrices: false)
             };
         }
         catch (Exception ex)
@@ -219,10 +219,14 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             _logger.LogInformation("gRPC GetDoctors called");
 
+            // Guardrails: clamp page size to avoid gigantic responses
+            var pageSize = request.PageSize <= 0 ? 1000 : Math.Min(request.PageSize, 1000);
+            var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;
+
             var queryRequest = new Models.DTOs.DoctorQueryRequest
             {
-                PageNumber = request.PageNumber,
-                PageSize = request.PageSize,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
                 SearchTerm = request.SearchTerm,
                 AccountId = !string.IsNullOrEmpty(request.AccountId) ? Guid.Parse(request.AccountId) : null,
                 PositionId = !string.IsNullOrEmpty(request.PositionId) ? Guid.Parse(request.PositionId) : null,
@@ -246,7 +250,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
             foreach (var doctor in result.Doctors)
             {
-                response.Doctors.Add(MapToDoctorInfo(doctor));
+                response.Doctors.Add(MapToDoctorSummary(doctor));
             }
 
             return response;
@@ -264,108 +268,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
     #endregion
 
-    #region DoctorPrice gRPC Operations
-
-    public override async Task<AssignPriceToDoctorResponse> AssignPriceToDoctor(
-        Protos.AssignPriceToDoctorRequest request, 
-        ServerCallContext context)
-    {
-        try
-        {
-            _logger.LogInformation("gRPC AssignPriceToDoctor called for DoctorId: {DoctorId}, PriceId: {PriceId}", 
-                request.DoctorId, request.PriceId);
-
-            var assignRequest = new Models.DTOs.AssignPriceToDoctorRequest
-            {
-                DoctorId = Guid.Parse(request.DoctorId),
-                PriceId = Guid.Parse(request.PriceId),
-                Description = request.Description
-            };
-
-            var result = await _doctorService.AssignPriceToDoctorAsync(assignRequest);
-
-            return new AssignPriceToDoctorResponse
-            {
-                Success = true,
-                DoctorPrice = MapToDoctorPriceInfo(result)
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in gRPC AssignPriceToDoctor");
-            return new AssignPriceToDoctorResponse
-            {
-                Success = false,
-                ErrorMessage = ex.Message
-            };
-        }
-    }
-
-    public override async Task<RemovePriceFromDoctorResponse> RemovePriceFromDoctor(
-        Protos.RemovePriceFromDoctorRequest request, 
-        ServerCallContext context)
-    {
-        try
-        {
-            _logger.LogInformation("gRPC RemovePriceFromDoctor called for DoctorId: {DoctorId}, PriceId: {PriceId}", 
-                request.DoctorId, request.PriceId);
-
-            var doctorId = Guid.Parse(request.DoctorId);
-            var priceId = Guid.Parse(request.PriceId);
-            var result = await _doctorService.RemovePriceFromDoctorAsync(doctorId, priceId);
-
-            return new RemovePriceFromDoctorResponse
-            {
-                Success = result,
-                ErrorMessage = result ? "" : "Failed to remove price from doctor"
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in gRPC RemovePriceFromDoctor");
-            return new RemovePriceFromDoctorResponse
-            {
-                Success = false,
-                ErrorMessage = ex.Message
-            };
-        }
-    }
-
-    public override async Task<GetDoctorPricesResponse> GetDoctorPrices(
-        Protos.GetDoctorPricesRequest request, 
-        ServerCallContext context)
-    {
-        try
-        {
-            _logger.LogInformation("gRPC GetDoctorPrices called for DoctorId: {DoctorId}", request.DoctorId);
-
-            var doctorId = Guid.Parse(request.DoctorId);
-            var result = await _doctorService.GetDoctorPricesAsync(doctorId);
-
-            var response = new GetDoctorPricesResponse
-            {
-                Success = true
-            };
-
-            foreach (var price in result)
-            {
-                response.Prices.Add(MapToPriceInfo(price));
-            }
-
-            return response;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in gRPC GetDoctorPrices");
-            return new GetDoctorPricesResponse
-            {
-                Success = false,
-                ErrorMessage = ex.Message
-            };
-        }
-    }
-
-    #endregion
+    // DoctorPrice RPCs moved to DoctorPriceService
 
     #region Validation gRPC Operations
 
@@ -401,9 +304,9 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
     #region Mapping Methods
 
-    private static DoctorInfo MapToDoctorInfo(Models.DTOs.DoctorResponse doctor)
+    private static DoctorSummary MapToDoctorSummary(Models.DTOs.DoctorResponse doctor)
     {
-        return new DoctorInfo
+        var info = new DoctorSummary
         {
             Id = doctor.Id.ToString(),
             AccountId = doctor.AccountId.ToString(),
@@ -419,8 +322,59 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             YearsOfExperience = doctor.YearsOfExperience,
             AvatarUrl = doctor.AvatarUrl ?? "",
             CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.CreatedAt.ToUniversalTime()),
-            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.UpdatedAt.ToUniversalTime())
+            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.UpdatedAt.ToUniversalTime()),
+            DynamicPrice = doctor.DynamicPrice.HasValue ? (double)doctor.DynamicPrice.Value : 0d
         };
+        return info;
+    }
+
+    private static DoctorDetail MapToDoctorDetail(Models.DTOs.DoctorResponse doctor, bool includePosition, bool includePrices)
+    {
+        var info = new DoctorDetail
+        {
+            Id = doctor.Id.ToString(),
+            AccountId = doctor.AccountId.ToString(),
+            Email = doctor.Email,
+            Address = doctor.Address ?? "",
+            FirstName = doctor.FirstName,
+            LastName = doctor.LastName,
+            Gender = doctor.Gender?.ToString() ?? "",
+            PositionId = doctor.PositionId?.ToString() ?? "",
+            SpecialtyId = doctor.SpecialtyId?.ToString() ?? "",
+            ClinicId = doctor.ClinicId?.ToString() ?? "",
+            Bio = doctor.Bio ?? "",
+            YearsOfExperience = doctor.YearsOfExperience,
+            AvatarUrl = doctor.AvatarUrl ?? "",
+            CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.CreatedAt.ToUniversalTime()),
+            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.UpdatedAt.ToUniversalTime()),
+            DynamicPrice = doctor.DynamicPrice.HasValue ? (double)doctor.DynamicPrice.Value : 0d
+        };
+
+        if (includePosition && doctor.Position != null)
+        {
+            info.Position = new PositionInfo
+            {
+                Id = doctor.Position.Id.ToString(),
+                Name = doctor.Position.Name,
+                Description = doctor.Position.Description ?? string.Empty,
+                CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.Position.CreatedAt.ToUniversalTime()),
+                UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.Position.UpdatedAt.ToUniversalTime())
+            };
+        }
+
+        if (includePrices && doctor.Prices != null && doctor.Prices.Count > 0)
+        {
+            foreach (var p in doctor.Prices)
+            {
+                info.Prices.Add(new PriceInfo
+                {
+                    Id = p.Id.ToString(),
+                    Amount = (double)p.Amount
+                });
+            }
+        }
+
+        return info;
     }
 
     private static PriceInfo MapToPriceInfo(Models.DTOs.PriceResponse price)
@@ -432,17 +386,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         };
     }
 
-    private static DoctorPriceInfo MapToDoctorPriceInfo(Models.DTOs.DoctorPriceResponse doctorPrice)
-    {
-        return new DoctorPriceInfo
-        {
-            DoctorId = doctorPrice.DoctorId.ToString(),
-            PriceId = doctorPrice.PriceId.ToString(),
-            Description = doctorPrice.Description ?? "",
-            Doctor = MapToDoctorInfo(doctorPrice.Doctor),
-            Price = MapToPriceInfo(doctorPrice.Price)
-        };
-    }
+    // DoctorPriceInfo mapping moved to DoctorPriceGrpcService
 
     #endregion
 }

@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package price;
+option csharp_namespace = "BookingCare.Services.Doctor.Protos";
+
+service PriceService {
+  rpc CreatePrice(CreatePriceRequest) returns (CreatePriceResponse);
+  rpc GetPriceById(GetPriceByIdRequest) returns (GetPriceResponse);
+  rpc GetPrices(GetPricesRequest) returns (GetPricesResponse);
+}
+
+message CreatePriceRequest { double amount = 1; }
+
+message CreatePriceResponse {
+  bool success = 1;
+  string error_message = 2;
+  PriceInfo price = 3;
+}
+
+message GetPriceByIdRequest { string id = 1; }
+
+message GetPriceResponse {
+  bool success = 1;
+  string error_message = 2;
+  PriceInfo price = 3;
+}
+
+message GetPricesRequest {
+  int32 page_number = 1;
+  int32 page_size = 2; // 0 = return all
+  double min_amount = 3;
+  double max_amount = 4;
+}
+
+message GetPricesResponse {
+  bool success = 1;
+  string error_message = 2;
+  repeated PriceInfo prices = 3;
+  int32 total_count = 4;
+  int32 page_number = 5;
+  int32 page_size = 6;
+  int32 total_pages = 7;
+}
+
+message PriceInfo {
+  string id = 1;
+  double amount = 2;
+}
+
+

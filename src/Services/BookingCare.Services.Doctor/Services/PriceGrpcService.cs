@@ -6,7 +6,7 @@ using AutoMapper;
 
 namespace BookingCare.Services.Doctor.Services;
 
-public class PriceGrpcService : Protos.DoctorService.DoctorServiceBase
+public class PriceGrpcService : Protos.PriceService.PriceServiceBase
 {
     private readonly IPriceService _priceService;
     private readonly IMapper _mapper;
@@ -101,10 +101,11 @@ public class PriceGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             _logger.LogInformation("gRPC GetPrices called");
 
+            var pageSize = request.PageSize <= 0 ? 1000 : Math.Min(request.PageSize, 1000);
             var queryRequest = new Models.DTOs.PriceQueryRequest
             {
                 PageNumber = request.PageNumber,
-                PageSize = request.PageSize,
+                PageSize = pageSize,
                 MinAmount = request.MinAmount > 0 ? (decimal)request.MinAmount : null,
                 MaxAmount = request.MaxAmount > 0 ? (decimal)request.MaxAmount : null
             };

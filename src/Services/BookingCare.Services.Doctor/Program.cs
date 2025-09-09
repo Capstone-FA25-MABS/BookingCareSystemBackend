@@ -6,6 +6,7 @@ using BookingCare.Services.Doctor.Middlewares;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
+using System.IO.Compression;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -35,7 +36,14 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
-builder.Services.AddGrpc();
+builder.Services.AddGrpc(options =>
+{
+    // Increase message size limits to handle reasonably large payloads (default is ~4MB)
+    options.MaxReceiveMessageSize = 100 * 1024 * 1024; // 64 MB
+    options.MaxSendMessageSize = 100 * 1024 * 1024;    // 64 MB
+    options.ResponseCompressionAlgorithm = "gzip";
+    options.ResponseCompressionLevel = CompressionLevel.Fastest;
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -108,6 +116,8 @@ app.MapControllers();
 app.MapGrpcService<DoctorGrpcService>();
 app.MapGrpcService<PositionGrpcService>();
 app.MapGrpcService<PriceGrpcService>();
+app.MapGrpcService<DoctorPriceGrpcService>();
+app.MapGrpcService<PriceRuleGrpcService>();
 
 // Default endpoint
 app.MapGet("/", () => "BookingCare Doctor Service is running. REST API: /swagger, gRPC: port 6018");

@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package price_rule;
+option csharp_namespace = "BookingCare.Services.Doctor.Protos";
+
+service PriceRuleService {
+  rpc GetActivePriceRule(GetActivePriceRuleRequest) returns (GetActivePriceRuleResponse);
+}
+
+message GetActivePriceRuleRequest {
+  int32 min_experience = 1; // optional; 0 means ignore
+  string position = 2;      // optional
+}
+
+message GetActivePriceRuleResponse {
+  bool success = 1;
+  string error_message = 2;
+  PriceRuleInfo rule = 3;
+}
+
+message PriceRuleInfo {
+  string id = 1;
+  string name = 2;
+  double base_price = 3;
+  int32 min_experience = 4;
+  string position = 5;
+  double bonus_famous = 6;
+  string status = 7;
+}
+
+

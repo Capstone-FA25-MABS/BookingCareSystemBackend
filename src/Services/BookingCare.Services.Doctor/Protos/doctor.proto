@@ -5,6 +5,8 @@ option csharp_namespace = "BookingCare.Services.Doctor.Protos";
 
 import "google/protobuf/timestamp.proto"; // Import Google's timestamp type
 import "google/protobuf/empty.proto"; // Import Google's empty type
+import "Protos/position.proto"; // PositionInfo
+import "Protos/price.proto";    // PriceInfo
 
 // Service definition for Doctor operations
 service DoctorService {
@@ -16,20 +18,7 @@ service DoctorService {
   rpc DeleteDoctor(DeleteDoctorRequest) returns (DeleteDoctorResponse);
   rpc GetDoctors(GetDoctorsRequest) returns (GetDoctorsResponse);
 
-  // Position CRUD operations
-  rpc CreatePosition(CreatePositionRequest) returns (CreatePositionResponse);
-  rpc GetPositionById(GetPositionByIdRequest) returns (GetPositionResponse);
-  rpc GetPositions(GetPositionsRequest) returns (GetPositionsResponse);
-
-  // Price CRUD operations
-  rpc CreatePrice(CreatePriceRequest) returns (CreatePriceResponse);
-  rpc GetPriceById(GetPriceByIdRequest) returns (GetPriceResponse);
-  rpc GetPrices(GetPricesRequest) returns (GetPricesResponse);
-
-  // DoctorPrice operations
-  rpc AssignPriceToDoctor(AssignPriceToDoctorRequest) returns (AssignPriceToDoctorResponse);
-  rpc RemovePriceFromDoctor(RemovePriceFromDoctorRequest) returns (RemovePriceFromDoctorResponse);
-  rpc GetDoctorPrices(GetDoctorPricesRequest) returns (GetDoctorPricesResponse);
+  // Position & Price RPCs moved to position.proto and price.proto
 
   // Validation operations
   rpc ValidateDoctor(ValidateDoctorRequest) returns (ValidateDoctorResponse);
@@ -59,12 +48,15 @@ message CreateDoctorRequest {
 message CreateDoctorResponse {
   bool success = 1;             // Whether the operation was successful
   string error_message = 2;     // Error message if operation failed
-  DoctorInfo doctor = 3;        // Created doctor information
+  DoctorDetail doctor = 3;      // Created doctor information
 }
 
 // Request to get doctor by ID
 message GetDoctorByIdRequest {
   string id = 1;                // GUID of the doctor
+  // Optional expansions to avoid over-fetching
+  bool include_position = 2;    // include embedded position
+  bool include_prices = 3;      // include embedded prices
 }
 
 // Request to get doctor by email
@@ -76,7 +68,7 @@ message GetDoctorByEmailRequest {
 message GetDoctorResponse {
   bool success = 1;             // Whether the operation was successful
   string error_message = 2;     // Error message if operation failed
-  DoctorInfo doctor = 3;        // Doctor information
+  DoctorDetail doctor = 3;      // Doctor detailed information
 }
 
 // Request to update doctor information
@@ -99,7 +91,7 @@ message UpdateDoctorRequest {
 message UpdateDoctorResponse {
   bool success = 1;             // Whether the operation was successful
   string error_message = 2;     // Error message if operation failed
-  DoctorInfo doctor = 3;        // Updated doctor information
+  DoctorDetail doctor = 3;      // Updated doctor information
 }
 
 // Request to delete doctor
@@ -116,7 +108,7 @@ message DeleteDoctorResponse {
 // Request to get doctors with filtering and pagination
 message GetDoctorsRequest {
   int32 page_number = 1;        // Page number for pagination
-  int32 page_size = 2;          // Number of items per page
+  int32 page_size = 2;          // Number of items per page (0 = return all)
   string search_term = 3;       // Search term for filtering
   string account_id = 4;        // Filter by account ID
   string position_id = 5;       // Filter by position ID
@@ -131,15 +123,15 @@ message GetDoctorsRequest {
 message GetDoctorsResponse {
   bool success = 1;             // Whether the operation was successful
   string error_message = 2;     // Error message if operation failed
-  repeated DoctorInfo doctors = 3; // List of doctors
+  repeated DoctorSummary doctors = 3; // List of doctors (summary only)
   int32 total_count = 4;        // Total number of doctors
   int32 page_number = 5;        // Current page number
   int32 page_size = 6;          // Page size
   int32 total_pages = 7;        // Total number of pages
 }
 
-// Doctor information structure
-message DoctorInfo {
+// Doctor summary (used for list views)
+message DoctorSummary {
   string id = 1;                // Doctor's GUID
   string account_id = 2;        // Associated account GUID
   string email = 3;             // Email address
@@ -155,169 +147,34 @@ message DoctorInfo {
   string avatar_url = 13;       // Avatar URL
   google.protobuf.Timestamp created_at = 14; // Creation timestamp
   google.protobuf.Timestamp updated_at = 15; // Last update timestamp
+  // Calculated dynamic price based on rules (nullable -> 0 means not available)
+  double dynamic_price = 16;
 }
 
-// =============================================================================
-// POSITION MESSAGES
-// =============================================================================
-
-// Request to create a new position
-message CreatePositionRequest {
-  string name = 1;              // Position name
-  string description = 2;       // Position description (optional)
+// Doctor detail (expandable parts)
+message DoctorDetail {
+  string id = 1;
+  string account_id = 2;
+  string email = 3;
+  string address = 4;
+  string first_name = 5;
+  string last_name = 6;
+  string gender = 7;
+  string position_id = 8;
+  string specialty_id = 9;
+  string clinic_id = 10;
+  string bio = 11;
+  int32 years_of_experience = 12;
+  string avatar_url = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+  double dynamic_price = 16;
+  // Optional expansions
+  position.PositionInfo position = 17;             // present only if requested
+  repeated price.PriceInfo prices = 18;            // present only if requested
 }
 
-// Response for position creation
-message CreatePositionResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-  PositionInfo position = 3;    // Created position information
-}
-
-// Request to get position by ID
-message GetPositionByIdRequest {
-  string id = 1;                // GUID of the position
-}
-
-// Response for getting position information
-message GetPositionResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-  PositionInfo position = 3;    // Position information
-}
-
-// Request to get positions list
-message GetPositionsRequest {
-  int32 page_number = 1;        // Page number for pagination
-  int32 page_size = 2;          // Number of items per page
-  string search_term = 3;       // Search term for filtering
-}
-
-// Response for getting positions list
-message GetPositionsResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-  repeated PositionInfo positions = 3; // List of positions
-  int32 total_count = 4;        // Total number of positions
-  int32 page_number = 5;        // Current page number
-  int32 page_size = 6;          // Page size
-  int32 total_pages = 7;        // Total number of pages
-}
-
-// Position information structure
-message PositionInfo {
-  string id = 1;                // Position's GUID
-  string name = 2;              // Position name
-  string description = 3;       // Position description
-  google.protobuf.Timestamp created_at = 4; // Creation timestamp
-  google.protobuf.Timestamp updated_at = 5; // Last update timestamp
-}
-
-// =============================================================================
-// PRICE MESSAGES
-// =============================================================================
-
-// Request to create a new price
-message CreatePriceRequest {
-  double amount = 1;            // Price amount
-}
-
-// Response for price creation
-message CreatePriceResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-  PriceInfo price = 3;          // Created price information
-}
-
-// Request to get price by ID
-message GetPriceByIdRequest {
-  string id = 1;                // GUID of the price
-}
-
-// Response for getting price information
-message GetPriceResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-  PriceInfo price = 3;          // Price information
-}
-
-// Request to get prices list
-message GetPricesRequest {
-  int32 page_number = 1;        // Page number for pagination
-  int32 page_size = 2;          // Number of items per page
-  double min_amount = 3;        // Minimum amount filter
-  double max_amount = 4;        // Maximum amount filter
-}
-
-// Response for getting prices list
-message GetPricesResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-  repeated PriceInfo prices = 3; // List of prices
-  int32 total_count = 4;        // Total number of prices
-  int32 page_number = 5;        // Current page number
-  int32 page_size = 6;          // Page size
-  int32 total_pages = 7;        // Total number of pages
-}
-
-// Price information structure
-message PriceInfo {
-  string id = 1;                // Price's GUID
-  double amount = 2;            // Price amount
-  google.protobuf.Timestamp created_at = 3; // Creation timestamp
-  google.protobuf.Timestamp updated_at = 4; // Last update timestamp
-}
-
-// =============================================================================
-// DOCTOR-PRICE RELATIONSHIP MESSAGES
-// =============================================================================
-
-// Request to assign price to doctor
-message AssignPriceToDoctorRequest {
-  string doctor_id = 1;         // Doctor's GUID
-  string price_id = 2;          // Price's GUID
-  string description = 3;       // Description for the relationship (optional)
-}
-
-// Response for assigning price to doctor
-message AssignPriceToDoctorResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-  DoctorPriceInfo doctor_price = 3; // Created relationship information
-}
-
-// Request to remove price from doctor
-message RemovePriceFromDoctorRequest {
-  string doctor_id = 1;         // Doctor's GUID
-  string price_id = 2;          // Price's GUID
-}
-
-// Response for removing price from doctor
-message RemovePriceFromDoctorResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-}
-
-// Request to get doctor's prices
-message GetDoctorPricesRequest {
-  string doctor_id = 1;         // Doctor's GUID
-}
-
-// Response for getting doctor's prices
-message GetDoctorPricesResponse {
-  bool success = 1;             // Whether the operation was successful
-  string error_message = 2;     // Error message if operation failed
-  repeated PriceInfo prices = 3; // List of prices assigned to doctor
-}
-
-// Doctor-Price relationship information structure
-message DoctorPriceInfo {
-  string doctor_id = 1;         // Doctor's GUID
-  string price_id = 2;          // Price's GUID
-  string description = 3;       // Description for the relationship
-  DoctorInfo doctor = 4;        // Doctor information
-  PriceInfo price = 5;          // Price information
-}
+// Position/Price and doctor-price messages moved to dedicated proto files
 
 // =============================================================================
 // VALIDATION MESSAGES

@@ -11,12 +11,14 @@ public class DoctorService : IDoctorService
 {
     private readonly IDoctorRepository _repository;
     private readonly IPriceRepository _priceRepository;
+    private readonly IPositionRepository _positionRepository;
     private readonly IMapper _mapper;
 
-    public DoctorService(IDoctorRepository repository, IPriceRepository priceRepository, IMapper mapper)
+    public DoctorService(IDoctorRepository repository, IPriceRepository priceRepository, IPositionRepository positionRepository, IMapper mapper)
     {
         _repository = repository;
         _priceRepository = priceRepository;
+        _positionRepository = positionRepository;
         _mapper = mapper;
     }
 
@@ -38,15 +40,27 @@ public class DoctorService : IDoctorService
             throw DoctorConflictException.WithAccountId(request.AccountId);
         }
 
+        // Validate PositionId exists if provided
+        if (request.PositionId.HasValue)
+        {
+            if (!await _positionRepository.PositionExistsAsync(request.PositionId.Value))
+            {
+                throw PositionNotFoundException.WithId(request.PositionId.Value);
+            }
+        }
+
         // Create doctor entity
         var doctor = _mapper.Map<DoctorEntity>(request);
         doctor.Id = Guid.NewGuid();
 
         var createdDoctor = await _repository.CreateDoctorAsync(doctor);
-        // Tự động gán giá động nếu chưa có giá override
-        await AutoAssignDynamicPriceAsync(createdDoctor);
+        // Gán giá cho doctor
+        decimal dynamicPrice = await CalculateDynamicPriceByRuleAsync(createdDoctor) ?? 0;
+        decimal priceToAssign = request.Price ?? dynamicPrice;
+        bool isOverride = request.Price != null && request.Price != dynamicPrice;
+        await AssignPriceToDoctorInternalAsync(createdDoctor, priceToAssign, isOverride);
         var response = _mapper.Map<DoctorResponse>(createdDoctor);
-        response.DynamicPrice = await CalculateDynamicPriceAsync(createdDoctor); // Đảm bảo trả về đúng giá động
+        response.DynamicPrice = dynamicPrice;
         return response;
     }
 
@@ -81,6 +95,15 @@ public class DoctorService : IDoctorService
         if (existingDoctor == null)
         {
             throw DoctorNotFoundException.WithId(request.Id);
+        }
+
+        // Validate PositionId exists if provided
+        if (request.PositionId.HasValue)
+        {
+            if (!await _positionRepository.PositionExistsAsync(request.PositionId.Value))
+            {
+                throw PositionNotFoundException.WithId(request.PositionId.Value);
+            }
         }
 
         // Update doctor entity
@@ -290,8 +313,11 @@ public class DoctorService : IDoctorService
         }
         else
         {
-            // Tạo mới PriceEntity và DoctorPriceEntity
+            // Tạo mới PriceEntity và lưu vào database trước
             var price = new PriceEntity { Id = Guid.NewGuid(), Amount = priceValue.Value };
+            await _priceRepository.CreatePriceAsync(price);
+            
+            // Tạo mới DoctorPriceEntity
             var doctorPrice = new DoctorPriceEntity
             {
                 DoctorId = doctor.Id,
@@ -303,6 +329,34 @@ public class DoctorService : IDoctorService
             doctor.DoctorPrices.Add(doctorPrice);
             await _repository.UpdateDoctorAsync(doctor);
         }
+    }
+
+    private async Task<decimal?> CalculateDynamicPriceByRuleAsync(DoctorEntity doctor)
+    {
+        var activeRule = await _priceRepository.GetActivePriceRuleAsync(
+            minExperience: doctor.YearsOfExperience,
+            position: doctor.Position?.Name
+        );
+        if (activeRule == null) return null;
+        return activeRule.BasePrice;
+    }
+
+    private async Task AssignPriceToDoctorInternalAsync(DoctorEntity doctor, decimal price, bool isOverride)
+    {
+        // Tạo mới PriceEntity và lưu vào database trước
+        var priceEntity = new PriceEntity { Id = Guid.NewGuid(), Amount = price };
+        await _priceRepository.CreatePriceAsync(priceEntity);
+        // Tạo mới DoctorPriceEntity
+        var doctorPrice = new DoctorPriceEntity
+        {
+            DoctorId = doctor.Id,
+            PriceId = priceEntity.Id,
+            IsOverride = isOverride,
+            Price = priceEntity,
+            Doctor = doctor
+        };
+        doctor.DoctorPrices.Add(doctorPrice);
+        await _repository.UpdateDoctorAsync(doctor);
     }
 
     #endregion

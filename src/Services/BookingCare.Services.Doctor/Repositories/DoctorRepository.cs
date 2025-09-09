@@ -48,14 +48,18 @@ public class DoctorRepository : IDoctorRepository
     {
         _context.Doctors.Add(doctor);
         await _context.SaveChangesAsync();
-        return doctor;
+        
+        // Load the created doctor with related entities
+        return await GetDoctorByIdAsync(doctor.Id) ?? doctor;
     }
 
     public async Task<DoctorEntity> UpdateDoctorAsync(DoctorEntity doctor)
     {
         _context.Doctors.Update(doctor);
         await _context.SaveChangesAsync();
-        return doctor;
+        
+        // Load the updated doctor with related entities
+        return await GetDoctorByIdAsync(doctor.Id) ?? doctor;
     }
 
     public async Task<bool> DeleteDoctorAsync(Guid id)

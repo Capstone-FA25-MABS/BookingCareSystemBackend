@@ -42,6 +42,9 @@ public class CreateDoctorRequest
     [Range(0, 50, ErrorMessage = "Years of experience must be between 0 and 50")]
     public int YearsOfExperience { get; set; } = 0;
 
+    [Range(0, 100000000, ErrorMessage = "Price must be positive")]
+    public decimal? Price { get; set; }
+
     [Url(ErrorMessage = "Invalid URL format")]
     [StringLength(500, ErrorMessage = "Avatar URL cannot exceed 500 characters")]
     public string? AvatarUrl { get; set; }
