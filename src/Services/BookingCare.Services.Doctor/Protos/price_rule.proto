@@ -24,7 +24,6 @@ message PriceRuleInfo {
   double base_price = 3;
   int32 min_experience = 4;
   string position = 5;
-  double bonus_famous = 6;
   string status = 7;
 }
 

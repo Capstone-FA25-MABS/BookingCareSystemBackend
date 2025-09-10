@@ -125,10 +125,6 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("price_id");
 
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("description");
-
                     b.Property<bool>("IsOverride")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -154,10 +150,6 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("description");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -205,21 +197,11 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("base_price");
 
-                    b.Property<decimal?>("BonusFamous")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("bonus_famous");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)")
-                        .HasColumnName("description");
 
                     b.Property<int?>("MinExperience")
                         .HasColumnType("int")

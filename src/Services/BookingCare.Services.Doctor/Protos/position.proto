@@ -13,7 +13,6 @@ service PositionService {
 
 message CreatePositionRequest {
   string name = 1;
-  string description = 2;
 }
 
 message CreatePositionResponse {
@@ -49,9 +48,8 @@ message GetPositionsResponse {
 message PositionInfo {
   string id = 1;
   string name = 2;
-  string description = 3;
-  google.protobuf.Timestamp created_at = 4;
-  google.protobuf.Timestamp updated_at = 5;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp updated_at = 4;
 }
 
 

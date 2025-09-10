@@ -11,7 +11,7 @@ public class DoctorMappingProfile : Profile
         // Doctor Entity to Response mappings
         CreateMap<DoctorEntity, DoctorResponse>()
             .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Position))
-            .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices.Select(dp => dp.Price)));
+            .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices.Where(dp => dp.Price != null).Select(dp => dp.Price)));
 
         // Doctor Request to Entity mappings
         CreateMap<CreateDoctorRequest, DoctorEntity>()

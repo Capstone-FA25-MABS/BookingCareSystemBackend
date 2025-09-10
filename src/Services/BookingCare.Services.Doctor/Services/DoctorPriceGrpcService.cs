@@ -21,8 +21,7 @@ public class DoctorPriceGrpcService : Protos.DoctorPriceService.DoctorPriceServi
             var result = await _doctorService.AssignPriceToDoctorAsync(new Models.DTOs.AssignPriceToDoctorRequest
             {
                 DoctorId = Guid.Parse(request.DoctorId),
-                PriceId = Guid.Parse(request.PriceId),
-                Description = request.Description
+                PriceId = Guid.Parse(request.PriceId)
             });
 
             return new AssignPriceToDoctorResponse
@@ -31,8 +30,7 @@ public class DoctorPriceGrpcService : Protos.DoctorPriceService.DoctorPriceServi
                 DoctorPrice = new DoctorPriceInfo
                 {
                     DoctorId = result.DoctorId.ToString(),
-                    PriceId = result.PriceId.ToString(),
-                    Description = result.Description ?? string.Empty
+                    PriceId = result.PriceId.ToString()
                 }
             };
         }

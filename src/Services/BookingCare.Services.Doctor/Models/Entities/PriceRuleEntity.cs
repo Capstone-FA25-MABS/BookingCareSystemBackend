@@ -27,13 +27,6 @@ public class PriceRuleEntity
     [Column("base_price", TypeName = "decimal(10,2)")]
     public decimal BasePrice { get; set; }
 
-    [Column("bonus_famous", TypeName = "decimal(10,2)")]
-    public decimal? BonusFamous { get; set; }
-
-    [Column("description")]
-    [MaxLength(500)]
-    public string? Description { get; set; }
-
     [Column("status")]
     public Status Status { get; set; } = Status.ACTIVE;
 

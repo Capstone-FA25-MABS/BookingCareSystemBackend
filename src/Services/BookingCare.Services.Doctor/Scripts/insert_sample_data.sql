@@ -10,18 +10,18 @@ GO
 -- =============================================================================
 -- 1. INSERT POSITIONS
 -- =============================================================================
-INSERT INTO Positions (id, name, description, created_at, updated_at)
+INSERT INTO Positions (id, name, created_at, updated_at)
 VALUES 
-    (NEWID(), N'Bác sĩ chuyên khoa', N'Bác sĩ có chuyên môn sâu trong một lĩnh vực y tế cụ thể', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ đa khoa', N'Bác sĩ có kiến thức tổng quát về nhiều lĩnh vực y tế', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ nội khoa', N'Bác sĩ chuyên điều trị các bệnh lý bên trong cơ thể', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ ngoại khoa', N'Bác sĩ chuyên thực hiện các phẫu thuật', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ nhi khoa', N'Bác sĩ chuyên điều trị cho trẻ em', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ sản phụ khoa', N'Bác sĩ chuyên về sản khoa và phụ khoa', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ tim mạch', N'Bác sĩ chuyên về tim và mạch máu', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ thần kinh', N'Bác sĩ chuyên về hệ thần kinh', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ da liễu', N'Bác sĩ chuyên về da và các bệnh da liễu', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ mắt', N'Bác sĩ chuyên về mắt và thị lực', GETUTCDATE(), GETUTCDATE());
+    (NEWID(), N'Bác sĩ chuyên khoa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ đa khoa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ nội khoa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ ngoại khoa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ nhi khoa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ sản phụ khoa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ tim mạch', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ thần kinh', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ da liễu', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ mắt', GETUTCDATE(), GETUTCDATE());
 GO
 
 -- =============================================================================
@@ -46,20 +46,20 @@ GO
 -- =============================================================================
 -- 3. INSERT PRICE RULES
 -- =============================================================================
-INSERT INTO price_rules (id, name, base_price, min_experience, position, bonus_famous, status, created_at, updated_at)
+INSERT INTO price_rules (id, name, base_price, min_experience, position, status, created_at, updated_at)
 VALUES 
-    (NEWID(), N'Khám đa khoa cơ bản', 200000, 0, N'Bác sĩ đa khoa', 0, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám đa khoa nâng cao', 300000, 2, N'Bác sĩ đa khoa', 50000, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám đa khoa chuyên sâu', 400000, 5, N'Bác sĩ đa khoa', 100000, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám chuyên khoa cơ bản', 500000, 0, N'Bác sĩ chuyên khoa', 0, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám chuyên khoa nâng cao', 600000, 3, N'Bác sĩ chuyên khoa', 100000, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám chuyên khoa chuyên sâu', 800000, 7, N'Bác sĩ chuyên khoa', 200000, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám nội khoa cơ bản', 400000, 0, N'Bác sĩ nội khoa', 0, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám nội khoa nâng cao', 500000, 2, N'Bác sĩ nội khoa', 50000, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám nội khoa chuyên sâu', 600000, 5, N'Bác sĩ nội khoa', 100000, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám ngoại khoa cơ bản', 700000, 0, N'Bác sĩ ngoại khoa', 0, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám ngoại khoa nâng cao', 900000, 3, N'Bác sĩ ngoại khoa', 100000, N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám ngoại khoa chuyên sâu', 1200000, 8, N'Bác sĩ ngoại khoa', 300000, N'ACTIVE', GETUTCDATE(), GETUTCDATE());
+    (NEWID(), N'Khám đa khoa cơ bản', 200000, 0, N'Bác sĩ đa khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám đa khoa nâng cao', 300000, 2, N'Bác sĩ đa khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám đa khoa chuyên sâu', 400000, 5, N'Bác sĩ đa khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám chuyên khoa cơ bản', 500000, 0, N'Bác sĩ chuyên khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám chuyên khoa nâng cao', 600000, 3, N'Bác sĩ chuyên khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám chuyên khoa chuyên sâu', 800000, 7, N'Bác sĩ chuyên khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám nội khoa cơ bản', 400000, 0, N'Bác sĩ nội khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám nội khoa nâng cao', 500000, 2, N'Bác sĩ nội khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám nội khoa chuyên sâu', 600000, 5, N'Bác sĩ nội khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám ngoại khoa cơ bản', 700000, 0, N'Bác sĩ ngoại khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám ngoại khoa nâng cao', 900000, 3, N'Bác sĩ ngoại khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Khám ngoại khoa chuyên sâu', 1200000, 8, N'Bác sĩ ngoại khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE());
 GO
 
 -- =============================================================================
@@ -88,7 +88,6 @@ GO
 -- =============================================================================
 -- 5. INSERT DOCTOR-PRICE RELATIONSHIPS
 -- =============================================================================
--- Get some doctor and price IDs for relationships
 DECLARE @DoctorId1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Nguyễn' AND last_name = N'Văn A');
 DECLARE @DoctorId2 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Trần' AND last_name = N'Thị B');
 DECLARE @DoctorId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Lê' AND last_name = N'Văn C');
@@ -101,13 +100,13 @@ DECLARE @PriceId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Prices WHERE amount =
 DECLARE @PriceId4 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Prices WHERE amount = 700000);
 DECLARE @PriceId5 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Prices WHERE amount = 800000);
 
-INSERT INTO doctor_prices (doctor_id, price_id, description, is_override)
+INSERT INTO doctor_prices (doctor_id, price_id, is_override)
 VALUES 
-    (@DoctorId1, @PriceId1, N'Giá khám chuyên khoa tim mạch', 1),
-    (@DoctorId2, @PriceId2, N'Giá khám đa khoa thông thường', 1),
-    (@DoctorId3, @PriceId3, N'Giá khám nội khoa chuyên sâu', 1),
-    (@DoctorId4, @PriceId4, N'Giá phẫu thuật nội soi', 1),
-    (@DoctorId5, @PriceId5, N'Giá khám nhi khoa chuyên sâu', 1);
+    (@DoctorId1, @PriceId1, 1),
+    (@DoctorId2, @PriceId2, 1),
+    (@DoctorId3, @PriceId3, 1),
+    (@DoctorId4, @PriceId4, 1),
+    (@DoctorId5, @PriceId5, 1);
 GO
 
 -- =============================================================================
@@ -115,13 +114,13 @@ GO
 -- =============================================================================
 
 -- Insert more positions
-INSERT INTO Positions (id, name, description, created_at, updated_at)
+INSERT INTO Positions (id, name, created_at, updated_at)
 VALUES 
-    (NEWID(), N'Bác sĩ tâm thần', N'Bác sĩ chuyên về sức khỏe tâm thần và tâm lý', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ vật lý trị liệu', N'Bác sĩ chuyên về phục hồi chức năng', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ dinh dưỡng', N'Bác sĩ chuyên về dinh dưỡng và chế độ ăn', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ y học cổ truyền', N'Bác sĩ chuyên về y học cổ truyền Việt Nam', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ cấp cứu', N'Bác sĩ chuyên về cấp cứu và hồi sức', GETUTCDATE(), GETUTCDATE());
+    (NEWID(), N'Bác sĩ tâm thần', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ vật lý trị liệu', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ dinh dưỡng', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ y học cổ truyền', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ cấp cứu', GETUTCDATE(), GETUTCDATE());
 GO
 
 -- Insert more prices
@@ -160,7 +159,7 @@ UNION ALL
 SELECT 'doctor_prices' as table_name, COUNT(*) as record_count FROM doctor_prices;
 
 -- Show sample data
-SELECT TOP 5 p.name as position_name, p.description 
+SELECT TOP 5 p.name as position_name
 FROM Positions p;
 
 SELECT TOP 5 pr.name, pr.base_price, pr.min_experience, pr.position
@@ -170,7 +169,7 @@ SELECT TOP 5 d.first_name + ' ' + d.last_name as doctor_name, d.email, d.years_o
 FROM Doctors d
 LEFT JOIN Positions p ON d.position_id = p.id;
 
-SELECT TOP 5 d.first_name + ' ' + d.last_name as doctor_name, pr.amount as price_amount, dp.description, dp.is_override
+SELECT TOP 5 d.first_name + ' ' + d.last_name as doctor_name, pr.amount as price_amount, dp.is_override
 FROM doctor_prices dp
 JOIN Doctors d ON dp.doctor_id = d.id
 JOIN Prices pr ON dp.price_id = pr.id;

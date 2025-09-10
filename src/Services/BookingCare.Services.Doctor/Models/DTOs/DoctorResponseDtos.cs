@@ -31,7 +31,6 @@ public class DoctorPriceResponse
 {
     public Guid DoctorId { get; set; }
     public Guid PriceId { get; set; }
-    public string? Description { get; set; }
     public DoctorResponse Doctor { get; set; } = null!;
     public PriceResponse Price { get; set; } = null!;
 }

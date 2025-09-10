@@ -291,8 +291,6 @@ public class DoctorService : IDoctorService
         );
         if (activeRule == null) return null;
         decimal price = activeRule.BasePrice;
-        if (activeRule.BonusFamous.HasValue && doctor.Bio != null && doctor.Bio.ToLower().Contains("nổi tiếng"))
-            price += activeRule.BonusFamous.Value;
         return price;
     }
 

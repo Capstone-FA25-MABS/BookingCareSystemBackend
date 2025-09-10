@@ -9,8 +9,7 @@ public class PriceMappingProfile : Profile
     public PriceMappingProfile()
     {
         // Price Entity to Response mappings
-        CreateMap<PriceEntity, PriceResponse>()
-            .ForMember(dest => dest.Description, opt => opt.Ignore());
+        CreateMap<PriceEntity, PriceResponse>();
 
         // Price Request to Entity mappings
         CreateMap<CreatePriceRequest, PriceEntity>()

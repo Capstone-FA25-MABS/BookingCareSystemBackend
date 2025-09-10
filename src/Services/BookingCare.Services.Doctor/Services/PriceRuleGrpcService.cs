@@ -38,7 +38,6 @@ public class PriceRuleGrpcService : Protos.PriceRuleService.PriceRuleServiceBase
                     BasePrice = (double)rule.BasePrice,
                     MinExperience = rule.MinExperience ?? 0,
                     Position = rule.Position ?? string.Empty,
-                    BonusFamous = rule.BonusFamous.HasValue ? (double)rule.BonusFamous.Value : 0,
                     Status = rule.Status.ToString()
                 }
             };

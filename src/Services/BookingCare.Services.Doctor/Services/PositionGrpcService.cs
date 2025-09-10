@@ -34,8 +34,7 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
 
             var createRequest = new Models.DTOs.CreatePositionRequest
             {
-                Name = request.Name,
-                Description = request.Description
+                Name = request.Name
             };
 
             var result = await _positionService.CreatePositionAsync(createRequest);
@@ -149,7 +148,6 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
         {
             Id = position.Id.ToString(),
             Name = position.Name,
-            Description = position.Description ?? "",
             CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(position.CreatedAt.ToUniversalTime()),
             UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(position.UpdatedAt.ToUniversalTime())
         };

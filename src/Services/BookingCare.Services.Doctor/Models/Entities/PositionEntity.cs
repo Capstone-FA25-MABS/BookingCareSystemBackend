@@ -15,9 +15,6 @@ public class PositionEntity
     [Column("name")]
     public string Name { get; set; } = string.Empty;
 
-    [Column("description")]
-    public string? Description { get; set; }
-
     [Required]
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

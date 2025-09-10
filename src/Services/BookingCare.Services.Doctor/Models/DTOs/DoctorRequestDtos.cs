@@ -136,7 +136,4 @@ public class AssignPriceToDoctorRequest
 
     [Required(ErrorMessage = "Price ID is required")]
     public Guid PriceId { get; set; }
-
-    [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
-    public string? Description { get; set; }
 }

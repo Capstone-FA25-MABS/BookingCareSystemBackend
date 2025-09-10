@@ -130,8 +130,6 @@ public class DoctorDbContext : DbContext
             entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
             entity.Property(e => e.Position).HasMaxLength(100);
             entity.Property(e => e.BasePrice).HasPrecision(10, 2).IsRequired();
-            entity.Property(e => e.BonusFamous).HasPrecision(10, 2);
-            entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.Status)
                 .HasConversion<string>()
                 .HasDefaultValue(BookingCare.Shared.Common.Enums.Status.ACTIVE);

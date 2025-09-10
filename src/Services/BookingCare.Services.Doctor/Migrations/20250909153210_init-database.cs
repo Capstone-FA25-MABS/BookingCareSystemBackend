@@ -17,7 +17,6 @@ namespace BookingCare.Services.Doctor.Migrations
                 {
                     id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     name = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
-                    description = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
@@ -35,8 +34,6 @@ namespace BookingCare.Services.Doctor.Migrations
                     min_experience = table.Column<int>(type: "int", nullable: true),
                     position = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     base_price = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: false),
-                    bonus_famous = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: true),
-                    description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     status = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "ACTIVE"),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
@@ -95,7 +92,6 @@ namespace BookingCare.Services.Doctor.Migrations
                 {
                     doctor_id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     price_id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    description = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     is_override = table.Column<bool>(type: "bit", nullable: false, defaultValue: false)
                 },
                 constraints: table =>

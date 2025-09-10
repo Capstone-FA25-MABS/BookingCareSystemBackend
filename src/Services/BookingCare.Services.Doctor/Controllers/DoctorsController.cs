@@ -140,8 +140,22 @@ public class DoctorsController : BaseApiController
                 .ToList());
         }
 
-        var doctor = await _doctorService.CreateDoctorAsync(request);
-        return Created(doctor, "Doctor created successfully");
+        try
+        {
+            var doctor = await _doctorService.CreateDoctorAsync(request);
+            return Created(doctor, "Doctor created successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating doctor: {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = ex.Message,
+                errors = new[] { ex.GetType().Name },
+                timestamp = DateTime.UtcNow
+            });
+        }
     }
 
     /// <summary>

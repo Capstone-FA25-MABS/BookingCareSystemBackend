@@ -356,7 +356,6 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             {
                 Id = doctor.Position.Id.ToString(),
                 Name = doctor.Position.Name,
-                Description = doctor.Position.Description ?? string.Empty,
                 CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.Position.CreatedAt.ToUniversalTime()),
                 UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.Position.UpdatedAt.ToUniversalTime())
             };

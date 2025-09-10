@@ -14,9 +14,6 @@ public class DoctorPriceEntity
     [Column("price_id")]
     public Guid PriceId { get; set; }
 
-    [Column("description")]
-    public string? Description { get; set; }
-
     [Column("is_override")]
     public bool IsOverride { get; set; } = false;
 
