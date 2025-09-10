@@ -22,7 +22,7 @@ public static class ValidationExtensions
             {
                 // Extract validation errors from ModelState
                 var validationErrors = new List<string>();
-                
+
                 foreach (var (key, value) in context.ModelState)
                 {
                     if (value?.Errors.Count > 0)
@@ -31,10 +31,10 @@ public static class ValidationExtensions
                         {
                             // Format error messages consistently
                             var fieldName = string.IsNullOrEmpty(key) ? "" : $"{key}: ";
-                            var errorMessage = !string.IsNullOrEmpty(error.ErrorMessage) 
-                                ? error.ErrorMessage 
+                            var errorMessage = !string.IsNullOrEmpty(error.ErrorMessage)
+                                ? error.ErrorMessage
                                 : error.Exception?.Message ?? "Invalid value";
-                            
+
                             // Remove field name prefix if it's already in the error message
                             if (!string.IsNullOrEmpty(key) && errorMessage.StartsWith($"The {key}", StringComparison.OrdinalIgnoreCase))
                             {
@@ -54,7 +54,7 @@ public static class ValidationExtensions
 
                 // Create consistent error response using ApiResponse format
                 var apiResponse = ApiResponse<object>.ErrorResult(
-                    message: "One or more validation errors occurred.", 
+                    message: "One or more validation errors occurred.",
                     errors: validationErrors
                 );
 

@@ -32,12 +32,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMongoClient>(provider =>
         {
             var mongoDbSettings = provider.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-            
+
             if (string.IsNullOrEmpty(mongoDbSettings.ConnectionString))
             {
                 throw new InvalidOperationException("MongoDB connection string is not configured in MongoDbSettings");
             }
-            
+
             return new MongoClient(mongoDbSettings.ConnectionString);
         });
 
@@ -46,12 +46,12 @@ public static class ServiceCollectionExtensions
         {
             var client = provider.GetRequiredService<IMongoClient>();
             var mongoDbSettings = provider.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-            
+
             if (string.IsNullOrEmpty(mongoDbSettings.DatabaseName))
             {
                 throw new InvalidOperationException("MongoDB database name is not configured in MongoDbSettings");
             }
-            
+
             return client.GetDatabase(mongoDbSettings.DatabaseName);
         });
 
@@ -134,7 +134,7 @@ public static class ServiceCollectionExtensions
     {
         using var scope = serviceProvider.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<FavoritesDbContext>();
-        
+
         // Create indexes
         await dbContext.CreateIndexesAsync();
     }

@@ -24,7 +24,7 @@ public class FavoritesGrpcService : FavoritesService.FavoritesServiceBase
     /// Check multiple doctors favorite status for a patient via gRPC
     /// </summary>
     public override async Task<GrpcModels.CheckMultipleFavoritesResponse> CheckMultipleFavorites(
-        GrpcModels.CheckMultipleFavoritesRequest request, 
+        GrpcModels.CheckMultipleFavoritesRequest request,
         ServerCallContext context)
     {
         try
@@ -105,13 +105,13 @@ public class FavoritesGrpcService : FavoritesService.FavoritesServiceBase
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex, "Invalid argument in gRPC CheckSingleFavorite for Patient {PatientId} and Doctor {DoctorId}", 
+            _logger.LogWarning(ex, "Invalid argument in gRPC CheckSingleFavorite for Patient {PatientId} and Doctor {DoctorId}",
                 request.PatientId, request.DoctorId);
             throw new RpcException(new Status(StatusCode.InvalidArgument, ex.Message));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in gRPC CheckSingleFavorite for Patient {PatientId} and Doctor {DoctorId}", 
+            _logger.LogError(ex, "Error in gRPC CheckSingleFavorite for Patient {PatientId} and Doctor {DoctorId}",
                 request.PatientId, request.DoctorId);
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }

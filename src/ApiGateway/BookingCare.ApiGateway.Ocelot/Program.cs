@@ -6,6 +6,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+
 // Add configuration
 builder.Configuration.AddJsonFile("ocelot.json", optional: false, reloadOnChange: true);
 
@@ -39,7 +41,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontEnd", builder =>
     {
-        builder.WithOrigins("http://localhost:5173", "https://localhost:5173")
+        builder.WithOrigins(allowedOrigins ?? [])
                .AllowAnyMethod()
                .AllowAnyHeader();
     });

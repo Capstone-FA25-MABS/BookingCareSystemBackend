@@ -6,11 +6,11 @@ namespace BookingCare.Services.Discount.Exceptions;
 public class DiscountException : BookingCareException
 {
     public DiscountException(
-        string message, 
+        string message,
         string errorCode = "DISCOUNT_ERROR",
         HttpStatusCode statusCode = HttpStatusCode.InternalServerError,
         Exception? innerException = null,
-        Dictionary<string, object>? details = null) 
+        Dictionary<string, object>? details = null)
         : base(message, errorCode, statusCode, innerException, details)
     {
     }
@@ -18,7 +18,7 @@ public class DiscountException : BookingCareException
 
 public class DiscountNotFoundException : NotFoundException
 {
-    public DiscountNotFoundException(string message) 
+    public DiscountNotFoundException(string message)
         : base(message, "DISCOUNT_NOT_FOUND")
     {
     }
@@ -37,7 +37,7 @@ public class DiscountNotFoundException : NotFoundException
 
 public class DiscountValidationException : ValidationException
 {
-    public DiscountValidationException(string message) 
+    public DiscountValidationException(string message)
         : base(message, null, "DISCOUNT_VALIDATION_ERROR")
     {
     }
@@ -50,7 +50,7 @@ public class DiscountValidationException : ValidationException
 
 public class DiscountBusinessException : BusinessException
 {
-    public DiscountBusinessException(string message) 
+    public DiscountBusinessException(string message)
         : base(message, "DISCOUNT_BUSINESS_ERROR")
     {
     }
@@ -58,7 +58,7 @@ public class DiscountBusinessException : BusinessException
 
 public class DiscountConflictException : ConflictException
 {
-    public DiscountConflictException(string message) 
+    public DiscountConflictException(string message)
         : base(message, "DISCOUNT_CONFLICT")
     {
     }

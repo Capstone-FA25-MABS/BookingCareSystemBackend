@@ -16,10 +16,10 @@ public class TestUserRegisteredEventHandler : IIntegrationEventHandler<UserRegis
     {
         _logger.LogInformation("🎯 [TEST SERVICE] Processing UserRegisteredEvent: {UserId}", @event.UserId);
         _logger.LogInformation("   User: {Email}, Role: {Role}", @event.Email, @event.Role);
-        
+
         // Simulate processing
         await Task.Delay(100, cancellationToken);
-        
+
         _logger.LogInformation("✅ [TEST SERVICE] UserRegisteredEvent processed successfully");
     }
 }
@@ -36,12 +36,12 @@ public class TestAppointmentCreatedEventHandler : IIntegrationEventHandler<Appoi
     public async Task HandleAsync(AppointmentCreatedEvent @event, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("🎯 [TEST SERVICE] Processing AppointmentCreatedEvent: {AppointmentId}", @event.AppointmentId);
-        _logger.LogInformation("   Patient: {PatientId}, Doctor: {DoctorId}, Date: {AppointmentDate}", 
+        _logger.LogInformation("   Patient: {PatientId}, Doctor: {DoctorId}, Date: {AppointmentDate}",
             @event.PatientId, @event.DoctorId, @event.AppointmentDate);
-        
+
         // Simulate processing
         await Task.Delay(150, cancellationToken);
-        
+
         _logger.LogInformation("✅ [TEST SERVICE] AppointmentCreatedEvent processed successfully");
     }
 }
@@ -58,12 +58,12 @@ public class TestPaymentProcessedEventHandler : IIntegrationEventHandler<Payment
     public async Task HandleAsync(PaymentProcessedEvent @event, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("🎯 [TEST SERVICE] Processing PaymentProcessedEvent: {PaymentId}", @event.PaymentId);
-        _logger.LogInformation("   Amount: {Amount}, Method: {PaymentMethod}, Status: {Status}", 
+        _logger.LogInformation("   Amount: {Amount}, Method: {PaymentMethod}, Status: {Status}",
             @event.Amount, @event.PaymentMethod, @event.Status);
-        
+
         // Simulate processing
         await Task.Delay(100, cancellationToken);
-        
+
         _logger.LogInformation("✅ [TEST SERVICE] PaymentProcessedEvent processed successfully");
     }
 }
@@ -80,12 +80,12 @@ public class TestNotificationSendEventHandler : IIntegrationEventHandler<Notific
     public async Task HandleAsync(NotificationSendEvent @event, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("🎯 [TEST SERVICE] Processing NotificationSendEvent: {EventId}", @event.Id);
-        _logger.LogInformation("   Type: {Type}, UserId: {UserId}, Message: {Message}", 
+        _logger.LogInformation("   Type: {Type}, UserId: {UserId}, Message: {Message}",
             @event.Type, @event.UserId, @event.Message);
-        
+
         // Simulate processing
         await Task.Delay(50, cancellationToken);
-        
+
         _logger.LogInformation("✅ [TEST SERVICE] NotificationSendEvent processed successfully");
     }
 }

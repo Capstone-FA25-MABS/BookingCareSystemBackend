@@ -86,11 +86,11 @@ public class FavoritesController : BaseApiController
         }
 
         var result = await _favoriteService.ToggleFavoriteAsync(request);
-        
-        var message = result.Action == "Added" 
-            ? "Doctor added to favorites successfully" 
+
+        var message = result.Action == "Added"
+            ? "Doctor added to favorites successfully"
             : "Doctor removed from favorites successfully";
-            
+
         return Success(result, message);
     }
 
@@ -125,11 +125,11 @@ public class FavoritesController : BaseApiController
         }
 
         var result = await _favoriteService.ToggleFavoriteAsync(request);
-        
-        var message = result.Action == "Added" 
-            ? "Doctor added to favorites successfully" 
+
+        var message = result.Action == "Added"
+            ? "Doctor added to favorites successfully"
             : "Doctor removed from favorites successfully";
-            
+
         return Success(result, message);
     }
 
@@ -169,8 +169,8 @@ public class FavoritesController : BaseApiController
     /// <returns>Paginated list of favorites</returns>
     [HttpGet("patient/{patientId}")]
     public async Task<IActionResult> GetPatientFavorites(
-        Guid patientId, 
-        [FromQuery] int page = 1, 
+        Guid patientId,
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
         var request = new GetPatientFavoritesRequest
@@ -318,8 +318,8 @@ public class FavoritesController : BaseApiController
     /// <returns>Paginated list of doctor's favorites</returns>
     [HttpGet("doctor/{doctorId}/analytics")]
     public async Task<IActionResult> GetDoctorFavorites(
-        Guid doctorId, 
-        [FromQuery] int page = 1, 
+        Guid doctorId,
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
         if (doctorId == Guid.Empty)

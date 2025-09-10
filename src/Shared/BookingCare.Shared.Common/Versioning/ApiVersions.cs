@@ -9,12 +9,12 @@ public static class ApiVersions
     /// Version 1.0 - Initial version
     /// </summary>
     public const string V1_0 = "1.0";
-    
+
     /// <summary>
     /// Version 1.1 - Minor updates and improvements
     /// </summary>
     public const string V1_1 = "1.1";
-    
+
     /// <summary>
     /// Version 2.0 - Major version with breaking changes
     /// </summary>
@@ -40,7 +40,7 @@ public static class ApiRouteTemplates
     /// Versioned route template: api/v{version:apiVersion}/[controller]
     /// </summary>
     public const string Versioned = "api/v{version:apiVersion}/[controller]";
-    
+
     /// <summary>
     /// Legacy route template: api/[controller] (will default to v1.0)
     /// </summary>

@@ -30,11 +30,12 @@ public class AuthController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Health()
     {
-        return Ok(new { 
-            Status = "Healthy", 
-            Service = "Auth", 
+        return Ok(new
+        {
+            Status = "Healthy",
+            Service = "Auth",
             Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
-            Timestamp = DateTime.UtcNow 
+            Timestamp = DateTime.UtcNow
         });
     }
 
@@ -50,7 +51,7 @@ public class AuthController : BaseApiController
         var result = await _authService.LoginAsync(request);
         return Success(result, "Login successful");
     }
-    
+
     /// <summary>
     /// User registration - Available in all versions
     /// </summary>

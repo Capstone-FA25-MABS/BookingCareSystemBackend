@@ -14,7 +14,7 @@ namespace BookingCare.Shared.EventBus.Examples;
 public static class UserServiceEventBusConfiguration
 {
     public static IServiceCollection AddUserServiceEventBus(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         IConfiguration configuration)
     {
         // Register the event bus
@@ -46,7 +46,7 @@ public static class UserServiceEventBusConfiguration
 public static class AppointmentServiceEventBusConfiguration
 {
     public static IServiceCollection AddAppointmentServiceEventBus(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         IConfiguration configuration)
     {
         services.AddRabbitMQEventBus(configuration, "appointment-service-queue");
@@ -73,7 +73,7 @@ public static class AppointmentServiceEventBusConfiguration
 public static class PaymentServiceEventBusConfiguration
 {
     public static IServiceCollection AddPaymentServiceEventBus(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         IConfiguration configuration)
     {
         services.AddRabbitMQEventBus(configuration, "payment-service-queue");
@@ -98,7 +98,7 @@ public static class PaymentServiceEventBusConfiguration
 public static class NotificationServiceEventBusConfiguration
 {
     public static IServiceCollection AddNotificationServiceEventBus(
-        this IServiceCollection services, 
+        this IServiceCollection services,
         IConfiguration configuration)
     {
         services.AddRabbitMQEventBus(configuration, "notification-service-queue");
@@ -119,7 +119,7 @@ public static class NotificationServiceEventBusConfiguration
             eventBus.Subscribe<UserRegisteredEvent, UserRegisteredEventHandler>();
             eventBus.Subscribe<AppointmentCreatedEvent, AppointmentCreatedEventHandler>();
             eventBus.Subscribe<PaymentProcessedEvent, PaymentProcessedEventHandler>();
-            
+
             // Use routing keys for different notification types
             eventBus.Subscribe<NotificationSendEvent, NotificationSendEventHandler>("notification.email");
             eventBus.Subscribe<NotificationSendEvent, NotificationSendEventHandler>("notification.sms");

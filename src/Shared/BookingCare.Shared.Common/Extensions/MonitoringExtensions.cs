@@ -64,8 +64,8 @@ public static class MonitoringExtensions
                     {
                         // Don't trace health checks and metrics endpoints
                         var path = httpContext.Request.Path.Value?.ToLower();
-                        return path != "/health" && 
-                               path != "/metrics" && 
+                        return path != "/health" &&
+                               path != "/metrics" &&
                                !path?.StartsWith("/swagger") == true;
                     };
                 })
