@@ -322,8 +322,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             YearsOfExperience = doctor.YearsOfExperience,
             AvatarUrl = doctor.AvatarUrl ?? "",
             CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.CreatedAt.ToUniversalTime()),
-            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.UpdatedAt.ToUniversalTime()),
-            DynamicPrice = doctor.DynamicPrice.HasValue ? (double)doctor.DynamicPrice.Value : 0d
+            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.UpdatedAt.ToUniversalTime())
         };
         return info;
     }
@@ -346,8 +345,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             YearsOfExperience = doctor.YearsOfExperience,
             AvatarUrl = doctor.AvatarUrl ?? "",
             CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.CreatedAt.ToUniversalTime()),
-            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.UpdatedAt.ToUniversalTime()),
-            DynamicPrice = doctor.DynamicPrice.HasValue ? (double)doctor.DynamicPrice.Value : 0d
+            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(doctor.UpdatedAt.ToUniversalTime())
         };
 
         if (includePosition && doctor.Position != null)
@@ -365,7 +363,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             foreach (var p in doctor.Prices)
             {
-                info.Prices.Add(new PriceInfo
+                info.Prices.Add(new DoctorPriceInfo
                 {
                     Id = p.Id.ToString(),
                     Amount = (double)p.Amount
@@ -375,17 +373,6 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
         return info;
     }
-
-    private static PriceInfo MapToPriceInfo(Models.DTOs.PriceResponse price)
-    {
-        return new PriceInfo
-        {
-            Id = price.Id.ToString(),
-            Amount = (double)price.Amount
-        };
-    }
-
-    // DoctorPriceInfo mapping moved to DoctorPriceGrpcService
 
     #endregion
 }

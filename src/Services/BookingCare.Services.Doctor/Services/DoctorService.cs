@@ -10,14 +10,12 @@ namespace BookingCare.Services.Doctor.Services;
 public class DoctorService : IDoctorService
 {
     private readonly IDoctorRepository _repository;
-    private readonly IPriceRepository _priceRepository;
     private readonly IPositionRepository _positionRepository;
     private readonly IMapper _mapper;
 
-    public DoctorService(IDoctorRepository repository, IPriceRepository priceRepository, IPositionRepository positionRepository, IMapper mapper)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper)
     {
         _repository = repository;
-        _priceRepository = priceRepository;
         _positionRepository = positionRepository;
         _mapper = mapper;
     }
@@ -25,7 +23,7 @@ public class DoctorService : IDoctorService
     #region Doctor CRUD Operations
 
     /// <summary>
-    /// API này sẽ tự động gán giá động cho doctor nếu chưa có giá override (staff nhập).
+    /// Tạo doctor mới với giá cơ bản
     /// </summary>
     public async Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request)
     {
@@ -54,13 +52,20 @@ public class DoctorService : IDoctorService
         doctor.Id = Guid.NewGuid();
 
         var createdDoctor = await _repository.CreateDoctorAsync(doctor);
-        // Gán giá cho doctor
-        decimal dynamicPrice = await CalculateDynamicPriceByRuleAsync(createdDoctor) ?? 0;
-        decimal priceToAssign = request.Price ?? dynamicPrice;
-        bool isOverride = request.Price != null && request.Price != dynamicPrice;
-        await AssignPriceToDoctorInternalAsync(createdDoctor, priceToAssign, isOverride);
+        
+        // Nếu có truyền Price từ staff, tạo doctor-price
+        if (request.Price.HasValue)
+        {
+            var doctorPrice = new DoctorPriceEntity
+            {
+                Id = Guid.NewGuid(),
+                DoctorId = createdDoctor.Id,
+                Amount = request.Price.Value
+            };
+            await _repository.CreateDoctorPriceAsync(doctorPrice);
+        }
+        
         var response = _mapper.Map<DoctorResponse>(createdDoctor);
-        response.DynamicPrice = dynamicPrice;
         return response;
     }
 
@@ -69,7 +74,6 @@ public class DoctorService : IDoctorService
         var doctor = await _repository.GetDoctorByIdAsync(id);
         if (doctor == null) return null;
         var response = _mapper.Map<DoctorResponse>(doctor);
-        response.DynamicPrice = await CalculateDynamicPriceAsync(doctor);
         return response;
     }
 
@@ -86,7 +90,7 @@ public class DoctorService : IDoctorService
     }
 
     /// <summary>
-    /// API này sẽ tự động gán giá động cho doctor nếu chưa có giá override (staff nhập).
+    /// Cập nhật thông tin doctor
     /// </summary>
     public async Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request)
     {
@@ -110,11 +114,14 @@ public class DoctorService : IDoctorService
         _mapper.Map(request, existingDoctor);
         existingDoctor.UpdatedAt = DateTime.UtcNow;
 
+        // Update price if provided (managed by staff)
+        if (request.Price.HasValue)
+        {
+            await UpdateDoctorPriceAsync(existingDoctor, request.Price.Value, true);
+        }
+
         var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);
-        // Tự động gán giá động nếu chưa có giá override
-        await AutoAssignDynamicPriceAsync(updatedDoctor);
         var response = _mapper.Map<DoctorResponse>(updatedDoctor);
-        response.DynamicPrice = await CalculateDynamicPriceAsync(updatedDoctor);
         return response;
     }
 
@@ -137,12 +144,7 @@ public class DoctorService : IDoctorService
         response.PageSize = query.PageSize;
         response.TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
 
-        // Calculate dynamic prices for each doctor
-        foreach (var doctor in response.Doctors)
-        {
-            var doctorEntity = doctors.First(d => d.Id == doctor.Id);
-            doctor.DynamicPrice = await CalculateDynamicPriceAsync(doctorEntity);
-        }
+        // Dynamic price removed
 
         return response;
     }
@@ -200,17 +202,13 @@ public class DoctorService : IDoctorService
 
     #region DoctorPrice Operations
 
-    public async Task<List<PriceResponse>> GetDoctorPricesAsync(Guid doctorId)
+    public async Task<List<DoctorPriceResponse>> GetDoctorPricesAsync(Guid doctorId)
     {
-        var prices = await _repository.GetDoctorPricesByDoctorIdAsync(doctorId);
-        return _mapper.Map<List<PriceResponse>>(prices);
+        var prices = await _repository.GetDoctorPricesAsync(doctorId);
+        return _mapper.Map<List<DoctorPriceResponse>>(prices);
     }
 
-    public async Task<List<DoctorResponse>> GetDoctorsByPriceAsync(Guid priceId)
-    {
-        var doctors = await _repository.GetDoctorsByPriceIdAsync(priceId);
-        return _mapper.Map<List<DoctorResponse>>(doctors);
-    }
+    
 
     public async Task<DoctorPriceResponse> AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request)
     {
@@ -220,20 +218,21 @@ public class DoctorService : IDoctorService
             throw DoctorNotFoundException.WithId(request.DoctorId);
         }
 
-        // Validate price exists
-        if (!await _priceRepository.PriceExistsAsync(request.PriceId))
+        // Get doctor
+        var doctor = await _repository.GetDoctorByIdAsync(request.DoctorId);
+        if (doctor == null)
         {
-            throw PriceNotFoundException.WithId(request.PriceId);
-        }
-
-        // Check if relationship already exists
-        if (await _repository.DoctorPriceExistsAsync(request.DoctorId, request.PriceId))
-        {
-            throw DoctorPriceConflictException.WithIds(request.DoctorId, request.PriceId);
+            throw DoctorNotFoundException.WithId(request.DoctorId);
         }
 
         // Create doctor-price relationship
-        var doctorPrice = _mapper.Map<DoctorPriceEntity>(request);
+        var doctorPrice = new DoctorPriceEntity
+        {
+            Id = Guid.NewGuid(),
+            DoctorId = request.DoctorId,
+            Amount = request.Amount
+        };
+        
         var createdDoctorPrice = await _repository.CreateDoctorPriceAsync(doctorPrice);
         return _mapper.Map<DoctorPriceResponse>(createdDoctorPrice);
     }
@@ -276,85 +275,34 @@ public class DoctorService : IDoctorService
         return _repository.GetQueryableDoctors();
     }
 
-    private async Task<decimal?> CalculateDynamicPriceAsync(DoctorEntity doctor)
-    {
-        // Nếu có giá override thì trả về giá override
-        var overridePrice = doctor.DoctorPrices?.FirstOrDefault(dp => dp.IsOverride);
-        if (overridePrice != null)
-        {
-            return overridePrice.Price?.Amount;
-        }
-        // Nếu không có override, lấy rule phù hợp và tính giá
-        var activeRule = await _priceRepository.GetActivePriceRuleAsync(
-            minExperience: doctor.YearsOfExperience,
-            position: doctor.Position?.Name
-        );
-        if (activeRule == null) return null;
-        decimal price = activeRule.BasePrice;
-        return price;
-    }
+    // Removed automatic price calculation; prices are managed by staff only
 
-    private async Task AutoAssignDynamicPriceAsync(DoctorEntity doctor)
+    // Removed CreateDoctorPriceAsync - now using direct repository call
+
+    private async Task UpdateDoctorPriceAsync(DoctorEntity doctor, decimal amount, bool isOverride)
     {
-        // Nếu đã có giá override thì không làm gì
-        if (doctor.DoctorPrices.Any(dp => dp.IsOverride)) return;
-        // Tính giá động
-        var priceValue = await CalculateDynamicPriceAsync(doctor);
-        if (priceValue == null) return;
-        // Kiểm tra đã có giá động chưa (IsOverride=false)
-        var dynamicPrice = doctor.DoctorPrices.FirstOrDefault(dp => !dp.IsOverride);
-        if (dynamicPrice != null)
+        // Tìm giá hiện tại của doctor
+        var existingPrices = await _repository.GetDoctorPricesAsync(doctor.Id);
+        var existingPrice = existingPrices.FirstOrDefault();
+        
+        if (existingPrice != null)
         {
-            // Update giá động
-            dynamicPrice.Price.Amount = priceValue.Value;
-            await _repository.UpdateDoctorAsync(doctor);
+            // Cập nhật giá hiện tại
+            existingPrice.Amount = amount;
+            existingPrice.UpdatedAt = DateTime.UtcNow;
+            await _repository.UpdateDoctorPriceAsync(existingPrice);
         }
         else
         {
-            // Tạo mới PriceEntity và lưu vào database trước
-            var price = new PriceEntity { Id = Guid.NewGuid(), Amount = priceValue.Value };
-            await _priceRepository.CreatePriceAsync(price);
-            
-            // Tạo mới DoctorPriceEntity
+            // Tạo mới giá
             var doctorPrice = new DoctorPriceEntity
             {
+                Id = Guid.NewGuid(),
                 DoctorId = doctor.Id,
-                PriceId = price.Id,
-                IsOverride = false,
-                Price = price,
-                Doctor = doctor
+                Amount = amount
             };
-            doctor.DoctorPrices.Add(doctorPrice);
-            await _repository.UpdateDoctorAsync(doctor);
+            await _repository.CreateDoctorPriceAsync(doctorPrice);
         }
-    }
-
-    private async Task<decimal?> CalculateDynamicPriceByRuleAsync(DoctorEntity doctor)
-    {
-        var activeRule = await _priceRepository.GetActivePriceRuleAsync(
-            minExperience: doctor.YearsOfExperience,
-            position: doctor.Position?.Name
-        );
-        if (activeRule == null) return null;
-        return activeRule.BasePrice;
-    }
-
-    private async Task AssignPriceToDoctorInternalAsync(DoctorEntity doctor, decimal price, bool isOverride)
-    {
-        // Tạo mới PriceEntity và lưu vào database trước
-        var priceEntity = new PriceEntity { Id = Guid.NewGuid(), Amount = price };
-        await _priceRepository.CreatePriceAsync(priceEntity);
-        // Tạo mới DoctorPriceEntity
-        var doctorPrice = new DoctorPriceEntity
-        {
-            DoctorId = doctor.Id,
-            PriceId = priceEntity.Id,
-            IsOverride = isOverride,
-            Price = priceEntity,
-            Doctor = doctor
-        };
-        doctor.DoctorPrices.Add(doctorPrice);
-        await _repository.UpdateDoctorAsync(doctor);
     }
 
     #endregion

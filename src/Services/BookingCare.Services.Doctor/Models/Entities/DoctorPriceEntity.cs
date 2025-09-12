@@ -7,18 +7,24 @@ namespace BookingCare.Services.Doctor.Models.Entities;
 public class DoctorPriceEntity
 {
     [Key]
+    [Column("id")]
+    public Guid Id { get; set; }
+
+    [Required]
     [Column("doctor_id")]
     public Guid DoctorId { get; set; }
 
-    [Key]
-    [Column("price_id")]
-    public Guid PriceId { get; set; }
+    [Required]
+    [Column("amount", TypeName = "decimal(10,2)")]
+    public decimal Amount { get; set; }
 
-    [Column("is_override")]
-    public bool IsOverride { get; set; } = false;
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
     public virtual DoctorEntity Doctor { get; set; } = null!;
-    public virtual PriceEntity Price { get; set; } = null!;
 }
 

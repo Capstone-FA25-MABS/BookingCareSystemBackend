@@ -11,9 +11,7 @@ public class DoctorDbContext : DbContext
 
     public DbSet<DoctorEntity> Doctors { get; set; }
     public DbSet<PositionEntity> Positions { get; set; }
-    public DbSet<PriceEntity> Prices { get; set; }
     public DbSet<DoctorPriceEntity> DoctorPrices { get; set; }
-    public DbSet<PriceRuleEntity> PriceRules { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -92,8 +90,8 @@ public class DoctorDbContext : DbContext
                 .HasDefaultValueSql("GETDATE()");
         });
 
-        // Configure PriceEntity
-        modelBuilder.Entity<PriceEntity>(entity =>
+        // Configure DoctorPriceEntity
+        modelBuilder.Entity<DoctorPriceEntity>(entity =>
         {
             // Primary key
             entity.HasKey(e => e.Id);
@@ -102,13 +100,13 @@ public class DoctorDbContext : DbContext
             entity.Property(e => e.Amount)
                 .HasPrecision(10, 2)
                 .IsRequired();
-        });
 
-        // Configure DoctorPriceEntity (Junction table)
-        modelBuilder.Entity<DoctorPriceEntity>(entity =>
-        {
-            // Composite primary key
-            entity.HasKey(e => new { e.DoctorId, e.PriceId });
+            // Configure datetime properties
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("GETDATE()");
 
             // Configure relationships
             entity.HasOne(e => e.Doctor)
@@ -116,25 +114,7 @@ public class DoctorDbContext : DbContext
                 .HasForeignKey(e => e.DoctorId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(e => e.Price)
-                .WithMany()
-                .HasForeignKey(e => e.PriceId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity.Property(e => e.IsOverride).HasDefaultValue(false);
-        });
-
-        // Configure PriceRuleEntity
-        modelBuilder.Entity<PriceRuleEntity>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
-            entity.Property(e => e.Position).HasMaxLength(100);
-            entity.Property(e => e.BasePrice).HasPrecision(10, 2).IsRequired();
-            entity.Property(e => e.Status)
-                .HasConversion<string>()
-                .HasDefaultValue(BookingCare.Shared.Common.Enums.Status.ACTIVE);
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETDATE()");
+            // IsOverride removed
         });
     }
 
@@ -172,6 +152,23 @@ public class DoctorDbContext : DbContext
         // Update PositionEntity timestamps
         var positionEntries = ChangeTracker.Entries<PositionEntity>();
         foreach (var entry in positionEntries)
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+                // Prevent overwriting CreatedAt
+                entry.Property(e => e.CreatedAt).IsModified = false;
+            }
+        }
+
+        // Update DoctorPriceEntity timestamps
+        var doctorPriceEntries = ChangeTracker.Entries<DoctorPriceEntity>();
+        foreach (var entry in doctorPriceEntries)
         {
             if (entry.State == EntityState.Added)
             {

@@ -81,6 +81,9 @@ public class UpdateDoctorRequest
     [Range(0, 50, ErrorMessage = "Years of experience must be between 0 and 50")]
     public int? YearsOfExperience { get; set; }
 
+    [Range(0, 100000000, ErrorMessage = "Price must be positive")]
+    public decimal? Price { get; set; }
+
     [Url(ErrorMessage = "Invalid URL format")]
     [StringLength(500, ErrorMessage = "Avatar URL cannot exceed 500 characters")]
     public string? AvatarUrl { get; set; }
@@ -134,6 +137,7 @@ public class AssignPriceToDoctorRequest
     [Required(ErrorMessage = "Doctor ID is required")]
     public Guid DoctorId { get; set; }
 
-    [Required(ErrorMessage = "Price ID is required")]
-    public Guid PriceId { get; set; }
+    [Required(ErrorMessage = "Amount is required")]
+    [Range(0, 100000000, ErrorMessage = "Amount must be positive")]
+    public decimal Amount { get; set; }
 }

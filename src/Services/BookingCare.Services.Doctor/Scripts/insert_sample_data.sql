@@ -25,42 +25,16 @@ VALUES
 GO
 
 -- =============================================================================
--- 2. INSERT PRICES
+-- 2. INSERT PRICES (removed)
 -- =============================================================================
-INSERT INTO Prices (id, amount)
-VALUES 
-    (NEWID(), 200000),
-    (NEWID(), 300000),
-    (NEWID(), 400000),
-    (NEWID(), 500000),
-    (NEWID(), 600000),
-    (NEWID(), 700000),
-    (NEWID(), 800000),
-    (NEWID(), 900000),
-    (NEWID(), 1000000),
-    (NEWID(), 1200000),
-    (NEWID(), 1500000),
-    (NEWID(), 2000000);
-GO
+-- Removed since Price entity is deprecated
+-- GO
 
 -- =============================================================================
--- 3. INSERT PRICE RULES
+-- 3. INSERT PRICE RULES (removed)
 -- =============================================================================
-INSERT INTO price_rules (id, name, base_price, min_experience, position, status, created_at, updated_at)
-VALUES 
-    (NEWID(), N'Khám đa khoa cơ bản', 200000, 0, N'Bác sĩ đa khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám đa khoa nâng cao', 300000, 2, N'Bác sĩ đa khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám đa khoa chuyên sâu', 400000, 5, N'Bác sĩ đa khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám chuyên khoa cơ bản', 500000, 0, N'Bác sĩ chuyên khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám chuyên khoa nâng cao', 600000, 3, N'Bác sĩ chuyên khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám chuyên khoa chuyên sâu', 800000, 7, N'Bác sĩ chuyên khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám nội khoa cơ bản', 400000, 0, N'Bác sĩ nội khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám nội khoa nâng cao', 500000, 2, N'Bác sĩ nội khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám nội khoa chuyên sâu', 600000, 5, N'Bác sĩ nội khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám ngoại khoa cơ bản', 700000, 0, N'Bác sĩ ngoại khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám ngoại khoa nâng cao', 900000, 3, N'Bác sĩ ngoại khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Khám ngoại khoa chuyên sâu', 1200000, 8, N'Bác sĩ ngoại khoa', N'ACTIVE', GETUTCDATE(), GETUTCDATE());
-GO
+-- Removed since price rules are deprecated
+-- GO
 
 -- =============================================================================
 -- 4. INSERT DOCTORS
@@ -86,27 +60,32 @@ VALUES
 GO
 
 -- =============================================================================
--- 5. INSERT DOCTOR-PRICE RELATIONSHIPS
+-- 5. INSERT DOCTOR-PRICE RELATIONSHIPS (now amount stored directly on doctor_prices)
 -- =============================================================================
 DECLARE @DoctorId1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Nguyễn' AND last_name = N'Văn A');
 DECLARE @DoctorId2 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Trần' AND last_name = N'Thị B');
 DECLARE @DoctorId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Lê' AND last_name = N'Văn C');
 DECLARE @DoctorId4 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Phạm' AND last_name = N'Thị D');
 DECLARE @DoctorId5 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Hoàng' AND last_name = N'Văn E');
+DECLARE @DoctorId6 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Vũ' AND last_name = N'Thị F');
+DECLARE @DoctorId7 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Đặng' AND last_name = N'Văn G');
+DECLARE @DoctorId8 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Bùi' AND last_name = N'Thị H');
+DECLARE @DoctorId9 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Ngô' AND last_name = N'Văn I');
+DECLARE @DoctorId10 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Lý' AND last_name = N'Thị J');
 
-DECLARE @PriceId1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Prices WHERE amount = 500000);
-DECLARE @PriceId2 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Prices WHERE amount = 300000);
-DECLARE @PriceId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Prices WHERE amount = 600000);
-DECLARE @PriceId4 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Prices WHERE amount = 700000);
-DECLARE @PriceId5 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Prices WHERE amount = 800000);
-
-INSERT INTO doctor_prices (doctor_id, price_id, is_override)
+-- Insert direct amounts for each doctor
+INSERT INTO doctor_prices (id, doctor_id, amount, created_at, updated_at)
 VALUES 
-    (@DoctorId1, @PriceId1, 1),
-    (@DoctorId2, @PriceId2, 1),
-    (@DoctorId3, @PriceId3, 1),
-    (@DoctorId4, @PriceId4, 1),
-    (@DoctorId5, @PriceId5, 1);
+    (NEWID(), @DoctorId1, 500000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId2, 300000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId3, 600000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId4, 700000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId5, 800000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId6, 550000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId7, 350000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId8, 650000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId9, 750000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId10, 850000, GETUTCDATE(), GETUTCDATE());
 GO
 
 -- =============================================================================
@@ -123,25 +102,8 @@ VALUES
     (NEWID(), N'Bác sĩ cấp cứu', GETUTCDATE(), GETUTCDATE());
 GO
 
--- Insert more prices
-INSERT INTO Prices (id, amount)
-VALUES 
-    (NEWID(), 250000),
-    (NEWID(), 350000),
-    (NEWID(), 450000),
-    (NEWID(), 550000),
-    (NEWID(), 650000),
-    (NEWID(), 750000),
-    (NEWID(), 850000),
-    (NEWID(), 950000),
-    (NEWID(), 1100000),
-    (NEWID(), 1300000),
-    (NEWID(), 1600000),
-    (NEWID(), 1800000),
-    (NEWID(), 2200000),
-    (NEWID(), 2500000),
-    (NEWID(), 3000000);
-GO
+-- Removed additional prices section
+-- GO
 
 -- =============================================================================
 -- VERIFICATION QUERIES
@@ -149,10 +111,6 @@ GO
 
 -- Check inserted data
 SELECT 'Positions' as table_name, COUNT(*) as record_count FROM Positions
-UNION ALL
-SELECT 'Prices' as table_name, COUNT(*) as record_count FROM Prices
-UNION ALL
-SELECT 'PriceRules' as table_name, COUNT(*) as record_count FROM price_rules
 UNION ALL
 SELECT 'Doctors' as table_name, COUNT(*) as record_count FROM Doctors
 UNION ALL
@@ -162,24 +120,21 @@ SELECT 'doctor_prices' as table_name, COUNT(*) as record_count FROM doctor_price
 SELECT TOP 5 p.name as position_name
 FROM Positions p;
 
-SELECT TOP 5 pr.name, pr.base_price, pr.min_experience, pr.position
-FROM price_rules pr;
+-- price_rules removed
 
 SELECT TOP 5 d.first_name + ' ' + d.last_name as doctor_name, d.email, d.years_of_experience, p.name as position_name
 FROM Doctors d
 LEFT JOIN Positions p ON d.position_id = p.id;
 
-SELECT TOP 5 d.first_name + ' ' + d.last_name as doctor_name, pr.amount as price_amount, dp.is_override
+SELECT TOP 5 d.first_name + ' ' + d.last_name as doctor_name, dp.amount as price_amount
 FROM doctor_prices dp
-JOIN Doctors d ON dp.doctor_id = d.id
-JOIN Prices pr ON dp.price_id = pr.id;
+JOIN Doctors d ON dp.doctor_id = d.id;
 
 PRINT 'Sample data insertion completed successfully!';
 PRINT 'Total records inserted:';
 PRINT '- Positions: 15 records';
-PRINT '- Prices: 27 records';
-PRINT '- Price Rules: 12 records';
+-- Prices and Price Rules removed
 PRINT '- Doctors: 10 records';
-PRINT '- Doctor-Price Relationships: 5 records';
+PRINT '- Doctor-Price Relationships: 10 records';
 
 

@@ -22,8 +22,7 @@ public interface IDoctorService
     Task<List<DoctorResponse>> GetActiveDoctorsAsync();
 
     // DoctorPrice operations
-    Task<List<PriceResponse>> GetDoctorPricesAsync(Guid doctorId);
-    Task<List<DoctorResponse>> GetDoctorsByPriceAsync(Guid priceId);
+    Task<List<DoctorPriceResponse>> GetDoctorPricesAsync(Guid doctorId);
     Task<DoctorPriceResponse> AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request);
     Task<bool> RemovePriceFromDoctorAsync(Guid doctorId, Guid priceId);
 

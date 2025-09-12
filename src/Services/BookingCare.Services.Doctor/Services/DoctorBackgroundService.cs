@@ -27,10 +27,10 @@ public class DoctorBackgroundService : BackgroundService
                 using var scope = _serviceProvider.CreateScope();
                 var doctorService = scope.ServiceProvider.GetRequiredService<IDoctorService>();
                 var positionService = scope.ServiceProvider.GetRequiredService<IPositionService>();
-                var priceService = scope.ServiceProvider.GetRequiredService<IPriceService>();
+                // Price service removed
 
                 // Perform background tasks
-                await PerformDoctorMaintenanceTasksAsync(doctorService, positionService, priceService);
+                await PerformDoctorMaintenanceTasksAsync(doctorService, positionService);
                 
                 _logger.LogInformation("Doctor background service tasks completed successfully");
             }
@@ -43,12 +43,12 @@ public class DoctorBackgroundService : BackgroundService
         }
     }
 
-    private async Task PerformDoctorMaintenanceTasksAsync(IDoctorService doctorService, IPositionService positionService, IPriceService priceService)
+    private async Task PerformDoctorMaintenanceTasksAsync(IDoctorService doctorService, IPositionService positionService)
     {
         try
         {
             // Task 1: Clean up orphaned doctor-price relationships
-            await CleanupOrphanedDoctorPricesAsync(doctorService, priceService);
+            // Price cleanup removed
 
             // Task 2: Validate doctor data integrity
             await ValidateDoctorDataIntegrityAsync(doctorService);
@@ -60,7 +60,7 @@ public class DoctorBackgroundService : BackgroundService
             await ArchiveInactiveDoctorsAsync(doctorService);
 
             // Task 5: Update doctor statistics and metrics
-            await UpdateDoctorStatisticsAsync(doctorService, positionService, priceService);
+            await UpdateDoctorStatisticsAsync(doctorService, positionService);
 
             _logger.LogInformation("All Doctor maintenance tasks completed");
         }
@@ -70,41 +70,7 @@ public class DoctorBackgroundService : BackgroundService
         }
     }
 
-    private async Task CleanupOrphanedDoctorPricesAsync(IDoctorService doctorService, IPriceService priceService)
-    {
-        try
-        {
-            _logger.LogInformation("Checking for orphaned Doctor-Price relationships...");
-
-            // Get all prices to check if they have associated doctors
-            var prices = await priceService.GetAllPricesAsync();
-            int orphanedCount = 0;
-
-            foreach (var price in prices)
-            {
-                var doctorsWithPrice = await doctorService.GetDoctorsByPriceAsync(price.Id);
-                if (!doctorsWithPrice.Any())
-                {
-                    _logger.LogWarning("Found orphaned price {PriceId} with amount {Amount} - no doctors assigned", 
-                        price.Id, price.Amount);
-                    orphanedCount++;
-                }
-            }
-
-            if (orphanedCount > 0)
-            {
-                _logger.LogInformation("Found {Count} orphaned prices that need cleanup", orphanedCount);
-            }
-            else
-            {
-                _logger.LogDebug("No orphaned prices found");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error cleaning up orphaned Doctor-Price relationships");
-        }
-    }
+    // Price cleanup removed
 
     private async Task ValidateDoctorDataIntegrityAsync(IDoctorService doctorService)
     {
@@ -251,7 +217,7 @@ public class DoctorBackgroundService : BackgroundService
         }
     }
 
-    private async Task UpdateDoctorStatisticsAsync(IDoctorService doctorService, IPositionService positionService, IPriceService priceService)
+    private async Task UpdateDoctorStatisticsAsync(IDoctorService doctorService, IPositionService positionService)
     {
         try
         {
@@ -270,21 +236,8 @@ public class DoctorBackgroundService : BackgroundService
                     position.Name, doctorsInPosition.Count);
             }
 
-            // Get all prices to update statistics
-            var prices = await priceService.GetAllPricesAsync();
-            var priceStats = new Dictionary<decimal, int>();
-
-            foreach (var price in prices)
-            {
-                var doctorsWithPrice = await doctorService.GetDoctorsByPriceAsync(price.Id);
-                priceStats[price.Amount] = doctorsWithPrice.Count;
-
-                _logger.LogInformation("Price {Amount} has {Count} doctors assigned", 
-                    price.Amount, doctorsWithPrice.Count);
-            }
-
-            _logger.LogInformation("Updated statistics for {PositionCount} positions and {PriceCount} prices", 
-                positionStats.Count, priceStats.Count);
+            _logger.LogInformation("Updated statistics for {PositionCount} positions", 
+                positionStats.Count);
         }
         catch (Exception ex)
         {

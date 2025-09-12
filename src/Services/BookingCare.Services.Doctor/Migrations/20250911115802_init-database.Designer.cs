@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Doctor.Migrations
 {
     [DbContext(typeof(DoctorDbContext))]
-    [Migration("20250909153210_init-database")]
+    [Migration("20250911115802_init-database")]
     partial class initdatabase
     {
         /// <inheritdoc />
@@ -120,23 +120,35 @@ namespace BookingCare.Services.Doctor.Migrations
 
             modelBuilder.Entity("BookingCare.Services.Doctor.Models.Entities.DoctorPriceEntity", b =>
                 {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETDATE()");
+
                     b.Property<Guid>("DoctorId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("doctor_id");
 
-                    b.Property<Guid>("PriceId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("price_id");
-
-                    b.Property<bool>("IsOverride")
+                    b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_override");
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("GETDATE()");
 
-                    b.HasKey("DoctorId", "PriceId");
+                    b.HasKey("Id");
 
-                    b.HasIndex("PriceId");
+                    b.HasIndex("DoctorId");
 
                     b.ToTable("doctor_prices");
                 });
@@ -171,74 +183,6 @@ namespace BookingCare.Services.Doctor.Migrations
                     b.ToTable("positions");
                 });
 
-            modelBuilder.Entity("BookingCare.Services.Doctor.Models.Entities.PriceEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("id");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("amount");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("prices");
-                });
-
-            modelBuilder.Entity("BookingCare.Services.Doctor.Models.Entities.PriceRuleEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("id");
-
-                    b.Property<decimal>("BasePrice")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("base_price");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<int?>("MinExperience")
-                        .HasColumnType("int")
-                        .HasColumnName("min_experience");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("Position")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("position");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("ACTIVE")
-                        .HasColumnName("status");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETDATE()");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("price_rules");
-                });
-
             modelBuilder.Entity("BookingCare.Services.Doctor.Models.Entities.DoctorEntity", b =>
                 {
                     b.HasOne("BookingCare.Services.Doctor.Models.Entities.PositionEntity", "Position")
@@ -257,15 +201,7 @@ namespace BookingCare.Services.Doctor.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BookingCare.Services.Doctor.Models.Entities.PriceEntity", "Price")
-                        .WithMany()
-                        .HasForeignKey("PriceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Doctor");
-
-                    b.Navigation("Price");
                 });
 
             modelBuilder.Entity("BookingCare.Services.Doctor.Models.Entities.DoctorEntity", b =>

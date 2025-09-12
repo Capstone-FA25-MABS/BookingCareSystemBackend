@@ -213,17 +213,7 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorPrices(Guid doctorId)
     {
         var prices = await _doctorService.GetDoctorPricesAsync(doctorId);
-        return Success<List<PriceResponse>>(prices, $"Prices for doctor {doctorId} retrieved successfully");
-    }
-
-    /// <summary>
-    /// Get doctors by price
-    /// </summary>
-    [HttpGet("prices/{priceId}/doctors")]
-    public async Task<IActionResult> GetDoctorsByPrice(Guid priceId)
-    {
-        var doctors = await _doctorService.GetDoctorsByPriceAsync(priceId);
-        return Success<List<DoctorResponse>>(doctors, $"Doctors for price {priceId} retrieved successfully");
+        return Success<List<DoctorPriceResponse>>(prices, $"Prices for doctor {doctorId} retrieved successfully");
     }
 
     /// <summary>
@@ -247,13 +237,13 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Remove price from doctor
     /// </summary>
-    [HttpDelete("{doctorId}/prices/{priceId}")]
-    public async Task<IActionResult> RemovePriceFromDoctor(Guid doctorId, Guid priceId)
+    [HttpDelete("{doctorId}/prices/{doctorPriceId}")]
+    public async Task<IActionResult> RemovePriceFromDoctor(Guid doctorId, Guid doctorPriceId)
     {
-        var result = await _doctorService.RemovePriceFromDoctorAsync(doctorId, priceId);
+        var result = await _doctorService.RemovePriceFromDoctorAsync(doctorId, doctorPriceId);
         if (!result)
         {
-            return NotFound($"Price {priceId} not assigned to doctor {doctorId}");
+            return NotFound($"Price {doctorPriceId} not assigned to doctor {doctorId}");
         }
 
         return Success<object?>(null, "Price removed from doctor successfully");

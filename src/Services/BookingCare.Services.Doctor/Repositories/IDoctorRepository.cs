@@ -27,11 +27,10 @@ public interface IDoctorRepository
     // DoctorPrice CRUD operations
     Task<DoctorPriceEntity?> GetDoctorPriceAsync(Guid doctorId, Guid priceId);
     Task<DoctorPriceEntity> CreateDoctorPriceAsync(DoctorPriceEntity doctorPrice);
+    Task<DoctorPriceEntity> UpdateDoctorPriceAsync(DoctorPriceEntity doctorPrice);
     Task<bool> DeleteDoctorPriceAsync(Guid doctorId, Guid priceId);
     Task<bool> DoctorPriceExistsAsync(Guid doctorId, Guid priceId);
 
     // DoctorPrice Query operations
     Task<List<DoctorPriceEntity>> GetDoctorPricesAsync(Guid doctorId);
-    Task<List<PriceEntity>> GetDoctorPricesByDoctorIdAsync(Guid doctorId);
-    Task<List<DoctorEntity>> GetDoctorsByPriceIdAsync(Guid priceId);
 }

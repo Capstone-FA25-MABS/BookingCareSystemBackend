@@ -20,19 +20,19 @@ public class DoctorResponse
     public string AvatarUrl { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    public decimal? DynamicPrice { get; set; }
     
     // Navigation properties
     public PositionResponse? Position { get; set; }
-    public List<PriceResponse> Prices { get; set; } = new();
+    public List<DoctorPriceResponse> Prices { get; set; } = new();
 }
 
 public class DoctorPriceResponse
 {
+    public Guid Id { get; set; }
     public Guid DoctorId { get; set; }
-    public Guid PriceId { get; set; }
-    public DoctorResponse Doctor { get; set; } = null!;
-    public PriceResponse Price { get; set; } = null!;
+    public decimal Amount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 
 public class DoctorListResponse

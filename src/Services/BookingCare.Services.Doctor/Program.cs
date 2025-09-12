@@ -63,18 +63,16 @@ builder.Services.AddDbContext<DoctorDbContext>(options =>
 // Repository registration
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IPositionRepository, PositionRepository>();
-builder.Services.AddScoped<IPriceRepository, PriceRepository>();
 
 // Service registration
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
-builder.Services.AddScoped<IPriceService, PriceService>();
 
 // Background services
 builder.Services.AddHostedService<DoctorBackgroundService>();
 
 // AutoMapper configuration
-builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(PriceMappingProfile));
+builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile));
 
 // Add logging
 builder.Logging.ClearProviders();
@@ -100,7 +98,6 @@ app.UseGlobalExceptionHandling();
 // Add custom middleware in order
 app.UseMiddleware<DoctorSecurityMiddleware>();
 app.UseMiddleware<DoctorRateLimitingMiddleware>();
-app.UseMiddleware<DoctorValidationMiddleware>();
 
 // Configure routing
 app.UseRouting();
@@ -115,9 +112,6 @@ app.MapControllers();
 // Map gRPC services
 app.MapGrpcService<DoctorGrpcService>();
 app.MapGrpcService<PositionGrpcService>();
-app.MapGrpcService<PriceGrpcService>();
-app.MapGrpcService<DoctorPriceGrpcService>();
-app.MapGrpcService<PriceRuleGrpcService>();
 
 // Default endpoint
 app.MapGet("/", () => "BookingCare Doctor Service is running. REST API: /swagger, gRPC: port 6018");

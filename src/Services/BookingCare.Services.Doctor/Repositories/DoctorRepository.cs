@@ -22,7 +22,6 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .FirstOrDefaultAsync(d => d.Id == id);
     }
 
@@ -31,7 +30,6 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .FirstOrDefaultAsync(d => d.Email == email);
     }
 
@@ -40,7 +38,6 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .FirstOrDefaultAsync(d => d.AccountId == accountId);
     }
 
@@ -111,7 +108,6 @@ public class DoctorRepository : IDoctorRepository
         var queryable = _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .AsQueryable();
 
         // Apply filters
@@ -140,20 +136,20 @@ public class DoctorRepository : IDoctorRepository
         if (!string.IsNullOrEmpty(query.Address))
             queryable = queryable.Where(d => d.Address != null && d.Address.Contains(query.Address));
         if (!string.IsNullOrEmpty(query.Language))
-            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains(query.Language)); // cần trường riêng cho Language
+            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains(query.Language));
         if (!string.IsNullOrEmpty(query.ServiceType))
-            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains(query.ServiceType)); // cần trường riêng cho ServiceType
+            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains(query.ServiceType));
         if (query.MinRating.HasValue)
-            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value)); // cần trường riêng cho Rating
-        // Price filter (dùng giá override hoặc dynamic, cần join hoặc xử lý ở service)
+            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value));
+        
+        // Price filter - filter by doctor prices
         if (query.MinPrice.HasValue || query.MaxPrice.HasValue)
         {
-            // Lọc theo giá override (nếu có), nếu không thì sẽ filter ở service sau khi tính giá động
-            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.IsOverride &&
-                (!query.MinPrice.HasValue || dp.Price.Amount >= query.MinPrice.Value) &&
-                (!query.MaxPrice.HasValue || dp.Price.Amount <= query.MaxPrice.Value)));
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp =>
+                (!query.MinPrice.HasValue || dp.Amount >= query.MinPrice.Value) &&
+                (!query.MaxPrice.HasValue || dp.Amount <= query.MaxPrice.Value)));
         }
-        // AvailableTime filter: cần join với bảng lịch, chưa implement ở đây
+        
         // Sort
         if (!string.IsNullOrEmpty(query.SortBy))
         {
@@ -161,10 +157,11 @@ public class DoctorRepository : IDoctorRepository
                 queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(d => d.YearsOfExperience) : queryable.OrderBy(d => d.YearsOfExperience);
             else if (query.SortBy == "CreatedAt")
                 queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(d => d.CreatedAt) : queryable.OrderBy(d => d.CreatedAt);
-            // Có thể bổ sung sort theo các trường khác
         }
+        
         // Get total count
         var totalCount = await queryable.CountAsync();
+        
         // Apply pagination
         var doctors = await queryable
             .Skip((query.PageNumber - 1) * query.PageSize)
@@ -178,7 +175,6 @@ public class DoctorRepository : IDoctorRepository
         return _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .AsQueryable();
     }
 
@@ -187,7 +183,6 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .Where(d => d.ClinicId == clinicId)
             .ToListAsync();
     }
@@ -197,7 +192,6 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .Where(d => d.SpecialtyId == specialtyId)
             .ToListAsync();
     }
@@ -207,7 +201,6 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .Where(d => d.PositionId == positionId)
             .ToListAsync();
     }
@@ -217,7 +210,6 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
-                .ThenInclude(dp => dp.Price)
             .ToListAsync();
     }
 
@@ -229,13 +221,19 @@ public class DoctorRepository : IDoctorRepository
     {
         return await _context.DoctorPrices
             .Include(dp => dp.Doctor)
-            .Include(dp => dp.Price)
-            .FirstOrDefaultAsync(dp => dp.DoctorId == doctorId && dp.PriceId == priceId);
+            .FirstOrDefaultAsync(dp => dp.DoctorId == doctorId && dp.Id == priceId);
     }
 
     public async Task<DoctorPriceEntity> CreateDoctorPriceAsync(DoctorPriceEntity doctorPrice)
     {
         _context.DoctorPrices.Add(doctorPrice);
+        await _context.SaveChangesAsync();
+        return doctorPrice;
+    }
+
+    public async Task<DoctorPriceEntity> UpdateDoctorPriceAsync(DoctorPriceEntity doctorPrice)
+    {
+        _context.DoctorPrices.Update(doctorPrice);
         await _context.SaveChangesAsync();
         return doctorPrice;
     }
@@ -253,7 +251,7 @@ public class DoctorRepository : IDoctorRepository
     public async Task<bool> DoctorPriceExistsAsync(Guid doctorId, Guid priceId)
     {
         return await _context.DoctorPrices
-            .AnyAsync(dp => dp.DoctorId == doctorId && dp.PriceId == priceId);
+            .AnyAsync(dp => dp.DoctorId == doctorId && dp.Id == priceId);
     }
 
     #endregion
@@ -264,29 +262,11 @@ public class DoctorRepository : IDoctorRepository
     {
         return await _context.DoctorPrices
             .Include(dp => dp.Doctor)
-            .Include(dp => dp.Price)
             .Where(dp => dp.DoctorId == doctorId)
             .ToListAsync();
     }
 
-    public async Task<List<PriceEntity>> GetDoctorPricesByDoctorIdAsync(Guid doctorId)
-    {
-        return await _context.DoctorPrices
-            .Include(dp => dp.Price)
-            .Where(dp => dp.DoctorId == doctorId)
-            .Select(dp => dp.Price)
-            .ToListAsync();
-    }
-
-    public async Task<List<DoctorEntity>> GetDoctorsByPriceIdAsync(Guid priceId)
-    {
-        return await _context.DoctorPrices
-            .Include(dp => dp.Doctor)
-            .Include(dp => dp.Doctor.Position)
-            .Where(dp => dp.PriceId == priceId)
-            .Select(dp => dp.Doctor)
-            .ToListAsync();
-    }
+    
 
     #endregion
 }

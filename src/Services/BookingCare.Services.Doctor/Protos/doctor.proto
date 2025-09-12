@@ -6,7 +6,7 @@ option csharp_namespace = "BookingCare.Services.Doctor.Protos";
 import "google/protobuf/timestamp.proto"; // Import Google's timestamp type
 import "google/protobuf/empty.proto"; // Import Google's empty type
 import "Protos/position.proto"; // PositionInfo
-import "Protos/price.proto";    // PriceInfo
+import "Protos/doctor_price.proto"; // DoctorPriceInfo
 
 // Service definition for Doctor operations
 service DoctorService {
@@ -17,8 +17,6 @@ service DoctorService {
   rpc UpdateDoctor(UpdateDoctorRequest) returns (UpdateDoctorResponse);
   rpc DeleteDoctor(DeleteDoctorRequest) returns (DeleteDoctorResponse);
   rpc GetDoctors(GetDoctorsRequest) returns (GetDoctorsResponse);
-
-  // Position & Price RPCs moved to position.proto and price.proto
 
   // Validation operations
   rpc ValidateDoctor(ValidateDoctorRequest) returns (ValidateDoctorResponse);
@@ -147,8 +145,7 @@ message DoctorSummary {
   string avatar_url = 13;       // Avatar URL
   google.protobuf.Timestamp created_at = 14; // Creation timestamp
   google.protobuf.Timestamp updated_at = 15; // Last update timestamp
-  // Calculated dynamic price based on rules (nullable -> 0 means not available)
-  double dynamic_price = 16;
+  // dynamic_price removed
 }
 
 // Doctor detail (expandable parts)
@@ -168,13 +165,11 @@ message DoctorDetail {
   string avatar_url = 13;
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
-  double dynamic_price = 16;
   // Optional expansions
-  position.PositionInfo position = 17;             // present only if requested
-  repeated price.PriceInfo prices = 18;            // present only if requested
+  position.PositionInfo position = 16;             // present only if requested
+  repeated doctor_price.DoctorPriceInfo prices = 17; // present only if requested
 }
 
-// Position/Price and doctor-price messages moved to dedicated proto files
 
 // =============================================================================
 // VALIDATION MESSAGES
