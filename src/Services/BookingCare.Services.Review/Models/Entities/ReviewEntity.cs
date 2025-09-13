@@ -1,6 +1,6 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using BookingCare.Services.Review.Models.Enums;
+using BookingCare.Services.Review.Enums;
 
 namespace BookingCare.Services.Review.Models.Entities;
 

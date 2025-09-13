@@ -2,7 +2,7 @@ using AutoMapper;
 using BookingCare.Services.Review.Data;
 using BookingCare.Services.Review.Models.DTOs;
 using BookingCare.Services.Review.Models.Entities;
-using BookingCare.Services.Review.Models.Enums;
+using BookingCare.Services.Review.Enums;
 using BookingCare.Services.Review.Repositories.Interfaces;
 using MongoDB.Bson;
 using MongoDB.Driver;

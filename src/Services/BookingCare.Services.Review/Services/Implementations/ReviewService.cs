@@ -57,12 +57,12 @@ public class ReviewService : BaseService, IReviewService
         ReviewEntity? existingReview = null;
         string targetName = "";
 
-        if (request.TargetType == Models.Enums.TargetType.DOCTOR && request.DoctorId.HasValue)
+        if (request.TargetType == Enums.TargetType.DOCTOR && request.DoctorId.HasValue)
         {
             existingReview = await _reviewRepository.GetExistingDoctorReviewAsync(request.PatientId, request.DoctorId.Value);
             targetName = $"doctor {request.DoctorId.Value}";
         }
-        else if (request.TargetType == Models.Enums.TargetType.SERVICE && request.ClinicServiceId.HasValue)
+        else if (request.TargetType == Enums.TargetType.SERVICE && request.ClinicServiceId.HasValue)
         {
             existingReview = await _reviewRepository.GetExistingServiceReviewAsync(request.PatientId, request.ClinicServiceId.Value);
             targetName = $"service {request.ClinicServiceId.Value}";

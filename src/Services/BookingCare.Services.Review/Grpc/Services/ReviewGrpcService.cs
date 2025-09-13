@@ -1,9 +1,6 @@
 using Grpc.Core;
 using AutoMapper;
-using BookingCare.Services.Review.Grpc;
 using BookingCare.Services.Review.Services.Interfaces;
-using BookingCare.Services.Review.Models.DTOs;
-using Google.Protobuf.WellKnownTypes;
 
 namespace BookingCare.Services.Review.Grpc.Services;
 
@@ -248,7 +245,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
         var response = new ReviewStatisticsResponse
         {
             TargetId = dto.TargetId.ToString(),
-            TargetType = dto.TargetType == Models.Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,
+            TargetType = dto.TargetType == Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,
             AverageRating = dto.AverageRating,
             TotalReviews = dto.TotalReviews
         };
@@ -289,7 +286,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
         {
             Id = dto.Id,
             PatientId = dto.PatientId.ToString(),
-            TargetType = dto.TargetType == Models.Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,
+            TargetType = dto.TargetType == Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,
             Rating = dto.Rating,
             Comment = dto.Comment,
             CreatedAt = ((DateTimeOffset)dto.CreatedAt).ToUnixTimeSeconds(),

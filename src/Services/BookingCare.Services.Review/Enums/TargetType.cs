@@ -1,4 +1,4 @@
-namespace BookingCare.Services.Review.Models.Enums;
+namespace BookingCare.Services.Review.Enums;
 
 /// <summary>
 /// Represents the target type for a review

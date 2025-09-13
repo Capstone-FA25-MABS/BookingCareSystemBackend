@@ -1,6 +1,6 @@
 using FluentValidation;
 using BookingCare.Services.Review.Models.DTOs;
-using BookingCare.Services.Review.Models.Enums;
+using BookingCare.Services.Review.Enums;
 using BookingCare.Services.Review.Extensions;
 
 namespace BookingCare.Services.Review.Validators;
