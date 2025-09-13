@@ -34,10 +34,10 @@ public class UserRegistrationGrpcSaga : SagaDefinitionBase
     {
         // Step 1: Create user account in Auth Service
         AddStep(_serviceProvider.GetRequiredService<CreateUserAccountGrpcStep>());
-        
+
         // Step 2: Create user profile in User Service
         AddStep(_serviceProvider.GetRequiredService<CreateUserProfileGrpcStep>());
-        
+
         // Step 3: Send verification email
         AddStep(_serviceProvider.GetRequiredService<SendVerificationEmailGrpcStep>());
     }

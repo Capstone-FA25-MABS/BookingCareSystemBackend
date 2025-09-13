@@ -111,7 +111,7 @@ public class CheckDoctorAvailabilityStep : CompensatableSagaStepBase
 
         if (string.IsNullOrEmpty(doctorId))
             return Failure("DoctorId is required");
-            
+
         if (string.IsNullOrEmpty(serviceType))
             return Failure("ServiceType is required");
 
@@ -120,13 +120,13 @@ public class CheckDoctorAvailabilityStep : CompensatableSagaStepBase
         // Check doctor's schedule
         // This would typically call the Doctor Service API
         var isDoctorAvailable = await CheckDoctorSchedule(doctorId, appointmentDate);
-        
+
         if (!isDoctorAvailable)
             return Failure("Doctor is not available at the requested time");
 
         // Check if doctor provides the requested service
         var providesService = await CheckDoctorServices(doctorId, serviceType);
-        
+
         if (!providesService)
             return Failure($"Doctor does not provide {serviceType} service");
 
@@ -170,7 +170,7 @@ public class ValidatePatientEligibilityStep : CompensatableSagaStepBase
 
         if (string.IsNullOrEmpty(patientId))
             return Failure("PatientId is required");
-        
+
         if (string.IsNullOrEmpty(serviceType))
             return Failure("ServiceType is required");
 
@@ -236,7 +236,7 @@ public class ReserveAppointmentSlotStep : CompensatableSagaStepBase
 
         if (string.IsNullOrEmpty(doctorId))
             return Failure("DoctorId is required");
-            
+
         if (string.IsNullOrEmpty(serviceType))
             return Failure("ServiceType is required");
 
@@ -248,7 +248,7 @@ public class ReserveAppointmentSlotStep : CompensatableSagaStepBase
 
         // This would call the Schedule Service API
         var reservationSuccess = await ReserveTimeSlot(doctorId, appointmentDate, slotDuration, reservationId);
-        
+
         if (!reservationSuccess)
             return Failure("Failed to reserve the time slot");
 
@@ -311,7 +311,7 @@ public class ProcessAppointmentPaymentStep : CompensatableSagaStepBase
 
         if (string.IsNullOrEmpty(patientId))
             return Failure("PatientId is required");
-            
+
         if (string.IsNullOrEmpty(serviceType))
             return Failure("ServiceType is required");
 
@@ -325,10 +325,10 @@ public class ProcessAppointmentPaymentStep : CompensatableSagaStepBase
         {
             // Process payment
             var paymentResult = await ProcessPayment(patientId, patientAmount);
-            
+
             if (!paymentResult.Success)
             {
-                return Failure($"Payment processing failed: {paymentResult.ErrorMessage}", 
+                return Failure($"Payment processing failed: {paymentResult.ErrorMessage}",
                     shouldRetry: true, retryDelay: TimeSpan.FromSeconds(30));
             }
 
@@ -350,10 +350,10 @@ public class ProcessAppointmentPaymentStep : CompensatableSagaStepBase
         {
             // Refund the payment
             var refundResult = await RefundPayment(transactionId);
-            
+
             if (!refundResult.Success)
             {
-                return Failure($"Refund failed: {refundResult.ErrorMessage}", 
+                return Failure($"Refund failed: {refundResult.ErrorMessage}",
                     shouldRetry: true, retryDelay: TimeSpan.FromSeconds(30));
             }
 
@@ -379,9 +379,9 @@ public class ProcessAppointmentPaymentStep : CompensatableSagaStepBase
     {
         // Simulate payment service call
         await Task.Delay(200);
-        
+
         var success = DateTime.UtcNow.Millisecond % 5 != 0; // 80% success rate
-        
+
         return new PaymentResult
         {
             Success = success,
@@ -394,7 +394,7 @@ public class ProcessAppointmentPaymentStep : CompensatableSagaStepBase
     {
         // Simulate refund service call
         await Task.Delay(150);
-        
+
         return new RefundResult
         {
             Success = true,
@@ -419,10 +419,10 @@ public class CreateAppointmentRecordStep : CompensatableSagaStepBase
 
         if (string.IsNullOrEmpty(patientId))
             return Failure("PatientId is required");
-            
+
         if (string.IsNullOrEmpty(doctorId))
             return Failure("DoctorId is required");
-            
+
         if (string.IsNullOrEmpty(serviceType))
             return Failure("ServiceType is required");
 
@@ -430,7 +430,7 @@ public class CreateAppointmentRecordStep : CompensatableSagaStepBase
 
         // Create the appointment record
         var appointmentId = Guid.NewGuid().ToString();
-        
+
         var appointment = new AppointmentRecord
         {
             AppointmentId = appointmentId,
@@ -446,7 +446,7 @@ public class CreateAppointmentRecordStep : CompensatableSagaStepBase
 
         // Save to database
         var saveResult = await SaveAppointmentRecord(appointment);
-        
+
         if (!saveResult)
             return Failure("Failed to create appointment record");
 
@@ -497,7 +497,7 @@ public class SendAppointmentConfirmationStep : ExecutableSagaStepBase
 
         if (string.IsNullOrEmpty(patientId))
             return Failure("PatientId is required");
-            
+
         if (string.IsNullOrEmpty(appointmentId))
             return Failure("AppointmentId is required");
 
@@ -538,7 +538,7 @@ public class UpdateDoctorScheduleStep : ExecutableSagaStepBase
 
         if (string.IsNullOrEmpty(doctorId))
             return Failure("DoctorId is required");
-            
+
         if (string.IsNullOrEmpty(appointmentId))
             return Failure("AppointmentId is required");
 
@@ -573,10 +573,10 @@ public class CreateCalendarEventStep : ExecutableSagaStepBase
 
         if (string.IsNullOrEmpty(patientId))
             return Failure("PatientId is required");
-            
+
         if (string.IsNullOrEmpty(doctorId))
             return Failure("DoctorId is required");
-            
+
         if (string.IsNullOrEmpty(appointmentId))
             return Failure("AppointmentId is required");
 
@@ -617,7 +617,7 @@ public class NotifyRelatedPartiesStep : ExecutableSagaStepBase
 
         if (string.IsNullOrEmpty(doctorId))
             return Failure("DoctorId is required");
-            
+
         if (string.IsNullOrEmpty(appointmentId))
             return Failure("AppointmentId is required");
 

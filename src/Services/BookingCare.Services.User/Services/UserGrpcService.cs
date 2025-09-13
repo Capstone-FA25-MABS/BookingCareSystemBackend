@@ -13,7 +13,7 @@ public class UserGrpcService : UserService.UserServiceBase
     }
 
     public override async Task<CreateUserProfileResponse> CreateUserProfile(
-        CreateUserProfileRequest request, 
+        CreateUserProfileRequest request,
         ServerCallContext context)
     {
         try
@@ -26,7 +26,7 @@ public class UserGrpcService : UserService.UserServiceBase
 
             var profileId = Guid.NewGuid().ToString();
 
-            _logger.LogInformation("User profile created successfully. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogInformation("User profile created successfully. ProfileId: {ProfileId}, UserId: {UserId}",
                 profileId, request.UserId);
 
             return new CreateUserProfileResponse
@@ -50,18 +50,18 @@ public class UserGrpcService : UserService.UserServiceBase
     }
 
     public override async Task<DeleteUserProfileResponse> DeleteUserProfile(
-        DeleteUserProfileRequest request, 
+        DeleteUserProfileRequest request,
         ServerCallContext context)
     {
         try
         {
-            _logger.LogInformation("Deleting user profile. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogInformation("Deleting user profile. ProfileId: {ProfileId}, UserId: {UserId}",
                 request.ProfileId, request.UserId);
 
             // TODO: Implement actual user profile deletion logic
             await Task.Delay(50); // Simulate DB operation
 
-            _logger.LogInformation("User profile deleted successfully. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogInformation("User profile deleted successfully. ProfileId: {ProfileId}, UserId: {UserId}",
                 request.ProfileId, request.UserId);
 
             return new DeleteUserProfileResponse
@@ -72,7 +72,7 @@ public class UserGrpcService : UserService.UserServiceBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting user profile. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogError(ex, "Error deleting user profile. ProfileId: {ProfileId}, UserId: {UserId}",
                 request.ProfileId, request.UserId);
             return new DeleteUserProfileResponse
             {
@@ -83,7 +83,7 @@ public class UserGrpcService : UserService.UserServiceBase
     }
 
     public override async Task<GetUserProfileResponse> GetUserProfile(
-        GetUserProfileRequest request, 
+        GetUserProfileRequest request,
         ServerCallContext context)
     {
         try
@@ -125,18 +125,18 @@ public class UserGrpcService : UserService.UserServiceBase
     }
 
     public override async Task<UpdateUserProfileResponse> UpdateUserProfile(
-        UpdateUserProfileRequest request, 
+        UpdateUserProfileRequest request,
         ServerCallContext context)
     {
         try
         {
-            _logger.LogInformation("Updating user profile. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogInformation("Updating user profile. ProfileId: {ProfileId}, UserId: {UserId}",
                 request.ProfileId, request.UserId);
 
             // TODO: Implement actual user profile update logic
             await Task.Delay(100); // Simulate DB operation
 
-            _logger.LogInformation("User profile updated successfully. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogInformation("User profile updated successfully. ProfileId: {ProfileId}, UserId: {UserId}",
                 request.ProfileId, request.UserId);
 
             return new UpdateUserProfileResponse
@@ -147,7 +147,7 @@ public class UserGrpcService : UserService.UserServiceBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating user profile. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogError(ex, "Error updating user profile. ProfileId: {ProfileId}, UserId: {UserId}",
                 request.ProfileId, request.UserId);
             return new UpdateUserProfileResponse
             {

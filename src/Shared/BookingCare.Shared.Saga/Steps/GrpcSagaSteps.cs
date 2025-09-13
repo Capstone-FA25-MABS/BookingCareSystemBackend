@@ -68,7 +68,7 @@ public class CreateUserAccountGrpcStep : CompensatableSagaStepBase
             context.SetData("UserId", response.UserId);
             context.SetData("VerificationToken", response.VerificationToken);
 
-            _logger.LogInformation("User account created successfully. AccountId: {AccountId}, UserId: {UserId}", 
+            _logger.LogInformation("User account created successfully. AccountId: {AccountId}, UserId: {UserId}",
                 response.AccountId, response.UserId);
 
             return Success(new Dictionary<string, object>
@@ -120,7 +120,7 @@ public class CreateUserAccountGrpcStep : CompensatableSagaStepBase
                 return Failure(response.Message, shouldRetry: true, retryDelay: TimeSpan.FromSeconds(5));
             }
 
-            _logger.LogInformation("User account deleted successfully during compensation. AccountId: {AccountId}, UserId: {UserId}", 
+            _logger.LogInformation("User account deleted successfully during compensation. AccountId: {AccountId}, UserId: {UserId}",
                 accountId, userId);
 
             return Success();
@@ -195,7 +195,7 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
             // Store profile data in context for compensation
             context.SetData("ProfileId", response.ProfileId);
 
-            _logger.LogInformation("User profile created successfully. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogInformation("User profile created successfully. ProfileId: {ProfileId}, UserId: {UserId}",
                 response.ProfileId, response.UserId);
 
             return Success(new Dictionary<string, object>
@@ -245,7 +245,7 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
                 return Failure(response.Message, shouldRetry: true, retryDelay: TimeSpan.FromSeconds(5));
             }
 
-            _logger.LogInformation("User profile deleted successfully during compensation. ProfileId: {ProfileId}, UserId: {UserId}", 
+            _logger.LogInformation("User profile deleted successfully during compensation. ProfileId: {ProfileId}, UserId: {UserId}",
                 profileId, userId);
 
             return Success();

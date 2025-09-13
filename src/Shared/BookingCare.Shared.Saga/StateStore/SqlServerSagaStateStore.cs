@@ -20,7 +20,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
     {
         _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
+
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -45,7 +45,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
             command.Parameters.AddWithValue("@SagaId", sagaId);
 
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            
+
             if (await reader.ReadAsync(cancellationToken))
             {
                 return MapReaderToSagaState(reader);
@@ -141,7 +141,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
             command.Parameters.AddWithValue("@SagaId", sagaId);
 
             var rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
-            
+
             if (rowsAffected > 0)
             {
                 _logger.LogInformation("Saga state deleted successfully for SagaId: {SagaId}", sagaId);
@@ -177,7 +177,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
             command.Parameters.AddWithValue("@MaxCount", 1000); // Configurable limit
 
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            
+
             while (await reader.ReadAsync(cancellationToken))
             {
                 pendingSagas.Add(MapReaderToSagaState(reader));
@@ -193,9 +193,9 @@ public class SqlServerSagaStateStore : ISagaStateStore
         }
     }
 
-    public async Task LogSagaStepExecutionAsync(Guid sagaId, string stepName, int attemptNumber, 
+    public async Task LogSagaStepExecutionAsync(Guid sagaId, string stepName, int attemptNumber,
         string status, DateTime startedAt, DateTime? completedAt = null, long? executionTimeMs = null,
-        string? inputData = null, string? outputData = null, string? errorMessage = null, 
+        string? inputData = null, string? outputData = null, string? errorMessage = null,
         string? errorDetails = null, bool isCompensation = false, CancellationToken cancellationToken = default)
     {
         try
@@ -225,7 +225,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error logging saga step execution for SagaId: {SagaId}, Step: {StepName}", 
+            _logger.LogError(ex, "Error logging saga step execution for SagaId: {SagaId}, Step: {StepName}",
                 sagaId, stepName);
             // Don't throw - logging failures shouldn't break saga execution
         }
@@ -249,7 +249,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
             command.Parameters.AddWithValue("@RetentionDays", retentionDays);
 
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            
+
             if (await reader.ReadAsync(cancellationToken))
             {
                 var deletedCount = reader.GetInt32("DeletedSagasCount");
@@ -269,18 +269,18 @@ public class SqlServerSagaStateStore : ISagaStateStore
         var context = JsonSerializer.Deserialize<SagaContext>(contextJson, _jsonOptions) ?? new SagaContext();
 
         var completedStepsJson = reader.IsDBNull("CompletedSteps") ? null : reader.GetString("CompletedSteps");
-        var completedSteps = string.IsNullOrEmpty(completedStepsJson) 
-            ? new List<string>() 
+        var completedSteps = string.IsNullOrEmpty(completedStepsJson)
+            ? new List<string>()
             : JsonSerializer.Deserialize<List<string>>(completedStepsJson, _jsonOptions) ?? new List<string>();
 
         var compensatedStepsJson = reader.IsDBNull("CompensatedSteps") ? null : reader.GetString("CompensatedSteps");
-        var compensatedSteps = string.IsNullOrEmpty(compensatedStepsJson) 
-            ? new List<string>() 
+        var compensatedSteps = string.IsNullOrEmpty(compensatedStepsJson)
+            ? new List<string>()
             : JsonSerializer.Deserialize<List<string>>(compensatedStepsJson, _jsonOptions) ?? new List<string>();
 
         var stepDataJson = reader.IsDBNull("StepData") ? null : reader.GetString("StepData");
-        var stepData = string.IsNullOrEmpty(stepDataJson) 
-            ? new Dictionary<string, object>() 
+        var stepData = string.IsNullOrEmpty(stepDataJson)
+            ? new Dictionary<string, object>()
             : JsonSerializer.Deserialize<Dictionary<string, object>>(stepDataJson, _jsonOptions) ?? new Dictionary<string, object>();
 
         return new SagaState

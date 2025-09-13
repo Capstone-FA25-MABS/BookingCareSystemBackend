@@ -33,7 +33,7 @@ public class SagaManager : ISagaManager
         _logger = logger;
     }
 
-    public Task<Guid> StartSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default) 
+    public Task<Guid> StartSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default)
         where TSaga : class, ISagaDefinition
     {
         try
@@ -44,7 +44,7 @@ public class SagaManager : ISagaManager
             var sagaDefinition = _serviceProvider.GetRequiredService<TSaga>();
             context.SagaName = sagaDefinition.SagaName;
 
-            _logger.LogInformation("Starting saga: {SagaName} with SagaId: {SagaId}", 
+            _logger.LogInformation("Starting saga: {SagaName} with SagaId: {SagaId}",
                 sagaDefinition.SagaName, sagaId);
 
             // Execute saga asynchronously
@@ -56,7 +56,7 @@ public class SagaManager : ISagaManager
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error executing saga {SagaName} with SagaId: {SagaId}", 
+                    _logger.LogError(ex, "Error executing saga {SagaName} with SagaId: {SagaId}",
                         sagaDefinition.SagaName, sagaId);
                 }
             }, cancellationToken);
@@ -70,12 +70,12 @@ public class SagaManager : ISagaManager
         }
     }
 
-    public async Task HandleEventAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default) 
+    public async Task HandleEventAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : IntegrationEvent
     {
         try
         {
-            _logger.LogInformation("Handling event: {EventType} with Id: {EventId}", 
+            _logger.LogInformation("Handling event: {EventType} with Id: {EventId}",
                 typeof(TEvent).Name, @event.Id);
 
             // Find all saga event handlers for this event type
@@ -100,7 +100,7 @@ public class SagaManager : ISagaManager
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error handling event {EventType} with handler {HandlerType}", 
+                    _logger.LogError(ex, "Error handling event {EventType} with handler {HandlerType}",
                         typeof(TEvent).Name, handler?.GetType().Name ?? "Unknown");
                     // Continue with other handlers
                 }

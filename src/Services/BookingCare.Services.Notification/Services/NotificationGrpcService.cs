@@ -13,12 +13,12 @@ public class NotificationGrpcService : NotificationService.NotificationServiceBa
     }
 
     public override async Task<SendVerificationEmailResponse> SendVerificationEmail(
-        SendVerificationEmailRequest request, 
+        SendVerificationEmailRequest request,
         ServerCallContext context)
     {
         try
         {
-            _logger.LogInformation("Sending verification email to UserId: {UserId}, Email: {Email}", 
+            _logger.LogInformation("Sending verification email to UserId: {UserId}, Email: {Email}",
                 request.UserId, request.Email);
 
             // Simulate email sending logic
@@ -26,7 +26,7 @@ public class NotificationGrpcService : NotificationService.NotificationServiceBa
 
             var emailId = Guid.NewGuid().ToString();
 
-            _logger.LogInformation("Verification email sent successfully. EmailId: {EmailId}, UserId: {UserId}", 
+            _logger.LogInformation("Verification email sent successfully. EmailId: {EmailId}, UserId: {UserId}",
                 emailId, request.UserId);
 
             return new SendVerificationEmailResponse
@@ -38,7 +38,7 @@ public class NotificationGrpcService : NotificationService.NotificationServiceBa
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending verification email to UserId: {UserId}, Email: {Email}", 
+            _logger.LogError(ex, "Error sending verification email to UserId: {UserId}, Email: {Email}",
                 request.UserId, request.Email);
             return new SendVerificationEmailResponse
             {
@@ -49,12 +49,12 @@ public class NotificationGrpcService : NotificationService.NotificationServiceBa
     }
 
     public override async Task<SendNotificationResponse> SendNotification(
-        SendNotificationRequest request, 
+        SendNotificationRequest request,
         ServerCallContext context)
     {
         try
         {
-            _logger.LogInformation("Sending notification to UserId: {UserId}, Type: {Type}", 
+            _logger.LogInformation("Sending notification to UserId: {UserId}, Type: {Type}",
                 request.UserId, request.Type);
 
             // Simulate notification sending logic
@@ -62,7 +62,7 @@ public class NotificationGrpcService : NotificationService.NotificationServiceBa
 
             var notificationId = Guid.NewGuid().ToString();
 
-            _logger.LogInformation("Notification sent successfully. NotificationId: {NotificationId}, UserId: {UserId}", 
+            _logger.LogInformation("Notification sent successfully. NotificationId: {NotificationId}, UserId: {UserId}",
                 notificationId, request.UserId);
 
             return new SendNotificationResponse
@@ -74,7 +74,7 @@ public class NotificationGrpcService : NotificationService.NotificationServiceBa
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending notification to UserId: {UserId}, Type: {Type}", 
+            _logger.LogError(ex, "Error sending notification to UserId: {UserId}, Type: {Type}",
                 request.UserId, request.Type);
             return new SendNotificationResponse
             {

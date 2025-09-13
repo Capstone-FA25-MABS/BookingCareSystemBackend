@@ -13,12 +13,12 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     }
 
     public override async Task<CreateUserAccountResponse> CreateUserAccount(
-        CreateUserAccountRequest request, 
+        CreateUserAccountRequest request,
         ServerCallContext context)
     {
         try
         {
-            _logger.LogInformation("Creating user account for UserId: {UserId}, Email: {Email}", 
+            _logger.LogInformation("Creating user account for UserId: {UserId}, Email: {Email}",
                 request.UserId, request.Email);
 
             // Simulate account creation logic
@@ -27,7 +27,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
             var accountId = Guid.NewGuid().ToString();
             var verificationToken = Guid.NewGuid().ToString();
 
-            _logger.LogInformation("User account created successfully. AccountId: {AccountId}, UserId: {UserId}", 
+            _logger.LogInformation("User account created successfully. AccountId: {AccountId}, UserId: {UserId}",
                 accountId, request.UserId);
 
             return new CreateUserAccountResponse
@@ -41,7 +41,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating user account for UserId: {UserId}, Email: {Email}", 
+            _logger.LogError(ex, "Error creating user account for UserId: {UserId}, Email: {Email}",
                 request.UserId, request.Email);
             return new CreateUserAccountResponse
             {
@@ -53,18 +53,18 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     }
 
     public override async Task<DeleteUserAccountResponse> DeleteUserAccount(
-        DeleteUserAccountRequest request, 
+        DeleteUserAccountRequest request,
         ServerCallContext context)
     {
         try
         {
-            _logger.LogInformation("Deleting user account. AccountId: {AccountId}, UserId: {UserId}", 
+            _logger.LogInformation("Deleting user account. AccountId: {AccountId}, UserId: {UserId}",
                 request.AccountId, request.UserId);
 
             // Simulate account deletion logic
             await Task.Delay(50); // Simulate DB operation
 
-            _logger.LogInformation("User account deleted successfully. AccountId: {AccountId}, UserId: {UserId}", 
+            _logger.LogInformation("User account deleted successfully. AccountId: {AccountId}, UserId: {UserId}",
                 request.AccountId, request.UserId);
 
             return new DeleteUserAccountResponse
@@ -75,7 +75,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting user account. AccountId: {AccountId}, UserId: {UserId}", 
+            _logger.LogError(ex, "Error deleting user account. AccountId: {AccountId}, UserId: {UserId}",
                 request.AccountId, request.UserId);
             return new DeleteUserAccountResponse
             {
@@ -86,7 +86,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     }
 
     public override async Task<ValidateCredentialsResponse> ValidateCredentials(
-        ValidateCredentialsRequest request, 
+        ValidateCredentialsRequest request,
         ServerCallContext context)
     {
         try
@@ -120,12 +120,12 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     }
 
     public override async Task<GenerateVerificationTokenResponse> GenerateVerificationToken(
-        GenerateVerificationTokenRequest request, 
+        GenerateVerificationTokenRequest request,
         ServerCallContext context)
     {
         try
         {
-            _logger.LogInformation("Generating verification token for UserId: {UserId}, Email: {Email}", 
+            _logger.LogInformation("Generating verification token for UserId: {UserId}, Email: {Email}",
                 request.UserId, request.Email);
 
             // Simulate token generation logic
@@ -144,7 +144,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error generating verification token for UserId: {UserId}, Email: {Email}", 
+            _logger.LogError(ex, "Error generating verification token for UserId: {UserId}, Email: {Email}",
                 request.UserId, request.Email);
             return new GenerateVerificationTokenResponse
             {
@@ -155,7 +155,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     }
 
     public override async Task<VerifyAccountResponse> VerifyAccount(
-        VerifyAccountRequest request, 
+        VerifyAccountRequest request,
         ServerCallContext context)
     {
         try
@@ -185,7 +185,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     }
 
     public override async Task<ChangePasswordResponse> ChangePassword(
-        ChangePasswordRequest request, 
+        ChangePasswordRequest request,
         ServerCallContext context)
     {
         try

@@ -75,11 +75,11 @@ public interface ISagaEventHandler<in TEvent> where TEvent : IntegrationEvent
 /// </summary>
 public interface ISagaManager
 {
-    Task<Guid> StartSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default) 
+    Task<Guid> StartSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default)
         where TSaga : class, ISagaDefinition;
-    
-    Task HandleEventAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default) 
+
+    Task HandleEventAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : IntegrationEvent;
-    
+
     Task ProcessPendingSagasAsync(CancellationToken cancellationToken = default);
 }

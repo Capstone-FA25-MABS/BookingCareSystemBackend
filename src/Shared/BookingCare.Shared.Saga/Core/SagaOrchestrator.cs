@@ -33,7 +33,7 @@ public class SagaOrchestrator : ISagaOrchestrator
 
         try
         {
-            _logger.LogInformation("Starting saga execution for SagaId: {SagaId}, SagaName: {SagaName}", 
+            _logger.LogInformation("Starting saga execution for SagaId: {SagaId}, SagaName: {SagaName}",
                 sagaId, context.SagaName);
 
             var sagaState = await _stateStore.GetSagaStateAsync(sagaId, cancellationToken);
@@ -86,7 +86,7 @@ public class SagaOrchestrator : ISagaOrchestrator
                 }
                 else
                 {
-                    _logger.LogError("Saga step failed: {StepName}, Error: {ErrorMessage}", 
+                    _logger.LogError("Saga step failed: {StepName}, Error: {ErrorMessage}",
                         step.StepName, stepResult.ErrorMessage);
 
                     sagaState.Status = SagaStatus.Failed;
@@ -100,7 +100,7 @@ public class SagaOrchestrator : ISagaOrchestrator
 
                     // Start compensation
                     await CompensateAsync(sagaId, context, cancellationToken);
-                    
+
                     stopwatch.Stop();
                     result.ExecutionTime = stopwatch.Elapsed;
                     return result;
@@ -175,7 +175,7 @@ public class SagaOrchestrator : ISagaOrchestrator
                     }
                     else
                     {
-                        _logger.LogError("Saga compensation step failed: {StepName}, Error: {ErrorMessage}", 
+                        _logger.LogError("Saga compensation step failed: {StepName}, Error: {ErrorMessage}",
                             step.StepName, stepResult.ErrorMessage);
                         // Continue with other compensations even if one fails
                     }
@@ -266,7 +266,7 @@ public class SagaOrchestrator : ISagaOrchestrator
         // First try to get from service provider (registered sagas)
         var registeredSagas = _serviceProvider.GetServices<ISagaDefinition>();
         var matchingSaga = registeredSagas.FirstOrDefault(s => s.SagaName == sagaName);
-        
+
         if (matchingSaga != null)
         {
             return matchingSaga;
@@ -275,8 +275,8 @@ public class SagaOrchestrator : ISagaOrchestrator
         // Fallback: search in assemblies and create instance that matches the saga name
         var sagaDefinitionTypes = AppDomain.CurrentDomain.GetAssemblies()
             .SelectMany(a => a.GetTypes())
-            .Where(t => typeof(ISagaDefinition).IsAssignableFrom(t) && 
-                       !t.IsInterface && 
+            .Where(t => typeof(ISagaDefinition).IsAssignableFrom(t) &&
+                       !t.IsInterface &&
                        !t.IsAbstract);
 
         foreach (var sagaType in sagaDefinitionTypes)

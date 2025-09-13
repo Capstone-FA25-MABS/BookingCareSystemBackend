@@ -55,9 +55,9 @@ public class ValidateRegistrationDataStep : CompensatableSagaStepBase
         var email = context.GetData<string>("Email");
         var password = context.GetData<string>("Password");
         var fullName = context.GetData<string>("FullName");
-        
+
         await Task.Delay(100, cancellationToken);
-        
+
         if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(fullName))
         {
             return Failure("Missing required registration fields");
@@ -100,12 +100,12 @@ public class CreateUserAccountStep : CompensatableSagaStepBase
         var email = context.GetData<string>("Email");
         var fullName = context.GetData<string>("FullName");
         var phoneNumber = context.GetData<string>("PhoneNumber");
-        
+
         await Task.Delay(300, cancellationToken);
-        
+
         // Check if user already exists
         var userExists = DateTime.UtcNow.Millisecond % 10 == 0; // Simulate 10% chance user exists
-        
+
         if (userExists)
         {
             return Failure("User with this email already exists");
@@ -114,21 +114,21 @@ public class CreateUserAccountStep : CompensatableSagaStepBase
         var userId = Guid.NewGuid();
         context.SetData("UserId", userId.ToString());
         context.SetData("UserCreated", true);
-        
+
         return Success();
     }
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         var userId = context.GetData<string>("UserId");
-        
+
         if (!string.IsNullOrEmpty(userId))
         {
             // Delete the user account
             await Task.Delay(200, cancellationToken);
             context.SetData("UserDeleted", true);
         }
-        
+
         return Success();
     }
 }
@@ -142,36 +142,36 @@ public class GenerateAuthCredentialsStep : CompensatableSagaStepBase
     {
         var userId = context.GetData<string>("UserId");
         var password = context.GetData<string>("Password");
-        
+
         if (string.IsNullOrEmpty(password))
         {
             return SagaStepResult.Failure("Password is required for auth credential generation");
         }
-        
+
         await Task.Delay(200, cancellationToken);
-        
+
         // Generate password hash and auth tokens
         var passwordHash = HashPassword(password);
         var activationToken = Guid.NewGuid().ToString();
-        
+
         context.SetData("PasswordHash", passwordHash);
         context.SetData("ActivationToken", activationToken);
         context.SetData("AuthCredentialsGenerated", true);
-        
+
         return Success();
     }
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         var userId = context.GetData<string>("UserId");
-        
+
         if (!string.IsNullOrEmpty(userId))
         {
             // Revoke auth credentials
             await Task.Delay(100, cancellationToken);
             context.SetData("AuthCredentialsRevoked", true);
         }
-        
+
         return Success();
     }
 
@@ -192,13 +192,13 @@ public class SendWelcomeEmailStep : ExecutableSagaStepBase
         var email = context.GetData<string>("Email");
         var fullName = context.GetData<string>("FullName");
         var activationToken = context.GetData<string>("ActivationToken");
-        
+
         await Task.Delay(150, cancellationToken);
-        
+
         // Send welcome email with activation link
         context.SetData("WelcomeEmailSent", true);
         context.SetData("ActivationEmailSent", true);
-        
+
         return Success();
     }
 }
@@ -212,12 +212,12 @@ public class TrackUserRegistrationStep : ExecutableSagaStepBase
     {
         var userId = context.GetData<string>("UserId");
         var registrationSource = context.GetData<string>("RegistrationSource") ?? "web";
-        
+
         await Task.Delay(50, cancellationToken);
-        
+
         // Track registration analytics
         context.SetData("RegistrationTracked", true);
-        
+
         return Success();
     }
 }
@@ -233,9 +233,9 @@ public class ValidateOrderStep : CompensatableSagaStepBase
         var customerId = context.GetData<string>("CustomerId");
         var items = context.GetData<List<OrderItem>>("Items");
         var totalAmount = context.GetData<decimal>("TotalAmount");
-        
+
         await Task.Delay(100, cancellationToken);
-        
+
         if (string.IsNullOrEmpty(customerId))
         {
             return Failure("Customer ID is required");
@@ -271,43 +271,43 @@ public class ReserveInventoryStep : CompensatableSagaStepBase
     public override async Task<SagaStepResult> ExecuteAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         var items = context.GetData<List<OrderItem>>("Items");
-        
+
         await Task.Delay(250, cancellationToken);
-        
+
         var reservationId = Guid.NewGuid();
         var reservedItems = new List<string>();
-        
+
         foreach (var item in items!)
         {
             // Check inventory availability
             var isAvailable = DateTime.UtcNow.Millisecond % 5 != 0; // 80% availability chance
-            
+
             if (!isAvailable)
             {
                 return Failure($"Item {item.ProductId} is out of stock");
             }
-            
+
             reservedItems.Add(item.ProductId);
         }
-        
+
         context.SetData("ReservationId", reservationId.ToString());
         context.SetData("ReservedItems", reservedItems);
         context.SetData("InventoryReserved", true);
-        
+
         return Success();
     }
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         var reservationId = context.GetData<string>("ReservationId");
-        
+
         if (!string.IsNullOrEmpty(reservationId))
         {
             // Release inventory reservation
             await Task.Delay(150, cancellationToken);
             context.SetData("InventoryReleased", true);
         }
-        
+
         return Success();
     }
 }
@@ -322,12 +322,12 @@ public class ProcessOrderPaymentStep : CompensatableSagaStepBase
         var customerId = context.GetData<string>("CustomerId");
         var totalAmount = context.GetData<decimal>("TotalAmount");
         var paymentMethod = context.GetData<string>("PaymentMethod");
-        
+
         await Task.Delay(400, cancellationToken);
-        
+
         // Process payment
         var paymentSuccessful = DateTime.UtcNow.Millisecond % 4 != 0; // 75% success rate
-        
+
         if (!paymentSuccessful)
         {
             return Failure("Payment processing failed", shouldRetry: true, retryDelay: TimeSpan.FromSeconds(30));
@@ -336,21 +336,21 @@ public class ProcessOrderPaymentStep : CompensatableSagaStepBase
         var transactionId = Guid.NewGuid();
         context.SetData("TransactionId", transactionId.ToString());
         context.SetData("PaymentProcessed", true);
-        
+
         return Success();
     }
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         var transactionId = context.GetData<string>("TransactionId");
-        
+
         if (!string.IsNullOrEmpty(transactionId))
         {
             // Refund payment
             await Task.Delay(300, cancellationToken);
             context.SetData("PaymentRefunded", true);
         }
-        
+
         return Success();
     }
 }
@@ -365,30 +365,30 @@ public class CreateShipmentStep : CompensatableSagaStepBase
         var customerId = context.GetData<string>("CustomerId");
         var items = context.GetData<List<OrderItem>>("Items");
         var shippingAddress = context.GetData<string>("ShippingAddress");
-        
+
         await Task.Delay(200, cancellationToken);
-        
+
         var shipmentId = Guid.NewGuid();
         var trackingNumber = $"TRK{DateTime.UtcNow:yyyyMMddHHmmss}";
-        
+
         context.SetData("ShipmentId", shipmentId.ToString());
         context.SetData("TrackingNumber", trackingNumber);
         context.SetData("ShipmentCreated", true);
-        
+
         return Success();
     }
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         var shipmentId = context.GetData<string>("ShipmentId");
-        
+
         if (!string.IsNullOrEmpty(shipmentId))
         {
             // Cancel shipment
             await Task.Delay(100, cancellationToken);
             context.SetData("ShipmentCancelled", true);
         }
-        
+
         return Success();
     }
 }
@@ -403,12 +403,12 @@ public class SendOrderConfirmationStep : ExecutableSagaStepBase
         var customerId = context.GetData<string>("CustomerId");
         var orderId = context.GetData<string>("OrderId");
         var trackingNumber = context.GetData<string>("TrackingNumber");
-        
+
         await Task.Delay(100, cancellationToken);
-        
+
         // Send order confirmation email
         context.SetData("OrderConfirmationSent", true);
-        
+
         return Success();
     }
 }
@@ -421,12 +421,12 @@ public class UpdateInventoryStep : ExecutableSagaStepBase
     public override async Task<SagaStepResult> ExecuteAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         var reservedItems = context.GetData<List<string>>("ReservedItems");
-        
+
         await Task.Delay(100, cancellationToken);
-        
+
         // Update actual inventory levels
         context.SetData("InventoryUpdated", true);
-        
+
         return Success();
     }
 }

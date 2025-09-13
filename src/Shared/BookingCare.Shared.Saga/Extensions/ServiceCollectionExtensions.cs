@@ -26,7 +26,7 @@ public static class ServiceCollectionExtensions
         configuration.GetSection("Saga").Bind(options);
         configureOptions?.Invoke(options);
 
-        services.Configure<SagaOptions>(config => 
+        services.Configure<SagaOptions>(config =>
         {
             config.StateStoreType = options.StateStoreType;
             config.ConnectionString = options.ConnectionString;
@@ -45,8 +45,8 @@ public static class ServiceCollectionExtensions
                 services.AddSingleton<ISagaStateStore, InMemorySagaStateStore>();
                 break;
             case "sqlserver":
-                services.AddSingleton<ISagaStateStore>(provider => 
-                    new SqlServerSagaStateStore(options.ConnectionString, 
+                services.AddSingleton<ISagaStateStore>(provider =>
+                    new SqlServerSagaStateStore(options.ConnectionString,
                         provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SqlServerSagaStateStore>>()));
                 break;
             default:
@@ -63,7 +63,7 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registers a saga definition
     /// </summary>
-    public static IServiceCollection AddSaga<TSaga>(this IServiceCollection services) 
+    public static IServiceCollection AddSaga<TSaga>(this IServiceCollection services)
         where TSaga : class, ISagaDefinition
     {
         services.AddTransient<TSaga>();
@@ -93,7 +93,7 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registers a saga step
     /// </summary>
-    public static IServiceCollection AddSagaStep<TStep>(this IServiceCollection services) 
+    public static IServiceCollection AddSagaStep<TStep>(this IServiceCollection services)
         where TStep : class, ISagaStep
     {
         services.AddTransient<TStep>();

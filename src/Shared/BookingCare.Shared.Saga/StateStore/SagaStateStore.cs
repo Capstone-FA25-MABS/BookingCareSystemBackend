@@ -22,7 +22,7 @@ public class InMemorySagaStateStore : ISagaStateStore
     public Task<SagaState?> GetSagaStateAsync(Guid sagaId, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Getting saga state for SagaId: {SagaId}", sagaId);
-        
+
         var sagaState = _sagaStates.TryGetValue(sagaId, out var state) ? state : null;
         return Task.FromResult(sagaState);
     }
@@ -30,7 +30,7 @@ public class InMemorySagaStateStore : ISagaStateStore
     public Task SaveSagaStateAsync(SagaState sagaState, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Saving saga state for SagaId: {SagaId}", sagaState.SagaId);
-        
+
         var clonedState = CloneSagaState(sagaState);
         _sagaStates[sagaState.SagaId] = clonedState;
         return Task.CompletedTask;
@@ -39,7 +39,7 @@ public class InMemorySagaStateStore : ISagaStateStore
     public Task UpdateSagaStateAsync(SagaState sagaState, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Updating saga state for SagaId: {SagaId}", sagaState.SagaId);
-        
+
         if (!_sagaStates.ContainsKey(sagaState.SagaId))
         {
             throw new InvalidOperationException($"Saga state not found for SagaId: {sagaState.SagaId}");
@@ -53,7 +53,7 @@ public class InMemorySagaStateStore : ISagaStateStore
     public Task DeleteSagaStateAsync(Guid sagaId, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Deleting saga state for SagaId: {SagaId}", sagaId);
-        
+
         _sagaStates.TryRemove(sagaId, out _);
         return Task.CompletedTask;
     }
@@ -61,7 +61,7 @@ public class InMemorySagaStateStore : ISagaStateStore
     public Task<IEnumerable<SagaState>> GetPendingSagasAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Getting pending sagas");
-        
+
         var pendingSagas = _sagaStates.Values
             .Where(s => s.Status == SagaStatus.Pending || s.Status == SagaStatus.Running)
             .Select(CloneSagaState)

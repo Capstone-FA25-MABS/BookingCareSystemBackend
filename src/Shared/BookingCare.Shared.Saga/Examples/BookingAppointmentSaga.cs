@@ -35,10 +35,10 @@ public class ValidateUserStep : CompensatableSagaStepBase
     {
         // Call User Service to validate user
         var userId = context.GetData<string>("UserId");
-        
+
         // Simulate user validation
         await Task.Delay(100, cancellationToken);
-        
+
         if (string.IsNullOrEmpty(userId))
         {
             return Failure("User ID is required");
@@ -47,7 +47,7 @@ public class ValidateUserStep : CompensatableSagaStepBase
         // Store validation result
         context.SetData("UserValidated", true);
         context.SetData("UserEmail", "user@example.com");
-        
+
         return Success();
     }
 
@@ -69,9 +69,9 @@ public class CheckDoctorAvailabilityStep : CompensatableSagaStepBase
         // Call Doctor Service to check availability
         var doctorId = context.GetData<string>("DoctorId");
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
-        
+
         await Task.Delay(200, cancellationToken);
-        
+
         if (string.IsNullOrEmpty(doctorId))
         {
             return Failure("Doctor ID is required");
@@ -79,7 +79,7 @@ public class CheckDoctorAvailabilityStep : CompensatableSagaStepBase
 
         // Simulate availability check
         var isAvailable = DateTime.UtcNow.Millisecond % 2 == 0; // Random availability
-        
+
         if (!isAvailable)
         {
             return Failure("Doctor is not available for the requested time");
@@ -107,14 +107,14 @@ public class ReserveTimeSlotStep : CompensatableSagaStepBase
         // Call Schedule Service to reserve time slot
         var doctorId = context.GetData<string>("DoctorId");
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
-        
+
         await Task.Delay(300, cancellationToken);
-        
+
         // Simulate reservation
         var reservationId = Guid.NewGuid();
         context.SetData("ReservationId", reservationId.ToString());
         context.SetData("TimeSlotReserved", true);
-        
+
         return Success();
     }
 
@@ -122,14 +122,14 @@ public class ReserveTimeSlotStep : CompensatableSagaStepBase
     {
         // Cancel the reservation
         var reservationId = context.GetData<string>("ReservationId");
-        
+
         if (!string.IsNullOrEmpty(reservationId))
         {
             // Call Schedule Service to cancel reservation
             await Task.Delay(100, cancellationToken);
             context.SetData("TimeSlotReserved", false);
         }
-        
+
         return Success();
     }
 }
@@ -144,9 +144,9 @@ public class ProcessPaymentStep : CompensatableSagaStepBase
         // Call Payment Service to process payment
         var amount = context.GetData<decimal>("Amount");
         var userId = context.GetData<string>("UserId");
-        
+
         await Task.Delay(500, cancellationToken);
-        
+
         if (amount <= 0)
         {
             return Failure("Invalid payment amount");
@@ -154,7 +154,7 @@ public class ProcessPaymentStep : CompensatableSagaStepBase
 
         // Simulate payment processing
         var paymentSuccessful = DateTime.UtcNow.Millisecond % 3 != 0; // Random payment success
-        
+
         if (!paymentSuccessful)
         {
             return Failure("Payment processing failed", shouldRetry: true, retryDelay: TimeSpan.FromSeconds(30));
@@ -163,7 +163,7 @@ public class ProcessPaymentStep : CompensatableSagaStepBase
         var transactionId = Guid.NewGuid();
         context.SetData("TransactionId", transactionId.ToString());
         context.SetData("PaymentProcessed", true);
-        
+
         return Success();
     }
 
@@ -171,14 +171,14 @@ public class ProcessPaymentStep : CompensatableSagaStepBase
     {
         // Refund the payment
         var transactionId = context.GetData<string>("TransactionId");
-        
+
         if (!string.IsNullOrEmpty(transactionId))
         {
             // Call Payment Service to refund
             await Task.Delay(300, cancellationToken);
             context.SetData("PaymentRefunded", true);
         }
-        
+
         return Success();
     }
 }
@@ -195,14 +195,14 @@ public class CreateAppointmentStep : CompensatableSagaStepBase
         var doctorId = context.GetData<string>("DoctorId");
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
         var transactionId = context.GetData<string>("TransactionId");
-        
+
         await Task.Delay(200, cancellationToken);
-        
+
         // Create appointment
         var appointmentId = Guid.NewGuid();
         context.SetData("AppointmentId", appointmentId.ToString());
         context.SetData("AppointmentCreated", true);
-        
+
         return Success();
     }
 
@@ -210,14 +210,14 @@ public class CreateAppointmentStep : CompensatableSagaStepBase
     {
         // Cancel the appointment
         var appointmentId = context.GetData<string>("AppointmentId");
-        
+
         if (!string.IsNullOrEmpty(appointmentId))
         {
             // Call Appointment Service to cancel
             await Task.Delay(100, cancellationToken);
             context.SetData("AppointmentCancelled", true);
         }
-        
+
         return Success();
     }
 }
@@ -232,12 +232,12 @@ public class SendConfirmationNotificationStep : ExecutableSagaStepBase
         // Call Notification Service to send confirmation
         var userEmail = context.GetData<string>("UserEmail");
         var appointmentId = context.GetData<string>("AppointmentId");
-        
+
         await Task.Delay(100, cancellationToken);
-        
+
         // Send notification (non-compensatable step)
         context.SetData("ConfirmationSent", true);
-        
+
         return Success();
     }
 }

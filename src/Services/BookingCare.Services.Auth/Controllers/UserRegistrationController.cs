@@ -16,7 +16,7 @@ public class UserRegistrationController : ControllerBase
     private readonly ILogger<UserRegistrationController> _logger;
 
     public UserRegistrationController(
-        ISagaManager sagaManager, 
+        ISagaManager sagaManager,
         ISagaStateStore sagaStateStore,
         ILogger<UserRegistrationController> logger)
     {
@@ -55,7 +55,7 @@ public class UserRegistrationController : ControllerBase
             // Start the saga
             var sagaId = await _sagaManager.StartSagaAsync<UserRegistrationGrpcSaga>(context);
 
-            _logger.LogInformation("User registration saga started successfully. SagaId: {SagaId}, Email: {Email}", 
+            _logger.LogInformation("User registration saga started successfully. SagaId: {SagaId}, Email: {Email}",
                 sagaId, request.Email);
 
             return Ok(new
@@ -146,9 +146,9 @@ public class UserRegistrationController : ControllerBase
 
             // Create minimal saga context
             var context = UserRegistrationSagaFactory.CreateMinimalContext(
-                request.Email, 
-                request.Password, 
-                request.FirstName, 
+                request.Email,
+                request.Password,
+                request.FirstName,
                 request.LastName);
 
             // Start the saga
