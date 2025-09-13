@@ -143,6 +143,11 @@ public class GenerateAuthCredentialsStep : CompensatableSagaStepBase
         var userId = context.GetData<string>("UserId");
         var password = context.GetData<string>("Password");
         
+        if (string.IsNullOrEmpty(password))
+        {
+            return SagaStepResult.Failure("Password is required for auth credential generation");
+        }
+        
         await Task.Delay(200, cancellationToken);
         
         // Generate password hash and auth tokens

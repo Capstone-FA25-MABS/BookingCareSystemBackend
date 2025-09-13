@@ -109,6 +109,12 @@ public class CheckDoctorAvailabilityStep : CompensatableSagaStepBase
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
         var serviceType = context.GetData<string>("ServiceType");
 
+        if (string.IsNullOrEmpty(doctorId))
+            return Failure("DoctorId is required");
+            
+        if (string.IsNullOrEmpty(serviceType))
+            return Failure("ServiceType is required");
+
         await Task.Delay(200, cancellationToken);
 
         // Check doctor's schedule
@@ -161,6 +167,12 @@ public class ValidatePatientEligibilityStep : CompensatableSagaStepBase
     {
         var patientId = context.GetData<string>("PatientId");
         var serviceType = context.GetData<string>("ServiceType");
+
+        if (string.IsNullOrEmpty(patientId))
+            return Failure("PatientId is required");
+        
+        if (string.IsNullOrEmpty(serviceType))
+            return Failure("ServiceType is required");
 
         await Task.Delay(150, cancellationToken);
 
@@ -221,6 +233,12 @@ public class ReserveAppointmentSlotStep : CompensatableSagaStepBase
         var doctorId = context.GetData<string>("DoctorId");
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
         var serviceType = context.GetData<string>("ServiceType");
+
+        if (string.IsNullOrEmpty(doctorId))
+            return Failure("DoctorId is required");
+            
+        if (string.IsNullOrEmpty(serviceType))
+            return Failure("ServiceType is required");
 
         await Task.Delay(250, cancellationToken);
 
@@ -290,6 +308,12 @@ public class ProcessAppointmentPaymentStep : CompensatableSagaStepBase
         var patientId = context.GetData<string>("PatientId");
         var serviceType = context.GetData<string>("ServiceType");
         var insuranceCovered = context.GetData<bool>("InsuranceCovered");
+
+        if (string.IsNullOrEmpty(patientId))
+            return Failure("PatientId is required");
+            
+        if (string.IsNullOrEmpty(serviceType))
+            return Failure("ServiceType is required");
 
         await Task.Delay(400, cancellationToken);
 
@@ -393,6 +417,15 @@ public class CreateAppointmentRecordStep : CompensatableSagaStepBase
         var reservationId = context.GetData<string>("ReservationId");
         var transactionId = context.GetData<string>("TransactionId");
 
+        if (string.IsNullOrEmpty(patientId))
+            return Failure("PatientId is required");
+            
+        if (string.IsNullOrEmpty(doctorId))
+            return Failure("DoctorId is required");
+            
+        if (string.IsNullOrEmpty(serviceType))
+            return Failure("ServiceType is required");
+
         await Task.Delay(200, cancellationToken);
 
         // Create the appointment record
@@ -406,8 +439,8 @@ public class CreateAppointmentRecordStep : CompensatableSagaStepBase
             AppointmentDate = appointmentDate,
             ServiceType = serviceType,
             Status = "Confirmed",
-            ReservationId = reservationId,
-            TransactionId = transactionId,
+            ReservationId = reservationId ?? string.Empty,
+            TransactionId = transactionId ?? string.Empty,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -462,6 +495,12 @@ public class SendAppointmentConfirmationStep : ExecutableSagaStepBase
         var appointmentId = context.GetData<string>("AppointmentId");
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
 
+        if (string.IsNullOrEmpty(patientId))
+            return Failure("PatientId is required");
+            
+        if (string.IsNullOrEmpty(appointmentId))
+            return Failure("AppointmentId is required");
+
         await Task.Delay(100, cancellationToken);
 
         // Send confirmation email/SMS
@@ -497,6 +536,12 @@ public class UpdateDoctorScheduleStep : ExecutableSagaStepBase
         var appointmentId = context.GetData<string>("AppointmentId");
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
 
+        if (string.IsNullOrEmpty(doctorId))
+            return Failure("DoctorId is required");
+            
+        if (string.IsNullOrEmpty(appointmentId))
+            return Failure("AppointmentId is required");
+
         await Task.Delay(100, cancellationToken);
 
         // Update doctor's schedule with the confirmed appointment
@@ -525,6 +570,15 @@ public class CreateCalendarEventStep : ExecutableSagaStepBase
         var doctorId = context.GetData<string>("DoctorId");
         var appointmentId = context.GetData<string>("AppointmentId");
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
+
+        if (string.IsNullOrEmpty(patientId))
+            return Failure("PatientId is required");
+            
+        if (string.IsNullOrEmpty(doctorId))
+            return Failure("DoctorId is required");
+            
+        if (string.IsNullOrEmpty(appointmentId))
+            return Failure("AppointmentId is required");
 
         await Task.Delay(150, cancellationToken);
 
@@ -560,6 +614,12 @@ public class NotifyRelatedPartiesStep : ExecutableSagaStepBase
         var doctorId = context.GetData<string>("DoctorId");
         var appointmentId = context.GetData<string>("AppointmentId");
         var appointmentDate = context.GetData<DateTime>("AppointmentDate");
+
+        if (string.IsNullOrEmpty(doctorId))
+            return Failure("DoctorId is required");
+            
+        if (string.IsNullOrEmpty(appointmentId))
+            return Failure("AppointmentId is required");
 
         await Task.Delay(100, cancellationToken);
 

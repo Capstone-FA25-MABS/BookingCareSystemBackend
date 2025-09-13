@@ -1,5 +1,6 @@
 using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Models;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Polly;
 using System.Diagnostics;
@@ -262,15 +263,50 @@ public class SagaOrchestrator : ISagaOrchestrator
 
     private ISagaDefinition? GetSagaDefinition(string sagaName)
     {
-        var sagaDefinitionType = AppDomain.CurrentDomain.GetAssemblies()
+        // First try to get from service provider (registered sagas)
+        var registeredSagas = _serviceProvider.GetServices<ISagaDefinition>();
+        var matchingSaga = registeredSagas.FirstOrDefault(s => s.SagaName == sagaName);
+        
+        if (matchingSaga != null)
+        {
+            return matchingSaga;
+        }
+
+        // Fallback: search in assemblies and create instance that matches the saga name
+        var sagaDefinitionTypes = AppDomain.CurrentDomain.GetAssemblies()
             .SelectMany(a => a.GetTypes())
-            .FirstOrDefault(t => typeof(ISagaDefinition).IsAssignableFrom(t) && 
-                               !t.IsInterface && 
-                               !t.IsAbstract);
+            .Where(t => typeof(ISagaDefinition).IsAssignableFrom(t) && 
+                       !t.IsInterface && 
+                       !t.IsAbstract);
 
-        if (sagaDefinitionType == null)
-            return null;
+        foreach (var sagaType in sagaDefinitionTypes)
+        {
+            try
+            {
+                var instance = (ISagaDefinition?)Activator.CreateInstance(sagaType, _serviceProvider);
+                if (instance?.SagaName == sagaName)
+                {
+                    return instance;
+                }
+            }
+            catch
+            {
+                // Try without service provider parameter
+                try
+                {
+                    var instance = (ISagaDefinition?)Activator.CreateInstance(sagaType);
+                    if (instance?.SagaName == sagaName)
+                    {
+                        return instance;
+                    }
+                }
+                catch
+                {
+                    // Skip this type if instantiation fails
+                }
+            }
+        }
 
-        return (ISagaDefinition?)Activator.CreateInstance(sagaDefinitionType);
+        return null;
     }
 }

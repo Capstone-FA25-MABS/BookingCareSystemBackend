@@ -2,6 +2,9 @@ using BookingCare.Services.Auth.Services;
 using BookingCare.Services.Auth.Services.Interfaces;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Saga.Extensions;
+using BookingCare.Shared.Saga.Examples;
+using BookingCare.Shared.EventBus.Extensions;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
@@ -42,6 +45,18 @@ builder.Services.AddGlobalExceptionHandling();
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// Add saga orchestration
+builder.Services.AddSagaOrchestration(builder.Configuration);
+
+// Add EventBus for RabbitMQ communication
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth_service_queue");
+
+// Register gRPC saga steps
+builder.Services.AddGrpcSagaSteps();
+
+// Register saga definitions
+builder.Services.AddSaga<UserRegistrationGrpcSaga>();
+
 
 var app = builder.Build();
 
@@ -67,6 +82,7 @@ app.MapControllers();
 
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();
+app.MapGrpcService<AuthGrpcService>();
 app.MapGet("/", () => "BookingCare Auth Service is running...");
 
-app.Run();
+await app.RunAsync();

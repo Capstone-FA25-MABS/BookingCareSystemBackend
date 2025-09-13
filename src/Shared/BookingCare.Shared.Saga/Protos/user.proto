@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Shared.Saga.Protos.User";
+
+package user;
+
+// User Service Definition
+service UserService {
+  // Create user profile
+  rpc CreateUserProfile(CreateUserProfileRequest) returns (CreateUserProfileResponse);
+  
+  // Delete user profile (for compensation)
+  rpc DeleteUserProfile(DeleteUserProfileRequest) returns (DeleteUserProfileResponse);
+  
+  // Get user profile
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
+  
+  // Update user profile
+  rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UpdateUserProfileResponse);
+}
+
+// Request/Response Messages
+message CreateUserProfileRequest {
+  string user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string email = 4;
+  string phone_number = 5;
+  string date_of_birth = 6;
+  string gender = 7;
+  string address = 8;
+  string avatar_url = 9;
+  string emergency_contact = 10;
+  repeated string medical_conditions = 11;
+  repeated string allergies = 12;
+}
+
+message CreateUserProfileResponse {
+  bool success = 1;
+  string message = 2;
+  string profile_id = 3;
+  string user_id = 4;
+}
+
+message DeleteUserProfileRequest {
+  string user_id = 1;
+  string profile_id = 2;
+}
+
+message DeleteUserProfileResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message GetUserProfileResponse {
+  bool success = 1;
+  string message = 2;
+  UserProfile profile = 3;
+}
+
+message UpdateUserProfileRequest {
+  string user_id = 1;
+  string profile_id = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string phone_number = 5;
+  string address = 6;
+  string avatar_url = 7;
+  string emergency_contact = 8;
+  repeated string medical_conditions = 9;
+  repeated string allergies = 10;
+}
+
+message UpdateUserProfileResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message UserProfile {
+  string profile_id = 1;
+  string user_id = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string email = 5;
+  string phone_number = 6;
+  string date_of_birth = 7;
+  string gender = 8;
+  string address = 9;
+  string avatar_url = 10;
+  string emergency_contact = 11;
+  repeated string medical_conditions = 12;
+  repeated string allergies = 13;
+  string created_at = 14;
+  string updated_at = 15;
+}

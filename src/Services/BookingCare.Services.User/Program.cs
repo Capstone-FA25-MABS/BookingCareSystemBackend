@@ -38,6 +38,7 @@ app.MapControllers();
 
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();
+app.MapGrpcService<UserGrpcService>();
 app.MapGet("/", () => "BookingCare User Service is running...");
 
 app.Run();

@@ -33,7 +33,7 @@ public class SagaManager : ISagaManager
         _logger = logger;
     }
 
-    public async Task<Guid> StartSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default) 
+    public Task<Guid> StartSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default) 
         where TSaga : class, ISagaDefinition
     {
         try
@@ -61,7 +61,7 @@ public class SagaManager : ISagaManager
                 }
             }, cancellationToken);
 
-            return sagaId;
+            return Task.FromResult(sagaId);
         }
         catch (Exception ex)
         {
@@ -101,7 +101,7 @@ public class SagaManager : ISagaManager
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error handling event {EventType} with handler {HandlerType}", 
-                        typeof(TEvent).Name, handler.GetType().Name);
+                        typeof(TEvent).Name, handler?.GetType().Name ?? "Unknown");
                     // Continue with other handlers
                 }
             }

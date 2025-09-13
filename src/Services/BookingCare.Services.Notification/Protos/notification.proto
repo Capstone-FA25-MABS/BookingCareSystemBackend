@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Notification.Protos";
+
+package notification;
+
+// Notification Service Definition
+service NotificationService {
+  // Send verification email
+  rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse);
+  
+  // Send notification
+  rpc SendNotification(SendNotificationRequest) returns (SendNotificationResponse);
+}
+
+// Request/Response Messages
+message SendVerificationEmailRequest {
+  string user_id = 1;
+  string email = 2;
+  string verification_token = 3;
+  string first_name = 4;
+  string last_name = 5;
+}
+
+message SendVerificationEmailResponse {
+  bool success = 1;
+  string message = 2;
+  string email_id = 3;
+}
+
+message SendNotificationRequest {
+  string user_id = 1;
+  string message = 2;
+  string type = 3; // email, sms, push
+  string recipient = 4;
+}
+
+message SendNotificationResponse {
+  bool success = 1;
+  string message = 2;
+  string notification_id = 3;
+}

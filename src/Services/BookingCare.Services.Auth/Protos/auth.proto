@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Auth.Protos";
+
+package auth;
+
+// Auth Service Definition
+service AuthService {
+  // Create user account
+  rpc CreateUserAccount(CreateUserAccountRequest) returns (CreateUserAccountResponse);
+  
+  // Delete user account (for compensation)
+  rpc DeleteUserAccount(DeleteUserAccountRequest) returns (DeleteUserAccountResponse);
+  
+  // Validate user credentials
+  rpc ValidateCredentials(ValidateCredentialsRequest) returns (ValidateCredentialsResponse);
+  
+  // Generate verification token
+  rpc GenerateVerificationToken(GenerateVerificationTokenRequest) returns (GenerateVerificationTokenResponse);
+  
+  // Verify account
+  rpc VerifyAccount(VerifyAccountRequest) returns (VerifyAccountResponse);
+  
+  // Change password
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+}
+
+// Request/Response Messages
+message CreateUserAccountRequest {
+  string user_id = 1;
+  string email = 2;
+  string password = 3;
+  string role = 4;
+  bool is_verified = 5;
+  string provider = 6; // "local", "google", "facebook"
+  string provider_id = 7;
+}
+
+message CreateUserAccountResponse {
+  bool success = 1;
+  string message = 2;
+  string account_id = 3;
+  string user_id = 4;
+  string verification_token = 5;
+}
+
+message DeleteUserAccountRequest {
+  string user_id = 1;
+  string account_id = 2;
+}
+
+message DeleteUserAccountResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ValidateCredentialsRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message ValidateCredentialsResponse {
+  bool success = 1;
+  string message = 2;
+  string user_id = 3;
+  string role = 4;
+  bool is_verified = 5;
+}
+
+message GenerateVerificationTokenRequest {
+  string user_id = 1;
+  string email = 2;
+}
+
+message GenerateVerificationTokenResponse {
+  bool success = 1;
+  string message = 2;
+  string verification_token = 3;
+  string expires_at = 4;
+}
+
+message VerifyAccountRequest {
+  string user_id = 1;
+  string verification_token = 2;
+}
+
+message VerifyAccountResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string current_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message UserAccount {
+  string account_id = 1;
+  string user_id = 2;
+  string email = 3;
+  string role = 4;
+  bool is_verified = 5;
+  bool is_active = 6;
+  string provider = 7;
+  string provider_id = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
