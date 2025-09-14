@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System.Text.Json.Serialization;
+
 namespace BookingCare.Services.Auth.Models.DTOs;
 
 #region Authentication Response DTOs
@@ -8,6 +11,7 @@ namespace BookingCare.Services.Auth.Models.DTOs;
 public class AuthResponse
 {
     public string Message { get; set; } = string.Empty;
+    public string Token { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -40,6 +44,93 @@ public class AccountResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public List<RoleResponse> Roles { get; set; } = new List<RoleResponse>();
+}
+
+#endregion
+
+#region External Auth Response DTOs
+
+
+/// <summary>
+/// Google userinfo API response model
+/// </summary>
+public class GoogleUserInfoResponse
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("picture")]
+    public string? Picture { get; set; }
+
+    [JsonPropertyName("verified_email")]
+    [JsonConverter(typeof(StringToBoolConverter))]
+    public bool VerifiedEmail { get; set; }
+
+    [JsonPropertyName("given_name")]
+    public string? GivenName { get; set; }
+
+    [JsonPropertyName("family_name")]
+    public string? FamilyName { get; set; }
+
+    [JsonPropertyName("locale")]
+    public string? Locale { get; set; }
+}
+
+/// <summary>
+/// Google token validation response model
+/// </summary>
+public class GoogleTokenValidationResponse
+{
+    [JsonPropertyName("audience")]
+    public string? Audience { get; set; }
+
+    [JsonPropertyName("user_id")]
+    public string? UserId { get; set; }
+
+    [JsonPropertyName("scope")]
+    public string? Scope { get; set; }
+
+    [JsonPropertyName("expires_in")]
+    public int? ExpiresIn { get; set; }
+
+    [JsonPropertyName("access_type")]
+    public string? AccessType { get; set; }
+}
+
+public class FacebookTokenVerifyResult
+{
+    [JsonPropertyName("data")]
+    public FacebookTokenData? Data { get; set; }
+}
+
+public class FacebookTokenData
+{
+    [JsonPropertyName("app_id")]
+    public string? AppId { get; set; }
+
+    [JsonPropertyName("is_valid")]
+    public bool IsValid { get; set; }
+
+    [JsonPropertyName("application")]
+    public string? Application { get; set; }
+
+    [JsonPropertyName("user_id")]
+    public string? UserId { get; set; }
+
+    [JsonPropertyName("expires_at")]
+    public long? ExpiresAt { get; set; }
+
+    [JsonPropertyName("issued_at")]
+    public long? IssuedAt { get; set; }
+
+    [JsonPropertyName("scopes")]
+    public string[]? Scopes { get; set; }
 }
 
 #endregion

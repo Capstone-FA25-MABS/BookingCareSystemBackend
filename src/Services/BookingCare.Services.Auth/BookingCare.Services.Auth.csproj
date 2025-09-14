@@ -9,21 +9,22 @@
   <ItemGroup>
     <Protobuf Include="Protos/auth.proto" GrpcServices="Server" />
     <!-- Use solution-root based path and link into local Protos folder to satisfy gRPC tooling on Linux CI -->
-    <Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Notification/Protos/otp.proto"
-              GrpcServices="Client"
-              Link="Protos/otp.proto"
-              ProtoRoot="$(SolutionDir)" />
+    <Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Notification/Protos/otp.proto" GrpcServices="Client" Link="Protos/otp.proto" ProtoRoot="$(SolutionDir)" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.57.0" />
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.15.0.120848">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0">
       <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0">
       <PrivateAssets>all</PrivateAssets>

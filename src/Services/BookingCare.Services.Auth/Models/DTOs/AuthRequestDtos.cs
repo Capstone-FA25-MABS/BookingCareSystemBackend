@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Auth.Models.DTOs;
@@ -240,6 +241,73 @@ public class ResetTokenRequest
     public long? IssuedAt { get; set; }
 }
 
+/// <summary>
+/// Request DTO for Google, Facebook external authentication
+/// </summary>
+public class ExternalAuthRequest
+{
+    [Required]
+    public string AccessToken { get; set; } = string.Empty;
+}
+
+
+/// <summary>
+/// External user information from Google
+/// </summary>
+public class GoogleUserInfo
+{
+    public string Sub { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Picture { get; set; }
+    public bool EmailVerified { get; set; }
+}
+
+
+/// <summary>
+/// External user information from Facebook
+/// </summary>
+public class FacebookUserInfo
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+    
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+    
+    [JsonPropertyName("email")]
+    public string Email { get; set; } = string.Empty;
+    
+    [JsonPropertyName("picture")]
+    public FacebookPicture? Picture { get; set; }
+}
+
+/// <summary>
+/// Facebook picture information
+/// </summary>
+public class FacebookPicture
+{
+    [JsonPropertyName("data")]
+    public FacebookPictureData? Data { get; set; }
+}
+
+/// <summary>
+/// Facebook picture data
+/// </summary>
+public class FacebookPictureData
+{
+    [JsonPropertyName("height")]
+    public int Height { get; set; }
+    
+    [JsonPropertyName("is_silhouette")]
+    public bool IsSilhouette { get; set; }
+    
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = string.Empty;
+    
+    [JsonPropertyName("width")]
+    public int Width { get; set; }
+}
 #endregion
 
 #region Role Request DTOs

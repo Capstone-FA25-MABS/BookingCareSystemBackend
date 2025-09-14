@@ -247,7 +247,7 @@ public class AuthController : BaseApiController
     /// <returns>Authentication response</returns>
     [HttpPost("google-login")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+    public async Task<IActionResult> GoogleLogin([FromBody] ExternalAuthRequest request)
     {
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
@@ -263,7 +263,7 @@ public class AuthController : BaseApiController
     /// <returns>Authentication response</returns>
     [HttpPost("facebook-login")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> FacebookLogin([FromBody] FacebookLoginRequest request)
+    public async Task<IActionResult> FacebookLogin([FromBody] ExternalAuthRequest request)
     {
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
