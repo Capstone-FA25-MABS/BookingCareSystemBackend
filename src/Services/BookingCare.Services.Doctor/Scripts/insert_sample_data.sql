@@ -8,7 +8,7 @@ USE [MABS_Doctor]; -- Replace with your actual database name
 GO
 
 -- =============================================================================
--- 1. INSERT POSITIONS
+-- 1. INSERT POSITIONS (Expanded with additional positions)
 -- =============================================================================
 INSERT INTO positions (id, name, created_at, updated_at)
 VALUES 
@@ -21,11 +21,45 @@ VALUES
     (NEWID(), N'Bác sĩ tim mạch', GETUTCDATE(), GETUTCDATE()),
     (NEWID(), N'Bác sĩ thần kinh', GETUTCDATE(), GETUTCDATE()),
     (NEWID(), N'Bác sĩ da liễu', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ mắt', GETUTCDATE(), GETUTCDATE());
+    (NEWID(), N'Bác sĩ mắt', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ tai mũi họng', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ xương khớp', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ tiêu hóa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ hô hấp', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ nội tiết', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ ung bướu', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ tâm thần', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ vật lý trị liệu', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ dinh dưỡng', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ y học cổ truyền', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ cấp cứu', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ gây mê hồi sức', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ chẩn đoán hình ảnh', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ chỉnh hình', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ huyết học', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ thận học', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ dị ứng và miễn dịch', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ lão khoa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ phẫu thuật thẩm mỹ', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ răng hàm mặt', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ y khoa', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ cao cấp', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ chuyên khoa I', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ chuyên khoa II', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ nội trú', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Cử nhân', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Thạc sĩ', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Tiến sĩ', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Giáo sư', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Phó Giáo sư', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ truyền nhiễm', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ phục hồi chức năng', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ lao và bệnh phổi', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bác sĩ y học gia đình', GETUTCDATE(), GETUTCDATE());
 GO
 
 -- =============================================================================
--- 2. INSERT LANGUAGES
+-- 2. INSERT LANGUAGES (Expanded)
 -- =============================================================================
 INSERT INTO languages (id, name, created_at, updated_at)
 VALUES 
@@ -36,7 +70,24 @@ VALUES
     (NEWID(), N'한국어', GETUTCDATE(), GETUTCDATE()),
     (NEWID(), N'Français', GETUTCDATE(), GETUTCDATE()),
     (NEWID(), N'Deutsch', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Español', GETUTCDATE(), GETUTCDATE());
+    (NEWID(), N'Español', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Русский', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'العربية', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Português', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'हिन्दी', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Bahasa Indonesia', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Tiếng Thái', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Tiếng Malaysia', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Italian', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'বাংলা', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Türkçe', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'فارسی', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Polski', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Українська', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Nederlands', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Svenska', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Tiếng Lào', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Tiếng Khmer', GETUTCDATE(), GETUTCDATE());
 GO
 
 -- =============================================================================
@@ -154,18 +205,6 @@ VALUES
     (NEWID(), @DoctorId9, @LanguageChinese),
     (NEWID(), @DoctorId10, @LanguageVietnamese),
     (NEWID(), @DoctorId10, @LanguageEnglish);
-GO
-
--- =============================================================================
--- 6. INSERT ADDITIONAL SAMPLE DATA FOR TESTING
--- =============================================================================
-INSERT INTO positions (id, name, created_at, updated_at)
-VALUES 
-    (NEWID(), N'Bác sĩ tâm thần', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ vật lý trị liệu', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ dinh dưỡng', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ y học cổ truyền', GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), N'Bác sĩ cấp cứu', GETUTCDATE(), GETUTCDATE());
 GO
 
 -- =============================================================================
