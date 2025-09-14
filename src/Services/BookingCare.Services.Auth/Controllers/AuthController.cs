@@ -240,6 +240,38 @@ public class AuthController : BaseApiController
         return Success(result, "Reset token if the phone is registered");
     }
 
+    /// <summary>
+    /// Authenticate with Google OAuth2
+    /// </summary>
+    /// <param name="request">Google login request</param>
+    /// <returns>Authentication response</returns>
+    [HttpPost("google-login")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.GoogleLoginAsync(request);
+        return Success(result, "Google login successful");
+    }
+
+    /// <summary>
+    /// Authenticate with Facebook OAuth2
+    /// </summary>
+    /// <param name="request">Facebook login request</param>
+    /// <returns>Authentication response</returns>
+    [HttpPost("facebook-login")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> FacebookLogin([FromBody] FacebookLoginRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        var result = await _authService.FacebookLoginAsync(request);
+        return Success(result, "Facebook login successful");
+    }
+
     #endregion
 
     #region Account Operations   

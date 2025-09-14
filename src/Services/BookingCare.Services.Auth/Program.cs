@@ -25,7 +25,7 @@ builder.WebHost.ConfigureKestrel(options =>
     // HTTP endpoint for REST API
     options.ListenAnyIP(6003, listenOptions =>
     {
-        listenOptions.UseHttps();
+        //listenOptions.UseHttps();
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
     });
 
@@ -99,6 +99,8 @@ builder.Services.AddScoped<AuthGrpcService>();
 builder.Services.AddScoped<DataInitializationService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<CookieService>();
+builder.Services.AddScoped<ExternalAuthProviderService>();
+builder.Services.AddHttpClient<ExternalAuthProviderService>();
 
 // Add gRPC client for OTP verification
 builder.Services.AddGrpcClient<OtpVerifier.OtpVerifierClient>(o =>
