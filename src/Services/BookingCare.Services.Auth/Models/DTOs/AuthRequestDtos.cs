@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Auth.Utils;
 
 namespace BookingCare.Services.Auth.Models.DTOs;
 

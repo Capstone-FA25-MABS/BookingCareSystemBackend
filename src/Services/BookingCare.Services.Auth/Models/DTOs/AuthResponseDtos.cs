@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System.Text.Json.Serialization;
+using BookingCare.Services.Auth.Utils;
 
 namespace BookingCare.Services.Auth.Models.DTOs;
 
