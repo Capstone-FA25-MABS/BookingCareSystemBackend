@@ -55,8 +55,8 @@ public class UpdateCallLogRequestValidator : AbstractValidator<UpdateCallLogRequ
             .WithMessage("Status ph?i là Accepted, Missed, ho?c Rejected");
 
         RuleFor(x => x.EndedAt)
-            .Must((request, endedAt) => 
-                !endedAt.HasValue || 
+            .Must((request, endedAt) =>
+                !endedAt.HasValue ||
                 endedAt.Value >= DateTime.UtcNow.AddDays(-1))
             .WithMessage("EndedAt không ???c là th?i gian quá xa trong quá kh?");
     }

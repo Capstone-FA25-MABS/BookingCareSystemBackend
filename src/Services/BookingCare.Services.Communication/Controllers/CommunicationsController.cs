@@ -92,7 +92,7 @@ public class CommunicationsController : BaseApiController
 
             // Use the complete file upload flow
             var result = await _messageService.CreateMessageWithFilesAsync(request);
-            
+
             return Created(result, "Tin nhắn với file đã được gửi thành công!");
         }
         catch (Exception ex)
@@ -169,26 +169,41 @@ public class CommunicationsController : BaseApiController
     }
 
     /// <summary>
-    /// Lấy tin nhắn theo conversation ID với cursor-based pagination (infinite scroll friendly)
+    /// Lấy mixed timeline (messages + call logs) cho conversation
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages")]
     public async Task<IActionResult> GetMessagesByConversationId(
-        string conversationId, 
-        [FromQuery] string? before = null,      // MessageId hoặc timestamp để load messages trước đó
-        [FromQuery] string? after = null,       // MessageId hoặc timestamp để load messages sau đó  
-        [FromQuery] int limit = 50)             // Số lượng messages cần load
+        string conversationId,
+        [FromQuery] string? before = null,
+        [FromQuery] string? after = null,
+        [FromQuery] int limit = 50,
+        [FromQuery] bool messagesOnly = false,
+        [FromQuery] bool callLogsOnly = false,
+        [FromQuery] CallType? callTypeFilter = null,
+        [FromQuery] MessageType? messageTypeFilter = null)
     {
-        var result = await _messageService.GetByConversationIdWithCursorAsync(conversationId, before, after, limit);
-        return Success(result, "Lấy tin nhắn thành công!");
-    }
+        var request = new GetMixedTimelineRequest
+        {
+            ConversationId = conversationId,
+            Before = before,
+            After = after,
+            Limit = limit,
+            MessagesOnly = messagesOnly,
+            CallLogsOnly = callLogsOnly,
+            CallTypeFilter = callTypeFilter,
+            MessageTypeFilter = messageTypeFilter
+        };
 
+        var result = await _messageService.GetMixedTimelineAsync(request);
+        return Success(result, "Lấy mixed timeline thành công!");
+    }
     /// <summary>
     /// Legacy endpoint với page-based pagination (kept for backward compatibility)
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages/paginated")]
     public async Task<IActionResult> GetMessagesByConversationIdPaginated(
-        string conversationId, 
-        [FromQuery] int page = 1, 
+        string conversationId,
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
         var result = await _messageService.GetByConversationIdAsync(conversationId, page, pageSize);
@@ -272,7 +287,7 @@ public class CommunicationsController : BaseApiController
             }
 
             var result = await _messageService.CreateAsync(request);
-            
+
             // SignalR notification được gửi tự động trong MessageService
             return Created(result, "Tin nhắn text đã được gửi thành công!");
         }
@@ -291,7 +306,7 @@ public class CommunicationsController : BaseApiController
         try
         {
             var signalRService = HttpContext.RequestServices.GetRequiredService<ISignalRNotificationService>();
-            
+
             await signalRService.SendMessageToConversationAsync(request.ConversationId, new MessageResponse
             {
                 Id = Guid.NewGuid().ToString(),
@@ -316,9 +331,9 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages/by-type/{messageType}")]
     public async Task<IActionResult> GetMessagesByType(
-        string conversationId, 
+        string conversationId,
         MessageType messageType,
-        [FromQuery] int page = 1, 
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
         var result = await _messageService.GetMessagesByTypeAsync(conversationId, messageType, page, pageSize);
@@ -332,12 +347,14 @@ public class CommunicationsController : BaseApiController
     public async Task<IActionResult> GetConversationAttachments(
         string conversationId,
         [FromQuery] MessageType? messageType = null,
-        [FromQuery] int page = 1, 
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
         var result = await _messageService.GetConversationAttachmentsAsync(conversationId, messageType, page, pageSize);
         return Success(result, "Lấy attachments thành công!");
     }
+
+
 
     #endregion
 
@@ -374,7 +391,7 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpGet("users/{userId}/conversations/mobile")]
     public async Task<IActionResult> GetConversationsForMobile(
-        string userId, 
+        string userId,
         [FromQuery] string? before = null,      // Cursor cho mobile cũng dùng cursor-based
         [FromQuery] int limit = 10)             // Mobile dùng limit nhỏ hơn
     {
@@ -388,10 +405,11 @@ public class CommunicationsController : BaseApiController
         };
 
         var result = await _conversationService.GetByUserIdWithCursorAsync(userId, before, null, limit, options);
-        
-        return Success(new 
-        { 
-            Conversations = result.Data.Select(c => new {
+
+        return Success(new
+        {
+            Conversations = result.Data.Select(c => new
+            {
                 c.Id,
                 c.Participants,
                 c.LastMessage,
@@ -411,7 +429,7 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpGet("users/{userId}/conversations")]
     public async Task<IActionResult> GetConversationsByUserId(
-        string userId, 
+        string userId,
         [FromQuery] string? before = null,              // Cursor để load conversations cũ hơn
         [FromQuery] string? after = null,               // Cursor để load conversations mới hơn  
         [FromQuery] int limit = 20,                     // Số lượng conversations cần load
@@ -437,8 +455,8 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpGet("users/{userId}/conversations/paginated")]
     public async Task<IActionResult> GetConversationsByUserIdPaginated(
-        string userId, 
-        [FromQuery] int page = 1, 
+        string userId,
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool includeParticipantDetails = false,
         [FromQuery] bool includeUnreadCount = true,
@@ -473,7 +491,7 @@ public class CommunicationsController : BaseApiController
             IncludeUnreadCount = includeUnreadCount,
             IncludeMetadata = includeMetadata
         });
-        
+
         if (result == null)
         {
             return NotFound($"Cuộc hội thoại với ID {id} không tìm thấy");
@@ -571,8 +589,8 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpGet("users/{userId}/call-logs")]
     public async Task<IActionResult> GetCallLogsByUserId(
-        string userId, 
-        [FromQuery] int page = 1, 
+        string userId,
+        [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
     {
         var result = await _callLogService.GetByUserIdAsync(userId, page, pageSize);
@@ -602,8 +620,9 @@ public class CommunicationsController : BaseApiController
             var conversationCount = await _dbContext.Conversations.CountDocumentsAsync(MongoDB.Driver.FilterDefinition<Models.Entities.ConversationEntity>.Empty);
             var messageCount = await _dbContext.Messages.CountDocumentsAsync(MongoDB.Driver.FilterDefinition<Models.Entities.MessageEntity>.Empty);
             var callLogCount = await _dbContext.CallLogs.CountDocumentsAsync(MongoDB.Driver.FilterDefinition<Models.Entities.CallLogEntity>.Empty);
-            
-            var data = new {
+
+            var data = new
+            {
                 ConversationCount = conversationCount,
                 MessageCount = messageCount,
                 CallLogCount = callLogCount,

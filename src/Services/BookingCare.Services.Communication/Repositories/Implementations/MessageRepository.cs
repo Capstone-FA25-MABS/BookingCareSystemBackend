@@ -110,9 +110,9 @@ public class MessageRepository : IMessageRepository
     /// </summary>
     public async Task<long> GetUnreadCountAsync(string conversationId, string userId)
     {
-        return await _messages.CountDocumentsAsync(m => 
-            m.ConversationId == conversationId && 
-            m.ReceiverId == userId && 
+        return await _messages.CountDocumentsAsync(m =>
+            m.ConversationId == conversationId &&
+            m.ReceiverId == userId &&
             m.Status == MessageStatus.UNREAD);
     }
 
@@ -135,58 +135,32 @@ public class MessageRepository : IMessageRepository
             .ToListAsync();
     }
 
+
     /// <summary>
-    /// Lấy tin nhắn với cursor-based pagination
+    /// Lấy tin nhắn cho timeline với filter options
     /// </summary>
-    public async Task<IEnumerable<MessageEntity>> GetByConversationIdWithCursorAsync(string conversationId, string? before = null, string? after = null, int limit = 50)
+    public async Task<IEnumerable<MessageEntity>> GetByConversationIdForTimelineAsync(string conversationId, DateTime? before = null, DateTime? after = null, int limit = 50, MessageType? messageTypeFilter = null)
     {
         var filterBuilder = Builders<MessageEntity>.Filter;
         var filter = filterBuilder.Eq(m => m.ConversationId, conversationId);
 
-        // Parse cursors if provided
-        if (!string.IsNullOrEmpty(before))
+        // Apply message type filter
+        if (messageTypeFilter.HasValue)
         {
-            try
-            {
-                var (timestamp, messageId) = CursorHelper.ParseCursor(before);
-                // Get messages older than the cursor (before timestamp or same timestamp but different ID)
-                var beforeFilter = filterBuilder.Or(
-                    filterBuilder.Lt(m => m.CreatedAt, timestamp),
-                    filterBuilder.And(
-                        filterBuilder.Eq(m => m.CreatedAt, timestamp),
-                        filterBuilder.Lt(m => m.Id, messageId)
-                    )
-                );
-                filter = filterBuilder.And(filter, beforeFilter);
-            }
-            catch
-            {
-                throw new ArgumentException("Invalid 'before' cursor format");
-            }
+            filter = filterBuilder.And(filter, filterBuilder.Eq(m => m.Type, messageTypeFilter.Value));
         }
 
-        if (!string.IsNullOrEmpty(after))
+        // Apply time range filters
+        if (before.HasValue)
         {
-            try
-            {
-                var (timestamp, messageId) = CursorHelper.ParseCursor(after);
-                // Get messages newer than the cursor (after timestamp or same timestamp but different ID)
-                var afterFilter = filterBuilder.Or(
-                    filterBuilder.Gt(m => m.CreatedAt, timestamp),
-                    filterBuilder.And(
-                        filterBuilder.Eq(m => m.CreatedAt, timestamp),
-                        filterBuilder.Gt(m => m.Id, messageId)
-                    )
-                );
-                filter = filterBuilder.And(filter, afterFilter);
-            }
-            catch
-            {
-                throw new ArgumentException("Invalid 'after' cursor format");
-            }
+            filter = filterBuilder.And(filter, filterBuilder.Lt(m => m.CreatedAt, before.Value));
         }
 
-        // Sort by timestamp descending (newest first) for consistent ordering
+        if (after.HasValue)
+        {
+            filter = filterBuilder.And(filter, filterBuilder.Gt(m => m.CreatedAt, after.Value));
+        }
+
         return await _messages
             .Find(filter)
             .SortByDescending(m => m.CreatedAt)

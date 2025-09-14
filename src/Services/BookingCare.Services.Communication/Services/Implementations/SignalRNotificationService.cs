@@ -75,7 +75,7 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi thông báo tất cả tin nhắn đã đọc trong conversation: {ConversationId} bởi user: {UserId}", 
+            LogInfo("Đang gửi thông báo tất cả tin nhắn đã đọc trong conversation: {ConversationId} bởi user: {UserId}",
                 null, conversationId, userId);
 
             var groupName = GetConversationGroupName(conversationId);
@@ -86,7 +86,7 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
                 ReadAt = DateTime.UtcNow
             });
 
-            LogInfo("Thông báo tất cả tin nhắn đã đọc đã được gửi thành công cho conversation: {ConversationId}", 
+            LogInfo("Thông báo tất cả tin nhắn đã đọc đã được gửi thành công cho conversation: {ConversationId}",
                 null, conversationId);
         }, "SendAllMessagesReadNotification");
     }
@@ -151,7 +151,7 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi thông báo typing cho user: {UserId} trong conversation: {ConversationId}, isTyping: {IsTyping}", 
+            LogInfo("Đang gửi thông báo typing cho user: {UserId} trong conversation: {ConversationId}, isTyping: {IsTyping}",
                 null, userId, conversationId, isTyping);
 
             var groupName = GetConversationGroupName(conversationId);

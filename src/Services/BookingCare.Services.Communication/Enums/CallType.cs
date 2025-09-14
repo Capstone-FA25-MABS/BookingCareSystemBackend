@@ -9,7 +9,7 @@ public enum CallType
     /// Audio call only
     /// </summary>
     Audio,
-    
+
     /// <summary>
     /// Video call with audio
     /// </summary>

@@ -46,8 +46,8 @@ public class ConversationRepository : IConversationRepository
     public async Task<ConversationEntity?> GetConversationBetweenUsersAsync(string userId1, string userId2)
     {
         return await _conversations
-            .Find(c => c.Participants.Contains(userId1) && 
-                      c.Participants.Contains(userId2) && 
+            .Find(c => c.Participants.Contains(userId1) &&
+                      c.Participants.Contains(userId2) &&
                       c.Participants.Count == 2 &&
                       c.IsActive)
             .FirstOrDefaultAsync();
@@ -140,7 +140,7 @@ public class ConversationRepository : IConversationRepository
         var conversation = await _conversations
             .Find(c => c.Id == conversationId && c.Blocked != null)
             .FirstOrDefaultAsync();
-        
+
         return conversation != null;
     }
 

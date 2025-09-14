@@ -1,4 +1,5 @@
 ﻿using BookingCare.Services.Communication.Models.Entities;
+using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Enums;
 
 namespace BookingCare.Services.Communication.Repositories.Interfaces;
@@ -47,6 +48,11 @@ public interface ICallLogRepository
     /// Lấy danh sách cuộc gọi theo trạng thái
     /// </summary>
     Task<IEnumerable<CallLogEntity>> GetByStatusAsync(string userId, CallStatus status, int page = 1, int pageSize = 20);
+
+    /// <summary>
+    /// Lấy call logs cho timeline với filter options
+    /// </summary>
+    Task<IEnumerable<CallLogEntity>> GetByConversationIdForTimelineAsync(string conversationId, DateTime? before = null, DateTime? after = null, int limit = 50, CallType? callTypeFilter = null);
 }
 
 /// <summary>

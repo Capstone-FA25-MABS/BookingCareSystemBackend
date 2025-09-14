@@ -48,7 +48,7 @@ public class FileUploadController : BaseApiController
 
             // Upload file
             var result = await _fileUploadService.UploadFileAsync(file, userId, messageType);
-            
+
             return Success(result, "Upload file thành công!");
         }
         catch (Exception ex)
@@ -93,9 +93,9 @@ public class FileUploadController : BaseApiController
         try
         {
             var result = await _fileUploadService.GeneratePresignedUrlAsync(
-                request.FileName, 
-                request.ContentType, 
-                request.UserId, 
+                request.FileName,
+                request.ContentType,
+                request.UserId,
                 request.MessageType);
 
             return Success(result, "Tạo presigned URL thành công!");
@@ -116,7 +116,7 @@ public class FileUploadController : BaseApiController
         try
         {
             var thumbnailUrl = await _fileUploadService.GenerateThumbnailAsync(request.OriginalUrl);
-            
+
             if (string.IsNullOrEmpty(thumbnailUrl))
             {
                 return BadRequest("Không thể tạo thumbnail cho file này");
@@ -140,7 +140,7 @@ public class FileUploadController : BaseApiController
         try
         {
             var result = await _fileUploadService.DeleteFileAsync(request.FileUrl);
-            
+
             if (!result)
             {
                 return NotFound("File không tồn tại hoặc đã bị xóa");

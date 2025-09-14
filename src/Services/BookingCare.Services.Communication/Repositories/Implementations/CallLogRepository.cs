@@ -123,4 +123,37 @@ public class CallLogRepository : ICallLogRepository
             .Limit(pageSize)
             .ToListAsync();
     }
+
+    /// <summary>
+    /// Lấy call logs cho timeline với filter options
+    /// </summary>
+    public async Task<IEnumerable<CallLogEntity>> GetByConversationIdForTimelineAsync(string conversationId, DateTime? before = null, DateTime? after = null, int limit = 50, CallType? callTypeFilter = null)
+    {
+        var filterBuilder = Builders<CallLogEntity>.Filter;
+        var filter = filterBuilder.Eq(c => c.ConversationId, conversationId);
+
+        // Apply call type filter
+        if (callTypeFilter.HasValue)
+        {
+            filter = filterBuilder.And(filter, filterBuilder.Eq(c => c.Type, callTypeFilter.Value));
+        }
+
+        // Apply time range filters
+        if (before.HasValue)
+        {
+            filter = filterBuilder.And(filter, filterBuilder.Lt(c => c.StartedAt, before.Value));
+        }
+
+        if (after.HasValue)
+        {
+            filter = filterBuilder.And(filter, filterBuilder.Gt(c => c.StartedAt, after.Value));
+        }
+
+        return await _callLogs
+            .Find(filter)
+            .SortByDescending(c => c.StartedAt)
+            .ThenByDescending(c => c.Id)
+            .Limit(limit)
+            .ToListAsync();
+    }
 }

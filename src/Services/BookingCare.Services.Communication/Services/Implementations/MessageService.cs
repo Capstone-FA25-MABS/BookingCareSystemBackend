@@ -16,6 +16,7 @@ public class MessageService : BaseService, IMessageService
 {
     private readonly IMessageRepository _messageRepository;
     private readonly IConversationRepository _conversationRepository;
+    private readonly ICallLogRepository _callLogRepository;
     private readonly IFileUploadService _fileUploadService;
     private readonly ISignalRNotificationService _signalRNotificationService;
     private readonly IMapper _mapper;
@@ -23,6 +24,7 @@ public class MessageService : BaseService, IMessageService
     public MessageService(
         IMessageRepository messageRepository,
         IConversationRepository conversationRepository,
+        ICallLogRepository callLogRepository,
         IFileUploadService fileUploadService,
         ISignalRNotificationService signalRNotificationService,
         IMapper mapper,
@@ -30,6 +32,7 @@ public class MessageService : BaseService, IMessageService
     {
         _messageRepository = messageRepository;
         _conversationRepository = conversationRepository;
+        _callLogRepository = callLogRepository;
         _fileUploadService = fileUploadService;
         _signalRNotificationService = signalRNotificationService;
         _mapper = mapper;
@@ -71,7 +74,7 @@ public class MessageService : BaseService, IMessageService
             var lastMessage = new LastMessage
             {
                 MessageId = createdMessage.Id,
-                Content = createdMessage.Content.Length > 100 ? 
+                Content = createdMessage.Content.Length > 100 ?
                     createdMessage.Content.Substring(0, 100) + "..." : createdMessage.Content,
                 SenderId = createdMessage.SenderId,
                 CreatedAt = createdMessage.CreatedAt
@@ -89,7 +92,7 @@ public class MessageService : BaseService, IMessageService
                 }
                 catch (Exception ex)
                 {
-                    LogWarning("Lỗi khi gửi thông báo SignalR cho tin nhắn {MessageId}: {Error}", 
+                    LogWarning("Lỗi khi gửi thông báo SignalR cho tin nhắn {MessageId}: {Error}",
                         null, result.Id, ex.Message);
                 }
             });
@@ -140,7 +143,7 @@ public class MessageService : BaseService, IMessageService
             if (request.Files.Any())
             {
                 var uploadResults = await _fileUploadService.UploadMultipleFilesAsync(request.Files, request.SenderId, request.Type);
-                
+
                 attachments = uploadResults.Select(result => new MessageAttachment
                 {
                     Url = result.Url,
@@ -191,7 +194,7 @@ public class MessageService : BaseService, IMessageService
                 }
                 catch (Exception ex)
                 {
-                    LogWarning("Lỗi khi gửi thông báo SignalR cho tin nhắn với files {MessageId}: {Error}", 
+                    LogWarning("Lỗi khi gửi thông báo SignalR cho tin nhắn với files {MessageId}: {Error}",
                         null, result.Id, ex.Message);
                 }
             });
@@ -287,7 +290,7 @@ public class MessageService : BaseService, IMessageService
             }
 
             var result = await _messageRepository.DeleteAsync(id);
-            
+
             if (result)
             {
                 LogInfo("Xóa tin nhắn thành công với ID: {MessageId}", null, id);
@@ -336,7 +339,7 @@ public class MessageService : BaseService, IMessageService
                     }
                     catch (Exception ex)
                     {
-                        LogWarning("Lỗi khi gửi thông báo đọc tin nhắn SignalR cho {MessageId}: {Error}", 
+                        LogWarning("Lỗi khi gửi thông báo đọc tin nhắn SignalR cho {MessageId}: {Error}",
                             null, request.MessageId, ex.Message);
                     }
                 });
@@ -353,7 +356,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đánh dấu tất cả tin nhắn đã đọc cho conversation: {ConversationId}, user: {UserId}", 
+            LogInfo("Đánh dấu tất cả tin nhắn đã đọc cho conversation: {ConversationId}, user: {UserId}",
                 null, request.ConversationId, request.UserId);
 
             ValidateRequired(request, nameof(request));
@@ -377,7 +380,7 @@ public class MessageService : BaseService, IMessageService
 
             if (result)
             {
-                LogInfo("Đánh dấu tất cả tin nhắn đã đọc thành công cho conversation: {ConversationId}, user: {UserId}", 
+                LogInfo("Đánh dấu tất cả tin nhắn đã đọc thành công cho conversation: {ConversationId}, user: {UserId}",
                     null, request.ConversationId, request.UserId);
 
                 // Gửi thông báo real-time qua SignalR (fire and forget)
@@ -390,14 +393,14 @@ public class MessageService : BaseService, IMessageService
                     }
                     catch (Exception ex)
                     {
-                        LogWarning("Lỗi khi gửi thông báo đọc tất cả tin nhắn SignalR cho conversation {ConversationId}: {Error}", 
+                        LogWarning("Lỗi khi gửi thông báo đọc tất cả tin nhắn SignalR cho conversation {ConversationId}: {Error}",
                             null, request.ConversationId, ex.Message);
                     }
                 });
             }
             else
             {
-                LogInfo("Không có tin nhắn nào được đánh dấu là đã đọc (có thể đã đọc hết) cho conversation: {ConversationId}, user: {UserId}", 
+                LogInfo("Không có tin nhắn nào được đánh dấu là đã đọc (có thể đã đọc hết) cho conversation: {ConversationId}, user: {UserId}",
                     null, request.ConversationId, request.UserId);
             }
 
@@ -420,7 +423,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Tìm kiếm tin nhắn trong conversation: {ConversationId} với từ khóa: {SearchTerm}", 
+            LogInfo("Tìm kiếm tin nhắn trong conversation: {ConversationId} với từ khóa: {SearchTerm}",
                 null, request.ConversationId, request.SearchTerm);
 
             ValidateRequired(request, nameof(request));
@@ -457,7 +460,7 @@ public class MessageService : BaseService, IMessageService
     {
         // Lấy tất cả tin nhắn và lọc những tin có attachments
         var allMessages = await _messageRepository.GetByConversationIdAsync(conversationId, 1, 1000);
-        
+
         var messagesWithAttachments = messageType.HasValue
             ? allMessages.Where(m => m.Type == messageType.Value && m.Attachments.Any())
             : allMessages.Where(m => m.Attachments.Any());
@@ -471,74 +474,142 @@ public class MessageService : BaseService, IMessageService
         return _mapper.Map<IEnumerable<MessageAttachmentResponse>>(attachments);
     }
 
+
     /// <summary>
-    /// Lấy danh sách tin nhắn theo conversation ID với cursor-based pagination
+    /// Lấy mixed timeline (messages + call logs) cho conversation
     /// </summary>
-    public async Task<CursorPaginatedResponse<MessageResponse>> GetByConversationIdWithCursorAsync(string conversationId, string? before = null, string? after = null, int limit = 50)
+    public async Task<MixedTimelineResponse> GetMixedTimelineAsync(GetMixedTimelineRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy tin nhắn với cursor pagination cho conversation: {ConversationId}, before: {Before}, after: {After}, limit: {Limit}", 
-                null, conversationId, before, after, limit);
+            LogInfo("Lấy mixed timeline cho conversation: {ConversationId}, before: {Before}, after: {After}, limit: {Limit}",
+                null, request.ConversationId, request.Before, request.After, request.Limit);
 
-            ValidateRequiredString(conversationId, nameof(conversationId));
+            ValidateRequired(request, nameof(request));
+            ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
 
-            if (limit <= 0 || limit > 200)
+            if (request.Limit <= 0 || request.Limit > 200)
             {
                 throw new ArgumentException("Limit phải từ 1 đến 200");
             }
 
-            // Lấy messages từ repository với cursor
-            var messages = await _messageRepository.GetByConversationIdWithCursorAsync(conversationId, before, after, limit + 1); // +1 để check hasNext
-            var messageList = messages.ToList();
+            if (request.MessagesOnly && request.CallLogsOnly)
+            {
+                throw new ArgumentException("Không thể đồng thời chọn MessagesOnly và CallLogsOnly");
+            }
+
+            // Parse cursors để lấy timestamp filter
+            DateTime? beforeTimestamp = null;
+            DateTime? afterTimestamp = null;
+
+            if (!string.IsNullOrEmpty(request.Before))
+            {
+                var (timestamp, _) = CursorHelper.ParseCursor(request.Before);
+                beforeTimestamp = timestamp;
+            }
+
+            if (!string.IsNullOrEmpty(request.After))
+            {
+                var (timestamp, _) = CursorHelper.ParseCursor(request.After);
+                afterTimestamp = timestamp;
+            }
+
+            var timelineItems = new List<TimelineItem>();
+
+            // Lấy messages (nếu không chỉ lấy call logs)
+            if (!request.CallLogsOnly)
+            {
+                var messages = await _messageRepository.GetByConversationIdForTimelineAsync(
+                    request.ConversationId,
+                    beforeTimestamp,
+                    afterTimestamp,
+                    request.Limit + 50, // Lấy thêm để đảm bảo có đủ khi merge
+                    request.MessageTypeFilter
+                );
+
+                timelineItems.AddRange(messages.Select(m => new TimelineItem
+                {
+                    Id = m.Id,
+                    ConversationId = m.ConversationId,
+                    CreatedAt = m.CreatedAt,
+                    ItemType = TimelineItemType.Message,
+                    Message = _mapper.Map<MessageResponse>(m),
+                    CallLog = null
+                }));
+            }
+
+            // Lấy call logs (nếu không chỉ lấy messages)
+            if (!request.MessagesOnly)
+            {
+                var callLogs = await _callLogRepository.GetByConversationIdForTimelineAsync(
+                    request.ConversationId,
+                    beforeTimestamp,
+                    afterTimestamp,
+                    request.Limit + 50, // Lấy thêm để đảm bảo có đủ khi merge
+                    request.CallTypeFilter
+                );
+
+                timelineItems.AddRange(callLogs.Select(c => new TimelineItem
+                {
+                    Id = c.Id,
+                    ConversationId = c.ConversationId,
+                    CreatedAt = c.StartedAt,
+                    ItemType = TimelineItemType.CallLog,
+                    Message = null,
+                    CallLog = _mapper.Map<CallLogResponse>(c)
+                }));
+            }
+
+            // Sort theo thời gian descending và lấy số lượng cần thiết
+            var sortedItems = timelineItems
+                .OrderByDescending(item => item.CreatedAt)
+                .ThenByDescending(item => item.Id)
+                .Take(request.Limit + 1) // +1 để check hasNext
+                .ToList();
 
             // Determine pagination info
-            var hasNext = messageList.Count > limit;
-            var hasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after);
+            var hasNext = sortedItems.Count > request.Limit;
+            var hasPrevious = !string.IsNullOrEmpty(request.Before) || !string.IsNullOrEmpty(request.After);
 
             // Remove extra item if exists
             if (hasNext)
             {
-                messageList.RemoveAt(messageList.Count - 1);
+                sortedItems.RemoveAt(sortedItems.Count - 1);
             }
-
-            // Convert to DTOs
-            var messageDtos = _mapper.Map<List<MessageResponse>>(messageList);
 
             // Generate cursors
             string? nextCursor = null;
             string? previousCursor = null;
 
-            if (messageDtos.Any())
+            if (sortedItems.Any())
             {
-                // For cursor-based pagination, we use message ID + timestamp for reliable ordering
                 if (hasNext)
                 {
-                    var lastMessage = messageDtos.Last();
-                    nextCursor = CursorHelper.GenerateCursor(lastMessage.Id, lastMessage.CreatedAt);
+                    var lastItem = sortedItems.Last();
+                    nextCursor = CursorHelper.GenerateCursor(lastItem.Id, lastItem.CreatedAt);
                 }
 
-                if (hasPrevious || !string.IsNullOrEmpty(before))
+                if (hasPrevious || !string.IsNullOrEmpty(request.Before))
                 {
-                    var firstMessage = messageDtos.First();
-                    previousCursor = CursorHelper.GenerateCursor(firstMessage.Id, firstMessage.CreatedAt);
+                    var firstItem = sortedItems.First();
+                    previousCursor = CursorHelper.GenerateCursor(firstItem.Id, firstItem.CreatedAt);
                 }
             }
 
-            var result = new CursorPaginatedResponse<MessageResponse>
+            var result = new MixedTimelineResponse
             {
-                Data = messageDtos,
+                Items = sortedItems,
                 NextCursor = nextCursor,
                 PreviousCursor = previousCursor,
                 HasNext = hasNext,
-                HasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after),
-                Limit = limit
+                HasPrevious = hasPrevious,
+                Limit = request.Limit
             };
 
-            LogInfo("Lấy thành công {Count} tin nhắn với cursor pagination cho conversation: {ConversationId}", 
-                null, messageDtos.Count, conversationId);
+            LogInfo("Lấy thành công mixed timeline với {Count} items cho conversation: {ConversationId}",
+                null, sortedItems.Count, request.ConversationId);
 
             return result;
-        }, "GetByConversationIdWithCursor");
+        }, "GetMixedTimeline");
     }
 }

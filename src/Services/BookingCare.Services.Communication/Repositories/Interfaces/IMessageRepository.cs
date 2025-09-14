@@ -1,4 +1,5 @@
 ﻿using BookingCare.Services.Communication.Models.Entities;
+using BookingCare.Services.Communication.Enums;
 
 namespace BookingCare.Services.Communication.Repositories.Interfaces;
 
@@ -52,8 +53,10 @@ public interface IMessageRepository
     /// </summary>
     Task<IEnumerable<MessageEntity>> SearchAsync(string conversationId, string searchTerm, int page = 1, int pageSize = 20);
 
+
+
     /// <summary>
-    /// Lấy tin nhắn với cursor-based pagination
+    /// Lấy tin nhắn cho timeline với filter options
     /// </summary>
-    Task<IEnumerable<MessageEntity>> GetByConversationIdWithCursorAsync(string conversationId, string? before = null, string? after = null, int limit = 50);
+    Task<IEnumerable<MessageEntity>> GetByConversationIdForTimelineAsync(string conversationId, DateTime? before = null, DateTime? after = null, int limit = 50, MessageType? messageTypeFilter = null);
 }

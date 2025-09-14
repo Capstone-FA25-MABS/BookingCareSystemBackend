@@ -49,7 +49,7 @@ public class ConversationService : BaseService, IConversationService
             {
                 var existingConversation = await _conversationRepository
                     .GetConversationBetweenUsersAsync(request.Participants[0], request.Participants[1]);
-                
+
                 if (existingConversation != null)
                 {
                     LogInfo("Cuộc hội thoại giữa 2 user đã tồn tại: {ConversationId}", null, existingConversation.Id);
@@ -191,7 +191,7 @@ public class ConversationService : BaseService, IConversationService
                 {
                     // Initialize empty list for now
                     conversation.ParticipantDetails = new List<ConversationParticipant>();
-                    
+
                     // TODO: Implement User Service integration
                     // foreach (var participantId in conversation.Participants)
                     // {
@@ -207,7 +207,7 @@ public class ConversationService : BaseService, IConversationService
                     //         });
                     //     }
                     // }
-                    
+
                     LogDebug("Participant details placeholder loaded for conversation {ConversationId}", null, conversation.Id);
                 }
                 catch (Exception ex)
@@ -303,7 +303,7 @@ public class ConversationService : BaseService, IConversationService
             };
 
             var result = await _conversationRepository.UpdateLastMessageAsync(conversationId, lastMessage);
-            
+
             if (result)
             {
                 LogInfo("Cập nhật tin nhắn cuối thành công cho conversation: {ConversationId}", null, conversationId);
@@ -327,7 +327,7 @@ public class ConversationService : BaseService, IConversationService
             ValidateRequiredString(request.BlockedBy, nameof(request.BlockedBy));
 
             var result = await _conversationRepository.BlockConversationAsync(request.ConversationId, request.BlockedBy);
-            
+
             if (result)
             {
                 LogInfo("Chặn cuộc hội thoại thành công: {ConversationId}", null, request.ConversationId);
@@ -350,7 +350,7 @@ public class ConversationService : BaseService, IConversationService
             ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
 
             var result = await _conversationRepository.UnblockConversationAsync(request.ConversationId);
-            
+
             if (result)
             {
                 LogInfo("Bỏ chặn cuộc hội thoại thành công: {ConversationId}", null, request.ConversationId);
@@ -375,7 +375,7 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy conversations với cursor pagination cho user: {UserId}, before: {Before}, after: {After}, limit: {Limit}", 
+            LogInfo("Lấy conversations với cursor pagination cho user: {UserId}, before: {Before}, after: {After}, limit: {Limit}",
                 null, userId, before, after, limit);
 
             ValidateRequiredString(userId, nameof(userId));
@@ -438,7 +438,7 @@ public class ConversationService : BaseService, IConversationService
                 Limit = limit
             };
 
-            LogInfo("Lấy thành công {Count} conversations với cursor pagination cho user: {UserId}", 
+            LogInfo("Lấy thành công {Count} conversations với cursor pagination cho user: {UserId}",
                 null, conversationDtos.Count, userId);
 
             return result;

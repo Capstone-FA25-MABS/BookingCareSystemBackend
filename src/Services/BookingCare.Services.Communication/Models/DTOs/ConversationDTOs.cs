@@ -78,7 +78,7 @@ public class ConversationListResponse
     public LastMessageResponse? LastMessage { get; set; }
     public DateTime UpdatedAt { get; set; }
     public bool IsActive { get; set; }
-    
+
     // Only essential data for list view
     public long UnreadCount { get; set; }
     public bool IsBlocked { get; set; }

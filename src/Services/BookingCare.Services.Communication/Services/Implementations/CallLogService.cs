@@ -167,7 +167,7 @@ public class CallLogService : BaseService, ICallLogService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy thống kê cuộc gọi cho user: {UserId} từ {FromDate} đến {ToDate}", 
+            LogInfo("Lấy thống kê cuộc gọi cho user: {UserId} từ {FromDate} đến {ToDate}",
                 null, request.UserId, request.FromDate, request.ToDate);
 
             ValidateRequired(request, nameof(request));
@@ -179,7 +179,7 @@ public class CallLogService : BaseService, ICallLogService
             }
 
             var statistics = await _callLogRepository.GetCallStatisticsAsync(request.UserId, request.FromDate, request.ToDate);
-            
+
             LogInfo("Lấy thống kê cuộc gọi thành công cho user: {UserId}", null, request.UserId);
             return _mapper.Map<CallStatisticsResponse>(statistics);
         }, "GetCallStatistics");

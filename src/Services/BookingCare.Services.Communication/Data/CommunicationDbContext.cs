@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using BookingCare.Services.Communication.Models.Entities;
 
 namespace BookingCare.Services.Communication.Data;
@@ -16,20 +16,20 @@ public class CommunicationDbContext
     }
 
     /// <summary>
-    /// Collection ch?a c�c tin nh?n
+    /// Collection chứa các tin nhắn
     /// </summary>
-    public IMongoCollection<MessageEntity> Messages => 
+    public IMongoCollection<MessageEntity> Messages =>
         _database.GetCollection<MessageEntity>("Messages");
 
     /// <summary>
-    /// Collection ch?a c�c cu?c h?i tho?i
+    /// Collection chứa các cuộc hội thoại
     /// </summary>
-    public IMongoCollection<ConversationEntity> Conversations => 
+    public IMongoCollection<ConversationEntity> Conversations =>
         _database.GetCollection<ConversationEntity>("Conversations");
 
     /// <summary>
-    /// Collection ch?a l?ch s? cu?c g?i
+    /// Collection chứa lịch sử cuộc gọi
     /// </summary>
-    public IMongoCollection<CallLogEntity> CallLogs => 
+    public IMongoCollection<CallLogEntity> CallLogs =>
         _database.GetCollection<CallLogEntity>("CallLogs");
 }

@@ -31,7 +31,7 @@ public static class CursorHelper
             var bytes = Convert.FromBase64String(cursor);
             var combined = System.Text.Encoding.UTF8.GetString(bytes);
             var parts = combined.Split('|', 2);
-            
+
             if (parts.Length != 2)
                 throw new ArgumentException("Invalid cursor format");
 

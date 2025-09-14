@@ -16,7 +16,7 @@ public class ChatHub : Hub
     private readonly IMessageService _messageService;
     private readonly IConversationService _conversationService;
     private readonly ILogger<ChatHub> _logger;
-    
+
     // Store user connections
     private static readonly ConcurrentDictionary<string, HashSet<string>> UserConnections = new();
     private static readonly ConcurrentDictionary<string, string> ConnectionUsers = new();
@@ -40,7 +40,7 @@ public class ChatHub : Hub
         if (!string.IsNullOrEmpty(userId))
         {
             // Add connection to user mapping
-            UserConnections.AddOrUpdate(userId, 
+            UserConnections.AddOrUpdate(userId,
                 new HashSet<string> { Context.ConnectionId },
                 (key, existingConnections) =>
                 {
@@ -173,12 +173,12 @@ public class ChatHub : Hub
                 Status = message.Status
             });
 
-            _logger.LogInformation("Message sent via SignalR: {MessageId} in conversation {ConversationId}", 
+            _logger.LogInformation("Message sent via SignalR: {MessageId} in conversation {ConversationId}",
                 message.Id, request.ConversationId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending message for user {UserId} in conversation {ConversationId}", 
+            _logger.LogError(ex, "Error sending message for user {UserId} in conversation {ConversationId}",
                 userId, request.ConversationId);
             await Clients.Caller.SendAsync("Error", "Lỗi khi gửi tin nhắn");
         }
@@ -238,12 +238,12 @@ public class ChatHub : Hub
 
         try
         {
-            var request = new MarkAllMessagesAsReadRequest 
-            { 
+            var request = new MarkAllMessagesAsReadRequest
+            {
                 ConversationId = conversationId,
                 UserId = userId
             };
-            
+
             var result = await _messageService.MarkAllAsReadAsync(request);
 
             if (result)
@@ -259,7 +259,7 @@ public class ChatHub : Hub
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error marking all messages as read in conversation {ConversationId} by user {UserId}", 
+            _logger.LogError(ex, "Error marking all messages as read in conversation {ConversationId} by user {UserId}",
                 conversationId, userId);
             await Clients.Caller.SendAsync("Error", "Lỗi khi đánh dấu tất cả tin nhắn đã đọc");
         }
@@ -315,7 +315,7 @@ public class ChatHub : Hub
     /// </summary>
     private string GetUserId()
     {
-        return Context.User?.FindFirst("sub")?.Value 
+        return Context.User?.FindFirst("sub")?.Value
             ?? Context.User?.FindFirst("userId")?.Value
             ?? Context.User?.FindFirst("id")?.Value
             ?? string.Empty;

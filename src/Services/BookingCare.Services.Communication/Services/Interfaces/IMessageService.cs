@@ -33,10 +33,6 @@ public interface IMessageService
     /// </summary>
     Task<IEnumerable<MessageResponse>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50);
 
-    /// <summary>
-    /// Lấy danh sách tin nhắn theo conversation ID với cursor-based pagination
-    /// </summary>
-    Task<CursorPaginatedResponse<MessageResponse>> GetByConversationIdWithCursorAsync(string conversationId, string? before = null, string? after = null, int limit = 50);
 
     /// <summary>
     /// Xóa tin nhắn
@@ -72,4 +68,9 @@ public interface IMessageService
     /// Lấy tất cả file attachments trong conversation
     /// </summary>
     Task<IEnumerable<MessageAttachmentResponse>> GetConversationAttachmentsAsync(string conversationId, MessageType? messageType = null, int page = 1, int pageSize = 50);
+
+    /// <summary>
+    /// Lấy mixed timeline (messages + call logs) cho conversation
+    /// </summary>
+    Task<MixedTimelineResponse> GetMixedTimelineAsync(GetMixedTimelineRequest request);
 }

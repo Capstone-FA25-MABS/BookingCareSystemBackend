@@ -9,27 +9,27 @@ public enum MessageType
     /// Text message
     /// </summary>
     Text,
-    
+
     /// <summary>
     /// Image message with attachment
     /// </summary>
     Image,
-    
+
     /// <summary>
     /// File message with attachment
     /// </summary>
     File,
-    
+
     /// <summary>
     /// Video message with attachment
     /// </summary>
     Video,
-    
+
     /// <summary>
     /// Audio message with attachment
     /// </summary>
     Audio,
-    
+
     /// <summary>
     /// System message (auto-generated)
     /// </summary>
