@@ -74,9 +74,9 @@ public class RedisCacheService : ICacheService
         {
             var cacheKey = GetCacheKey(key);
             var serializedValue = JsonConvert.SerializeObject(value);
-            
+
             var distributedCacheOptions = new DistributedCacheEntryOptions();
-            
+
             if (expiration.HasValue)
             {
                 distributedCacheOptions.SetAbsoluteExpiration(expiration.Value);
@@ -87,7 +87,7 @@ public class RedisCacheService : ICacheService
             }
 
             await _distributedCache.SetStringAsync(cacheKey, serializedValue, distributedCacheOptions);
-            _logger.LogDebug("Cache set for key: {Key} with expiration: {Expiration}", 
+            _logger.LogDebug("Cache set for key: {Key} with expiration: {Expiration}",
                 cacheKey, expiration ?? TimeSpan.FromMinutes(_options.DefaultExpirationInMinutes));
         }
         catch (Exception ex)
@@ -128,14 +128,14 @@ public class RedisCacheService : ICacheService
         {
             var server = _connectionMultiplexer.GetServer(_connectionMultiplexer.GetEndPoints()[0]);
             var cachePattern = GetCacheKey(pattern);
-            
+
             var keys = server.Keys(_options.Database, cachePattern).ToArray();
-            
+
             foreach (var key in keys)
             {
                 await _database.KeyDeleteAsync(key);
             }
-            
+
             _logger.LogDebug("Cache removed for pattern: {Pattern}", cachePattern);
         }
         catch (Exception ex)
@@ -168,14 +168,14 @@ public class RedisCacheService : ICacheService
     public async Task<T?> GetOrSetAsync<T>(string key, Func<Task<T?>> factory, TimeSpan? expiration = null) where T : class
     {
         var cachedValue = await GetAsync<T>(key);
-        
+
         if (cachedValue != null)
         {
             return cachedValue;
         }
 
         var value = await factory();
-        
+
         if (value != null)
         {
             await SetAsync(key, value, expiration);

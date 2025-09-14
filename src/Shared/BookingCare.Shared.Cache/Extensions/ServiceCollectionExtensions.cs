@@ -22,9 +22,9 @@ public static class ServiceCollectionExtensions
     {
         // Configure cache options
         services.Configure<CacheOptions>(configuration.GetSection(CacheOptions.SectionName));
-        
+
         var cacheOptions = configuration.GetSection(CacheOptions.SectionName).Get<CacheOptions>() ?? new CacheOptions();
-        
+
         if (!cacheOptions.Enabled)
         {
             // Register a no-op cache service if caching is disabled
@@ -37,12 +37,12 @@ public static class ServiceCollectionExtensions
         {
             var connectionString = cacheOptions.ConnectionString;
             var configurationOptions = ConfigurationOptions.Parse(connectionString);
-            
+
             configurationOptions.ConnectTimeout = cacheOptions.ConnectTimeout * 1000; // Convert to milliseconds
             configurationOptions.SyncTimeout = cacheOptions.CommandTimeout * 1000; // Convert to milliseconds
             configurationOptions.ConnectRetry = cacheOptions.RetryCount;
             configurationOptions.AbortOnConnectFail = false;
-            
+
             return ConnectionMultiplexer.Connect(configurationOptions);
         });
 
@@ -69,7 +69,7 @@ public static class ServiceCollectionExtensions
     {
         var cacheOptions = new CacheOptions();
         configureOptions(cacheOptions);
-        
+
         services.Configure<CacheOptions>(options =>
         {
             options.ConnectionString = cacheOptions.ConnectionString;
@@ -93,12 +93,12 @@ public static class ServiceCollectionExtensions
         {
             var connectionString = cacheOptions.ConnectionString;
             var configurationOptions = ConfigurationOptions.Parse(connectionString);
-            
+
             configurationOptions.ConnectTimeout = cacheOptions.ConnectTimeout * 1000;
             configurationOptions.SyncTimeout = cacheOptions.CommandTimeout * 1000;
             configurationOptions.ConnectRetry = cacheOptions.RetryCount;
             configurationOptions.AbortOnConnectFail = false;
-            
+
             return ConnectionMultiplexer.Connect(configurationOptions);
         });
 
