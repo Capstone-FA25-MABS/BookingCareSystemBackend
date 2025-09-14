@@ -20,7 +20,7 @@ public class DoctorResponse
     public string AvatarUrl { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    
+
     // Navigation properties
     public PositionResponse? Position { get; set; }
     public List<DoctorPriceResponse> Prices { get; set; } = new();

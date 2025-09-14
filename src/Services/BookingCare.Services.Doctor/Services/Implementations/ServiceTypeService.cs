@@ -97,7 +97,7 @@ public class ServiceTypeService : IServiceTypeService
     {
         var (serviceTypes, totalCount) = await _repository.GetServiceTypesAsync(query);
         var response = _mapper.Map<ServiceTypeListResponse>((serviceTypes, totalCount));
-        
+
         // Set pagination info
         response.PageNumber = query.PageNumber;
         response.PageSize = query.PageSize;

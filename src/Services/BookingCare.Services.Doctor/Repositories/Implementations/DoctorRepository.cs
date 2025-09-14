@@ -55,7 +55,7 @@ public class DoctorRepository : IDoctorRepository
     {
         _context.Doctors.Add(doctor);
         await _context.SaveChangesAsync();
-        
+
         // Load the created doctor with related entities
         return await GetDoctorByIdAsync(doctor.Id) ?? doctor;
     }
@@ -64,7 +64,7 @@ public class DoctorRepository : IDoctorRepository
     {
         _context.Doctors.Update(doctor);
         await _context.SaveChangesAsync();
-        
+
         // Load the updated doctor with related entities
         return await GetDoctorByIdAsync(doctor.Id) ?? doctor;
     }
@@ -88,7 +88,7 @@ public class DoctorRepository : IDoctorRepository
     public async Task<bool> DoctorEmailExistsAsync(string email, Guid? excludeId = null)
     {
         var query = _context.Doctors.Where(d => d.Email == email);
-        
+
         if (excludeId.HasValue)
         {
             query = query.Where(d => d.Id != excludeId.Value);
@@ -100,7 +100,7 @@ public class DoctorRepository : IDoctorRepository
     public async Task<bool> DoctorAccountExistsAsync(Guid accountId, Guid? excludeId = null)
     {
         var query = _context.Doctors.Where(d => d.AccountId == accountId);
-        
+
         if (excludeId.HasValue)
         {
             query = query.Where(d => d.Id != excludeId.Value);
@@ -154,7 +154,7 @@ public class DoctorRepository : IDoctorRepository
             queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.ServiceType.Name.Contains(query.ServiceType)));
         if (query.MinRating.HasValue)
             queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value));
-        
+
         // Price filter - filter by doctor prices
         if (query.MinPrice.HasValue || query.MaxPrice.HasValue)
         {
@@ -162,7 +162,7 @@ public class DoctorRepository : IDoctorRepository
                 (!query.MinPrice.HasValue || dp.Amount >= query.MinPrice.Value) &&
                 (!query.MaxPrice.HasValue || dp.Amount <= query.MaxPrice.Value)));
         }
-        
+
         // Sort
         if (!string.IsNullOrEmpty(query.SortBy))
         {
@@ -171,10 +171,10 @@ public class DoctorRepository : IDoctorRepository
             else if (query.SortBy == "CreatedAt")
                 queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(d => d.CreatedAt) : queryable.OrderBy(d => d.CreatedAt);
         }
-        
+
         // Get total count
         var totalCount = await queryable.CountAsync();
-        
+
         // Apply pagination
         var doctors = await queryable
             .Skip((query.PageNumber - 1) * query.PageSize)
@@ -372,7 +372,7 @@ public class DoctorRepository : IDoctorRepository
     {
         var doctorLanguage = await _context.DoctorLanguages
             .FirstOrDefaultAsync(dl => dl.DoctorId == doctorId && dl.LanguageId == languageId);
-        
+
         if (doctorLanguage == null) return false;
 
         _context.DoctorLanguages.Remove(doctorLanguage);

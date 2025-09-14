@@ -6,11 +6,11 @@ namespace BookingCare.Services.Doctor.Exceptions;
 public class PositionException : BookingCareException
 {
     public PositionException(
-        string message, 
+        string message,
         string errorCode = "POSITION_ERROR",
         HttpStatusCode statusCode = HttpStatusCode.InternalServerError,
         Exception? innerException = null,
-        Dictionary<string, object>? details = null) 
+        Dictionary<string, object>? details = null)
         : base(message, errorCode, statusCode, innerException, details)
     {
     }
@@ -19,7 +19,7 @@ public class PositionException : BookingCareException
 // Position Exceptions
 public class PositionNotFoundException : NotFoundException
 {
-    public PositionNotFoundException(string message) 
+    public PositionNotFoundException(string message)
         : base(message, "POSITION_NOT_FOUND")
     {
     }
@@ -34,7 +34,7 @@ public class PositionNotFoundException : NotFoundException
 
 public class PositionValidationException : ValidationException
 {
-    public PositionValidationException(string message) 
+    public PositionValidationException(string message)
         : base(message, null, "POSITION_VALIDATION_ERROR")
     {
     }
@@ -47,7 +47,7 @@ public class PositionValidationException : ValidationException
 
 public class PositionConflictException : ConflictException
 {
-    public PositionConflictException(string message) 
+    public PositionConflictException(string message)
         : base(message, "POSITION_CONFLICT")
     {
     }

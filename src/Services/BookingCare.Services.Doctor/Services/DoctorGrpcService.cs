@@ -16,7 +16,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
     public DoctorGrpcService(
         IDoctorService doctorService,
-        IMapper mapper, 
+        IMapper mapper,
         ILogger<DoctorGrpcService> logger)
     {
         _doctorService = doctorService;
@@ -27,7 +27,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     #region Doctor gRPC Operations
 
     public override async Task<CreateDoctorResponse> CreateDoctor(
-        Protos.CreateDoctorRequest request, 
+        Protos.CreateDoctorRequest request,
         ServerCallContext context)
     {
         try
@@ -70,7 +70,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     }
 
     public override async Task<GetDoctorResponse> GetDoctorById(
-        Protos.GetDoctorByIdRequest request, 
+        Protos.GetDoctorByIdRequest request,
         ServerCallContext context)
     {
         try
@@ -107,7 +107,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     }
 
     public override async Task<GetDoctorResponse> GetDoctorByEmail(
-        Protos.GetDoctorByEmailRequest request, 
+        Protos.GetDoctorByEmailRequest request,
         ServerCallContext context)
     {
         try
@@ -143,7 +143,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     }
 
     public override async Task<UpdateDoctorResponse> UpdateDoctor(
-        Protos.UpdateDoctorRequest request, 
+        Protos.UpdateDoctorRequest request,
         ServerCallContext context)
     {
         try
@@ -185,7 +185,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     }
 
     public override async Task<DeleteDoctorResponse> DeleteDoctor(
-        Protos.DeleteDoctorRequest request, 
+        Protos.DeleteDoctorRequest request,
         ServerCallContext context)
     {
         try
@@ -213,7 +213,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     }
 
     public override async Task<GetDoctorsResponse> GetDoctors(
-        Protos.GetDoctorsRequest request, 
+        Protos.GetDoctorsRequest request,
         ServerCallContext context)
     {
         try
@@ -274,7 +274,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     #region Validation gRPC Operations
 
     public override async Task<ValidateDoctorResponse> ValidateDoctor(
-        Protos.ValidateDoctorRequest request, 
+        Protos.ValidateDoctorRequest request,
         ServerCallContext context)
     {
         try

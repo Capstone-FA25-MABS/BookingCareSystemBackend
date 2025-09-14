@@ -6,11 +6,11 @@ namespace BookingCare.Services.Doctor.Exceptions;
 public class PriceException : BookingCareException
 {
     public PriceException(
-        string message, 
+        string message,
         string errorCode = "PRICE_ERROR",
         HttpStatusCode statusCode = HttpStatusCode.InternalServerError,
         Exception? innerException = null,
-        Dictionary<string, object>? details = null) 
+        Dictionary<string, object>? details = null)
         : base(message, errorCode, statusCode, innerException, details)
     {
     }
@@ -19,7 +19,7 @@ public class PriceException : BookingCareException
 // Price Exceptions
 public class PriceNotFoundException : NotFoundException
 {
-    public PriceNotFoundException(string message) 
+    public PriceNotFoundException(string message)
         : base(message, "PRICE_NOT_FOUND")
     {
     }
@@ -34,7 +34,7 @@ public class PriceNotFoundException : NotFoundException
 
 public class PriceValidationException : ValidationException
 {
-    public PriceValidationException(string message) 
+    public PriceValidationException(string message)
         : base(message, null, "PRICE_VALIDATION_ERROR")
     {
     }

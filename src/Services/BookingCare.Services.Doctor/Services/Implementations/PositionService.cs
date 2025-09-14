@@ -88,7 +88,7 @@ public class PositionService : IPositionService
     {
         var (positions, totalCount) = await _repository.GetPositionsAsync(query);
         var response = _mapper.Map<PositionListResponse>((positions, totalCount));
-        
+
         // Set pagination info
         response.PageNumber = query.PageNumber;
         response.PageSize = query.PageSize;

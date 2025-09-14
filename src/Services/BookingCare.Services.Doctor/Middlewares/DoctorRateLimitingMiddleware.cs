@@ -41,10 +41,10 @@ public class DoctorRateLimitingMiddleware
         {
             // Rate limit exceeded
             _logger.LogWarning("Rate limit exceeded for IP: {ClientIp} on endpoint: {Endpoint}", clientIp, endpoint);
-            
+
             context.Response.StatusCode = 429; // Too Many Requests
             context.Response.ContentType = "application/json";
-            
+
             var response = new
             {
                 error = "Rate limit exceeded",
@@ -87,7 +87,7 @@ public class DoctorRateLimitingMiddleware
     private bool IsRateLimitExceeded(string clientIp, string? endpoint)
     {
         var key = $"{clientIp}:{endpoint}";
-        
+
         if (!_rateLimitStore.TryGetValue(key, out var rateLimitInfo))
         {
             return false; // No previous requests, allow
@@ -100,7 +100,7 @@ public class DoctorRateLimitingMiddleware
         {
             // Remove requests older than 1 minute
             rateLimitInfo.MinuteRequests.RemoveAll(time => now - time > TimeSpan.FromMinutes(1));
-            
+
             if (rateLimitInfo.MinuteRequests.Count >= _maxRequestsPerMinute)
             {
                 return true;
@@ -112,7 +112,7 @@ public class DoctorRateLimitingMiddleware
         {
             // Remove requests older than 1 hour
             rateLimitInfo.HourRequests.RemoveAll(time => now - time > TimeSpan.FromHours(1));
-            
+
             if (rateLimitInfo.HourRequests.Count >= _maxRequestsPerHour)
             {
                 return true;
@@ -127,7 +127,7 @@ public class DoctorRateLimitingMiddleware
         var key = $"{clientIp}:{endpoint}";
         var now = DateTime.UtcNow;
 
-        _rateLimitStore.AddOrUpdate(key, 
+        _rateLimitStore.AddOrUpdate(key,
             new RateLimitInfo
             {
                 MinuteRequests = new List<DateTime> { now },
@@ -157,10 +157,10 @@ public class DoctorRateLimitingMiddleware
         foreach (var kvp in _rateLimitStore)
         {
             var rateLimitInfo = kvp.Value;
-            
+
             // Remove old minute requests
             rateLimitInfo.MinuteRequests.RemoveAll(time => now - time > TimeSpan.FromMinutes(1));
-            
+
             // Remove old hour requests
             rateLimitInfo.HourRequests.RemoveAll(time => now - time > TimeSpan.FromHours(1));
 

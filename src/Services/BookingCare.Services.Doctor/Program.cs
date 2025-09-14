@@ -24,7 +24,7 @@ builder.WebHost.ConfigureKestrel(options =>
     {
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
     });
-    
+
     // gRPC endpoint
     options.ListenAnyIP(6018, listenOptions =>
     {
@@ -124,9 +124,10 @@ app.MapGrpcService<PositionGrpcService>();
 app.MapGet("/", () => "BookingCare Doctor Service is running. REST API: /swagger, gRPC: port 6018");
 
 // Health check endpoint
-app.MapGet("/health", () => Results.Ok(new { 
-    Service = "Doctor", 
-    Status = "Healthy", 
+app.MapGet("/health", () => Results.Ok(new
+{
+    Service = "Doctor",
+    Status = "Healthy",
     Timestamp = DateTime.UtcNow,
     Version = "1.0.0"
 }));

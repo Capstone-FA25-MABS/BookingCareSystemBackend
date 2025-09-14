@@ -29,7 +29,7 @@ public class DoctorSecurityMiddleware
             // Security check failed
             context.Response.StatusCode = 403; // Forbidden
             context.Response.ContentType = "application/json";
-            
+
             var response = new
             {
                 error = "Security check failed",
@@ -50,7 +50,7 @@ public class DoctorSecurityMiddleware
         response.Headers["X-XSS-Protection"] = "1; mode=block";
         response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
         response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';";
-        
+
         // Remove server information
         response.Headers.Remove("Server");
         response.Headers.Remove("X-Powered-By");
@@ -68,12 +68,12 @@ public class DoctorSecurityMiddleware
         // Log suspicious activities
         if (IsSuspiciousRequest(request))
         {
-            _logger.LogWarning("Suspicious request detected: {Method} {Path} from {ClientIp} - UserAgent: {UserAgent} - Referer: {Referer}", 
+            _logger.LogWarning("Suspicious request detected: {Method} {Path} from {ClientIp} - UserAgent: {UserAgent} - Referer: {Referer}",
                 method, path, clientIp, userAgent, referer);
         }
 
         // Log security-relevant information
-        _logger.LogDebug("Security Info: {Method} {Path} from {ClientIp} - UserAgent: {UserAgent}", 
+        _logger.LogDebug("Security Info: {Method} {Path} from {ClientIp} - UserAgent: {UserAgent}",
             method, path, clientIp, userAgent);
     }
 
@@ -132,7 +132,7 @@ public class DoctorSecurityMiddleware
         // Check for suspicious requests
         if (IsSuspiciousRequest(request))
         {
-            _logger.LogWarning("Blocking suspicious request from {ClientIp}", 
+            _logger.LogWarning("Blocking suspicious request from {ClientIp}",
                 context.Connection.RemoteIpAddress?.ToString());
             return false;
         }
@@ -140,7 +140,7 @@ public class DoctorSecurityMiddleware
         // Check for required headers (if needed)
         if (!ValidateRequiredHeaders(request))
         {
-            _logger.LogWarning("Missing required headers from {ClientIp}", 
+            _logger.LogWarning("Missing required headers from {ClientIp}",
                 context.Connection.RemoteIpAddress?.ToString());
             return false;
         }
@@ -148,7 +148,7 @@ public class DoctorSecurityMiddleware
         // Check request size limits
         if (request.ContentLength > GetMaxRequestSize())
         {
-            _logger.LogWarning("Request too large from {ClientIp}: {Size} bytes", 
+            _logger.LogWarning("Request too large from {ClientIp}: {Size} bytes",
                 context.Connection.RemoteIpAddress?.ToString(), request.ContentLength);
             return false;
         }

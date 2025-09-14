@@ -97,7 +97,7 @@ public class LanguageService : ILanguageService
     {
         var (languages, totalCount) = await _repository.GetLanguagesAsync(query);
         var response = _mapper.Map<LanguageListResponse>((languages, totalCount));
-        
+
         // Set pagination info
         response.PageNumber = query.PageNumber;
         response.PageSize = query.PageSize;

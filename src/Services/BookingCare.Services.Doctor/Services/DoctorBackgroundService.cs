@@ -32,7 +32,7 @@ public class DoctorBackgroundService : BackgroundService
 
                 // Perform background tasks
                 await PerformDoctorMaintenanceTasksAsync(doctorService, positionService);
-                
+
                 _logger.LogInformation("Doctor background service tasks completed successfully");
             }
             catch (Exception ex)
@@ -92,8 +92,8 @@ public class DoctorBackgroundService : BackgroundService
             foreach (var doctor in doctors.Doctors)
             {
                 // Check for doctors with missing required data
-                if (string.IsNullOrEmpty(doctor.Email) || 
-                    string.IsNullOrEmpty(doctor.FirstName) || 
+                if (string.IsNullOrEmpty(doctor.Email) ||
+                    string.IsNullOrEmpty(doctor.FirstName) ||
                     string.IsNullOrEmpty(doctor.LastName))
                 {
                     _logger.LogWarning("Found doctor {DoctorId} with missing required data", doctor.Id);
@@ -103,7 +103,7 @@ public class DoctorBackgroundService : BackgroundService
                 // Check for doctors with invalid email format
                 if (!string.IsNullOrEmpty(doctor.Email) && !IsValidEmail(doctor.Email))
                 {
-                    _logger.LogWarning("Found doctor {DoctorId} with invalid email format: {Email}", 
+                    _logger.LogWarning("Found doctor {DoctorId} with invalid email format: {Email}",
                         doctor.Id, doctor.Email);
                     invalidDoctors++;
                 }
@@ -111,12 +111,12 @@ public class DoctorBackgroundService : BackgroundService
                 // Check for doctors with invalid years of experience
                 if (doctor.YearsOfExperience < 0 || doctor.YearsOfExperience > 50)
                 {
-                    _logger.LogWarning("Found doctor {DoctorId} with invalid years of experience: {Years}", 
+                    _logger.LogWarning("Found doctor {DoctorId} with invalid years of experience: {Years}",
                         doctor.Id, doctor.YearsOfExperience);
                     invalidDoctors++;
                 }
             }
-            
+
             if (invalidDoctors > 0)
             {
                 _logger.LogInformation("Found {Count} doctors with data integrity issues", invalidDoctors);
@@ -147,13 +147,13 @@ public class DoctorBackgroundService : BackgroundService
                 // Check if doctor has been inactive for too long (e.g., no appointments in 30 days)
                 // This would typically involve checking appointment data from another service
                 // For now, we'll just log the check
-                
+
                 var lastActivityDate = doctor.UpdatedAt; // This would be last appointment date
                 var daysSinceLastActivity = (DateTime.UtcNow - lastActivityDate).Days;
 
                 if (daysSinceLastActivity > 30)
                 {
-                    _logger.LogInformation("Doctor {DoctorId} has been inactive for {Days} days", 
+                    _logger.LogInformation("Doctor {DoctorId} has been inactive for {Days} days",
                         doctor.Id, daysSinceLastActivity);
                     updatedCount++;
                 }
@@ -197,7 +197,7 @@ public class DoctorBackgroundService : BackgroundService
 
                 if (daysSinceLastActivity > 90)
                 {
-                    _logger.LogInformation("Doctor {DoctorId} ({FirstName} {LastName}) should be archived - inactive for {Days} days", 
+                    _logger.LogInformation("Doctor {DoctorId} ({FirstName} {LastName}) should be archived - inactive for {Days} days",
                         doctor.Id, doctor.FirstName, doctor.LastName, daysSinceLastActivity);
                     archivedCount++;
                 }
@@ -233,11 +233,11 @@ public class DoctorBackgroundService : BackgroundService
                 var doctorsInPosition = await doctorService.GetDoctorsByPositionAsync(position.Id);
                 positionStats[position.Name] = doctorsInPosition.Count;
 
-                _logger.LogInformation("Position '{PositionName}' has {Count} doctors", 
+                _logger.LogInformation("Position '{PositionName}' has {Count} doctors",
                     position.Name, doctorsInPosition.Count);
             }
 
-            _logger.LogInformation("Updated statistics for {PositionCount} positions", 
+            _logger.LogInformation("Updated statistics for {PositionCount} positions",
                 positionStats.Count);
         }
         catch (Exception ex)

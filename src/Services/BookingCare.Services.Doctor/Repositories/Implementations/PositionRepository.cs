@@ -62,7 +62,7 @@ public class PositionRepository : IPositionRepository
     public async Task<bool> PositionNameExistsAsync(string name, Guid? excludeId = null)
     {
         var query = _context.Positions.Where(p => p.Name == name);
-        
+
         if (excludeId.HasValue)
         {
             query = query.Where(p => p.Id != excludeId.Value);

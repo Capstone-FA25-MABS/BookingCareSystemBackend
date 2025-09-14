@@ -6,11 +6,11 @@ namespace BookingCare.Services.Doctor.Exceptions;
 public class DoctorException : BookingCareException
 {
     public DoctorException(
-        string message, 
+        string message,
         string errorCode = "DOCTOR_ERROR",
         HttpStatusCode statusCode = HttpStatusCode.InternalServerError,
         Exception? innerException = null,
-        Dictionary<string, object>? details = null) 
+        Dictionary<string, object>? details = null)
         : base(message, errorCode, statusCode, innerException, details)
     {
     }
@@ -19,7 +19,7 @@ public class DoctorException : BookingCareException
 // Doctor Exceptions
 public class DoctorNotFoundException : NotFoundException
 {
-    public DoctorNotFoundException(string message) 
+    public DoctorNotFoundException(string message)
         : base(message, "DOCTOR_NOT_FOUND")
     {
     }
@@ -48,7 +48,7 @@ public class DoctorNotFoundException : NotFoundException
 
 public class DoctorValidationException : ValidationException
 {
-    public DoctorValidationException(string message) 
+    public DoctorValidationException(string message)
         : base(message, null, "DOCTOR_VALIDATION_ERROR")
     {
     }
@@ -61,7 +61,7 @@ public class DoctorValidationException : ValidationException
 
 public class DoctorBusinessException : BusinessException
 {
-    public DoctorBusinessException(string message) 
+    public DoctorBusinessException(string message)
         : base(message, "DOCTOR_BUSINESS_ERROR")
     {
     }
@@ -69,7 +69,7 @@ public class DoctorBusinessException : BusinessException
 
 public class DoctorConflictException : ConflictException
 {
-    public DoctorConflictException(string message) 
+    public DoctorConflictException(string message)
         : base(message, "DOCTOR_CONFLICT")
     {
     }
@@ -92,7 +92,7 @@ public class DoctorConflictException : ConflictException
 // DoctorPrice Exceptions
 public class DoctorPriceNotFoundException : NotFoundException
 {
-    public DoctorPriceNotFoundException(string message) 
+    public DoctorPriceNotFoundException(string message)
         : base(message, "DOCTOR_PRICE_NOT_FOUND")
     {
     }
@@ -108,7 +108,7 @@ public class DoctorPriceNotFoundException : NotFoundException
 
 public class DoctorPriceConflictException : ConflictException
 {
-    public DoctorPriceConflictException(string message) 
+    public DoctorPriceConflictException(string message)
         : base(message, "DOCTOR_PRICE_CONFLICT")
     {
     }
@@ -124,7 +124,7 @@ public class DoctorPriceConflictException : ConflictException
 
 public class DoctorPriceValidationException : ValidationException
 {
-    public DoctorPriceValidationException(string message) 
+    public DoctorPriceValidationException(string message)
         : base(message, null, "DOCTOR_PRICE_VALIDATION_ERROR")
     {
     }

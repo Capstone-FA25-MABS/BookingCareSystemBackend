@@ -132,7 +132,7 @@ public class DoctorDbContext : DbContext
         modelBuilder.Entity<LanguageEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
-            
+
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .IsRequired();
@@ -167,7 +167,7 @@ public class DoctorDbContext : DbContext
         modelBuilder.Entity<ServiceTypeEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
-            
+
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .IsRequired();

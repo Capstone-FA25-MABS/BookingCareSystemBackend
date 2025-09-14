@@ -54,7 +54,7 @@ public class DoctorService : IDoctorService
         doctor.Id = Guid.NewGuid();
 
         var createdDoctor = await _repository.CreateDoctorAsync(doctor);
-        
+
         // Create doctor prices if provided
         if (request.Prices != null && request.Prices.Any())
         {
@@ -77,7 +77,7 @@ public class DoctorService : IDoctorService
                 await _repository.CreateDoctorPriceAsync(doctorPrice);
             }
         }
-        
+
         // Create doctor languages if provided
         if (request.LanguageIds != null && request.LanguageIds.Any())
         {
@@ -99,7 +99,7 @@ public class DoctorService : IDoctorService
                 await _repository.CreateDoctorLanguageAsync(doctorLanguage);
             }
         }
-        
+
         var response = _mapper.Map<DoctorResponse>(createdDoctor);
         return response;
     }
@@ -154,7 +154,7 @@ public class DoctorService : IDoctorService
         {
             // Delete existing prices
             await _repository.DeleteAllDoctorPricesAsync(existingDoctor.Id);
-            
+
             // Add new prices
             foreach (var priceRequest in request.Prices)
             {
@@ -181,7 +181,7 @@ public class DoctorService : IDoctorService
         {
             // Delete existing languages
             await _repository.DeleteAllDoctorLanguagesAsync(existingDoctor.Id);
-            
+
             // Add new languages
             if (request.LanguageIds.Any())
             {
@@ -223,7 +223,7 @@ public class DoctorService : IDoctorService
     {
         var (doctors, totalCount) = await _repository.GetDoctorsAsync(query);
         var response = _mapper.Map<DoctorListResponse>((doctors, totalCount));
-        
+
         // Set pagination info
         response.PageNumber = query.PageNumber;
         response.PageSize = query.PageSize;
@@ -293,7 +293,7 @@ public class DoctorService : IDoctorService
         return _mapper.Map<List<DoctorPriceResponse>>(prices);
     }
 
-    
+
 
     public async Task<DoctorPriceResponse> AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request)
     {
@@ -317,7 +317,7 @@ public class DoctorService : IDoctorService
             DoctorId = request.DoctorId,
             Amount = request.Amount
         };
-        
+
         var createdDoctorPrice = await _repository.CreateDoctorPriceAsync(doctorPrice);
         return _mapper.Map<DoctorPriceResponse>(createdDoctorPrice);
     }
@@ -369,7 +369,7 @@ public class DoctorService : IDoctorService
         // Tìm giá hiện tại của doctor
         var existingPrices = await _repository.GetDoctorPricesAsync(doctor.Id);
         var existingPrice = existingPrices.FirstOrDefault();
-        
+
         if (existingPrice != null)
         {
             // Cập nhật giá hiện tại

@@ -62,7 +62,7 @@ public class ServiceTypeRepository : IServiceTypeRepository
     public async Task<bool> ServiceTypeNameExistsAsync(string name, Guid? excludeId = null)
     {
         var query = _context.ServiceTypes.Where(st => st.Name == name);
-        
+
         if (excludeId.HasValue)
         {
             query = query.Where(st => st.Id != excludeId.Value);
@@ -83,7 +83,7 @@ public class ServiceTypeRepository : IServiceTypeRepository
         if (!string.IsNullOrEmpty(query.SearchTerm))
         {
             var searchTerm = query.SearchTerm.ToLower();
-            queryable = queryable.Where(st => 
+            queryable = queryable.Where(st =>
                 st.Name.ToLower().Contains(searchTerm) ||
                 (st.Description != null && st.Description.ToLower().Contains(searchTerm)));
         }

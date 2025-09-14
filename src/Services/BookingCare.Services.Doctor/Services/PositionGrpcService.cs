@@ -15,7 +15,7 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
 
     public PositionGrpcService(
         IPositionService positionService,
-        IMapper mapper, 
+        IMapper mapper,
         ILogger<PositionGrpcService> logger)
     {
         _positionService = positionService;
@@ -26,7 +26,7 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
     #region Position gRPC Operations
 
     public override async Task<CreatePositionResponse> CreatePosition(
-        Protos.CreatePositionRequest request, 
+        Protos.CreatePositionRequest request,
         ServerCallContext context)
     {
         try
@@ -58,7 +58,7 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
     }
 
     public override async Task<GetPositionResponse> GetPositionById(
-        Protos.GetPositionByIdRequest request, 
+        Protos.GetPositionByIdRequest request,
         ServerCallContext context)
     {
         try
@@ -95,7 +95,7 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
     }
 
     public override async Task<GetPositionsResponse> GetPositions(
-        Protos.GetPositionsRequest request, 
+        Protos.GetPositionsRequest request,
         ServerCallContext context)
     {
         try

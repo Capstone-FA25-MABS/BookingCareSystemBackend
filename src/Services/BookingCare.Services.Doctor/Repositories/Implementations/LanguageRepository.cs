@@ -62,7 +62,7 @@ public class LanguageRepository : ILanguageRepository
     public async Task<bool> LanguageNameExistsAsync(string name, Guid? excludeId = null)
     {
         var query = _context.Languages.Where(l => l.Name == name);
-        
+
         if (excludeId.HasValue)
         {
             query = query.Where(l => l.Id != excludeId.Value);
