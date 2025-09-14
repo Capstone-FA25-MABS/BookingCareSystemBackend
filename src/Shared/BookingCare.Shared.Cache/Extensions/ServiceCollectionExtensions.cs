@@ -25,38 +25,7 @@ public static class ServiceCollectionExtensions
 
         var cacheOptions = configuration.GetSection(CacheOptions.SectionName).Get<CacheOptions>() ?? new CacheOptions();
 
-        if (!cacheOptions.Enabled)
-        {
-            // Register a no-op cache service if caching is disabled
-            services.AddSingleton<ICacheService, NoCacheService>();
-            return services;
-        }
-
-        // Configure Redis connection
-        services.AddSingleton<IConnectionMultiplexer>(provider =>
-        {
-            var connectionString = cacheOptions.ConnectionString;
-            var configurationOptions = ConfigurationOptions.Parse(connectionString);
-
-            configurationOptions.ConnectTimeout = cacheOptions.ConnectTimeout * 1000; // Convert to milliseconds
-            configurationOptions.SyncTimeout = cacheOptions.CommandTimeout * 1000; // Convert to milliseconds
-            configurationOptions.ConnectRetry = cacheOptions.RetryCount;
-            configurationOptions.AbortOnConnectFail = false;
-
-            return ConnectionMultiplexer.Connect(configurationOptions);
-        });
-
-        // Configure distributed cache
-        services.AddStackExchangeRedisCache(options =>
-        {
-            options.Configuration = cacheOptions.ConnectionString;
-            options.InstanceName = cacheOptions.KeyPrefix.TrimEnd(':');
-        });
-
-        // Register cache service
-        services.AddScoped<ICacheService, RedisCacheService>();
-
-        return services;
+        return AddRedisCacheInternal(services, cacheOptions);
     }
 
     /// <summary>
@@ -82,8 +51,20 @@ public static class ServiceCollectionExtensions
             options.CommandTimeout = cacheOptions.CommandTimeout;
         });
 
+        return AddRedisCacheInternal(services, cacheOptions);
+    }
+
+    /// <summary>
+    /// Internal method to configure Redis cache services
+    /// </summary>
+    /// <param name="services">Service collection</param>
+    /// <param name="cacheOptions">Cache options</param>
+    /// <returns>Service collection for chaining</returns>
+    private static IServiceCollection AddRedisCacheInternal(IServiceCollection services, CacheOptions cacheOptions)
+    {
         if (!cacheOptions.Enabled)
         {
+            // Register a no-op cache service if caching is disabled
             services.AddSingleton<ICacheService, NoCacheService>();
             return services;
         }
@@ -94,8 +75,8 @@ public static class ServiceCollectionExtensions
             var connectionString = cacheOptions.ConnectionString;
             var configurationOptions = ConfigurationOptions.Parse(connectionString);
 
-            configurationOptions.ConnectTimeout = cacheOptions.ConnectTimeout * 1000;
-            configurationOptions.SyncTimeout = cacheOptions.CommandTimeout * 1000;
+            configurationOptions.ConnectTimeout = cacheOptions.ConnectTimeout * 1000; // Convert to milliseconds
+            configurationOptions.SyncTimeout = cacheOptions.CommandTimeout * 1000; // Convert to milliseconds
             configurationOptions.ConnectRetry = cacheOptions.RetryCount;
             configurationOptions.AbortOnConnectFail = false;
 
