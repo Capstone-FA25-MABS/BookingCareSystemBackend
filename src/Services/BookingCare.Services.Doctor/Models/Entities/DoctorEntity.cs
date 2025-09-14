@@ -66,4 +66,5 @@ public class DoctorEntity
     // Navigation properties
     public virtual PositionEntity? Position { get; set; }
     public virtual ICollection<DoctorPriceEntity> DoctorPrices { get; set; } = new List<DoctorPriceEntity>();
+    public virtual ICollection<DoctorLanguageEntity> DoctorLanguages { get; set; } = new List<DoctorLanguageEntity>();
 }

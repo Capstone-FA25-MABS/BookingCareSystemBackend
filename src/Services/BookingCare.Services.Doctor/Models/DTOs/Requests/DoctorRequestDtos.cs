@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using BookingCare.Shared.Common.Enums;
 
-namespace BookingCare.Services.Doctor.Models.DTOs;
+namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
 
 // Doctor Request DTOs
 public class CreateDoctorRequest
@@ -42,12 +42,13 @@ public class CreateDoctorRequest
     [Range(0, 50, ErrorMessage = "Years of experience must be between 0 and 50")]
     public int YearsOfExperience { get; set; } = 0;
 
-    [Range(0, 100000000, ErrorMessage = "Price must be positive")]
-    public decimal? Price { get; set; }
-
     [Url(ErrorMessage = "Invalid URL format")]
     [StringLength(500, ErrorMessage = "Avatar URL cannot exceed 500 characters")]
     public string? AvatarUrl { get; set; }
+
+    public List<Guid>? LanguageIds { get; set; }
+
+    public List<DoctorPriceRequest>? Prices { get; set; }
 }
 
 public class UpdateDoctorRequest
@@ -81,12 +82,13 @@ public class UpdateDoctorRequest
     [Range(0, 50, ErrorMessage = "Years of experience must be between 0 and 50")]
     public int? YearsOfExperience { get; set; }
 
-    [Range(0, 100000000, ErrorMessage = "Price must be positive")]
-    public decimal? Price { get; set; }
-
     [Url(ErrorMessage = "Invalid URL format")]
     [StringLength(500, ErrorMessage = "Avatar URL cannot exceed 500 characters")]
     public string? AvatarUrl { get; set; }
+
+    public List<Guid>? LanguageIds { get; set; }
+
+    public List<DoctorPriceRequest>? Prices { get; set; }
 }
 
 public class DoctorQueryRequest
@@ -132,10 +134,23 @@ public class DoctorAdvancedFilterRequest
     public int PageSize { get; set; } = 10;
 }
 
+public class DoctorPriceRequest
+{
+    [Required(ErrorMessage = "Service type ID is required")]
+    public Guid ServiceTypeId { get; set; }
+
+    [Required(ErrorMessage = "Amount is required")]
+    [Range(0, 100000000, ErrorMessage = "Amount must be positive")]
+    public decimal Amount { get; set; }
+}
+
 public class AssignPriceToDoctorRequest
 {
     [Required(ErrorMessage = "Doctor ID is required")]
     public Guid DoctorId { get; set; }
+
+    [Required(ErrorMessage = "Service type ID is required")]
+    public Guid ServiceTypeId { get; set; }
 
     [Required(ErrorMessage = "Amount is required")]
     [Range(0, 100000000, ErrorMessage = "Amount must be positive")]

@@ -1,7 +1,7 @@
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.Entities;
 
-namespace BookingCare.Services.Doctor.Repositories;
+namespace BookingCare.Services.Doctor.Repositories.Interfaces;
 
 public interface IDoctorRepository
 {
@@ -33,4 +33,25 @@ public interface IDoctorRepository
 
     // DoctorPrice Query operations
     Task<List<DoctorPriceEntity>> GetDoctorPricesAsync(Guid doctorId);
+    Task<bool> DeleteAllDoctorPricesAsync(Guid doctorId);
+
+    // Language operations
+    Task<List<LanguageEntity>> GetLanguagesAsync();
+    Task<LanguageEntity?> GetLanguageByIdAsync(Guid id);
+    Task<LanguageEntity> CreateLanguageAsync(LanguageEntity language);
+    Task<LanguageEntity> UpdateLanguageAsync(LanguageEntity language);
+    Task<bool> DeleteLanguageAsync(Guid id);
+
+    // DoctorLanguage operations
+    Task<List<DoctorLanguageEntity>> GetDoctorLanguagesAsync(Guid doctorId);
+    Task<DoctorLanguageEntity> CreateDoctorLanguageAsync(DoctorLanguageEntity doctorLanguage);
+    Task<bool> DeleteDoctorLanguageAsync(Guid doctorId, Guid languageId);
+    Task<bool> DeleteAllDoctorLanguagesAsync(Guid doctorId);
+
+    // ServiceType operations
+    Task<List<ServiceTypeEntity>> GetServiceTypesAsync();
+    Task<ServiceTypeEntity?> GetServiceTypeByIdAsync(Guid id);
+    Task<ServiceTypeEntity> CreateServiceTypeAsync(ServiceTypeEntity serviceType);
+    Task<ServiceTypeEntity> UpdateServiceTypeAsync(ServiceTypeEntity serviceType);
+    Task<bool> DeleteServiceTypeAsync(Guid id);
 }

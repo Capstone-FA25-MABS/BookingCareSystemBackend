@@ -1,9 +1,10 @@
 using BookingCare.Services.Doctor.Data;
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.Entities;
+using BookingCare.Services.Doctor.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace BookingCare.Services.Doctor.Repositories;
+namespace BookingCare.Services.Doctor.Repositories.Implementations;
 
 public class PositionRepository : IPositionRepository
 {

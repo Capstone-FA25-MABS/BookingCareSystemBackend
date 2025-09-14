@@ -1,17 +1,17 @@
-namespace BookingCare.Services.Doctor.Models.DTOs;
+namespace BookingCare.Services.Doctor.Models.DTOs.Responses;
 
-// Position Response DTOs
-public class PositionResponse
+public class ServiceTypeResponse
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
 
-public class PositionListResponse
+public class ServiceTypeListResponse
 {
-    public List<PositionResponse> Positions { get; set; } = new();
+    public List<ServiceTypeResponse> ServiceTypes { get; set; } = new();
     public int TotalCount { get; set; }
     public int PageNumber { get; set; }
     public int PageSize { get; set; }

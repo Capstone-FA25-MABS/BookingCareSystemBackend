@@ -1,6 +1,6 @@
 using BookingCare.Shared.Common.Enums;
 
-namespace BookingCare.Services.Doctor.Models.DTOs;
+namespace BookingCare.Services.Doctor.Models.DTOs.Responses;
 
 // Doctor Response DTOs
 public class DoctorResponse
@@ -24,12 +24,15 @@ public class DoctorResponse
     // Navigation properties
     public PositionResponse? Position { get; set; }
     public List<DoctorPriceResponse> Prices { get; set; } = new();
+    public List<LanguageResponse> Languages { get; set; } = new();
 }
 
 public class DoctorPriceResponse
 {
     public Guid Id { get; set; }
     public Guid DoctorId { get; set; }
+    public Guid ServiceTypeId { get; set; }
+    public string ServiceTypeName { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

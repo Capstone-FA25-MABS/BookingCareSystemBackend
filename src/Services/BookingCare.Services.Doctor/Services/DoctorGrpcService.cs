@@ -1,6 +1,7 @@
 using BookingCare.Services.Doctor.Protos;
-using BookingCare.Services.Doctor.Services;
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
+using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using Grpc.Core;
 using AutoMapper;
 using BookingCare.Shared.Common.Enums;
@@ -33,7 +34,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             _logger.LogInformation("gRPC CreateDoctor called for email: {Email}", request.Email);
 
-            var createRequest = new Models.DTOs.CreateDoctorRequest
+            var createRequest = new Models.DTOs.Requests.CreateDoctorRequest
             {
                 AccountId = Guid.Parse(request.AccountId),
                 Email = request.Email,
@@ -149,7 +150,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             _logger.LogInformation("gRPC UpdateDoctor called for ID: {Id}", request.Id);
 
-            var updateRequest = new Models.DTOs.UpdateDoctorRequest
+            var updateRequest = new Models.DTOs.Requests.UpdateDoctorRequest
             {
                 Id = Guid.Parse(request.Id),
                 Address = request.Address,
@@ -223,7 +224,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             var pageSize = request.PageSize <= 0 ? 1000 : Math.Min(request.PageSize, 1000);
             var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;
 
-            var queryRequest = new Models.DTOs.DoctorQueryRequest
+            var queryRequest = new DoctorQueryRequest
             {
                 PageNumber = pageNumber,
                 PageSize = pageSize,
@@ -304,7 +305,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
     #region Mapping Methods
 
-    private static DoctorSummary MapToDoctorSummary(Models.DTOs.DoctorResponse doctor)
+    private static DoctorSummary MapToDoctorSummary(DoctorResponse doctor)
     {
         var info = new DoctorSummary
         {
@@ -327,7 +328,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         return info;
     }
 
-    private static DoctorDetail MapToDoctorDetail(Models.DTOs.DoctorResponse doctor, bool includePosition, bool includePrices)
+    private static DoctorDetail MapToDoctorDetail(DoctorResponse doctor, bool includePosition, bool includePrices)
     {
         var info = new DoctorDetail
         {

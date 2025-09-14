@@ -1,10 +1,12 @@
 using AutoMapper;
 using BookingCare.Services.Doctor.Exceptions;
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
+using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
-using BookingCare.Services.Doctor.Repositories;
+using BookingCare.Services.Doctor.Repositories.Interfaces;
+using BookingCare.Services.Doctor.Services.Interfaces;
 
-namespace BookingCare.Services.Doctor.Services;
+namespace BookingCare.Services.Doctor.Services.Implementations;
 
 public class PositionService : IPositionService
 {

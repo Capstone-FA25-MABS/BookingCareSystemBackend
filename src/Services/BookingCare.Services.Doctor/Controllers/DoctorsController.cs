@@ -1,5 +1,6 @@
-using BookingCare.Services.Doctor.Models.DTOs;
-using BookingCare.Services.Doctor.Services;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
+using BookingCare.Services.Doctor.Models.DTOs.Responses;
+using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using Microsoft.AspNetCore.Mvc;
 

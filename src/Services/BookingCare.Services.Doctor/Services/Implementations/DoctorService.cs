@@ -1,11 +1,13 @@
 using AutoMapper;
 using BookingCare.Services.Doctor.Exceptions;
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
+using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
-using BookingCare.Services.Doctor.Repositories;
+using BookingCare.Services.Doctor.Repositories.Interfaces;
+using BookingCare.Services.Doctor.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace BookingCare.Services.Doctor.Services;
+namespace BookingCare.Services.Doctor.Services.Implementations;
 
 public class DoctorService : IDoctorService
 {
@@ -53,16 +55,49 @@ public class DoctorService : IDoctorService
 
         var createdDoctor = await _repository.CreateDoctorAsync(doctor);
         
-        // Nếu có truyền Price từ staff, tạo doctor-price
-        if (request.Price.HasValue)
+        // Create doctor prices if provided
+        if (request.Prices != null && request.Prices.Any())
         {
-            var doctorPrice = new DoctorPriceEntity
+            foreach (var priceRequest in request.Prices)
             {
-                Id = Guid.NewGuid(),
-                DoctorId = createdDoctor.Id,
-                Amount = request.Price.Value
-            };
-            await _repository.CreateDoctorPriceAsync(doctorPrice);
+                // Validate service type exists
+                var serviceType = await _repository.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
+                if (serviceType == null)
+                {
+                    throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
+                }
+
+                var doctorPrice = new DoctorPriceEntity
+                {
+                    Id = Guid.NewGuid(),
+                    DoctorId = createdDoctor.Id,
+                    ServiceTypeId = priceRequest.ServiceTypeId,
+                    Amount = priceRequest.Amount
+                };
+                await _repository.CreateDoctorPriceAsync(doctorPrice);
+            }
+        }
+        
+        // Create doctor languages if provided
+        if (request.LanguageIds != null && request.LanguageIds.Any())
+        {
+            foreach (var languageId in request.LanguageIds)
+            {
+                // Validate language exists
+                var language = await _repository.GetLanguageByIdAsync(languageId);
+                if (language == null)
+                {
+                    throw new ArgumentException($"Language with ID {languageId} not found");
+                }
+
+                var doctorLanguage = new DoctorLanguageEntity
+                {
+                    Id = Guid.NewGuid(),
+                    DoctorId = createdDoctor.Id,
+                    LanguageId = languageId
+                };
+                await _repository.CreateDoctorLanguageAsync(doctorLanguage);
+            }
         }
         
         var response = _mapper.Map<DoctorResponse>(createdDoctor);
@@ -114,10 +149,60 @@ public class DoctorService : IDoctorService
         _mapper.Map(request, existingDoctor);
         existingDoctor.UpdatedAt = DateTime.UtcNow;
 
-        // Update price if provided (managed by staff)
-        if (request.Price.HasValue)
+        // Update doctor prices if provided
+        if (request.Prices != null && request.Prices.Any())
         {
-            await UpdateDoctorPriceAsync(existingDoctor, request.Price.Value, true);
+            // Delete existing prices
+            await _repository.DeleteAllDoctorPricesAsync(existingDoctor.Id);
+            
+            // Add new prices
+            foreach (var priceRequest in request.Prices)
+            {
+                // Validate service type exists
+                var serviceType = await _repository.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
+                if (serviceType == null)
+                {
+                    throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
+                }
+
+                var doctorPrice = new DoctorPriceEntity
+                {
+                    Id = Guid.NewGuid(),
+                    DoctorId = existingDoctor.Id,
+                    ServiceTypeId = priceRequest.ServiceTypeId,
+                    Amount = priceRequest.Amount
+                };
+                await _repository.CreateDoctorPriceAsync(doctorPrice);
+            }
+        }
+
+        // Update doctor languages if provided
+        if (request.LanguageIds != null)
+        {
+            // Delete existing languages
+            await _repository.DeleteAllDoctorLanguagesAsync(existingDoctor.Id);
+            
+            // Add new languages
+            if (request.LanguageIds.Any())
+            {
+                foreach (var languageId in request.LanguageIds)
+                {
+                    // Validate language exists
+                    var language = await _repository.GetLanguageByIdAsync(languageId);
+                    if (language == null)
+                    {
+                        throw new ArgumentException($"Language with ID {languageId} not found");
+                    }
+
+                    var doctorLanguage = new DoctorLanguageEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        DoctorId = existingDoctor.Id,
+                        LanguageId = languageId
+                    };
+                    await _repository.CreateDoctorLanguageAsync(doctorLanguage);
+                }
+            }
         }
 
         var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);

@@ -1,5 +1,6 @@
 using AutoMapper;
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
+using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 
 namespace BookingCare.Services.Doctor.Mappings;

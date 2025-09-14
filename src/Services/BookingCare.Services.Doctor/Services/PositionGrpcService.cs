@@ -1,6 +1,7 @@
 using BookingCare.Services.Doctor.Protos;
-using BookingCare.Services.Doctor.Services;
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
+using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using Grpc.Core;
 using AutoMapper;
 
@@ -32,7 +33,7 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
         {
             _logger.LogInformation("gRPC CreatePosition called for name: {Name}", request.Name);
 
-            var createRequest = new Models.DTOs.CreatePositionRequest
+            var createRequest = new Models.DTOs.Requests.CreatePositionRequest
             {
                 Name = request.Name
             };
@@ -102,7 +103,7 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
             _logger.LogInformation("gRPC GetPositions called");
 
             var pageSize = request.PageSize <= 0 ? 1000 : Math.Min(request.PageSize, 1000);
-            var queryRequest = new Models.DTOs.PositionQueryRequest
+            var queryRequest = new PositionQueryRequest
             {
                 PageNumber = request.PageNumber,
                 PageSize = pageSize,
@@ -142,7 +143,7 @@ public class PositionGrpcService : Protos.PositionService.PositionServiceBase
 
     #region Mapping Methods
 
-    private static PositionInfo MapToPositionInfo(Models.DTOs.PositionResponse position)
+    private static PositionInfo MapToPositionInfo(PositionResponse position)
     {
         return new PositionInfo
         {

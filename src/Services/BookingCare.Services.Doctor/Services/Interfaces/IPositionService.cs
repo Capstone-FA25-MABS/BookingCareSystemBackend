@@ -1,6 +1,7 @@
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
+using BookingCare.Services.Doctor.Models.DTOs.Responses;
 
-namespace BookingCare.Services.Doctor.Services;
+namespace BookingCare.Services.Doctor.Services.Interfaces;
 
 public interface IPositionService
 {

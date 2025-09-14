@@ -12,6 +12,9 @@ public class DoctorDbContext : DbContext
     public DbSet<DoctorEntity> Doctors { get; set; }
     public DbSet<PositionEntity> Positions { get; set; }
     public DbSet<DoctorPriceEntity> DoctorPrices { get; set; }
+    public DbSet<LanguageEntity> Languages { get; set; }
+    public DbSet<DoctorLanguageEntity> DoctorLanguages { get; set; }
+    public DbSet<ServiceTypeEntity> ServiceTypes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,6 +72,11 @@ public class DoctorDbContext : DbContext
                 .WithOne(e => e.Doctor)
                 .HasForeignKey(e => e.DoctorId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.DoctorLanguages)
+                .WithOne(e => e.Doctor)
+                .HasForeignKey(e => e.DoctorId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Configure PositionEntity
@@ -114,7 +122,64 @@ public class DoctorDbContext : DbContext
                 .HasForeignKey(e => e.DoctorId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // IsOverride removed
+            entity.HasOne(e => e.ServiceType)
+                .WithMany(e => e.DoctorPrices)
+                .HasForeignKey(e => e.ServiceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configure LanguageEntity
+        modelBuilder.Entity<LanguageEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            
+            entity.Property(e => e.Name)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("GETDATE()");
+        });
+
+        // Configure DoctorLanguageEntity
+        modelBuilder.Entity<DoctorLanguageEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(e => e.Doctor)
+                .WithMany(e => e.DoctorLanguages)
+                .HasForeignKey(e => e.DoctorId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Language)
+                .WithMany(e => e.DoctorLanguages)
+                .HasForeignKey(e => e.LanguageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Unique constraint for doctor-language combination
+            entity.HasIndex(e => new { e.DoctorId, e.LanguageId }).IsUnique();
+        });
+
+        // Configure ServiceTypeEntity
+        modelBuilder.Entity<ServiceTypeEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            
+            entity.Property(e => e.Name)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("GETDATE()");
         });
     }
 
@@ -179,6 +244,38 @@ public class DoctorDbContext : DbContext
             {
                 entry.Entity.UpdatedAt = DateTime.UtcNow;
                 // Prevent overwriting CreatedAt
+                entry.Property(e => e.CreatedAt).IsModified = false;
+            }
+        }
+
+        // Update LanguageEntity timestamps
+        var languageEntries = ChangeTracker.Entries<LanguageEntity>();
+        foreach (var entry in languageEntries)
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+                entry.Property(e => e.CreatedAt).IsModified = false;
+            }
+        }
+
+        // Update ServiceTypeEntity timestamps
+        var serviceTypeEntries = ChangeTracker.Entries<ServiceTypeEntity>();
+        foreach (var entry in serviceTypeEntries)
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = DateTime.UtcNow;
                 entry.Property(e => e.CreatedAt).IsModified = false;
             }
         }

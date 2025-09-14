@@ -1,4 +1,5 @@
-using BookingCare.Services.Doctor.Services;
+using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
 
 namespace BookingCare.Services.Doctor.Services;
 
@@ -79,7 +80,7 @@ public class DoctorBackgroundService : BackgroundService
             _logger.LogInformation("Validating Doctor data integrity...");
 
             // Get all doctors to validate
-            var queryRequest = new Models.DTOs.DoctorQueryRequest
+            var queryRequest = new DoctorQueryRequest
             {
                 PageNumber = 1,
                 PageSize = 100 // Process in batches
@@ -180,7 +181,7 @@ public class DoctorBackgroundService : BackgroundService
             _logger.LogInformation("Checking for doctors to archive...");
 
             // Get all doctors to check for archiving
-            var queryRequest = new Models.DTOs.DoctorQueryRequest
+            var queryRequest = new DoctorQueryRequest
             {
                 PageNumber = 1,
                 PageSize = 100

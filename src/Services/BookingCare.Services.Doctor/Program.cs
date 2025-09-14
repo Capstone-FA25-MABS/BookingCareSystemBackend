@@ -1,5 +1,8 @@
 using BookingCare.Services.Doctor.Data;
-using BookingCare.Services.Doctor.Repositories;
+using BookingCare.Services.Doctor.Repositories.Interfaces;
+using BookingCare.Services.Doctor.Repositories.Implementations;
+using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Services.Doctor.Services.Implementations;
 using BookingCare.Services.Doctor.Services;
 using BookingCare.Services.Doctor.Mappings;
 using BookingCare.Services.Doctor.Middlewares;
@@ -63,10 +66,14 @@ builder.Services.AddDbContext<DoctorDbContext>(options =>
 // Repository registration
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IPositionRepository, PositionRepository>();
+builder.Services.AddScoped<ILanguageRepository, LanguageRepository>();
+builder.Services.AddScoped<IServiceTypeRepository, ServiceTypeRepository>();
 
 // Service registration
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
+builder.Services.AddScoped<ILanguageService, LanguageService>();
+builder.Services.AddScoped<IServiceTypeService, ServiceTypeService>();
 
 // Background services
 builder.Services.AddHostedService<DoctorBackgroundService>();

@@ -1,10 +1,11 @@
 using BookingCare.Services.Doctor.Data;
-using BookingCare.Services.Doctor.Models.DTOs;
+using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.Entities;
+using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Shared.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
-namespace BookingCare.Services.Doctor.Repositories;
+namespace BookingCare.Services.Doctor.Repositories.Implementations;
 
 public class DoctorRepository : IDoctorRepository
 {
@@ -22,6 +23,9 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .FirstOrDefaultAsync(d => d.Id == id);
     }
 
@@ -30,6 +34,9 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .FirstOrDefaultAsync(d => d.Email == email);
     }
 
@@ -38,6 +45,9 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .FirstOrDefaultAsync(d => d.AccountId == accountId);
     }
 
@@ -108,6 +118,9 @@ public class DoctorRepository : IDoctorRepository
         var queryable = _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .AsQueryable();
 
         // Apply filters
@@ -136,9 +149,9 @@ public class DoctorRepository : IDoctorRepository
         if (!string.IsNullOrEmpty(query.Address))
             queryable = queryable.Where(d => d.Address != null && d.Address.Contains(query.Address));
         if (!string.IsNullOrEmpty(query.Language))
-            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains(query.Language));
+            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.Language.Name.Contains(query.Language)));
         if (!string.IsNullOrEmpty(query.ServiceType))
-            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains(query.ServiceType));
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.ServiceType.Name.Contains(query.ServiceType)));
         if (query.MinRating.HasValue)
             queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value));
         
@@ -175,6 +188,9 @@ public class DoctorRepository : IDoctorRepository
         return _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .AsQueryable();
     }
 
@@ -183,6 +199,9 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .Where(d => d.ClinicId == clinicId)
             .ToListAsync();
     }
@@ -192,6 +211,9 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .Where(d => d.SpecialtyId == specialtyId)
             .ToListAsync();
     }
@@ -201,6 +223,9 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .Where(d => d.PositionId == positionId)
             .ToListAsync();
     }
@@ -210,6 +235,9 @@ public class DoctorRepository : IDoctorRepository
         return await _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
             .ToListAsync();
     }
 
@@ -262,11 +290,149 @@ public class DoctorRepository : IDoctorRepository
     {
         return await _context.DoctorPrices
             .Include(dp => dp.Doctor)
+            .Include(dp => dp.ServiceType)
             .Where(dp => dp.DoctorId == doctorId)
             .ToListAsync();
     }
 
-    
+    public async Task<bool> DeleteAllDoctorPricesAsync(Guid doctorId)
+    {
+        var doctorPrices = await _context.DoctorPrices
+            .Where(dp => dp.DoctorId == doctorId)
+            .ToListAsync();
+
+        if (!doctorPrices.Any()) return false;
+
+        _context.DoctorPrices.RemoveRange(doctorPrices);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    #endregion
+
+    #region Language Operations
+
+    public async Task<List<LanguageEntity>> GetLanguagesAsync()
+    {
+        return await _context.Languages
+            .OrderBy(l => l.Name)
+            .ToListAsync();
+    }
+
+    public async Task<LanguageEntity?> GetLanguageByIdAsync(Guid id)
+    {
+        return await _context.Languages
+            .FirstOrDefaultAsync(l => l.Id == id);
+    }
+
+    public async Task<LanguageEntity> CreateLanguageAsync(LanguageEntity language)
+    {
+        _context.Languages.Add(language);
+        await _context.SaveChangesAsync();
+        return language;
+    }
+
+    public async Task<LanguageEntity> UpdateLanguageAsync(LanguageEntity language)
+    {
+        _context.Languages.Update(language);
+        await _context.SaveChangesAsync();
+        return language;
+    }
+
+    public async Task<bool> DeleteLanguageAsync(Guid id)
+    {
+        var language = await GetLanguageByIdAsync(id);
+        if (language == null) return false;
+
+        _context.Languages.Remove(language);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    #endregion
+
+    #region DoctorLanguage Operations
+
+    public async Task<List<DoctorLanguageEntity>> GetDoctorLanguagesAsync(Guid doctorId)
+    {
+        return await _context.DoctorLanguages
+            .Include(dl => dl.Language)
+            .Where(dl => dl.DoctorId == doctorId)
+            .ToListAsync();
+    }
+
+    public async Task<DoctorLanguageEntity> CreateDoctorLanguageAsync(DoctorLanguageEntity doctorLanguage)
+    {
+        _context.DoctorLanguages.Add(doctorLanguage);
+        await _context.SaveChangesAsync();
+        return doctorLanguage;
+    }
+
+    public async Task<bool> DeleteDoctorLanguageAsync(Guid doctorId, Guid languageId)
+    {
+        var doctorLanguage = await _context.DoctorLanguages
+            .FirstOrDefaultAsync(dl => dl.DoctorId == doctorId && dl.LanguageId == languageId);
+        
+        if (doctorLanguage == null) return false;
+
+        _context.DoctorLanguages.Remove(doctorLanguage);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteAllDoctorLanguagesAsync(Guid doctorId)
+    {
+        var doctorLanguages = await _context.DoctorLanguages
+            .Where(dl => dl.DoctorId == doctorId)
+            .ToListAsync();
+
+        if (!doctorLanguages.Any()) return false;
+
+        _context.DoctorLanguages.RemoveRange(doctorLanguages);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    #endregion
+
+    #region ServiceType Operations
+
+    public async Task<List<ServiceTypeEntity>> GetServiceTypesAsync()
+    {
+        return await _context.ServiceTypes
+            .OrderBy(st => st.Name)
+            .ToListAsync();
+    }
+
+    public async Task<ServiceTypeEntity?> GetServiceTypeByIdAsync(Guid id)
+    {
+        return await _context.ServiceTypes
+            .FirstOrDefaultAsync(st => st.Id == id);
+    }
+
+    public async Task<ServiceTypeEntity> CreateServiceTypeAsync(ServiceTypeEntity serviceType)
+    {
+        _context.ServiceTypes.Add(serviceType);
+        await _context.SaveChangesAsync();
+        return serviceType;
+    }
+
+    public async Task<ServiceTypeEntity> UpdateServiceTypeAsync(ServiceTypeEntity serviceType)
+    {
+        _context.ServiceTypes.Update(serviceType);
+        await _context.SaveChangesAsync();
+        return serviceType;
+    }
+
+    public async Task<bool> DeleteServiceTypeAsync(Guid id)
+    {
+        var serviceType = await GetServiceTypeByIdAsync(id);
+        if (serviceType == null) return false;
+
+        _context.ServiceTypes.Remove(serviceType);
+        await _context.SaveChangesAsync();
+        return true;
+    }
 
     #endregion
 }

@@ -10,7 +10,7 @@ GO
 -- =============================================================================
 -- 1. INSERT POSITIONS
 -- =============================================================================
-INSERT INTO Positions (id, name, created_at, updated_at)
+INSERT INTO positions (id, name, created_at, updated_at)
 VALUES 
     (NEWID(), N'Bác sĩ chuyên khoa', GETUTCDATE(), GETUTCDATE()),
     (NEWID(), N'Bác sĩ đa khoa', GETUTCDATE(), GETUTCDATE()),
@@ -25,27 +25,42 @@ VALUES
 GO
 
 -- =============================================================================
--- 2. INSERT PRICES (removed)
+-- 2. INSERT LANGUAGES
 -- =============================================================================
--- Removed since Price entity is deprecated
--- GO
+INSERT INTO languages (id, name, created_at, updated_at)
+VALUES 
+    (NEWID(), N'Tiếng Việt', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'English', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'中文', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'日本語', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'한국어', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Français', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Deutsch', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'Español', GETUTCDATE(), GETUTCDATE());
+GO
 
 -- =============================================================================
--- 3. INSERT PRICE RULES (removed)
+-- 3. INSERT SERVICE TYPES
 -- =============================================================================
--- Removed since price rules are deprecated
--- GO
+INSERT INTO service_types (id, name, description, created_at, updated_at)
+VALUES 
+    (NEWID(), N'IN_PERSON', N'Khám trực tiếp tại phòng khám', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'TELEHEALTH', N'Tư vấn trực tuyến qua video call', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'HOME_VISIT', N'Khám tại nhà bệnh nhân', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'EMERGENCY', N'Cấp cứu khẩn cấp', GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), N'FOLLOW_UP', N'Tái khám theo dõi', GETUTCDATE(), GETUTCDATE());
+GO
 
 -- =============================================================================
 -- 4. INSERT DOCTORS
 -- =============================================================================
-DECLARE @PositionId1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Positions WHERE name = N'Bác sĩ chuyên khoa');
-DECLARE @PositionId2 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Positions WHERE name = N'Bác sĩ đa khoa');
-DECLARE @PositionId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Positions WHERE name = N'Bác sĩ nội khoa');
-DECLARE @PositionId4 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Positions WHERE name = N'Bác sĩ ngoại khoa');
-DECLARE @PositionId5 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Positions WHERE name = N'Bác sĩ nhi khoa');
+DECLARE @PositionId1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM positions WHERE name = N'Bác sĩ chuyên khoa');
+DECLARE @PositionId2 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM positions WHERE name = N'Bác sĩ đa khoa');
+DECLARE @PositionId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM positions WHERE name = N'Bác sĩ nội khoa');
+DECLARE @PositionId4 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM positions WHERE name = N'Bác sĩ ngoại khoa');
+DECLARE @PositionId5 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM positions WHERE name = N'Bác sĩ nhi khoa');
 
-INSERT INTO Doctors (id, account_id, email, address, first_name, last_name, gender, position_id, specialty_id, clinic_id, bio, years_of_experience, avatar_url, created_at, updated_at)
+INSERT INTO doctors (id, account_id, email, address, first_name, last_name, gender, position_id, specialty_id, clinic_id, bio, years_of_experience, avatar_url, created_at, updated_at)
 VALUES 
     (NEWID(), NEWID(), N'dr.nguyen.van.a@bookingcare.com', N'123 Đường Lê Lợi, Quận 1, TP.HCM', N'Nguyễn', N'Văn A', N'MALE', @PositionId1, NEWID(), NEWID(), N'Bác sĩ chuyên khoa tim mạch với hơn 10 năm kinh nghiệm. Tốt nghiệp Đại học Y Hà Nội và có chứng chỉ chuyên khoa tim mạch tại Pháp.', 10, N'https://example.com/avatar1.jpg', GETUTCDATE(), GETUTCDATE()),
     (NEWID(), NEWID(), N'dr.tran.thi.b@bookingcare.com', N'456 Đường Nguyễn Huệ, Quận 1, TP.HCM', N'Trần', N'Thị B', N'FEMALE', @PositionId2, NEWID(), NEWID(), N'Bác sĩ đa khoa có kinh nghiệm 8 năm. Chuyên khám và điều trị các bệnh thông thường, tư vấn sức khỏe tổng quát.', 8, N'https://example.com/avatar2.jpg', GETUTCDATE(), GETUTCDATE()),
@@ -60,40 +75,91 @@ VALUES
 GO
 
 -- =============================================================================
--- 5. INSERT DOCTOR-PRICE RELATIONSHIPS (now amount stored directly on doctor_prices)
+-- 5. INSERT DOCTOR-PRICE RELATIONSHIPS + DOCTOR LANGUAGES (gộp cùng batch)
 -- =============================================================================
-DECLARE @DoctorId1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Nguyễn' AND last_name = N'Văn A');
-DECLARE @DoctorId2 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Trần' AND last_name = N'Thị B');
-DECLARE @DoctorId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Lê' AND last_name = N'Văn C');
-DECLARE @DoctorId4 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Phạm' AND last_name = N'Thị D');
-DECLARE @DoctorId5 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Hoàng' AND last_name = N'Văn E');
-DECLARE @DoctorId6 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Vũ' AND last_name = N'Thị F');
-DECLARE @DoctorId7 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Đặng' AND last_name = N'Văn G');
-DECLARE @DoctorId8 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Bùi' AND last_name = N'Thị H');
-DECLARE @DoctorId9 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Ngô' AND last_name = N'Văn I');
-DECLARE @DoctorId10 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM Doctors WHERE first_name = N'Lý' AND last_name = N'Thị J');
+DECLARE @DoctorId1 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Nguyễn' AND last_name = N'Văn A');
+DECLARE @DoctorId2 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Trần' AND last_name = N'Thị B');
+DECLARE @DoctorId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Lê' AND last_name = N'Văn C');
+DECLARE @DoctorId4 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Phạm' AND last_name = N'Thị D');
+DECLARE @DoctorId5 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Hoàng' AND last_name = N'Văn E');
+DECLARE @DoctorId6 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Vũ' AND last_name = N'Thị F');
+DECLARE @DoctorId7 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Đặng' AND last_name = N'Văn G');
+DECLARE @DoctorId8 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Bùi' AND last_name = N'Thị H');
+DECLARE @DoctorId9 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Ngô' AND last_name = N'Văn I');
+DECLARE @DoctorId10 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM doctors WHERE first_name = N'Lý' AND last_name = N'Thị J');
 
--- Insert direct amounts for each doctor
-INSERT INTO doctor_prices (id, doctor_id, amount, created_at, updated_at)
+-- Get service type IDs
+DECLARE @ServiceTypeInPerson UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM service_types WHERE name = N'IN_PERSON');
+DECLARE @ServiceTypeTelehealth UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM service_types WHERE name = N'TELEHEALTH');
+DECLARE @ServiceTypeHomeVisit UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM service_types WHERE name = N'HOME_VISIT');
+
+-- Insert doctor prices
+INSERT INTO doctor_prices (id, doctor_id, service_type_id, amount, created_at, updated_at)
 VALUES 
-    (NEWID(), @DoctorId1, 500000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId2, 300000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId3, 600000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId4, 700000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId5, 800000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId6, 550000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId7, 350000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId8, 650000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId9, 750000, GETUTCDATE(), GETUTCDATE()),
-    (NEWID(), @DoctorId10, 850000, GETUTCDATE(), GETUTCDATE());
+    (NEWID(), @DoctorId1, @ServiceTypeInPerson, 500000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId1, @ServiceTypeTelehealth, 300000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId2, @ServiceTypeInPerson, 300000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId2, @ServiceTypeTelehealth, 200000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId3, @ServiceTypeInPerson, 600000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId3, @ServiceTypeHomeVisit, 800000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId4, @ServiceTypeInPerson, 700000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId4, @ServiceTypeTelehealth, 400000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId5, @ServiceTypeInPerson, 800000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId5, @ServiceTypeHomeVisit, 1000000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId6, @ServiceTypeInPerson, 550000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId6, @ServiceTypeTelehealth, 350000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId7, @ServiceTypeInPerson, 350000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId7, @ServiceTypeTelehealth, 250000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId8, @ServiceTypeInPerson, 650000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId8, @ServiceTypeHomeVisit, 900000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId9, @ServiceTypeInPerson, 750000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId9, @ServiceTypeTelehealth, 450000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId10, @ServiceTypeInPerson, 850000, GETUTCDATE(), GETUTCDATE()),
+    (NEWID(), @DoctorId10, @ServiceTypeHomeVisit, 1100000, GETUTCDATE(), GETUTCDATE());
+
+-- Get language IDs
+DECLARE @LanguageVietnamese UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM languages WHERE name = N'Tiếng Việt');
+DECLARE @LanguageEnglish UNIQUEIDENTIFIER   = (SELECT TOP 1 id FROM languages WHERE name = N'English');
+DECLARE @LanguageChinese UNIQUEIDENTIFIER   = (SELECT TOP 1 id FROM languages WHERE name = N'中文');
+DECLARE @LanguageJapanese UNIQUEIDENTIFIER  = (SELECT TOP 1 id FROM languages WHERE name = N'日本語');
+DECLARE @LanguageKorean UNIQUEIDENTIFIER    = (SELECT TOP 1 id FROM languages WHERE name = N'한국어');
+
+-- Insert doctor languages
+INSERT INTO doctor_languages (id, doctor_id, language_id)
+VALUES 
+    (NEWID(), @DoctorId1, @LanguageVietnamese),
+    (NEWID(), @DoctorId1, @LanguageEnglish),
+    (NEWID(), @DoctorId1, @LanguageChinese),
+    (NEWID(), @DoctorId2, @LanguageVietnamese),
+    (NEWID(), @DoctorId2, @LanguageEnglish),
+    (NEWID(), @DoctorId3, @LanguageVietnamese),
+    (NEWID(), @DoctorId3, @LanguageEnglish),
+    (NEWID(), @DoctorId3, @LanguageJapanese),
+    (NEWID(), @DoctorId4, @LanguageVietnamese),
+    (NEWID(), @DoctorId4, @LanguageEnglish),
+    (NEWID(), @DoctorId4, @LanguageKorean),
+    (NEWID(), @DoctorId5, @LanguageVietnamese),
+    (NEWID(), @DoctorId5, @LanguageEnglish),
+    (NEWID(), @DoctorId5, @LanguageChinese),
+    (NEWID(), @DoctorId6, @LanguageVietnamese),
+    (NEWID(), @DoctorId6, @LanguageEnglish),
+    (NEWID(), @DoctorId7, @LanguageVietnamese),
+    (NEWID(), @DoctorId7, @LanguageEnglish),
+    (NEWID(), @DoctorId7, @LanguageJapanese),
+    (NEWID(), @DoctorId8, @LanguageVietnamese),
+    (NEWID(), @DoctorId8, @LanguageEnglish),
+    (NEWID(), @DoctorId8, @LanguageKorean),
+    (NEWID(), @DoctorId9, @LanguageVietnamese),
+    (NEWID(), @DoctorId9, @LanguageEnglish),
+    (NEWID(), @DoctorId9, @LanguageChinese),
+    (NEWID(), @DoctorId10, @LanguageVietnamese),
+    (NEWID(), @DoctorId10, @LanguageEnglish);
 GO
 
 -- =============================================================================
 -- 6. INSERT ADDITIONAL SAMPLE DATA FOR TESTING
 -- =============================================================================
-
--- Insert more positions
-INSERT INTO Positions (id, name, created_at, updated_at)
+INSERT INTO positions (id, name, created_at, updated_at)
 VALUES 
     (NEWID(), N'Bác sĩ tâm thần', GETUTCDATE(), GETUTCDATE()),
     (NEWID(), N'Bác sĩ vật lý trị liệu', GETUTCDATE(), GETUTCDATE()),
@@ -102,39 +168,13 @@ VALUES
     (NEWID(), N'Bác sĩ cấp cứu', GETUTCDATE(), GETUTCDATE());
 GO
 
--- Removed additional prices section
--- GO
-
 -- =============================================================================
 -- VERIFICATION QUERIES
 -- =============================================================================
-
--- Check inserted data
-SELECT 'Positions' as table_name, COUNT(*) as record_count FROM Positions
+SELECT 'positions' as table_name, COUNT(*) as record_count FROM positions
 UNION ALL
-SELECT 'Doctors' as table_name, COUNT(*) as record_count FROM Doctors
+SELECT 'languages' as table_name, COUNT(*) as record_count FROM languages
 UNION ALL
-SELECT 'doctor_prices' as table_name, COUNT(*) as record_count FROM doctor_prices;
-
--- Show sample data
-SELECT TOP 5 p.name as position_name
-FROM Positions p;
-
--- price_rules removed
-
-SELECT TOP 5 d.first_name + ' ' + d.last_name as doctor_name, d.email, d.years_of_experience, p.name as position_name
-FROM Doctors d
-LEFT JOIN Positions p ON d.position_id = p.id;
-
-SELECT TOP 5 d.first_name + ' ' + d.last_name as doctor_name, dp.amount as price_amount
-FROM doctor_prices dp
-JOIN Doctors d ON dp.doctor_id = d.id;
-
-PRINT 'Sample data insertion completed successfully!';
-PRINT 'Total records inserted:';
-PRINT '- Positions: 15 records';
--- Prices and Price Rules removed
-PRINT '- Doctors: 10 records';
-PRINT '- Doctor-Price Relationships: 10 records';
-
-
+SELECT 'service_types' as table_name, COUNT(*) as record_count FROM service_types
+UNION ALL
+SELECT 'doctors' as table_name, COUNT(*) as record_count FROM doctors
