@@ -1,6 +1,6 @@
 using BookingCare.Services.Auth.Models.DTOs;
 using BookingCare.Services.Auth.Models.Entities;
-
+using Microsoft.AspNetCore.Identity;
 namespace BookingCare.Services.Auth.Repositories;
 
 /// <summary>
@@ -73,4 +73,9 @@ public interface IAuthRepository
     Task<RefreshTokenEntity> CreateRefreshTokenAsync(Guid accountId);
     Task<(bool IsValid, AccountEntity? Account, RefreshTokenEntity? Token)> ValidateRefreshTokenAsync(string token);
     Task<bool> DeleteRefreshTokenAsync(string token);
+
+    // External Login operations
+    Task<IdentityResult> CreateAccountAsync(AccountEntity user);
+    Task<bool> HasExternalLoginAsync(Guid userId, string loginProvider, string providerKey);
+    Task AddExternalLoginAsync(Guid userId, string loginProvider, string providerKey);
 }

@@ -1169,4 +1169,72 @@ public class AuthRepository : IAuthRepository
     }
 
     #endregion
+
+    #region External Login Operations
+
+    /// <summary>
+    /// Create user
+    /// </summary>
+    public async Task<IdentityResult> CreateAccountAsync(AccountEntity user)
+    {
+        try
+        {
+            return await _userManager.CreateAsync(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating user: {Email}", user.Email);
+            throw new AuthException("Failed to create user", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Check if user has external login
+    /// </summary>
+    public async Task<bool> HasExternalLoginAsync(Guid userId, string loginProvider, string providerKey)
+    {
+        try
+        {
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null) return false;
+
+            var logins = await _userManager.GetLoginsAsync(user);
+            return logins.Any(l => l.LoginProvider == loginProvider && l.ProviderKey == providerKey);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking external login for user: {UserId}", userId);
+            throw new AuthException("Failed to check external login", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Add external login to user
+    /// </summary>
+    public async Task AddExternalLoginAsync(Guid userId, string loginProvider, string providerKey)
+    {
+        try
+        {
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                throw new AuthException("User not found");
+            }
+
+            var loginInfo = new UserLoginInfo(loginProvider, providerKey, loginProvider);
+            var result = await _userManager.AddLoginAsync(user, loginInfo);
+            
+            if (!result.Succeeded)
+            {
+                throw new AuthException($"Failed to add external login: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding external login for user: {UserId}", userId);
+            throw new AuthException("Failed to add external login", innerException: ex);
+        }
+    }
+
+    #endregion
 }
