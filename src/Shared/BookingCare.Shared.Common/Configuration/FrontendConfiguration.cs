@@ -13,13 +13,13 @@ public static class FrontendConfiguration
     public static class Defaults
     {
         public const string ClientBaseUrl = "http://localhost:3000/";
-        public const string AdminBaseUrl = "http://localhost:3002/";
+        public const string AdminBaseUrl = "http://localhost:5174/";
         public const string DefaultBaseUrl = "http://localhost:3000/";
 
         public static readonly IReadOnlyDictionary<string, string> HostMap =
             new ReadOnlyDictionary<string, string>(new Dictionary<string, string>
             {
-                { "localhost:3002", "admin" },
+                { "localhost:5174", "admin" },
                 { "localhost:3000", "client" }
             });
     }

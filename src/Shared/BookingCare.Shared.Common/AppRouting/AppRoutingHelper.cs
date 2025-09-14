@@ -22,8 +22,9 @@ namespace BookingCare.Shared.Common.AppRouting
             {
                 try
                 {
-                    var host = new Uri(origin).Host.ToLowerInvariant();
-                    if (options.HostMap.TryGetValue(host, out var mapped))
+                    var uri = new Uri(origin);
+                    var hostWithPort = $"{uri.Host.ToLowerInvariant()}:{uri.Port}";
+                    if (options.HostMap.TryGetValue(hostWithPort, out var mapped))
                     {
                         return mapped;
                     }
