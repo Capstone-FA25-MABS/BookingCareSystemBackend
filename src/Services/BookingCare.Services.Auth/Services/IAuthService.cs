@@ -18,6 +18,10 @@ public interface IAuthService
     Task<bool> ResetPasswordAsync(ResetPasswordRequest request);
     Task<ResetTokenResponse> ResetTokenAsync(ResetTokenRequest request);
 
+    // External authentication operations
+    Task<AuthResponse> GoogleLoginAsync(ExternalAuthRequest request);
+    Task<AuthResponse> FacebookLoginAsync(ExternalAuthRequest request);
+
     // Account operations
     Task<Status?> ToggleAccountActiveStatusAsync(Guid id);
     Task<bool> LockAccountAsync(Guid id);

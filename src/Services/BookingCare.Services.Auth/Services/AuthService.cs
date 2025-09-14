@@ -12,6 +12,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Protos;
 using BookingCare.Services.Auth.Utils;
+using System.Security.Principal;
 
 namespace BookingCare.Services.Auth.Services;
 
@@ -27,6 +28,7 @@ public class AuthService : BaseService, IAuthService
     private readonly CookieService _cookieService;
     private readonly IEventBus _eventBus;
     private readonly OtpVerifier.OtpVerifierClient _otpClient;
+    private readonly ExternalAuthProviderService _externalAuthProviderService;
 
     public AuthService(
         IAuthRepository authRepository,
@@ -36,6 +38,7 @@ public class AuthService : BaseService, IAuthService
         JwtService jwtService,
         CookieService cookieService,
         IEventBus eventBus,
+        ExternalAuthProviderService externalAuthProviderService,
         OtpVerifier.OtpVerifierClient? otpClient = null) : base(logger)
     {
         _authRepository = authRepository;
@@ -44,6 +47,7 @@ public class AuthService : BaseService, IAuthService
         _jwtService = jwtService;
         _cookieService = cookieService;
         _eventBus = eventBus;
+        _externalAuthProviderService = externalAuthProviderService;
         _otpClient = otpClient!;
     }
 
@@ -64,7 +68,7 @@ public class AuthService : BaseService, IAuthService
             var account = await FindAccountByEmailOrPhoneAsync(request.Email, request.PhoneNumber);
             if (account == null)
             {
-                throw new AuthenticationException($"Account with email or phone '{loginIdentifier}' not found");
+                throw new AuthenticationException($"Invalid email, phone number, or password");
             }
 
             // Check account status first
@@ -85,21 +89,10 @@ public class AuthService : BaseService, IAuthService
                 throw new AuthenticationException("Invalid email, phone number, or password");
             }
 
-            // Generate JWT access token with roles and permissions
-            var accessToken = await _jwtService.GenerateAccessTokenAsync(account);
-
-            // Generate and store refresh token
-            var refreshTokenEntity = await _authRepository.CreateRefreshTokenAsync(account.Id);
-
-            // Save tokens in cookies
-            _cookieService.SaveTokensInCookies(account.Id, accessToken, refreshTokenEntity.Token);
-
             LogInfo("Login successful for: {LoginIdentifier}", null, loginIdentifier!);
 
-            return new AuthResponse
-            {
-                Message = "Login successful",
-            };
+            return await GenerateAuthResponseAsync(account, "Login successful");
+            
         }, "Login");
     }
 
@@ -1088,6 +1081,180 @@ public class AuthService : BaseService, IAuthService
     {
         var separator = baseUrl.EndsWith('/') ? string.Empty : "/";
         return $"{baseUrl}{separator}reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+    }
+
+    #endregion
+
+    #region External Authentication Operations
+
+    /// <summary>
+    /// Authenticate account with Google access token
+    /// </summary>
+    public async Task<AuthResponse> GoogleLoginAsync(ExternalAuthRequest request)
+    {
+        return await ExternalLoginAsync(
+            request.AccessToken,
+            "Google",
+            "LoginGoogle",
+            async token => await _externalAuthProviderService.VerifyGoogleAccessTokenAsync(token),
+            userInfo => userInfo?.Sub,
+            userInfo => userInfo?.Email,
+            "Invalid Google access token",
+            "Google login successful"
+        );
+    }
+
+    /// <summary>
+    /// Authenticate user with Facebook access token
+    /// </summary>
+    public async Task<AuthResponse> FacebookLoginAsync(ExternalAuthRequest request)
+    {
+        return await ExternalLoginAsync(
+            request.AccessToken,
+            "Facebook", 
+            "LoginFacebook",
+            async token => await _externalAuthProviderService.VerifyFacebookAccessTokenAsync(token),
+            userInfo => userInfo?.Id,
+            userInfo => userInfo?.Email,
+            "Invalid Facebook access token",
+            "Facebook login successful"
+        );
+    }
+
+    /// <summary>
+    /// Common external authentication flow for Google and Facebook
+    /// </summary>
+    private async Task<AuthResponse> ExternalLoginAsync<T>(
+        string accessToken,
+        string providerName,
+        string operationName,
+        Func<string, Task<T?>> tokenVerifier,
+        Func<T, string?> userIdExtractor,
+        Func<T, string?> emailExtractor,
+        string invalidTokenMessage,
+        string successMessage) where T : class
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            // Verify access token and get user info
+            var userInfo = await tokenVerifier(accessToken);
+            if (userInfo == null)
+            {
+                throw new UnauthorizedAccessException(invalidTokenMessage);
+            }
+
+            var email = emailExtractor(userInfo);
+            var userId = userIdExtractor(userInfo);
+
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(userId))
+            {
+                throw new UnauthorizedAccessException($"Invalid {providerName} user information");
+            }
+
+            // Check if account exists by email
+            var existingAccount = await _authRepository.GetAccountByEmailAsync(email);
+            if (existingAccount != null)
+            {
+                return await HandleExistingAccountLoginAsync(existingAccount, providerName, userId, successMessage);
+            }
+            else
+            {
+                return await CreateNewAccountAndLoginAsync(email, providerName, userId, successMessage);
+            }
+        }, operationName);
+    }
+
+    /// <summary>
+    /// Handle login for existing accounts
+    /// </summary>
+    private async Task<AuthResponse> HandleExistingAccountLoginAsync(
+        AccountEntity existingAccount, 
+        string providerName, 
+        string userId, 
+        string successMessage)
+    {
+        // Check account status first
+        if (existingAccount.Status != Status.ACTIVE)
+        {
+            throw new AuthenticationException("Account is not active");
+        }
+
+        // Check if account is locked out
+        if (await _authRepository.IsAccountLockedOutAsync(existingAccount))
+        {
+            throw new AuthenticationException("Account is temporarily locked due to too many failed login attempts");
+        }
+
+        // Check if account already has this external login
+        var hasExternalLogin = await _authRepository.HasExternalLoginAsync(existingAccount.Id, providerName, userId);
+        if (!hasExternalLogin)
+        {
+            // Add external login to existing account
+            await _authRepository.AddExternalLoginAsync(existingAccount.Id, providerName, userId);
+        }
+
+        return await GenerateAuthResponseAsync(existingAccount, successMessage);
+    }
+
+    /// <summary>
+    /// Create new account and login
+    /// </summary>
+    private async Task<AuthResponse> CreateNewAccountAndLoginAsync(
+        string email, 
+        string providerName, 
+        string userId, 
+        string successMessage)
+    {
+        // Create new account
+        var newAccount = new AccountEntity
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true, // External provider email is already verified
+        };
+
+        // Validate role exists BEFORE creating account
+        var targetRole = await _authRepository.GetRoleByNameAsync("Patient");
+        if (targetRole == null)
+        {
+            throw new ValidationException("Role Patient does not exist in the system. Cannot create account without valid role.");
+        }
+
+        var result = await _authRepository.CreateAccountAsync(newAccount);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException($"Failed to create account: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+        }
+
+        // Add external login
+        await _authRepository.AddExternalLoginAsync(newAccount.Id, providerName, userId);
+
+        // Assign role to account (guaranteed to exist)
+        await _authRepository.AssignRoleToAccountAsync(newAccount, targetRole);
+        LogInfo("Role '{Role}' assigned to account: {Email}", null, "Patient", newAccount.Email);
+
+        return await GenerateAuthResponseAsync(newAccount, successMessage);
+    }
+
+    /// <summary>
+    /// Generate authentication response with tokens
+    /// </summary>
+    private async Task<AuthResponse> GenerateAuthResponseAsync(AccountEntity account, string message)
+    {
+        // Generate JWT access token with roles and permissions
+        var accessToken = await _jwtService.GenerateAccessTokenAsync(account);
+
+        // Generate and store refresh token
+        var refreshTokenEntity = await _authRepository.CreateRefreshTokenAsync(account.Id);
+
+        // Save tokens in cookies
+        _cookieService.SaveTokensInCookies(account.Id, accessToken, refreshTokenEntity.Token);
+
+        return new AuthResponse
+        {
+            Message = message,
+            Token = accessToken
+        };
     }
 
     #endregion
