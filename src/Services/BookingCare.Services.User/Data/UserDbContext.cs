@@ -39,11 +39,14 @@ public class UserDbContext : DbContext
                 .HasMaxLength(20)
                 .HasConversion<string>();
 
+            entity.Property(e => e.DateOfBirth)
+                .IsRequired(false);
+
             entity.Property(e => e.Address)
                 .HasColumnType("nvarchar(max)");
 
             entity.Property(e => e.Phone)
-                .HasMaxLength(20);
+                .HasMaxLength(10);
 
             entity.Property(e => e.AvatarUrl)
                 .HasDefaultValue("https://bookingcaree.com/user-avatar-default.png");
@@ -53,16 +56,6 @@ public class UserDbContext : DbContext
 
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
-
-            // Unique constraints
-            entity.HasIndex(e => e.Email).IsUnique();
-            entity.HasIndex(e => e.AccountId).IsUnique();
-
-            // Foreign key relationship (will be configured when we have access to ApplicationUser)
-            // entity.HasOne(e => e.Account)
-            //     .WithOne()
-            //     .HasForeignKey<User>(e => e.AccountId)
-            //     .OnDelete(DeleteBehavior.Cascade);
         });
     }
 

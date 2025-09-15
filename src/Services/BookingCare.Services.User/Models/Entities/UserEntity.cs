@@ -28,11 +28,12 @@ public class UserEntity
     [MaxLength(20)]
     public Gender? Gender { get; set; }
 
+    public DateTime? DateOfBirth { get; set; }
+
     public string? Address { get; set; }
 
-    [Required]
-    [MaxLength(20)]
-    public string Phone { get; set; }
+    [MaxLength(10)]
+    public string? Phone { get; set; }
 
     public string AvatarUrl { get; set; } = "https://bookingcaree.com/user-avatar-default.png";
 
@@ -42,6 +43,4 @@ public class UserEntity
     [Required]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    // Navigation properties
-    // public virtual ApplicationUser Account { get; set; } = null!; // Will be configured when we have access to Auth service
 }
