@@ -269,10 +269,10 @@ public abstract class UserInfoBase
 public class GoogleUserInfo : UserInfoBase
 {
     public string Sub { get; set; } = string.Empty;
-    
+
     [JsonIgnore]
     public override string Id => Sub;
-    
+
     public bool EmailVerified { get; set; }
 }
 
@@ -284,19 +284,19 @@ public class FacebookUserInfo : UserInfoBase
 {
     [JsonPropertyName("id")]
     public string FacebookId { get; set; } = string.Empty;
-    
+
     [JsonIgnore]
     public override string Id => FacebookId;
-    
+
     [JsonPropertyName("name")]
     public override string Name { get; set; } = string.Empty;
-    
+
     [JsonPropertyName("email")]
     public override string Email { get; set; } = string.Empty;
-    
+
     [JsonPropertyName("picture")]
     public FacebookPicture? FacebookPicture { get; set; }
-    
+
     [JsonIgnore]
     public override string? Picture => FacebookPicture?.Data?.Url;
 }
@@ -317,13 +317,13 @@ public class FacebookPictureData
 {
     [JsonPropertyName("height")]
     public int Height { get; set; }
-    
+
     [JsonPropertyName("is_silhouette")]
     public bool IsSilhouette { get; set; }
-    
+
     [JsonPropertyName("url")]
     public string Url { get; set; } = string.Empty;
-    
+
     [JsonPropertyName("width")]
     public int Width { get; set; }
 }

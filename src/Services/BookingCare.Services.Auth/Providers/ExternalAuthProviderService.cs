@@ -25,7 +25,7 @@ public class GoogleAuthProvider : ExternalAuthProviderBase
         {
             // Get user info from Google
             var userInfo = await GetJsonAsync<GoogleUserInfoResponse>(
-                $"https://www.googleapis.com/oauth2/v2/userinfo?access_token={accessToken}", 
+                $"https://www.googleapis.com/oauth2/v2/userinfo?access_token={accessToken}",
                 logContent: true);
 
             if (userInfo == null || string.IsNullOrEmpty(userInfo.Id) || string.IsNullOrEmpty(userInfo.Email))
@@ -40,7 +40,7 @@ public class GoogleAuthProvider : ExternalAuthProviderBase
 
             if (tokenInfo?.Audience != _clientId)
             {
-                Logger.LogWarning("Google token audience mismatch. Expected={Expected}, Got={Actual}", 
+                Logger.LogWarning("Google token audience mismatch. Expected={Expected}, Got={Actual}",
                     _clientId, tokenInfo?.Audience);
                 return null;
             }
@@ -89,7 +89,7 @@ public class FacebookAuthProvider : ExternalAuthProviderBase
         {
             // Verify token
             var verifyResult = await GetJsonAsync<FacebookTokenVerifyResult>(
-                $"https://graph.facebook.com/debug_token?input_token={accessToken}&access_token={_appId}|{_appSecret}", 
+                $"https://graph.facebook.com/debug_token?input_token={accessToken}&access_token={_appId}|{_appSecret}",
                 logContent: true);
 
             if (verifyResult?.Data == null || verifyResult.Data.AppId != _appId || !verifyResult.Data.IsValid)
@@ -100,7 +100,7 @@ public class FacebookAuthProvider : ExternalAuthProviderBase
 
             // Get user info
             var userInfo = await GetJsonAsync<FacebookUserInfo>(
-                $"https://graph.facebook.com/me?fields=id,name,email,picture&access_token={accessToken}", 
+                $"https://graph.facebook.com/me?fields=id,name,email,picture&access_token={accessToken}",
                 logContent: true);
 
             if (userInfo == null || string.IsNullOrEmpty(userInfo.Id) || string.IsNullOrEmpty(userInfo.Email))
@@ -135,8 +135,8 @@ public class ExternalAuthProviderService
     {
         _providers = providers.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
         _logger = logger;
-        
-        _logger.LogInformation("Initialized ExternalAuthProviderService with providers: {Providers}", 
+
+        _logger.LogInformation("Initialized ExternalAuthProviderService with providers: {Providers}",
             string.Join(", ", _providers.Keys));
     }
 
@@ -165,7 +165,7 @@ public class ExternalAuthProviderService
     {
         if (!_providers.TryGetValue(providerName, out var provider))
         {
-            _logger.LogError("Unsupported provider: {ProviderName}. Available providers: {AvailableProviders}", 
+            _logger.LogError("Unsupported provider: {ProviderName}. Available providers: {AvailableProviders}",
                 providerName, string.Join(", ", _providers.Keys));
             throw new InvalidOperationException($"Unsupported provider: {providerName}");
         }

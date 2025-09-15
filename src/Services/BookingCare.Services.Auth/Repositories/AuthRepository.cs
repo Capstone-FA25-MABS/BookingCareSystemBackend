@@ -1223,7 +1223,7 @@ public class AuthRepository : IAuthRepository
 
             var loginInfo = new UserLoginInfo(loginProvider, providerKey, loginProvider);
             var result = await _userManager.AddLoginAsync(user, loginInfo);
-            
+
             if (!result.Succeeded)
             {
                 throw new AuthException($"Failed to add external login: {string.Join(", ", result.Errors.Select(e => e.Description))}");

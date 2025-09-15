@@ -92,7 +92,7 @@ public class AuthService : BaseService, IAuthService
             LogInfo("Login successful for: {LoginIdentifier}", null, loginIdentifier!);
 
             return await GenerateAuthResponseAsync(account, "Login successful");
-            
+
         }, "Login");
     }
 
@@ -1111,7 +1111,7 @@ public class AuthService : BaseService, IAuthService
     {
         return await ExternalLoginAsync(
             request.AccessToken,
-            "Facebook", 
+            "Facebook",
             "LoginFacebook",
             async token => await _externalAuthProviderService.VerifyFacebookAccessTokenAsync(token),
             userInfo => userInfo?.Id,
@@ -1168,9 +1168,9 @@ public class AuthService : BaseService, IAuthService
     /// Handle login for existing accounts
     /// </summary>
     private async Task<AuthResponse> HandleExistingAccountLoginAsync(
-        AccountEntity existingAccount, 
-        string providerName, 
-        string userId, 
+        AccountEntity existingAccount,
+        string providerName,
+        string userId,
         string successMessage)
     {
         // Check account status first
@@ -1200,9 +1200,9 @@ public class AuthService : BaseService, IAuthService
     /// Create new account and login
     /// </summary>
     private async Task<AuthResponse> CreateNewAccountAndLoginAsync(
-        string email, 
-        string providerName, 
-        string userId, 
+        string email,
+        string providerName,
+        string userId,
         string successMessage)
     {
         // Create new account

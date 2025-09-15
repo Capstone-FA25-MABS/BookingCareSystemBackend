@@ -12,7 +12,7 @@ public class AuthMappingProfile : Profile
     public AuthMappingProfile()
     {
         // Entity to Response mappings
-        CreateMap<AccountEntity, AccountResponse>(); 
+        CreateMap<AccountEntity, AccountResponse>();
         CreateMap<RoleEntity, RoleResponse>();
         CreateMap<PermissionEntity, PermissionResponse>();
         CreateMap<AccountRoleEntity, AccountRoleResponse>();
