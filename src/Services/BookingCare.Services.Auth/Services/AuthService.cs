@@ -12,7 +12,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Protos;
 using BookingCare.Services.Auth.Utils;
-using System.Security.Principal;
+using BookingCare.Services.Auth.Providers;
 
 namespace BookingCare.Services.Auth.Services;
 

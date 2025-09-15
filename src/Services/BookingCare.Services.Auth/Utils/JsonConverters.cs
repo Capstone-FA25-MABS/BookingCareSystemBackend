@@ -24,3 +24,4 @@ public class StringToBoolConverter : JsonConverter<bool>
         writer.WriteBooleanValue(value);
     }
 }
+

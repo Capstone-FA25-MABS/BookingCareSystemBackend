@@ -253,14 +253,26 @@ public class ExternalAuthRequest
 
 
 /// <summary>
+/// Base class for external user information
+/// </summary>
+public abstract class UserInfoBase
+{
+    public abstract string Id { get; }
+    public virtual string Email { get; set; } = string.Empty;
+    public virtual string Name { get; set; } = string.Empty;
+    public virtual string? Picture { get; set; }
+}
+
+/// <summary>
 /// External user information from Google
 /// </summary>
-public class GoogleUserInfo
+public class GoogleUserInfo : UserInfoBase
 {
     public string Sub { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string? Picture { get; set; }
+    
+    [JsonIgnore]
+    public override string Id => Sub;
+    
     public bool EmailVerified { get; set; }
 }
 
@@ -268,19 +280,25 @@ public class GoogleUserInfo
 /// <summary>
 /// External user information from Facebook
 /// </summary>
-public class FacebookUserInfo
+public class FacebookUserInfo : UserInfoBase
 {
     [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
+    public string FacebookId { get; set; } = string.Empty;
+    
+    [JsonIgnore]
+    public override string Id => FacebookId;
     
     [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
+    public override string Name { get; set; } = string.Empty;
     
     [JsonPropertyName("email")]
-    public string Email { get; set; } = string.Empty;
+    public override string Email { get; set; } = string.Empty;
     
     [JsonPropertyName("picture")]
-    public FacebookPicture? Picture { get; set; }
+    public FacebookPicture? FacebookPicture { get; set; }
+    
+    [JsonIgnore]
+    public override string? Picture => FacebookPicture?.Data?.Url;
 }
 
 /// <summary>

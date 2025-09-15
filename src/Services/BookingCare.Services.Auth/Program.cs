@@ -14,6 +14,7 @@ using BookingCare.Shared.Common.AppRouting;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Services.Auth.Providers;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -99,8 +100,14 @@ builder.Services.AddScoped<AuthGrpcService>();
 builder.Services.AddScoped<DataInitializationService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<CookieService>();
+// Register External Auth Providers
+builder.Services.AddHttpClient<GoogleAuthProvider>();
+builder.Services.AddHttpClient<FacebookAuthProvider>();
+builder.Services.AddScoped<GoogleAuthProvider>();
+builder.Services.AddScoped<FacebookAuthProvider>();
+builder.Services.AddScoped<IExternalAuthProvider, GoogleAuthProvider>();
+builder.Services.AddScoped<IExternalAuthProvider, FacebookAuthProvider>();
 builder.Services.AddScoped<ExternalAuthProviderService>();
-builder.Services.AddHttpClient<ExternalAuthProviderService>();
 
 // Add gRPC client for OTP verification
 builder.Services.AddGrpcClient<OtpVerifier.OtpVerifierClient>(o =>
