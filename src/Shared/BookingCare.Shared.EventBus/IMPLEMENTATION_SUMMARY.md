@@ -140,7 +140,7 @@ public class AppointmentCreatedEventHandler : IIntegrationEventHandler<Appointme
 
 - **RabbitMQ.Client** (6.8.1) - RabbitMQ connectivity
 - **Microsoft.Extensions.*** - .NET hosting and DI
-- **System.Text.Json** (8.0.4) - JSON serialization
+- **System.Text.Json** (8.0.5) - JSON serialization
 - **Newtonsoft.Json** (13.0.3) - Fallback serialization
 
 ## 🛡️ Production Ready
