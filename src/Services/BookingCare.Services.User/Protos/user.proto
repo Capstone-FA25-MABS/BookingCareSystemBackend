@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option csharp_namespace = "BookingCare.Services.User";
+option csharp_namespace = "BookingCare.Services.User.Protos";
 
 package user;
 
@@ -15,14 +15,6 @@ service UserService {
   // Create new user
   rpc CreateUser (CreateUserRequest) returns (UserResponse);
   
-  // Update user
-  rpc UpdateUser (UpdateUserRequest) returns (UserResponse);
-  
-  // Delete user
-  rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
-  
-  // Get all users
-  rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse);
 }
 
 // Request messages
@@ -40,28 +32,10 @@ message CreateUserRequest {
   string first_name = 3;
   string last_name = 4;
   string gender = 5;
-  string address = 6;
-  string phone = 7;
-  string avatar_url = 8;
-}
-
-message UpdateUserRequest {
-  string id = 1;
-  string first_name = 2;
-  string last_name = 3;
-  string gender = 4;
-  string address = 5;
-  string phone = 6;
-  string avatar_url = 7;
-}
-
-message DeleteUserRequest {
-  string id = 1;
-}
-
-message GetAllUsersRequest {
-  int32 page = 1;
-  int32 page_size = 2;
+  string date_of_birth = 6; // ISO 8601 format (yyyy-MM-dd)
+  string address = 7;
+  string phone = 8;
+  string avatar_url = 9;
 }
 
 // Response messages
@@ -73,21 +47,8 @@ message UserResponse {
   string last_name = 5;
   string full_name = 6;
   string gender = 7;
-  string address = 8;
-  string phone = 9;
-  string avatar_url = 10;
-  string created_at = 11;
-  string updated_at = 12;
-}
-
-message DeleteUserResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-message GetAllUsersResponse {
-  repeated UserResponse users = 1;
-  int32 total_count = 2;
-  int32 page = 3;
-  int32 page_size = 4;
+  string date_of_birth = 8; // ISO 8601 format (yyyy-MM-dd)
+  string address = 9;
+  string phone = 10;
+  string avatar_url = 11;
 }
