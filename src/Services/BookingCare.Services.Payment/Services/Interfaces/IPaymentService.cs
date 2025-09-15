@@ -1,5 +1,6 @@
 using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
+using BookingCare.Shared.Common.Models;
 
 namespace BookingCare.Services.Payment.Services.Interfaces;
 
@@ -29,9 +30,24 @@ public interface IPaymentService
     Task<IEnumerable<PaymentResponse>> GetByClinicIdAsync(Guid clinicId);
 
     /// <summary>
+    /// L?y danh s?ch payments theo clinic ID v?i phân trang
+    /// </summary>
+    Task<PagedResult<PaymentResponse>> GetPagedByClinicIdAsync(Guid clinicId, GetPaymentsPagedRequest request);
+
+    /// <summary>
     /// L?y danh s?ch payments theo patient ID
     /// </summary>
     Task<IEnumerable<PaymentResponse>> GetByPatientIdAsync(Guid patientId);
+
+    /// <summary>
+    /// L?y danh s?ch payments theo patient ID v?i phân trang
+    /// </summary>
+    Task<PagedResult<PaymentResponse>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request);
+
+    /// <summary>
+    /// L?y th?ng kê payments
+    /// </summary>
+    Task<PaymentStatisticsResponse> GetPaymentStatisticsAsync(GetPaymentStatisticsRequest request);
 
     /// <summary>
     /// T?o payment m?i (generic - deprecated, nên dùng CreateAppointmentPaymentAsync ho?c CreateSubscriptionPaymentAsync)

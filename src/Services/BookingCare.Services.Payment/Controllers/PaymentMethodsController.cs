@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using FluentValidation;
-using BookingCare.Services.Payment.Models.DTOs.Requests;
+﻿using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Payment.Controllers;
 
@@ -13,16 +13,14 @@ namespace BookingCare.Services.Payment.Controllers;
 public class PaymentMethodsController : BaseApiController
 {
     private readonly IPaymentMethodService _paymentMethodService;
-    private readonly IValidator<UpdatePaymentMethodStatusRequest> _updateStatusValidator;
     private readonly ILogger<PaymentMethodsController> _logger;
 
     public PaymentMethodsController(
         IPaymentMethodService paymentMethodService,
-        IValidator<UpdatePaymentMethodStatusRequest> updateStatusValidator,
-        ILogger<PaymentMethodsController> logger)
+        ILogger<PaymentMethodsController> logger
+    )
     {
         _paymentMethodService = paymentMethodService;
-        _updateStatusValidator = updateStatusValidator;
         _logger = logger;
     }
 
@@ -40,7 +38,10 @@ public class PaymentMethodsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting all payment methods");
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy danh sách payment methods" });
+            return StatusCode(
+                500,
+                new { Message = "Có lỗi xảy ra khi lấy danh sách payment methods" }
+            );
         }
     }
 
@@ -58,7 +59,10 @@ public class PaymentMethodsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting active payment methods");
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy danh sách payment methods active" });
+            return StatusCode(
+                500,
+                new { Message = "Có lỗi xảy ra khi lấy danh sách payment methods active" }
+            );
         }
     }
 
@@ -103,13 +107,14 @@ public class PaymentMethodsController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting payment method with name: {PaymentMethodName}", name);
+            _logger.LogError(
+                ex,
+                "Error getting payment method with name: {PaymentMethodName}",
+                name
+            );
             return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy payment method" });
         }
     }
-
-
-
 
     /// <summary>
     /// Toggle trạng thái payment method (ACTIVE <-> INACTIVE)
@@ -129,8 +134,15 @@ public class PaymentMethodsController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error toggling payment method status for ID: {PaymentMethodId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi toggle trạng thái payment method" });
+            _logger.LogError(
+                ex,
+                "Error toggling payment method status for ID: {PaymentMethodId}",
+                id
+            );
+            return StatusCode(
+                500,
+                new { Message = "Có lỗi xảy ra khi toggle trạng thái payment method" }
+            );
         }
     }
 }
