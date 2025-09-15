@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Notification.Protos";
+
+package otp;
+
+service OtpVerifier {
+  rpc Verify (VerifyRequest) returns (VerifyResponse);
+}
+
+message VerifyRequest {
+  string key = 1;
+  string otp = 2;
+}
+
+message VerifyResponse {
+  bool verified = 1;
+}
