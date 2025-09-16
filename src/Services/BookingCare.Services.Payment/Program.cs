@@ -6,6 +6,7 @@ using BookingCare.Services.Payment.Repositories.Interfaces;
 using BookingCare.Services.Payment.Repositories.Implementations;
 using BookingCare.Services.Payment.Mappings;
 using BookingCare.Services.Payment.Validators;
+using BookingCare.Services.Payment.Models.Configurations;
 using BookingCare.Shared.Common.Extensions;
 using Microsoft.EntityFrameworkCore;
 using FluentValidation;
@@ -34,6 +35,9 @@ builder.Services.AddDbContext<PaymentDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
         "Server=(local);Database=PaymentDb;Trusted_Connection=True;TrustServerCertificate=True;"));
 
+// Add VNPay Configuration
+builder.Services.Configure<VNPayConfiguration>(builder.Configuration.GetSection("VNPayConfiguration"));
+
 // Add repositories
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
@@ -41,6 +45,7 @@ builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 // Add services
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<IVNPayService, VNPayService>();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(PaymentMappingProfile));
