@@ -107,7 +107,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 }
             }
 
-            if (validAccountIds.Count == 0)
+            if (!validAccountIds.Any())
             {
                 _logger.LogWarning("No valid account IDs found in request");
                 return response;
