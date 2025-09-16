@@ -23,6 +23,7 @@ public interface IDoctorRepository
     Task<List<DoctorEntity>> GetDoctorsByPositionAsync(Guid positionId);
     Task<List<DoctorEntity>> GetActiveDoctorsAsync();
     IQueryable<DoctorEntity> GetQueryableDoctors();
+    Task<List<DoctorEntity>> GetDoctorsByIdsAsync(IEnumerable<Guid> ids);
 
     // DoctorPrice CRUD operations
     Task<DoctorPriceEntity?> GetDoctorPriceAsync(Guid doctorId, Guid priceId);

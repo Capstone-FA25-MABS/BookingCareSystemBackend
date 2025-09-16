@@ -6,6 +6,7 @@ using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using BookingCare.Services.Favorite;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
@@ -14,12 +15,16 @@ public class DoctorService : IDoctorService
     private readonly IDoctorRepository _repository;
     private readonly IPositionRepository _positionRepository;
     private readonly IMapper _mapper;
+    private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
+    private readonly ILogger<DoctorService> _logger;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, ILogger<DoctorService> logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
         _mapper = mapper;
+        _favoritesClient = favoritesClient;
+        _logger = logger;
     }
 
     #region Doctor CRUD Operations
@@ -281,6 +286,110 @@ public class DoctorService : IDoctorService
     {
         var doctors = await _repository.GetActiveDoctorsAsync();
         return _mapper.Map<List<DoctorResponse>>(doctors);
+    }
+
+    public async Task<DoctorListResponse> GetPatientFavoriteDoctorsAsync(Guid patientId, int page = 1, int pageSize = 9, string? searchTerm = null)
+    {
+        try
+        {
+            var request = new GetPatientFavoritesRequest
+            {
+                PatientId = patientId.ToString(),
+                Page = page,
+                PageSize = pageSize
+            };
+
+            var response = await _favoritesClient.GetPatientFavoritesAsync(request);
+            var doctorIds = response.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
+
+            if (!doctorIds.Any())
+            {
+                return new DoctorListResponse
+                {
+                    Doctors = new List<DoctorResponse>(),
+                    TotalCount = 0,
+                    PageNumber = page,
+                    PageSize = pageSize,
+                    TotalPages = 0
+                };
+            }
+
+            var doctors = await _repository.GetDoctorsByIdsAsync(doctorIds);
+
+            // Apply search filter if provided
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var searchLower = searchTerm.ToLower();
+                doctors = doctors.Where(d =>
+                    d.FirstName.ToLower().Contains(searchLower) ||
+                    d.LastName.ToLower().Contains(searchLower) ||
+                    d.Email.ToLower().Contains(searchLower) ||
+                    (d.Bio != null && d.Bio.ToLower().Contains(searchLower))
+                ).ToList();
+            }
+
+            var mapped = _mapper.Map<List<DoctorResponse>>(doctors);
+
+            var favoritedSet = doctorIds.ToHashSet();
+            foreach (var d in mapped)
+            {
+                d.IsFavorited = favoritedSet.Contains(d.Id);
+            }
+
+            var totalCount = response.TotalCount;
+            var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+            return new DoctorListResponse
+            {
+                Doctors = mapped,
+                TotalCount = totalCount,
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalPages = totalPages
+            };
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            _logger.LogWarning(ex, "Favorites gRPC GetPatientFavorites failed for patient {PatientId}", patientId);
+            // Favorites service unavailable; return empty list gracefully
+            return new DoctorListResponse
+            {
+                Doctors = new List<DoctorResponse>(),
+                TotalCount = 0,
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalPages = 0
+            };
+        }
+    }
+
+    public async Task<DoctorListResponse> GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId)
+    {
+        var baseList = await GetDoctorsAsync(query);
+        if (baseList.Doctors.Count == 0) return baseList;
+
+        try
+        {
+            var request = new CheckMultipleFavoritesRequest
+            {
+                PatientId = patientId.ToString()
+            };
+            request.DoctorIds.AddRange(baseList.Doctors.Select(d => d.Id.ToString()));
+
+            var check = await _favoritesClient.CheckMultipleFavoritesAsync(request);
+            var favorited = check.FavoritedDoctorIds.Select(Guid.Parse).ToHashSet();
+
+            foreach (var doc in baseList.Doctors)
+            {
+                doc.IsFavorited = favorited.Contains(doc.Id);
+            }
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            _logger.LogWarning(ex, "Favorites gRPC CheckMultipleFavorites failed for patient {PatientId}", patientId);
+            // Favorites service unavailable; proceed with IsFavorited default false
+        }
+        return baseList;
     }
 
     #endregion

@@ -58,7 +58,7 @@ public class DoctorsController : BaseApiController
     [HttpGet("by-account/{accountId}")]
     public async Task<IActionResult> GetDoctorByAccountId(Guid accountId)
     {
-        var doctor = await _doctorService.GetDoctorByIdAsync(accountId);
+        var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
         if (doctor == null)
         {
             return NotFound($"Doctor with account ID {accountId} not found");
@@ -71,9 +71,17 @@ public class DoctorsController : BaseApiController
     /// Get doctors with filtering and pagination
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetDoctors([FromQuery] DoctorQueryRequest query)
+    public async Task<IActionResult> GetDoctors([FromQuery] DoctorQueryRequest query, [FromQuery] Guid? patientId)
     {
-        var result = await _doctorService.GetDoctorsAsync(query);
+        DoctorListResponse result;
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+        {
+            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
+        }
+        else
+        {
+            result = await _doctorService.GetDoctorsAsync(query);
+        }
         return Success<DoctorListResponse>(result, "Doctors retrieved successfully");
     }
 
@@ -126,6 +134,17 @@ public class DoctorsController : BaseApiController
         var doctors = await _doctorService.GetActiveDoctorsAsync();
         return Success<List<DoctorResponse>>(doctors, "Active doctors retrieved successfully");
     }
+
+    /// <summary>
+    /// Get patient's favorite doctors (Doctor info), default pageSize=9
+    /// </summary>
+    [HttpGet("patient/{patientId}/favorites")]
+    public async Task<IActionResult> GetPatientFavoriteDoctors(Guid patientId, [FromQuery] int page = 1, [FromQuery] int pageSize = 9, [FromQuery] string? searchTerm = null)
+    {
+        var result = await _doctorService.GetPatientFavoriteDoctorsAsync(patientId, page, pageSize, searchTerm);
+        return Success<DoctorListResponse>(result, $"Favorite doctors for patient {patientId} retrieved successfully");
+    }
+
 
     /// <summary>
     /// Create a new doctor

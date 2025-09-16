@@ -21,6 +21,7 @@ public interface IDoctorService
     Task<List<DoctorResponse>> GetDoctorsBySpecialtyAsync(Guid specialtyId);
     Task<List<DoctorResponse>> GetDoctorsByPositionAsync(Guid positionId);
     Task<List<DoctorResponse>> GetActiveDoctorsAsync();
+    Task<DoctorListResponse> GetPatientFavoriteDoctorsAsync(Guid patientId, int page = 1, int pageSize = 9, string? searchTerm = null);
 
     // DoctorPrice operations
     Task<List<DoctorPriceResponse>> GetDoctorPricesAsync(Guid doctorId);
@@ -35,4 +36,5 @@ public interface IDoctorService
 
     // Helper methods
     IQueryable<DoctorEntity> GetQueryableDoctors();
+    Task<DoctorListResponse> GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId);
 }

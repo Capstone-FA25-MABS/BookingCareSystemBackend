@@ -310,6 +310,21 @@ public class DoctorRepository : IDoctorRepository
 
     #endregion
 
+    public async Task<List<DoctorEntity>> GetDoctorsByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids.ToList();
+        if (!idList.Any()) return new List<DoctorEntity>();
+
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.DoctorPrices)
+                .ThenInclude(dp => dp.ServiceType)
+            .Include(d => d.DoctorLanguages)
+                .ThenInclude(dl => dl.Language)
+            .Where(d => idList.Contains(d.Id))
+            .ToListAsync();
+    }
+
     #region Language Operations
 
     public async Task<List<LanguageEntity>> GetLanguagesAsync()

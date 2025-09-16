@@ -25,6 +25,7 @@ public class DoctorResponse
     public PositionResponse? Position { get; set; }
     public List<DoctorPriceResponse> Prices { get; set; } = new();
     public List<LanguageResponse> Languages { get; set; } = new();
+    public bool IsFavorited { get; set; }
 }
 
 public class DoctorPriceResponse
