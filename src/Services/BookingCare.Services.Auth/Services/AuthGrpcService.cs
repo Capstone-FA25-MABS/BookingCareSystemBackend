@@ -107,12 +107,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 }
             }
 
-            if (!validAccountIds.Any())
-            {
-                _logger.LogWarning("No valid account IDs found in request");
-                return response;
-            }
-
+            // Get accounts from repository (empty list if no valid IDs)
             var accounts = await _authRepository.GetAccountsByIdsAsync(validAccountIds);
             var accountDict = accounts.ToDictionary(a => a.Id, a => a);
 
@@ -138,8 +133,8 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 response.AccountStatuses.Add(accountStatus);
             }
 
-            _logger.LogInformation("Successfully retrieved status for {Count} accounts, {NotFound} not found",
-                accounts.Count, validAccountIds.Count - accounts.Count);
+            _logger.LogInformation("Successfully processed {TotalRequested} account IDs: {ValidCount} valid, {FoundCount} found",
+                request.AccountIds.Count, validAccountIds.Count, accounts.Count);
 
             return response;
         }
