@@ -1,5 +1,5 @@
-﻿using BookingCare.Services.Notification.Models;
-using BookingCare.Services.Notification.Repositories;
+﻿using BookingCare.Services.Notification.Models.Entities;
+using BookingCare.Services.Notification.Repositories.Interfaces;
 
 namespace BookingCare.Services.Notification.Utils.SMS;
 
@@ -27,21 +27,6 @@ public class DeviceStore
         return await _repository.GetByIdAsync(id);
     }
 
-    public async Task<Device?> GetByTokenAsync(string token)
-    {
-        return await _repository.GetByTokenAsync(token);
-    }
-
-    public async Task<bool> RemoveAsync(string id)
-    {
-        return await _repository.RemoveAsync(id);
-    }
-
-    public async Task<int> GetCountAsync()
-    {
-        return await _repository.GetCountAsync();
-    }
-
     public async Task UpdateLastUsedAsync(string id)
     {
         await _repository.UpdateLastUsedAsync(id);
@@ -55,20 +40,4 @@ public class DeviceStore
         return AddOrUpdateAsync(name, token).Result;
     }
 
-    public Device? Get(string id)
-    {
-        return GetAsync(id).Result;
-    }
-
-    public Device? GetByToken(string token)
-    {
-        return GetByTokenAsync(token).Result;
-    }
-
-    public bool Remove(string id)
-    {
-        return RemoveAsync(id).Result;
-    }
-
-    public int Count => GetCountAsync().Result;
 }
