@@ -27,10 +27,10 @@ public class UserService : BaseService, IUserService
         {
             ValidateGuid(id, nameof(id));
             LogDebug("Getting user by ID: {UserId}", null, id);
-            
+
             var user = await _userRepository.GetByIdAsync(id);
             return user != null ? _mapper.Map<UserResponse>(user) : null;
-            
+
         }, "GetUserById");
     }
 
@@ -40,10 +40,10 @@ public class UserService : BaseService, IUserService
         {
             ValidateGuid(accountId, nameof(accountId));
             LogDebug("Getting user by account ID: {AccountId}", null, accountId);
-            
+
             var user = await _userRepository.GetByAccountIdAsync(accountId);
             return user != null ? _mapper.Map<UserResponse>(user) : null;
-            
+
         }, "GetUserByAccountId");
     }
 
@@ -56,15 +56,15 @@ public class UserService : BaseService, IUserService
 
             var userEntity = _mapper.Map<UserEntity>(createUserRequest);
             userEntity.AvatarUrl = createUserRequest.AvatarUrl ?? "https://bookingcaree.com/user-avatar-default.png";
-            
+
             var createdUser = await _userRepository.CreateAsync(userEntity);
-            
+
             LogInfo("User created successfully with ID: {UserId}", null, createdUser.Id);
             return _mapper.Map<UserResponse>(createdUser);
-            
+
         }, "CreateUser");
     }
-    
+
     public async Task<UserResponse> UpdateAsync(Guid id, UpdateUserRequest updateUserRequest)
     {
         return await ExecuteWithErrorHandling(async () =>
@@ -81,13 +81,13 @@ public class UserService : BaseService, IUserService
 
             _mapper.Map(updateUserRequest, existingUser);
             var updatedUser = await _userRepository.UpdateAsync(existingUser);
-            
+
             LogInfo("User updated successfully with ID: {UserId}", null, id);
             return _mapper.Map<UserResponse>(updatedUser);
-            
+
         }, "UpdateUser");
     }
-   
+
     public async Task<UserListResponse> GetUsersAsync(UserQueryRequest query)
     {
         return await ExecuteWithErrorHandling(async () =>
@@ -111,7 +111,7 @@ public class UserService : BaseService, IUserService
 
             LogInfo("Retrieved {Count} users out of {Total}", null, userResponses.Count, totalCount);
             return response;
-            
+
         }, "GetUsers");
     }
 
@@ -124,7 +124,7 @@ public class UserService : BaseService, IUserService
 
             var users = await _userRepository.SearchUsersAsync(searchTerm, limit);
             var userResponses = _mapper.Map<List<UserResponse>>(users);
-            
+
             return new UserSearchResponse
             {
                 Users = userResponses,
@@ -132,8 +132,8 @@ public class UserService : BaseService, IUserService
                 SearchTerm = searchTerm,
                 Limit = limit
             };
-            
+
         }, "SearchUsers");
     }
-    
+
 }

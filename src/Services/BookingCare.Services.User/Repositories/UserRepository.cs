@@ -88,49 +88,49 @@ public class UserRepository : IUserRepository
         {
             var queryable = _context.Users.AsQueryable();
 
-        // Apply filters
-        if (query.Gender.HasValue)
-        {
-            queryable = queryable.Where(u => u.Gender == query.Gender.Value);
-        }
+            // Apply filters
+            if (query.Gender.HasValue)
+            {
+                queryable = queryable.Where(u => u.Gender == query.Gender.Value);
+            }
 
-        if (!string.IsNullOrEmpty(query.SearchTerm))
-        {
-            queryable = queryable.Where(u =>
-                u.FirstName.Contains(query.SearchTerm) ||
-                u.LastName.Contains(query.SearchTerm) ||
-                u.Email.Contains(query.SearchTerm) ||
-                (u.Address != null && u.Address.Contains(query.SearchTerm)) ||
-                u.Phone.Contains(query.SearchTerm));
-        }
+            if (!string.IsNullOrEmpty(query.SearchTerm))
+            {
+                queryable = queryable.Where(u =>
+                    u.FirstName.Contains(query.SearchTerm) ||
+                    u.LastName.Contains(query.SearchTerm) ||
+                    u.Email.Contains(query.SearchTerm) ||
+                    (u.Address != null && u.Address.Contains(query.SearchTerm)) ||
+                    u.Phone.Contains(query.SearchTerm));
+            }
 
-        if (query.CreatedFrom.HasValue)
-        {
-            queryable = queryable.Where(u => u.CreatedAt >= query.CreatedFrom.Value);
-        }
+            if (query.CreatedFrom.HasValue)
+            {
+                queryable = queryable.Where(u => u.CreatedAt >= query.CreatedFrom.Value);
+            }
 
-        if (query.CreatedTo.HasValue)
-        {
-            queryable = queryable.Where(u => u.CreatedAt <= query.CreatedTo.Value);
-        }
+            if (query.CreatedTo.HasValue)
+            {
+                queryable = queryable.Where(u => u.CreatedAt <= query.CreatedTo.Value);
+            }
 
-        var totalCount = await queryable.CountAsync();
+            var totalCount = await queryable.CountAsync();
 
-        // Apply sorting
-        queryable = query.SortBy?.ToLower() switch
-        {
-            "firstname" => query.SortDescending ? queryable.OrderByDescending(u => u.FirstName) : queryable.OrderBy(u => u.FirstName),
-            "lastname" => query.SortDescending ? queryable.OrderByDescending(u => u.LastName) : queryable.OrderBy(u => u.LastName),
-            "email" => query.SortDescending ? queryable.OrderByDescending(u => u.Email) : queryable.OrderBy(u => u.Email),
-            "createdat" => query.SortDescending ? queryable.OrderByDescending(u => u.CreatedAt) : queryable.OrderBy(u => u.CreatedAt),
-            "updatedat" => query.SortDescending ? queryable.OrderByDescending(u => u.UpdatedAt) : queryable.OrderBy(u => u.UpdatedAt),
-            _ => queryable.OrderByDescending(u => u.CreatedAt)
-        };
+            // Apply sorting
+            queryable = query.SortBy?.ToLower() switch
+            {
+                "firstname" => query.SortDescending ? queryable.OrderByDescending(u => u.FirstName) : queryable.OrderBy(u => u.FirstName),
+                "lastname" => query.SortDescending ? queryable.OrderByDescending(u => u.LastName) : queryable.OrderBy(u => u.LastName),
+                "email" => query.SortDescending ? queryable.OrderByDescending(u => u.Email) : queryable.OrderBy(u => u.Email),
+                "createdat" => query.SortDescending ? queryable.OrderByDescending(u => u.CreatedAt) : queryable.OrderBy(u => u.CreatedAt),
+                "updatedat" => query.SortDescending ? queryable.OrderByDescending(u => u.UpdatedAt) : queryable.OrderBy(u => u.UpdatedAt),
+                _ => queryable.OrderByDescending(u => u.CreatedAt)
+            };
 
-        var users = await queryable
-            .Skip((query.PageNumber - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .ToListAsync();
+            var users = await queryable
+                .Skip((query.PageNumber - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToListAsync();
 
             return (users, totalCount);
         }

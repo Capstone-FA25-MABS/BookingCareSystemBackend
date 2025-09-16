@@ -38,7 +38,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
 
             var response = MapToGrpcUserResponse(user);
             _logger.LogInformation("[UserGrpcService] User retrieved successfully: {UserId}", userId);
-            
+
             return response;
         }
         catch (RpcException)
@@ -73,7 +73,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
 
             var response = MapToGrpcUserResponse(user);
             _logger.LogInformation("[UserGrpcService] User retrieved by AccountId successfully: {AccountId}", accountId);
-            
+
             return response;
         }
         catch (RpcException)
@@ -128,7 +128,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
             _logger.LogError(ex, "[UserGrpcService] Error creating user with email: {Email}", request.Email);
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }
-    }  
+    }
 
     // Helper methods for mapping
     private Protos.UserResponse MapToGrpcUserResponse(UserResponse user)

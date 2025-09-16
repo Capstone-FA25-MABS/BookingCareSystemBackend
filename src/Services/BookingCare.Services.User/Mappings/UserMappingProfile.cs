@@ -10,7 +10,7 @@ public class UserMappingProfile : Profile
     {
         // Entity to Response mappings
         CreateMap<UserEntity, UserResponse>();
-        
+
         // Collection mappings for individual items
         CreateMap<List<UserEntity>, List<UserResponse>>();
 
@@ -20,7 +20,7 @@ public class UserMappingProfile : Profile
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore());
 
-        CreateMap<UpdateUserRequest, UserEntity>() 
+        CreateMap<UpdateUserRequest, UserEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.AccountId, opt => opt.Ignore())
             .ForMember(dest => dest.Email, opt => opt.Ignore())

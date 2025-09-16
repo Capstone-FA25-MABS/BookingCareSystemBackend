@@ -46,7 +46,7 @@ public class UsersController : BaseApiController
         }
 
         return Success(user, "User retrieved successfully");
-    }   
+    }
 
     /// <summary>
     /// Get user by account ID
