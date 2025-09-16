@@ -31,7 +31,8 @@ public class CreateUserRequest
     public string? Address { get; set; }
 
     [Phone]
-    [StringLength(20, MinimumLength = 10)]
+    [RegularExpression(@"^0\d{9}$", ErrorMessage = "Phone number must be 10 digits starting with 0")]
+    [StringLength(10, MinimumLength = 10, ErrorMessage = "Phone number must be exactly 10 digits")]
     public string? Phone { get; set; }
 
     [Url]
