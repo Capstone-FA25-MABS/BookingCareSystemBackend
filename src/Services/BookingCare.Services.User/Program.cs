@@ -58,17 +58,6 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1.0", new() { Title = "BookingCare User API", Version = "v1.0" });
 });
 
-// Add CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
