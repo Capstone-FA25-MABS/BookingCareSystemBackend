@@ -107,8 +107,8 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 }
             }
 
-            // Get accounts from repository only if we have valid IDs
-            if (validAccountIds.Any())
+            // Process valid IDs if any exist
+            if (validAccountIds.Count > 0)
             {
                 var accounts = await _authRepository.GetAccountsByIdsAsync(validAccountIds);
                 var accountDict = accounts.ToDictionary(a => a.Id, a => a);
