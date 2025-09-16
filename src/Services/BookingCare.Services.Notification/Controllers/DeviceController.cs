@@ -1,12 +1,18 @@
 ﻿using BookingCare.Services.Notification.Models.DTOs;
 using BookingCare.Services.Notification.Utils.SMS;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Notification.Controllers;
 
+/// <summary>
+/// Controller for device registration and management for push notifications
+/// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
 [Produces("application/json")]
 public class DeviceController : BaseApiController
 {
@@ -19,10 +25,34 @@ public class DeviceController : BaseApiController
         _deviceStore = deviceStore;
     }
 
+    /// <summary>
+    /// Health check endpoint for Device service
+    /// </summary>
+    /// <returns>Health status</returns>
+    [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [AllowAnonymous]
+    public IActionResult Health()
+    {
+        return Success(new
+        {
+            Status = "Healthy",
+            Service = "Notification-Device",
+            Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
+            Timestamp = DateTime.UtcNow
+        });
+    }
+
+    /// <summary>
+    /// Register a device for push notifications
+    /// </summary>
+    /// <param name="request">Device registration request containing device name and FCM token</param>
+    /// <returns>Device registration result with assigned device ID</returns>
     [HttpPost("register")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Register([FromBody] DeviceRegistrationRequest request)
     {
-        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(request.DeviceName) || string.IsNullOrWhiteSpace(request.Token))
+        if (!ModelState.IsValid)
         {
             return BadRequest("Invalid request data", new List<string> { "DeviceName and Token are required" });
         }
@@ -33,22 +63,15 @@ public class DeviceController : BaseApiController
         return Success(new { DeviceId = device.Id, DeviceName = device.Name }, "Device registered successfully");
     }
 
+    /// <summary>
+    /// Get all registered devices
+    /// </summary>
+    /// <returns>List of all registered devices</returns>
     [HttpGet]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult GetAll()
     {
         var devices = _deviceStore.All;
         return Success(devices, "Devices retrieved successfully");
-    }
-
-    [HttpGet("{id}")]
-    public IActionResult GetById(string id)
-    {
-        var device = _deviceStore.Get(id);
-        if (device == null)
-        {
-            return NotFound("Device not found");
-        }
-
-        return Success(device, "Device retrieved successfully");
     }
 }
