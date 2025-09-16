@@ -171,6 +171,34 @@ public class AuthRepository : IAuthRepository
         }
     }
 
+    /// <summary>
+    /// Get accounts by list of IDs with their status
+    /// </summary>
+    public async Task<List<AccountEntity>> GetAccountsByIdsAsync(List<Guid> accountIds)
+    {
+        try
+        {
+            if (accountIds == null || accountIds.Count == 0)
+            {
+                return new List<AccountEntity>();
+            }
+
+            return await _userManager.Users
+                .Where(u => accountIds.Contains(u.Id))
+                .Select(u => new AccountEntity
+                {
+                    Id = u.Id,
+                    Status = u.Status
+                })
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting accounts by IDs: {AccountIds}", string.Join(", ", accountIds));
+            throw new AuthException("Failed to get accounts by IDs", innerException: ex);
+        }
+    }
+
     #endregion
 
     #region Role Operations

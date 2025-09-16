@@ -8,6 +8,8 @@ package auth;
 service AuthService {
   // Account existence check
   rpc CheckAccountExists (CheckAccountExistsRequest) returns (CheckAccountExistsResponse);
+  // Get account status by IDs
+  rpc GetAccountStatusByIds (GetAccountStatusByIdsRequest) returns (GetAccountStatusByIdsResponse);
 }
 
 message CheckAccountExistsRequest {
@@ -18,4 +20,20 @@ message CheckAccountExistsRequest {
 message CheckAccountExistsResponse {
   bool exists = 1;
   string message = 2;
+}
+
+message GetAccountStatusByIdsRequest {
+  repeated string account_ids = 1;
+}
+
+message GetAccountStatusByIdsResponse {
+  repeated AccountStatus account_statuses = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message AccountStatus {
+  string account_id = 1;
+  int32 status = 2; // 0 = ACTIVE, 1 = INACTIVE
+  bool found = 3;
 }
