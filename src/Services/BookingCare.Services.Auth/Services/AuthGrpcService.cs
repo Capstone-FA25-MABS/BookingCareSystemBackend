@@ -107,37 +107,39 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 }
             }
 
-            // Process valid IDs if any exist
-            if (validAccountIds.Count > 0)
+            if (validAccountIds.Count == 0)
             {
-                var accounts = await _authRepository.GetAccountsByIdsAsync(validAccountIds);
-                var accountDict = accounts.ToDictionary(a => a.Id, a => a);
+                _logger.LogWarning("No valid account IDs found in request");
+                return response;
+            }
 
-                // Build response for valid IDs
-                foreach (var requestedId in validAccountIds)
+            var accounts = await _authRepository.GetAccountsByIdsAsync(validAccountIds);
+            var accountDict = accounts.ToDictionary(a => a.Id, a => a);
+
+            // Build response for valid IDs
+            foreach (var requestedId in validAccountIds)
+            {
+                var accountStatus = new AccountStatus
                 {
-                    var accountStatus = new AccountStatus
-                    {
-                        AccountId = requestedId.ToString()
-                    };
+                    AccountId = requestedId.ToString()
+                };
 
-                    if (accountDict.TryGetValue(requestedId, out var account))
-                    {
-                        accountStatus.Found = true;
-                        accountStatus.Status = (int)account.Status;
-                    }
-                    else
-                    {
-                        accountStatus.Found = false;
-                        accountStatus.Status = -1; // Not found
-                    }
-
-                    response.AccountStatuses.Add(accountStatus);
+                if (accountDict.TryGetValue(requestedId, out var account))
+                {
+                    accountStatus.Found = true;
+                    accountStatus.Status = (int)account.Status;
+                }
+                else
+                {
+                    accountStatus.Found = false;
+                    accountStatus.Status = -1; // Not found
                 }
 
-                _logger.LogInformation("Successfully retrieved status for {Count} accounts, {NotFound} not found",
-                    accounts.Count, validAccountIds.Count - accounts.Count);
+                response.AccountStatuses.Add(accountStatus);
             }
+
+            _logger.LogInformation("Successfully retrieved status for {Count} accounts, {NotFound} not found",
+                accounts.Count, validAccountIds.Count - accounts.Count);
 
             return response;
         }
