@@ -85,71 +85,59 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 return response;
             }
 
-            // Parse string IDs to Guid
-            var accountIds = new List<Guid>();
-            var invalidIds = new List<string>();
+            // Parse string IDs to Guid and build response for all requested IDs
+            var validAccountIds = new List<Guid>();
 
             foreach (var accountIdString in request.AccountIds)
             {
                 if (Guid.TryParse(accountIdString, out var accountId))
                 {
-                    accountIds.Add(accountId);
+                    validAccountIds.Add(accountId);
                 }
                 else
                 {
-                    invalidIds.Add(accountIdString);
+                    // Add invalid ID directly to response
+                    _logger.LogWarning("Invalid account ID provided: {InvalidId}", accountIdString);
+                    response.AccountStatuses.Add(new AccountStatus
+                    {
+                        AccountId = accountIdString,
+                        Found = false,
+                        Status = -1
+                    });
                 }
             }
 
-            if (invalidIds.Any())
+            // Get accounts from repository only if we have valid IDs
+            if (validAccountIds.Any())
             {
-                _logger.LogWarning("Invalid account IDs provided: {InvalidIds}",
-                    string.Join(", ", invalidIds));
-            }
+                var accounts = await _authRepository.GetAccountsByIdsAsync(validAccountIds);
+                var accountDict = accounts.ToDictionary(a => a.Id, a => a);
 
-            // Get accounts from repository
-            var accounts = await _authRepository.GetAccountsByIdsAsync(accountIds);
-            var accountDict = accounts.ToDictionary(a => a.Id, a => a);
-
-            // Build response for all requested IDs
-            foreach (var requestedId in accountIds)
-            {
-                var accountStatus = new AccountStatus
-                {
-                    AccountId = requestedId.ToString()
-                };
-
-                if (accountDict.TryGetValue(requestedId, out var account))
-                {
-                    accountStatus.Found = true;
-                    accountStatus.Status = (int)account.Status;
-                }
-                else
-                {
-                    accountStatus.Found = false;
-                    accountStatus.Status = -1; // Not found
-                }
-
-                response.AccountStatuses.Add(accountStatus);
-            }
-
-            // Add entries for invalid IDs
-            if (invalidIds.Any())
-            {
-                foreach (var invalidId in invalidIds)
+                // Build response for valid IDs
+                foreach (var requestedId in validAccountIds)
                 {
                     var accountStatus = new AccountStatus
                     {
-                        AccountId = invalidId,
-                        Found = false,
-                        Status = -1
+                        AccountId = requestedId.ToString()
                     };
+
+                    if (accountDict.TryGetValue(requestedId, out var account))
+                    {
+                        accountStatus.Found = true;
+                        accountStatus.Status = (int)account.Status;
+                    }
+                    else
+                    {
+                        accountStatus.Found = false;
+                        accountStatus.Status = -1; // Not found
+                    }
+
                     response.AccountStatuses.Add(accountStatus);
                 }
-            }
 
-            _logger.LogInformation("Successfully retrieved status for {Count} accounts, {NotFound} not found",
-                accounts.Count, accountIds.Count - accounts.Count);
+                _logger.LogInformation("Successfully retrieved status for {Count} accounts, {NotFound} not found",
+                    accounts.Count, validAccountIds.Count - accounts.Count);
+            }
 
             return response;
         }
