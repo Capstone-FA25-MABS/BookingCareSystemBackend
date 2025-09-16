@@ -1,15 +1,14 @@
 ﻿using BookingCare.Services.Notification.Models.DTOs;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Utils.OTP;
-using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
-using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
 using System.Text;
 using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Notification.Services.Interfaces;
 
 namespace BookingCare.Services.Notification.Services;
 
@@ -100,7 +99,7 @@ public class OtpService : BaseService, IOtpService
 
             // Set verification flag for Auth service
             var flagKey = $"otp:verified:{purposeKey}:{subject}";
-            await _otpManager.StoreOtpAsync(flagKey, "1", TimeSpan.FromMinutes(5));
+            await _otpManager.SetFlagAsync(flagKey, TimeSpan.FromMinutes(5));
 
             // HMAC proof (fallback if Auth can't read Redis)
             string? proof = null;

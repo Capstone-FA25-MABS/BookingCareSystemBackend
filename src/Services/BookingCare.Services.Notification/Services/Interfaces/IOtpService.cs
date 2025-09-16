@@ -1,6 +1,6 @@
 ﻿using BookingCare.Services.Notification.Models.DTOs;
 
-namespace BookingCare.Services.Notification.Services;
+namespace BookingCare.Services.Notification.Services.Interfaces;
 
 public interface IOtpService
 {

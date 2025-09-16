@@ -1,10 +1,11 @@
-﻿using BookingCare.Services.Notification.Models;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using MongoDB.Bson;
 using BookingCare.Services.Notification.Setting;
+using BookingCare.Services.Notification.Repositories.Interfaces;
+using BookingCare.Services.Notification.Models.Entities;
 
-namespace BookingCare.Services.Notification.Repositories;
+namespace BookingCare.Services.Notification.Repositories.Implementations;
 
 public class DeviceRepository : IDeviceRepository
 {
@@ -30,13 +31,6 @@ public class DeviceRepository : IDeviceRepository
     {
         return await _devices
             .Find(d => d.Id == id && d.IsActive)
-            .FirstOrDefaultAsync();
-    }
-
-    public async Task<Device?> GetByTokenAsync(string token)
-    {
-        return await _devices
-            .Find(d => d.Token == token && d.IsActive)
             .FirstOrDefaultAsync();
     }
 
@@ -74,18 +68,6 @@ public class DeviceRepository : IDeviceRepository
             await _devices.InsertOneAsync(newDevice);
             return newDevice;
         }
-    }
-
-    public async Task<bool> RemoveAsync(string id)
-    {
-        var update = Builders<Device>.Update.Set(d => d.IsActive, false);
-        var result = await _devices.UpdateOneAsync(d => d.Id == id, update);
-        return result.ModifiedCount > 0;
-    }
-
-    public async Task<int> GetCountAsync()
-    {
-        return (int)await _devices.CountDocumentsAsync(d => d.IsActive);
     }
 
     public async Task UpdateLastUsedAsync(string id)

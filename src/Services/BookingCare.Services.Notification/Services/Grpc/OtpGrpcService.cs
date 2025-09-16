@@ -2,7 +2,7 @@
 using BookingCare.Services.Notification.Utils.OTP;
 using Grpc.Core;
 
-namespace BookingCare.Services.Notification.Services;
+namespace BookingCare.Services.Notification.Services.Grpc;
 
 public class OtpGrpcService : OtpVerifier.OtpVerifierBase
 {
