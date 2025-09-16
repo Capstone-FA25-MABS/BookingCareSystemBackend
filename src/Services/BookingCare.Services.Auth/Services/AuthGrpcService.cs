@@ -70,7 +70,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     {
         try
         {
-            _logger.LogInformation("gRPC GetAccountStatusByIds called for {Count} account IDs", 
+            _logger.LogInformation("gRPC GetAccountStatusByIds called for {Count} account IDs",
                 request.AccountIds.Count);
 
             var response = new GetAccountStatusByIdsResponse
@@ -101,9 +101,9 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 }
             }
 
-            if (invalidIds.Count > 0)
+            if (invalidIds.Any())
             {
-                _logger.LogWarning("Invalid account IDs provided: {InvalidIds}", 
+                _logger.LogWarning("Invalid account IDs provided: {InvalidIds}",
                     string.Join(", ", invalidIds));
             }
 
@@ -134,18 +134,21 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
             }
 
             // Add entries for invalid IDs
-            foreach (var invalidId in invalidIds)
+            if (invalidIds.Any())
             {
-                var accountStatus = new AccountStatus
+                foreach (var invalidId in invalidIds)
                 {
-                    AccountId = invalidId,
-                    Found = false,
-                    Status = -1
-                };
-                response.AccountStatuses.Add(accountStatus);
+                    var accountStatus = new AccountStatus
+                    {
+                        AccountId = invalidId,
+                        Found = false,
+                        Status = -1
+                    };
+                    response.AccountStatuses.Add(accountStatus);
+                }
             }
 
-            _logger.LogInformation("Successfully retrieved status for {Count} accounts, {NotFound} not found", 
+            _logger.LogInformation("Successfully retrieved status for {Count} accounts, {NotFound} not found",
                 accounts.Count, accountIds.Count - accounts.Count);
 
             return response;
