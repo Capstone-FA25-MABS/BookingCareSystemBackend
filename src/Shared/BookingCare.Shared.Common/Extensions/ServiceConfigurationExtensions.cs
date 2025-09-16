@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Shared.Common.Extensions;
 
@@ -55,6 +56,9 @@ public static class ServiceConfigurationExtensions
 
         // Add Frontend configuration for AutoToken middleware
         services.AddFrontendConfiguration(configuration);
+        
+        // Add Cookie Encryption Service for secure cookie handling (Singleton for performance and to avoid DI scope issues)
+        services.AddSingleton<CookieEncryptionService>();
 
         return services;
     }
@@ -84,6 +88,9 @@ public static class ServiceConfigurationExtensions
 
         // Add Frontend configuration for AutoToken middleware
         services.AddFrontendConfiguration(configuration);
+        
+        // Add Cookie Encryption Service for secure cookie handling (Singleton for performance and to avoid DI scope issues)
+        services.AddSingleton<CookieEncryptionService>();
 
         return services;
     }
