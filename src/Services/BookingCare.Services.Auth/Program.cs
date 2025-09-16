@@ -150,17 +150,6 @@ builder.Services.AddSwaggerGen(c =>
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth-service-queue");
 
-// Optional Redis (to validate verification flags if needed later)
-var redisEnabled = builder.Configuration.GetSection("Redis").GetValue<bool>("Enabled");
-if (redisEnabled)
-{
-    builder.Services.AddStackExchangeRedisCache(options =>
-    {
-        options.Configuration = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration");
-        options.InstanceName = builder.Configuration.GetSection("Redis").GetValue<string>("InstanceName");
-    });
-}
-
 // Bind Frontend options for base URL resolution
 builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
 
