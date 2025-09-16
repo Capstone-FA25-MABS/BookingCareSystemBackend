@@ -128,19 +128,6 @@ builder.Logging.AddDebug();
 // This includes: JWT auth, authorization, and frontend configuration
 builder.Services.AddJwtAuthAndAuthorization();
 
-// Add CORS (restrict to configured frontends)
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontEnd", policy =>
-    {
-        policy.WithOrigins(allowedOrigins!)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
-});
-
 // Add gRPC
 builder.Services.AddGrpc();
 
@@ -193,8 +180,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseGlobalExceptionHandling();
-
-app.UseCors("AllowFrontEnd");
 
 app.UseStandardAuthPipeline();
 

@@ -7,17 +7,13 @@ using Microsoft.AspNetCore.Mvc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Auth.Utils;
 using System.ComponentModel.DataAnnotations;
+using BookingCare.Services.Auth.Constants;
 
 namespace BookingCare.Services.Auth.Controllers;
 
 /// <summary>
 /// Authentication controller - handles user authentication and authorization
 /// </summary>
-public static class AuthConstants
-{
-    public const string InvalidRequestData = "Invalid request data";
-    public const string ValidationError = "Validation error";
-}
 [ApiController]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
