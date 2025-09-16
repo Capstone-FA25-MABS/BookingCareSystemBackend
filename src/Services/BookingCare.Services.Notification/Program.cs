@@ -6,11 +6,16 @@ using BookingCare.Services.Notification.Handlers;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Utils.SMS;
 using BookingCare.Services.Notification.Utils.OTP;
-using BookingCare.Services.Notification.Repositories;
 using BookingCare.Services.Notification.Setting;
 using BookingCare.Services.Auth.Protos;
 using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Services.Notification.Repositories.Implementations;
+using BookingCare.Services.Notification.Repositories.Interfaces;
+using BookingCare.Services.Notification.Services.Interfaces;
+using BookingCare.Services.Notification.Services.Grpc;
+using BookingCare.Shared.Cache.Extensions;
+using BookingCare.Shared.Common.Versioning;
 
 
 // Enable HTTP/2 without TLS for gRPC (development only)
@@ -38,25 +43,25 @@ builder.Services.AddControllers()
     });
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1.0", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "BookingCare Notification API",
+        Version = "v1.0",
+        Description = "API for notification services including OTP, email, SMS, and push notifications"
+    });
+});
 
 // Email settings and service
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddSingleton<EmailService>();
-builder.Services.AddMemoryCache();
-// Redis (optional)
-var redisEnabled = builder.Configuration.GetSection("Redis").GetValue<bool>("Enabled");
-if (redisEnabled)
-{
-    builder.Services.AddStackExchangeRedisCache(options =>
-    {
-        options.Configuration = builder.Configuration.GetSection("Redis").GetValue<string>("Configuration");
-        options.InstanceName = builder.Configuration.GetSection("Redis").GetValue<string>("InstanceName");
-    });
-}
-builder.Services.AddSingleton<ManageOtp>();
+
+// Add Redis cache using shared cache service
+builder.Services.AddRedisCache(builder.Configuration);
+
+builder.Services.AddScoped<ManageOtp>();
 builder.Services.AddSingleton<EmailTemplate>();
-builder.Services.AddHostedService<RedisHealthBackgroundService>();
 
 // MongoDB settings
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection(MongoDbSettings.SectionName));
@@ -74,6 +79,9 @@ builder.Services.AddJwtAuthAndAuthorization();
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
+
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
 
 // Add logging
 builder.Logging.ClearProviders();
@@ -96,7 +104,14 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    var provider = app.Services.GetRequiredService<Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider>();
+    app.UseSwaggerUI(c =>
+    {
+        provider.ApiVersionDescriptions.ToList().ForEach(description =>
+            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"BookingCare Notification API {description.GroupName.ToUpperInvariant()}"));
+        c.RoutePrefix = "swagger";
+        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+    });
 }
 app.UseGlobalExceptionHandling(); // Assuming this is already added via AddGlobalExceptionHandling
 app.UseStandardAuthPipeline();
@@ -104,7 +119,6 @@ app.UseStandardAuthPipeline();
 app.MapControllers();
 
 // Configure the HTTP request pipeline.
-app.MapGrpcService<GreeterService>();
 app.MapGrpcService<OtpGrpcService>();
 app.MapGet("/", () => "BookingCare Notification Service is running...");
 
