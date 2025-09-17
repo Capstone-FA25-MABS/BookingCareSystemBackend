@@ -1,19 +1,19 @@
-using BookingCare.Services.Payment.Enums;
+﻿using BookingCare.Services.Payment.Enums;
 
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request DTO ?? c?p nh?t tr?ng th�i payment method
+/// Request DTO cập nhật trạng thái payment method
 /// </summary>
 public class UpdatePaymentMethodStatusRequest
 {
     /// <summary>
-    /// ID c?a payment method
+    /// ID của payment method
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Tr?ng th�i m?i
+    /// Trạng thái mới
     /// </summary>
     public PaymentMethodStatus Status { get; set; }
 }

@@ -1,55 +1,55 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Payment.Models.Entities;
 
 /// <summary>
-/// Entity cho b?ng payments - L?u tr? th�ng tin thanh to�n
+/// Entity cho bảng payments - Lưu trữ thông tin thanh toán
 /// </summary>
 [Table("payments")]
 public class PaymentEntity
 {
     /// <summary>
-    /// ID c?a payment
+    /// ID của payment
     /// </summary>
     [Key]
     [Column("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>
-    /// ID c?a appointment (c� th? null)
+    /// ID của appointment (có thể null)
     /// </summary>
     [Column("appointment_id")]
     public Guid? AppointmentId { get; set; }
 
     /// <summary>
-    /// ID c?a clinic (c� th? null)
+    /// ID của clinic (có thể null)
     /// </summary>
     [Column("clinic_id")]
     public Guid? ClinicId { get; set; }
 
     /// <summary>
-    /// ID c?a patient (c� th? null)
+    /// ID của patient (có thể null)
     /// </summary>
     [Column("patient_id")]
     public Guid? PatientId { get; set; }
 
     /// <summary>
-    /// ID c?a subscription (c� th? null - ch? d?ng cho clinic khi ??ng k� g�i)
+    /// ID của subscription (có thể null - chỉ dùng cho clinic khi đăng ký gói)
     /// </summary>
     [Column("subscription_id")]
     public Guid? SubscriptionId { get; set; }
 
     /// <summary>
-    /// S? ti?n thanh to�n
+    /// Số tiền thanh toán
     /// </summary>
     [Required]
     [Column("amount", TypeName = "decimal(10,2)")]
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// Lo?i giao d?ch (APPOINTMENT, SUBSCRIPTION)
+    /// Loại giao dịch (APPOINTMENT, SUBSCRIPTION)
     /// </summary>
     [Required]
     [MaxLength(20)]
@@ -57,27 +57,27 @@ public class PaymentEntity
     public TransactionType TransactionType { get; set; }
 
     /// <summary>
-    /// ID c?a ph??ng th?c thanh to�n
+    /// ID của phương thức thanh toán
     /// </summary>
     [Required]
     [Column("payment_method_id")]
     public Guid PaymentMethodId { get; set; }
 
     /// <summary>
-    /// Tr?ng th�i thanh to�n (PENDING, COMPLETED, FAILED, REFUNDED)
+    /// Trạng thái thanh toán (PENDING, COMPLETED, FAILED, REFUNDED)
     /// </summary>
     [Column("status")]
     public PaymentStatus Status { get; set; } = PaymentStatus.PENDING;
 
     /// <summary>
-    /// Th?i gian t?o
+    /// Thời gian tạo
     /// </summary>
     [Required]
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Navigation property - Ph??ng th?c thanh to�n
+    /// Navigation property - Phương thức thanh toán
     /// </summary>
     public virtual PaymentMethodEntity PaymentMethod { get; set; } = null!;
 }

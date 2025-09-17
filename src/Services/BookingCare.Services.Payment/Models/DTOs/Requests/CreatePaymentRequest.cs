@@ -1,44 +1,44 @@
-using BookingCare.Shared.Common.Enums;
+﻿using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request DTO ?? t?o payment m?i
+/// Request DTO để tạo payment mới
 /// </summary>
 public class CreatePaymentRequest
 {
     /// <summary>
-    /// ID c?a appointment (t�y ch?n)
+    /// ID của appointment (tùy chọn)
     /// </summary>
     public Guid? AppointmentId { get; set; }
 
     /// <summary>
-    /// ID c?a clinic (t�y ch?n)
+    /// ID của clinic (tùy chọn)
     /// </summary>
     public Guid? ClinicId { get; set; }
 
     /// <summary>
-    /// ID c?a patient (t�y ch?n)
+    /// ID của patient (tùy chọn)
     /// </summary>
     public Guid? PatientId { get; set; }
 
     /// <summary>
-    /// ID c?a subscription (t�y ch?n - ch? d?ng cho clinic khi ??ng k� g�i)
+    /// ID của subscription (tùy chọn - chỉ dùng cho clinic khi đăng ký gói)
     /// </summary>
     public Guid? SubscriptionId { get; set; }
 
     /// <summary>
-    /// S? ti?n thanh to�n
+    /// Số tiền thanh toán
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// Lo?i giao d?ch
+    /// Loại giao dịch
     /// </summary>
     public TransactionType TransactionType { get; set; }
 
     /// <summary>
-    /// ID ph??ng th?c thanh to�n
+    /// ID phương thức thanh toán
     /// </summary>
     public Guid PaymentMethodId { get; set; }
 }

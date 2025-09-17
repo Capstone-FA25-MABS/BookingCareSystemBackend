@@ -1,4 +1,4 @@
-using BookingCare.Services.Payment.Models.Entities;
+﻿using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Shared.Common.Models;
 
@@ -10,62 +10,62 @@ namespace BookingCare.Services.Payment.Repositories.Interfaces;
 public interface IPaymentRepository
 {
     /// <summary>
-    /// L?y payment theo ID
+    /// Lấy payment theo ID
     /// </summary>
     Task<PaymentEntity?> GetByIdAsync(Guid id);
 
     /// <summary>
-    /// L?y payment theo appointment ID
+    /// Lấy payment theo appointment ID
     /// </summary>
     Task<PaymentEntity?> GetByAppointmentIdAsync(Guid appointmentId);
 
     /// <summary>
-    /// L?y payment theo subscription ID
+    /// Lấy payment theo subscription ID
     /// </summary>
     Task<PaymentEntity?> GetBySubscriptionIdAsync(Guid subscriptionId);
 
     /// <summary>
-    /// L?y danh s?ch payments theo clinic ID
+    /// Lấy danh sách payments theo clinic ID
     /// </summary>
     Task<IEnumerable<PaymentEntity>> GetByClinicIdAsync(Guid clinicId);
 
     /// <summary>
-    /// L?y danh s?ch payments theo clinic ID v?i ph�n trang
+    /// Lấy danh sách payments theo clinic ID với phân trang
     /// </summary>
     Task<PagedResult<PaymentEntity>> GetPagedByClinicIdAsync(Guid clinicId, GetPaymentsPagedRequest request);
 
     /// <summary>
-    /// L?y danh s?ch payments theo patient ID
+    /// Lấy danh sách payments theo patient ID
     /// </summary>
     Task<IEnumerable<PaymentEntity>> GetByPatientIdAsync(Guid patientId);
 
     /// <summary>
-    /// L?y danh s?ch payments theo patient ID v?i ph�n trang
+    /// Lấy danh sách payments theo patient ID với phân trang
     /// </summary>
     Task<PagedResult<PaymentEntity>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request);
 
     /// <summary>
-    /// L?y d? li?u th?ng k� payments
+    /// Lấy dữ liệu thống kê payments
     /// </summary>
     Task<IEnumerable<PaymentEntity>> GetPaymentStatisticsAsync(GetPaymentStatisticsRequest request);
 
     /// <summary>
-    /// T?o payment m?i
+    /// Tạo payment mới
     /// </summary>
     Task<PaymentEntity> CreateAsync(PaymentEntity payment);
 
     /// <summary>
-    /// C?p nh?t payment
+    /// Cập nhật payment
     /// </summary>
     Task<PaymentEntity> UpdateAsync(PaymentEntity payment);
 
     /// <summary>
-    /// X?a payment
+    /// Xóa payment
     /// </summary>
     Task<bool> DeleteAsync(Guid id);
 
     /// <summary>
-    /// Ki?m tra payment c? t?n t?i kh?ng
+    /// Kiểm tra payment có tồn tại không
     /// </summary>
     Task<bool> ExistsAsync(Guid id);
 }

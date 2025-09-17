@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Repositories.Interfaces;
@@ -9,7 +9,7 @@ using BookingCare.Shared.Common.Enums;
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 
 /// <summary>
-/// Implementation c?a Payment Repository
+/// Implementation của Payment Repository
 /// </summary>
 public class PaymentRepository : IPaymentRepository
 {

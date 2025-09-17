@@ -1,4 +1,4 @@
-using BookingCare.Shared.Common.Enums;
+﻿using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
@@ -8,57 +8,57 @@ namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 public class PaymentResponse
 {
     /// <summary>
-    /// ID c?a payment
+    /// ID của payment
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// ID c?a appointment
+    /// ID của appointment
     /// </summary>
     public Guid? AppointmentId { get; set; }
 
     /// <summary>
-    /// ID c?a clinic
+    /// ID của clinic
     /// </summary>
     public Guid? ClinicId { get; set; }
 
     /// <summary>
-    /// ID c?a patient
+    /// ID của patient
     /// </summary>
     public Guid? PatientId { get; set; }
 
     /// <summary>
-    /// ID c?a subscription
+    /// ID của subscription
     /// </summary>
     public Guid? SubscriptionId { get; set; }
 
     /// <summary>
-    /// S? ti?n thanh to?n
+    /// Số tiền thanh toán
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// Lo?i giao d?ch
+    /// Loại giao dịch
     /// </summary>
     public TransactionType TransactionType { get; set; }
 
     /// <summary>
-    /// ID ph??ng th?c thanh to?n
+    /// ID phương thức thanh toán
     /// </summary>
     public Guid PaymentMethodId { get; set; }
 
     /// <summary>
-    /// T?n ph??ng th?c thanh to?n
+    /// Tên phương thức thanh toán
     /// </summary>
     public string PaymentMethodName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tr?ng th?i thanh to?n
+    /// Trạng thái thanh toán
     /// </summary>
     public PaymentStatus Status { get; set; }
 
     /// <summary>
-    /// Th?i gian t?o
+    /// Thời gian tạo
     /// </summary>
     public DateTime CreatedAt { get; set; }
 }

@@ -1,4 +1,4 @@
-using BookingCare.Services.Payment.Enums;
+﻿using BookingCare.Services.Payment.Enums;
 
 namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
@@ -8,22 +8,23 @@ namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 public class PaymentMethodResponse
 {
     /// <summary>
-    /// ID c?a ph??ng th?c thanh to�n
+    /// ID của phương thức thanh toán
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// T�n ph??ng th?c thanh to�n
+    /// Tên phương thức thanh toán
     /// </summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// M� t? ph??ng th?c thanh to�n
+    /// Mô tả phương thức thanh toán
     /// </summary>
     public string? Description { get; set; }
 
     /// <summary>
-    /// Tr?ng th�i ph??ng th?c thanh to�n
+    /// Trạng thái phương thức thanh toán
+
     /// </summary>
     public PaymentMethodStatus Status { get; set; }
 }

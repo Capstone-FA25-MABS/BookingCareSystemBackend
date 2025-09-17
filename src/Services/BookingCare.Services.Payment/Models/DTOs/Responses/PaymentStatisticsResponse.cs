@@ -1,247 +1,247 @@
-namespace BookingCare.Services.Payment.Models.DTOs.Responses;
+﻿namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
 /// <summary>
-/// Response DTO cho th?ng k� payments
+/// Response DTO cho thống kê payments
 /// </summary>
 public class PaymentStatisticsResponse
 {
     /// <summary>
-    /// D? li?u th?ng k� theo th?i gian
+    /// Dữ liệu thống kê theo thời gian
     /// </summary>
     public List<PaymentTimeSeriesData> TimeSeries { get; set; } = new();
 
     /// <summary>
-    /// Th?ng k� t?ng quan
+    /// Thống kê tổng quan
     /// </summary>
     public PaymentSummaryStatistics Summary { get; set; } = new();
 
     /// <summary>
-    /// Th?ng k� theo ph??ng th?c thanh to�n
+    /// Thống kê theo phương thức thanh toán
     /// </summary>
     public List<PaymentMethodStatistics> PaymentMethodBreakdown { get; set; } = new();
 
     /// <summary>
-    /// Th?ng k� theo tr?ng th�i
+    /// Thống kê theo trạng thái
     /// </summary>
     public List<PaymentStatusStatistics> StatusBreakdown { get; set; } = new();
 
     /// <summary>
-    /// Th?ng k� theo lo?i giao d?ch
+    /// Thống kê theo loại giao dịch
     /// </summary>
     public List<TransactionTypeStatistics> TransactionTypeBreakdown { get; set; } = new();
 
     /// <summary>
-    /// Chu k? th?ng k� ???c s? d?ng
+    /// Chu kỳ thống kê được sử dụng
     /// </summary>
     public string Period { get; set; } = string.Empty;
 
     /// <summary>
-    /// Kho?ng th?i gian th?ng k�
+    /// Khoảng thời gian thống kê
     /// </summary>
     public string DateRange { get; set; } = string.Empty;
 }
 
 /// <summary>
-/// D? li?u th?ng k� theo chu?i th?i gian
+/// Dữ liệu thống kê theo chuỗi thời gian
 /// </summary>
 public class PaymentTimeSeriesData
 {
     /// <summary>
-    /// Nh�n th?i gian (v� d?: "2024-01", "2024-Q1", "2024-01-15")
+    /// Nhãn thời gian (ví dụ: "2024-01", "2024-Q1", "2024-01-15")
     /// </summary>
     public string TimeLabel { get; set; } = string.Empty;
 
     /// <summary>
-    /// Ng�y b?t ??u c?a chu k?
+    /// Ngày bắt đầu của chu kỳ
     /// </summary>
     public DateTime PeriodStart { get; set; }
 
     /// <summary>
-    /// Ng�y k?t th�c c?a chu k?
+    /// Ngày kết thúc của chu kỳ
     /// </summary>
     public DateTime PeriodEnd { get; set; }
 
     /// <summary>
-    /// T?ng s? l??ng payments
+    /// Tổng số lượng payments
     /// </summary>
     public int TotalCount { get; set; }
 
     /// <summary>
-    /// T?ng s? ti?n
+    /// Tổng số tiền
     /// </summary>
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// S? l??ng payments th�nh c�ng
+    /// Số lượng payments thành công
     /// </summary>
     public int CompletedCount { get; set; }
 
     /// <summary>
-    /// S? ti?n t? payments th�nh c�ng
+    /// Số tiền từ payments thành công
     /// </summary>
     public decimal CompletedAmount { get; set; }
 
     /// <summary>
-    /// S? l??ng payments ?ang pending
+    /// Số lượng payments đang pending
     /// </summary>
     public int PendingCount { get; set; }
 
     /// <summary>
-    /// S? l??ng payments th?t b?i
+    /// Số lượng payments thất bại
     /// </summary>
     public int FailedCount { get; set; }
 
     /// <summary>
-    /// S? l??ng payments ho�n ti?n
+    /// Số lượng payments hoàn tiền
     /// </summary>
     public int RefundedCount { get; set; }
 
     /// <summary>
-    /// Gi� tr? trung b�nh m?i payment
+    /// Giá trị trung bình mỗi payment
     /// </summary>
     public decimal AverageAmount { get; set; }
 }
 
 /// <summary>
-/// Th?ng k� t?ng quan
+/// Thống kê tổng quan
 /// </summary>
 public class PaymentSummaryStatistics
 {
     /// <summary>
-    /// T?ng s? l??ng payments
+    /// Tổng số lượng payments
     /// </summary>
     public int TotalPayments { get; set; }
 
     /// <summary>
-    /// T?ng s? ti?n
+    /// Tổng số tiền
     /// </summary>
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// T?ng s? ti?n th�nh c�ng
+    /// Tổng số tiền thành công
     /// </summary>
     public decimal TotalCompletedAmount { get; set; }
 
     /// <summary>
-    /// T? l? th�nh c�ng (%)
+    /// Tỉ lệ thành công (%)
     /// </summary>
     public decimal SuccessRate { get; set; }
 
     /// <summary>
-    /// Gi� tr? trung b�nh m?i payment
+    /// Giá trị trung bình mỗi payment
     /// </summary>
     public decimal AveragePaymentAmount { get; set; }
 
     /// <summary>
-    /// Payment cao nh?t
+    /// Payment cao nhất
     /// </summary>
     public decimal MaxPaymentAmount { get; set; }
 
     /// <summary>
-    /// Payment th?p nh?t
+    /// Payment thấp nhất
     /// </summary>
     public decimal MinPaymentAmount { get; set; }
 
     /// <summary>
-    /// S? l??ng payments m?i ng�y (trung b�nh)
+    /// Số lượng payments mỗi ngày (trung bình)
     /// </summary>
     public decimal AveragePaymentsPerDay { get; set; }
 
     /// <summary>
-    /// T?ng tr??ng so v?i k? tr??c (%)
+    /// Tăng trưởng so với kỳ trước (%)
     /// </summary>
     public decimal GrowthRate { get; set; }
 }
 
 /// <summary>
-/// Th?ng k� theo ph??ng th?c thanh to�n
+/// Thống kê theo phương thức thanh toán
 /// </summary>
 public class PaymentMethodStatistics
 {
     /// <summary>
-    /// ID ph??ng th?c thanh to�n
+    /// ID phương thức thanh toán
     /// </summary>
     public Guid PaymentMethodId { get; set; }
 
     /// <summary>
-    /// T�n ph??ng th?c thanh to�n
+    /// Tên phương thức thanh toán
     /// </summary>
     public string PaymentMethodName { get; set; } = string.Empty;
 
     /// <summary>
-    /// S? l??ng payments
+    /// Số lượng payments
     /// </summary>
     public int Count { get; set; }
 
     /// <summary>
-    /// T?ng s? ti?n
+    /// Tổng số tiền
     /// </summary>
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// T? l? so v?i t?ng (%)
+    /// Tỉ lệ so với tổng (%)
     /// </summary>
     public decimal Percentage { get; set; }
 
     /// <summary>
-    /// Gi� tr? trung b�nh
+    /// Giá trị trung bình
     /// </summary>
     public decimal AverageAmount { get; set; }
 }
 
 /// <summary>
-/// Th?ng k� theo tr?ng th�i payment
+/// Thống kê theo trạng thái payment
 /// </summary>
 public class PaymentStatusStatistics
 {
     /// <summary>
-    /// Tr?ng th�i
+    /// Trạng thái
     /// </summary>
     public string Status { get; set; } = string.Empty;
 
     /// <summary>
-    /// S? l??ng
+    /// Số lượng
     /// </summary>
     public int Count { get; set; }
 
     /// <summary>
-    /// T?ng s? ti?n
+    /// Tổng số tiền
     /// </summary>
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// T? l? (%)
+    /// Tỉ lệ (%)
     /// </summary>
     public decimal Percentage { get; set; }
 }
 
 /// <summary>
-/// Th?ng k� theo lo?i giao d?ch
+/// Thống kê theo loại giao dịch
 /// </summary>
 public class TransactionTypeStatistics
 {
     /// <summary>
-    /// Lo?i giao d?ch
+    /// Loại giao dịch
     /// </summary>
     public string TransactionType { get; set; } = string.Empty;
 
     /// <summary>
-    /// S? l??ng
+    /// Số lượng
     /// </summary>
     public int Count { get; set; }
 
     /// <summary>
-    /// T?ng s? ti?n
+    /// Tổng số tiền
     /// </summary>
     public decimal TotalAmount { get; set; }
 
     /// <summary>
-    /// T? l? (%)
+    /// Tỉ lệ (%)
     /// </summary>
     public decimal Percentage { get; set; }
 
     /// <summary>
-    /// Gi� tr? trung b�nh
+    /// Giá trị trung bình
     /// </summary>
     public decimal AverageAmount { get; set; }
 }

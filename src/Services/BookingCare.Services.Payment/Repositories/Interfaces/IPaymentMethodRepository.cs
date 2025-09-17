@@ -1,4 +1,4 @@
-using BookingCare.Services.Payment.Models.Entities;
+﻿using BookingCare.Services.Payment.Models.Entities;
 
 namespace BookingCare.Services.Payment.Repositories.Interfaces;
 
@@ -8,32 +8,32 @@ namespace BookingCare.Services.Payment.Repositories.Interfaces;
 public interface IPaymentMethodRepository
 {
     /// <summary>
-    /// L?y payment method theo ID
+    /// Lấy payment method theo ID
     /// </summary>
     Task<PaymentMethodEntity?> GetByIdAsync(Guid id);
 
     /// <summary>
-    /// L?y t?t c? payment methods
+    /// Lấy tất cả payment methods
     /// </summary>
     Task<IEnumerable<PaymentMethodEntity>> GetAllAsync();
 
     /// <summary>
-    /// L?y ch? payment methods ?ang active
+    /// Lấy chỉ payment methods đang active
     /// </summary>
     Task<IEnumerable<PaymentMethodEntity>> GetActiveAsync();
 
     /// <summary>
-    /// L?y payment method theo t?n
+    /// Lấy payment method theo tên
     /// </summary>
     Task<PaymentMethodEntity?> GetByNameAsync(string name);
 
     /// <summary>
-    /// C?p nh?t payment method
+    /// Cập nhật payment method
     /// </summary>
     Task<PaymentMethodEntity> UpdateAsync(PaymentMethodEntity paymentMethod);
 
     /// <summary>
-    /// Ki?m tra payment method c? t?n t?i kh?ng
+    /// Kiểm tra payment method có tồn tại không
     /// </summary>
     Task<bool> ExistsAsync(Guid id);
 }
