@@ -151,7 +151,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
 
             // Get users batch - now returns List<UserBasicInfoResponse> directly
             var users = await _userService.GetUsersByAccountIdsAsync(accountIds);
-            
+
             // Map to gRPC response
             var grpcResponse = new Protos.UserBatchResponse();
 
