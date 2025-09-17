@@ -1,0 +1,53 @@
+# Redis Development Setup for BookingCare System
+
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis-bookingcare
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander-bookingcare
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - bookingcare-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  bookingcare-network:
+    driver: bridge
+
+# Usage:
+# 1. Copy this file to your project root as docker-compose.redis.yml
+# 2. Run: docker-compose -f docker-compose.redis.yml up -d
+# 3. Access Redis Commander at http://localhost:8081 (admin/admin)
+# 4. Connect to Redis at localhost:6379
