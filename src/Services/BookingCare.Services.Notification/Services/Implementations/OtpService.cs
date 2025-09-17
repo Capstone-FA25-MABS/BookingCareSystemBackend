@@ -1,6 +1,7 @@
 ﻿using BookingCare.Services.Notification.Models.DTOs;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Utils.OTP;
+using BookingCare.Shared.Cache.Constants;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.EventBus.Abstractions;
@@ -9,6 +10,8 @@ using System.Security.Cryptography;
 using System.Text;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Notification.Services.Interfaces;
+using BookingCare.Services.Notification.Exceptions;
+using BookingCare.Shared.Common.Exceptions;
 
 namespace BookingCare.Services.Notification.Services;
 
@@ -41,7 +44,11 @@ public class OtpService : BaseService, IOtpService
         {
             if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Phone))
             {
-                throw new ArgumentException("Either Email or Phone is required");
+                throw new OtpValidationException(new List<ValidationError>
+                {
+                    new("Email", "Either Email or Phone is required", request.Email),
+                    new("Phone", "Either Email or Phone is required", request.Phone)
+                });
             }
 
             var otp = _otpManager.GenerateNumericOtp();
@@ -62,16 +69,18 @@ public class OtpService : BaseService, IOtpService
 
             if (!string.IsNullOrWhiteSpace(request.Email))
             {
-                await _otpManager.StoreOtpAsync($"purpose:{purpose}:email:{request.Email}", otp, TimeSpan.FromMinutes(5));
+                var emailKey = CacheKeys.Format(CacheKeys.OtpPurposeEmail, purpose, request.Email);
+                await _otpManager.StoreOtpAsync(emailKey, otp, TimeSpan.FromMinutes(5));
                 await SendEmailOtp(request.Email, otp, purpose);
             }
             else
             {
                 if (string.IsNullOrWhiteSpace(request.DeviceId))
                 {
-                    throw new ArgumentException("DeviceId is required for SMS OTP");
+                    throw new OtpValidationException("DeviceId", "DeviceId is required for SMS OTP", request.DeviceId);
                 }
-                await _otpManager.StoreOtpAsync($"purpose:{purpose}:phone:{request.Phone}", otp, TimeSpan.FromMinutes(5));
+                var phoneKey = CacheKeys.Format(CacheKeys.OtpPurposePhone, purpose, request.Phone!);
+                await _otpManager.StoreOtpAsync(phoneKey, otp, TimeSpan.FromMinutes(5));
                 await SendSmsOtp(request.Phone!, request.DeviceId!, otp, purpose);
             }
 
@@ -85,7 +94,11 @@ public class OtpService : BaseService, IOtpService
         {
             if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Phone))
             {
-                throw new ArgumentException("Either Email or Phone is required");
+                throw new OtpValidationException(new List<ValidationError>
+                {
+                    new("Email", "Either Email or Phone is required", request.Email),
+                    new("Phone", "Either Email or Phone is required", request.Phone)
+                });
             }
 
             var purposeKey = request.Purpose.ToKey();
@@ -94,11 +107,11 @@ public class OtpService : BaseService, IOtpService
             var isValid = await _otpManager.VerifyOtpAsync(key, request.Otp);
             if (!isValid)
             {
-                throw new InvalidOperationException("Invalid or expired OTP");
+                throw new OtpInvalidException(request.Otp, true);
             }
 
             // Set verification flag for Auth service
-            var flagKey = $"otp:verified:{purposeKey}:{subject}";
+            var flagKey = CacheKeys.Format(CacheKeys.OtpVerified, purposeKey, subject);
             await _otpManager.SetFlagAsync(flagKey, TimeSpan.FromMinutes(5));
 
             // HMAC proof (fallback if Auth can't read Redis)
