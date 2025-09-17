@@ -1,5 +1,4 @@
 ﻿using BookingCare.Shared.Common.Enums;
-using Microsoft.AspNetCore.Antiforgery;
 using System.ComponentModel.DataAnnotations;
 
 namespace BookingCare.Services.Notification.Models.DTOs

@@ -1,4 +1,5 @@
 ﻿using BookingCare.Shared.Cache.Abstractions;
+using BookingCare.Shared.Cache.Constants;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -51,7 +52,7 @@ public class ManageOtp
     {
         var cacheKey = GetCacheKey(key);
         var otpData = await _cacheService.GetAsync<OtpData>(cacheKey);
-        
+
         if (otpData?.Hash == null)
         {
             return false;
@@ -59,7 +60,7 @@ public class ManageOtp
 
         var providedHash = Hash(otp);
         var isValid = CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(otpData.Hash), 
+            Encoding.UTF8.GetBytes(otpData.Hash),
             Encoding.UTF8.GetBytes(providedHash));
 
         if (isValid)
@@ -73,7 +74,7 @@ public class ManageOtp
 
     // Removed legacy helpers; use namespaced keys with purpose + subject instead
 
-    private static string GetCacheKey(string key) => $"otp:{key.ToLowerInvariant()}";
+    private static string GetCacheKey(string key) => CacheKeys.Format(CacheKeys.OtpByKey, key.ToLowerInvariant());
 
     private static string Hash(string value)
     {
