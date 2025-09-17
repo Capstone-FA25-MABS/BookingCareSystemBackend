@@ -130,6 +130,56 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
         }
     }
 
+    public override async Task<Protos.UserBatchResponse> GetUsersByAccountIds(
+        Protos.GetUsersByAccountIdsRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[UserGrpcService] gRPC GetUsersByAccountIds called for {Count} account IDs", request.AccountIds.Count);
+
+            // Validate account IDs
+            var accountIds = new List<Guid>();
+            foreach (var accountIdString in request.AccountIds)
+            {
+                if (!Guid.TryParse(accountIdString, out var accountId))
+                {
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, $"Invalid account ID format: {accountIdString}"));
+                }
+                accountIds.Add(accountId);
+            }
+
+            // Get users batch - now returns List<UserBasicInfoResponse> directly
+            var users = await _userService.GetUsersByAccountIdsAsync(accountIds);
+            
+            // Map to gRPC response
+            var grpcResponse = new Protos.UserBatchResponse();
+
+            foreach (var user in users)
+            {
+                grpcResponse.Users.Add(new Protos.UserBasicInfo
+                {
+                    AccountId = user.AccountId.ToString(),
+                    Email = user.Email,
+                    FullName = user.FullName,
+                    AvatarUrl = user.AvatarUrl
+                });
+            }
+
+            _logger.LogInformation("[UserGrpcService] Retrieved {Count} users for batch request", users.Count);
+            return grpcResponse;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[UserGrpcService] Error getting users by account IDs batch");
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
     // Helper methods for mapping
     private Protos.UserResponse MapToGrpcUserResponse(UserResponse user)
     {

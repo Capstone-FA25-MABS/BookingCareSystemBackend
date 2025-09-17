@@ -136,4 +136,21 @@ public class UserService : BaseService, IUserService
         }, "SearchUsers");
     }
 
+    public async Task<List<UserBasicInfoResponse>> GetUsersByAccountIdsAsync(List<Guid> accountIds)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            ValidateRequired(accountIds, nameof(accountIds));
+
+            LogInfo("Getting users by account IDs batch - Count: {Count}", null, accountIds.Count);
+
+            // Repository already returns optimized DTOs directly from database
+            var users = await _userRepository.GetUsersByAccountIdsAsync(accountIds);
+
+            LogInfo("Retrieved {Count} users for batch request", null, users.Count);
+            return users;
+
+        }, "GetUsersByAccountIds");
+    }
+
 }
