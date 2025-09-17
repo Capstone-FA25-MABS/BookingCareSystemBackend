@@ -36,3 +36,12 @@ public class UserSearchResponse
     public string SearchTerm { get; set; } = string.Empty;
     public int Limit { get; set; }
 }
+
+// Lightweight DTO for performance-optimized queries (only essential fields)
+public class UserBasicInfoResponse
+{
+    public Guid AccountId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string AvatarUrl { get; set; } = string.Empty;
+}
