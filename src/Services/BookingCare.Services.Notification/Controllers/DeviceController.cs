@@ -1,5 +1,4 @@
-﻿using BookingCare.Services.Notification.Models.DTOs;
-using BookingCare.Services.Notification.Utils.SMS;
+﻿using BookingCare.Services.Notification.Utils.SMS;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
@@ -44,21 +43,23 @@ public class DeviceController : BaseApiController
     }
 
     /// <summary>
-    /// Register a device for push notifications
+    /// Register a device for push notifications (Form data format) 
     /// </summary>
-    /// <param name="request">Device registration request containing device name and FCM token</param>
+    /// <param name="deviceName">Device name</param>
+    /// <param name="token">FCM token</param>
     /// <returns>Device registration result with assigned device ID</returns>
     [HttpPost("register")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public IActionResult Register([FromBody] DeviceRegistrationRequest request)
+    [Consumes("application/x-www-form-urlencoded")]
+    public IActionResult RegisterForm([FromForm] string deviceName, [FromForm] string token)
     {
-        if (!ModelState.IsValid)
+        if (string.IsNullOrEmpty(deviceName) || string.IsNullOrEmpty(token))
         {
-            return BadRequest("Invalid request data", new List<string> { "DeviceName and Token are required" });
+            return BadRequest("Invalid request data", new List<string> { "deviceName and token are required" });
         }
 
-        var device = _deviceStore.AddOrUpdate(request.DeviceName, request.Token);
-        _logger.LogInformation("Device registered: {DeviceName} with ID {DeviceId}", request.DeviceName, device.Id);
+        var device = _deviceStore.AddOrUpdate(deviceName, token);
+        _logger.LogInformation("Device registered: {DeviceName} with ID {DeviceId}", deviceName, device.Id);
 
         return Success(new { DeviceId = device.Id, DeviceName = device.Name }, "Device registered successfully");
     }

@@ -16,14 +16,11 @@ namespace BookingCare.Services.Notification.Controllers;
 [Produces("application/json")]
 public class OtpController : BaseApiController
 {
-    private readonly ILogger<OtpController> _logger;
     private readonly IOtpService _otpService;
 
     public OtpController(
-        ILogger<OtpController> logger,
         IOtpService otpService)
     {
-        _logger = logger;
         _otpService = otpService;
     }
 
