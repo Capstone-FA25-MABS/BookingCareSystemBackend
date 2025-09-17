@@ -39,11 +39,11 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     }
 
     /// <summary>
-    /// Gets statistics for a single doctor
+    /// Gets detailed statistics with rating distribution for a single doctor
     /// </summary>
-    public override async Task<ReviewStatisticsResponse> GetDoctorStatistics(GetDoctorStatisticsRequest request, ServerCallContext context)
+    public override async Task<ReviewDetailedStatisticsResponse> GetDoctorDetailedStatistics(GetDoctorStatisticsRequest request, ServerCallContext context)
     {
-        _logger.LogInformation("Getting doctor statistics for ID: {DoctorId}", request.DoctorId);
+        _logger.LogInformation("Getting detailed doctor statistics for ID: {DoctorId}", request.DoctorId);
 
         try
         {
@@ -52,22 +52,22 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid doctor ID format"));
             }
 
-            var statistics = await _reviewService.GetDoctorStatisticsAsync(doctorId);
-            return MapToGrpcStatistics(statistics);
+            var statistics = await _reviewService.GetDoctorDetailedStatisticsAsync(doctorId);
+            return MapToGrpcDetailedStatistics(statistics);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting doctor statistics for ID: {DoctorId}", request.DoctorId);
+            _logger.LogError(ex, "Error getting detailed doctor statistics for ID: {DoctorId}", request.DoctorId);
             throw new RpcException(new Status(StatusCode.Internal, ex.Message));
         }
     }
 
     /// <summary>
-    /// Gets statistics for a single clinic service
+    /// Gets detailed statistics with rating distribution for a single clinic service
     /// </summary>
-    public override async Task<ReviewStatisticsResponse> GetServiceStatistics(GetServiceStatisticsRequest request, ServerCallContext context)
+    public override async Task<ReviewDetailedStatisticsResponse> GetServiceDetailedStatistics(GetServiceStatisticsRequest request, ServerCallContext context)
     {
-        _logger.LogInformation("Getting service statistics for ID: {ServiceId}", request.ServiceId);
+        _logger.LogInformation("Getting detailed service statistics for ID: {ServiceId}", request.ServiceId);
 
         try
         {
@@ -76,12 +76,12 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid service ID format"));
             }
 
-            var statistics = await _reviewService.GetClinicServiceStatisticsAsync(serviceId);
-            return MapToGrpcStatistics(statistics);
+            var statistics = await _reviewService.GetClinicServiceDetailedStatisticsAsync(serviceId);
+            return MapToGrpcDetailedStatistics(statistics);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting service statistics for ID: {ServiceId}", request.ServiceId);
+            _logger.LogError(ex, "Error getting detailed service statistics for ID: {ServiceId}", request.ServiceId);
             throw new RpcException(new Status(StatusCode.Internal, ex.Message));
         }
     }
@@ -240,9 +240,26 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
 
     #region Private Helper Methods
 
+    /// <summary>
+    /// Maps to optimized gRPC statistics (without rating distribution for batch operations)
+    /// </summary>
     private static ReviewStatisticsResponse MapToGrpcStatistics(Models.DTOs.ReviewStatisticsResponse dto)
     {
-        var response = new ReviewStatisticsResponse
+        return new ReviewStatisticsResponse
+        {
+            TargetId = dto.TargetId.ToString(),
+            TargetType = dto.TargetType == Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,
+            AverageRating = dto.AverageRating,
+            TotalReviews = dto.TotalReviews
+        };
+    }
+
+    /// <summary>
+    /// Maps to detailed gRPC statistics (with rating distribution for single endpoints)
+    /// </summary>
+    private static ReviewDetailedStatisticsResponse MapToGrpcDetailedStatistics(Models.DTOs.ReviewDetailedStatisticsResponse dto)
+    {
+        var response = new ReviewDetailedStatisticsResponse
         {
             TargetId = dto.TargetId.ToString(),
             TargetType = dto.TargetType == Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,

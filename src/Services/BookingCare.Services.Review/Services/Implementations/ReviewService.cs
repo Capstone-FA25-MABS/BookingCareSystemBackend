@@ -337,7 +337,7 @@ public class ReviewService : BaseService, IReviewService
     }
 
     /// <summary>
-    /// Gets comprehensive statistics for a doctor
+    /// Gets optimized statistics for a doctor (used by batch operations)
     /// </summary>
     public async Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId)
     {
@@ -346,12 +346,30 @@ public class ReviewService : BaseService, IReviewService
     }
 
     /// <summary>
-    /// Gets comprehensive statistics for a clinic service
+    /// Gets optimized statistics for a clinic service (used by batch operations)
     /// </summary>
     public async Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId)
     {
         ValidateGuid(clinicServiceId, nameof(clinicServiceId));
         return await _reviewRepository.GetClinicServiceStatisticsAsync(clinicServiceId);
+    }
+
+    /// <summary>
+    /// Gets detailed statistics with rating distribution for a doctor (single endpoint)
+    /// </summary>
+    public async Task<ReviewDetailedStatisticsResponse> GetDoctorDetailedStatisticsAsync(Guid doctorId)
+    {
+        ValidateGuid(doctorId, nameof(doctorId));
+        return await _reviewRepository.GetDoctorDetailedStatisticsAsync(doctorId);
+    }
+
+    /// <summary>
+    /// Gets detailed statistics with rating distribution for a clinic service (single endpoint)
+    /// </summary>
+    public async Task<ReviewDetailedStatisticsResponse> GetClinicServiceDetailedStatisticsAsync(Guid clinicServiceId)
+    {
+        ValidateGuid(clinicServiceId, nameof(clinicServiceId));
+        return await _reviewRepository.GetClinicServiceDetailedStatisticsAsync(clinicServiceId);
     }
 
     /// <summary>

@@ -34,9 +34,35 @@ public class ReplyResponse
 }
 
 /// <summary>
-/// Response DTO for review statistics
+/// Response DTO for basic review statistics (without rating distribution)
 /// </summary>
-public class ReviewStatisticsResponse
+public class ReviewSummaryResponse
+{
+    /// <summary>
+    /// ID of the target (Doctor or Service)
+    /// </summary>
+    public Guid TargetId { get; set; }
+
+    /// <summary>
+    /// Type of target being reviewed
+    /// </summary>
+    public TargetType TargetType { get; set; }
+
+    /// <summary>
+    /// Average rating (0.0 - 5.0)
+    /// </summary>
+    public double AverageRating { get; set; }
+
+    /// <summary>
+    /// Total number of reviews
+    /// </summary>
+    public long TotalReviews { get; set; }
+}
+
+/// <summary>
+/// Response DTO for detailed single statistics (with rating distribution for detailed view)
+/// </summary>
+public class ReviewDetailedStatisticsResponse
 {
     /// <summary>
     /// ID of the target (Doctor or Service)
@@ -59,9 +85,35 @@ public class ReviewStatisticsResponse
     public long TotalReviews { get; set; }
 
     /// <summary>
-    /// Rating distribution breakdown
+    /// Rating distribution breakdown (1-5 stars)
     /// </summary>
     public Dictionary<int, long> RatingDistribution { get; set; } = new();
+}
+
+/// <summary>
+/// Response DTO for review statistics (optimized without rating distribution for batch operations)
+/// </summary>
+public class ReviewStatisticsResponse
+{
+    /// <summary>
+    /// ID of the target (Doctor or Service)
+    /// </summary>
+    public Guid TargetId { get; set; }
+
+    /// <summary>
+    /// Type of target being reviewed
+    /// </summary>
+    public TargetType TargetType { get; set; }
+
+    /// <summary>
+    /// Average rating (0.0 - 5.0)
+    /// </summary>
+    public double AverageRating { get; set; }
+
+    /// <summary>
+    /// Total number of reviews
+    /// </summary>
+    public long TotalReviews { get; set; }
 }
 
 /// <summary>

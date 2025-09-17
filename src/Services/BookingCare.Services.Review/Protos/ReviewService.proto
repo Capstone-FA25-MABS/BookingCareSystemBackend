@@ -9,16 +9,16 @@ import "google/protobuf/wrappers.proto";
 
 // Review Statistics Service for inter-service communication
 service ReviewService {
-  // Gets statistics for a single doctor
-  rpc GetDoctorStatistics (GetDoctorStatisticsRequest) returns (ReviewStatisticsResponse);
+  // Gets detailed statistics with rating distribution for a single doctor
+  rpc GetDoctorDetailedStatistics (GetDoctorStatisticsRequest) returns (ReviewDetailedStatisticsResponse);
   
-  // Gets statistics for a single clinic service
-  rpc GetServiceStatistics (GetServiceStatisticsRequest) returns (ReviewStatisticsResponse);
+  // Gets detailed statistics with rating distribution for a single clinic service
+  rpc GetServiceDetailedStatistics (GetServiceStatisticsRequest) returns (ReviewDetailedStatisticsResponse);
   
-  // Gets statistics for multiple doctors in batch
+  // Gets statistics for multiple doctors in batch (performance optimized)
   rpc GetBatchDoctorsStatistics (BatchDoctorsStatisticsRequest) returns (BatchDoctorsStatisticsResponse);
   
-  // Gets statistics for multiple clinic services in batch  
+  // Gets statistics for multiple clinic services in batch (performance optimized)
   rpc GetBatchServicesStatistics (BatchServicesStatisticsRequest) returns (BatchServicesStatisticsResponse);
   
   // Gets paginated reviews for a doctor
@@ -50,8 +50,17 @@ message GetServiceStatisticsRequest {
   string service_id = 1;
 }
 
-// Statistics response messages
+// Statistics response messages (optimized for batch operations - no rating distribution)
 message ReviewStatisticsResponse {
+  string target_id = 1;
+  TargetType target_type = 2;
+  double average_rating = 3;
+  int64 total_reviews = 4;
+  // rating_distribution removed for performance optimization in batch operations
+}
+
+// Detailed statistics response messages (with rating distribution for single endpoints)
+message ReviewDetailedStatisticsResponse {
   string target_id = 1;
   TargetType target_type = 2;
   double average_rating = 3;

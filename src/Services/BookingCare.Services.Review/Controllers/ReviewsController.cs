@@ -202,7 +202,7 @@ public class ReviewsController : BaseApiController
     [HttpGet("doctor/{doctorId:guid}/statistics")]
     public async Task<IActionResult> GetDoctorStatistics(Guid doctorId)
     {
-        var result = await _reviewService.GetDoctorStatisticsAsync(doctorId);
+        var result = await _reviewService.GetDoctorDetailedStatisticsAsync(doctorId);
         return Success(result, "Doctor statistics retrieved successfully");
     }
 
@@ -226,7 +226,7 @@ public class ReviewsController : BaseApiController
     [HttpGet("service/{clinicServiceId:guid}/statistics")]
     public async Task<IActionResult> GetServiceStatistics(Guid clinicServiceId)
     {
-        var result = await _reviewService.GetClinicServiceStatisticsAsync(clinicServiceId);
+        var result = await _reviewService.GetClinicServiceDetailedStatisticsAsync(clinicServiceId);
         return Success(result, "Service statistics retrieved successfully");
     }
 

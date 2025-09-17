@@ -337,9 +337,87 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Generic method to get comprehensive statistics for any target type
+    /// Gets detailed statistics with rating distribution for a doctor (single endpoint)
+    /// </summary>
+    public async Task<ReviewDetailedStatisticsResponse> GetDoctorDetailedStatisticsAsync(Guid doctorId)
+    {
+        return await GetDetailedStatisticsAsync("doctorId", doctorId.ToString(), "DOCTOR", doctorId, TargetType.DOCTOR);
+    }
+
+    /// <summary>
+    /// Gets detailed statistics with rating distribution for a clinic service (single endpoint)
+    /// </summary>
+    public async Task<ReviewDetailedStatisticsResponse> GetClinicServiceDetailedStatisticsAsync(Guid clinicServiceId)
+    {
+        return await GetDetailedStatisticsAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE", clinicServiceId, TargetType.SERVICE);
+    }
+
+    /// <summary>
+    /// Generic method to get optimized statistics for any target type (without rating distribution for batch)
     /// </summary>
     private async Task<ReviewStatisticsResponse> GetStatisticsAsync(
+        string targetIdField,
+        string targetIdValue,
+        string targetType,
+        Guid targetId,
+        TargetType targetTypeEnum)
+    {
+        var matchStage = new BsonDocument(
+            "$match",
+            new BsonDocument
+            {
+                { targetIdField, targetIdValue },
+                { "targetType", targetType },
+            }
+        );
+
+        var groupStage = new BsonDocument(
+            "$group",
+            new BsonDocument
+            {
+                { "_id", BsonNull.Value },
+                { "averageRating", new BsonDocument("$avg", "$rating") },
+                { "totalReviews", new BsonDocument("$sum", 1) }
+            }
+        );
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var result = await _reviews.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+
+        if (
+            result == null
+            || !result.Contains("totalReviews")
+            || result["totalReviews"].ToInt64() == 0
+        )
+        {
+            return new ReviewStatisticsResponse
+            {
+                TargetId = targetId,
+                TargetType = targetTypeEnum,
+                AverageRating = 0.0,
+                TotalReviews = 0
+            };
+        }
+
+        var averageRating = result.Contains("averageRating")
+            ? result["averageRating"].ToDouble()
+            : 0.0;
+        var totalReviews = result["totalReviews"].ToInt64();
+
+        return new ReviewStatisticsResponse
+        {
+            TargetId = targetId,
+            TargetType = targetTypeEnum,
+            AverageRating = Math.Round(averageRating, 2),
+            TotalReviews = totalReviews
+        };
+    }
+
+    /// <summary>
+    /// Generic method to get detailed statistics with rating distribution (for single endpoints)
+    /// </summary>
+    private async Task<ReviewDetailedStatisticsResponse> GetDetailedStatisticsAsync(
         string targetIdField,
         string targetIdValue,
         string targetType,
@@ -376,7 +454,7 @@ public class ReviewRepository : IReviewRepository
             || result["totalReviews"].ToInt64() == 0
         )
         {
-            return new ReviewStatisticsResponse
+            return new ReviewDetailedStatisticsResponse
             {
                 TargetId = targetId,
                 TargetType = targetTypeEnum,
@@ -400,7 +478,7 @@ public class ReviewRepository : IReviewRepository
             ratingDistribution[i] = ratings.Count(r => r == i);
         }
 
-        return new ReviewStatisticsResponse
+        return new ReviewDetailedStatisticsResponse
         {
             TargetId = targetId,
             TargetType = targetTypeEnum,
@@ -434,8 +512,7 @@ public class ReviewRepository : IReviewRepository
             {
                 { "_id", "$doctorId" },
                 { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
-                { "ratingDistribution", new BsonDocument("$push", "$rating") },
+                { "totalReviews", new BsonDocument("$sum", 1) }
             }
         );
 
@@ -463,24 +540,12 @@ public class ReviewRepository : IReviewRepository
                     : 0.0;
                 var totalReviews = result["totalReviews"].ToInt64();
 
-                // Calculate rating distribution
-                var ratings = result["ratingDistribution"]
-                    .AsBsonArray.Select(r => r.ToInt32())
-                    .ToList();
-                var ratingDistribution = new Dictionary<int, long>();
-
-                for (int i = 1; i <= 5; i++)
-                {
-                    ratingDistribution[i] = ratings.Count(r => r == i);
-                }
-
                 response.DoctorStatistics[doctorId] = new ReviewStatisticsResponse
                 {
                     TargetId = doctorId,
                     TargetType = TargetType.DOCTOR,
                     AverageRating = Math.Round(averageRating, 2),
-                    TotalReviews = totalReviews,
-                    RatingDistribution = ratingDistribution,
+                    TotalReviews = totalReviews
                 };
             }
         }
@@ -515,8 +580,7 @@ public class ReviewRepository : IReviewRepository
             {
                 { "_id", "$clinicServiceId" },
                 { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
-                { "ratingDistribution", new BsonDocument("$push", "$rating") },
+                { "totalReviews", new BsonDocument("$sum", 1) }
             }
         );
 
@@ -544,24 +608,12 @@ public class ReviewRepository : IReviewRepository
                     : 0.0;
                 var totalReviews = result["totalReviews"].ToInt64();
 
-                // Calculate rating distribution
-                var ratings = result["ratingDistribution"]
-                    .AsBsonArray.Select(r => r.ToInt32())
-                    .ToList();
-                var ratingDistribution = new Dictionary<int, long>();
-
-                for (int i = 1; i <= 5; i++)
-                {
-                    ratingDistribution[i] = ratings.Count(r => r == i);
-                }
-
                 response.ServiceStatistics[serviceId] = new ReviewStatisticsResponse
                 {
                     TargetId = serviceId,
                     TargetType = TargetType.SERVICE,
                     AverageRating = Math.Round(averageRating, 2),
-                    TotalReviews = totalReviews,
-                    RatingDistribution = ratingDistribution,
+                    TotalReviews = totalReviews
                 };
             }
         }
