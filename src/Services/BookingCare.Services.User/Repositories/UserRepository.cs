@@ -160,4 +160,37 @@ public class UserRepository : IUserRepository
         }
     }
 
+    public async Task<List<UserBasicInfoResponse>> GetUsersByAccountIdsAsync(List<Guid> accountIds)
+    {
+        try
+        {
+            if (accountIds == null || accountIds.Count == 0)
+            {
+                return new List<UserBasicInfoResponse>();
+            }
+
+            _logger.LogInformation("[{ServiceName}] Getting users by account IDs batch - Count: {Count}", ServiceName, accountIds.Count);
+
+            // Performance optimized query - select only necessary fields and map directly to DTO
+            var users = await _context.Users
+                .Where(u => accountIds.Contains(u.AccountId))
+                .Select(u => new UserBasicInfoResponse
+                {
+                    AccountId = u.AccountId,
+                    Email = u.Email,
+                    FullName = (u.FirstName + " " + u.LastName).Trim(),
+                    AvatarUrl = u.AvatarUrl
+                })
+                .ToListAsync();
+
+            _logger.LogInformation("[{ServiceName}] Retrieved {Count} users for batch request", ServiceName, users.Count);
+            return users;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{ServiceName}] Database error when getting users by account IDs batch", ServiceName);
+            throw new UserException($"[{ServiceName}] Failed to get users by account IDs batch", innerException: ex);
+        }
+    }
+
 }

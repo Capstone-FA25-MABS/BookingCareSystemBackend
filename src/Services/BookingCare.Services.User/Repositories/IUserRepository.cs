@@ -14,5 +14,8 @@ public interface IUserRepository
     // Query operations
     Task<(List<UserEntity> Users, int TotalCount)> GetUsersAsync(UserQueryRequest query);
     Task<List<UserEntity>> SearchUsersAsync(string searchTerm, int limit = 10);
+    
+    // Batch operations for performance optimization
+    Task<List<UserBasicInfoResponse>> GetUsersByAccountIdsAsync(List<Guid> accountIds);
 
 }
