@@ -292,6 +292,63 @@ public class DoctorService : IDoctorService
     {
         try
         {
+            // If searching, fetch all favorites to avoid missing matches due to pagination
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var countReq = new GetPatientFavoriteCountRequest { PatientId = patientId.ToString() };
+                var countRes = await _favoritesClient.GetPatientFavoriteCountAsync(countReq);
+                var totalFavorites = (int)countRes.FavoriteCount;
+
+                if (totalFavorites == 0)
+                {
+                    return new DoctorListResponse
+                    {
+                        Doctors = new List<DoctorResponse>(),
+                        TotalCount = 0,
+                        PageNumber = 1,
+                        PageSize = 0,
+                        TotalPages = 0
+                    };
+                }
+
+                var allReq = new GetPatientFavoritesRequest
+                {
+                    PatientId = patientId.ToString(),
+                    Page = 1,
+                    PageSize = totalFavorites
+                };
+                var allRes = await _favoritesClient.GetPatientFavoritesAsync(allReq);
+                var allDoctorIds = allRes.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
+
+                var doctors = await _repository.GetDoctorsByIdsAsync(allDoctorIds);
+
+                var searchLower = searchTerm.ToLower();
+                doctors = doctors.Where(d =>
+                    d.FirstName.ToLower().Contains(searchLower) ||
+                    d.LastName.ToLower().Contains(searchLower) ||
+                    d.Email.ToLower().Contains(searchLower) ||
+                    (d.Bio != null && d.Bio.ToLower().Contains(searchLower))
+                ).ToList();
+
+                var mapped = _mapper.Map<List<DoctorResponse>>(doctors);
+                var favoritedSet = allDoctorIds.ToHashSet();
+                foreach (var d in mapped)
+                {
+                    d.IsFavorited = favoritedSet.Contains(d.Id);
+                }
+
+                var filteredCount = mapped.Count;
+                return new DoctorListResponse
+                {
+                    Doctors = mapped,
+                    TotalCount = filteredCount,
+                    PageNumber = 1,
+                    PageSize = filteredCount,
+                    TotalPages = filteredCount == 0 ? 0 : 1
+                };
+            }
+
+            // Default paginated path (no search)
             var request = new GetPatientFavoritesRequest
             {
                 PatientId = patientId.ToString(),
@@ -314,26 +371,13 @@ public class DoctorService : IDoctorService
                 };
             }
 
-            var doctors = await _repository.GetDoctorsByIdsAsync(doctorIds);
+            var pageDoctors = await _repository.GetDoctorsByIdsAsync(doctorIds);
+            var mappedPage = _mapper.Map<List<DoctorResponse>>(pageDoctors);
 
-            // Apply search filter if provided
-            if (!string.IsNullOrWhiteSpace(searchTerm))
+            var favoritedSetPage = doctorIds.ToHashSet();
+            foreach (var d in mappedPage)
             {
-                var searchLower = searchTerm.ToLower();
-                doctors = doctors.Where(d =>
-                    d.FirstName.ToLower().Contains(searchLower) ||
-                    d.LastName.ToLower().Contains(searchLower) ||
-                    d.Email.ToLower().Contains(searchLower) ||
-                    (d.Bio != null && d.Bio.ToLower().Contains(searchLower))
-                ).ToList();
-            }
-
-            var mapped = _mapper.Map<List<DoctorResponse>>(doctors);
-
-            var favoritedSet = doctorIds.ToHashSet();
-            foreach (var d in mapped)
-            {
-                d.IsFavorited = favoritedSet.Contains(d.Id);
+                d.IsFavorited = favoritedSetPage.Contains(d.Id);
             }
 
             var totalCount = response.TotalCount;
@@ -341,7 +385,7 @@ public class DoctorService : IDoctorService
 
             return new DoctorListResponse
             {
-                Doctors = mapped,
+                Doctors = mappedPage,
                 TotalCount = totalCount,
                 PageNumber = page,
                 PageSize = pageSize,
@@ -356,8 +400,8 @@ public class DoctorService : IDoctorService
             {
                 Doctors = new List<DoctorResponse>(),
                 TotalCount = 0,
-                PageNumber = page,
-                PageSize = pageSize,
+                PageNumber = string.IsNullOrWhiteSpace(searchTerm) ? page : 1,
+                PageSize = string.IsNullOrWhiteSpace(searchTerm) ? pageSize : 0,
                 TotalPages = 0
             };
         }
