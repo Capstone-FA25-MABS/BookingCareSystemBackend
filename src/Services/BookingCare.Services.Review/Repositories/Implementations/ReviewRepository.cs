@@ -394,7 +394,6 @@ public class ReviewRepository : IReviewRepository
             return new ReviewStatisticsResponse
             {
                 TargetId = targetId,
-                TargetType = targetTypeEnum,
                 AverageRating = 0.0,
                 TotalReviews = 0
             };
@@ -408,7 +407,6 @@ public class ReviewRepository : IReviewRepository
         return new ReviewStatisticsResponse
         {
             TargetId = targetId,
-            TargetType = targetTypeEnum,
             AverageRating = Math.Round(averageRating, 2),
             TotalReviews = totalReviews
         };
@@ -457,7 +455,6 @@ public class ReviewRepository : IReviewRepository
             return new ReviewDetailedStatisticsResponse
             {
                 TargetId = targetId,
-                TargetType = targetTypeEnum,
                 AverageRating = 0.0,
                 TotalReviews = 0,
                 RatingDistribution = new Dictionary<int, long>(),
@@ -481,7 +478,6 @@ public class ReviewRepository : IReviewRepository
         return new ReviewDetailedStatisticsResponse
         {
             TargetId = targetId,
-            TargetType = targetTypeEnum,
             AverageRating = Math.Round(averageRating, 2),
             TotalReviews = totalReviews,
             RatingDistribution = ratingDistribution,
@@ -520,14 +516,12 @@ public class ReviewRepository : IReviewRepository
 
         var results = await _reviews.Aggregate<BsonDocument>(pipeline).ToListAsync();
 
-        var response = new BatchDoctorsStatisticsResponse
-        {
-            TotalProcessed = doctorIds.Count,
-            WithStatistics = results.Count,
-        };
+        var response = new BatchDoctorsStatisticsResponse();
 
+        // Create a set of doctors that have reviews
         var foundDoctorIds = new HashSet<Guid>();
 
+        // Add doctors that have reviews
         foreach (var result in results)
         {
             var doctorIdString = result["_id"].AsString;
@@ -543,15 +537,25 @@ public class ReviewRepository : IReviewRepository
                 response.DoctorStatistics[doctorId] = new ReviewStatisticsResponse
                 {
                     TargetId = doctorId,
-                    TargetType = TargetType.DOCTOR,
                     AverageRating = Math.Round(averageRating, 2),
                     TotalReviews = totalReviews
                 };
             }
         }
 
-        // Add doctors with no reviews
-        response.NotFoundDoctorIds = doctorIds.Where(id => !foundDoctorIds.Contains(id)).ToList();
+        // Add doctors that don't have reviews with 0 values
+        foreach (var doctorId in doctorIds)
+        {
+            if (!foundDoctorIds.Contains(doctorId))
+            {
+                response.DoctorStatistics[doctorId] = new ReviewStatisticsResponse
+                {
+                    TargetId = doctorId,
+                    AverageRating = 0.0,
+                    TotalReviews = 0
+                };
+            }
+        }
 
         return response;
     }
@@ -588,14 +592,12 @@ public class ReviewRepository : IReviewRepository
 
         var results = await _reviews.Aggregate<BsonDocument>(pipeline).ToListAsync();
 
-        var response = new BatchServicesStatisticsResponse
-        {
-            TotalProcessed = serviceIds.Count,
-            WithStatistics = results.Count,
-        };
+        var response = new BatchServicesStatisticsResponse();
 
+        // Create a set of services that have reviews
         var foundServiceIds = new HashSet<Guid>();
 
+        // Add services that have reviews
         foreach (var result in results)
         {
             var serviceIdString = result["_id"].AsString;
@@ -611,17 +613,25 @@ public class ReviewRepository : IReviewRepository
                 response.ServiceStatistics[serviceId] = new ReviewStatisticsResponse
                 {
                     TargetId = serviceId,
-                    TargetType = TargetType.SERVICE,
                     AverageRating = Math.Round(averageRating, 2),
                     TotalReviews = totalReviews
                 };
             }
         }
 
-        // Add services with no reviews
-        response.NotFoundServiceIds = serviceIds
-            .Where(id => !foundServiceIds.Contains(id))
-            .ToList();
+        // Add services that don't have reviews with 0 values
+        foreach (var serviceId in serviceIds)
+        {
+            if (!foundServiceIds.Contains(serviceId))
+            {
+                response.ServiceStatistics[serviceId] = new ReviewStatisticsResponse
+                {
+                    TargetId = serviceId,
+                    AverageRating = 0.0,
+                    TotalReviews = 0
+                };
+            }
+        }
 
         return response;
     }

@@ -44,11 +44,6 @@ public class ReviewSummaryResponse
     public Guid TargetId { get; set; }
 
     /// <summary>
-    /// Type of target being reviewed
-    /// </summary>
-    public TargetType TargetType { get; set; }
-
-    /// <summary>
     /// Average rating (0.0 - 5.0)
     /// </summary>
     public double AverageRating { get; set; }
@@ -68,11 +63,6 @@ public class ReviewDetailedStatisticsResponse
     /// ID of the target (Doctor or Service)
     /// </summary>
     public Guid TargetId { get; set; }
-
-    /// <summary>
-    /// Type of target being reviewed
-    /// </summary>
-    public TargetType TargetType { get; set; }
 
     /// <summary>
     /// Average rating (0.0 - 5.0)
@@ -99,11 +89,6 @@ public class ReviewStatisticsResponse
     /// ID of the target (Doctor or Service)
     /// </summary>
     public Guid TargetId { get; set; }
-
-    /// <summary>
-    /// Type of target being reviewed
-    /// </summary>
-    public TargetType TargetType { get; set; }
 
     /// <summary>
     /// Average rating (0.0 - 5.0)
@@ -143,55 +128,27 @@ public class DuplicateReviewErrorResponse
 }
 
 /// <summary>
-/// Response DTO for batch doctors statistics
+/// Response DTO for batch doctors statistics (simplified for microservice communication)
 /// </summary>
 public class BatchDoctorsStatisticsResponse
 {
     /// <summary>
     /// Dictionary mapping doctor ID to their statistics
+    /// All requested doctor IDs will be present - those without reviews will have averageRating=0 and totalReviews=0
     /// </summary>
     public Dictionary<Guid, ReviewStatisticsResponse> DoctorStatistics { get; set; } = new();
-
-    /// <summary>
-    /// List of doctor IDs that were not found or have no reviews
-    /// </summary>
-    public List<Guid> NotFoundDoctorIds { get; set; } = new();
-
-    /// <summary>
-    /// Total number of doctors processed
-    /// </summary>
-    public int TotalProcessed { get; set; }
-
-    /// <summary>
-    /// Number of doctors with statistics
-    /// </summary>
-    public int WithStatistics { get; set; }
 }
 
 /// <summary>
-/// Response DTO for batch services statistics
+/// Response DTO for batch services statistics (simplified for microservice communication)
 /// </summary>
 public class BatchServicesStatisticsResponse
 {
     /// <summary>
     /// Dictionary mapping service ID to their statistics
+    /// All requested service IDs will be present - those without reviews will have averageRating=0 and totalReviews=0
     /// </summary>
     public Dictionary<Guid, ReviewStatisticsResponse> ServiceStatistics { get; set; } = new();
-
-    /// <summary>
-    /// List of service IDs that were not found or have no reviews
-    /// </summary>
-    public List<Guid> NotFoundServiceIds { get; set; } = new();
-
-    /// <summary>
-    /// Total number of services processed
-    /// </summary>
-    public int TotalProcessed { get; set; }
-
-    /// <summary>
-    /// Number of services with statistics
-    /// </summary>
-    public int WithStatistics { get; set; }
 }
 
 /// <summary>
@@ -208,11 +165,6 @@ public class ReviewResponse
     /// ID of the patient who created the review
     /// </summary>
     public Guid PatientId { get; set; }
-
-    /// <summary>
-    /// Type of target being reviewed
-    /// </summary>
-    public TargetType TargetType { get; set; }
 
     /// <summary>
     /// ID of the doctor being reviewed (null if reviewing service)

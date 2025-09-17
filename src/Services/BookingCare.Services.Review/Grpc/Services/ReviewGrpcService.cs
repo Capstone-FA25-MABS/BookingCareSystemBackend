@@ -54,6 +54,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
 
             var statistics = await _reviewService.GetDoctorDetailedStatisticsAsync(doctorId);
             return MapToGrpcDetailedStatistics(statistics);
+            // TargetType no longer needed - clients can infer DOCTOR from endpoint
         }
         catch (Exception ex)
         {
@@ -78,6 +79,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
 
             var statistics = await _reviewService.GetClinicServiceDetailedStatisticsAsync(serviceId);
             return MapToGrpcDetailedStatistics(statistics);
+            // TargetType no longer needed - clients can infer SERVICE from endpoint
         }
         catch (Exception ex)
         {
@@ -114,20 +116,14 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
 
             var result = await _reviewService.GetBatchDoctorsStatisticsAsync(dtoRequest);
 
-            var response = new Grpc.BatchDoctorsStatisticsResponse
-            {
-                TotalProcessed = result.TotalProcessed,
-                WithStatistics = result.WithStatistics
-            };
+            var response = new Grpc.BatchDoctorsStatisticsResponse();
 
             // Map doctor statistics
             foreach (var kvp in result.DoctorStatistics)
             {
                 response.DoctorStatistics[kvp.Key.ToString()] = MapToGrpcStatistics(kvp.Value);
+                // No need to set TargetType - removed from proto
             }
-
-            // Map not found IDs
-            response.NotFoundDoctorIds.AddRange(result.NotFoundDoctorIds.Select(id => id.ToString()));
 
             return response;
         }
@@ -166,20 +162,14 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
 
             var result = await _reviewService.GetBatchServicesStatisticsAsync(dtoRequest);
 
-            var response = new Grpc.BatchServicesStatisticsResponse
-            {
-                TotalProcessed = result.TotalProcessed,
-                WithStatistics = result.WithStatistics
-            };
+            var response = new Grpc.BatchServicesStatisticsResponse();
 
             // Map service statistics
             foreach (var kvp in result.ServiceStatistics)
             {
                 response.ServiceStatistics[kvp.Key.ToString()] = MapToGrpcStatistics(kvp.Value);
+                // No need to set TargetType - removed from proto
             }
-
-            // Map not found IDs
-            response.NotFoundServiceIds.AddRange(result.NotFoundServiceIds.Select(id => id.ToString()));
 
             return response;
         }
@@ -248,9 +238,9 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
         return new ReviewStatisticsResponse
         {
             TargetId = dto.TargetId.ToString(),
-            TargetType = dto.TargetType == Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,
             AverageRating = dto.AverageRating,
             TotalReviews = dto.TotalReviews
+            // TargetType removed from proto - clients can infer from endpoint context
         };
     }
 
@@ -262,9 +252,9 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
         var response = new ReviewDetailedStatisticsResponse
         {
             TargetId = dto.TargetId.ToString(),
-            TargetType = dto.TargetType == Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,
             AverageRating = dto.AverageRating,
             TotalReviews = dto.TotalReviews
+            // TargetType removed from proto - clients can infer from endpoint context
         };
 
         // Map rating distribution
@@ -303,11 +293,11 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
         {
             Id = dto.Id,
             PatientId = dto.PatientId.ToString(),
-            TargetType = dto.TargetType == Enums.TargetType.DOCTOR ? TargetType.Doctor : TargetType.Service,
             Rating = dto.Rating,
             Comment = dto.Comment,
             CreatedAt = ((DateTimeOffset)dto.CreatedAt).ToUnixTimeSeconds(),
             UpdatedAt = ((DateTimeOffset)dto.UpdatedAt).ToUnixTimeSeconds()
+            // TargetType removed from proto - clients can infer from doctor_id vs clinic_service_id
         };
 
         // Set optional fields

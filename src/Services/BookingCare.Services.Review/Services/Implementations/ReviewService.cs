@@ -388,7 +388,7 @@ public class ReviewService : BaseService, IReviewService
 
             var result = await _reviewRepository.GetBatchDoctorsStatisticsAsync(uniqueDoctorIds);
 
-            LogInfo("Batch doctor statistics retrieved: {WithStats}/{Total}", null, result.WithStatistics, result.TotalProcessed);
+            LogInfo("Batch doctor statistics retrieved successfully for {Count} doctors", null, result.DoctorStatistics.Count);
             return result;
         }, "GetBatchDoctorsStatistics");
     }
@@ -409,7 +409,7 @@ public class ReviewService : BaseService, IReviewService
 
             var result = await _reviewRepository.GetBatchServicesStatisticsAsync(uniqueServiceIds);
 
-            LogInfo("Batch service statistics retrieved: {WithStats}/{Total}", null, result.WithStatistics, result.TotalProcessed);
+            LogInfo("Batch service statistics retrieved successfully for {Count} services", null, result.ServiceStatistics.Count);
             return result;
         }, "GetBatchServicesStatistics");
     }

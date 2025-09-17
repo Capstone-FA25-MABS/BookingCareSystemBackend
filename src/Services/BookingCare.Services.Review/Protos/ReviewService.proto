@@ -53,19 +53,19 @@ message GetServiceStatisticsRequest {
 // Statistics response messages (optimized for batch operations - no rating distribution)
 message ReviewStatisticsResponse {
   string target_id = 1;
-  TargetType target_type = 2;
-  double average_rating = 3;
-  int64 total_reviews = 4;
+  double average_rating = 2;
+  int64 total_reviews = 3;
+  // target_type removed - clients can infer from endpoint context
   // rating_distribution removed for performance optimization in batch operations
 }
 
 // Detailed statistics response messages (with rating distribution for single endpoints)
 message ReviewDetailedStatisticsResponse {
   string target_id = 1;
-  TargetType target_type = 2;
-  double average_rating = 3;
-  int64 total_reviews = 4;
-  map<int32, int64> rating_distribution = 5;
+  double average_rating = 2;
+  int64 total_reviews = 3;
+  map<int32, int64> rating_distribution = 4;
+  // target_type removed - clients can infer from endpoint context
 }
 
 // Batch statistics request messages
@@ -77,19 +77,17 @@ message BatchServicesStatisticsRequest {
   repeated string service_ids = 1;
 }
 
-// Batch statistics response messages
+// Batch statistics response messages (simplified for microservice communication)
 message BatchDoctorsStatisticsResponse {
   map<string, ReviewStatisticsResponse> doctor_statistics = 1;
-  repeated string not_found_doctor_ids = 2;
-  int32 total_processed = 3;
-  int32 with_statistics = 4;
+  // removed: not_found_doctor_ids, total_processed, with_statistics
+  // All requested doctor IDs will be present with 0 values if no reviews
 }
 
 message BatchServicesStatisticsResponse {
   map<string, ReviewStatisticsResponse> service_statistics = 1;
-  repeated string not_found_service_ids = 2;
-  int32 total_processed = 3;
-  int32 with_statistics = 4;
+  // removed: not_found_service_ids, total_processed, with_statistics  
+  // All requested service IDs will be present with 0 values if no reviews
 }
 
 // Review listing request messages
@@ -109,14 +107,14 @@ message GetServiceReviewsRequest {
 message ReviewResponse {
   string id = 1;
   string patient_id = 2;
-  TargetType target_type = 3;
-  google.protobuf.StringValue doctor_id = 4;
-  google.protobuf.StringValue clinic_service_id = 5;
-  int32 rating = 6;
-  string comment = 7;
-  repeated ReplyResponse replies = 8;
-  int64 created_at = 9;
-  int64 updated_at = 10;
+  google.protobuf.StringValue doctor_id = 3;
+  google.protobuf.StringValue clinic_service_id = 4;
+  int32 rating = 5;
+  string comment = 6;
+  repeated ReplyResponse replies = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+  // target_type removed - clients can infer from doctor_id vs clinic_service_id
 }
 
 message ReplyResponse {
@@ -137,8 +135,7 @@ message PagedReviewsResponse {
   bool has_previous_page = 7;
 }
 
-// Enums
-enum TargetType {
-  DOCTOR = 0;
-  SERVICE = 1;
-}
+// Note: TargetType enum removed as target type can be inferred from context:
+// - Doctor endpoints ? DOCTOR type
+// - Service endpoints ? SERVICE type  
+// - ReviewResponse ? infer from doctor_id vs clinic_service_id fields

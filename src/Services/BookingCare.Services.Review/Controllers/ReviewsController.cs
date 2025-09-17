@@ -239,7 +239,7 @@ public class ReviewsController : BaseApiController
     public async Task<IActionResult> GetBatchDoctorsStatistics([FromBody] BatchDoctorsStatisticsRequest request)
     {
         var result = await _reviewService.GetBatchDoctorsStatisticsAsync(request);
-        return Success(result, $"Batch doctor statistics retrieved successfully - {result.WithStatistics}/{result.TotalProcessed} doctors with reviews");
+        return Success(result, $"Batch doctor statistics retrieved successfully for {result.DoctorStatistics.Count} doctors");
     }
 
     /// <summary>
@@ -251,7 +251,7 @@ public class ReviewsController : BaseApiController
     public async Task<IActionResult> GetBatchServicesStatistics([FromBody] BatchServicesStatisticsRequest request)
     {
         var result = await _reviewService.GetBatchServicesStatisticsAsync(request);
-        return Success(result, $"Batch service statistics retrieved successfully - {result.WithStatistics}/{result.TotalProcessed} services with reviews");
+        return Success(result, $"Batch service statistics retrieved successfully for {result.ServiceStatistics.Count} services");
     }
 
     /// <summary>
