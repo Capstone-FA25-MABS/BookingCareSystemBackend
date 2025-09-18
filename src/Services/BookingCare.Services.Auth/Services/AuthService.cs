@@ -3,6 +3,7 @@ using BookingCare.Services.Auth.Exceptions;
 using BookingCare.Services.Auth.Models.DTOs;
 using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Repositories;
+using BookingCare.Shared.Cache.Constants;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Exceptions;
 using BookingCare.Shared.Common.Enums;
@@ -413,7 +414,7 @@ public class AuthService : BaseService, IAuthService
         var timeoutMs = otpSection.GetValue<int>("TimeoutMs", 1000);
 
         // 2) Try Redis local flag (best-effort, ignore connectivity errors)
-        var flagKey = $"otp:verified:{purpose}:{subject}".ToLowerInvariant();
+        var flagKey = CacheKeys.Format(CacheKeys.OtpVerified, purpose, subject).ToLowerInvariant();
         if (useGrpc && _otpClient != null)
         {
             bool verify = false;

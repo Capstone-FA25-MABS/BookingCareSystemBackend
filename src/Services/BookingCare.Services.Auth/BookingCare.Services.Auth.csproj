@@ -36,6 +36,7 @@
   <ItemGroup>
     <ProjectReference Include="../../Shared/BookingCare.Shared.Common/BookingCare.Shared.Common.csproj" />
     <ProjectReference Include="../../Shared/BookingCare.Shared.EventBus/BookingCare.Shared.EventBus.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.Cache\BookingCare.Shared.Cache.csproj" />
   </ItemGroup>
 
 </Project>
