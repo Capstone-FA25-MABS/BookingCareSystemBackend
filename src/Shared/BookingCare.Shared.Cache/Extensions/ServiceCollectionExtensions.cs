@@ -87,7 +87,6 @@ public static class ServiceCollectionExtensions
         services.AddStackExchangeRedisCache(options =>
         {
             options.Configuration = cacheOptions.ConnectionString;
-            //options.InstanceName = cacheOptions.KeyPrefix.TrimEnd(':');
         });
 
         // Register cache service

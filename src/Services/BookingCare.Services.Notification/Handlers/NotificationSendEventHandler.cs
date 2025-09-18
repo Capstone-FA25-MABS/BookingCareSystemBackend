@@ -44,7 +44,7 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
                     await HandleEmailNotification(@event, cancellationToken);
                     break;
                 case "sms":
-                    await HandleSmsNotification(@event, cancellationToken);
+                    await HandleSmsNotification(@event);
                     break;
                 default:
                     _logger.LogWarning("Unsupported notification type: {Type}", @event.Type);
@@ -73,17 +73,15 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
 
         string message = @event.Message;
 
-        // Check if this is a password reset email
-        if (purpose.Equals(OtpPurpose.FORGOT_PASSWORD.ToKey(), StringComparison.OrdinalIgnoreCase))
+        // Check if this is a password reset email and use template if resetUrl is provided
+        if (purpose.Equals(OtpPurpose.FORGOT_PASSWORD.ToKey(), StringComparison.OrdinalIgnoreCase) &&
+            @event.Data.TryGetValue("resetUrl", out var resetUrlObj) &&
+            !string.IsNullOrEmpty(resetUrlObj?.ToString()))
         {
-            // Use password reset template if resetUrl is provided
-            if (@event.Data.TryGetValue("resetUrl", out var resetUrlObj) && !string.IsNullOrEmpty(resetUrlObj?.ToString()))
-            {
-                var resetUrl = resetUrlObj.ToString()!;
-                message = _emailTemplate.BuildPasswordResetEmailHtml(resetUrl);
-                isHtml = true; // Force HTML for template
-                _logger.LogInformation("Using password reset email template for {Email}", email);
-            }
+            var resetUrl = resetUrlObj.ToString()!;
+            message = _emailTemplate.BuildPasswordResetEmailHtml(resetUrl);
+            isHtml = true; // Force HTML for template
+            _logger.LogInformation("Using password reset email template for {Email}", email);
         }
 
         try
@@ -98,7 +96,7 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
         }
     }
 
-    private async Task HandleSmsNotification(NotificationSendEvent @event, CancellationToken cancellationToken)
+    private async Task HandleSmsNotification(NotificationSendEvent @event)
     {
         if (!@event.Data.TryGetValue("phone", out var phoneObj) || phoneObj is null)
         {
