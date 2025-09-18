@@ -16,4 +16,3 @@ message VerifyRequest {
 message VerifyResponse {
   bool verified = 1;
 }
-
