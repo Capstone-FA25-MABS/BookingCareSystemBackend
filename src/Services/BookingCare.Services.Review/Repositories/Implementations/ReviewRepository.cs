@@ -286,7 +286,8 @@ public class ReviewRepository : IReviewRepository
 
         var pipeline = new[] { matchStage, groupStage };
 
-        var result = await _reviews.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var result = await cursor.FirstOrDefaultAsync();
 
         if (result != null && result.Contains("averageRating"))
         {
@@ -325,7 +326,7 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     public async Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId)
     {
-        return await GetStatisticsAsync("doctorId", doctorId.ToString(), "DOCTOR", doctorId, TargetType.DOCTOR);
+        return await GetStatisticsAsync("doctorId", doctorId.ToString(), "DOCTOR", doctorId);
     }
 
     /// <summary>
@@ -333,7 +334,7 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     public async Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId)
     {
-        return await GetStatisticsAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE", clinicServiceId, TargetType.SERVICE);
+        return await GetStatisticsAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE", clinicServiceId);
     }
 
     /// <summary>
@@ -359,8 +360,7 @@ public class ReviewRepository : IReviewRepository
         string targetIdField,
         string targetIdValue,
         string targetType,
-        Guid targetId,
-        TargetType targetTypeEnum)
+        Guid targetId)
     {
         var matchStage = new BsonDocument(
             "$match",
@@ -383,7 +383,8 @@ public class ReviewRepository : IReviewRepository
 
         var pipeline = new[] { matchStage, groupStage };
 
-        var result = await _reviews.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var result = await cursor.FirstOrDefaultAsync();
 
         if (
             result == null
@@ -444,7 +445,8 @@ public class ReviewRepository : IReviewRepository
 
         var pipeline = new[] { matchStage, groupStage };
 
-        var result = await _reviews.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var result = await cursor.FirstOrDefaultAsync();
 
         if (
             result == null
@@ -514,7 +516,8 @@ public class ReviewRepository : IReviewRepository
 
         var pipeline = new[] { matchStage, groupStage };
 
-        var results = await _reviews.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var results = await cursor.ToListAsync();
 
         var response = new BatchDoctorsStatisticsResponse();
 
@@ -590,7 +593,8 @@ public class ReviewRepository : IReviewRepository
 
         var pipeline = new[] { matchStage, groupStage };
 
-        var results = await _reviews.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var results = await cursor.ToListAsync();
 
         var response = new BatchServicesStatisticsResponse();
 
