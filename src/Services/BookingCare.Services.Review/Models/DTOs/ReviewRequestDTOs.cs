@@ -1,5 +1,6 @@
 using BookingCare.Services.Review.Enums;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace BookingCare.Services.Review.Models.DTOs;
 
@@ -12,12 +13,14 @@ public class CreateReviewRequest
     /// ID of the patient creating the review
     /// </summary>
     [Required]
+    [JsonRequired]
     public Guid PatientId { get; set; }
 
     /// <summary>
     /// Type of target being reviewed (DOCTOR or SERVICE)
     /// </summary>
     [Required]
+    [JsonRequired]
     public TargetType TargetType { get; set; }
 
     /// <summary>
@@ -34,6 +37,7 @@ public class CreateReviewRequest
     /// Rating from 1 to 5 stars
     /// </summary>
     [Required]
+    [JsonRequired]
     public int Rating { get; set; }
 
     /// <summary>
@@ -56,6 +60,7 @@ public class UpdateReviewRequest
     /// Updated rating from 1 to 5 stars
     /// </summary>
     [Required]
+    [JsonRequired]
     public int Rating { get; set; }
 
     /// <summary>
@@ -78,6 +83,7 @@ public class AddReplyRequest
     /// ID of the author replying
     /// </summary>
     [Required]
+    [JsonRequired]
     public Guid AuthorId { get; set; }
 
     /// <summary>
