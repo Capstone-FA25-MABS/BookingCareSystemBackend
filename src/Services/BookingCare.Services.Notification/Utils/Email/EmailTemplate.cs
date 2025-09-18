@@ -2,7 +2,7 @@
 
 namespace BookingCare.Services.Notification.Utils.Email;
 
-public class EmailTemplate
+public static class EmailTemplate
 {
     public static string BuildOtpEmailHtml(string otpCode, string purpose)
     {
