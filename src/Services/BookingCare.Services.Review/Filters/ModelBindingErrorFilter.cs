@@ -62,54 +62,92 @@ public class ModelBindingErrorFilter : IActionFilter
     {
         var errorMessage = error.ErrorMessage;
 
-        // Handle common GUID conversion errors
-        if (errorMessage.Contains("is not a valid value for Guid") ||
-            errorMessage.Contains("Unable to convert") ||
-            errorMessage.Contains("The value") && errorMessage.Contains("is not valid"))
+        // Handle GUID conversion errors
+        if (IsGuidConversionError(errorMessage) && IsIdField(fieldName))
         {
-            if (fieldName.ToLower().Contains("id"))
-            {
-                return $"'{fieldName}' must be a valid GUID format (e.g., '550e8400-e29b-41d4-a716-446655440000'). Received: '{attemptedValue}'";
-            }
+            return $"'{fieldName}' must be a valid GUID format (e.g., '550e8400-e29b-41d4-a716-446655440000'). Received: '{attemptedValue}'";
         }
 
         // Handle enum conversion errors
-        if (errorMessage.Contains("The value") && errorMessage.Contains("is not valid for"))
+        if (IsEnumConversionError(errorMessage) && IsTargetTypeField(fieldName))
         {
-            if (fieldName.ToLower().Contains("targettype"))
-            {
-                return $"'{fieldName}' must be either 'DOCTOR' or 'SERVICE'. Received: '{attemptedValue}'";
-            }
+            return $"'{fieldName}' must be either 'DOCTOR' or 'SERVICE'. Received: '{attemptedValue}'";
         }
 
         // Handle integer conversion errors  
-        if (errorMessage.Contains("is not a valid value for Int32"))
+        if (IsIntegerConversionError(errorMessage))
         {
-            if (fieldName.ToLower().Contains("rating"))
-            {
-                return $"'{fieldName}' must be a valid integer between 1 and 5. Received: '{attemptedValue}'";
-            }
-
-            if (fieldName.ToLower().Contains("page"))
-            {
-                return $"'{fieldName}' must be a valid integer greater than 0. Received: '{attemptedValue}'";
-            }
+            return GetIntegerFieldErrorMessage(fieldName, attemptedValue);
         }
 
         // Handle DateTime conversion errors
-        if (errorMessage.Contains("is not a valid value for DateTime"))
+        if (IsDateTimeConversionError(errorMessage))
         {
             return $"'{fieldName}' must be a valid date format (ISO 8601: YYYY-MM-DDTHH:mm:ss.sssZ). Received: '{attemptedValue}'";
         }
 
         // Handle boolean conversion errors
-        if (errorMessage.Contains("is not a valid value for Boolean"))
+        if (IsBooleanConversionError(errorMessage))
         {
             return $"'{fieldName}' must be either 'true' or 'false'. Received: '{attemptedValue}'";
         }
 
         // Generic fallback
         return $"'{fieldName}' has invalid format. Received: '{attemptedValue}'. {errorMessage}";
+    }
+
+    private static bool IsGuidConversionError(string errorMessage)
+    {
+        return errorMessage.Contains("is not a valid value for Guid") ||
+               errorMessage.Contains("Unable to convert") ||
+               (errorMessage.Contains("The value") && errorMessage.Contains("is not valid"));
+    }
+
+    private static bool IsEnumConversionError(string errorMessage)
+    {
+        return errorMessage.Contains("The value") && errorMessage.Contains("is not valid for");
+    }
+
+    private static bool IsIntegerConversionError(string errorMessage)
+    {
+        return errorMessage.Contains("is not a valid value for Int32");
+    }
+
+    private static bool IsDateTimeConversionError(string errorMessage)
+    {
+        return errorMessage.Contains("is not a valid value for DateTime");
+    }
+
+    private static bool IsBooleanConversionError(string errorMessage)
+    {
+        return errorMessage.Contains("is not a valid value for Boolean");
+    }
+
+    private static bool IsIdField(string fieldName)
+    {
+        return fieldName.ToLower().Contains("id");
+    }
+
+    private static bool IsTargetTypeField(string fieldName)
+    {
+        return fieldName.ToLower().Contains("targettype");
+    }
+
+    private static string GetIntegerFieldErrorMessage(string fieldName, string? attemptedValue)
+    {
+        var lowerFieldName = fieldName.ToLower();
+
+        if (lowerFieldName.Contains("rating"))
+        {
+            return $"'{fieldName}' must be a valid integer between 1 and 5. Received: '{attemptedValue}'";
+        }
+
+        if (lowerFieldName.Contains("page"))
+        {
+            return $"'{fieldName}' must be a valid integer greater than 0. Received: '{attemptedValue}'";
+        }
+
+        return $"'{fieldName}' must be a valid integer. Received: '{attemptedValue}'";
     }
 }
 
