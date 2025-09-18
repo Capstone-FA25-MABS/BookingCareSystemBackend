@@ -6,7 +6,7 @@
 public class VNPayPaymentRequest
 {
     /// <summary>
-    /// ID payment trong hệ thống
+    /// ID payment trong hệ thống 
     /// </summary>
     public Guid PaymentId { get; set; }
 

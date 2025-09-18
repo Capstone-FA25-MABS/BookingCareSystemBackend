@@ -4,6 +4,7 @@ using BookingCare.Services.Payment.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Payment.Migrations
 {
     [DbContext(typeof(PaymentDbContext))]
-    partial class PaymentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250918083519_AddPayOSPaymentMethod")]
+    partial class AddPayOSPaymentMethod
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,36 +24,6 @@ namespace BookingCare.Services.Payment.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("BookingCare.Services.Payment.Models.Entities.PayOSPaymentMappingEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("created_at");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("expires_at");
-
-                    b.Property<long>("OrderCode")
-                        .HasColumnType("bigint")
-                        .HasColumnName("order_code");
-
-                    b.Property<Guid>("PaymentId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("payment_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PaymentId");
-
-                    b.ToTable("payos_payment_mappings");
-                });
 
             modelBuilder.Entity("BookingCare.Services.Payment.Models.Entities.PaymentEntity", b =>
                 {
@@ -195,16 +168,6 @@ namespace BookingCare.Services.Payment.Migrations
                             Name = "PAYOS",
                             Status = "ACTIVE"
                         });
-                });
-
-            modelBuilder.Entity("BookingCare.Services.Payment.Models.Entities.PayOSPaymentMappingEntity", b =>
-                {
-                    b.HasOne("BookingCare.Services.Payment.Models.Entities.PaymentEntity", null)
-                        .WithMany()
-                        .HasForeignKey("PaymentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("FK_payos_payment_mappings_payment_id");
                 });
 
             modelBuilder.Entity("BookingCare.Services.Payment.Models.Entities.PaymentEntity", b =>

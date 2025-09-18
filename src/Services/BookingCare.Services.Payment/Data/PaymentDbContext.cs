@@ -24,6 +24,11 @@ public class PaymentDbContext : DbContext
     /// </summary>
     public DbSet<PaymentMethodEntity> PaymentMethods { get; set; }
 
+    /// <summary>
+    /// DbSet cho bảng payos_payment_mappings
+    /// </summary>
+    public DbSet<PayOSPaymentMappingEntity> PayOSPaymentMappings { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -79,6 +84,18 @@ public class PaymentDbContext : DbContext
                 "[status] IN ('ACTIVE', 'INACTIVE')");
         });
 
+        // Cấu hình PayOSPaymentMappingEntity
+        modelBuilder.Entity<PayOSPaymentMappingEntity>(entity =>
+        {
+
+            // Relationship với Payment entity (optional)
+            entity.HasOne<PaymentEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.PaymentId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_payos_payment_mappings_payment_id");
+        });
+
         // Seed data cho payment methods
         SeedData(modelBuilder);
     }
@@ -129,6 +146,13 @@ public class PaymentDbContext : DbContext
                 Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
                 Name = "VNPAY",
                 Description = "Thanh toán qua VNPay",
+                Status = PaymentMethodStatus.ACTIVE
+            },
+            new PaymentMethodEntity
+            {
+                Id = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                Name = "PAYOS",
+                Description = "Thanh toán qua PayOS",
                 Status = PaymentMethodStatus.ACTIVE
             }
         );

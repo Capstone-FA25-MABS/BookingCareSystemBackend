@@ -2,6 +2,7 @@ using BookingCare.Services.Payment.Services;
 using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Services.Implementations;
+using BookingCare.Services.Payment.Services.BackgroundServices;
 using BookingCare.Services.Payment.Repositories.Interfaces;
 using BookingCare.Services.Payment.Repositories.Implementations;
 using BookingCare.Services.Payment.Mappings;
@@ -38,14 +39,22 @@ builder.Services.AddDbContext<PaymentDbContext>(options =>
 // Add VNPay Configuration
 builder.Services.Configure<VNPayConfiguration>(builder.Configuration.GetSection("VNPayConfiguration"));
 
+// Add PayOS Configuration
+builder.Services.Configure<PayOSConfiguration>(builder.Configuration.GetSection("PayOSConfiguration"));
+
 // Add repositories
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
+builder.Services.AddScoped<IPayOSPaymentMappingRepository, PayOSPaymentMappingRepository>();
 
 // Add services
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IVNPayService, VNPayService>();
+builder.Services.AddScoped<IPayOSService, PayOSService>();
+
+// Add background services
+builder.Services.AddHostedService<PayOSMappingCleanupService>();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(PaymentMappingProfile));
