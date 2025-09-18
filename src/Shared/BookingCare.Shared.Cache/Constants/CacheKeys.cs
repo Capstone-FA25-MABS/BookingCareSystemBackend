@@ -44,6 +44,13 @@ public static class CacheKeys
     public const string DailyStats = "analytics:daily:{0}"; // date
     public const string MonthlyStats = "analytics:monthly:{0}"; // month
 
+    // Notification related cache keys
+    public const string OtpByKey = "otp:{0}";
+    public const string OtpPurposeEmail = "otp:purpose:{0}:email:{1}"; // purpose:email
+    public const string OtpPurposePhone = "otp:purpose:{0}:phone:{1}"; // purpose:phone
+    public const string OtpVerified = "otp:verified:{0}:{1}"; // purpose:subject
+    public const string OtpPattern = "otp:*";
+
     // Common patterns for bulk operations
     public const string UserPattern = "user:*";
     public const string DoctorPattern = "doctor:*";
