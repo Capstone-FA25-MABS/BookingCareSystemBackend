@@ -342,7 +342,7 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     public async Task<ReviewDetailedStatisticsResponse> GetDoctorDetailedStatisticsAsync(Guid doctorId)
     {
-        return await GetDetailedStatisticsAsync("doctorId", doctorId.ToString(), "DOCTOR", doctorId, TargetType.DOCTOR);
+        return await GetDetailedStatisticsAsync("doctorId", doctorId.ToString(), "DOCTOR", doctorId);
     }
 
     /// <summary>
@@ -350,7 +350,7 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     public async Task<ReviewDetailedStatisticsResponse> GetClinicServiceDetailedStatisticsAsync(Guid clinicServiceId)
     {
-        return await GetDetailedStatisticsAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE", clinicServiceId, TargetType.SERVICE);
+        return await GetDetailedStatisticsAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE", clinicServiceId);
     }
 
     /// <summary>
@@ -420,8 +420,7 @@ public class ReviewRepository : IReviewRepository
         string targetIdField,
         string targetIdValue,
         string targetType,
-        Guid targetId,
-        TargetType targetTypeEnum)
+        Guid targetId)
     {
         var matchStage = new BsonDocument(
             "$match",
