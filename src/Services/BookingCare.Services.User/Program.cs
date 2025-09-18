@@ -71,7 +71,7 @@ if (app.Environment.IsDevelopment())
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<UserDbContext>();
-    context.Database.EnsureCreated();
+    await context.Database.EnsureCreatedAsync();
 }
 app.UseGlobalExceptionHandling();
 app.UseCors("AllowAll");

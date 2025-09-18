@@ -20,7 +20,7 @@ public static class UserParsingUtils
         if (string.IsNullOrWhiteSpace(dateString))
             return null;
 
-        if (DateTime.TryParseExact(dateString, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var date))
+        if (DateTime.TryParseExact(dateString, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date))
             return date;
 
         return null;

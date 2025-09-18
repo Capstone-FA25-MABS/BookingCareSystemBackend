@@ -88,49 +88,11 @@ public class UserRepository : IUserRepository
         {
             var queryable = _context.Users.AsQueryable();
 
-            // Apply filters
-            if (query.Gender.HasValue)
-            {
-                queryable = queryable.Where(u => u.Gender == query.Gender.Value);
-            }
-
-            if (!string.IsNullOrEmpty(query.SearchTerm))
-            {
-                queryable = queryable.Where(u =>
-                    u.FirstName.Contains(query.SearchTerm) ||
-                    u.LastName.Contains(query.SearchTerm) ||
-                    u.Email.Contains(query.SearchTerm) ||
-                    (u.Address != null && u.Address.Contains(query.SearchTerm)) ||
-                    u.Phone.Contains(query.SearchTerm));
-            }
-
-            if (query.CreatedFrom.HasValue)
-            {
-                queryable = queryable.Where(u => u.CreatedAt >= query.CreatedFrom.Value);
-            }
-
-            if (query.CreatedTo.HasValue)
-            {
-                queryable = queryable.Where(u => u.CreatedAt <= query.CreatedTo.Value);
-            }
-
+            queryable = ApplyFilters(queryable, query);
             var totalCount = await queryable.CountAsync();
 
-            // Apply sorting
-            queryable = query.SortBy?.ToLower() switch
-            {
-                "firstname" => query.SortDescending ? queryable.OrderByDescending(u => u.FirstName) : queryable.OrderBy(u => u.FirstName),
-                "lastname" => query.SortDescending ? queryable.OrderByDescending(u => u.LastName) : queryable.OrderBy(u => u.LastName),
-                "email" => query.SortDescending ? queryable.OrderByDescending(u => u.Email) : queryable.OrderBy(u => u.Email),
-                "createdat" => query.SortDescending ? queryable.OrderByDescending(u => u.CreatedAt) : queryable.OrderBy(u => u.CreatedAt),
-                "updatedat" => query.SortDescending ? queryable.OrderByDescending(u => u.UpdatedAt) : queryable.OrderBy(u => u.UpdatedAt),
-                _ => queryable.OrderByDescending(u => u.CreatedAt)
-            };
-
-            var users = await queryable
-                .Skip((query.PageNumber - 1) * query.PageSize)
-                .Take(query.PageSize)
-                .ToListAsync();
+            queryable = ApplySorting(queryable, query);
+            var users = await ApplyPagination(queryable, query).ToListAsync();
 
             return (users, totalCount);
         }
@@ -191,6 +153,65 @@ public class UserRepository : IUserRepository
             _logger.LogError(ex, "[{ServiceName}] Database error when getting users by account IDs batch", ServiceName);
             throw new UserException($"[{ServiceName}] Failed to get users by account IDs batch", innerException: ex);
         }
+    }
+
+    /// <summary>
+    /// Apply filters to the queryable
+    /// </summary>
+    private static IQueryable<UserEntity> ApplyFilters(IQueryable<UserEntity> queryable, UserQueryRequest query)
+    {
+        if (query.Gender.HasValue)
+        {
+            queryable = queryable.Where(u => u.Gender == query.Gender.Value);
+        }
+
+        if (!string.IsNullOrEmpty(query.SearchTerm))
+        {
+            queryable = queryable.Where(u =>
+                u.FirstName.Contains(query.SearchTerm) ||
+                u.LastName.Contains(query.SearchTerm) ||
+                u.Email.Contains(query.SearchTerm) ||
+                (u.Address != null && u.Address.Contains(query.SearchTerm)) ||
+                u.Phone.Contains(query.SearchTerm));
+        }
+
+        if (query.CreatedFrom.HasValue)
+        {
+            queryable = queryable.Where(u => u.CreatedAt >= query.CreatedFrom.Value);
+        }
+
+        if (query.CreatedTo.HasValue)
+        {
+            queryable = queryable.Where(u => u.CreatedAt <= query.CreatedTo.Value);
+        }
+
+        return queryable;
+    }
+
+    /// <summary>
+    /// Apply sorting to the queryable
+    /// </summary>
+    private static IQueryable<UserEntity> ApplySorting(IQueryable<UserEntity> queryable, UserQueryRequest query)
+    {
+        return query.SortBy?.ToLower() switch
+        {
+            "firstname" => query.SortDescending ? queryable.OrderByDescending(u => u.FirstName) : queryable.OrderBy(u => u.FirstName),
+            "lastname" => query.SortDescending ? queryable.OrderByDescending(u => u.LastName) : queryable.OrderBy(u => u.LastName),
+            "email" => query.SortDescending ? queryable.OrderByDescending(u => u.Email) : queryable.OrderBy(u => u.Email),
+            "createdat" => query.SortDescending ? queryable.OrderByDescending(u => u.CreatedAt) : queryable.OrderBy(u => u.CreatedAt),
+            "updatedat" => query.SortDescending ? queryable.OrderByDescending(u => u.UpdatedAt) : queryable.OrderBy(u => u.UpdatedAt),
+            _ => queryable.OrderByDescending(u => u.CreatedAt)
+        };
+    }
+
+    /// <summary>
+    /// Apply pagination to the queryable
+    /// </summary>
+    private static IQueryable<UserEntity> ApplyPagination(IQueryable<UserEntity> queryable, UserQueryRequest query)
+    {
+        return queryable
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize);
     }
 
 }

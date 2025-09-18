@@ -1,5 +1,6 @@
 using BookingCare.Services.User.Models.DTOs;
 using BookingCare.Services.User.Utils;
+using BookingCare.Services.User.Constants;
 using Grpc.Core;
 
 namespace BookingCare.Services.User.Services;
@@ -48,7 +49,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[UserGrpcService] Error getting user: {UserId}", request.Id);
-            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+            throw new RpcException(new Status(StatusCode.Internal, ErrorMessages.InternalServerError));
         }
     }
 
@@ -83,7 +84,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[UserGrpcService] Error getting user by AccountId: {AccountId}", request.AccountId);
-            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+            throw new RpcException(new Status(StatusCode.Internal, ErrorMessages.InternalServerError));
         }
     }
 
@@ -126,7 +127,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[UserGrpcService] Error creating user with email: {Email}", request.Email);
-            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+            throw new RpcException(new Status(StatusCode.Internal, ErrorMessages.InternalServerError));
         }
     }
 
@@ -176,12 +177,12 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[UserGrpcService] Error getting users by account IDs batch");
-            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+            throw new RpcException(new Status(StatusCode.Internal, ErrorMessages.InternalServerError));
         }
     }
 
     // Helper methods for mapping
-    private Protos.UserResponse MapToGrpcUserResponse(UserResponse user)
+    private static Protos.UserResponse MapToGrpcUserResponse(UserResponse user)
     {
         return new Protos.UserResponse
         {

@@ -86,13 +86,10 @@ public class UserDbContext : DbContext
                     user.UpdatedAt = DateTime.UtcNow;
                 }
             }
-            else if (entry.State == EntityState.Modified)
+            else if (entry.State == EntityState.Modified && entry.Entity is UserEntity user)
             {
-                if (entry.Entity is UserEntity user)
-                {
-                    user.UpdatedAt = DateTime.UtcNow;
-                    entry.Property(nameof(user.CreatedAt)).IsModified = false;
-                }
+                user.UpdatedAt = DateTime.UtcNow;
+                entry.Property(nameof(user.CreatedAt)).IsModified = false;
             }
         }
     }
