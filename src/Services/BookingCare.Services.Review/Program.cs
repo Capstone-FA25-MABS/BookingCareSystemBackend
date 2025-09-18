@@ -5,6 +5,7 @@ using BookingCare.Services.Review.Validators;
 using BookingCare.Services.Review.Grpc.Services;
 using BookingCare.Services.Review.Filters;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Mvc;
@@ -36,7 +37,14 @@ builder.Services.AddControllers(options =>
 
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Review API", Version = "v1.0" });
+});
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -70,7 +78,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1.0/swagger.json", "Review Service V1.0");
+        c.RoutePrefix = "swagger";
+    });
 }
 
 // Add global exception handling early in pipeline

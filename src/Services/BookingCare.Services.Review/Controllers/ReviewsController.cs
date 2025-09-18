@@ -1,4 +1,5 @@
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Review.Models.DTOs;
 using BookingCare.Services.Review.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,9 @@ namespace BookingCare.Services.Review.Controllers;
 /// Controller for Review operations
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Produces("application/json")]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
 public class ReviewsController : BaseApiController
 {
     private readonly IReviewService _reviewService;
@@ -25,9 +28,9 @@ public class ReviewsController : BaseApiController
     /// <param name="request">Review creation request</param>
     /// <returns>Created review</returns>
     [HttpPost]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateReview([FromBody] CreateReviewRequest request)
     {
-        // Validation is now handled automatically by ValidationFilter
         try
         {
             var result = await _reviewService.CreateReviewAsync(request);
@@ -35,7 +38,6 @@ public class ReviewsController : BaseApiController
         }
         catch (Exceptions.DuplicateReviewException ex)
         {
-            // Get the existing review to return detailed information
             var existingReview = await _reviewService.GetReviewByIdAsync(ex.ExistingReviewId);
 
             var errorResponse = new DuplicateReviewErrorResponse
@@ -43,7 +45,7 @@ public class ReviewsController : BaseApiController
                 Message = ex.Message,
                 ExistingReview = existingReview ?? new ReviewResponse(),
                 SuggestedAction = "Please update the existing review instead of creating a new one.",
-                UpdateEndpoint = "/api/reviews"
+                UpdateEndpoint = "/api/v1.0/reviews"
             };
 
             return Conflict(errorResponse);
@@ -56,9 +58,9 @@ public class ReviewsController : BaseApiController
     /// <param name="request">Review update request</param>
     /// <returns>Updated review</returns>
     [HttpPut]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateReview([FromBody] UpdateReviewRequest request)
     {
-        // Validation is now handled automatically by ValidationFilter
         var result = await _reviewService.UpdateReviewAsync(request);
         return Success(result, "Review updated successfully");
     }
@@ -69,6 +71,7 @@ public class ReviewsController : BaseApiController
     /// <param name="id">Review ID</param>
     /// <returns>Success confirmation</returns>
     [HttpDelete("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteReview(string id)
     {
         var result = await _reviewService.DeleteReviewAsync(id);
@@ -81,6 +84,7 @@ public class ReviewsController : BaseApiController
     /// <param name="id">Review ID</param>
     /// <returns>Review details</returns>
     [HttpGet("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetReview(string id)
     {
         var result = await _reviewService.GetReviewByIdAsync(id);
@@ -97,6 +101,7 @@ public class ReviewsController : BaseApiController
     /// <param name="request">Filter and pagination parameters</param>
     /// <returns>Paginated reviews</returns>
     [HttpPost("search")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetReviews([FromBody] GetReviewsRequest request)
     {
         var result = await _reviewService.GetReviewsAsync(request);
@@ -111,6 +116,7 @@ public class ReviewsController : BaseApiController
     /// <param name="pageSize">Page size</param>
     /// <returns>Paginated reviews for the doctor</returns>
     [HttpGet("doctor/{doctorId:guid}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetReviewsByDoctor(Guid doctorId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var result = await _reviewService.GetReviewsByDoctorAsync(doctorId, page, pageSize);
@@ -125,6 +131,7 @@ public class ReviewsController : BaseApiController
     /// <param name="pageSize">Page size</param>
     /// <returns>Paginated reviews for the clinic service</returns>
     [HttpGet("service/{clinicServiceId:guid}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetReviewsByClinicService(Guid clinicServiceId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var result = await _reviewService.GetReviewsByClinicServiceAsync(clinicServiceId, page, pageSize);
@@ -139,6 +146,7 @@ public class ReviewsController : BaseApiController
     /// <param name="pageSize">Page size</param>
     /// <returns>Paginated reviews by the patient</returns>
     [HttpGet("patient/{patientId:guid}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetReviewsByPatient(Guid patientId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
         var result = await _reviewService.GetReviewsByPatientAsync(patientId, page, pageSize);
@@ -151,6 +159,7 @@ public class ReviewsController : BaseApiController
     /// <param name="request">Reply request</param>
     /// <returns>Updated review with the new reply</returns>
     [HttpPost("reply")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> AddReply([FromBody] AddReplyRequest request)
     {
         var result = await _reviewService.AddReplyAsync(request);
@@ -163,6 +172,7 @@ public class ReviewsController : BaseApiController
     /// <param name="request">Update reply request</param>
     /// <returns>Updated review with the modified reply</returns>
     [HttpPut("reply")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateReply([FromBody] UpdateReplyRequest request)
     {
         var result = await _reviewService.UpdateReplyAsync(request);
@@ -176,6 +186,7 @@ public class ReviewsController : BaseApiController
     /// <param name="replyId">Reply ID</param>
     /// <returns>Updated review without the reply</returns>
     [HttpDelete("{reviewId}/reply/{replyId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RemoveReply(string reviewId, string replyId)
     {
         var result = await _reviewService.RemoveReplyAsync(reviewId, replyId);
@@ -188,6 +199,7 @@ public class ReviewsController : BaseApiController
     /// <param name="doctorId">Doctor ID</param>
     /// <returns>Average rating</returns>
     [HttpGet("doctor/{doctorId:guid}/average-rating")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAverageRatingByDoctor(Guid doctorId)
     {
         var result = await _reviewService.GetAverageRatingByDoctorAsync(doctorId);
@@ -200,6 +212,7 @@ public class ReviewsController : BaseApiController
     /// <param name="doctorId">Doctor ID</param>
     /// <returns>Complete statistics including average rating, count, and rating distribution</returns>
     [HttpGet("doctor/{doctorId:guid}/statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorStatistics(Guid doctorId)
     {
         var result = await _reviewService.GetDoctorDetailedStatisticsAsync(doctorId);
@@ -212,6 +225,7 @@ public class ReviewsController : BaseApiController
     /// <param name="clinicServiceId">Clinic service ID</param>
     /// <returns>Average rating</returns>
     [HttpGet("service/{clinicServiceId:guid}/average-rating")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAverageRatingByService(Guid clinicServiceId)
     {
         var result = await _reviewService.GetAverageRatingByClinicServiceAsync(clinicServiceId);
@@ -224,6 +238,7 @@ public class ReviewsController : BaseApiController
     /// <param name="clinicServiceId">Clinic service ID</param>
     /// <returns>Complete statistics including average rating, count, and rating distribution</returns>
     [HttpGet("service/{clinicServiceId:guid}/statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetServiceStatistics(Guid clinicServiceId)
     {
         var result = await _reviewService.GetClinicServiceDetailedStatisticsAsync(clinicServiceId);
@@ -236,6 +251,7 @@ public class ReviewsController : BaseApiController
     /// <param name="request">Batch doctors statistics request</param>
     /// <returns>Complete statistics for all requested doctors</returns>
     [HttpPost("doctors/batch-statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetBatchDoctorsStatistics([FromBody] BatchDoctorsStatisticsRequest request)
     {
         var result = await _reviewService.GetBatchDoctorsStatisticsAsync(request);
@@ -248,6 +264,7 @@ public class ReviewsController : BaseApiController
     /// <param name="request">Batch services statistics request</param>
     /// <returns>Complete statistics for all requested services</returns>
     [HttpPost("services/batch-statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetBatchServicesStatistics([FromBody] BatchServicesStatisticsRequest request)
     {
         var result = await _reviewService.GetBatchServicesStatisticsAsync(request);
@@ -260,9 +277,28 @@ public class ReviewsController : BaseApiController
     /// <param name="doctorId">Doctor ID</param>
     /// <returns>Review count</returns>
     [HttpGet("doctor/{doctorId:guid}/count")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetReviewCountByDoctor(Guid doctorId)
     {
         var result = await _reviewService.GetReviewCountByDoctorAsync(doctorId);
         return Success(new { DoctorId = doctorId, ReviewCount = result }, "Review count retrieved successfully");
+    }
+
+    /// <summary>
+    /// Health check endpoint
+    /// </summary>
+    /// <returns>Service health status</returns>
+    [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public IActionResult Health()
+    {
+        var healthData = new
+        {
+            Status = "Healthy",
+            Service = "Review",
+            Timestamp = DateTime.UtcNow,
+            Version = "1.0"
+        };
+        return Success(healthData, "Review service is healthy");
     }
 }
