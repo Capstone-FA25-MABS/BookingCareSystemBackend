@@ -3,7 +3,9 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Utils.SMS;
 using BookingCare.Services.Notification.Utils.OTP;
+using BookingCare.Shared.Cache.Constants;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Notification.Exceptions;
 
 namespace BookingCare.Services.Notification.Handlers;
 
@@ -14,22 +16,19 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
     private readonly FcmV1Service _fcmService;
     private readonly DeviceStore _deviceStore;
     private readonly ManageOtp _otpManager;
-    private readonly EmailTemplate _emailTemplate;
 
     public NotificationSendEventHandler(
         ILogger<NotificationSendEventHandler> logger,
         EmailService emailService,
         FcmV1Service fcmService,
         DeviceStore deviceStore,
-        ManageOtp otpManager,
-        EmailTemplate emailTemplate)
+        ManageOtp otpManager)
     {
         _logger = logger;
         _emailService = emailService;
         _fcmService = fcmService;
         _deviceStore = deviceStore;
         _otpManager = otpManager;
-        _emailTemplate = emailTemplate;
     }
 
     public async Task HandleAsync(NotificationSendEvent @event, CancellationToken cancellationToken = default)
@@ -42,7 +41,7 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
                     await HandleEmailNotification(@event, cancellationToken);
                     break;
                 case "sms":
-                    await HandleSmsNotification(@event, cancellationToken);
+                    await HandleSmsNotification(@event);
                     break;
                 default:
                     _logger.LogWarning("Unsupported notification type: {Type}", @event.Type);
@@ -52,6 +51,8 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling NotificationSendEvent");
+            // Re-throw as NotificationException for proper error handling
+            throw new NotificationException($"Failed to handle notification event of type '{@event.Type}'", "NOTIFICATION_HANDLER_ERROR", System.Net.HttpStatusCode.InternalServerError, ex);
         }
     }
 
@@ -59,46 +60,49 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
     {
         if (!@event.Data.TryGetValue("email", out var emailObj) || emailObj is null)
         {
-            _logger.LogWarning("NotificationSendEvent missing 'email' in Data");
-            return;
+            throw new EmailDeliveryException("NotificationSendEvent missing 'email' in Data");
         }
 
         var email = emailObj.ToString() ?? string.Empty;
         var subject = @event.Data.TryGetValue("subject", out var subjectObj) ? subjectObj?.ToString() ?? @event.Title : @event.Title;
-        var isHtml = @event.Data.TryGetValue("html", out var htmlObj) && bool.TryParse(htmlObj?.ToString(), out var html) ? html : false;
+        var isHtml = @event.Data.TryGetValue("html", out var htmlObj) && bool.TryParse(htmlObj?.ToString(), out var html) && html;
         var purpose = @event.Data.TryGetValue("purpose", out var purposeObj) ? purposeObj?.ToString() ?? string.Empty : string.Empty;
 
         string message = @event.Message;
 
-        // Check if this is a password reset email
-        if (purpose.Equals(OtpPurpose.FORGOT_PASSWORD.ToKey(), StringComparison.OrdinalIgnoreCase))
+        // Check if this is a password reset email and use template if resetUrl is provided
+        if (purpose.Equals(OtpPurpose.FORGOT_PASSWORD.ToKey(), StringComparison.OrdinalIgnoreCase) &&
+            @event.Data.TryGetValue("resetUrl", out var resetUrlObj) &&
+            !string.IsNullOrEmpty(resetUrlObj?.ToString()))
         {
-            // Use password reset template if resetUrl is provided
-            if (@event.Data.TryGetValue("resetUrl", out var resetUrlObj) && !string.IsNullOrEmpty(resetUrlObj?.ToString()))
-            {
-                var resetUrl = resetUrlObj.ToString()!;
-                message = _emailTemplate.BuildPasswordResetEmailHtml(resetUrl);
-                isHtml = true; // Force HTML for template
-                _logger.LogInformation("Using password reset email template for {Email}", email);
-            }
+            var resetUrl = resetUrlObj.ToString()!;
+            message = EmailTemplate.BuildPasswordResetEmailHtml(resetUrl);
+            isHtml = true; // Force HTML for template
+            _logger.LogInformation("Using password reset email template for {Email}", email);
         }
 
-        await _emailService.SendEmailAsync(email, subject, message, isHtml, cancellationToken);
-        _logger.LogInformation("Email notification sent to {Email} for purpose {Purpose}", email, purpose);
+        try
+        {
+            await _emailService.SendEmailAsync(email, subject, message, isHtml, cancellationToken);
+            _logger.LogInformation("Email notification sent to {Email} for purpose {Purpose}", email, purpose);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send email to {Email}", email);
+            throw new EmailDeliveryException($"Failed to send email to {email}", email, ex);
+        }
     }
 
-    private async Task HandleSmsNotification(NotificationSendEvent @event, CancellationToken cancellationToken)
+    private async Task HandleSmsNotification(NotificationSendEvent @event)
     {
         if (!@event.Data.TryGetValue("phone", out var phoneObj) || phoneObj is null)
         {
-            _logger.LogWarning("NotificationSendEvent missing 'phone' in Data");
-            return;
+            throw new SmsDeliveryException("NotificationSendEvent missing 'phone' in Data");
         }
 
         if (!@event.Data.TryGetValue("deviceId", out var deviceIdObj) || deviceIdObj is null)
         {
-            _logger.LogWarning("NotificationSendEvent missing 'deviceId' in Data");
-            return;
+            throw new SmsDeliveryException("NotificationSendEvent missing 'deviceId' in Data");
         }
 
         var phone = phoneObj.ToString() ?? string.Empty;
@@ -107,20 +111,20 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
 
         if (device == null)
         {
-            _logger.LogWarning("Device not found for ID: {DeviceId}", deviceId);
-            return;
+            throw new DeviceException("Device not found for SMS notification");
         }
 
-        var normalizedPhone = _fcmService.NormalizePhone(phone);
+        var normalizedPhone = FcmV1Service.NormalizePhone(phone);
 
         // Purpose-specific OTP generation and storage
         var purposeKey = @event.Data.TryGetValue("purpose", out var p) ? (p?.ToString() ?? string.Empty) : string.Empty;
         var isForgot = purposeKey.Equals(OtpPurpose.FORGOT_PASSWORD.ToKey(), StringComparison.OrdinalIgnoreCase);
         if (isForgot)
         {
-            var otp = _otpManager.GenerateNumericOtp();
+            var otp = ManageOtp.GenerateNumericOtp();
             // Use a namespaced cache key to avoid cross-purpose collisions
-            await _otpManager.StoreOtpAsync($"purpose:{purposeKey}:phone:{normalizedPhone}", otp, TimeSpan.FromMinutes(5));
+            var phoneKey = CacheKeys.Format(CacheKeys.OtpPurposePhone, purposeKey, normalizedPhone);
+            await _otpManager.StoreOtpAsync(phoneKey, otp, TimeSpan.FromMinutes(5));
             // Overwrite message with OTP content if not provided
             if (string.IsNullOrWhiteSpace(@event.Message))
             {
@@ -130,12 +134,20 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
 
         var data = new { phone = normalizedPhone, message = @event.Message };
 
-        var result = await _fcmService.SendDataMessageAsync(device.Token, data);
+        try
+        {
+            var result = await _fcmService.SendDataMessageAsync(device.Token, data);
 
-        // Update last used timestamp
-        await _deviceStore.UpdateLastUsedAsync(deviceId);
+            // Update last used timestamp
+            await _deviceStore.UpdateLastUsedAsync(deviceId);
 
-        _logger.LogInformation("SMS notification sent to {Phone} via device {DeviceId}. Result: {Result}", phone, deviceId, result);
+            _logger.LogInformation("SMS notification sent to {Phone} via device {DeviceId}. Result: {Result}", phone, deviceId, result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send SMS to {Phone} via device {DeviceId}", phone, deviceId);
+            throw new SmsDeliveryException($"Failed to send SMS to {phone}", phone, deviceId, ex);
+        }
     }
 }
 

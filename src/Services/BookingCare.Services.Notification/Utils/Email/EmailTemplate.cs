@@ -2,9 +2,9 @@
 
 namespace BookingCare.Services.Notification.Utils.Email;
 
-public class EmailTemplate
+public static class EmailTemplate
 {
-    public string BuildOtpEmailHtml(string otpCode, string purpose)
+    public static string BuildOtpEmailHtml(string otpCode, string purpose)
     {
         var safePurpose = string.IsNullOrWhiteSpace(purpose) ? "xác thực" : purpose;
         return $@"<!DOCTYPE html>
@@ -47,7 +47,7 @@ public class EmailTemplate
 </html>";
     }
 
-    public string BuildPasswordResetEmailHtml(string resetUrl)
+    public static string BuildPasswordResetEmailHtml(string resetUrl)
     {
         return $@"<!DOCTYPE html>
 <html lang=""vi"">

@@ -1,28 +1,36 @@
-﻿using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Configuration;
+﻿using BookingCare.Shared.Cache.Abstractions;
+using BookingCare.Shared.Cache.Constants;
 using System.Security.Cryptography;
 using System.Text;
-using static System.Net.WebRequestMethods;
 
 namespace BookingCare.Services.Notification.Utils.OTP;
 
+/// <summary>
+/// Data model for storing OTP hash in cache
+/// </summary>
+public class OtpData
+{
+    public string Hash { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Data model for storing flag values in cache
+/// </summary>
+public class FlagData
+{
+    public string Value { get; set; } = string.Empty;
+}
+
 public class ManageOtp
 {
-    private readonly IMemoryCache _memoryCache;
-    private readonly IDistributedCache? _distributedCache;
-    private readonly bool _useDistributed;
-    private bool _forceMemoryFallback;
+    private readonly ICacheService _cacheService;
 
-    public ManageOtp(IMemoryCache memoryCache, IDistributedCache? distributedCache = null, IConfiguration? configuration = null)
+    public ManageOtp(ICacheService cacheService)
     {
-        _memoryCache = memoryCache;
-        _distributedCache = distributedCache;
-        _useDistributed = configuration != null && configuration.GetSection("Redis").GetValue<bool>("Enabled") && distributedCache != null;
-        _forceMemoryFallback = false;
+        _cacheService = cacheService;
     }
 
-    public string GenerateNumericOtp(int length = 6)
+    public static string GenerateNumericOtp(int length = 6)
     {
         var bytes = RandomNumberGenerator.GetBytes(length);
         var sb = new StringBuilder(length);
@@ -36,72 +44,37 @@ public class ManageOtp
     public async Task StoreOtpAsync(string key, string otp, TimeSpan ttl)
     {
         var cacheKey = GetCacheKey(key);
-        var otpHash = Hash(otp);
-        if (_useDistributed && _distributedCache != null && !_forceMemoryFallback)
-        {
-            try
-            {
-                // Dual-write: also cache in memory with shorter TTL to bridge transient issues
-                await _distributedCache.SetStringAsync(cacheKey, otpHash, new DistributedCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = ttl
-                });
-                var shortTtl = ttl < TimeSpan.FromMinutes(2) ? ttl : TimeSpan.FromMinutes(2);
-                _memoryCache.Set(cacheKey, otpHash, shortTtl);
-                return;
-            }
-            catch
-            {
-                // Fallback to memory if Redis is unavailable
-                _forceMemoryFallback = true;
-            }
-        }
-        _memoryCache.Set(cacheKey, otpHash, ttl);
+        var otpData = new OtpData { Hash = Hash(otp) };
+        await _cacheService.SetAsync(cacheKey, otpData, ttl);
     }
 
     public async Task<bool> VerifyOtpAsync(string key, string otp)
     {
         var cacheKey = GetCacheKey(key);
-        string? storedHash = null;
-        if (_useDistributed && _distributedCache != null && !_forceMemoryFallback)
+        var otpData = await _cacheService.GetAsync<OtpData>(cacheKey);
+
+        if (otpData?.Hash == null)
         {
-            try
-            {
-                storedHash = await _distributedCache.GetStringAsync(cacheKey);
-                if (storedHash != null)
-                {
-                    var providedHash = Hash(otp);
-                    var isValid = CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(storedHash), Encoding.UTF8.GetBytes(providedHash));
-                    if (isValid)
-                    {
-                        await _distributedCache.RemoveAsync(cacheKey);
-                        return true;
-                    }
-                }
-            }
-            catch
-            {
-                // Fallback to memory if Redis is unavailable
-                _forceMemoryFallback = true;
-            }
+            return false;
         }
-        if (_memoryCache.TryGetValue<string>(cacheKey, out var memHash))
+
+        var providedHash = Hash(otp);
+        var isValid = CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(otpData.Hash),
+            Encoding.UTF8.GetBytes(providedHash));
+
+        if (isValid)
         {
-            storedHash = memHash;
-            var providedHash = Hash(otp);
-            var isValid = CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(storedHash!), Encoding.UTF8.GetBytes(providedHash));
-            if (isValid)
-            {
-                _memoryCache.Remove(cacheKey);
-                return true;
-            }
+            await _cacheService.RemoveAsync(cacheKey);
+            return true;
         }
+
         return false;
     }
 
     // Removed legacy helpers; use namespaced keys with purpose + subject instead
 
-    private static string GetCacheKey(string key) => $"otp:{key.ToLowerInvariant()}";
+    private static string GetCacheKey(string key) => CacheKeys.Format(CacheKeys.OtpByKey, key.ToLowerInvariant());
 
     private static string Hash(string value)
     {
@@ -114,55 +87,9 @@ public class ManageOtp
     public async Task SetFlagAsync(string key, TimeSpan ttl)
     {
         var cacheKey = GetCacheKey(key);
-
-        if (_useDistributed && _distributedCache != null && !_forceMemoryFallback)
-        {
-            try
-            {
-                // Dual-write: also cache in memory with shorter TTL to bridge transient issues
-                await _distributedCache.SetStringAsync(cacheKey, "1", new DistributedCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = ttl
-                });
-                var shortTtl = ttl < TimeSpan.FromMinutes(2) ? ttl : TimeSpan.FromMinutes(2);
-                _memoryCache.Set(cacheKey, "1", shortTtl);
-                return;
-            }
-            catch
-            {
-                // Fallback to memory if Redis is unavailable
-                _forceMemoryFallback = true;
-            }
-        }
-        _memoryCache.Set(cacheKey, "1", ttl);
+        var flagData = new FlagData { Value = "1" };
+        await _cacheService.SetAsync(cacheKey, flagData, ttl);
     }
 
-    public async Task<bool> CheckAndConsumeFlagAsync(string key)
-    {
-        var cacheKey = GetCacheKey(key);
-        if (_useDistributed && _distributedCache != null)
-        {
-            var val = await _distributedCache.GetStringAsync(cacheKey);
-            if (!string.IsNullOrEmpty(val))
-            {
-                await _distributedCache.RemoveAsync(cacheKey);
-                return true;
-            }
-            return false;
-        }
-        else
-        {
-            if (_memoryCache.TryGetValue<string>(cacheKey, out var val) && !string.IsNullOrEmpty(val))
-            {
-                _memoryCache.Remove(cacheKey);
-                return true;
-            }
-            return false;
-        }
-    }
-
-    // Fallback controls for BackgroundService
-    public bool IsMemoryFallbackEnabled() => _forceMemoryFallback;
-    public void DisableMemoryFallback() => _forceMemoryFallback = false;
 }
 

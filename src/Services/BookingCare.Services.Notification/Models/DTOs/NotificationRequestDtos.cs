@@ -1,4 +1,5 @@
 ﻿using BookingCare.Shared.Common.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace BookingCare.Services.Notification.Models.DTOs
 {
@@ -20,7 +21,10 @@ namespace BookingCare.Services.Notification.Models.DTOs
 
     public class DeviceRegistrationRequest
     {
+        [Required]
         public string DeviceName { get; set; } = "";
+
+        [Required]
         public string Token { get; set; } = "";
     }
 }

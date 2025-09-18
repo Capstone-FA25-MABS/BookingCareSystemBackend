@@ -1,15 +1,18 @@
 ﻿using BookingCare.Services.Notification.Models.DTOs;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Utils.OTP;
-using BookingCare.Shared.Common.Controllers;
+using BookingCare.Services.Notification.Constants;
+using BookingCare.Shared.Cache.Constants;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
-using Microsoft.Extensions.Configuration;
 using System.Security.Cryptography;
 using System.Text;
 using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Notification.Services.Interfaces;
+using BookingCare.Services.Notification.Exceptions;
+using BookingCare.Shared.Common.Exceptions;
 
 namespace BookingCare.Services.Notification.Services;
 
@@ -17,7 +20,6 @@ public class OtpService : BaseService, IOtpService
 {
     private readonly ManageOtp _otpManager;
     private readonly IEventBus _eventBus;
-    private readonly EmailTemplate _templateService;
     private readonly IConfiguration _configuration;
     private readonly AuthService.AuthServiceClient _authClient;
 
@@ -25,13 +27,11 @@ public class OtpService : BaseService, IOtpService
         ILogger<OtpService> logger,
         ManageOtp otpManager,
         IEventBus eventBus,
-        EmailTemplate templateService,
         IConfiguration configuration,
         AuthService.AuthServiceClient authClient) : base(logger)
     {
         _otpManager = otpManager;
         _eventBus = eventBus;
-        _templateService = templateService;
         _configuration = configuration;
         _authClient = authClient;
     }
@@ -40,41 +40,13 @@ public class OtpService : BaseService, IOtpService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Phone))
-            {
-                throw new ArgumentException("Either Email or Phone is required");
-            }
+            ValidateOtpRequest(request);
 
-            var otp = _otpManager.GenerateNumericOtp();
+            var otp = ManageOtp.GenerateNumericOtp();
             var purpose = request.Purpose.ToKey();
 
-            // Pre-check for registration
-            if (request.Purpose == OtpPurpose.REGISTER)
-            {
-                var checkRequest = new CheckAccountExistsRequest();
-                if (!string.IsNullOrWhiteSpace(request.Email)) checkRequest.Email = request.Email;
-                else if (!string.IsNullOrWhiteSpace(request.Phone)) checkRequest.PhoneNumber = request.Phone;
-                var checkResponse = await _authClient.CheckAccountExistsAsync(checkRequest);
-                if (checkResponse.Exists)
-                {
-                    return !checkResponse.Exists;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.Email))
-            {
-                await _otpManager.StoreOtpAsync($"purpose:{purpose}:email:{request.Email}", otp, TimeSpan.FromMinutes(5));
-                await SendEmailOtp(request.Email, otp, purpose);
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(request.DeviceId))
-                {
-                    throw new ArgumentException("DeviceId is required for SMS OTP");
-                }
-                await _otpManager.StoreOtpAsync($"purpose:{purpose}:phone:{request.Phone}", otp, TimeSpan.FromMinutes(5));
-                await SendSmsOtp(request.Phone!, request.DeviceId!, otp, purpose);
-            }
+            await PerformRegistrationPreCheckAsync(request);
+            await SendOtpToChannelAsync(request, otp, purpose);
 
             return true;
         }, "OtpSend");
@@ -86,7 +58,11 @@ public class OtpService : BaseService, IOtpService
         {
             if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Phone))
             {
-                throw new ArgumentException("Either Email or Phone is required");
+                throw new OtpValidationException(new List<ValidationError>
+                {
+                    new("Email", ValidationMessages.EitherEmailOrPhoneRequired, request.Email),
+                    new("Phone", ValidationMessages.EitherEmailOrPhoneRequired, request.Phone)
+                });
             }
 
             var purposeKey = request.Purpose.ToKey();
@@ -95,12 +71,12 @@ public class OtpService : BaseService, IOtpService
             var isValid = await _otpManager.VerifyOtpAsync(key, request.Otp);
             if (!isValid)
             {
-                throw new InvalidOperationException("Invalid or expired OTP");
+                throw new OtpInvalidException(request.Otp, true);
             }
 
             // Set verification flag for Auth service
-            var flagKey = $"otp:verified:{purposeKey}:{subject}";
-            await _otpManager.StoreOtpAsync(flagKey, "1", TimeSpan.FromMinutes(5));
+            var flagKey = CacheKeys.Format(CacheKeys.OtpVerified, purposeKey, subject);
+            await _otpManager.SetFlagAsync(flagKey, TimeSpan.FromMinutes(5));
 
             // HMAC proof (fallback if Auth can't read Redis)
             string? proof = null;
@@ -128,7 +104,7 @@ public class OtpService : BaseService, IOtpService
     private async Task SendEmailOtp(string email, string otp, string purpose)
     {
         var emailTitle = "Your One-Time Passcode (OTP)";
-        var emailMessage = _templateService.BuildOtpEmailHtml(otp, purpose);
+        var emailMessage = EmailTemplate.BuildOtpEmailHtml(otp, purpose);
 
         var @event = new NotificationSendEvent
         {
@@ -176,6 +152,86 @@ public class OtpService : BaseService, IOtpService
     private static string BuildSubject(string? email, string? phone)
     {
         return !string.IsNullOrWhiteSpace(email) ? $"email:{email}" : $"phone:{phone}";
+    }
+
+    /// <summary>
+    /// Validates the OTP request to ensure either email or phone is provided
+    /// </summary>
+    private static void ValidateOtpRequest(SendOtpRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Phone))
+        {
+            throw new OtpValidationException(new List<ValidationError>
+            {
+                new("Email", ValidationMessages.EitherEmailOrPhoneRequired, request.Email),
+                new("Phone", ValidationMessages.EitherEmailOrPhoneRequired, request.Phone)
+            });
+        }
+    }
+
+    /// <summary>
+    /// Performs pre-check for registration to ensure account doesn't already exist
+    /// </summary>
+    private async Task PerformRegistrationPreCheckAsync(SendOtpRequest request)
+    {
+        if (request.Purpose != OtpPurpose.REGISTER)
+            return;
+
+        var checkRequest = new CheckAccountExistsRequest();
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            checkRequest.Email = request.Email;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Phone))
+        {
+            checkRequest.PhoneNumber = request.Phone;
+        }
+
+        var checkResponse = await _authClient.CheckAccountExistsAsync(checkRequest);
+        if (checkResponse.Exists)
+        {
+            throw new OtpValidationException("Account", "Account already exists", request.Email ?? request.Phone);
+        }
+    }
+
+    /// <summary>
+    /// Sends OTP to the appropriate channel (email or SMS)
+    /// </summary>
+    private async Task SendOtpToChannelAsync(SendOtpRequest request, string otp, string purpose)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            await SendOtpViaEmailAsync(request.Email, otp, purpose);
+        }
+        else
+        {
+            await SendOtpViaSmsAsync(request, otp, purpose);
+        }
+    }
+
+    /// <summary>
+    /// Sends OTP via email
+    /// </summary>
+    private async Task SendOtpViaEmailAsync(string email, string otp, string purpose)
+    {
+        var emailKey = CacheKeys.Format(CacheKeys.OtpPurposeEmail, purpose, email);
+        await _otpManager.StoreOtpAsync(emailKey, otp, TimeSpan.FromMinutes(5));
+        await SendEmailOtp(email, otp, purpose);
+    }
+
+    /// <summary>
+    /// Sends OTP via SMS
+    /// </summary>
+    private async Task SendOtpViaSmsAsync(SendOtpRequest request, string otp, string purpose)
+    {
+        if (string.IsNullOrWhiteSpace(request.DeviceId))
+        {
+            throw new OtpValidationException("DeviceId", "DeviceId is required for SMS OTP", request.DeviceId);
+        }
+
+        var phoneKey = CacheKeys.Format(CacheKeys.OtpPurposePhone, purpose, request.Phone!);
+        await _otpManager.StoreOtpAsync(phoneKey, otp, TimeSpan.FromMinutes(5));
+        await SendSmsOtp(request.Phone!, request.DeviceId!, otp, purpose);
     }
 }
 

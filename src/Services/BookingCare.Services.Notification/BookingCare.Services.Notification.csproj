@@ -7,7 +7,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Protobuf Include="Protos\greet.proto" GrpcServices="Server" />
 		<Protobuf Include="../../Services/BookingCare.Services.Auth/Protos/auth.proto" GrpcServices="Client" />
 		<Protobuf Include="Protos\otp.proto" GrpcServices="Server" />
 	</ItemGroup>
@@ -20,12 +19,12 @@
 		<PackageReference Include="Google.Apis.Auth" Version="1.70.0" />
 		<PackageReference Include="MongoDB.Driver" Version="2.24.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
-		<PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="../../Shared/BookingCare.Shared.EventBus/BookingCare.Shared.EventBus.csproj" />
 		<ProjectReference Include="../../Shared/BookingCare.Shared.Common/BookingCare.Shared.Common.csproj" />
+		<ProjectReference Include="../../Shared/BookingCare.Shared.Cache/BookingCare.Shared.Cache.csproj" />
 	</ItemGroup>
 
 </Project>

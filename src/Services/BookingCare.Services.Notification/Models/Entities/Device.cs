@@ -1,7 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace BookingCare.Services.Notification.Models;
+namespace BookingCare.Services.Notification.Models.Entities;
 
 public class Device
 {
