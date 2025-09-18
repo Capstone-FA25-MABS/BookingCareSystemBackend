@@ -1,6 +1,7 @@
 ﻿using BookingCare.Services.Notification.Models.DTOs;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Utils.OTP;
+using BookingCare.Services.Notification.Constants;
 using BookingCare.Shared.Cache.Constants;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
@@ -19,7 +20,6 @@ public class OtpService : BaseService, IOtpService
 {
     private readonly ManageOtp _otpManager;
     private readonly IEventBus _eventBus;
-    private readonly EmailTemplate _templateService;
     private readonly IConfiguration _configuration;
     private readonly AuthService.AuthServiceClient _authClient;
 
@@ -27,13 +27,11 @@ public class OtpService : BaseService, IOtpService
         ILogger<OtpService> logger,
         ManageOtp otpManager,
         IEventBus eventBus,
-        EmailTemplate templateService,
         IConfiguration configuration,
         AuthService.AuthServiceClient authClient) : base(logger)
     {
         _otpManager = otpManager;
         _eventBus = eventBus;
-        _templateService = templateService;
         _configuration = configuration;
         _authClient = authClient;
     }
@@ -44,10 +42,10 @@ public class OtpService : BaseService, IOtpService
         {
             ValidateOtpRequest(request);
 
-            var otp = _otpManager.GenerateNumericOtp();
+            var otp = ManageOtp.GenerateNumericOtp();
             var purpose = request.Purpose.ToKey();
 
-            await PerformRegistrationPreCheckAsync(request, purpose);
+            await PerformRegistrationPreCheckAsync(request);
             await SendOtpToChannelAsync(request, otp, purpose);
 
             return true;
@@ -62,8 +60,8 @@ public class OtpService : BaseService, IOtpService
             {
                 throw new OtpValidationException(new List<ValidationError>
                 {
-                    new("Email", "Either Email or Phone is required", request.Email),
-                    new("Phone", "Either Email or Phone is required", request.Phone)
+                    new("Email", ValidationMessages.EitherEmailOrPhoneRequired, request.Email),
+                    new("Phone", ValidationMessages.EitherEmailOrPhoneRequired, request.Phone)
                 });
             }
 
@@ -106,7 +104,7 @@ public class OtpService : BaseService, IOtpService
     private async Task SendEmailOtp(string email, string otp, string purpose)
     {
         var emailTitle = "Your One-Time Passcode (OTP)";
-        var emailMessage = _templateService.BuildOtpEmailHtml(otp, purpose);
+        var emailMessage = EmailTemplate.BuildOtpEmailHtml(otp, purpose);
 
         var @event = new NotificationSendEvent
         {
@@ -165,8 +163,8 @@ public class OtpService : BaseService, IOtpService
         {
             throw new OtpValidationException(new List<ValidationError>
             {
-                new("Email", "Either Email or Phone is required", request.Email),
-                new("Phone", "Either Email or Phone is required", request.Phone)
+                new("Email", ValidationMessages.EitherEmailOrPhoneRequired, request.Email),
+                new("Phone", ValidationMessages.EitherEmailOrPhoneRequired, request.Phone)
             });
         }
     }
@@ -174,7 +172,7 @@ public class OtpService : BaseService, IOtpService
     /// <summary>
     /// Performs pre-check for registration to ensure account doesn't already exist
     /// </summary>
-    private async Task PerformRegistrationPreCheckAsync(SendOtpRequest request, string purpose)
+    private async Task PerformRegistrationPreCheckAsync(SendOtpRequest request)
     {
         if (request.Purpose != OtpPurpose.REGISTER)
             return;

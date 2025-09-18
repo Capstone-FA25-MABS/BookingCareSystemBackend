@@ -119,11 +119,11 @@ public class FcmV1Service
         }
     }
 
-    public string NormalizePhone(string input)
+    public static string NormalizePhone(string input)
     {
         var digits = new string(input.Where(char.IsDigit).ToArray());
         if (digits.StartsWith("84")) return "+" + digits;
-        if (digits.StartsWith("0")) return "+84" + digits.Substring(1);
+        if (digits.StartsWith('0')) return "+84" + digits.Substring(1);
         return "+" + digits;
     }
 }

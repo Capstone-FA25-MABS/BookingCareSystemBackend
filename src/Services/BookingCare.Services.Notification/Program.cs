@@ -61,7 +61,6 @@ builder.Services.AddSingleton<EmailService>();
 builder.Services.AddRedisCache(builder.Configuration);
 
 builder.Services.AddScoped<ManageOtp>();
-builder.Services.AddSingleton<EmailTemplate>();
 
 // MongoDB settings
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection(MongoDbSettings.SectionName));
@@ -95,7 +94,8 @@ builder.Services.AddIntegrationEventHandler<NotificationSendEventHandler>();
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
 {
-    o.Address = new Uri("http://localhost:6013"); // Auth service gRPC endpoint
+    var authServiceUrl = builder.Configuration.GetValue<string>("AuthService:GrpcUrl") ?? "http://localhost:6013";
+    o.Address = new Uri(authServiceUrl);
 });
 
 var app = builder.Build();

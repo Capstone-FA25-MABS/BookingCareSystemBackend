@@ -30,7 +30,7 @@ public class ManageOtp
         _cacheService = cacheService;
     }
 
-    public string GenerateNumericOtp(int length = 6)
+    public static string GenerateNumericOtp(int length = 6)
     {
         var bytes = RandomNumberGenerator.GetBytes(length);
         var sb = new StringBuilder(length);

@@ -16,22 +16,19 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
     private readonly FcmV1Service _fcmService;
     private readonly DeviceStore _deviceStore;
     private readonly ManageOtp _otpManager;
-    private readonly EmailTemplate _emailTemplate;
 
     public NotificationSendEventHandler(
         ILogger<NotificationSendEventHandler> logger,
         EmailService emailService,
         FcmV1Service fcmService,
         DeviceStore deviceStore,
-        ManageOtp otpManager,
-        EmailTemplate emailTemplate)
+        ManageOtp otpManager)
     {
         _logger = logger;
         _emailService = emailService;
         _fcmService = fcmService;
         _deviceStore = deviceStore;
         _otpManager = otpManager;
-        _emailTemplate = emailTemplate;
     }
 
     public async Task HandleAsync(NotificationSendEvent @event, CancellationToken cancellationToken = default)
@@ -68,7 +65,7 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
 
         var email = emailObj.ToString() ?? string.Empty;
         var subject = @event.Data.TryGetValue("subject", out var subjectObj) ? subjectObj?.ToString() ?? @event.Title : @event.Title;
-        var isHtml = @event.Data.TryGetValue("html", out var htmlObj) && bool.TryParse(htmlObj?.ToString(), out var html) ? html : false;
+        var isHtml = @event.Data.TryGetValue("html", out var htmlObj) && bool.TryParse(htmlObj?.ToString(), out var html) && html;
         var purpose = @event.Data.TryGetValue("purpose", out var purposeObj) ? purposeObj?.ToString() ?? string.Empty : string.Empty;
 
         string message = @event.Message;
@@ -79,7 +76,7 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
             !string.IsNullOrEmpty(resetUrlObj?.ToString()))
         {
             var resetUrl = resetUrlObj.ToString()!;
-            message = _emailTemplate.BuildPasswordResetEmailHtml(resetUrl);
+            message = EmailTemplate.BuildPasswordResetEmailHtml(resetUrl);
             isHtml = true; // Force HTML for template
             _logger.LogInformation("Using password reset email template for {Email}", email);
         }
@@ -117,14 +114,14 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
             throw new DeviceException("Device not found for SMS notification");
         }
 
-        var normalizedPhone = _fcmService.NormalizePhone(phone);
+        var normalizedPhone = FcmV1Service.NormalizePhone(phone);
 
         // Purpose-specific OTP generation and storage
         var purposeKey = @event.Data.TryGetValue("purpose", out var p) ? (p?.ToString() ?? string.Empty) : string.Empty;
         var isForgot = purposeKey.Equals(OtpPurpose.FORGOT_PASSWORD.ToKey(), StringComparison.OrdinalIgnoreCase);
         if (isForgot)
         {
-            var otp = _otpManager.GenerateNumericOtp();
+            var otp = ManageOtp.GenerateNumericOtp();
             // Use a namespaced cache key to avoid cross-purpose collisions
             var phoneKey = CacheKeys.Format(CacheKeys.OtpPurposePhone, purposeKey, normalizedPhone);
             await _otpManager.StoreOtpAsync(phoneKey, otp, TimeSpan.FromMinutes(5));
