@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Review.Grpc";
+
+package reviewservice;
+
+// Import Google protobuf types
+import "google/protobuf/wrappers.proto";
+
+// Review Statistics Service for inter-service communication
+service ReviewService {
+  // Gets detailed statistics with rating distribution for a single doctor
+  rpc GetDoctorDetailedStatistics (GetDoctorStatisticsRequest) returns (ReviewDetailedStatisticsResponse);
+  
+  // Gets detailed statistics with rating distribution for a single clinic service
+  rpc GetServiceDetailedStatistics (GetServiceStatisticsRequest) returns (ReviewDetailedStatisticsResponse);
+  
+  // Gets statistics for multiple doctors in batch (performance optimized)
+  rpc GetBatchDoctorsStatistics (BatchDoctorsStatisticsRequest) returns (BatchDoctorsStatisticsResponse);
+  
+  // Gets statistics for multiple clinic services in batch (performance optimized)
+  rpc GetBatchServicesStatistics (BatchServicesStatisticsRequest) returns (BatchServicesStatisticsResponse);
+  
+  // Gets paginated reviews for a doctor
+  rpc GetDoctorReviews (GetDoctorReviewsRequest) returns (PagedReviewsResponse);
+  
+  // Gets paginated reviews for a clinic service
+  rpc GetServiceReviews (GetServiceReviewsRequest) returns (PagedReviewsResponse);
+  
+  // Health check
+  rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Health check messages
+message HealthCheckRequest {
+}
+
+message HealthCheckResponse {
+  string status = 1;
+  string service = 2;
+  int64 timestamp = 3;
+}
+
+// Single statistics request messages
+message GetDoctorStatisticsRequest {
+  string doctor_id = 1;
+}
+
+message GetServiceStatisticsRequest {
+  string service_id = 1;
+}
+
+// Statistics response messages (optimized for batch operations - no rating distribution)
+message ReviewStatisticsResponse {
+  string target_id = 1;
+  double average_rating = 2;
+  int64 total_reviews = 3;
+  // target_type removed - clients can infer from endpoint context
+  // rating_distribution removed for performance optimization in batch operations
+}
+
+// Detailed statistics response messages (with rating distribution for single endpoints)
+message ReviewDetailedStatisticsResponse {
+  string target_id = 1;
+  double average_rating = 2;
+  int64 total_reviews = 3;
+  map<int32, int64> rating_distribution = 4;
+  // target_type removed - clients can infer from endpoint context
+}
+
+// Batch statistics request messages
+message BatchDoctorsStatisticsRequest {
+  repeated string doctor_ids = 1;
+}
+
+message BatchServicesStatisticsRequest {
+  repeated string service_ids = 1;
+}
+
+// Batch statistics response messages (simplified for microservice communication)
+message BatchDoctorsStatisticsResponse {
+  map<string, ReviewStatisticsResponse> doctor_statistics = 1;
+  // removed: not_found_doctor_ids, total_processed, with_statistics
+  // All requested doctor IDs will be present with 0 values if no reviews
+}
+
+message BatchServicesStatisticsResponse {
+  map<string, ReviewStatisticsResponse> service_statistics = 1;
+  // removed: not_found_service_ids, total_processed, with_statistics  
+  // All requested service IDs will be present with 0 values if no reviews
+}
+
+// Review listing request messages
+message GetDoctorReviewsRequest {
+  string doctor_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetServiceReviewsRequest {
+  string service_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+// Review response messages
+message ReviewResponse {
+  string id = 1;
+  string patient_id = 2;
+  google.protobuf.StringValue doctor_id = 3;
+  google.protobuf.StringValue clinic_service_id = 4;
+  int32 rating = 5;
+  string comment = 6;
+  repeated ReplyResponse replies = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+  // target_type removed - clients can infer from doctor_id vs clinic_service_id
+}
+
+message ReplyResponse {
+  string id = 1;
+  string author_id = 2;
+  string content = 3;
+  int64 created_at = 4;
+  int64 updated_at = 5;
+}
+
+message PagedReviewsResponse {
+  repeated ReviewResponse reviews = 1;
+  int64 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+  bool has_next_page = 6;
+  bool has_previous_page = 7;
+}
+
+// Note: TargetType enum removed as target type can be inferred from context:
+// - Doctor endpoints ? DOCTOR type
+// - Service endpoints ? SERVICE type  
+// - ReviewResponse ? infer from doctor_id vs clinic_service_id fields
