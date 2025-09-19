@@ -10,9 +10,9 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      # - RABBITMQ_DEFAULT_USER=bookingcare
-      # - RABBITMQ_DEFAULT_PASS=bookingcare@1234
-      # - RABBITMQ_DEFAULT_VHOST=/
+      - RABBITMQ_DEFAULT_USER=bookingcare
+      - RABBITMQ_DEFAULT_PASS=bookingcare@1234
+      - RABBITMQ_DEFAULT_VHOST=/
       - RABBITMQ_CONFIG_FILE=/etc/rabbitmq/rabbitmq
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
