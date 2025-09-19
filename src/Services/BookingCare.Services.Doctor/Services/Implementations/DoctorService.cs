@@ -288,6 +288,23 @@ public class DoctorService : IDoctorService
         return _mapper.Map<List<DoctorResponse>>(doctors);
     }
 
+    public async Task<List<DoctorBasicInfoResponse>> GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds)
+    {
+        var doctors = await _repository.GetDoctorsByAccountIdsAsync(accountIds);
+        var result = new List<DoctorBasicInfoResponse>();
+        foreach (var d in doctors)
+        {
+            result.Add(new DoctorBasicInfoResponse
+            {
+                AccountId = d.AccountId,
+                Email = d.Email,
+                FullName = $"{d.FirstName} {d.LastName}".Trim(),
+                AvatarUrl = d.AvatarUrl ?? string.Empty
+            });
+        }
+        return result;
+    }
+
     public async Task<DoctorListResponse> GetPatientFavoriteDoctorsAsync(Guid patientId, int page = 1, int pageSize = 9, string? searchTerm = null)
     {
         try
@@ -392,7 +409,7 @@ public class DoctorService : IDoctorService
                 TotalPages = totalPages
             };
         }
-        catch (Grpc.Core.RpcException ex)
+        catch (global::Grpc.Core.RpcException ex)
         {
             _logger.LogWarning(ex, "Favorites gRPC GetPatientFavorites failed for patient {PatientId}", patientId);
             // Favorites service unavailable; return empty list gracefully
@@ -428,7 +445,7 @@ public class DoctorService : IDoctorService
                 doc.IsFavorited = favorited.Contains(doc.Id);
             }
         }
-        catch (Grpc.Core.RpcException ex)
+        catch (global::Grpc.Core.RpcException ex)
         {
             _logger.LogWarning(ex, "Favorites gRPC CheckMultipleFavorites failed for patient {PatientId}", patientId);
             // Favorites service unavailable; proceed with IsFavorited default false

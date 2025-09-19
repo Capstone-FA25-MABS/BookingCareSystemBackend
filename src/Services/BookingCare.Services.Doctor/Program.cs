@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Services.Favorite;
+using BookingCare.Services.Doctor.Services.Grpc;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -24,7 +25,11 @@ builder.WebHost.ConfigureKestrel(options =>
     {
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
     });
-
+    // gRPC endpoint
+    options.ListenAnyIP(6018, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http2;
+    });
 });
 
 // Add services
@@ -41,6 +46,9 @@ builder.Services.AddSwaggerGen(c =>
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
+
+// Add gRPC server
+builder.Services.AddGrpc();
 
 // Database configuration
 builder.Services.AddDbContext<DoctorDbContext>(options =>
@@ -106,6 +114,9 @@ app.UseRouting();
 
 // Map controllers for REST API
 app.MapControllers();
+
+// Map gRPC services
+app.MapGrpcService<DoctorGrpcService>();
 
 
 // Default endpoint

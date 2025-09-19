@@ -47,3 +47,11 @@ public class DoctorListResponse
     public int PageSize { get; set; }
     public int TotalPages { get; set; }
 }
+
+public class DoctorBasicInfoResponse
+{
+    public Guid AccountId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string AvatarUrl { get; set; } = string.Empty;
+}

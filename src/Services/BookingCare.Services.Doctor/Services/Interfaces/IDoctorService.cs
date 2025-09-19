@@ -22,6 +22,7 @@ public interface IDoctorService
     Task<List<DoctorResponse>> GetDoctorsByPositionAsync(Guid positionId);
     Task<List<DoctorResponse>> GetActiveDoctorsAsync();
     Task<DoctorListResponse> GetPatientFavoriteDoctorsAsync(Guid patientId, int page = 1, int pageSize = 9, string? searchTerm = null);
+    Task<List<DoctorBasicInfoResponse>> GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds);
 
     // DoctorPrice operations
     Task<List<DoctorPriceResponse>> GetDoctorPricesAsync(Guid doctorId);

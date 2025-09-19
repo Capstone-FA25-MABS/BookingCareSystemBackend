@@ -9,6 +9,10 @@
       {
         "Path": "src\\Services\\BookingCare.Services.Favorites\\BookingCare.Services.Favorites.csproj",
         "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\BookingCare.Services.Auth\\BookingCare.Services.Auth.csproj",
+        "Action": "Start"
       }
     ]
   }
