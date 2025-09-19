@@ -69,3 +69,18 @@ public static class HttpContextExtensions
         return context.User?.Identity?.Name ?? "Anonymous";
     }
 }
+
+/// <summary>
+/// Extension methods for middleware configuration
+/// </summary>
+public static class MiddlewareExtensions
+{
+    /// <summary>
+    /// Add auto token middleware (automatically attach token from cookies to Authorization header)
+    /// </summary>
+    public static IApplicationBuilder UseAutoToken(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<AutoTokenMiddleware>();
+    }
+
+}
