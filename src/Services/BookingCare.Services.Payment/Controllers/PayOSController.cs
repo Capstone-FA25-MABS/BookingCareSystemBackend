@@ -241,34 +241,6 @@ public class PayOSController : BaseApiController
         }
     }
 
-    /// <summary>
-    /// Hủy payment link PayOS
-    /// </summary>
-    /// <param name="orderCode">Mã đơn hàng PayOS</param>
-    /// <param name="cancellationReason">Lý do hủy</param>
-    /// <returns>Kết quả hủy payment</returns>
-    [HttpPost("cancel-payment/{orderCode}")] // Thay đổi thành POST và route parameter
-    public async Task<IActionResult> CancelPayment(long orderCode, [FromBody] string cancellationReason = "")
-    {
-        try
-        {
-            var result = await _payOSService.CancelPaymentLinkAsync(orderCode, cancellationReason);
-
-            if (result)
-            {
-                return Success(new { OrderCode = orderCode, Cancelled = true }, "Hủy payment PayOS thành công");
-            }
-            else
-            {
-                return BadRequest("Không thể hủy payment PayOS");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to cancel PayOS payment for OrderCode: {OrderCode}", orderCode);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi hủy payment PayOS" });
-        }
-    }
 
     /// <summary>
     /// Manual cleanup các PayOS mapping đã hết hạn
