@@ -49,7 +49,26 @@ public class DoctorSecurityMiddleware
         response.Headers["X-Frame-Options"] = "DENY";
         response.Headers["X-XSS-Protection"] = "1; mode=block";
         response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-        response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';";
+
+        // Restrictive Content Security Policy
+        response.Headers["Content-Security-Policy"] =
+            "default-src 'self'; " +
+            "script-src 'self'; " +
+            "style-src 'self'; " +
+            "img-src 'self' data:; " +
+            "font-src 'self'; " +
+            "connect-src 'self'; " +
+            "frame-ancestors 'none'; " +
+            "base-uri 'self'; " +
+            "form-action 'self'; " +
+            "object-src 'none'; " +
+            "media-src 'self'; " +
+            "manifest-src 'self'; " +
+            "worker-src 'self'; " +
+            "child-src 'self'; " +
+            "frame-src 'none'; " +
+            "upgrade-insecure-requests; " +
+            "block-all-mixed-content";
 
         // Remove server information
         response.Headers.Remove("Server");
