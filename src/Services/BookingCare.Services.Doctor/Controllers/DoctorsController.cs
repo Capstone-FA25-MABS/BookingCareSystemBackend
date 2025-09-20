@@ -80,7 +80,7 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Get active doctors for patients with filtering and pagination
     /// </summary>
-    [HttpGet("active")]
+    [HttpGet("patients/active")]
     public async Task<IActionResult> GetActiveDoctorsForPatients([FromQuery] DoctorQueryRequest query, [FromQuery] Guid? patientId)
     {
         // Only return ACTIVE doctors for patients
@@ -157,9 +157,9 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Get active doctors
+    /// Get active doctors (simple list)
     /// </summary>
-    [HttpGet("active")]
+    [HttpGet("list/active")]
     public async Task<IActionResult> GetActiveDoctors()
     {
         var doctors = await _doctorService.GetActiveDoctorsAsync();
@@ -179,7 +179,7 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Search active doctors by name, specialty, or location for patients
     /// </summary>
-    [HttpGet("search")]
+    [HttpGet("patients/search")]
     public async Task<IActionResult> SearchActiveDoctors([FromQuery] string? searchTerm, [FromQuery] Guid? specialtyId, [FromQuery] Guid? hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
@@ -207,7 +207,7 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Get active doctors by specialty for patients
     /// </summary>
-    [HttpGet("specialty/{specialtyId}")]
+    [HttpGet("patients/specialty/{specialtyId}")]
     public async Task<IActionResult> GetActiveDoctorsBySpecialty(Guid specialtyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
@@ -233,7 +233,7 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Get active doctors by hospital for patients
     /// </summary>
-    [HttpGet("hospital/{hospitalId}")]
+    [HttpGet("patients/hospital/{hospitalId}")]
     public async Task<IActionResult> GetActiveDoctorsByHospital(Guid hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
@@ -259,7 +259,7 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Get featured/recommended active doctors for patients
     /// </summary>
-    [HttpGet("featured")]
+    [HttpGet("patients/featured")]
     public async Task<IActionResult> GetFeaturedActiveDoctors([FromQuery] int limit = 6, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
