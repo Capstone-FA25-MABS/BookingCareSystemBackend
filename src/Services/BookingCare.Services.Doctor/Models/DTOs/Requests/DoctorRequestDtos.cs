@@ -34,7 +34,7 @@ public class CreateDoctorRequest
 
     public Guid? SpecialtyId { get; set; }
 
-    public Guid? ClinicId { get; set; }
+    public Guid? HospitalId { get; set; }
 
     [StringLength(2000, ErrorMessage = "Bio cannot exceed 2000 characters")]
     public string? Bio { get; set; }
@@ -74,7 +74,7 @@ public class UpdateDoctorRequest
 
     public Guid? SpecialtyId { get; set; }
 
-    public Guid? ClinicId { get; set; }
+    public Guid? HospitalId { get; set; }
 
     [StringLength(2000, ErrorMessage = "Bio cannot exceed 2000 characters")]
     public string? Bio { get; set; }
@@ -96,8 +96,9 @@ public class DoctorQueryRequest
     public Guid? AccountId { get; set; }
     public Guid? PositionId { get; set; }
     public Guid? SpecialtyId { get; set; }
-    public Guid? ClinicId { get; set; }
+    public Guid? HospitalId { get; set; }
     public Gender? Gender { get; set; }
+    public Status? Status { get; set; } // Filter by doctor status (ACTIVE/INACTIVE)
     public string? SearchTerm { get; set; }
     public int? MinYearsOfExperience { get; set; }
     public int? MaxYearsOfExperience { get; set; }
@@ -123,7 +124,7 @@ public class DoctorAdvancedFilterRequest
     public int? MaxYearsOfExperience { get; set; }
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
-    public Guid? ClinicId { get; set; }
+    public Guid? HospitalId { get; set; }
     public string? ServiceType { get; set; }
     public string? Language { get; set; }
     public double? MinRating { get; set; }

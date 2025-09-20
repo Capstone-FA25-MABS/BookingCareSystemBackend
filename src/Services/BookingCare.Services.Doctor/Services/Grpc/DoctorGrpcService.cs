@@ -94,7 +94,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
             if (Guid.TryParse(request.SpecialtyId, out var specialtyId)) create.SpecialtyId = specialtyId;
             if (Guid.TryParse(request.PositionId, out var positionId)) create.PositionId = positionId;
-            if (Guid.TryParse(request.ClinicId, out var clinicId)) create.ClinicId = clinicId;
+            if (Guid.TryParse(request.HospitalId, out var hospitalId)) create.HospitalId = hospitalId;
 
             if (!string.IsNullOrWhiteSpace(request.Gender) && Enum.TryParse<Shared.Common.Enums.Gender>(request.Gender, true, out var gender))
             {
@@ -168,12 +168,13 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             Address = d.Address ?? string.Empty,
             SpecialtyId = d.SpecialtyId?.ToString() ?? string.Empty,
             PositionId = d.PositionId?.ToString() ?? string.Empty,
-            ClinicId = d.ClinicId?.ToString() ?? string.Empty,
+            HospitalId = d.HospitalId?.ToString() ?? string.Empty,
             Bio = d.Bio ?? string.Empty,
             YearsOfExperience = d.YearsOfExperience,
             AvatarUrl = d.AvatarUrl,
             CreatedAt = d.CreatedAt.ToString("O"),
-            UpdatedAt = d.UpdatedAt.ToString("O")
+            UpdatedAt = d.UpdatedAt.ToString("O"),
+            Status = d.Status.ToString()
         };
     }
 }

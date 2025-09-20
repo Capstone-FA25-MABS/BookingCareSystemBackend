@@ -43,8 +43,8 @@ public class DoctorEntity
     [Column("specialty_id")]
     public Guid? SpecialtyId { get; set; }
 
-    [Column("clinic_id")]
-    public Guid? ClinicId { get; set; }
+    [Column("hospital_id")]
+    public Guid? HospitalId { get; set; }
 
     [Column("bio")]
     public string? Bio { get; set; }

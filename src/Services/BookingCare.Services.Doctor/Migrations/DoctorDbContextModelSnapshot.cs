@@ -49,10 +49,6 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("bio");
 
-                    b.Property<Guid?>("ClinicId")
-                        .HasColumnType("uniqueidentifier")
-                        .HasColumnName("clinic_id");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -75,6 +71,10 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("gender");
+
+                    b.Property<Guid?>("HospitalId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("hospital_id");
 
                     b.Property<string>("LastName")
                         .IsRequired()

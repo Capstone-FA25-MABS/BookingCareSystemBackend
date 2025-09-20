@@ -68,7 +68,38 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Get doctors with filtering and pagination
+    /// Get all doctors with filtering and pagination (Admin only - includes ACTIVE and INACTIVE)
+    /// </summary>
+    [HttpGet("admin")]
+    public async Task<IActionResult> GetDoctorsForAdmin([FromQuery] DoctorQueryRequest query)
+    {
+        var result = await _doctorService.GetDoctorsAsync(query);
+        return Success<DoctorListResponse>(result, "All doctors retrieved successfully for admin");
+    }
+
+    /// <summary>
+    /// Get active doctors for patients with filtering and pagination
+    /// </summary>
+    [HttpGet("active")]
+    public async Task<IActionResult> GetActiveDoctorsForPatients([FromQuery] DoctorQueryRequest query, [FromQuery] Guid? patientId)
+    {
+        // Only return ACTIVE doctors for patients
+        query.Status = BookingCare.Shared.Common.Enums.Status.ACTIVE;
+
+        DoctorListResponse result;
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+        {
+            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
+        }
+        else
+        {
+            result = await _doctorService.GetDoctorsAsync(query);
+        }
+        return Success<DoctorListResponse>(result, "Active doctors retrieved successfully for patients");
+    }
+
+    /// <summary>
+    /// Get doctors with filtering and pagination (Legacy - for backward compatibility)
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetDoctors([FromQuery] DoctorQueryRequest query, [FromQuery] Guid? patientId)
@@ -96,13 +127,13 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Get doctors by clinic
+    /// Get doctors by hospital
     /// </summary>
-    [HttpGet("clinic/{clinicId}")]
-    public async Task<IActionResult> GetDoctorsByClinic(Guid clinicId)
+    [HttpGet("hospital/{hospitalId}")]
+    public async Task<IActionResult> GetDoctorsByHospital(Guid hospitalId)
     {
-        var doctors = await _doctorService.GetDoctorsByClinicAsync(clinicId);
-        return Success<List<DoctorResponse>>(doctors, $"Doctors for clinic {clinicId} retrieved successfully");
+        var doctors = await _doctorService.GetDoctorsByHospitalAsync(hospitalId);
+        return Success<List<DoctorResponse>>(doctors, $"Doctors for hospital {hospitalId} retrieved successfully");
     }
 
     /// <summary>
@@ -143,6 +174,113 @@ public class DoctorsController : BaseApiController
     {
         var result = await _doctorService.GetPatientFavoriteDoctorsAsync(patientId, page, pageSize, searchTerm);
         return Success<DoctorListResponse>(result, $"Favorite doctors for patient {patientId} retrieved successfully");
+    }
+
+    /// <summary>
+    /// Search active doctors by name, specialty, or location for patients
+    /// </summary>
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchActiveDoctors([FromQuery] string? searchTerm, [FromQuery] Guid? specialtyId, [FromQuery] Guid? hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    {
+        var query = new DoctorQueryRequest
+        {
+            SearchTerm = searchTerm,
+            SpecialtyId = specialtyId,
+            HospitalId = hospitalId,
+            Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
+            PageNumber = page,
+            PageSize = pageSize
+        };
+
+        DoctorListResponse result;
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+        {
+            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
+        }
+        else
+        {
+            result = await _doctorService.GetDoctorsAsync(query);
+        }
+        return Success<DoctorListResponse>(result, "Active doctors search completed successfully");
+    }
+
+    /// <summary>
+    /// Get active doctors by specialty for patients
+    /// </summary>
+    [HttpGet("specialty/{specialtyId}")]
+    public async Task<IActionResult> GetActiveDoctorsBySpecialty(Guid specialtyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    {
+        var query = new DoctorQueryRequest
+        {
+            SpecialtyId = specialtyId,
+            Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
+            PageNumber = page,
+            PageSize = pageSize
+        };
+
+        DoctorListResponse result;
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+        {
+            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
+        }
+        else
+        {
+            result = await _doctorService.GetDoctorsAsync(query);
+        }
+        return Success<DoctorListResponse>(result, $"Active doctors in specialty {specialtyId} retrieved successfully");
+    }
+
+    /// <summary>
+    /// Get active doctors by hospital for patients
+    /// </summary>
+    [HttpGet("hospital/{hospitalId}")]
+    public async Task<IActionResult> GetActiveDoctorsByHospital(Guid hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    {
+        var query = new DoctorQueryRequest
+        {
+            HospitalId = hospitalId,
+            Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
+            PageNumber = page,
+            PageSize = pageSize
+        };
+
+        DoctorListResponse result;
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+        {
+            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
+        }
+        else
+        {
+            result = await _doctorService.GetDoctorsAsync(query);
+        }
+        return Success<DoctorListResponse>(result, $"Active doctors in hospital {hospitalId} retrieved successfully");
+    }
+
+    /// <summary>
+    /// Get featured/recommended active doctors for patients
+    /// </summary>
+    [HttpGet("featured")]
+    public async Task<IActionResult> GetFeaturedActiveDoctors([FromQuery] int limit = 6, [FromQuery] Guid? patientId = null)
+    {
+        var query = new DoctorQueryRequest
+        {
+            Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
+            SortBy = "YearsOfExperience", // Sort by experience
+            SortOrder = "desc", // Most experienced first
+            PageNumber = 1,
+            PageSize = limit
+        };
+
+        DoctorListResponse result;
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+        {
+            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
+        }
+        else
+        {
+            result = await _doctorService.GetDoctorsAsync(query);
+        }
+        return Success<DoctorListResponse>(result, "Featured active doctors retrieved successfully");
     }
 
 
@@ -302,6 +440,7 @@ public class DoctorsController : BaseApiController
         var exists = await _doctorService.DoctorPriceExistsAsync(doctorId, priceId);
         return Success<object>(new { exists }, "Doctor-price relationship validation completed");
     }
+
 
     #endregion
 }

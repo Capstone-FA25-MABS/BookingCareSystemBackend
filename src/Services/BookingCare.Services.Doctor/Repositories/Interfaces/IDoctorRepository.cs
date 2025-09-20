@@ -18,7 +18,7 @@ public interface IDoctorRepository
 
     // Doctor Query operations
     Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsAsync(DoctorQueryRequest query);
-    Task<List<DoctorEntity>> GetDoctorsByClinicAsync(Guid clinicId);
+    Task<List<DoctorEntity>> GetDoctorsByHospitalAsync(Guid hospitalId);
     Task<List<DoctorEntity>> GetDoctorsBySpecialtyAsync(Guid specialtyId);
     Task<List<DoctorEntity>> GetDoctorsByPositionAsync(Guid positionId);
     Task<List<DoctorEntity>> GetActiveDoctorsAsync();

@@ -14,7 +14,7 @@ public class DoctorResponse
     public Gender? Gender { get; set; }
     public Guid? PositionId { get; set; }
     public Guid? SpecialtyId { get; set; }
-    public Guid? ClinicId { get; set; }
+    public Guid? HospitalId { get; set; }
     public string? Bio { get; set; }
     public int YearsOfExperience { get; set; }
     public string AvatarUrl { get; set; } = string.Empty;
@@ -26,6 +26,7 @@ public class DoctorResponse
     public List<DoctorPriceResponse> Prices { get; set; } = new();
     public List<LanguageResponse> Languages { get; set; } = new();
     public bool IsFavorited { get; set; }
+    public Status Status { get; set; } // Không set mặc định
 }
 
 public class DoctorPriceResponse

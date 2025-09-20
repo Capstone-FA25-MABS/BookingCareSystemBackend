@@ -130,8 +130,8 @@ public class DoctorRepository : IDoctorRepository
             queryable = queryable.Where(d => d.PositionId == query.PositionId.Value);
         if (query.SpecialtyId.HasValue)
             queryable = queryable.Where(d => d.SpecialtyId == query.SpecialtyId.Value);
-        if (query.ClinicId.HasValue)
-            queryable = queryable.Where(d => d.ClinicId == query.ClinicId.Value);
+        if (query.HospitalId.HasValue)
+            queryable = queryable.Where(d => d.HospitalId == query.HospitalId.Value);
         if (query.Gender.HasValue)
             queryable = queryable.Where(d => d.Gender == query.Gender.Value);
         if (!string.IsNullOrEmpty(query.SearchTerm))
@@ -194,7 +194,7 @@ public class DoctorRepository : IDoctorRepository
             .AsQueryable();
     }
 
-    public async Task<List<DoctorEntity>> GetDoctorsByClinicAsync(Guid clinicId)
+    public async Task<List<DoctorEntity>> GetDoctorsByHospitalAsync(Guid hospitalId)
     {
         return await _context.Doctors
             .Include(d => d.Position)
@@ -202,7 +202,7 @@ public class DoctorRepository : IDoctorRepository
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
                 .ThenInclude(dl => dl.Language)
-            .Where(d => d.ClinicId == clinicId)
+            .Where(d => d.HospitalId == hospitalId)
             .ToListAsync();
     }
 

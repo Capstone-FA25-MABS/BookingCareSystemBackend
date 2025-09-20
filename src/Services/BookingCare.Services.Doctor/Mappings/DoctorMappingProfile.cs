@@ -13,7 +13,9 @@ public class DoctorMappingProfile : Profile
         CreateMap<DoctorEntity, DoctorResponse>()
             .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Position))
             .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices))
-            .ForMember(dest => dest.Languages, opt => opt.MapFrom(src => src.DoctorLanguages.Select(dl => dl.Language)));
+            .ForMember(dest => dest.Languages, opt => opt.MapFrom(src => src.DoctorLanguages.Select(dl => dl.Language)))
+            .ForMember(dest => dest.Status, opt => opt.Ignore()) // Status sẽ được set bởi EnrichDoctorsWithStatusAsync
+            .ForMember(dest => dest.IsFavorited, opt => opt.Ignore()); // IsFavorited sẽ được set bởi logic khác
 
         // Doctor Request to Entity mappings
         CreateMap<CreateDoctorRequest, DoctorEntity>()

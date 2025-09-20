@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Services.Favorite;
+using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Services.Grpc;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
@@ -78,6 +79,12 @@ var favoritesAddress = builder.Configuration.GetSection("GrpcClients:Favorites:A
 builder.Services.AddGrpcClient<FavoritesService.FavoritesServiceClient>(options =>
 {
     options.Address = new Uri(favoritesAddress);
+});
+
+var authAddress = builder.Configuration.GetSection("GrpcClients:Auth:Address").Value ?? "http://localhost:6001";
+builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
+{
+    options.Address = new Uri(authAddress);
 });
 
 // Add logging

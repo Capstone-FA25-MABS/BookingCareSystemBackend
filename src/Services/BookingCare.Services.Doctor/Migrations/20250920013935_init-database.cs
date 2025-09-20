@@ -67,7 +67,7 @@ namespace BookingCare.Services.Doctor.Migrations
                     gender = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
                     position_id = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     specialty_id = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    clinic_id = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    hospital_id = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     bio = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     years_of_experience = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
                     avatar_url = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false, defaultValue: "https://bookingcaree.com/user-avatar-default.png"),

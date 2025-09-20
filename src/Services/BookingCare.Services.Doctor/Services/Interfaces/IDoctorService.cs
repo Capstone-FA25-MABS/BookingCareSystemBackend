@@ -17,7 +17,7 @@ public interface IDoctorService
     // Doctor Query operations
     Task<DoctorListResponse> GetDoctorsAsync(DoctorQueryRequest query);
     Task<DoctorListResponse> FilterDoctorsAsync(DoctorAdvancedFilterRequest filter);
-    Task<List<DoctorResponse>> GetDoctorsByClinicAsync(Guid clinicId);
+    Task<List<DoctorResponse>> GetDoctorsByHospitalAsync(Guid hospitalId);
     Task<List<DoctorResponse>> GetDoctorsBySpecialtyAsync(Guid specialtyId);
     Task<List<DoctorResponse>> GetDoctorsByPositionAsync(Guid positionId);
     Task<List<DoctorResponse>> GetActiveDoctorsAsync();

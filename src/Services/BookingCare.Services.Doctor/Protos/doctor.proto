@@ -37,7 +37,7 @@ message CreateDoctorRequest {
   string address = 6;
   string specialty_id = 7;
   string position_id = 8;
-  string clinic_id = 9;
+  string hospital_id = 9;
   string bio = 10;
   int32 years_of_experience = 11;
   string avatar_url = 12;
@@ -60,12 +60,13 @@ message DoctorResponse {
   string address = 8;
   string specialty_id = 9;
   string position_id = 10;
-  string clinic_id = 11;
+  string hospital_id = 11;
   string bio = 12;
   int32 years_of_experience = 13;
   string avatar_url = 14;
   string created_at = 15; // ISO 8601
   string updated_at = 16; // ISO 8601
+  string status = 17; // "ACTIVE" or "INACTIVE"
 }
 
 // Lightweight doctor information for performance optimization

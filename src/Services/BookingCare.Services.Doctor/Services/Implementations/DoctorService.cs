@@ -7,6 +7,8 @@ using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Favorite;
+using BookingCare.Services.Auth.Protos;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
@@ -16,14 +18,16 @@ public class DoctorService : IDoctorService
     private readonly IPositionRepository _positionRepository;
     private readonly IMapper _mapper;
     private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
+    private readonly AuthService.AuthServiceClient _authClient;
     private readonly ILogger<DoctorService> _logger;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, ILogger<DoctorService> logger)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
         _mapper = mapper;
         _favoritesClient = favoritesClient;
+        _authClient = authClient;
         _logger = logger;
     }
 
@@ -120,13 +124,27 @@ public class DoctorService : IDoctorService
     public async Task<DoctorResponse?> GetDoctorByEmailAsync(string email)
     {
         var doctor = await _repository.GetDoctorByEmailAsync(email);
-        return doctor != null ? _mapper.Map<DoctorResponse>(doctor) : null;
+        if (doctor == null) return null;
+
+        var response = _mapper.Map<DoctorResponse>(doctor);
+
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
+
+        return response;
     }
 
     public async Task<DoctorResponse?> GetDoctorByAccountIdAsync(Guid accountId)
     {
         var doctor = await _repository.GetDoctorByAccountIdAsync(accountId);
-        return doctor != null ? _mapper.Map<DoctorResponse>(doctor) : null;
+        if (doctor == null) return null;
+
+        var response = _mapper.Map<DoctorResponse>(doctor);
+
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
+
+        return response;
     }
 
     /// <summary>
@@ -234,7 +252,16 @@ public class DoctorService : IDoctorService
         response.PageSize = query.PageSize;
         response.TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
 
-        // Dynamic price removed
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(response.Doctors);
+
+        // Filter by status if specified (after getting status from Auth service)
+        if (query.Status.HasValue)
+        {
+            response.Doctors = response.Doctors.Where(d => d.Status == query.Status.Value).ToList();
+            response.TotalCount = response.Doctors.Count; // Update total count after filtering
+            response.TotalPages = (int)Math.Ceiling((double)response.TotalCount / query.PageSize);
+        }
 
         return response;
     }
@@ -250,7 +277,7 @@ public class DoctorService : IDoctorService
             MaxYearsOfExperience = filter.MaxYearsOfExperience,
             MinPrice = filter.MinPrice,
             MaxPrice = filter.MaxPrice,
-            ClinicId = filter.ClinicId,
+            HospitalId = filter.HospitalId,
             ServiceType = filter.ServiceType,
             Language = filter.Language,
             MinRating = filter.MinRating,
@@ -264,28 +291,48 @@ public class DoctorService : IDoctorService
         return await GetDoctorsAsync(query);
     }
 
-    public async Task<List<DoctorResponse>> GetDoctorsByClinicAsync(Guid clinicId)
+    public async Task<List<DoctorResponse>> GetDoctorsByHospitalAsync(Guid hospitalId)
     {
-        var doctors = await _repository.GetDoctorsByClinicAsync(clinicId);
-        return _mapper.Map<List<DoctorResponse>>(doctors);
+        var doctors = await _repository.GetDoctorsByHospitalAsync(hospitalId);
+        var response = _mapper.Map<List<DoctorResponse>>(doctors);
+
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(response);
+
+        return response;
     }
 
     public async Task<List<DoctorResponse>> GetDoctorsBySpecialtyAsync(Guid specialtyId)
     {
         var doctors = await _repository.GetDoctorsBySpecialtyAsync(specialtyId);
-        return _mapper.Map<List<DoctorResponse>>(doctors);
+        var response = _mapper.Map<List<DoctorResponse>>(doctors);
+
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(response);
+
+        return response;
     }
 
     public async Task<List<DoctorResponse>> GetDoctorsByPositionAsync(Guid positionId)
     {
         var doctors = await _repository.GetDoctorsByPositionAsync(positionId);
-        return _mapper.Map<List<DoctorResponse>>(doctors);
+        var response = _mapper.Map<List<DoctorResponse>>(doctors);
+
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(response);
+
+        return response;
     }
 
     public async Task<List<DoctorResponse>> GetActiveDoctorsAsync()
     {
         var doctors = await _repository.GetActiveDoctorsAsync();
-        return _mapper.Map<List<DoctorResponse>>(doctors);
+        var response = _mapper.Map<List<DoctorResponse>>(doctors);
+
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(response);
+
+        return response;
     }
 
     public async Task<List<DoctorBasicInfoResponse>> GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds)
@@ -354,6 +401,9 @@ public class DoctorService : IDoctorService
                     d.IsFavorited = favoritedSet.Contains(d.Id);
                 }
 
+                // Enrich with account status
+                await EnrichDoctorsWithStatusAsync(mapped);
+
                 var filteredCount = mapped.Count;
                 return new DoctorListResponse
                 {
@@ -396,6 +446,9 @@ public class DoctorService : IDoctorService
             {
                 d.IsFavorited = favoritedSetPage.Contains(d.Id);
             }
+
+            // Enrich with account status
+            await EnrichDoctorsWithStatusAsync(mappedPage);
 
             var totalCount = response.TotalCount;
             var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
@@ -463,8 +516,6 @@ public class DoctorService : IDoctorService
         return _mapper.Map<List<DoctorPriceResponse>>(prices);
     }
 
-
-
     public async Task<DoctorPriceResponse> AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request)
     {
         // Validate doctor exists
@@ -530,9 +581,62 @@ public class DoctorService : IDoctorService
         return _repository.GetQueryableDoctors();
     }
 
-    // Removed automatic price calculation; prices are managed by staff only
+    /// <summary>
+    /// Get account statuses for a list of account IDs
+    /// </summary>
+    private async Task<Dictionary<Guid, Status>> GetAccountStatusesAsync(IEnumerable<Guid> accountIds)
+    {
+        var statusMap = new Dictionary<Guid, Status>();
 
-    // Removed CreateDoctorPriceAsync - now using direct repository call
+        try
+        {
+            var request = new GetAccountStatusByIdsRequest();
+            request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
+
+            var response = await _authClient.GetAccountStatusByIdsAsync(request);
+
+            foreach (var accountStatus in response.AccountStatuses)
+            {
+                if (Guid.TryParse(accountStatus.AccountId, out var accountId) && accountStatus.Found)
+                {
+                    // Chuyển đổi từ int sang enum Status
+                    var status = (Status)accountStatus.Status;
+                    statusMap[accountId] = status;
+                }
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            _logger.LogWarning(ex, "Auth gRPC GetAccountStatusByIds failed");
+            // Return empty dictionary on failure
+        }
+
+        return statusMap;
+    }
+
+    /// <summary>
+    /// Enrich doctor responses with account status
+    /// </summary>
+    private async Task EnrichDoctorsWithStatusAsync(List<DoctorResponse> doctors)
+    {
+        if (!doctors.Any()) return;
+
+        var accountIds = doctors.Select(d => d.AccountId).Distinct();
+        var statusMap = await GetAccountStatusesAsync(accountIds);
+
+        foreach (var doctor in doctors)
+        {
+            if (statusMap.TryGetValue(doctor.AccountId, out var status))
+            {
+                doctor.Status = status;
+            }
+            else
+            {
+                // Nếu không tìm thấy status từ Auth service, set mặc định là ACTIVE
+                doctor.Status = Status.ACTIVE;
+            }
+        }
+    }
 
     private async Task UpdateDoctorPriceAsync(DoctorEntity doctor, decimal amount, bool isOverride)
     {

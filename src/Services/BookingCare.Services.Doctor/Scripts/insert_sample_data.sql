@@ -111,7 +111,7 @@ DECLARE @PositionId3 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM positions WHERE na
 DECLARE @PositionId4 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM positions WHERE name = N'Bác sĩ ngoại khoa');
 DECLARE @PositionId5 UNIQUEIDENTIFIER = (SELECT TOP 1 id FROM positions WHERE name = N'Bác sĩ nhi khoa');
 
-INSERT INTO doctors (id, account_id, email, address, first_name, last_name, gender, position_id, specialty_id, clinic_id, bio, years_of_experience, avatar_url, created_at, updated_at)
+INSERT INTO doctors (id, account_id, email, address, first_name, last_name, gender, position_id, specialty_id, hospital_id, bio, years_of_experience, avatar_url, created_at, updated_at)
 VALUES 
     (NEWID(), NEWID(), N'dr.nguyen.van.a@bookingcare.com', N'123 Đường Lê Lợi, Quận 1, TP.HCM', N'Nguyễn', N'Văn A', N'MALE', @PositionId1, NEWID(), NEWID(), N'Bác sĩ chuyên khoa tim mạch với hơn 10 năm kinh nghiệm. Tốt nghiệp Đại học Y Hà Nội và có chứng chỉ chuyên khoa tim mạch tại Pháp.', 10, N'https://example.com/avatar1.jpg', GETUTCDATE(), GETUTCDATE()),
     (NEWID(), NEWID(), N'dr.tran.thi.b@bookingcare.com', N'456 Đường Nguyễn Huệ, Quận 1, TP.HCM', N'Trần', N'Thị B', N'FEMALE', @PositionId2, NEWID(), NEWID(), N'Bác sĩ đa khoa có kinh nghiệm 8 năm. Chuyên khám và điều trị các bệnh thông thường, tư vấn sức khỏe tổng quát.', 8, N'https://example.com/avatar2.jpg', GETUTCDATE(), GETUTCDATE()),
