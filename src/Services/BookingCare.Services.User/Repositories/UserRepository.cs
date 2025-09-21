@@ -172,7 +172,7 @@ public class UserRepository : IUserRepository
                 u.LastName.Contains(query.SearchTerm) ||
                 u.Email.Contains(query.SearchTerm) ||
                 (u.Address != null && u.Address.Contains(query.SearchTerm)) ||
-                u.Phone.Contains(query.SearchTerm));
+                (u.Phone != null && u.Phone.Contains(query.SearchTerm)));
         }
 
         if (query.CreatedFrom.HasValue)

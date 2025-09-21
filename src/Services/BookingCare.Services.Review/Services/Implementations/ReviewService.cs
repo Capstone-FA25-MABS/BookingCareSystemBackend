@@ -157,7 +157,7 @@ public class ReviewService : BaseService, IReviewService
         return await ExecuteWithErrorHandling(async () =>
         {
             LogInfo("Getting reviews with filters - PatientId: {PatientId}, DoctorId: {DoctorId}, ClinicServiceId: {ClinicServiceId}",
-                null, request.PatientId, request.DoctorId, request.ClinicServiceId);
+                null, request.PatientId?.ToString() ?? "null", request.DoctorId?.ToString() ?? "null", request.ClinicServiceId?.ToString() ?? "null");
 
             // ✅ ValidationFilter đã handle tất cả validation rồi
 
