@@ -59,12 +59,10 @@ public class PositionService : IPositionService
         }
 
         // Validate unique constraint if name is being updated
-        if (!string.IsNullOrEmpty(request.Name) && request.Name != existingPosition.Name)
+        if (!string.IsNullOrEmpty(request.Name) && request.Name != existingPosition.Name &&
+            await _repository.PositionNameExistsAsync(request.Name, request.Id))
         {
-            if (await _repository.PositionNameExistsAsync(request.Name, request.Id))
-            {
-                throw PositionConflictException.WithName(request.Name);
-            }
+            throw PositionConflictException.WithName(request.Name);
         }
 
         // Update position entity

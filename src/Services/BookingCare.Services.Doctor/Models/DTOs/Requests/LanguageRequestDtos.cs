@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
 
@@ -22,7 +23,9 @@ public class UpdateLanguageRequest
 public class LanguageQueryRequest
 {
     public string? SearchTerm { get; set; }
+    [JsonRequired]
     public int PageNumber { get; set; } = 1;
+    [JsonRequired]
     public int PageSize { get; set; } = 10;
     public string? SortBy { get; set; }
     public string? SortOrder { get; set; } // asc/desc

@@ -1,13 +1,17 @@
 using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Doctor.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-public class LanguageController : ControllerBase
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
+[Produces("application/json")]
+public class LanguageController : BaseApiController
 {
     private readonly ILanguageService _languageService;
 
@@ -16,10 +20,32 @@ public class LanguageController : ControllerBase
         _languageService = languageService;
     }
 
+    #region Health Check
+
+    /// <summary>
+    /// Health check endpoint - Available in all versions
+    /// </summary>
+    /// <returns>Health status</returns>
+    [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public IActionResult Health()
+    {
+        return Ok(new
+        {
+            Status = "Healthy",
+            Service = "Languages",
+            Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
+            Timestamp = DateTime.UtcNow
+        });
+    }
+
+    #endregion
+
     /// <summary>
     /// Tạo ngôn ngữ mới
     /// </summary>
     [HttpPost]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<ActionResult<LanguageResponse>> CreateLanguage([FromBody] CreateLanguageRequest request)
     {
         try
@@ -37,6 +63,7 @@ public class LanguageController : ControllerBase
     /// Lấy ngôn ngữ theo ID
     /// </summary>
     [HttpGet("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<ActionResult<LanguageResponse>> GetLanguageById(Guid id)
     {
         var language = await _languageService.GetLanguageByIdAsync(id);
@@ -51,6 +78,7 @@ public class LanguageController : ControllerBase
     /// Lấy ngôn ngữ theo tên
     /// </summary>
     [HttpGet("by-name/{name}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<ActionResult<LanguageResponse>> GetLanguageByName(string name)
     {
         var language = await _languageService.GetLanguageByNameAsync(name);
@@ -65,6 +93,7 @@ public class LanguageController : ControllerBase
     /// Lấy danh sách ngôn ngữ với phân trang và tìm kiếm
     /// </summary>
     [HttpGet]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<ActionResult<LanguageListResponse>> GetLanguages([FromQuery] LanguageQueryRequest query)
     {
         var result = await _languageService.GetLanguagesAsync(query);
@@ -75,6 +104,7 @@ public class LanguageController : ControllerBase
     /// Lấy tất cả ngôn ngữ (không phân trang)
     /// </summary>
     [HttpGet("all")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<ActionResult<List<LanguageResponse>>> GetAllLanguages()
     {
         var languages = await _languageService.GetAllLanguagesAsync();
@@ -85,6 +115,7 @@ public class LanguageController : ControllerBase
     /// Cập nhật ngôn ngữ
     /// </summary>
     [HttpPut("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<ActionResult<LanguageResponse>> UpdateLanguage(Guid id, [FromBody] UpdateLanguageRequest request)
     {
         if (id != request.Id)
@@ -107,6 +138,7 @@ public class LanguageController : ControllerBase
     /// Xóa ngôn ngữ
     /// </summary>
     [HttpDelete("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<ActionResult> DeleteLanguage(Guid id)
     {
         var result = await _languageService.DeleteLanguageAsync(id);

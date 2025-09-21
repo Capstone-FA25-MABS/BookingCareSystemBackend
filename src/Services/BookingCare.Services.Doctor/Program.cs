@@ -12,6 +12,8 @@ using BookingCare.Shared.Common.Extensions;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Services.Grpc;
+using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -42,11 +44,20 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
+    // Register common group names to avoid mismatch
     c.SwaggerDoc("v1", new() { Title = "BookingCare Doctor Service", Version = "v1" });
+    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Doctor Service", Version = "v1.0" });
+
+    // Ensure endpoints are included in the correct Swagger doc
+    c.DocInclusionPredicate((docName, apiDesc) =>
+        string.Equals(docName, apiDesc.GroupName, StringComparison.OrdinalIgnoreCase));
 });
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
+
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
 
 // Add gRPC server
 builder.Services.AddGrpc();
@@ -98,9 +109,12 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
+    var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BookingCare Doctor Service V1");
+        provider.ApiVersionDescriptions.ToList().ForEach(description =>
+            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json",
+                $"BookingCare Doctor API {description.GroupName.ToUpperInvariant()}"));
         c.RoutePrefix = "swagger";
     });
 }
@@ -115,9 +129,6 @@ app.UseMiddleware<DoctorRateLimitingMiddleware>();
 // Configure routing
 app.UseRouting();
 
-// Authentication and authorization (if needed)
-// app.UseAuthentication();
-// app.UseAuthorization();
 
 // Map controllers for REST API
 app.MapControllers();

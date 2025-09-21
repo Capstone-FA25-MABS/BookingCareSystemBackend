@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
@@ -40,6 +41,7 @@ public class CreateDoctorRequest
     public string? Bio { get; set; }
 
     [Range(0, 50, ErrorMessage = "Years of experience must be between 0 and 50")]
+    [JsonRequired]
     public int YearsOfExperience { get; set; } = 0;
 
     [Url(ErrorMessage = "Invalid URL format")]
@@ -102,7 +104,9 @@ public class DoctorQueryRequest
     public string? SearchTerm { get; set; }
     public int? MinYearsOfExperience { get; set; }
     public int? MaxYearsOfExperience { get; set; }
+    [JsonRequired]
     public int PageNumber { get; set; } = 1;
+    [JsonRequired]
     public int PageSize { get; set; } = 10;
     public string? AvailableTime { get; set; } // ISO 8601 hoặc custom format
     public decimal? MinPrice { get; set; }
@@ -131,7 +135,9 @@ public class DoctorAdvancedFilterRequest
     public string? Address { get; set; }
     public string? SortBy { get; set; }
     public string? SortOrder { get; set; }
+    [JsonRequired]
     public int PageNumber { get; set; } = 1;
+    [JsonRequired]
     public int PageSize { get; set; } = 10;
 }
 

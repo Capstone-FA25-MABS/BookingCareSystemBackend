@@ -141,7 +141,7 @@ public class DoctorRateLimitingMiddleware
             });
     }
 
-    private int GetRetryAfterSeconds(string clientIp)
+    private int GetRetryAfterSeconds(string _)
     {
         // Return retry after time based on rate limit type
         // For simplicity, return 60 seconds

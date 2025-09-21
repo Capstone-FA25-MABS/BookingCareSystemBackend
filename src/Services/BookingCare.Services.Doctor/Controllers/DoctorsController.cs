@@ -2,12 +2,14 @@ using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Doctor.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
 [Produces("application/json")]
 public class DoctorsController : BaseApiController
 {
@@ -20,12 +22,34 @@ public class DoctorsController : BaseApiController
         _logger = logger;
     }
 
+    #region Health Check
+
+    /// <summary>
+    /// Health check endpoint - Available in all versions
+    /// </summary>
+    /// <returns>Health status</returns>
+    [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public IActionResult Health()
+    {
+        return Ok(new
+        {
+            Status = "Healthy",
+            Service = "Doctor",
+            Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
+            Timestamp = DateTime.UtcNow
+        });
+    }
+
+    #endregion
+
     #region Doctor Endpoints
 
     /// <summary>
     /// Get doctor by ID
     /// </summary>
     [HttpGet("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctor(Guid id)
     {
         var doctor = await _doctorService.GetDoctorByIdAsync(id);
@@ -41,6 +65,7 @@ public class DoctorsController : BaseApiController
     /// Get doctor by email
     /// </summary>
     [HttpGet("by-email/{email}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorByEmail(string email)
     {
         var doctor = await _doctorService.GetDoctorByEmailAsync(email);
@@ -56,6 +81,7 @@ public class DoctorsController : BaseApiController
     /// Get doctor by account ID
     /// </summary>
     [HttpGet("by-account/{accountId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorByAccountId(Guid accountId)
     {
         var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
@@ -71,6 +97,7 @@ public class DoctorsController : BaseApiController
     /// Get all doctors with filtering and pagination (Admin only - includes ACTIVE and INACTIVE)
     /// </summary>
     [HttpGet("admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorsForAdmin([FromQuery] DoctorQueryRequest query)
     {
         var result = await _doctorService.GetDoctorsAsync(query);
@@ -81,6 +108,7 @@ public class DoctorsController : BaseApiController
     /// Get active doctors for patients with filtering and pagination
     /// </summary>
     [HttpGet("patients/active")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetActiveDoctorsForPatients([FromQuery] DoctorQueryRequest query, [FromQuery] Guid? patientId)
     {
         // Only return ACTIVE doctors for patients
@@ -102,6 +130,7 @@ public class DoctorsController : BaseApiController
     /// Get doctors with filtering and pagination (Legacy - for backward compatibility)
     /// </summary>
     [HttpGet]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctors([FromQuery] DoctorQueryRequest query, [FromQuery] Guid? patientId)
     {
         DoctorListResponse result;
@@ -120,6 +149,7 @@ public class DoctorsController : BaseApiController
     /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ)
     /// </summary>
     [HttpPost("filter")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> FilterDoctors([FromBody] DoctorAdvancedFilterRequest filter)
     {
         var result = await _doctorService.FilterDoctorsAsync(filter);
@@ -130,6 +160,7 @@ public class DoctorsController : BaseApiController
     /// Get doctors by hospital
     /// </summary>
     [HttpGet("hospital/{hospitalId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorsByHospital(Guid hospitalId)
     {
         var doctors = await _doctorService.GetDoctorsByHospitalAsync(hospitalId);
@@ -140,6 +171,7 @@ public class DoctorsController : BaseApiController
     /// Get doctors by specialty
     /// </summary>
     [HttpGet("specialty/{specialtyId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorsBySpecialty(Guid specialtyId)
     {
         var doctors = await _doctorService.GetDoctorsBySpecialtyAsync(specialtyId);
@@ -150,6 +182,7 @@ public class DoctorsController : BaseApiController
     /// Get doctors by position
     /// </summary>
     [HttpGet("position/{positionId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorsByPosition(Guid positionId)
     {
         var doctors = await _doctorService.GetDoctorsByPositionAsync(positionId);
@@ -160,6 +193,7 @@ public class DoctorsController : BaseApiController
     /// Get active doctors (simple list)
     /// </summary>
     [HttpGet("list/active")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetActiveDoctors()
     {
         var doctors = await _doctorService.GetActiveDoctorsAsync();
@@ -170,6 +204,7 @@ public class DoctorsController : BaseApiController
     /// Get patient's favorite doctors (Doctor info), default pageSize=9
     /// </summary>
     [HttpGet("patient/{patientId}/favorites")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPatientFavoriteDoctors(Guid patientId, [FromQuery] int page = 1, [FromQuery] int pageSize = 9, [FromQuery] string? searchTerm = null)
     {
         var result = await _doctorService.GetPatientFavoriteDoctorsAsync(patientId, page, pageSize, searchTerm);
@@ -180,6 +215,7 @@ public class DoctorsController : BaseApiController
     /// Search active doctors by name, specialty, or location for patients
     /// </summary>
     [HttpGet("patients/search")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> SearchActiveDoctors([FromQuery] string? searchTerm, [FromQuery] Guid? specialtyId, [FromQuery] Guid? hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
@@ -208,6 +244,7 @@ public class DoctorsController : BaseApiController
     /// Get active doctors by specialty for patients
     /// </summary>
     [HttpGet("patients/specialty/{specialtyId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetActiveDoctorsBySpecialty(Guid specialtyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
@@ -234,6 +271,7 @@ public class DoctorsController : BaseApiController
     /// Get active doctors by hospital for patients
     /// </summary>
     [HttpGet("patients/hospital/{hospitalId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetActiveDoctorsByHospital(Guid hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
@@ -260,6 +298,7 @@ public class DoctorsController : BaseApiController
     /// Get featured/recommended active doctors for patients
     /// </summary>
     [HttpGet("patients/featured")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetFeaturedActiveDoctors([FromQuery] int limit = 6, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
@@ -288,6 +327,7 @@ public class DoctorsController : BaseApiController
     /// Create a new doctor
     /// </summary>
     [HttpPost]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateDoctor([FromBody] CreateDoctorRequest request)
     {
         if (!ModelState.IsValid)
@@ -320,6 +360,7 @@ public class DoctorsController : BaseApiController
     /// Update doctor information
     /// </summary>
     [HttpPut("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateDoctor(Guid id, [FromBody] UpdateDoctorRequest request)
     {
         if (!ModelState.IsValid)
@@ -339,6 +380,7 @@ public class DoctorsController : BaseApiController
     /// Delete doctor
     /// </summary>
     [HttpDelete("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteDoctor(Guid id)
     {
         var result = await _doctorService.DeleteDoctorAsync(id);
@@ -354,6 +396,7 @@ public class DoctorsController : BaseApiController
     /// Validate doctor existence
     /// </summary>
     [HttpGet("{id}/validate")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ValidateDoctor(Guid id)
     {
         var exists = await _doctorService.DoctorExistsAsync(id);
@@ -368,6 +411,7 @@ public class DoctorsController : BaseApiController
     /// Get doctor's prices
     /// </summary>
     [HttpGet("{doctorId}/prices")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorPrices(Guid doctorId)
     {
         var prices = await _doctorService.GetDoctorPricesAsync(doctorId);
@@ -396,6 +440,7 @@ public class DoctorsController : BaseApiController
     /// Remove price from doctor
     /// </summary>
     [HttpDelete("{doctorId}/prices/{doctorPriceId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RemovePriceFromDoctor(Guid doctorId, Guid doctorPriceId)
     {
         var result = await _doctorService.RemovePriceFromDoctorAsync(doctorId, doctorPriceId);
@@ -415,6 +460,7 @@ public class DoctorsController : BaseApiController
     /// Check if doctor email exists
     /// </summary>
     [HttpGet("validate/email/{email}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ValidateDoctorEmail(string email, [FromQuery] Guid? excludeId = null)
     {
         var exists = await _doctorService.DoctorEmailExistsAsync(email, excludeId);
@@ -425,6 +471,7 @@ public class DoctorsController : BaseApiController
     /// Check if doctor account exists
     /// </summary>
     [HttpGet("validate/account/{accountId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ValidateDoctorAccount(Guid accountId, [FromQuery] Guid? excludeId = null)
     {
         var exists = await _doctorService.DoctorAccountExistsAsync(accountId, excludeId);
@@ -435,6 +482,7 @@ public class DoctorsController : BaseApiController
     /// Check if doctor-price relationship exists
     /// </summary>
     [HttpGet("validate/doctor-price")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ValidateDoctorPrice([FromQuery] Guid doctorId, [FromQuery] Guid priceId)
     {
         var exists = await _doctorService.DoctorPriceExistsAsync(doctorId, priceId);

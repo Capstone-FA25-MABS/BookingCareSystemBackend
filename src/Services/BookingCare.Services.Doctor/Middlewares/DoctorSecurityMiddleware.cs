@@ -144,7 +144,7 @@ public class DoctorSecurityMiddleware
         return false;
     }
 
-    private async Task<bool> PerformSecurityChecks(HttpContext context)
+    private Task<bool> PerformSecurityChecks(HttpContext context)
     {
         var request = context.Request;
 
@@ -153,7 +153,7 @@ public class DoctorSecurityMiddleware
         {
             _logger.LogWarning("Blocking suspicious request from {ClientIp}",
                 context.Connection.RemoteIpAddress?.ToString());
-            return false;
+            return Task.FromResult(false);
         }
 
         // Check for required headers (if needed)
@@ -161,7 +161,7 @@ public class DoctorSecurityMiddleware
         {
             _logger.LogWarning("Missing required headers from {ClientIp}",
                 context.Connection.RemoteIpAddress?.ToString());
-            return false;
+            return Task.FromResult(false);
         }
 
         // Check request size limits
@@ -169,10 +169,10 @@ public class DoctorSecurityMiddleware
         {
             _logger.LogWarning("Request too large from {ClientIp}: {Size} bytes",
                 context.Connection.RemoteIpAddress?.ToString(), request.ContentLength);
-            return false;
+            return Task.FromResult(false);
         }
 
-        return true;
+        return Task.FromResult(true);
     }
 
     private static bool ValidateRequiredHeaders(HttpRequest request)
