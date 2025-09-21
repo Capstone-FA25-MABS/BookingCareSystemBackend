@@ -3,6 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Doctor.Data;
 
+public interface IHasTimestamps
+{
+    DateTime CreatedAt { get; set; }
+    DateTime UpdatedAt { get; set; }
+}
+
 public class DoctorDbContext : DbContext
 {
     public DoctorDbContext(DbContextOptions<DoctorDbContext> options) : base(options)
@@ -197,87 +203,50 @@ public class DoctorDbContext : DbContext
 
     private void UpdateTimestamps()
     {
-        // Update DoctorEntity timestamps
-        var doctorEntries = ChangeTracker.Entries<DoctorEntity>();
-        foreach (var entry in doctorEntries)
+        UpdateEntityTimestamps<DoctorEntity>();
+
+        UpdateEntityTimestamps<PositionEntity>();
+
+        UpdateEntityTimestamps<DoctorPriceEntity>();
+
+        UpdateEntityTimestamps<LanguageEntity>();
+
+        UpdateEntityTimestamps<ServiceTypeEntity>();
+    }
+
+    private void UpdateEntityTimestamps<T>() where T : class
+    {
+        var currentTime = DateTime.UtcNow;
+        var entries = ChangeTracker.Entries<T>();
+
+        foreach (var entry in entries)
         {
             if (entry.State == EntityState.Added)
             {
-                entry.Entity.CreatedAt = DateTime.UtcNow;
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
+                SetCreatedAndUpdatedTimestamps(entry, currentTime);
             }
             else if (entry.State == EntityState.Modified)
             {
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-                // Prevent overwriting CreatedAt
-                entry.Property(e => e.CreatedAt).IsModified = false;
+                SetUpdatedTimestamp(entry, currentTime);
             }
         }
+    }
 
-        // Update PositionEntity timestamps
-        var positionEntries = ChangeTracker.Entries<PositionEntity>();
-        foreach (var entry in positionEntries)
+    private void SetCreatedAndUpdatedTimestamps<T>(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<T> entry, DateTime currentTime) where T : class
+    {
+        if (entry.Entity is IHasTimestamps entity)
         {
-            if (entry.State == EntityState.Added)
-            {
-                entry.Entity.CreatedAt = DateTime.UtcNow;
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-            }
-            else if (entry.State == EntityState.Modified)
-            {
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-                // Prevent overwriting CreatedAt
-                entry.Property(e => e.CreatedAt).IsModified = false;
-            }
+            entity.CreatedAt = currentTime;
+            entity.UpdatedAt = currentTime;
         }
+    }
 
-        // Update DoctorPriceEntity timestamps
-        var doctorPriceEntries = ChangeTracker.Entries<DoctorPriceEntity>();
-        foreach (var entry in doctorPriceEntries)
+    private void SetUpdatedTimestamp<T>(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<T> entry, DateTime currentTime) where T : class
+    {
+        if (entry.Entity is IHasTimestamps entity)
         {
-            if (entry.State == EntityState.Added)
-            {
-                entry.Entity.CreatedAt = DateTime.UtcNow;
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-            }
-            else if (entry.State == EntityState.Modified)
-            {
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-                // Prevent overwriting CreatedAt
-                entry.Property(e => e.CreatedAt).IsModified = false;
-            }
-        }
-
-        // Update LanguageEntity timestamps
-        var languageEntries = ChangeTracker.Entries<LanguageEntity>();
-        foreach (var entry in languageEntries)
-        {
-            if (entry.State == EntityState.Added)
-            {
-                entry.Entity.CreatedAt = DateTime.UtcNow;
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-            }
-            else if (entry.State == EntityState.Modified)
-            {
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-                entry.Property(e => e.CreatedAt).IsModified = false;
-            }
-        }
-
-        // Update ServiceTypeEntity timestamps
-        var serviceTypeEntries = ChangeTracker.Entries<ServiceTypeEntity>();
-        foreach (var entry in serviceTypeEntries)
-        {
-            if (entry.State == EntityState.Added)
-            {
-                entry.Entity.CreatedAt = DateTime.UtcNow;
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-            }
-            else if (entry.State == EntityState.Modified)
-            {
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-                entry.Property(e => e.CreatedAt).IsModified = false;
-            }
+            entity.UpdatedAt = currentTime;
+            entry.Property("CreatedAt").IsModified = false;
         }
     }
 }

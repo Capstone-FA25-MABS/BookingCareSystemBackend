@@ -38,7 +38,19 @@ public class DoctorService : IDoctorService
     /// </summary>
     public async Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request)
     {
-        // Validate unique constraints
+        await ValidateCreateDoctorRequest(request);
+
+        var doctor = CreateDoctorEntity(request);
+        var createdDoctor = await _repository.CreateDoctorAsync(doctor);
+
+        await CreateDoctorPricesAsync(createdDoctor.Id, request.Prices);
+        await CreateDoctorLanguagesAsync(createdDoctor.Id, request.LanguageIds);
+
+        return _mapper.Map<DoctorResponse>(createdDoctor);
+    }
+
+    private async Task ValidateCreateDoctorRequest(CreateDoctorRequest request)
+    {
         if (await _repository.DoctorEmailExistsAsync(request.Email))
         {
             throw DoctorConflictException.WithEmail(request.Email);
@@ -49,7 +61,6 @@ public class DoctorService : IDoctorService
             throw DoctorConflictException.WithAccountId(request.AccountId);
         }
 
-        // Validate PositionId exists if provided
         if (request.PositionId.HasValue)
         {
             if (!await _positionRepository.PositionExistsAsync(request.PositionId.Value))
@@ -57,60 +68,68 @@ public class DoctorService : IDoctorService
                 throw PositionNotFoundException.WithId(request.PositionId.Value);
             }
         }
+    }
 
-        // Create doctor entity
+    private DoctorEntity CreateDoctorEntity(CreateDoctorRequest request)
+    {
         var doctor = _mapper.Map<DoctorEntity>(request);
         doctor.Id = Guid.NewGuid();
+        return doctor;
+    }
 
-        var createdDoctor = await _repository.CreateDoctorAsync(doctor);
+    private async Task CreateDoctorPricesAsync(Guid doctorId, IEnumerable<DoctorPriceRequest>? prices)
+    {
+        if (prices == null || !prices.Any()) return;
 
-        // Create doctor prices if provided
-        if (request.Prices != null && request.Prices.Any())
+        foreach (var priceRequest in prices)
         {
-            foreach (var priceRequest in request.Prices)
-            {
-                // Validate service type exists
-                var serviceType = await _repository.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
-                if (serviceType == null)
-                {
-                    throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
-                }
+            await ValidateAndCreateDoctorPrice(doctorId, priceRequest);
+        }
+    }
 
-                var doctorPrice = new DoctorPriceEntity
-                {
-                    Id = Guid.NewGuid(),
-                    DoctorId = createdDoctor.Id,
-                    ServiceTypeId = priceRequest.ServiceTypeId,
-                    Amount = priceRequest.Amount
-                };
-                await _repository.CreateDoctorPriceAsync(doctorPrice);
-            }
+    private async Task ValidateAndCreateDoctorPrice(Guid doctorId, DoctorPriceRequest priceRequest)
+    {
+        var serviceType = await _repository.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
+        if (serviceType == null)
+        {
+            throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
         }
 
-        // Create doctor languages if provided
-        if (request.LanguageIds != null && request.LanguageIds.Any())
+        var doctorPrice = new DoctorPriceEntity
         {
-            foreach (var languageId in request.LanguageIds)
-            {
-                // Validate language exists
-                var language = await _repository.GetLanguageByIdAsync(languageId);
-                if (language == null)
-                {
-                    throw new ArgumentException($"Language with ID {languageId} not found");
-                }
+            Id = Guid.NewGuid(),
+            DoctorId = doctorId,
+            ServiceTypeId = priceRequest.ServiceTypeId,
+            Amount = priceRequest.Amount
+        };
+        await _repository.CreateDoctorPriceAsync(doctorPrice);
+    }
 
-                var doctorLanguage = new DoctorLanguageEntity
-                {
-                    Id = Guid.NewGuid(),
-                    DoctorId = createdDoctor.Id,
-                    LanguageId = languageId
-                };
-                await _repository.CreateDoctorLanguageAsync(doctorLanguage);
-            }
+    private async Task CreateDoctorLanguagesAsync(Guid doctorId, IEnumerable<Guid>? languageIds)
+    {
+        if (languageIds == null || !languageIds.Any()) return;
+
+        foreach (var languageId in languageIds)
+        {
+            await ValidateAndCreateDoctorLanguage(doctorId, languageId);
+        }
+    }
+
+    private async Task ValidateAndCreateDoctorLanguage(Guid doctorId, Guid languageId)
+    {
+        var language = await _repository.GetLanguageByIdAsync(languageId);
+        if (language == null)
+        {
+            throw new ArgumentException($"Language with ID {languageId} not found");
         }
 
-        var response = _mapper.Map<DoctorResponse>(createdDoctor);
-        return response;
+        var doctorLanguage = new DoctorLanguageEntity
+        {
+            Id = Guid.NewGuid(),
+            DoctorId = doctorId,
+            LanguageId = languageId
+        };
+        await _repository.CreateDoctorLanguageAsync(doctorLanguage);
     }
 
     public async Task<DoctorResponse?> GetDoctorByIdAsync(Guid id)
@@ -152,14 +171,31 @@ public class DoctorService : IDoctorService
     /// </summary>
     public async Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request)
     {
-        // Check if doctor exists
-        var existingDoctor = await _repository.GetDoctorByIdAsync(request.Id);
+        var existingDoctor = await ValidateAndGetExistingDoctor(request.Id);
+
+        await ValidateUpdateDoctorRequest(request);
+
+        UpdateDoctorEntity(existingDoctor, request);
+
+        await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
+        await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
+
+        var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);
+        return _mapper.Map<DoctorResponse>(updatedDoctor);
+    }
+
+    private async Task<DoctorEntity> ValidateAndGetExistingDoctor(Guid id)
+    {
+        var existingDoctor = await _repository.GetDoctorByIdAsync(id);
         if (existingDoctor == null)
         {
-            throw DoctorNotFoundException.WithId(request.Id);
+            throw DoctorNotFoundException.WithId(id);
         }
+        return existingDoctor;
+    }
 
-        // Validate PositionId exists if provided
+    private async Task ValidateUpdateDoctorRequest(UpdateDoctorRequest request)
+    {
         if (request.PositionId.HasValue)
         {
             if (!await _positionRepository.PositionExistsAsync(request.PositionId.Value))
@@ -167,70 +203,37 @@ public class DoctorService : IDoctorService
                 throw PositionNotFoundException.WithId(request.PositionId.Value);
             }
         }
+    }
 
-        // Update doctor entity
+    private void UpdateDoctorEntity(DoctorEntity existingDoctor, UpdateDoctorRequest request)
+    {
         _mapper.Map(request, existingDoctor);
         existingDoctor.UpdatedAt = DateTime.UtcNow;
+    }
 
-        // Update doctor prices if provided
-        if (request.Prices != null && request.Prices.Any())
+    private async Task UpdateDoctorPricesAsync(Guid doctorId, IEnumerable<DoctorPriceRequest>? prices)
+    {
+        if (prices == null || !prices.Any()) return;
+
+        await _repository.DeleteAllDoctorPricesAsync(doctorId);
+
+        foreach (var priceRequest in prices)
         {
-            // Delete existing prices
-            await _repository.DeleteAllDoctorPricesAsync(existingDoctor.Id);
+            await ValidateAndCreateDoctorPrice(doctorId, priceRequest);
+        }
+    }
 
-            // Add new prices
-            foreach (var priceRequest in request.Prices)
+    private async Task UpdateDoctorLanguagesAsync(Guid doctorId, IEnumerable<Guid>? languageIds)
+    {
+        await _repository.DeleteAllDoctorLanguagesAsync(doctorId);
+
+        if (languageIds != null && languageIds.Any())
+        {
+            foreach (var languageId in languageIds)
             {
-                // Validate service type exists
-                var serviceType = await _repository.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
-                if (serviceType == null)
-                {
-                    throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
-                }
-
-                var doctorPrice = new DoctorPriceEntity
-                {
-                    Id = Guid.NewGuid(),
-                    DoctorId = existingDoctor.Id,
-                    ServiceTypeId = priceRequest.ServiceTypeId,
-                    Amount = priceRequest.Amount
-                };
-                await _repository.CreateDoctorPriceAsync(doctorPrice);
+                await ValidateAndCreateDoctorLanguage(doctorId, languageId);
             }
         }
-
-        // Update doctor languages if provided
-        if (request.LanguageIds != null)
-        {
-            // Delete existing languages
-            await _repository.DeleteAllDoctorLanguagesAsync(existingDoctor.Id);
-
-            // Add new languages
-            if (request.LanguageIds.Any())
-            {
-                foreach (var languageId in request.LanguageIds)
-                {
-                    // Validate language exists
-                    var language = await _repository.GetLanguageByIdAsync(languageId);
-                    if (language == null)
-                    {
-                        throw new ArgumentException($"Language with ID {languageId} not found");
-                    }
-
-                    var doctorLanguage = new DoctorLanguageEntity
-                    {
-                        Id = Guid.NewGuid(),
-                        DoctorId = existingDoctor.Id,
-                        LanguageId = languageId
-                    };
-                    await _repository.CreateDoctorLanguageAsync(doctorLanguage);
-                }
-            }
-        }
-
-        var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);
-        var response = _mapper.Map<DoctorResponse>(updatedDoctor);
-        return response;
     }
 
     public async Task<bool> DeleteDoctorAsync(Guid id)
@@ -356,125 +359,132 @@ public class DoctorService : IDoctorService
     {
         try
         {
-            // If searching, fetch all favorites to avoid missing matches due to pagination
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                var countReq = new GetPatientFavoriteCountRequest { PatientId = patientId.ToString() };
-                var countRes = await _favoritesClient.GetPatientFavoriteCountAsync(countReq);
-                var totalFavorites = (int)countRes.FavoriteCount;
-
-                if (totalFavorites == 0)
-                {
-                    return new DoctorListResponse
-                    {
-                        Doctors = new List<DoctorResponse>(),
-                        TotalCount = 0,
-                        PageNumber = 1,
-                        PageSize = 0,
-                        TotalPages = 0
-                    };
-                }
-
-                var allReq = new GetPatientFavoritesRequest
-                {
-                    PatientId = patientId.ToString(),
-                    Page = 1,
-                    PageSize = totalFavorites
-                };
-                var allRes = await _favoritesClient.GetPatientFavoritesAsync(allReq);
-                var allDoctorIds = allRes.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
-
-                var doctors = await _repository.GetDoctorsByIdsAsync(allDoctorIds);
-
-                var searchLower = searchTerm.ToLower();
-                doctors = doctors.Where(d =>
-                    d.FirstName.ToLower().Contains(searchLower) ||
-                    d.LastName.ToLower().Contains(searchLower) ||
-                    d.Email.ToLower().Contains(searchLower) ||
-                    (d.Bio != null && d.Bio.ToLower().Contains(searchLower))
-                ).ToList();
-
-                var mapped = _mapper.Map<List<DoctorResponse>>(doctors);
-                var favoritedSet = allDoctorIds.ToHashSet();
-                foreach (var d in mapped)
-                {
-                    d.IsFavorited = favoritedSet.Contains(d.Id);
-                }
-
-                // Enrich with account status
-                await EnrichDoctorsWithStatusAsync(mapped);
-
-                var filteredCount = mapped.Count;
-                return new DoctorListResponse
-                {
-                    Doctors = mapped,
-                    TotalCount = filteredCount,
-                    PageNumber = 1,
-                    PageSize = filteredCount,
-                    TotalPages = filteredCount == 0 ? 0 : 1
-                };
+                return await GetPatientFavoriteDoctorsWithSearchAsync(patientId, searchTerm);
             }
 
-            // Default paginated path (no search)
-            var request = new GetPatientFavoritesRequest
-            {
-                PatientId = patientId.ToString(),
-                Page = page,
-                PageSize = pageSize
-            };
-
-            var response = await _favoritesClient.GetPatientFavoritesAsync(request);
-            var doctorIds = response.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
-
-            if (!doctorIds.Any())
-            {
-                return new DoctorListResponse
-                {
-                    Doctors = new List<DoctorResponse>(),
-                    TotalCount = 0,
-                    PageNumber = page,
-                    PageSize = pageSize,
-                    TotalPages = 0
-                };
-            }
-
-            var pageDoctors = await _repository.GetDoctorsByIdsAsync(doctorIds);
-            var mappedPage = _mapper.Map<List<DoctorResponse>>(pageDoctors);
-
-            var favoritedSetPage = doctorIds.ToHashSet();
-            foreach (var d in mappedPage)
-            {
-                d.IsFavorited = favoritedSetPage.Contains(d.Id);
-            }
-
-            // Enrich with account status
-            await EnrichDoctorsWithStatusAsync(mappedPage);
-
-            var totalCount = response.TotalCount;
-            var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
-
-            return new DoctorListResponse
-            {
-                Doctors = mappedPage,
-                TotalCount = totalCount,
-                PageNumber = page,
-                PageSize = pageSize,
-                TotalPages = totalPages
-            };
+            return await GetPatientFavoriteDoctorsPaginatedAsync(patientId, page, pageSize);
         }
         catch (global::Grpc.Core.RpcException ex)
         {
             _logger.LogWarning(ex, "Favorites gRPC GetPatientFavorites failed for patient {PatientId}", patientId);
-            // Favorites service unavailable; return empty list gracefully
-            return new DoctorListResponse
-            {
-                Doctors = new List<DoctorResponse>(),
-                TotalCount = 0,
-                PageNumber = string.IsNullOrWhiteSpace(searchTerm) ? page : 1,
-                PageSize = string.IsNullOrWhiteSpace(searchTerm) ? pageSize : 0,
-                TotalPages = 0
-            };
+            return CreateEmptyDoctorListResponse(page, pageSize, searchTerm);
         }
+    }
+
+    private async Task<DoctorListResponse> GetPatientFavoriteDoctorsWithSearchAsync(Guid patientId, string searchTerm)
+    {
+        var totalFavorites = await GetTotalFavoriteCount(patientId);
+        if (totalFavorites == 0)
+        {
+            return CreateEmptyDoctorListResponse(1, 0, searchTerm);
+        }
+
+        var allDoctorIds = await GetAllFavoriteDoctorIds(patientId, totalFavorites);
+        var doctors = await _repository.GetDoctorsByIdsAsync(allDoctorIds);
+
+        var filteredDoctors = FilterDoctorsBySearchTerm(doctors, searchTerm);
+        var mappedDoctors = _mapper.Map<List<DoctorResponse>>(filteredDoctors);
+
+        SetFavoriteStatus(mappedDoctors, allDoctorIds);
+        await EnrichDoctorsWithStatusAsync(mappedDoctors);
+
+        return new DoctorListResponse
+        {
+            Doctors = mappedDoctors,
+            TotalCount = mappedDoctors.Count,
+            PageNumber = 1,
+            PageSize = mappedDoctors.Count,
+            TotalPages = mappedDoctors.Count == 0 ? 0 : 1
+        };
+    }
+
+    private async Task<DoctorListResponse> GetPatientFavoriteDoctorsPaginatedAsync(Guid patientId, int page, int pageSize)
+    {
+        var request = new GetPatientFavoritesRequest
+        {
+            PatientId = patientId.ToString(),
+            Page = page,
+            PageSize = pageSize
+        };
+
+        var response = await _favoritesClient.GetPatientFavoritesAsync(request);
+        var doctorIds = response.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
+
+        if (!doctorIds.Any())
+        {
+            return CreateEmptyDoctorListResponse(page, pageSize, null);
+        }
+
+        var pageDoctors = await _repository.GetDoctorsByIdsAsync(doctorIds);
+        var mappedPage = _mapper.Map<List<DoctorResponse>>(pageDoctors);
+
+        SetFavoriteStatus(mappedPage, doctorIds);
+        await EnrichDoctorsWithStatusAsync(mappedPage);
+
+        var totalCount = response.TotalCount;
+        var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+        return new DoctorListResponse
+        {
+            Doctors = mappedPage,
+            TotalCount = totalCount,
+            PageNumber = page,
+            PageSize = pageSize,
+            TotalPages = totalPages
+        };
+    }
+
+    private async Task<int> GetTotalFavoriteCount(Guid patientId)
+    {
+        var countReq = new GetPatientFavoriteCountRequest { PatientId = patientId.ToString() };
+        var countRes = await _favoritesClient.GetPatientFavoriteCountAsync(countReq);
+        return (int)countRes.FavoriteCount;
+    }
+
+    private async Task<List<Guid>> GetAllFavoriteDoctorIds(Guid patientId, int totalFavorites)
+    {
+        var allReq = new GetPatientFavoritesRequest
+        {
+            PatientId = patientId.ToString(),
+            Page = 1,
+            PageSize = totalFavorites
+        };
+        var allRes = await _favoritesClient.GetPatientFavoritesAsync(allReq);
+        return allRes.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
+    }
+
+    private List<DoctorEntity> FilterDoctorsBySearchTerm(List<DoctorEntity> doctors, string searchTerm)
+    {
+        var searchLower = searchTerm.ToLower();
+        return doctors.Where(d =>
+            d.FirstName.ToLower().Contains(searchLower) ||
+            d.LastName.ToLower().Contains(searchLower) ||
+            d.Email.ToLower().Contains(searchLower) ||
+            (d.Bio != null && d.Bio.ToLower().Contains(searchLower))
+        ).ToList();
+    }
+
+    private void SetFavoriteStatus(List<DoctorResponse> doctors, List<Guid> favoriteIds)
+    {
+        var favoritedSet = favoriteIds.ToHashSet();
+        foreach (var doctor in doctors)
+        {
+            doctor.IsFavorited = favoritedSet.Contains(doctor.Id);
+        }
+    }
+
+    private DoctorListResponse CreateEmptyDoctorListResponse(int page, int pageSize, string? searchTerm)
+    {
+        return new DoctorListResponse
+        {
+            Doctors = new List<DoctorResponse>(),
+            TotalCount = 0,
+            PageNumber = string.IsNullOrWhiteSpace(searchTerm) ? page : 1,
+            PageSize = string.IsNullOrWhiteSpace(searchTerm) ? pageSize : 0,
+            TotalPages = 0
+        };
     }
 
     public async Task<DoctorListResponse> GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId)

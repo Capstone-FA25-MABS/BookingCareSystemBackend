@@ -115,15 +115,39 @@ public class DoctorRepository : IDoctorRepository
 
     public async Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsAsync(DoctorQueryRequest query)
     {
-        var queryable = _context.Doctors
+        var queryable = GetBaseQueryable();
+
+        queryable = ApplyFilters(queryable, query);
+        queryable = ApplySorting(queryable, query);
+
+        var totalCount = await queryable.CountAsync();
+        var doctors = await ApplyPagination(queryable, query).ToListAsync();
+
+        return (doctors, totalCount);
+    }
+
+    private IQueryable<DoctorEntity> GetBaseQueryable()
+    {
+        return _context.Doctors
             .Include(d => d.Position)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
                 .ThenInclude(dl => dl.Language)
             .AsQueryable();
+    }
 
-        // Apply filters
+    private IQueryable<DoctorEntity> ApplyFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
+        queryable = ApplyBasicFilters(queryable, query);
+        queryable = ApplySearchFilters(queryable, query);
+        queryable = ApplyPriceFilters(queryable, query);
+
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyBasicFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.AccountId.HasValue)
             queryable = queryable.Where(d => d.AccountId == query.AccountId.Value);
         if (query.PositionId.HasValue)
@@ -134,6 +158,20 @@ public class DoctorRepository : IDoctorRepository
             queryable = queryable.Where(d => d.HospitalId == query.HospitalId.Value);
         if (query.Gender.HasValue)
             queryable = queryable.Where(d => d.Gender == query.Gender.Value);
+        if (query.MinYearsOfExperience.HasValue)
+            queryable = queryable.Where(d => d.YearsOfExperience >= query.MinYearsOfExperience.Value);
+        if (query.MaxYearsOfExperience.HasValue)
+            queryable = queryable.Where(d => d.YearsOfExperience <= query.MaxYearsOfExperience.Value);
+        if (!string.IsNullOrEmpty(query.Address))
+            queryable = queryable.Where(d => d.Address != null && d.Address.Contains(query.Address));
+        if (query.MinRating.HasValue)
+            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value));
+
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplySearchFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (!string.IsNullOrEmpty(query.SearchTerm))
         {
             var searchTerm = query.SearchTerm.ToLower();
@@ -142,20 +180,16 @@ public class DoctorRepository : IDoctorRepository
                 d.LastName.ToLower().Contains(searchTerm) ||
                 d.Email.ToLower().Contains(searchTerm));
         }
-        if (query.MinYearsOfExperience.HasValue)
-            queryable = queryable.Where(d => d.YearsOfExperience >= query.MinYearsOfExperience.Value);
-        if (query.MaxYearsOfExperience.HasValue)
-            queryable = queryable.Where(d => d.YearsOfExperience <= query.MaxYearsOfExperience.Value);
-        if (!string.IsNullOrEmpty(query.Address))
-            queryable = queryable.Where(d => d.Address != null && d.Address.Contains(query.Address));
         if (!string.IsNullOrEmpty(query.Language))
             queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.Language.Name.Contains(query.Language)));
         if (!string.IsNullOrEmpty(query.ServiceType))
             queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.ServiceType.Name.Contains(query.ServiceType)));
-        if (query.MinRating.HasValue)
-            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value));
 
-        // Price filter - filter by doctor prices
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyPriceFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.MinPrice.HasValue || query.MaxPrice.HasValue)
         {
             queryable = queryable.Where(d => d.DoctorPrices.Any(dp =>
@@ -163,24 +197,30 @@ public class DoctorRepository : IDoctorRepository
                 (!query.MaxPrice.HasValue || dp.Amount <= query.MaxPrice.Value)));
         }
 
-        // Sort
-        if (!string.IsNullOrEmpty(query.SortBy))
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplySorting(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
+        if (string.IsNullOrEmpty(query.SortBy)) return queryable;
+
+        return query.SortBy switch
         {
-            if (query.SortBy == "YearsOfExperience")
-                queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(d => d.YearsOfExperience) : queryable.OrderBy(d => d.YearsOfExperience);
-            else if (query.SortBy == "CreatedAt")
-                queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(d => d.CreatedAt) : queryable.OrderBy(d => d.CreatedAt);
-        }
+            "YearsOfExperience" => query.SortOrder == "desc"
+                ? queryable.OrderByDescending(d => d.YearsOfExperience)
+                : queryable.OrderBy(d => d.YearsOfExperience),
+            "CreatedAt" => query.SortOrder == "desc"
+                ? queryable.OrderByDescending(d => d.CreatedAt)
+                : queryable.OrderBy(d => d.CreatedAt),
+            _ => queryable
+        };
+    }
 
-        // Get total count
-        var totalCount = await queryable.CountAsync();
-
-        // Apply pagination
-        var doctors = await queryable
+    private IQueryable<DoctorEntity> ApplyPagination(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
+        return queryable
             .Skip((query.PageNumber - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .ToListAsync();
-        return (doctors, totalCount);
+            .Take(query.PageSize);
     }
 
     public IQueryable<DoctorEntity> GetQueryableDoctors()
