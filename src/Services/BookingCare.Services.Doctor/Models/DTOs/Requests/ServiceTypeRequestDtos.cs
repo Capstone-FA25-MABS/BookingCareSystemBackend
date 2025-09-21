@@ -16,6 +16,7 @@ public class CreateServiceTypeRequest
 public class UpdateServiceTypeRequest
 {
     [Required(ErrorMessage = "Service type ID is required")]
+    [JsonRequired]
     public Guid Id { get; set; }
 
     [Required(ErrorMessage = "Name is required")]

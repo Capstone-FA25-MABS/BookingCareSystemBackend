@@ -49,7 +49,7 @@ public class DoctorRateLimitingMiddleware
             {
                 error = "Rate limit exceeded",
                 message = "Too many requests. Please try again later.",
-                retryAfter = GetRetryAfterSeconds(clientIp)
+                retryAfter = GetRetryAfterSeconds()
             };
 
             await context.Response.WriteAsJsonAsync(response);
@@ -141,7 +141,7 @@ public class DoctorRateLimitingMiddleware
             });
     }
 
-    private int GetRetryAfterSeconds(string _)
+    private int GetRetryAfterSeconds()
     {
         // Return retry after time based on rate limit type
         // For simplicity, return 60 seconds

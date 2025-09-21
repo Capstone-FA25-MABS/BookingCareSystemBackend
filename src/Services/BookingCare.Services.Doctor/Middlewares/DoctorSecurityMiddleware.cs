@@ -157,7 +157,7 @@ public class DoctorSecurityMiddleware
         }
 
         // Check for required headers (if needed)
-        if (!ValidateRequiredHeaders(request))
+        if (!ValidateRequiredHeaders())
         {
             _logger.LogWarning("Missing required headers from {ClientIp}",
                 context.Connection.RemoteIpAddress?.ToString());
@@ -175,7 +175,7 @@ public class DoctorSecurityMiddleware
         return Task.FromResult(true);
     }
 
-    private static bool ValidateRequiredHeaders(HttpRequest request)
+    private static bool ValidateRequiredHeaders()
     {
         // Add any required header validation here
         // For now, we'll just return true

@@ -13,6 +13,7 @@ public class CreateLanguageRequest
 public class UpdateLanguageRequest
 {
     [Required(ErrorMessage = "Language ID is required")]
+    [JsonRequired]
     public Guid Id { get; set; }
 
     [Required(ErrorMessage = "Name is required")]

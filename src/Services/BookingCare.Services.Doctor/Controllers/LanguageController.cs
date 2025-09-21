@@ -28,6 +28,7 @@ public class LanguageController : BaseApiController
     /// <returns>Health status</returns>
     [HttpGet("health")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
         return Ok(new

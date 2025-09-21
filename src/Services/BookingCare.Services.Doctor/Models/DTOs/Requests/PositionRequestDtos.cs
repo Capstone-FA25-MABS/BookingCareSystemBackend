@@ -13,6 +13,7 @@ public class CreatePositionRequest
 public class UpdatePositionRequest
 {
     [Required(ErrorMessage = "Position ID is required")]
+    [JsonRequired]
     public Guid Id { get; set; }
 
     [Required(ErrorMessage = "Name is required")]

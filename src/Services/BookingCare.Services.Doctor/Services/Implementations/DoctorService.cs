@@ -61,12 +61,9 @@ public class DoctorService : IDoctorService
             throw DoctorConflictException.WithAccountId(request.AccountId);
         }
 
-        if (request.PositionId.HasValue)
+        if (request.PositionId.HasValue && !await _positionRepository.PositionExistsAsync(request.PositionId.Value))
         {
-            if (!await _positionRepository.PositionExistsAsync(request.PositionId.Value))
-            {
-                throw PositionNotFoundException.WithId(request.PositionId.Value);
-            }
+            throw PositionNotFoundException.WithId(request.PositionId.Value);
         }
     }
 
@@ -196,12 +193,9 @@ public class DoctorService : IDoctorService
 
     private async Task ValidateUpdateDoctorRequest(UpdateDoctorRequest request)
     {
-        if (request.PositionId.HasValue)
+        if (request.PositionId.HasValue && !await _positionRepository.PositionExistsAsync(request.PositionId.Value))
         {
-            if (!await _positionRepository.PositionExistsAsync(request.PositionId.Value))
-            {
-                throw PositionNotFoundException.WithId(request.PositionId.Value);
-            }
+            throw PositionNotFoundException.WithId(request.PositionId.Value);
         }
     }
 
@@ -648,7 +642,7 @@ public class DoctorService : IDoctorService
         }
     }
 
-    private async Task UpdateDoctorPriceAsync(DoctorEntity doctor, decimal amount, bool isOverride)
+    private async Task UpdateDoctorPriceAsync(DoctorEntity doctor, decimal amount)
     {
         // Tìm giá hiện tại của doctor
         var existingPrices = await _repository.GetDoctorPricesAsync(doctor.Id);

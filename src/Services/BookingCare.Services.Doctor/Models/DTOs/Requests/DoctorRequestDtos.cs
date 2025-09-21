@@ -8,6 +8,7 @@ namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
 public class CreateDoctorRequest
 {
     [Required(ErrorMessage = "AccountId is required")]
+    [JsonRequired]
     public Guid AccountId { get; set; }
 
     [Required(ErrorMessage = "Email is required")]
