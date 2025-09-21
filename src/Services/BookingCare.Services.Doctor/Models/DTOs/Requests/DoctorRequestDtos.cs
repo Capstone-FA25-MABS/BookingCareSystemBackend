@@ -57,6 +57,7 @@ public class CreateDoctorRequest
 public class UpdateDoctorRequest
 {
     [Required(ErrorMessage = "Doctor ID is required")]
+    [JsonRequired]
     public Guid Id { get; set; }
 
     [StringLength(500, ErrorMessage = "Address cannot exceed 500 characters")]
@@ -155,9 +156,11 @@ public class DoctorPriceRequest
 public class AssignPriceToDoctorRequest
 {
     [Required(ErrorMessage = "Doctor ID is required")]
+    [JsonRequired]
     public Guid DoctorId { get; set; }
 
     [Required(ErrorMessage = "Service type ID is required")]
+    [JsonRequired]
     public Guid ServiceTypeId { get; set; }
 
     [Required(ErrorMessage = "Amount is required")]
