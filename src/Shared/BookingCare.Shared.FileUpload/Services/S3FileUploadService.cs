@@ -116,11 +116,11 @@ public class S3FileUploadService : IFileUploadService
         }
 
         var results = await Task.WhenAll(tasks);
-        
+
         foreach (var uploadResult in results)
         {
             result.Results.Add(uploadResult);
-            
+
             if (uploadResult.Success)
             {
                 result.SuccessCount++;
@@ -243,17 +243,17 @@ public class S3FileUploadService : IFileUploadService
             };
 
             var response = await _s3Client.DeleteObjectAsync(deleteRequest, cancellationToken);
-            
+
             if (response.HttpStatusCode == HttpStatusCode.NoContent)
             {
                 _logger.LogInformation("File deleted successfully from S3. Key: {S3Key}", s3Key);
-                
+
                 // Invalidate CloudFront cache if enabled
                 if (_cloudFrontConfig.EnableInvalidation && !string.IsNullOrEmpty(_cloudFrontConfig.DistributionId))
                 {
                     await InvalidateCloudFrontCacheAsync(new[] { s3Key }, cancellationToken);
                 }
-                
+
                 return true;
             }
 
@@ -277,7 +277,7 @@ public class S3FileUploadService : IFileUploadService
         }
 
         var deleteResults = await Task.WhenAll(tasks);
-        
+
         foreach (var (key, success) in deleteResults)
         {
             results[key] = success;
@@ -363,7 +363,7 @@ public class S3FileUploadService : IFileUploadService
         try
         {
             var pathsList = paths.Select(p => p.StartsWith("/") ? p : $"/{p}").ToList();
-            
+
             var invalidationRequest = new CreateInvalidationRequest
             {
                 DistributionId = _cloudFrontConfig.DistributionId,
@@ -379,10 +379,10 @@ public class S3FileUploadService : IFileUploadService
             };
 
             var response = await _cloudFrontClient.CreateInvalidationAsync(invalidationRequest, cancellationToken);
-            
-            _logger.LogInformation("CloudFront cache invalidation created. Invalidation ID: {InvalidationId}", 
+
+            _logger.LogInformation("CloudFront cache invalidation created. Invalidation ID: {InvalidationId}",
                 response.Invalidation.Id);
-            
+
             return true;
         }
         catch (Exception ex)
@@ -418,14 +418,14 @@ public class S3FileUploadService : IFileUploadService
         }
 
         // Additional content type validation can be added here
-        
+
         return (true, null);
     }
 
     private string GenerateS3Key(string fileName, string? folder, bool generateUnique)
     {
         var cleanFolder = !string.IsNullOrEmpty(folder) ? folder.Trim('/') + "/" : _s3Config.FileUploadPath;
-        
+
         if (generateUnique)
         {
             var extension = Path.GetExtension(fileName);

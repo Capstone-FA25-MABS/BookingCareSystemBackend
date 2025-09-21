@@ -26,7 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAmazonS3>(provider =>
         {
             var s3Config = provider.GetRequiredService<IOptions<S3Configuration>>().Value;
-            
+
             var awsConfig = new Amazon.S3.AmazonS3Config
             {
                 RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Config.Region)
@@ -39,7 +39,7 @@ public static class ServiceCollectionExtensions
         {
             var s3Config = provider.GetRequiredService<IOptions<S3Configuration>>().Value;
             var cloudFrontConfig = provider.GetRequiredService<IOptions<CloudFrontConfiguration>>().Value;
-            
+
             if (string.IsNullOrEmpty(cloudFrontConfig.DistributionId))
             {
                 return null!; // CloudFront is optional
@@ -62,12 +62,12 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Add S3 File Upload services with custom configuration
     /// </summary>
-    public static IServiceCollection AddS3FileUpload(this IServiceCollection services, 
-        Action<S3Configuration> configureS3, 
+    public static IServiceCollection AddS3FileUpload(this IServiceCollection services,
+        Action<S3Configuration> configureS3,
         Action<CloudFrontConfiguration>? configureCloudFront = null)
     {
         services.Configure(configureS3);
-        
+
         if (configureCloudFront != null)
         {
             services.Configure(configureCloudFront);
@@ -80,7 +80,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAmazonS3>(provider =>
         {
             var s3Config = provider.GetRequiredService<IOptions<S3Configuration>>().Value;
-            
+
             var awsConfig = new Amazon.S3.AmazonS3Config
             {
                 RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Config.Region)
@@ -93,7 +93,7 @@ public static class ServiceCollectionExtensions
         {
             var s3Config = provider.GetRequiredService<IOptions<S3Configuration>>().Value;
             var cloudFrontConfig = provider.GetRequiredService<IOptions<CloudFrontConfiguration>>().Value;
-            
+
             if (string.IsNullOrEmpty(cloudFrontConfig.DistributionId))
             {
                 return null!; // CloudFront is optional
@@ -150,7 +150,7 @@ public class S3ConfigurationValidator : IValidateOptions<S3Configuration>
             failures.Add("At least one allowed file extension must be specified");
         }
 
-        return failures.Count > 0 
+        return failures.Count > 0
             ? ValidateOptionsResult.Fail(failures)
             : ValidateOptionsResult.Success;
     }

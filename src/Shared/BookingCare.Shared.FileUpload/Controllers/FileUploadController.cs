@@ -46,7 +46,7 @@ public class FileUploadController : ControllerBase
             };
 
             var result = await _fileUploadService.UploadFileAsync(request, cancellationToken);
-            
+
             if (result.Success)
             {
                 return Ok(result);
@@ -88,7 +88,7 @@ public class FileUploadController : ControllerBase
             });
 
             var result = await _fileUploadService.UploadMultipleFilesAsync(requests, cancellationToken);
-            
+
             return Ok(result);
         }
         catch (Exception ex)
@@ -109,7 +109,7 @@ public class FileUploadController : ControllerBase
         try
         {
             var result = await _fileUploadService.GeneratePresignedUploadUrlAsync(request, cancellationToken);
-            
+
             if (result.Success)
             {
                 return Ok(result);
@@ -136,7 +136,7 @@ public class FileUploadController : ControllerBase
         try
         {
             var result = await _fileUploadService.GeneratePresignedDownloadUrlAsync(s3Key, expiryHours, cancellationToken);
-            
+
             if (result.Success)
             {
                 return Ok(result);
@@ -216,7 +216,7 @@ public class FileUploadController : ControllerBase
         try
         {
             var result = await _fileUploadService.GetFileInfoAsync(s3Key, cancellationToken);
-            
+
             if (result != null)
             {
                 return Ok(result);
