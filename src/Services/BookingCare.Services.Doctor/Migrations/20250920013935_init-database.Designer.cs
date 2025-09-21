@@ -13,7 +13,7 @@ namespace BookingCare.Services.Doctor.Migrations
 {
     [DbContext(typeof(DoctorDbContext))]
     [Migration("20250920013935_init-database")]
-    partial class initdatabase
+    partial class InitDatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
