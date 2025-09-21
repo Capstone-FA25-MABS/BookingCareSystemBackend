@@ -66,6 +66,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Schedu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Shared.Cache", "src\Shared\BookingCare.Shared.Cache\BookingCare.Shared.Cache.csproj", "{E0ED0943-9BF4-4DE1-831E-BC9FC8F45318}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Shared.FileUpload", "src\Shared\BookingCare.Shared.FileUpload\BookingCare.Shared.FileUpload.csproj", "{9F9E64C7-1BE0-4804-B90B-6EBBE42203A6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -172,6 +174,10 @@ Global
 		{E0ED0943-9BF4-4DE1-831E-BC9FC8F45318}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E0ED0943-9BF4-4DE1-831E-BC9FC8F45318}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E0ED0943-9BF4-4DE1-831E-BC9FC8F45318}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F9E64C7-1BE0-4804-B90B-6EBBE42203A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F9E64C7-1BE0-4804-B90B-6EBBE42203A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F9E64C7-1BE0-4804-B90B-6EBBE42203A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F9E64C7-1BE0-4804-B90B-6EBBE42203A6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{07096F17-DDBF-4413-B603-C9D3A38BAD19} = {BBC343F1-4BDC-42D3-8D71-3F244FB8CB48}
@@ -203,5 +209,6 @@ Global
 		{AFE18B40-3432-4329-A3AC-D36EEBD6431C} = {B8FBE487-174F-41C3-B34D-D12E9D1B21E0}
 		{7455A5F1-1978-48B8-ACDE-D6B72137F424} = {07096F17-DDBF-4413-B603-C9D3A38BAD19}
 		{E0ED0943-9BF4-4DE1-831E-BC9FC8F45318} = {0F6838AC-40B4-4885-AB8B-9C410B8E0C79}
+		{9F9E64C7-1BE0-4804-B90B-6EBBE42203A6} = {0F6838AC-40B4-4885-AB8B-9C410B8E0C79}
 	EndGlobalSection
 EndGlobal
