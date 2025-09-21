@@ -9,26 +9,25 @@ using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
-public class DoctorService : IDoctorService
+public class DoctorService : BaseService, IDoctorService
 {
     private readonly IDoctorRepository _repository;
     private readonly IPositionRepository _positionRepository;
     private readonly IMapper _mapper;
     private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
     private readonly AuthService.AuthServiceClient _authClient;
-    private readonly ILogger<DoctorService> _logger;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger) : base(logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
         _mapper = mapper;
         _favoritesClient = favoritesClient;
         _authClient = authClient;
-        _logger = logger;
     }
 
     #region Doctor CRUD Operations
@@ -362,7 +361,7 @@ public class DoctorService : IDoctorService
         }
         catch (global::Grpc.Core.RpcException ex)
         {
-            _logger.LogWarning(ex, "Favorites gRPC GetPatientFavorites failed for patient {PatientId}", patientId);
+            Logger.LogWarning(ex, "Favorites gRPC GetPatientFavorites failed for patient {PatientId}", patientId);
             return CreateEmptyDoctorListResponse(page, pageSize, searchTerm);
         }
     }
@@ -504,7 +503,7 @@ public class DoctorService : IDoctorService
         }
         catch (global::Grpc.Core.RpcException ex)
         {
-            _logger.LogWarning(ex, "Favorites gRPC CheckMultipleFavorites failed for patient {PatientId}", patientId);
+            Logger.LogWarning(ex, "Favorites gRPC CheckMultipleFavorites failed for patient {PatientId}", patientId);
             // Favorites service unavailable; proceed with IsFavorited default false
         }
         return baseList;
@@ -611,7 +610,7 @@ public class DoctorService : IDoctorService
         }
         catch (global::Grpc.Core.RpcException ex)
         {
-            _logger.LogWarning(ex, "Auth gRPC GetAccountStatusByIds failed");
+            Logger.LogWarning(ex, "Auth gRPC GetAccountStatusByIds failed");
             // Return empty dictionary on failure
         }
 
