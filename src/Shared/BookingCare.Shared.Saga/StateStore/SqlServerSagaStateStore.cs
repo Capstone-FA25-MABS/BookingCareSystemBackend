@@ -8,10 +8,31 @@ using System.Text.Json;
 namespace BookingCare.Shared.Saga.StateStore;
 
 /// <summary>
+/// Parameters for logging saga step execution
+/// </summary>
+public class SagaStepExecutionLogParameters
+{
+    public Guid SagaId { get; set; }
+    public string StepName { get; set; } = string.Empty;
+    public int AttemptNumber { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime StartedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public long? ExecutionTimeMs { get; set; }
+    public string? InputData { get; set; }
+    public string? OutputData { get; set; }
+    public string? ErrorMessage { get; set; }
+    public string? ErrorDetails { get; set; }
+    public bool IsCompensation { get; set; }
+}
+
+/// <summary>
 /// SQL Server implementation of saga state store with optimistic concurrency control
 /// </summary>
 public class SqlServerSagaStateStore : ISagaStateStore
 {
+    private const string SagaIdParameter = "@SagaId";
+    
     private readonly string _connectionString;
     private readonly ILogger<SqlServerSagaStateStore> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
@@ -42,7 +63,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
                 CommandType = CommandType.StoredProcedure
             };
 
-            command.Parameters.AddWithValue("@SagaId", sagaId);
+            command.Parameters.AddWithValue(SagaIdParameter, sagaId);
 
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
@@ -55,8 +76,9 @@ public class SqlServerSagaStateStore : ISagaStateStore
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting saga state for SagaId: {SagaId}", sagaId);
-            throw;
+            var errorMessage = $"Error getting saga state for SagaId: {sagaId}";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
@@ -82,8 +104,9 @@ public class SqlServerSagaStateStore : ISagaStateStore
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error saving saga state for SagaId: {SagaId}", sagaState.SagaId);
-            throw;
+            var errorMessage = $"Error saving saga state for SagaId: {sagaState.SagaId}";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
@@ -110,7 +133,6 @@ public class SqlServerSagaStateStore : ISagaStateStore
 
             AddUpdateSagaStateParameters(command, sagaState);
             // Add version parameter for optimistic concurrency (this would need to be tracked in SagaState)
-            // command.Parameters.AddWithValue("@ExpectedVersion", currentState.Version);
 
             await command.ExecuteNonQueryAsync(cancellationToken);
 
@@ -118,13 +140,14 @@ public class SqlServerSagaStateStore : ISagaStateStore
         }
         catch (SqlException ex) when (ex.Message.Contains("Concurrency conflict"))
         {
-            _logger.LogWarning("Concurrency conflict updating saga state for SagaId: {SagaId}", sagaState.SagaId);
+            _logger.LogWarning(ex, "Concurrency conflict updating saga state for SagaId: {SagaId}", sagaState.SagaId);
             throw new InvalidOperationException("Saga state was modified by another process", ex);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating saga state for SagaId: {SagaId}", sagaState.SagaId);
-            throw;
+            var errorMessage = $"Error updating saga state for SagaId: {sagaState.SagaId}";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
@@ -138,7 +161,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
             await connection.OpenAsync(cancellationToken);
 
             using var command = new SqlCommand("DELETE FROM SagaStates WHERE SagaId = @SagaId", connection);
-            command.Parameters.AddWithValue("@SagaId", sagaId);
+            command.Parameters.AddWithValue(SagaIdParameter, sagaId);
 
             var rowsAffected = await command.ExecuteNonQueryAsync(cancellationToken);
 
@@ -153,8 +176,9 @@ public class SqlServerSagaStateStore : ISagaStateStore
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting saga state for SagaId: {SagaId}", sagaId);
-            throw;
+            var errorMessage = $"Error deleting saga state for SagaId: {sagaId}";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
@@ -188,15 +212,13 @@ public class SqlServerSagaStateStore : ISagaStateStore
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting pending sagas");
-            throw;
+            var errorMessage = "Error getting pending sagas";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
-    public async Task LogSagaStepExecutionAsync(Guid sagaId, string stepName, int attemptNumber,
-        string status, DateTime startedAt, DateTime? completedAt = null, long? executionTimeMs = null,
-        string? inputData = null, string? outputData = null, string? errorMessage = null,
-        string? errorDetails = null, bool isCompensation = false, CancellationToken cancellationToken = default)
+    public async Task LogSagaStepExecutionAsync(SagaStepExecutionLogParameters parameters, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -208,25 +230,25 @@ public class SqlServerSagaStateStore : ISagaStateStore
                 CommandType = CommandType.StoredProcedure
             };
 
-            command.Parameters.AddWithValue("@SagaId", sagaId);
-            command.Parameters.AddWithValue("@StepName", stepName);
-            command.Parameters.AddWithValue("@AttemptNumber", attemptNumber);
-            command.Parameters.AddWithValue("@Status", status);
-            command.Parameters.AddWithValue("@StartedAt", startedAt);
-            command.Parameters.AddWithValue("@CompletedAt", (object?)completedAt ?? DBNull.Value);
-            command.Parameters.AddWithValue("@ExecutionTimeMs", (object?)executionTimeMs ?? DBNull.Value);
-            command.Parameters.AddWithValue("@InputData", (object?)inputData ?? DBNull.Value);
-            command.Parameters.AddWithValue("@OutputData", (object?)outputData ?? DBNull.Value);
-            command.Parameters.AddWithValue("@ErrorMessage", (object?)errorMessage ?? DBNull.Value);
-            command.Parameters.AddWithValue("@ErrorDetails", (object?)errorDetails ?? DBNull.Value);
-            command.Parameters.AddWithValue("@IsCompensation", isCompensation);
+            command.Parameters.AddWithValue(SagaIdParameter, parameters.SagaId);
+            command.Parameters.AddWithValue("@StepName", parameters.StepName);
+            command.Parameters.AddWithValue("@AttemptNumber", parameters.AttemptNumber);
+            command.Parameters.AddWithValue("@Status", parameters.Status);
+            command.Parameters.AddWithValue("@StartedAt", parameters.StartedAt);
+            command.Parameters.AddWithValue("@CompletedAt", (object?)parameters.CompletedAt ?? DBNull.Value);
+            command.Parameters.AddWithValue("@ExecutionTimeMs", (object?)parameters.ExecutionTimeMs ?? DBNull.Value);
+            command.Parameters.AddWithValue("@InputData", (object?)parameters.InputData ?? DBNull.Value);
+            command.Parameters.AddWithValue("@OutputData", (object?)parameters.OutputData ?? DBNull.Value);
+            command.Parameters.AddWithValue("@ErrorMessage", (object?)parameters.ErrorMessage ?? DBNull.Value);
+            command.Parameters.AddWithValue("@ErrorDetails", (object?)parameters.ErrorDetails ?? DBNull.Value);
+            command.Parameters.AddWithValue("@IsCompensation", parameters.IsCompensation);
 
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error logging saga step execution for SagaId: {SagaId}, Step: {StepName}",
-                sagaId, stepName);
+                parameters.SagaId, parameters.StepName);
             // Don't throw - logging failures shouldn't break saga execution
         }
     }
@@ -258,8 +280,9 @@ public class SqlServerSagaStateStore : ISagaStateStore
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during saga cleanup");
-            throw;
+            var errorMessage = "Error during saga cleanup";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
@@ -304,7 +327,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
 
     private void AddSagaStateParameters(SqlCommand command, SagaState sagaState)
     {
-        command.Parameters.AddWithValue("@SagaId", sagaState.SagaId);
+        command.Parameters.AddWithValue(SagaIdParameter, sagaState.SagaId);
         command.Parameters.AddWithValue("@SagaName", sagaState.SagaName);
         command.Parameters.AddWithValue("@Status", sagaState.Status.ToString());
         command.Parameters.AddWithValue("@ContextData", JsonSerializer.Serialize(sagaState.Context, _jsonOptions));
@@ -322,7 +345,7 @@ public class SqlServerSagaStateStore : ISagaStateStore
 
     private void AddUpdateSagaStateParameters(SqlCommand command, SagaState sagaState)
     {
-        command.Parameters.AddWithValue("@SagaId", sagaState.SagaId);
+        command.Parameters.AddWithValue(SagaIdParameter, sagaState.SagaId);
         command.Parameters.AddWithValue("@Status", sagaState.Status.ToString());
         command.Parameters.AddWithValue("@ContextData", JsonSerializer.Serialize(sagaState.Context, _jsonOptions));
         command.Parameters.AddWithValue("@CurrentStep", (object?)sagaState.CurrentStep ?? DBNull.Value);

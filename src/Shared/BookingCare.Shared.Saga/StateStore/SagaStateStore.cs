@@ -70,7 +70,7 @@ public class InMemorySagaStateStore : ISagaStateStore
         return Task.FromResult<IEnumerable<SagaState>>(pendingSagas);
     }
 
-    private SagaState CloneSagaState(SagaState original)
+    private static SagaState CloneSagaState(SagaState original)
     {
         var json = JsonSerializer.Serialize(original);
         return JsonSerializer.Deserialize<SagaState>(json)!;

@@ -11,6 +11,17 @@ using Microsoft.Extensions.Logging;
 namespace BookingCare.Shared.Saga.Steps.Grpc;
 
 /// <summary>
+/// Constants used across gRPC saga steps
+/// </summary>
+public static class GrpcSagaConstants
+{
+    public const string UserIdKey = "UserId";
+    public const string DefaultAuthServiceUrl = "https://localhost:6013";
+    public const string DefaultUserServiceUrl = "https://localhost:6012";
+    public const string DefaultNotificationServiceUrl = "https://localhost:6020";
+}
+
+/// <summary>
 /// Saga step that creates user account via gRPC call to Auth Service
 /// </summary>
 public class CreateUserAccountGrpcStep : CompensatableSagaStepBase
@@ -36,11 +47,11 @@ public class CreateUserAccountGrpcStep : CompensatableSagaStepBase
             // Get user data from context
             var email = context.GetData<string>("Email") ?? throw new InvalidOperationException("Email is required");
             var password = context.GetData<string>("Password") ?? throw new InvalidOperationException("Password is required");
-            var userId = context.GetData<string>("UserId") ?? Guid.NewGuid().ToString();
+            var userId = context.GetData<string>(GrpcSagaConstants.UserIdKey) ?? Guid.NewGuid().ToString();
             var role = context.GetData<string>("Role") ?? "patient";
 
             // Create gRPC channel
-            var authServiceUrl = _configuration["Services:Auth:GrpcUrl"] ?? "https://localhost:6013";
+            var authServiceUrl = _configuration["Services:Auth:GrpcUrl"] ?? GrpcSagaConstants.DefaultAuthServiceUrl;
             using var channel = GrpcChannel.ForAddress(authServiceUrl);
             var client = new AuthService.AuthServiceClient(channel);
 
@@ -65,7 +76,7 @@ public class CreateUserAccountGrpcStep : CompensatableSagaStepBase
 
             // Store account data in context for next steps and compensation
             context.SetData("AccountId", response.AccountId);
-            context.SetData("UserId", response.UserId);
+            context.SetData(GrpcSagaConstants.UserIdKey, response.UserId);
             context.SetData("VerificationToken", response.VerificationToken);
 
             _logger.LogInformation("User account created successfully. AccountId: {AccountId}, UserId: {UserId}",
@@ -74,7 +85,7 @@ public class CreateUserAccountGrpcStep : CompensatableSagaStepBase
             return Success(new Dictionary<string, object>
             {
                 ["AccountId"] = response.AccountId,
-                ["UserId"] = response.UserId,
+                [GrpcSagaConstants.UserIdKey] = response.UserId,
                 ["VerificationToken"] = response.VerificationToken
             });
         }
@@ -92,7 +103,7 @@ public class CreateUserAccountGrpcStep : CompensatableSagaStepBase
             _logger.LogInformation("Compensating CreateUserAccount step for SagaId: {SagaId}", context.SagaId);
 
             var accountId = context.GetData<string>("AccountId");
-            var userId = context.GetData<string>("UserId");
+            var userId = context.GetData<string>(GrpcSagaConstants.UserIdKey);
 
             if (string.IsNullOrEmpty(accountId) || string.IsNullOrEmpty(userId))
             {
@@ -101,7 +112,7 @@ public class CreateUserAccountGrpcStep : CompensatableSagaStepBase
             }
 
             // Create gRPC channel
-            var authServiceUrl = _configuration["Services:Auth:GrpcUrl"] ?? "https://localhost:6013";
+            var authServiceUrl = _configuration["Services:Auth:GrpcUrl"] ?? GrpcSagaConstants.DefaultAuthServiceUrl;
             using var channel = GrpcChannel.ForAddress(authServiceUrl);
             var client = new AuthService.AuthServiceClient(channel);
 
@@ -157,7 +168,7 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
             _logger.LogInformation("Executing CreateUserProfile step for SagaId: {SagaId}", context.SagaId);
 
             // Get user data from context
-            var userId = context.GetData<string>("UserId") ?? throw new InvalidOperationException("UserId is required");
+            var userId = context.GetData<string>(GrpcSagaConstants.UserIdKey) ?? throw new InvalidOperationException("UserId is required");
             var email = context.GetData<string>("Email") ?? throw new InvalidOperationException("Email is required");
             var firstName = context.GetData<string>("FirstName") ?? "";
             var lastName = context.GetData<string>("LastName") ?? "";
@@ -167,7 +178,7 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
             var address = context.GetData<string>("Address") ?? "";
 
             // Create gRPC channel
-            var userServiceUrl = _configuration["Services:User:GrpcUrl"] ?? "https://localhost:6012";
+            var userServiceUrl = _configuration["Services:User:GrpcUrl"] ?? GrpcSagaConstants.DefaultUserServiceUrl;
             using var channel = GrpcChannel.ForAddress(userServiceUrl);
             var client = new UserService.UserServiceClient(channel);
 
@@ -217,7 +228,7 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
             _logger.LogInformation("Compensating CreateUserProfile step for SagaId: {SagaId}", context.SagaId);
 
             var profileId = context.GetData<string>("ProfileId");
-            var userId = context.GetData<string>("UserId");
+            var userId = context.GetData<string>(GrpcSagaConstants.UserIdKey);
 
             if (string.IsNullOrEmpty(profileId) || string.IsNullOrEmpty(userId))
             {
@@ -226,7 +237,7 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
             }
 
             // Create gRPC channel
-            var userServiceUrl = _configuration["Services:User:GrpcUrl"] ?? "https://localhost:6012";
+            var userServiceUrl = _configuration["Services:User:GrpcUrl"] ?? GrpcSagaConstants.DefaultUserServiceUrl;
             using var channel = GrpcChannel.ForAddress(userServiceUrl);
             var client = new UserService.UserServiceClient(channel);
 
@@ -282,13 +293,13 @@ public class SendVerificationEmailGrpcStep : CompensatableSagaStepBase
             _logger.LogInformation("Executing SendVerificationEmail step for SagaId: {SagaId}", context.SagaId);
 
             var email = context.GetData<string>("Email") ?? throw new InvalidOperationException("Email is required");
-            var userId = context.GetData<string>("UserId") ?? throw new InvalidOperationException("UserId is required");
+            var userId = context.GetData<string>(GrpcSagaConstants.UserIdKey) ?? throw new InvalidOperationException("UserId is required");
             var verificationToken = context.GetData<string>("VerificationToken") ?? throw new InvalidOperationException("VerificationToken is required");
             var firstName = context.GetData<string>("FirstName") ?? "User";
             var lastName = context.GetData<string>("LastName") ?? "User";
 
             // Create gRPC channel to Notification Service
-            var notificationServiceUrl = _configuration["Services:Notification:GrpcUrl"] ?? "https://localhost:6020";
+            var notificationServiceUrl = _configuration["Services:Notification:GrpcUrl"] ?? GrpcSagaConstants.DefaultNotificationServiceUrl;
             using var channel = GrpcChannel.ForAddress(notificationServiceUrl);
             var client = new NotificationService.NotificationServiceClient(channel);
 

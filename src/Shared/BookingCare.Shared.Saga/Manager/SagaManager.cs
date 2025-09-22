@@ -16,20 +16,17 @@ public class SagaManager : ISagaManager
     private readonly IServiceProvider _serviceProvider;
     private readonly ISagaOrchestrator _orchestrator;
     private readonly ISagaStateStore _stateStore;
-    private readonly IEventBus _eventBus;
     private readonly ILogger<SagaManager> _logger;
 
     public SagaManager(
         IServiceProvider serviceProvider,
         ISagaOrchestrator orchestrator,
         ISagaStateStore stateStore,
-        IEventBus eventBus,
         ILogger<SagaManager> logger)
     {
         _serviceProvider = serviceProvider;
         _orchestrator = orchestrator;
         _stateStore = stateStore;
-        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -65,8 +62,9 @@ public class SagaManager : ISagaManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error starting saga {SagaType}", typeof(TSaga).Name);
-            throw;
+            var errorMessage = $"Error starting saga {typeof(TSaga).Name}";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
@@ -108,8 +106,9 @@ public class SagaManager : ISagaManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling event {EventType}", typeof(TEvent).Name);
-            throw;
+            var errorMessage = $"Error handling event {typeof(TEvent).Name}";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
@@ -153,8 +152,9 @@ public class SagaManager : ISagaManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing pending sagas");
-            throw;
+            var errorMessage = "Error processing pending sagas";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 
