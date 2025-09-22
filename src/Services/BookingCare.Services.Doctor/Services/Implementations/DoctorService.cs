@@ -37,15 +37,18 @@ public class DoctorService : BaseService, IDoctorService
     /// </summary>
     public async Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request)
     {
-        await ValidateCreateDoctorRequest(request);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            await ValidateCreateDoctorRequest(request);
 
-        var doctor = CreateDoctorEntity(request);
-        var createdDoctor = await _repository.CreateDoctorAsync(doctor);
+            var doctor = CreateDoctorEntity(request);
+            var createdDoctor = await _repository.CreateDoctorAsync(doctor);
 
-        await CreateDoctorPricesAsync(createdDoctor.Id, request.Prices);
-        await CreateDoctorLanguagesAsync(createdDoctor.Id, request.LanguageIds);
+            await CreateDoctorPricesAsync(createdDoctor.Id, request.Prices);
+            await CreateDoctorLanguagesAsync(createdDoctor.Id, request.LanguageIds);
 
-        return _mapper.Map<DoctorResponse>(createdDoctor);
+            return _mapper.Map<DoctorResponse>(createdDoctor);
+        }, nameof(CreateDoctorAsync));
     }
 
     private async Task ValidateCreateDoctorRequest(CreateDoctorRequest request)
@@ -167,17 +170,20 @@ public class DoctorService : BaseService, IDoctorService
     /// </summary>
     public async Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request)
     {
-        var existingDoctor = await ValidateAndGetExistingDoctor(request.Id);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var existingDoctor = await ValidateAndGetExistingDoctor(request.Id);
 
-        await ValidateUpdateDoctorRequest(request);
+            await ValidateUpdateDoctorRequest(request);
 
-        UpdateDoctorEntity(existingDoctor, request);
+            UpdateDoctorEntity(existingDoctor, request);
 
-        await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
-        await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
+            await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
+            await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
 
-        var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);
-        return _mapper.Map<DoctorResponse>(updatedDoctor);
+            var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);
+            return _mapper.Map<DoctorResponse>(updatedDoctor);
+        }, nameof(UpdateDoctorAsync));
     }
 
     private async Task<DoctorEntity> ValidateAndGetExistingDoctor(Guid id)
@@ -231,7 +237,10 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<bool> DeleteDoctorAsync(Guid id)
     {
-        return await _repository.DeleteDoctorAsync(id);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            return await _repository.DeleteDoctorAsync(id);
+        }, nameof(DeleteDoctorAsync));
     }
 
     #endregion
@@ -521,29 +530,32 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<DoctorPriceResponse> AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request)
     {
-        // Validate doctor exists
-        if (!await _repository.DoctorExistsAsync(request.DoctorId))
+        return await ExecuteWithErrorHandling(async () =>
         {
-            throw DoctorNotFoundException.WithId(request.DoctorId);
-        }
+            // Validate doctor exists
+            if (!await _repository.DoctorExistsAsync(request.DoctorId))
+            {
+                throw DoctorNotFoundException.WithId(request.DoctorId);
+            }
 
-        // Get doctor
-        var doctor = await _repository.GetDoctorByIdAsync(request.DoctorId);
-        if (doctor == null)
-        {
-            throw DoctorNotFoundException.WithId(request.DoctorId);
-        }
+            // Get doctor
+            var doctor = await _repository.GetDoctorByIdAsync(request.DoctorId);
+            if (doctor == null)
+            {
+                throw DoctorNotFoundException.WithId(request.DoctorId);
+            }
 
-        // Create doctor-price relationship
-        var doctorPrice = new DoctorPriceEntity
-        {
-            Id = Guid.NewGuid(),
-            DoctorId = request.DoctorId,
-            Amount = request.Amount
-        };
+            // Create doctor-price relationship
+            var doctorPrice = new DoctorPriceEntity
+            {
+                Id = Guid.NewGuid(),
+                DoctorId = request.DoctorId,
+                Amount = request.Amount
+            };
 
-        var createdDoctorPrice = await _repository.CreateDoctorPriceAsync(doctorPrice);
-        return _mapper.Map<DoctorPriceResponse>(createdDoctorPrice);
+            var createdDoctorPrice = await _repository.CreateDoctorPriceAsync(doctorPrice);
+            return _mapper.Map<DoctorPriceResponse>(createdDoctorPrice);
+        }, nameof(AssignPriceToDoctorAsync));
     }
 
     public async Task<bool> RemovePriceFromDoctorAsync(Guid doctorId, Guid priceId)
