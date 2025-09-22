@@ -10,9 +10,9 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      # - RABBITMQ_DEFAULT_USER=bookingcare
-      # - RABBITMQ_DEFAULT_PASS=bookingcare@1234
-      # - RABBITMQ_DEFAULT_VHOST=/
+      - RABBITMQ_DEFAULT_USER=bookingcare
+      - RABBITMQ_DEFAULT_PASS=bookingcare@1234
+      - RABBITMQ_DEFAULT_VHOST=/
       - RABBITMQ_CONFIG_FILE=/etc/rabbitmq/rabbitmq
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
@@ -137,6 +137,21 @@ services:
       - MSSQL_PID=Developer
     volumes:
       - sqlserver_discount_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+
+  sqlserver-saga:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_saga
+    ports:
+      - "1400:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Saga@1234
+      - MSSQL_DB=MABS_Sagas
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_saga_data:/var/opt/mssql
     networks:
       - bookingcare-network
 
@@ -356,6 +371,7 @@ services:
 volumes:
   sqlserver:
   sqlserver_discount_data:
+  sqlserver_saga_data:
   mongodb_data:
   rabbitmq_data:
     driver: local

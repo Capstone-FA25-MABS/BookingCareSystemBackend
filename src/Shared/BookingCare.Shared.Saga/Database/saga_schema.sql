@@ -1,13 +1,44 @@
--- BookingCare Saga State Database Schema
--- Version: 1.0.0
--- Date: 2025-09-08
+-- BookingCare Saga Database Setup Script
+-- This script creates the MABS_Sagas database and all required objects
+-- Execute this script in SQL Server Management Studio or sqlcmd
 
--- Create database if not exists (optional - usually done separately)
--- CREATE DATABASE BookingCareSaga;
--- GO
+-- Step 1: Create database if it doesn't exist
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'MABS_Sagas')
+BEGIN
+    CREATE DATABASE MABS_Sagas;
+    PRINT 'Database MABS_Sagas created successfully.';
+END
+ELSE
+BEGIN
+    PRINT 'Database MABS_Sagas already exists.';
+END
 
--- USE BookingCareSaga;
--- GO
+GO
+
+-- Step 2: Use the database
+USE MABS_Sagas;
+
+GO
+
+-- Step 3: Check if tables already exist and drop them if needed (for clean setup)
+IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'SagaStepExecutions')
+    DROP TABLE SagaStepExecutions;
+
+IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'SagaEvents')
+    DROP TABLE SagaEvents;
+
+IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'SagaMetrics')
+    DROP TABLE SagaMetrics;
+
+IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'SagaStates')
+    DROP TABLE SagaStates;
+
+PRINT 'Existing tables cleaned up.';
+
+GO
+
+-- Step 4: Create all tables, views, and stored procedures
+-- (This is the complete saga_schema.sql content)
 
 -- Create Saga States table
 CREATE TABLE SagaStates (
@@ -31,6 +62,8 @@ CREATE TABLE SagaStates (
     Version ROWVERSION NOT NULL -- For optimistic concurrency
 );
 
+PRINT 'SagaStates table created.';
+
 -- Create indexes for performance
 CREATE INDEX IX_SagaStates_Status ON SagaStates (Status);
 CREATE INDEX IX_SagaStates_SagaName ON SagaStates (SagaName);
@@ -38,6 +71,8 @@ CREATE INDEX IX_SagaStates_CreatedAt ON SagaStates (CreatedAt);
 CREATE INDEX IX_SagaStates_NextRetryAt ON SagaStates (NextRetryAt) WHERE NextRetryAt IS NOT NULL;
 CREATE INDEX IX_SagaStates_CorrelationId ON SagaStates (CorrelationId) WHERE CorrelationId IS NOT NULL;
 CREATE INDEX IX_SagaStates_UserId ON SagaStates (UserId) WHERE UserId IS NOT NULL;
+
+PRINT 'SagaStates indexes created.';
 
 -- Create Saga Events table for audit trail
 CREATE TABLE SagaEvents (
@@ -51,10 +86,14 @@ CREATE TABLE SagaEvents (
     FOREIGN KEY (SagaId) REFERENCES SagaStates(SagaId) ON DELETE CASCADE
 );
 
+PRINT 'SagaEvents table created.';
+
 -- Create indexes for saga events
 CREATE INDEX IX_SagaEvents_SagaId ON SagaEvents (SagaId);
 CREATE INDEX IX_SagaEvents_EventType ON SagaEvents (EventType);
 CREATE INDEX IX_SagaEvents_CreatedAt ON SagaEvents (CreatedAt);
+
+PRINT 'SagaEvents indexes created.';
 
 -- Create Saga Step Executions table for detailed tracking
 CREATE TABLE SagaStepExecutions (
@@ -75,11 +114,15 @@ CREATE TABLE SagaStepExecutions (
     FOREIGN KEY (SagaId) REFERENCES SagaStates(SagaId) ON DELETE CASCADE
 );
 
+PRINT 'SagaStepExecutions table created.';
+
 -- Create indexes for step executions
 CREATE INDEX IX_SagaStepExecutions_SagaId ON SagaStepExecutions (SagaId);
 CREATE INDEX IX_SagaStepExecutions_StepName ON SagaStepExecutions (StepName);
 CREATE INDEX IX_SagaStepExecutions_Status ON SagaStepExecutions (Status);
 CREATE INDEX IX_SagaStepExecutions_StartedAt ON SagaStepExecutions (StartedAt);
+
+PRINT 'SagaStepExecutions indexes created.';
 
 -- Create Saga Metrics table for monitoring
 CREATE TABLE SagaMetrics (
@@ -93,51 +136,17 @@ CREATE TABLE SagaMetrics (
     CreatedAt DATETIME2(7) NOT NULL DEFAULT GETUTCDATE()
 );
 
+PRINT 'SagaMetrics table created.';
+
 -- Create indexes for metrics
 CREATE INDEX IX_SagaMetrics_SagaName_MetricType ON SagaMetrics (SagaName, MetricType);
 CREATE INDEX IX_SagaMetrics_WindowStart ON SagaMetrics (WindowStart);
 
--- Create views for common queries
-GO
-
--- View for pending sagas that need processing
-CREATE VIEW PendingSagas AS
-SELECT 
-    SagaId,
-    SagaName,
-    Status,
-    CurrentStep,
-    CreatedAt,
-    UpdatedAt,
-    RetryCount,
-    NextRetryAt,
-    CorrelationId,
-    UserId
-FROM SagaStates
-WHERE Status IN ('Pending', 'Running') 
-   OR (Status = 'Failed' AND NextRetryAt IS NOT NULL AND NextRetryAt <= GETUTCDATE());
+PRINT 'SagaMetrics indexes created.';
 
 GO
 
--- View for saga execution summary
-CREATE VIEW SagaExecutionSummary AS
-SELECT 
-    s.SagaId,
-    s.SagaName,
-    s.Status,
-    s.CreatedAt,
-    s.CompletedAt,
-    DATEDIFF(MILLISECOND, s.CreatedAt, ISNULL(s.CompletedAt, GETUTCDATE())) AS ExecutionTimeMs,
-    (SELECT COUNT(*) FROM SagaStepExecutions se WHERE se.SagaId = s.SagaId AND se.Status = 'Completed' AND se.IsCompensation = 0) AS CompletedSteps,
-    (SELECT COUNT(*) FROM SagaStepExecutions se WHERE se.SagaId = s.SagaId AND se.Status = 'Failed') AS FailedSteps,
-    (SELECT COUNT(*) FROM SagaStepExecutions se WHERE se.SagaId = s.SagaId AND se.IsCompensation = 1) AS CompensatedSteps,
-    s.CorrelationId,
-    s.UserId
-FROM SagaStates s;
-
-GO
-
--- Stored procedures for common operations
+-- Step 5: Create stored procedures
 
 -- Get saga state with concurrency check
 CREATE PROCEDURE GetSagaState
@@ -168,6 +177,8 @@ BEGIN
     FROM SagaStates
     WHERE SagaId = @SagaId;
 END;
+
+PRINT 'GetSagaState procedure created.';
 
 GO
 
@@ -204,8 +215,10 @@ BEGIN
     
     -- Log saga started event
     INSERT INTO SagaEvents (SagaId, EventType, EventData)
-    VALUES (@SagaId, 'SagaStarted', JSON_OBJECT('SagaName', @SagaName, 'Status', @Status));
+    VALUES (@SagaId, 'SagaStarted', CONCAT('{"SagaName":"', @SagaName, '","Status":"', @Status, '"}'));
 END;
+
+PRINT 'SaveSagaState procedure created.';
 
 GO
 
@@ -220,23 +233,10 @@ CREATE PROCEDURE UpdateSagaState
     @ErrorMessage NVARCHAR(MAX) = NULL,
     @RetryCount INT = 0,
     @NextRetryAt DATETIME2(7) = NULL,
-    @StepData NVARCHAR(MAX) = NULL,
-    @ExpectedVersion ROWVERSION
+    @StepData NVARCHAR(MAX) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    
-    DECLARE @CurrentVersion ROWVERSION;
-    DECLARE @RowsAffected INT;
-    
-    -- Check current version
-    SELECT @CurrentVersion = Version FROM SagaStates WHERE SagaId = @SagaId;
-    
-    IF @CurrentVersion != @ExpectedVersion
-    BEGIN
-        RAISERROR('Concurrency conflict: Saga state was modified by another process', 16, 1);
-        RETURN;
-    END;
     
     UPDATE SagaStates
     SET 
@@ -251,20 +251,14 @@ BEGIN
         RetryCount = @RetryCount,
         NextRetryAt = @NextRetryAt,
         StepData = @StepData
-    WHERE SagaId = @SagaId AND Version = @ExpectedVersion;
-    
-    SET @RowsAffected = @@ROWCOUNT;
-    
-    IF @RowsAffected = 0
-    BEGIN
-        RAISERROR('Saga state update failed - concurrency conflict or saga not found', 16, 1);
-        RETURN;
-    END;
+    WHERE SagaId = @SagaId;
     
     -- Log saga status change event
     INSERT INTO SagaEvents (SagaId, EventType, EventData)
-    VALUES (@SagaId, 'StatusChanged', JSON_OBJECT('NewStatus', @Status, 'CurrentStep', @CurrentStep));
+    VALUES (@SagaId, 'StatusChanged', CONCAT('{"NewStatus":"', @Status, '","CurrentStep":"', ISNULL(@CurrentStep, ''), '"}'));
 END;
+
+PRINT 'UpdateSagaState procedure created.';
 
 GO
 
@@ -276,7 +270,7 @@ BEGIN
     SET NOCOUNT ON;
     
     SELECT TOP (@MaxCount)
-        SagaId,
+        SagaId as SagaId,
         SagaName,
         Status,
         ContextData,
@@ -299,6 +293,8 @@ BEGIN
        OR (Status = 'Failed' AND NextRetryAt IS NOT NULL AND NextRetryAt <= GETUTCDATE())
     ORDER BY CreatedAt;
 END;
+
+PRINT 'GetPendingSagas procedure created.';
 
 GO
 
@@ -332,6 +328,8 @@ BEGIN
     );
 END;
 
+PRINT 'LogSagaStepExecution procedure created.';
+
 GO
 
 -- Cleanup completed sagas older than specified days
@@ -353,17 +351,6 @@ BEGIN
     SELECT @DeletedCount as DeletedSagasCount;
 END;
 
+PRINT 'CleanupCompletedSagas procedure created.';
+
 GO
-
--- Grant permissions (adjust based on your security requirements)
--- CREATE USER [BookingCareSagaUser] FOR LOGIN [BookingCareSagaLogin];
--- GRANT SELECT, INSERT, UPDATE, DELETE ON SagaStates TO [BookingCareSagaUser];
--- GRANT SELECT, INSERT ON SagaEvents TO [BookingCareSagaUser];
--- GRANT SELECT, INSERT ON SagaStepExecutions TO [BookingCareSagaUser];
--- GRANT EXECUTE ON GetSagaState TO [BookingCareSagaUser];
--- GRANT EXECUTE ON SaveSagaState TO [BookingCareSagaUser];
--- GRANT EXECUTE ON UpdateSagaState TO [BookingCareSagaUser];
--- GRANT EXECUTE ON GetPendingSagas TO [BookingCareSagaUser];
--- GRANT EXECUTE ON LogSagaStepExecution TO [BookingCareSagaUser];
-
-PRINT 'BookingCare Saga database schema created successfully!';
