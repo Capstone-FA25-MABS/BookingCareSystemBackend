@@ -106,6 +106,8 @@ public class VNPayController : BaseApiController
     [HttpGet("callback")]
     public async Task<IActionResult> VNPayCallback()
     {
+        // Align with PayOS callback structure
+        var requestId = Guid.NewGuid().ToString("N")[..8];
         try
         {
             // Get all query parameters
@@ -114,7 +116,7 @@ public class VNPayController : BaseApiController
                 kv => kv.Value.ToString()
             );
 
-            _logger.LogInformation("Received VNPay callback with {ParamCount} parameters", rawQueryParams.Count);
+            _logger.LogInformation("VNPay Callback #{RequestId} received with {ParamCount} parameters", requestId, rawQueryParams.Count);
 
             // Process callback
             var callbackResult = await _vnpayService.ProcessCallbackAsync(rawQueryParams);
@@ -123,53 +125,56 @@ public class VNPayController : BaseApiController
             var paymentIdStr = callbackResult.vnp_TxnRef.Split('_')[0];
             if (!Guid.TryParse(paymentIdStr, out var paymentId))
             {
-                _logger.LogError("Invalid PaymentId format in TxnRef: {TxnRef}", callbackResult.vnp_TxnRef);
+                _logger.LogError("VNPay Callback #{RequestId} - Invalid PaymentId format in TxnRef: {TxnRef}", requestId, callbackResult.vnp_TxnRef);
                 return BadRequest("Invalid transaction reference format");
             }
 
             // Update payment status based on VNPay result
             var newStatus = callbackResult.IsSuccess ? "COMPLETED" : "FAILED";
-
             await _paymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
             {
                 Id = paymentId,
                 Status = Enum.Parse<Shared.Common.Enums.PaymentStatus>(newStatus)
             });
 
-            // Return result for frontend to handle
-            var result = new
+            var message = GetVNPayResponseMessage(callbackResult.vnp_ResponseCode);
+
+            // Unified response object similar to PayOS callback
+            var unified = new
             {
-                PaymentId = paymentId,
                 Success = callbackResult.IsSuccess,
-                TransactionNo = callbackResult.vnp_TransactionNo,
+                PaymentId = paymentId,
+                OrderCode = callbackResult.vnp_TxnRef, // sử dụng TxnRef như OrderCode tương đương
+                Code = callbackResult.vnp_ResponseCode,
                 Amount = callbackResult.GetActualAmount,
-                BankCode = callbackResult.vnp_BankCode,
+                Message = message,
                 PaymentDate = callbackResult.GetPaymentDateTime(),
-                ResponseCode = callbackResult.vnp_ResponseCode,
-                Message = GetVNPayResponseMessage(callbackResult.vnp_ResponseCode)
+                RequestId = requestId,
+                ProcessedAt = DateTime.UtcNow,
+                IsAlreadyProcessed = false, // VNPay flow hiện chưa đánh dấu duplicate theo cache
             };
 
             if (callbackResult.IsSuccess)
             {
-                _logger.LogInformation("VNPay payment completed successfully for PaymentId: {PaymentId}", paymentId);
-                return Success(result, "Thanh toán VNPay thành công");
+                _logger.LogInformation("VNPay Callback #{RequestId} - Payment completed successfully for PaymentId: {PaymentId}", requestId, paymentId);
             }
             else
             {
-                _logger.LogWarning("VNPay payment failed for PaymentId: {PaymentId}, ResponseCode: {ResponseCode}",
-                    paymentId, callbackResult.vnp_ResponseCode);
-                return BadRequest($"Thanh toán VNPay thất bại: {result.Message}", new List<string> { result.Message });
+                _logger.LogWarning("VNPay Callback #{RequestId} - Payment failed for PaymentId: {PaymentId}, ResponseCode: {ResponseCode}",
+                    requestId, paymentId, callbackResult.vnp_ResponseCode);
             }
+
+            return Success(unified, callbackResult.IsSuccess ? "Thanh toán VNPay thành công" : "Thanh toán VNPay thất bại");
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogError(ex, "VNPay callback signature validation failed");
+            _logger.LogError(ex, "VNPay Callback #{RequestId} - Signature validation failed", requestId);
             return BadRequest("Chữ ký VNPay không hợp lệ");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing VNPay callback");
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi xử lý callback VNPay" });
+            _logger.LogError(ex, "VNPay Callback #{RequestId} - Error processing callback", requestId);
+            return StatusCode(500, new { Message = "Có lỗi xảy ra khi xử lý callback VNPay", RequestId = requestId });
         }
     }
 
@@ -188,12 +193,10 @@ public class VNPayController : BaseApiController
             {
                 return BadRequest("Transaction reference không được để trống");
             }
-
             if (string.IsNullOrEmpty(transactionDate))
             {
                 return BadRequest("Transaction date không được để trống");
             }
-
             var result = await _vnpayService.QueryTransactionAsync(transactionRef, transactionDate);
             return Success(result, "Query giao dịch VNPay thành công");
         }
@@ -234,24 +237,21 @@ public class VNPayController : BaseApiController
     /// </summary>
     /// <param name="responseCode">VNPay response code</param>
     /// <returns>Human readable message</returns>
-    private string GetVNPayResponseMessage(string responseCode)
+    private string GetVNPayResponseMessage(string responseCode) => responseCode switch
     {
-        return responseCode switch
-        {
-            "00" => "Giao dịch thành công",
-            "07" => "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).",
-            "09" => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng chưa đăng ký dịch vụ InternetBanking tại ngân hàng.",
-            "10" => "Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần",
-            "11" => "Giao dịch không thành công do: Đã hết hạn chờ thanh toán. Xin quý khách vui lòng thực hiện lại giao dịch.",
-            "12" => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa.",
-            "13" => "Giao dịch không thành công do Quý khách nhập sai mật khẩu xác thực giao dịch (OTP). Xin quý khách vui lòng thực hiện lại giao dịch.",
-            "24" => "Giao dịch không thành công do: Khách hàng hủy giao dịch",
-            "51" => "Giao dịch không thành công do: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch.",
-            "65" => "Giao dịch không thành công do: Tài khoản của Quý khách đã vượt quá hạn mức giao dịch trong ngày.",
-            "75" => "Ngân hàng thanh toán đang bảo trì.",
-            "79" => "Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định. Xin quý khách vui lòng thực hiện lại giao dịch",
-            "99" => "Các lỗi khác (lỗi còn lại, không có trong danh sách mã lỗi đã liệt kê)",
-            _ => "Lỗi không xác định"
-        };
-    }
+        "00" => "Giao dịch thành công",
+        "07" => "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).",
+        "09" => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng chưa đăng ký dịch vụ InternetBanking tại ngân hàng.",
+        "10" => "Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần",
+        "11" => "Giao dịch không thành công do: Đã hết hạn chờ thanh toán. Xin quý khách vui lòng thực hiện lại giao dịch.",
+        "12" => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa.",
+        "13" => "Giao dịch không thành công do Quý khách nhập sai mật khẩu xác thực giao dịch (OTP). Xin quý khách vui lòng thực hiện lại giao dịch.",
+        "24" => "Giao dịch không thành công do: Khách hàng hủy giao dịch",
+        "51" => "Giao dịch không thành công do: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch.",
+        "65" => "Giao dịch không thành công do: Tài khoản của Quý khách đã vượt quá hạn mức giao dịch trong ngày.",
+        "75" => "Ngân hàng thanh toán đang bảo trì.",
+        "79" => "Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định. Xin quý khách vui lòng thực hiện lại giao dịch",
+        "99" => "Các lỗi khác (lỗi còn lại, không có trong danh sách mã lỗi đã liệt kê)",
+        _ => "Lỗi không xác định"
+    };
 }

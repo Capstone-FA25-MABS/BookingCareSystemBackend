@@ -20,13 +20,6 @@ public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentReques
             .LessThanOrEqualTo(999999999)
             .WithMessage("Amount không được vượt quá 999,999,999 VND");
 
-        RuleFor(x => x.OrderDescription)
-            .NotEmpty()
-            .WithMessage("OrderDescription không được để trống")
-            .MaximumLength(255)
-            .WithMessage("OrderDescription không được vượt quá 255 ký tự")
-            .Matches("^[a-zA-Z0-9 ._-]+$")
-            .WithMessage("OrderDescription chỉ được chứa chữ cái, số, dấu cách và các ký tự: ._-");
 
         // ClientIP là optional - chỉ validate khi có giá trị
         When(x => !string.IsNullOrEmpty(x.ClientIP), () =>

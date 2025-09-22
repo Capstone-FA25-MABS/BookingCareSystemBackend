@@ -104,56 +104,12 @@ public class PayOSController : BaseApiController
         }
     }
 
-    /// <summary>
-    /// Webhook endpoint để nhận thông báo từ PayOS
-    /// </summary>
-    /// <param name="webhookData">Dữ liệu webhook từ PayOS</param>
-    /// <returns>Kết quả xử lý webhook</returns>
-    [HttpPost("webhook")]
-    public async Task<IActionResult> PayOSWebhook([FromBody] PayOSWebhookData webhookData)
-    {
-        try
-        {
-            _logger.LogInformation("Received PayOS webhook for OrderCode: {OrderCode}", webhookData.OrderCode);
-
-            // Verify signature if provided
-            if (Request.Headers.ContainsKey("X-PayOS-Signature"))
-            {
-                var signature = Request.Headers["X-PayOS-Signature"].FirstOrDefault();
-                var webhookBody = await new StreamReader(Request.Body).ReadToEndAsync();
-
-                if (!_payOSService.VerifyWebhookSignature(webhookBody, signature))
-                {
-                    _logger.LogWarning("PayOS webhook signature verification failed for OrderCode: {OrderCode}", webhookData.OrderCode);
-                    return BadRequest("Invalid signature");
-                }
-            }
-
-            // Process webhook
-            var result = await _payOSService.ProcessWebhookAsync(webhookData);
-
-            _logger.LogInformation("PayOS webhook processed successfully - PaymentId: {PaymentId}, Success: {Success}",
-                result.PaymentId, result.Success);
-
-            return Success(result, "Webhook PayOS xử lý thành công");
-        }
-        catch (ArgumentException ex)
-        {
-            _logger.LogWarning("PayOS webhook processing failed - Invalid argument: {Error}", ex.Message);
-            return BadRequest(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "PayOS webhook processing failed for OrderCode: {OrderCode}", webhookData.OrderCode);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi xử lý webhook PayOS" });
-        }
-    }
 
     /// <summary>
     /// Callback endpoint để nhận user quay về từ PayOS (success/cancel)
     /// </summary>
     /// <returns>Kết quả thanh toán</returns>
-    [HttpGet("callback")]
+    [HttpGet("payos-return")]
     public async Task<IActionResult> PayOSCallback([FromQuery] string code, [FromQuery] string id, [FromQuery] bool cancel, [FromQuery] string orderCode)
     {
         // Generate request ID để tracking duplicate calls

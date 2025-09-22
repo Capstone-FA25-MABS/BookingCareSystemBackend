@@ -15,13 +15,6 @@ public interface IPayOSService
     Task<PayOSPaymentResponse> CreatePaymentLinkAsync(PayOSPaymentRequest request);
 
     /// <summary>
-    /// X? lý webhook t? PayOS
-    /// </summary>
-    /// <param name="webhookData">D? li?u webhook t? PayOS</param>
-    /// <returns>K?t qu? x? lý webhook</returns>
-    Task<PayOSCallbackResponse> ProcessWebhookAsync(PayOSWebhookData webhookData);
-
-    /// <summary>
     /// Xử lý callback từ PayOS (khi user quay về từ PayOS)
     /// </summary>
     /// <param name="orderCode">Order code từ PayOS</param>
@@ -29,14 +22,6 @@ public interface IPayOSService
     /// <param name="cancel">Có bị hủy không</param>
     /// <returns>Kết quả xử lý callback</returns>
     Task<PayOSCallbackResponse> ProcessCallbackAsync(long orderCode, string code, bool cancel);
-
-    /// <summary>
-    /// Xác nh?n webhook signature t? PayOS
-    /// </summary>
-    /// <param name="webhookData">D? li?u webhook</param>
-    /// <param name="signature">Signature ?? xác th?c</param>
-    /// <returns>True n?u signature h?p l?</returns>
-    bool VerifyWebhookSignature(string webhookData, string signature);
 
     /// <summary>
     /// L?y thông tin payment t? PayOS
