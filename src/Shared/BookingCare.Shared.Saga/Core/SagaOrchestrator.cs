@@ -210,7 +210,8 @@ public class SagaOrchestrator : ISagaOrchestrator
         return sagaState?.Status ?? SagaStatus.Pending;
     }
 
-    private async Task<SagaStepResult> ExecuteStepWithRetry(ISagaStep step, SagaContext context, CancellationToken cancellationToken)
+    private async Task<SagaStepResult> ExecuteWithRetryAsync<T>(T step, SagaContext context, Func<T, SagaContext, CancellationToken, Task<SagaStepResult>> operation, string operationType, CancellationToken cancellationToken)
+        where T : ISagaStep
     {
         var retryPolicy = Policy
             .Handle<Exception>()
@@ -219,7 +220,7 @@ public class SagaOrchestrator : ISagaOrchestrator
                 sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
                 onRetry: (outcome, timespan, retryCount, ctx) =>
                 {
-                    _logger.LogWarning("Retrying step {StepName}, attempt {RetryCount}", step.StepName, retryCount);
+                    _logger.LogWarning("Retrying {OperationType} for step {StepName}, attempt {RetryCount}", operationType, step.StepName, retryCount);
                 });
 
         return await retryPolicy.ExecuteAsync(async () =>
@@ -227,38 +228,33 @@ public class SagaOrchestrator : ISagaOrchestrator
             using var timeout = new CancellationTokenSource(step.Timeout);
             using var combined = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
 
-            if (step is ICompensatableSagaStep compensatableStep)
+            return await operation(step, context, combined.Token);
+        });
+    }
+
+    private async Task<SagaStepResult> ExecuteStepWithRetry(ISagaStep step, SagaContext context, CancellationToken cancellationToken)
+    {
+        return await ExecuteWithRetryAsync(step, context, async (s, ctx, token) =>
+        {
+            if (s is ICompensatableSagaStep compensatableStep)
             {
-                return await compensatableStep.ExecuteAsync(context, combined.Token);
+                return await compensatableStep.ExecuteAsync(ctx, token);
             }
-            else if (step is IExecutableSagaStep executableStep)
+            else if (s is IExecutableSagaStep executableStep)
             {
-                return await executableStep.ExecuteAsync(context, combined.Token);
+                return await executableStep.ExecuteAsync(ctx, token);
             }
 
-            throw new NotSupportedException($"Step type not supported: {step.GetType().Name}");
-        });
+            throw new NotSupportedException($"Step type not supported: {s.GetType().Name}");
+        }, "execution", cancellationToken);
     }
 
     private async Task<SagaStepResult> CompensateStepWithRetry(ICompensatableSagaStep step, SagaContext context, CancellationToken cancellationToken)
     {
-        var retryPolicy = Policy
-            .Handle<Exception>()
-            .WaitAndRetryAsync(
-                retryCount: 3,
-                sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                onRetry: (outcome, timespan, retryCount, ctx) =>
-                {
-                    _logger.LogWarning("Retrying compensation for step {StepName}, attempt {RetryCount}", step.StepName, retryCount);
-                });
-
-        return await retryPolicy.ExecuteAsync(async () =>
+        return await ExecuteWithRetryAsync(step, context, async (s, ctx, token) =>
         {
-            using var timeout = new CancellationTokenSource(step.Timeout);
-            using var combined = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
-
-            return await step.CompensateAsync(context, combined.Token);
-        });
+            return await s.CompensateAsync(ctx, token);
+        }, "compensation", cancellationToken);
     }
 
     private ISagaDefinition? GetSagaDefinition(string sagaName)
