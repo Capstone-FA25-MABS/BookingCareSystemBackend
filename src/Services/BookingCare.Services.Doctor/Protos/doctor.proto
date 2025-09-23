@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Doctor.Protos";
+
+package doctor;
+
+// The doctor service definition
+service DoctorService {
+  // Get doctor by ID
+  rpc GetDoctor (GetDoctorRequest) returns (DoctorResponse);
+
+  // Get doctor by account ID
+  rpc GetDoctorByAccountId (GetDoctorByAccountIdRequest) returns (DoctorResponse);
+
+  // Create new doctor
+  rpc CreateDoctor (CreateDoctorRequest) returns (DoctorResponse);
+
+  // Batch retrieval for performance optimization
+  rpc GetDoctorsByAccountIds (GetDoctorsByAccountIdsRequest) returns (DoctorBatchResponse);
+}
+
+// Request messages
+message GetDoctorRequest {
+  string id = 1;
+}
+
+message GetDoctorByAccountIdRequest {
+  string account_id = 1;
+}
+
+message CreateDoctorRequest {
+  string account_id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string gender = 5;           // MALE, FEMALE, OTHER
+  string address = 6;
+  string specialty_id = 7;
+  string position_id = 8;
+  string hospital_id = 9;
+  string bio = 10;
+  int32 years_of_experience = 11;
+  string avatar_url = 12;
+}
+
+// Request message for batch doctor retrieval
+message GetDoctorsByAccountIdsRequest {
+  repeated string account_ids = 1;
+}
+
+// Response messages
+message DoctorResponse {
+  string id = 1;
+  string account_id = 2;
+  string email = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string full_name = 6;
+  string gender = 7;
+  string address = 8;
+  string specialty_id = 9;
+  string position_id = 10;
+  string hospital_id = 11;
+  string bio = 12;
+  int32 years_of_experience = 13;
+  string avatar_url = 14;
+  string created_at = 15; // ISO 8601
+  string updated_at = 16; // ISO 8601
+  string status = 17; // "ACTIVE" or "INACTIVE"
+}
+
+// Lightweight doctor information for performance optimization
+message DoctorBasicInfo {
+  string account_id = 1;
+  string email = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+}
+
+// Response message for batch doctor retrieval
+message DoctorBatchResponse {
+  repeated DoctorBasicInfo doctors = 1;
+}
