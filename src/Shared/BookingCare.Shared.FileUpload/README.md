@@ -81,18 +81,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Add S3 File Upload services
 builder.Services.AddS3FileUpload(builder.Configuration);
 
-// Or with custom configuration
-builder.Services.AddS3FileUpload(s3Config =>
-{
-    s3Config.BucketName = "my-bucket";
-    s3Config.Region = "us-east-1";
-    // ... other settings
-}, cloudFrontConfig =>
-{
-    cloudFrontConfig.Domain = "my-domain.cloudfront.net";
-    // ... other settings
-});
-
 var app = builder.Build();
 
 // Map controllers
