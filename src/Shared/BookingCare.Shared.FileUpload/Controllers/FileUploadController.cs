@@ -10,7 +10,7 @@ namespace BookingCare.Shared.FileUpload.Controllers;
 [Route("api/[controller]")]
 public class FileUploadController : ControllerBase
 {
-    private const string InternalServerErrorMessage = InternalServerErrorMessage;
+    private const string InternalServerErrorMessage = "An internal server error occurred.";
     
     private readonly IFileUploadService _fileUploadService;
     private readonly ILogger<FileUploadController> _logger;
