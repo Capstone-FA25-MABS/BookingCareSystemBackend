@@ -19,7 +19,7 @@ services:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     networks:
       - bookingcare-network
-    restart: unless-stopped
+    # restart: unless-stopped
     # healthcheck:
     #   test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
     #   interval: 30s
@@ -136,6 +136,36 @@ services:
       - MSSQL_PID=Developer
     volumes:
       - sqlserver_saga_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+
+  # sqlserver-user-service:
+  #   image: mcr.microsoft.com/azure-sql-edge:latest
+  #   container_name: bookingcare_sqlserver_user_service
+  #   ports:
+  #     - "1444:1433"
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #     - SA_PASSWORD=User@1234!
+  #     # - MSSQL_DB=MABS_Users
+  #     - MSSQL_PID=Developer
+  #   volumes:
+  #     - sqlserver_user_data:/var/opt/mssql
+  #   networks:
+  #     - bookingcare-network
+
+  sqlserver-user-service-v2:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_user_service_v2
+    ports:
+      - "1445:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=User@1234!
+      # - MSSQL_DB=MABS_Users
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_user_data_v2:/var/opt/mssql
     networks:
       - bookingcare-network
 
@@ -371,6 +401,9 @@ services:
 volumes:
   sqlserver:
   sqlserver_discount_data:
+  sqlserver_saga_data:
+  sqlserver_user_data:
+  sqlserver_user_data_v2:
   mongodb_data:
   rabbitmq_data:
     driver: local

@@ -362,7 +362,7 @@ public class S3FileUploadService : IFileUploadService
 
         try
         {
-            var pathsList = paths.Select(p => p.StartsWith("/") ? p : $"/{p}").ToList();
+            var pathsList = paths.Select(p => p.StartsWith('/') ? p : $"/{p}").ToList();
 
             var invalidationRequest = new CreateInvalidationRequest
             {

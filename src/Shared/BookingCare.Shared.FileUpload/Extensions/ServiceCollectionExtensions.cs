@@ -23,38 +23,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<S3Configuration>, S3ConfigurationValidator>();
 
         // Add AWS services
-        services.AddSingleton<IAmazonS3>(provider =>
-        {
-            var s3Config = provider.GetRequiredService<IOptions<S3Configuration>>().Value;
-
-            var awsConfig = new Amazon.S3.AmazonS3Config
-            {
-                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Config.Region)
-            };
-
-            return new AmazonS3Client(s3Config.AccessKey, s3Config.SecretKey, awsConfig);
-        });
-
-        services.AddSingleton<IAmazonCloudFront>(provider =>
-        {
-            var s3Config = provider.GetRequiredService<IOptions<S3Configuration>>().Value;
-            var cloudFrontConfig = provider.GetRequiredService<IOptions<CloudFrontConfiguration>>().Value;
-
-            if (string.IsNullOrEmpty(cloudFrontConfig.DistributionId))
-            {
-                return null!; // CloudFront is optional
-            }
-
-            var awsConfig = new AmazonCloudFrontConfig
-            {
-                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Config.Region)
-            };
-
-            return new AmazonCloudFrontClient(s3Config.AccessKey, s3Config.SecretKey, awsConfig);
-        });
-
-        // Add file upload service
-        services.AddScoped<IFileUploadService, S3FileUploadService>();
+        AddAwsServices(services);
 
         return services;
     }
@@ -77,6 +46,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<S3Configuration>, S3ConfigurationValidator>();
 
         // Add AWS services
+        AddAwsServices(services);
+
+        return services;
+    }
+
+    /// <summary>
+    /// Add AWS services (S3 and CloudFront) to the service collection
+    /// </summary>
+    private static void AddAwsServices(IServiceCollection services)
+    {
         services.AddSingleton<IAmazonS3>(provider =>
         {
             var s3Config = provider.GetRequiredService<IOptions<S3Configuration>>().Value;
@@ -109,8 +88,6 @@ public static class ServiceCollectionExtensions
 
         // Add file upload service
         services.AddScoped<IFileUploadService, S3FileUploadService>();
-
-        return services;
     }
 }
 
