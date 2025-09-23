@@ -90,7 +90,7 @@ public class RegisterRequest
 
     // OTP verification proof (used when registration requires prior OTP verification)
     public string? Proof { get; set; }
-    public long? IssuedAt { get; set; }
+    public string? IssuedAt { get; set; }
 
     // Who initiated/verified the OTP: "phone" or "email". Defaults to phone.
     [Required]
@@ -239,7 +239,7 @@ public class ResetTokenRequest
 
     // HMAC-based proof and timestamp from Notification Verify response
     public string? Proof { get; set; }
-    public long? IssuedAt { get; set; }
+    public string? IssuedAt { get; set; }
 }
 
 /// <summary>
