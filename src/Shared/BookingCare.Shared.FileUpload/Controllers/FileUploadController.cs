@@ -10,6 +10,8 @@ namespace BookingCare.Shared.FileUpload.Controllers;
 [Route("api/[controller]")]
 public class FileUploadController : ControllerBase
 {
+    private const string InternalServerErrorMessage = InternalServerErrorMessage;
+    
     private readonly IFileUploadService _fileUploadService;
     private readonly ILogger<FileUploadController> _logger;
 
@@ -57,7 +59,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error uploading file: {FileName}", file.FileName);
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -94,7 +96,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error uploading multiple files");
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -120,7 +122,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating presigned upload URL for file: {FileName}", request.FileName);
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -147,7 +149,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating presigned download URL for S3 key: {S3Key}", s3Key);
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -165,7 +167,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting file from S3. Key: {S3Key}", s3Key);
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -185,7 +187,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting multiple files from S3");
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -203,7 +205,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking if file exists in S3. Key: {S3Key}", s3Key);
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -227,7 +229,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting file info from S3. Key: {S3Key}", s3Key);
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -247,7 +249,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error invalidating CloudFront cache");
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 
@@ -265,7 +267,7 @@ public class FileUploadController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting CloudFront URL for S3 key: {S3Key}", s3Key);
-            return StatusCode(500, "Internal server error");
+            return StatusCode(500, InternalServerErrorMessage);
         }
     }
 }
