@@ -16,7 +16,7 @@ public class S3Configuration
     public string BucketName { get; set; } = string.Empty;
 
     [Required]
-    public string Region { get; set; } = "us-east-1";
+    public string Region { get; set; } = "ap-southeast-1";
 
     [Required]
     public string CloudFrontDomain { get; set; } = string.Empty;
