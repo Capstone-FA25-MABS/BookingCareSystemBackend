@@ -2,6 +2,9 @@ using BookingCare.Services.User.Models.DTOs;
 using BookingCare.Services.User.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Models;
+using BookingCare.Shared.FileUpload.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.User.Controllers;
@@ -13,10 +16,12 @@ namespace BookingCare.Services.User.Controllers;
 public class UsersController : BaseApiController
 {
     private readonly IUserService _userService;
+    private readonly IFileUploadService _fileUploadService;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, IFileUploadService fileUploadService)
     {
         _userService = userService;
+        _fileUploadService = fileUploadService;
     }
 
     /// <summary>
@@ -120,4 +125,74 @@ public class UsersController : BaseApiController
         return Success(users, "Users search completed successfully");
     }
 
+    /// <summary>
+    /// Upload user avatar
+    /// </summary>
+    /// <param name="file">Avatar image file</param>
+    /// <returns>Upload result with URLs</returns>
+    [HttpPost("upload-avatar")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> UploadAvatar(IFormFile file)
+    {
+        try
+        {
+            // Validate file input
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("No file provided or file is empty");
+            }
+
+            // Validate file size (10MB limit)
+            const long maxFileSize = 10 * 1024 * 1024; // 10MB
+            if (file.Length > maxFileSize)
+            {
+                return BadRequest($"File size exceeds maximum allowed size of {maxFileSize / (1024 * 1024)}MB");
+            }
+
+            // Validate file type
+            var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif" };
+            if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+            {
+                return BadRequest($"File type '{file.ContentType}' is not allowed. Allowed types: {string.Join(", ", allowedTypes)}");
+            }
+
+            using var stream = file.OpenReadStream();
+
+            var request = new FileUploadRequest
+            {
+                FileStream = stream,
+                FileName = file.FileName,
+                ContentType = file.ContentType,
+                Folder = "avatars",
+                GenerateUniqueFileName = true,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["UploadType"] = "Avatar",
+                    ["OriginalFileName"] = file.FileName,
+                    ["UploadedAt"] = DateTime.UtcNow.ToString("O")
+                }
+            };
+
+            var result = await _fileUploadService.UploadFileAsync(request);
+
+            if (result.Success)
+            {
+                return Success(new
+                {
+                    FileUrl = result.FileUrl,
+                    CloudFrontUrl = result.CloudFrontUrl,
+                    S3Key = result.S3Key,
+                    FileName = result.FileName,
+                    FileSize = result.FileSize,
+                    ContentType = result.ContentType
+                }, "Avatar uploaded successfully");
+            }
+
+            return BadRequest(result.ErrorMessage ?? "File upload failed");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred while uploading the avatar: {ex.Message}");
+        }
+    }
 }

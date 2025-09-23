@@ -12,7 +12,7 @@ public class UserMappingProfile : Profile
         CreateMap<UserEntity, UserResponse>();
 
         // Collection mappings for individual items
-        CreateMap<List<UserEntity>, List<UserResponse>>();
+        CreateMap<UserEntity, UserResponse>();
 
         // Request to Entity mappings
         CreateMap<CreateUserRequest, UserEntity>()

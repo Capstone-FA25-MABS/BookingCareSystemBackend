@@ -4,6 +4,7 @@ using BookingCare.Services.User.Repositories;
 using BookingCare.Services.User.Services;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Extensions;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 
@@ -57,6 +58,21 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1.0", new() { Title = "BookingCare User API", Version = "v1.0" });
 });
+
+// Add S3 File Upload services
+builder.Services.AddS3FileUpload(builder.Configuration);
+
+// Or with custom configuration
+// builder.Services.AddS3FileUpload(s3Config =>
+// {
+//     s3Config.BucketName = "mabs-capstone-fa25-s3-bucket";
+//     s3Config.Region = "ap-southeast-1";
+//     // ... other settings
+// }, cloudFrontConfig =>
+// {
+//     cloudFrontConfig.Domain = "d3bqdz0ieoqt9f.cloudfront.net";
+//     // ... other settings
+// });
 
 var app = builder.Build();
 
