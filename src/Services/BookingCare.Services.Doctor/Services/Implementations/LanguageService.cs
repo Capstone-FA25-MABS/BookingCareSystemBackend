@@ -5,15 +5,16 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
-public class LanguageService : ILanguageService
+public class LanguageService : BaseService, ILanguageService
 {
     private readonly ILanguageRepository _repository;
     private readonly IMapper _mapper;
 
-    public LanguageService(ILanguageRepository repository, IMapper mapper)
+    public LanguageService(ILanguageRepository repository, IMapper mapper, ILogger<LanguageService> logger) : base(logger)
     {
         _repository = repository;
         _mapper = mapper;
@@ -23,19 +24,22 @@ public class LanguageService : ILanguageService
 
     public async Task<LanguageResponse> CreateLanguageAsync(CreateLanguageRequest request)
     {
-        // Validate unique name
-        if (await _repository.LanguageNameExistsAsync(request.Name))
+        return await ExecuteWithErrorHandling(async () =>
         {
-            throw new ArgumentException($"Language with name '{request.Name}' already exists");
-        }
+            // Validate unique name
+            if (await _repository.LanguageNameExistsAsync(request.Name))
+            {
+                throw new ArgumentException($"Language with name '{request.Name}' already exists");
+            }
 
-        // Create language entity
-        var language = _mapper.Map<LanguageEntity>(request);
-        language.Id = Guid.NewGuid();
+            // Create language entity
+            var language = _mapper.Map<LanguageEntity>(request);
+            language.Id = Guid.NewGuid();
 
-        var createdLanguage = await _repository.CreateLanguageAsync(language);
-        var response = _mapper.Map<LanguageResponse>(createdLanguage);
-        return response;
+            var createdLanguage = await _repository.CreateLanguageAsync(language);
+            var response = _mapper.Map<LanguageResponse>(createdLanguage);
+            return response;
+        }, nameof(CreateLanguageAsync));
     }
 
     public async Task<LanguageResponse?> GetLanguageByIdAsync(Guid id)
@@ -52,26 +56,29 @@ public class LanguageService : ILanguageService
 
     public async Task<LanguageResponse> UpdateLanguageAsync(UpdateLanguageRequest request)
     {
-        // Check if language exists
-        var existingLanguage = await _repository.GetLanguageByIdAsync(request.Id);
-        if (existingLanguage == null)
+        return await ExecuteWithErrorHandling(async () =>
         {
-            throw new ArgumentException($"Language with ID {request.Id} not found");
-        }
+            // Check if language exists
+            var existingLanguage = await _repository.GetLanguageByIdAsync(request.Id);
+            if (existingLanguage == null)
+            {
+                throw new ArgumentException($"Language with ID {request.Id} not found");
+            }
 
-        // Validate unique name (exclude current language)
-        if (await _repository.LanguageNameExistsAsync(request.Name, request.Id))
-        {
-            throw new ArgumentException($"Language with name '{request.Name}' already exists");
-        }
+            // Validate unique name (exclude current language)
+            if (await _repository.LanguageNameExistsAsync(request.Name, request.Id))
+            {
+                throw new ArgumentException($"Language with name '{request.Name}' already exists");
+            }
 
-        // Update language entity
-        _mapper.Map(request, existingLanguage);
-        existingLanguage.UpdatedAt = DateTime.UtcNow;
+            // Update language entity
+            _mapper.Map(request, existingLanguage);
+            existingLanguage.UpdatedAt = DateTime.UtcNow;
 
-        var updatedLanguage = await _repository.UpdateLanguageAsync(existingLanguage);
-        var response = _mapper.Map<LanguageResponse>(updatedLanguage);
-        return response;
+            var updatedLanguage = await _repository.UpdateLanguageAsync(existingLanguage);
+            var response = _mapper.Map<LanguageResponse>(updatedLanguage);
+            return response;
+        }, nameof(UpdateLanguageAsync));
     }
 
     public async Task<bool> DeleteLanguageAsync(Guid id)

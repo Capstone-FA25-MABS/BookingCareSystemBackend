@@ -124,6 +124,21 @@ services:
     volumes:
       - sqlserver:/var/opt/mssql
 
+  sqlserver-saga:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_saga
+    ports:
+      - "1400:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Saga@1234
+      - MSSQL_DB=MABS_Sagas
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_saga_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+
   # Databases
   sqlserver-discount-service:
     image: mcr.microsoft.com/azure-sql-edge:latest

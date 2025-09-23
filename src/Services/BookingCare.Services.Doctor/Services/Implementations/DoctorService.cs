@@ -9,26 +9,25 @@ using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
-public class DoctorService : IDoctorService
+public class DoctorService : BaseService, IDoctorService
 {
     private readonly IDoctorRepository _repository;
     private readonly IPositionRepository _positionRepository;
     private readonly IMapper _mapper;
     private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
     private readonly AuthService.AuthServiceClient _authClient;
-    private readonly ILogger<DoctorService> _logger;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger) : base(logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
         _mapper = mapper;
         _favoritesClient = favoritesClient;
         _authClient = authClient;
-        _logger = logger;
     }
 
     #region Doctor CRUD Operations
@@ -38,15 +37,18 @@ public class DoctorService : IDoctorService
     /// </summary>
     public async Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request)
     {
-        await ValidateCreateDoctorRequest(request);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            await ValidateCreateDoctorRequest(request);
 
-        var doctor = CreateDoctorEntity(request);
-        var createdDoctor = await _repository.CreateDoctorAsync(doctor);
+            var doctor = CreateDoctorEntity(request);
+            var createdDoctor = await _repository.CreateDoctorAsync(doctor);
 
-        await CreateDoctorPricesAsync(createdDoctor.Id, request.Prices);
-        await CreateDoctorLanguagesAsync(createdDoctor.Id, request.LanguageIds);
+            await CreateDoctorPricesAsync(createdDoctor.Id, request.Prices);
+            await CreateDoctorLanguagesAsync(createdDoctor.Id, request.LanguageIds);
 
-        return _mapper.Map<DoctorResponse>(createdDoctor);
+            return _mapper.Map<DoctorResponse>(createdDoctor);
+        }, nameof(CreateDoctorAsync));
     }
 
     private async Task ValidateCreateDoctorRequest(CreateDoctorRequest request)
@@ -168,17 +170,20 @@ public class DoctorService : IDoctorService
     /// </summary>
     public async Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request)
     {
-        var existingDoctor = await ValidateAndGetExistingDoctor(request.Id);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var existingDoctor = await ValidateAndGetExistingDoctor(request.Id);
 
-        await ValidateUpdateDoctorRequest(request);
+            await ValidateUpdateDoctorRequest(request);
 
-        UpdateDoctorEntity(existingDoctor, request);
+            UpdateDoctorEntity(existingDoctor, request);
 
-        await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
-        await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
+            await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
+            await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
 
-        var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);
-        return _mapper.Map<DoctorResponse>(updatedDoctor);
+            var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);
+            return _mapper.Map<DoctorResponse>(updatedDoctor);
+        }, nameof(UpdateDoctorAsync));
     }
 
     private async Task<DoctorEntity> ValidateAndGetExistingDoctor(Guid id)
@@ -232,7 +237,10 @@ public class DoctorService : IDoctorService
 
     public async Task<bool> DeleteDoctorAsync(Guid id)
     {
-        return await _repository.DeleteDoctorAsync(id);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            return await _repository.DeleteDoctorAsync(id);
+        }, nameof(DeleteDoctorAsync));
     }
 
     #endregion
@@ -362,7 +370,7 @@ public class DoctorService : IDoctorService
         }
         catch (global::Grpc.Core.RpcException ex)
         {
-            _logger.LogWarning(ex, "Favorites gRPC GetPatientFavorites failed for patient {PatientId}", patientId);
+            Logger.LogWarning(ex, "Favorites gRPC GetPatientFavorites failed for patient {PatientId}", patientId);
             return CreateEmptyDoctorListResponse(page, pageSize, searchTerm);
         }
     }
@@ -504,7 +512,7 @@ public class DoctorService : IDoctorService
         }
         catch (global::Grpc.Core.RpcException ex)
         {
-            _logger.LogWarning(ex, "Favorites gRPC CheckMultipleFavorites failed for patient {PatientId}", patientId);
+            Logger.LogWarning(ex, "Favorites gRPC CheckMultipleFavorites failed for patient {PatientId}", patientId);
             // Favorites service unavailable; proceed with IsFavorited default false
         }
         return baseList;
@@ -522,29 +530,32 @@ public class DoctorService : IDoctorService
 
     public async Task<DoctorPriceResponse> AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request)
     {
-        // Validate doctor exists
-        if (!await _repository.DoctorExistsAsync(request.DoctorId))
+        return await ExecuteWithErrorHandling(async () =>
         {
-            throw DoctorNotFoundException.WithId(request.DoctorId);
-        }
+            // Validate doctor exists
+            if (!await _repository.DoctorExistsAsync(request.DoctorId))
+            {
+                throw DoctorNotFoundException.WithId(request.DoctorId);
+            }
 
-        // Get doctor
-        var doctor = await _repository.GetDoctorByIdAsync(request.DoctorId);
-        if (doctor == null)
-        {
-            throw DoctorNotFoundException.WithId(request.DoctorId);
-        }
+            // Get doctor
+            var doctor = await _repository.GetDoctorByIdAsync(request.DoctorId);
+            if (doctor == null)
+            {
+                throw DoctorNotFoundException.WithId(request.DoctorId);
+            }
 
-        // Create doctor-price relationship
-        var doctorPrice = new DoctorPriceEntity
-        {
-            Id = Guid.NewGuid(),
-            DoctorId = request.DoctorId,
-            Amount = request.Amount
-        };
+            // Create doctor-price relationship
+            var doctorPrice = new DoctorPriceEntity
+            {
+                Id = Guid.NewGuid(),
+                DoctorId = request.DoctorId,
+                Amount = request.Amount
+            };
 
-        var createdDoctorPrice = await _repository.CreateDoctorPriceAsync(doctorPrice);
-        return _mapper.Map<DoctorPriceResponse>(createdDoctorPrice);
+            var createdDoctorPrice = await _repository.CreateDoctorPriceAsync(doctorPrice);
+            return _mapper.Map<DoctorPriceResponse>(createdDoctorPrice);
+        }, nameof(AssignPriceToDoctorAsync));
     }
 
     public async Task<bool> RemovePriceFromDoctorAsync(Guid doctorId, Guid priceId)
@@ -611,7 +622,7 @@ public class DoctorService : IDoctorService
         }
         catch (global::Grpc.Core.RpcException ex)
         {
-            _logger.LogWarning(ex, "Auth gRPC GetAccountStatusByIds failed");
+            Logger.LogWarning(ex, "Auth gRPC GetAccountStatusByIds failed");
             // Return empty dictionary on failure
         }
 
