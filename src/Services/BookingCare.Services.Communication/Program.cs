@@ -1,7 +1,11 @@
 ﻿using BookingCare.Services.Communication.Services;
 using BookingCare.Services.Communication.Extensions;
 using BookingCare.Services.Communication.Hubs;
+using BookingCare.Services.Communication.Services.Interfaces;
+using BookingCare.Services.Communication.Services.Implementations;
+using BookingCare.Services.Communication.Configuration;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.FileUpload.Extensions;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
@@ -26,7 +30,15 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new()
+    {
+        Title = "BookingCare Communication API",
+        Version = "v1.0",
+        Description = "Communication Service with Hybrid File Upload Support (AWS S3 + Cloudinary)"
+    });
+});
 
 // Add SignalR
 builder.Services.AddSignalR(options =>
@@ -52,6 +64,26 @@ builder.Services.AddCors(options =>
 // Add MongoDB configuration
 builder.Services.AddMongoDb(builder.Configuration);
 
+// === HYBRID FILE UPLOAD CONFIGURATION ===
+// Add AWS S3 + CloudFront file upload service
+builder.Services.AddS3FileUpload(builder.Configuration);
+
+// Configure file upload settings
+builder.Services.Configure<FileUploadConfiguration>(
+    builder.Configuration.GetSection(FileUploadConfiguration.SectionName));
+
+builder.Services.Configure<EnhancedFileUploadConfiguration>(
+    builder.Configuration.GetSection(EnhancedFileUploadConfiguration.SectionName));
+
+// Register Cloudinary storage provider (existing)
+builder.Services.AddSingleton<ICloudStorageProvider, CloudinaryStorageProvider>();
+
+// Register hybrid file upload service (NEW)
+builder.Services.AddScoped<IHybridFileUploadService, HybridFileUploadService>();
+
+// Register wrapper for backward compatibility (IMPORTANT)
+builder.Services.AddScoped<BookingCare.Services.Communication.Services.Interfaces.IFileUploadService, FileUploadServiceWrapper>();
+
 // Add health checks
 builder.Services.AddHealthChecks();
 
@@ -73,7 +105,11 @@ app.UseCors("SignalRCorsPolicy");
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Communication Service V1.0 (Hybrid Upload)");
+        c.RoutePrefix = "swagger";
+    });
 }
 
 app.UseRouting();
