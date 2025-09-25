@@ -106,16 +106,6 @@ public class AuthService : BaseService, IAuthService
         {
             LogInfo("Registration attempt for email: {Email}", null, request.Email);
 
-            // Additional security: for Patient registration, require prior OTP verification (phone or email)
-            if (role == Role.PATIENT)
-            {
-                var purpose = request.Purpose.ToKey();
-                var channel = string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant();
-                var subject = channel == "email" ? $"email:{request.Email}" : $"phone:{request.PhoneNumber}";
-                var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt);
-                if (!verified) throw new ValidationException("OTP verification required before registration");
-            }
-
             // Check if email already exists
             if (await _authRepository.EmailExistsAsync(request.Email))
             {
@@ -126,6 +116,16 @@ public class AuthService : BaseService, IAuthService
             if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
             {
                 throw new AccountConflictException(request.PhoneNumber, "PhoneNumber");
+            }
+
+            // Additional security: for Patient registration, require prior OTP verification (phone or email)
+            if (role == Role.PATIENT)
+            {
+                var purpose = request.Purpose.ToKey();
+                var channel = string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant();
+                var subject = channel == "email" ? $"email:{request.Email}" : $"phone:{request.PhoneNumber}";
+                var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt);
+                if (!verified) throw new ValidationException("OTP verification required before registration");
             }
 
             // Validate role exists BEFORE creating account
@@ -385,19 +385,22 @@ public class AuthService : BaseService, IAuthService
         }, "ResetToken");
     }
 
-    private bool VerifyOtpProof(string purpose, string? proof, long? issuedAt, IEnumerable<string> subjects)
+    private bool VerifyOtpProof(string purpose, string? proof, string? issuedAt, IEnumerable<string> subjects)
     {
         var secret = _configuration.GetSection("OtpVerification").GetValue<string>("Secret") ?? string.Empty;
-        if (string.IsNullOrEmpty(secret) || string.IsNullOrEmpty(proof) || !issuedAt.HasValue)
+        if (string.IsNullOrEmpty(secret) || string.IsNullOrEmpty(proof) || string.IsNullOrEmpty(issuedAt))
             return false;
 
-        var age = Math.Abs((DateTimeOffset.UtcNow.Ticks - issuedAt.Value) / TimeSpan.TicksPerMinute);
+        if (!long.TryParse(issuedAt, out long issuedAtTicks))
+            return false;
+
+        var age = Math.Abs((DateTimeOffset.UtcNow.Ticks - issuedAtTicks) / TimeSpan.TicksPerMinute);
         if (age > 5) return false;
 
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
         foreach (var subject in subjects)
         {
-            var data = $"{purpose}:{subject}:{issuedAt.Value}";
+            var data = $"{purpose}:{subject}:{issuedAt}";
             var expected = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(data)));
             if (string.Equals(expected, proof, StringComparison.OrdinalIgnoreCase))
                 return true;
@@ -405,13 +408,13 @@ public class AuthService : BaseService, IAuthService
         return false;
     }
 
-    private async Task<bool> VerifyOtpOrProofAsync(string purpose, string subject, string? proof, long? issuedAt)
+    private async Task<bool> VerifyOtpOrProofAsync(string purpose, string subject, string? proof, string? issuedAt)
     {
         // 1) Try gRPC if enabled
         var otpSection = _configuration.GetSection("OtpVerification");
         var useGrpc = otpSection.GetValue<bool>("UseGrpc");
         var allowProofFallback = otpSection.GetValue<bool>("AllowProofFallback", true);
-        var timeoutMs = otpSection.GetValue<int>("TimeoutMs", 1000);
+        var timeoutMs = otpSection.GetValue<int>("TimeoutMs", 2000);
 
         // 2) Try Redis local flag (best-effort, ignore connectivity errors)
         var flagKey = CacheKeys.Format(CacheKeys.OtpVerified, purpose, subject).ToLowerInvariant();

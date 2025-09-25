@@ -125,11 +125,7 @@ public class NotificationSendEventHandler : IIntegrationEventHandler<Notificatio
             // Use a namespaced cache key to avoid cross-purpose collisions
             var phoneKey = CacheKeys.Format(CacheKeys.OtpPurposePhone, purposeKey, normalizedPhone);
             await _otpManager.StoreOtpAsync(phoneKey, otp, TimeSpan.FromMinutes(5));
-            // Overwrite message with OTP content if not provided
-            if (string.IsNullOrWhiteSpace(@event.Message))
-            {
-                @event.Message = $"Your OTP is {otp} (valid 5 minutes) for password reset.";
-            }
+            @event.Message = $"Your OTP is {otp} (valid 5 minutes) for password reset.";
         }
 
         var data = new { phone = normalizedPhone, message = @event.Message };

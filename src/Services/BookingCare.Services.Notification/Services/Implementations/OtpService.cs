@@ -67,7 +67,7 @@ public class OtpService : BaseService, IOtpService
 
             var purposeKey = request.Purpose.ToKey();
             var subject = BuildSubject(request.Email, request.Phone);
-            var key = $"purpose:{purposeKey}:{subject}";
+            var key = $"otp:purpose:{purposeKey}:{subject}";
             var isValid = await _otpManager.VerifyOtpAsync(key, request.Otp);
             if (!isValid)
             {
@@ -76,7 +76,7 @@ public class OtpService : BaseService, IOtpService
 
             // Set verification flag for Auth service
             var flagKey = CacheKeys.Format(CacheKeys.OtpVerified, purposeKey, subject);
-            await _otpManager.SetFlagAsync(flagKey, TimeSpan.FromMinutes(5));
+            await _otpManager.StoreOtpAsync(flagKey, "1", TimeSpan.FromMinutes(5));
 
             // HMAC proof (fallback if Auth can't read Redis)
             string? proof = null;
@@ -97,7 +97,7 @@ public class OtpService : BaseService, IOtpService
             }
 
             var channel = !string.IsNullOrWhiteSpace(request.Email) ? "email" : "phone";
-            return new { Verified = true, Purpose = purposeKey, Proof = proof, IssuedAt = issuedAt, Channel = channel };
+            return new { Verified = true, Purpose = purposeKey, Proof = proof, IssuedAt = issuedAt.ToString(), Channel = channel };
         }, "OtpVerify");
     }
 

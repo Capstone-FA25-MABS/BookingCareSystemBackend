@@ -5,15 +5,16 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
-public class PositionService : IPositionService
+public class PositionService : BaseService, IPositionService
 {
     private readonly IPositionRepository _repository;
     private readonly IMapper _mapper;
 
-    public PositionService(IPositionRepository repository, IMapper mapper)
+    public PositionService(IPositionRepository repository, IMapper mapper, ILogger<PositionService> logger) : base(logger)
     {
         _repository = repository;
         _mapper = mapper;
@@ -23,18 +24,21 @@ public class PositionService : IPositionService
 
     public async Task<PositionResponse> CreatePositionAsync(CreatePositionRequest request)
     {
-        // Validate unique constraint
-        if (await _repository.PositionNameExistsAsync(request.Name))
+        return await ExecuteWithErrorHandling(async () =>
         {
-            throw PositionConflictException.WithName(request.Name);
-        }
+            // Validate unique constraint
+            if (await _repository.PositionNameExistsAsync(request.Name))
+            {
+                throw PositionConflictException.WithName(request.Name);
+            }
 
-        // Create position entity
-        var position = _mapper.Map<PositionEntity>(request);
-        position.Id = Guid.NewGuid();
+            // Create position entity
+            var position = _mapper.Map<PositionEntity>(request);
+            position.Id = Guid.NewGuid();
 
-        var createdPosition = await _repository.CreatePositionAsync(position);
-        return _mapper.Map<PositionResponse>(createdPosition);
+            var createdPosition = await _repository.CreatePositionAsync(position);
+            return _mapper.Map<PositionResponse>(createdPosition);
+        }, nameof(CreatePositionAsync));
     }
 
     public async Task<PositionResponse?> GetPositionByIdAsync(Guid id)
@@ -51,31 +55,37 @@ public class PositionService : IPositionService
 
     public async Task<PositionResponse> UpdatePositionAsync(UpdatePositionRequest request)
     {
-        // Check if position exists
-        var existingPosition = await _repository.GetPositionByIdAsync(request.Id);
-        if (existingPosition == null)
+        return await ExecuteWithErrorHandling(async () =>
         {
-            throw PositionNotFoundException.WithId(request.Id);
-        }
+            // Check if position exists
+            var existingPosition = await _repository.GetPositionByIdAsync(request.Id);
+            if (existingPosition == null)
+            {
+                throw PositionNotFoundException.WithId(request.Id);
+            }
 
-        // Validate unique constraint if name is being updated
-        if (!string.IsNullOrEmpty(request.Name) && request.Name != existingPosition.Name &&
-            await _repository.PositionNameExistsAsync(request.Name, request.Id))
-        {
-            throw PositionConflictException.WithName(request.Name);
-        }
+            // Validate unique constraint if name is being updated
+            if (!string.IsNullOrEmpty(request.Name) && request.Name != existingPosition.Name &&
+                await _repository.PositionNameExistsAsync(request.Name, request.Id))
+            {
+                throw PositionConflictException.WithName(request.Name);
+            }
 
-        // Update position entity
-        _mapper.Map(request, existingPosition);
-        existingPosition.UpdatedAt = DateTime.UtcNow;
+            // Update position entity
+            _mapper.Map(request, existingPosition);
+            existingPosition.UpdatedAt = DateTime.UtcNow;
 
-        var updatedPosition = await _repository.UpdatePositionAsync(existingPosition);
-        return _mapper.Map<PositionResponse>(updatedPosition);
+            var updatedPosition = await _repository.UpdatePositionAsync(existingPosition);
+            return _mapper.Map<PositionResponse>(updatedPosition);
+        }, nameof(UpdatePositionAsync));
     }
 
     public async Task<bool> DeletePositionAsync(Guid id)
     {
-        return await _repository.DeletePositionAsync(id);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            return await _repository.DeletePositionAsync(id);
+        }, nameof(DeletePositionAsync));
     }
 
     #endregion
