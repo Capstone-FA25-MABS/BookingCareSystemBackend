@@ -169,6 +169,21 @@ services:
     networks:
       - bookingcare-network
 
+  sqlserver-schedule-service:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_schedule_service
+    ports:
+      - "1446:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Schedule@1234!
+      - MSSQL_DB=MABS_Schedule
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_schedule_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+
   # Databases
   sqlserver-discount-service:
     image: mcr.microsoft.com/azure-sql-edge:latest
@@ -404,6 +419,7 @@ volumes:
   sqlserver_saga_data:
   sqlserver_user_data:
   sqlserver_user_data_v2:
+  sqlserver_schedule_data:
   mongodb_data:
   rabbitmq_data:
     driver: local
