@@ -1,5 +1,12 @@
-using BookingCare.Services.ServiceMedical.Services;
+using BookingCare.Services.ServiceMedical.Data;
+using BookingCare.Services.ServiceMedical.Mappings;
+using BookingCare.Services.ServiceMedical.Repositories.Implementations;
+using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
+using BookingCare.Services.ServiceMedical.Services.Grpc;
+using BookingCare.Services.ServiceMedical.Services.Implementations;
+using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.EntityFrameworkCore;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -19,6 +26,20 @@ builder.WebHost.ConfigureKestrel(options =>
     });
 });
 
+// Add Entity Framework
+builder.Services.AddDbContext<ServiceMedicalDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(ServiceMedicalMappingProfile));
+
+// Add Repositories
+builder.Services.AddScoped<IServiceCategoryRepository, ServiceCategoryRepository>();
+builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
+
+// Add Services
+builder.Services.AddScoped<IServiceMedicalService, ServiceMedicalService>();
+
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
@@ -36,8 +57,8 @@ if (app.Environment.IsDevelopment())
 app.UseRouting();
 app.MapControllers();
 
-// Configure the HTTP request pipeline.
-app.MapGrpcService<GreeterService>();
+// Configure gRPC services
+app.MapGrpcService<ServiceMedicalGrpcService>();
 app.MapGet("/", () => "BookingCare Service Medical Service is running...");
 
 app.Run();
