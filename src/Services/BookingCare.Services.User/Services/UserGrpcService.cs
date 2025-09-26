@@ -181,6 +181,58 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
         }
     }
 
+    public override async Task<Protos.DeleteUserResponse> DeleteUser(
+        Protos.DeleteUserRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[UserGrpcService] gRPC DeleteUser called for ID: {UserId}", request.Id);
+
+            if (!Guid.TryParse(request.Id, out var userId))
+            {
+                return new Protos.DeleteUserResponse
+                {
+                    Success = false,
+                    Message = "Invalid user ID format"
+                };
+            }
+
+            var result = await _userService.DeleteAsync(userId);
+
+            if (result)
+            {
+                _logger.LogInformation("[UserGrpcService] User deleted successfully: {UserId}", userId);
+                return new Protos.DeleteUserResponse
+                {
+                    Success = true,
+                    Message = "User deleted successfully"
+                };
+            }
+            else
+            {
+                return new Protos.DeleteUserResponse
+                {
+                    Success = true, // Consider it successful if already deleted
+                    Message = "User not found or already deleted"
+                };
+            }
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[UserGrpcService] Error deleting user: {UserId}", request.Id);
+            return new Protos.DeleteUserResponse
+            {
+                Success = false,
+                Message = ex.Message
+            };
+        }
+    }
+
     // Helper methods for mapping
     private static Protos.UserResponse MapToGrpcUserResponse(UserResponse user)
     {
