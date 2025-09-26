@@ -35,7 +35,7 @@ public class SagasController : BaseApiController
     /// </summary>
     /// <param name="sagaId">Saga ID</param>
     /// <returns>Saga status information</returns>
-    [HttpGet("{sagaId}/status")]
+    [HttpGet("status/{sagaId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetSagaStatus(Guid sagaId)
     {

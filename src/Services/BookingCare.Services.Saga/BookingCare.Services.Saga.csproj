@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\Shared\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
-    <ProjectReference Include="..\src\Shared\BookingCare.Shared.Saga\BookingCare.Shared.Saga.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.Saga\BookingCare.Shared.Saga.csproj" />
   </ItemGroup>
 
 </Project>
