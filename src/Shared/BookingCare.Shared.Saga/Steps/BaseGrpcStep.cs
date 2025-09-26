@@ -50,7 +50,7 @@ public abstract class BaseGrpcStep : CompensatableSagaStepBase
     /// <summary>
     /// Log compensation start
     /// </summary>
-    protected void LogCompensationStart(string stepName, string sagaId, string operation)
+    protected void LogCompensationStart(string stepName, Guid sagaId, string operation)
     {
         _logger.LogInformation("[{StepName}] Compensating - {Operation} for saga {SagaId}", stepName, operation, sagaId);
     }
@@ -62,5 +62,28 @@ public abstract class BaseGrpcStep : CompensatableSagaStepBase
     {
         _logger.LogWarning("[{StepName}] No {MissingData} found for compensation", stepName, missingData);
         return Success(); // Nothing to compensate
+    }
+
+    /// <summary>
+    /// Handle successful gRPC response and store ID for compensation
+    /// </summary>
+    protected SagaStepResult HandleSuccessfulResponse<T>(T response, string idProperty, string emailProperty, string stepName, SagaContext context, string idKey)
+    {
+        var id = typeof(T).GetProperty(idProperty)?.GetValue(response)?.ToString();
+        var email = typeof(T).GetProperty(emailProperty)?.GetValue(response)?.ToString();
+
+        if (!string.IsNullOrEmpty(id))
+        {
+            context.SetData(idKey, id);
+            _logger.LogInformation("[{StepName}] {StepName} created successfully: {{{IdKey}}}", stepName, stepName, idKey, id);
+        }
+
+        var result = new Dictionary<string, object>();
+        if (!string.IsNullOrEmpty(id))
+            result[idKey] = id;
+        if (!string.IsNullOrEmpty(email))
+            result[$"{idKey.Replace("Id", "Email")}"] = email;
+
+        return Success(result);
     }
 }

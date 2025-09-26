@@ -215,16 +215,7 @@ public class CreateUserProfileGrpcStep : BaseGrpcStep
 
             var response = await client.CreateUserAsync(request, cancellationToken: cancellationToken);
 
-            // Store UserId for compensation
-            context.SetData("UserId", response.Id);
-
-            _logger.LogInformation("[CreateUserProfileGrpcStep] User profile created successfully: {UserId}", response.Id);
-
-            return Success(new Dictionary<string, object>
-            {
-                { "UserId", response.Id },
-                { "UserEmail", response.Email }
-            });
+            return HandleSuccessfulResponse(response, "Id", "Email", StepName, context, "UserId");
         }
         catch (Exception ex)
         {
@@ -354,16 +345,7 @@ public class CreateDoctorProfileGrpcStep : BaseGrpcStep
 
             var response = await client.CreateDoctorAsync(request, cancellationToken: cancellationToken);
 
-            // Store DoctorId for compensation
-            context.SetData("DoctorId", response.Id);
-
-            _logger.LogInformation("[CreateDoctorProfileGrpcStep] Doctor profile created successfully: {DoctorId}", response.Id);
-
-            return Success(new Dictionary<string, object>
-            {
-                { "DoctorId", response.Id },
-                { "DoctorEmail", response.Email }
-            });
+            return HandleSuccessfulResponse(response, "Id", "Email", StepName, context, "DoctorId");
         }
         catch (Exception ex)
         {
