@@ -75,7 +75,7 @@ public abstract class BaseGrpcStep : CompensatableSagaStepBase
         if (!string.IsNullOrEmpty(id))
         {
             context.SetData(idKey, id);
-            _logger.LogInformation("[{StepName}] {StepName} created successfully: {{{IdKey}}}", stepName, stepName, idKey, id);
+            _logger.LogInformation("[{StepName}] Profile created successfully: {IdKey} = {Id}", stepName, idKey, id);
         }
 
         var result = new Dictionary<string, object>();
