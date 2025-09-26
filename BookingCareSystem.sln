@@ -1,4 +1,5 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -14,7 +15,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Appoin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Auth", "src\Services\BookingCare.Services.Auth\BookingCare.Services.Auth.csproj", "{0BBE64D7-72E9-4D70-BE4F-82E2B1528130}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Clinic", "src\Services\BookingCare.Services.Clinic\BookingCare.Services.Clinic.csproj", "{0255DC48-9FEB-4EB1-9CBE-1DEBE985EECD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Hospital", "src\Services\BookingCare.Services.Hospital\BookingCare.Services.Hospital.csproj", "{0255DC48-9FEB-4EB1-9CBE-1DEBE985EECD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Communication", "src\Services\BookingCare.Services.Communication\BookingCare.Services.Communication.csproj", "{2EE78C50-DCBB-40BC-A633-65DF99F80053}"
 EndProject
@@ -184,6 +185,9 @@ Global
 		{B03BB28D-9355-431E-AF4D-6D9F62B7D884}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B03BB28D-9355-431E-AF4D-6D9F62B7D884}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B03BB28D-9355-431E-AF4D-6D9F62B7D884}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{07096F17-DDBF-4413-B603-C9D3A38BAD19} = {BBC343F1-4BDC-42D3-8D71-3F244FB8CB48}
