@@ -62,10 +62,10 @@ public class ReviewService : BaseService, IReviewService
             existingReview = await _reviewRepository.GetExistingDoctorReviewAsync(request.PatientId, request.DoctorId.Value);
             targetName = $"doctor {request.DoctorId.Value}";
         }
-        else if (request.TargetType == Enums.TargetType.SERVICE && request.ClinicServiceId.HasValue)
+        else if (request.TargetType == Enums.TargetType.SERVICE && request.ServiceId.HasValue)
         {
-            existingReview = await _reviewRepository.GetExistingServiceReviewAsync(request.PatientId, request.ClinicServiceId.Value);
-            targetName = $"service {request.ClinicServiceId.Value}";
+            existingReview = await _reviewRepository.GetExistingServiceReviewAsync(request.PatientId, request.ServiceId.Value);
+            targetName = $"service {request.ServiceId.Value}";
         }
 
         if (existingReview != null)
@@ -76,7 +76,7 @@ public class ReviewService : BaseService, IReviewService
             throw new DuplicateReviewException(
                 request.PatientId,
                 request.DoctorId,
-                request.ClinicServiceId,
+                request.ServiceId,
                 existingReview.Id,
                 targetName
             );
@@ -156,8 +156,8 @@ public class ReviewService : BaseService, IReviewService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Getting reviews with filters - PatientId: {PatientId}, DoctorId: {DoctorId}, ClinicServiceId: {ClinicServiceId}",
-                null, request.PatientId?.ToString() ?? "null", request.DoctorId?.ToString() ?? "null", request.ClinicServiceId?.ToString() ?? "null");
+            LogInfo("Getting reviews with filters - PatientId: {PatientId}, DoctorId: {DoctorId}, ServiceId: {ServiceId}",
+                null, request.PatientId?.ToString() ?? "null", request.DoctorId?.ToString() ?? "null", request.ServiceId?.ToString() ?? "null");
 
             // ✅ ValidationFilter đã handle tất cả validation rồi
 
@@ -178,12 +178,12 @@ public class ReviewService : BaseService, IReviewService
     }
 
     /// <summary>
-    /// Gets reviews for a specific clinic service
+    /// Gets reviews for a specific service
     /// </summary>
-    public async Task<PagedReviewsResponse> GetReviewsByClinicServiceAsync(Guid clinicServiceId, int page = 1, int pageSize = 10)
+    public async Task<PagedReviewsResponse> GetReviewsByServiceAsync(Guid serviceId, int page = 1, int pageSize = 10)
     {
-        ValidateGuid(clinicServiceId, nameof(clinicServiceId));
-        return await _reviewRepository.GetReviewsByClinicServiceAsync(clinicServiceId, page, pageSize);
+        ValidateGuid(serviceId, nameof(serviceId));
+        return await _reviewRepository.GetReviewsByServiceAsync(serviceId, page, pageSize);
     }
 
     /// <summary>
@@ -310,12 +310,12 @@ public class ReviewService : BaseService, IReviewService
     }
 
     /// <summary>
-    /// Gets the average rating for a clinic service
+    /// Gets the average rating for a service
     /// </summary>
-    public async Task<double> GetAverageRatingByClinicServiceAsync(Guid clinicServiceId)
+    public async Task<double> GetAverageRatingByServiceAsync(Guid serviceId)
     {
-        ValidateGuid(clinicServiceId, nameof(clinicServiceId));
-        return await _reviewRepository.GetAverageRatingByClinicServiceAsync(clinicServiceId);
+        ValidateGuid(serviceId, nameof(serviceId));
+        return await _reviewRepository.GetAverageRatingByServiceAsync(serviceId);
     }
 
     /// <summary>
@@ -328,12 +328,12 @@ public class ReviewService : BaseService, IReviewService
     }
 
     /// <summary>
-    /// Gets the total count of reviews for a clinic service
+    /// Gets the total count of reviews for a service
     /// </summary>
-    public async Task<long> GetReviewCountByClinicServiceAsync(Guid clinicServiceId)
+    public async Task<long> GetReviewCountByServiceAsync(Guid serviceId)
     {
-        ValidateGuid(clinicServiceId, nameof(clinicServiceId));
-        return await _reviewRepository.GetReviewCountByClinicServiceAsync(clinicServiceId);
+        ValidateGuid(serviceId, nameof(serviceId));
+        return await _reviewRepository.GetReviewCountByServiceAsync(serviceId);
     }
 
     /// <summary>
@@ -346,12 +346,12 @@ public class ReviewService : BaseService, IReviewService
     }
 
     /// <summary>
-    /// Gets optimized statistics for a clinic service (used by batch operations)
+    /// Gets optimized statistics for a service (used by batch operations)
     /// </summary>
-    public async Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId)
+    public async Task<ReviewStatisticsResponse> GetServiceStatisticsAsync(Guid serviceId)
     {
-        ValidateGuid(clinicServiceId, nameof(clinicServiceId));
-        return await _reviewRepository.GetClinicServiceStatisticsAsync(clinicServiceId);
+        ValidateGuid(serviceId, nameof(serviceId));
+        return await _reviewRepository.GetServiceStatisticsAsync(serviceId);
     }
 
     /// <summary>
@@ -364,12 +364,12 @@ public class ReviewService : BaseService, IReviewService
     }
 
     /// <summary>
-    /// Gets detailed statistics with rating distribution for a clinic service (single endpoint)
+    /// Gets detailed statistics with rating distribution for a service (single endpoint)
     /// </summary>
-    public async Task<ReviewDetailedStatisticsResponse> GetClinicServiceDetailedStatisticsAsync(Guid clinicServiceId)
+    public async Task<ReviewDetailedStatisticsResponse> GetServiceDetailedStatisticsAsync(Guid serviceId)
     {
-        ValidateGuid(clinicServiceId, nameof(clinicServiceId));
-        return await _reviewRepository.GetClinicServiceDetailedStatisticsAsync(clinicServiceId);
+        ValidateGuid(serviceId, nameof(serviceId));
+        return await _reviewRepository.GetServiceDetailedStatisticsAsync(serviceId);
     }
 
     /// <summary>
