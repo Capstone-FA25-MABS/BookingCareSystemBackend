@@ -13,18 +13,17 @@ namespace BookingCare.Shared.Saga.Steps;
 /// <summary>
 /// Step 1: Create Account in Auth Service
 /// </summary>
-public class CreateAccountGrpcStep : CompensatableSagaStepBase
+public class CreateAccountGrpcStep : BaseGrpcStep
 {
-    private readonly ILogger<CreateAccountGrpcStep> _logger;
     private readonly IConfiguration _configuration;
 
     public override string StepName => "CreateAccount";
     public override int Order => 1;
     public override TimeSpan Timeout => TimeSpan.FromMinutes(2);
 
-    public CreateAccountGrpcStep(ILogger<CreateAccountGrpcStep> logger, IConfiguration configuration)
+    public CreateAccountGrpcStep(ILogger<CreateAccountGrpcStep> logger, IConfiguration configuration) 
+        : base(logger)
     {
-        _logger = logger;
         _configuration = configuration;
     }
 
@@ -94,29 +93,22 @@ public class CreateAccountGrpcStep : CompensatableSagaStepBase
                 return Failure($"Failed to create account: {response.Message}");
             }
         }
-        catch (RpcException ex)
-        {
-            _logger.LogError(ex, "[CreateAccountGrpcStep] gRPC error creating account");
-            return Failure($"gRPC error: {ex.Status.Detail}", ex, shouldRetry: true, retryDelay: TimeSpan.FromSeconds(30));
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[CreateAccountGrpcStep] Unexpected error creating account");
-            return Failure($"Unexpected error: {ex.Message}", ex);
+            return HandleGrpcException(ex, "creating account", StepName);
         }
-    }
+    }       
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation("[CreateAccountGrpcStep] Compensating - deleting account for saga {SagaId}", context.SagaId);
+            LogCompensationStart(StepName, context.SagaId, "deleting account");
 
             var accountId = context.GetData<string>("AccountId");
             if (string.IsNullOrEmpty(accountId))
             {
-                _logger.LogWarning("[CreateAccountGrpcStep] No AccountId found for compensation");
-                return Success(); // Nothing to compensate
+                return LogCompensationWarning(StepName, "AccountId");
             }
 
             // Create gRPC client for Auth Service
@@ -147,15 +139,9 @@ public class CreateAccountGrpcStep : CompensatableSagaStepBase
                 return Failure($"Failed to compensate account: {response.Message}");
             }
         }
-        catch (RpcException ex)
-        {
-            _logger.LogError(ex, "[CreateAccountGrpcStep] gRPC error compensating account");
-            return Failure($"gRPC compensation error: {ex.Status.Detail}", ex);
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[CreateAccountGrpcStep] Unexpected error compensating account");
-            return Failure($"Unexpected compensation error: {ex.Message}", ex);
+            return HandleGrpcException(ex, "compensating account", StepName);
         }
     }
 }
@@ -163,18 +149,17 @@ public class CreateAccountGrpcStep : CompensatableSagaStepBase
 /// <summary>
 /// Step 2: Create User Profile in User Service
 /// </summary>
-public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
+public class CreateUserProfileGrpcStep : BaseGrpcStep
 {
-    private readonly ILogger<CreateUserProfileGrpcStep> _logger;
     private readonly IConfiguration _configuration;
 
     public override string StepName => "CreateUserProfile";
     public override int Order => 2;
     public override TimeSpan Timeout => TimeSpan.FromMinutes(2);
 
-    public CreateUserProfileGrpcStep(ILogger<CreateUserProfileGrpcStep> logger, IConfiguration configuration)
+    public CreateUserProfileGrpcStep(ILogger<CreateUserProfileGrpcStep> logger, IConfiguration configuration) 
+        : base(logger)
     {
-        _logger = logger;
         _configuration = configuration;
     }
 
@@ -241,15 +226,9 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
                 { "UserEmail", response.Email }
             });
         }
-        catch (RpcException ex)
-        {
-            _logger.LogError(ex, "[CreateUserProfileGrpcStep] gRPC error creating user profile");
-            return Failure($"gRPC error: {ex.Status.Detail}", ex, shouldRetry: true, retryDelay: TimeSpan.FromSeconds(30));
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[CreateUserProfileGrpcStep] Unexpected error creating user profile");
-            return Failure($"Unexpected error: {ex.Message}", ex);
+            return HandleGrpcException(ex, "creating user profile", StepName);
         }
     }
 
@@ -257,13 +236,12 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
     {
         try
         {
-            _logger.LogInformation("[CreateUserProfileGrpcStep] Compensating - deleting user profile for saga {SagaId}", context.SagaId);
+            LogCompensationStart(StepName, context.SagaId, "deleting user profile");
 
             var userId = context.GetData<string>("UserId");
             if (string.IsNullOrEmpty(userId))
             {
-                _logger.LogWarning("[CreateUserProfileGrpcStep] No UserId found for compensation");
-                return Success(); // Nothing to compensate
+                return LogCompensationWarning(StepName, "UserId");
             }
 
             // Create gRPC client for User Service
@@ -294,15 +272,9 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
                 return Failure($"Failed to compensate user profile: {response.Message}");
             }
         }
-        catch (RpcException ex)
-        {
-            _logger.LogError(ex, "[CreateUserProfileGrpcStep] gRPC error compensating user profile");
-            return Failure($"gRPC compensation error: {ex.Status.Detail}", ex);
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[CreateUserProfileGrpcStep] Unexpected error compensating user profile");
-            return Failure($"Unexpected compensation error: {ex.Message}", ex);
+            return HandleGrpcException(ex, "compensating user profile", StepName);
         }
     }
 }
@@ -310,18 +282,17 @@ public class CreateUserProfileGrpcStep : CompensatableSagaStepBase
 /// <summary>
 /// Step 2: Create Doctor Profile in Doctor Service
 /// </summary>
-public class CreateDoctorProfileGrpcStep : CompensatableSagaStepBase
+public class CreateDoctorProfileGrpcStep : BaseGrpcStep
 {
-    private readonly ILogger<CreateDoctorProfileGrpcStep> _logger;
     private readonly IConfiguration _configuration;
 
     public override string StepName => "CreateDoctorProfile";
     public override int Order => 2;
     public override TimeSpan Timeout => TimeSpan.FromMinutes(2);
 
-    public CreateDoctorProfileGrpcStep(ILogger<CreateDoctorProfileGrpcStep> logger, IConfiguration configuration)
+    public CreateDoctorProfileGrpcStep(ILogger<CreateDoctorProfileGrpcStep> logger, IConfiguration configuration) 
+        : base(logger)
     {
-        _logger = logger;
         _configuration = configuration;
     }
 
@@ -394,15 +365,9 @@ public class CreateDoctorProfileGrpcStep : CompensatableSagaStepBase
                 { "DoctorEmail", response.Email }
             });
         }
-        catch (RpcException ex)
-        {
-            _logger.LogError(ex, "[CreateDoctorProfileGrpcStep] gRPC error creating doctor profile");
-            return Failure($"gRPC error: {ex.Status.Detail}", ex, shouldRetry: true, retryDelay: TimeSpan.FromSeconds(30));
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[CreateDoctorProfileGrpcStep] Unexpected error creating doctor profile");
-            return Failure($"Unexpected error: {ex.Message}", ex);
+            return HandleGrpcException(ex, "creating doctor profile", StepName);
         }
     }
 
@@ -410,13 +375,12 @@ public class CreateDoctorProfileGrpcStep : CompensatableSagaStepBase
     {
         try
         {
-            _logger.LogInformation("[CreateDoctorProfileGrpcStep] Compensating - deleting doctor profile for saga {SagaId}", context.SagaId);
+            LogCompensationStart(StepName, context.SagaId, "deleting doctor profile");
 
             var doctorId = context.GetData<string>("DoctorId");
             if (string.IsNullOrEmpty(doctorId))
             {
-                _logger.LogWarning("[CreateDoctorProfileGrpcStep] No DoctorId found for compensation");
-                return Success(); // Nothing to compensate
+                return LogCompensationWarning(StepName, "DoctorId");
             }
 
             // Create gRPC client for Doctor Service
@@ -447,15 +411,9 @@ public class CreateDoctorProfileGrpcStep : CompensatableSagaStepBase
                 return Failure($"Failed to compensate doctor profile: {response.Message}");
             }
         }
-        catch (RpcException ex)
-        {
-            _logger.LogError(ex, "[CreateDoctorProfileGrpcStep] gRPC error compensating doctor profile");
-            return Failure($"gRPC compensation error: {ex.Status.Detail}", ex);
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[CreateDoctorProfileGrpcStep] Unexpected error compensating doctor profile");
-            return Failure($"Unexpected compensation error: {ex.Message}", ex);
+            return HandleGrpcException(ex, "compensating doctor profile", StepName);
         }
     }
 }

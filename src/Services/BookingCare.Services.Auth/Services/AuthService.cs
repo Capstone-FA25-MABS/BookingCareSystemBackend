@@ -104,7 +104,7 @@ public class AuthService : BaseService, IAuthService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            var accountResult = await CreateAccountForSagaAsync(request, role);
+            await CreateAccountForSagaAsync(request, role);
 
             return new AuthResponse
             {
@@ -122,50 +122,81 @@ public class AuthService : BaseService, IAuthService
         {
             LogInfo("Registration attempt for email: {Email}", null, request.Email);
 
-            // Check if email already exists
-            if (await _authRepository.EmailExistsAsync(request.Email))
-            {
-                throw new AccountConflictException(request.Email, "Email");
-            }
+            // Validate account uniqueness
+            await ValidateAccountUniquenessAsync(request);
 
-            // Check if phone number already exists 
-            if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
-            {
-                throw new AccountConflictException(request.PhoneNumber, "PhoneNumber");
-            }
+            // Validate OTP for patient registration
+            await ValidatePatientOtpAsync(request, role);
 
-            // Additional security: for Patient registration, require prior OTP verification (phone or email)
-            if (role == Role.PATIENT)
-            {
-                var purpose = request.Purpose.ToKey();
-                var channel = string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant();
-                var subject = channel == "email" ? $"email:{request.Email}" : $"phone:{request.PhoneNumber}";
-                var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt);
-                if (!verified) throw new ValidationException("OTP verification required before registration");
-            }
+            // Get and validate role
+            var targetRole = await GetAndValidateRoleAsync(role);
 
-            // Validate role exists BEFORE creating account
-            var targetRoleName = role switch { Role.DOCTOR => "Doctor", Role.CLINIC => "Clinic", _ => "Patient" };
-            var targetRole = await _authRepository.GetRoleByNameAsync(targetRoleName);
-            if (targetRole == null)
-            {
-                throw new ValidationException($"Role '{targetRoleName}' does not exist in the system. Cannot create account without valid role.");
-            }
-
-            // Create account entity
-            var account = _mapper.Map<AccountEntity>(request);
-
-            // Create account
-            var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
-
-            // Assign role to account (guaranteed to exist)
-            await _authRepository.AssignRoleToAccountAsync(createdAccount, targetRole);
-            LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRoleName, request.Email);
+            // Create and assign account
+            var createdAccount = await CreateAndAssignAccountAsync(request, targetRole);
 
             LogInfo("Registration successful for email: {Email}", null, request.Email);
 
             return (true, createdAccount.Id.ToString(), "Account created successfully");
         }, "CreateAccountForSaga");
+    }
+
+    /// <summary>
+    /// Validate account uniqueness (email and phone)
+    /// </summary>
+    private async Task ValidateAccountUniquenessAsync(RegisterRequest request)
+    {
+        if (await _authRepository.EmailExistsAsync(request.Email))
+        {
+            throw new AccountConflictException(request.Email, "Email");
+        }
+
+        if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
+        {
+            throw new AccountConflictException(request.PhoneNumber, "PhoneNumber");
+        }
+    }
+
+    /// <summary>
+    /// Validate OTP for patient registration
+    /// </summary>
+    private async Task ValidatePatientOtpAsync(RegisterRequest request, Role role)
+    {
+        if (role == Role.PATIENT)
+        {
+            var purpose = request.Purpose.ToKey();
+            var channel = string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant();
+            var subject = channel == "email" ? $"email:{request.Email}" : $"phone:{request.PhoneNumber}";
+            var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt);
+            if (!verified) throw new ValidationException("OTP verification required before registration");
+        }
+    }
+
+    /// <summary>
+    /// Get and validate role exists
+    /// </summary>
+    private async Task<RoleEntity> GetAndValidateRoleAsync(Role role)
+    {
+        var targetRoleName = role switch { Role.DOCTOR => "Doctor", Role.CLINIC => "Clinic", _ => "Patient" };
+        var targetRole = await _authRepository.GetRoleByNameAsync(targetRoleName);
+        if (targetRole == null)
+        {
+            throw new ValidationException($"Role '{targetRoleName}' does not exist in the system. Cannot create account without valid role.");
+        }
+        return targetRole;
+    }
+
+    /// <summary>
+    /// Create account and assign role
+    /// </summary>
+    private async Task<AccountEntity> CreateAndAssignAccountAsync(RegisterRequest request, RoleEntity targetRole)
+    {
+        var account = _mapper.Map<AccountEntity>(request);
+        var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
+        
+        await _authRepository.AssignRoleToAccountAsync(createdAccount, targetRole);
+        LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRole.Name, request.Email);
+        
+        return createdAccount;
     }
 
     /// <summary>
