@@ -124,17 +124,17 @@ public class ReviewsController : BaseApiController
     }
 
     /// <summary>
-    /// Gets reviews for a specific clinic service
+    /// Gets reviews for a specific service
     /// </summary>
-    /// <param name="clinicServiceId">Clinic service ID</param>
+    /// <param name="serviceId">Service ID</param>
     /// <param name="page">Page number</param>
     /// <param name="pageSize">Page size</param>
-    /// <returns>Paginated reviews for the clinic service</returns>
-    [HttpGet("service/{clinicServiceId:guid}")]
+    /// <returns>Paginated reviews for the service</returns>
+    [HttpGet("service/{serviceId:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetReviewsByClinicService(Guid clinicServiceId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetReviewsByService(Guid serviceId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        var result = await _reviewService.GetReviewsByClinicServiceAsync(clinicServiceId, page, pageSize);
+        var result = await _reviewService.GetReviewsByServiceAsync(serviceId, page, pageSize);
         return Success(result, "Service reviews retrieved successfully");
     }
 
@@ -220,28 +220,28 @@ public class ReviewsController : BaseApiController
     }
 
     /// <summary>
-    /// Gets the average rating for a clinic service
+    /// Gets the average rating for a service
     /// </summary>
-    /// <param name="clinicServiceId">Clinic service ID</param>
+    /// <param name="serviceId">Service ID</param>
     /// <returns>Average rating</returns>
-    [HttpGet("service/{clinicServiceId:guid}/average-rating")]
+    [HttpGet("service/{serviceId:guid}/average-rating")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetAverageRatingByService(Guid clinicServiceId)
+    public async Task<IActionResult> GetAverageRatingByService(Guid serviceId)
     {
-        var result = await _reviewService.GetAverageRatingByClinicServiceAsync(clinicServiceId);
-        return Success(new { ClinicServiceId = clinicServiceId, AverageRating = result }, "Average rating retrieved successfully");
+        var result = await _reviewService.GetAverageRatingByServiceAsync(serviceId);
+        return Success(new { ServiceId = serviceId, AverageRating = result }, "Average rating retrieved successfully");
     }
 
     /// <summary>
-    /// Gets comprehensive statistics for a clinic service
+    /// Gets comprehensive statistics for a service
     /// </summary>
-    /// <param name="clinicServiceId">Clinic service ID</param>
+    /// <param name="serviceId">Service ID</param>
     /// <returns>Complete statistics including average rating, count, and rating distribution</returns>
-    [HttpGet("service/{clinicServiceId:guid}/statistics")]
+    [HttpGet("service/{serviceId:guid}/statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetServiceStatistics(Guid clinicServiceId)
+    public async Task<IActionResult> GetServiceStatistics(Guid serviceId)
     {
-        var result = await _reviewService.GetClinicServiceDetailedStatisticsAsync(clinicServiceId);
+        var result = await _reviewService.GetServiceDetailedStatisticsAsync(serviceId);
         return Success(result, "Service statistics retrieved successfully");
     }
 
