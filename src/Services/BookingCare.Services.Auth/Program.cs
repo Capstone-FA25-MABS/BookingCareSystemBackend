@@ -201,7 +201,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseGlobalExceptionHandling();
-
 app.UseStandardAuthPipeline();
 
 app.MapControllers();
