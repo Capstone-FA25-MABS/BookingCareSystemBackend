@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
 
@@ -8,6 +9,9 @@ public class CreateLanguageRequest
     [Required(ErrorMessage = "Name is required")]
     [StringLength(100, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 100 characters")]
     public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Status is required")]
+    public Status Status { get; set; } = Status.ACTIVE;
 }
 
 public class UpdateLanguageRequest
@@ -19,11 +23,15 @@ public class UpdateLanguageRequest
     [Required(ErrorMessage = "Name is required")]
     [StringLength(100, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 100 characters")]
     public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Status is required")]
+    public Status Status { get; set; } = Status.ACTIVE;
 }
 
 public class LanguageQueryRequest
 {
     public string? SearchTerm { get; set; }
+    public Status? Status { get; set; }
     [JsonRequired]
     public int PageNumber { get; set; } = 1;
     [JsonRequired]

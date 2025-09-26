@@ -72,18 +72,20 @@ builder.Services.AddDbContext<DoctorDbContext>(options =>
 // Repository registration
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IPositionRepository, PositionRepository>();
+builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
 builder.Services.AddScoped<ILanguageRepository, LanguageRepository>();
 builder.Services.AddScoped<IServiceTypeRepository, ServiceTypeRepository>();
 
 // Service registration
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
+builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<IServiceTypeService, ServiceTypeService>();
 
 
 // AutoMapper configuration
-builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile));
+builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(SpecialtyMappingProfile));
 
 // gRPC clients
 var favoritesAddress = builder.Configuration.GetSection("GrpcClients:Favorites:Address").Value ?? "http://localhost:6019";

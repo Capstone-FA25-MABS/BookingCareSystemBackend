@@ -5,6 +5,7 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
@@ -86,6 +87,25 @@ public class PositionService : BaseService, IPositionService
         {
             return await _repository.DeletePositionAsync(id);
         }, nameof(DeletePositionAsync));
+    }
+
+    public async Task<bool> TogglePositionStatusAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var position = await _repository.GetPositionByIdAsync(id);
+            if (position == null)
+            {
+                throw PositionNotFoundException.WithId(id);
+            }
+
+            // Toggle status: ACTIVE -> INACTIVE, INACTIVE -> ACTIVE
+            position.Status = position.Status == Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
+            position.UpdatedAt = DateTime.UtcNow;
+
+            await _repository.UpdatePositionAsync(position);
+            return true;
+        }, nameof(TogglePositionStatusAsync));
     }
 
     #endregion

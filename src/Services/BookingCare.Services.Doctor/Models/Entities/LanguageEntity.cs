@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.Entities;
 
@@ -14,6 +15,10 @@ public class LanguageEntity
     [MaxLength(100)]
     [Column("name")]
     public string Name { get; set; } = string.Empty;
+
+    [Required]
+    [Column("status")]
+    public Status Status { get; set; } = Status.ACTIVE;
 
     [Required]
     [Column("created_at")]

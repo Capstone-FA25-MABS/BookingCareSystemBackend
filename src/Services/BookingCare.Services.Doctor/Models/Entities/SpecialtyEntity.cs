@@ -4,8 +4,8 @@ using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.Entities;
 
-[Table("positions")]
-public class PositionEntity
+[Table("specialties")]
+public class SpecialtyEntity
 {
     [Key]
     [Column("id")]
@@ -15,6 +15,10 @@ public class PositionEntity
     [MaxLength(255)]
     [Column("name")]
     public string Name { get; set; } = string.Empty;
+
+    [Required]
+    [Column("image_url")]
+    public string ImageUrl { get; set; } = string.Empty;
 
     [Required]
     [Column("status")]
@@ -28,4 +32,3 @@ public class PositionEntity
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
-

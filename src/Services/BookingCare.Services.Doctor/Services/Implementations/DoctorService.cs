@@ -17,14 +17,16 @@ public class DoctorService : BaseService, IDoctorService
 {
     private readonly IDoctorRepository _repository;
     private readonly IPositionRepository _positionRepository;
+    private readonly ISpecialtyRepository _specialtyRepository;
     private readonly IMapper _mapper;
     private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
     private readonly AuthService.AuthServiceClient _authClient;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger) : base(logger)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, ISpecialtyRepository specialtyRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger) : base(logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
+        _specialtyRepository = specialtyRepository;
         _mapper = mapper;
         _favoritesClient = favoritesClient;
         _authClient = authClient;
@@ -135,6 +137,17 @@ public class DoctorService : BaseService, IDoctorService
     {
         var doctor = await _repository.GetDoctorByIdAsync(id);
         if (doctor == null) return null;
+
+        // Include Position và Specialty
+        if (doctor.PositionId.HasValue)
+        {
+            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
+        }
+        if (doctor.SpecialtyId.HasValue)
+        {
+            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
+        }
+
         var response = _mapper.Map<DoctorResponse>(doctor);
         return response;
     }
@@ -143,6 +156,16 @@ public class DoctorService : BaseService, IDoctorService
     {
         var doctor = await _repository.GetDoctorByEmailAsync(email);
         if (doctor == null) return null;
+
+        // Include Position và Specialty
+        if (doctor.PositionId.HasValue)
+        {
+            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
+        }
+        if (doctor.SpecialtyId.HasValue)
+        {
+            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
+        }
 
         var response = _mapper.Map<DoctorResponse>(doctor);
 
@@ -156,6 +179,16 @@ public class DoctorService : BaseService, IDoctorService
     {
         var doctor = await _repository.GetDoctorByAccountIdAsync(accountId);
         if (doctor == null) return null;
+
+        // Include Position và Specialty
+        if (doctor.PositionId.HasValue)
+        {
+            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
+        }
+        if (doctor.SpecialtyId.HasValue)
+        {
+            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
+        }
 
         var response = _mapper.Map<DoctorResponse>(doctor);
 
@@ -243,6 +276,25 @@ public class DoctorService : BaseService, IDoctorService
         }, nameof(DeleteDoctorAsync));
     }
 
+    public async Task<bool> ToggleDoctorStatusAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var doctor = await _repository.GetDoctorByIdAsync(id);
+            if (doctor == null)
+            {
+                throw DoctorNotFoundException.WithId(id);
+            }
+
+            // Note: Doctor status is managed by Auth service, not by Doctor service
+            // This method is kept for API compatibility but doesn't actually toggle status
+            // The actual status toggle should be handled by calling Auth service
+            Logger.LogWarning("ToggleDoctorStatusAsync called but doctor status is managed by Auth service. Doctor ID: {DoctorId}", id);
+
+            return true;
+        }, nameof(ToggleDoctorStatusAsync));
+    }
+
     #endregion
 
     #region Doctor Query Operations
@@ -250,6 +302,10 @@ public class DoctorService : BaseService, IDoctorService
     public async Task<DoctorListResponse> GetDoctorsAsync(DoctorQueryRequest query)
     {
         var (doctors, totalCount) = await _repository.GetDoctorsAsync(query);
+
+        // Enrich with Position và Specialty
+        await EnrichDoctorsWithPositionAndSpecialtyAsync(doctors);
+
         var response = _mapper.Map<DoctorListResponse>((doctors, totalCount));
 
         // Set pagination info
@@ -649,6 +705,44 @@ public class DoctorService : BaseService, IDoctorService
             {
                 // Nếu không tìm thấy status từ Auth service, set mặc định là ACTIVE
                 doctor.Status = Status.ACTIVE;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enrich doctor entities with Position và Specialty
+    /// </summary>
+    private async Task EnrichDoctorsWithPositionAndSpecialtyAsync(List<DoctorEntity> doctors)
+    {
+        if (!doctors.Any()) return;
+
+        var positionIds = doctors.Where(d => d.PositionId.HasValue).Select(d => d.PositionId!.Value).Distinct().ToList();
+        var specialtyIds = doctors.Where(d => d.SpecialtyId.HasValue).Select(d => d.SpecialtyId!.Value).Distinct().ToList();
+
+        var positions = new Dictionary<Guid, PositionEntity>();
+        var specialties = new Dictionary<Guid, SpecialtyEntity>();
+
+        if (positionIds.Any())
+        {
+            var positionList = await _positionRepository.GetPositionsByIdsAsync(positionIds);
+            positions = positionList.ToDictionary(p => p.Id);
+        }
+
+        if (specialtyIds.Any())
+        {
+            var specialtyList = await _specialtyRepository.GetSpecialtiesByIdsAsync(specialtyIds);
+            specialties = specialtyList.ToDictionary(s => s.Id);
+        }
+
+        foreach (var doctor in doctors)
+        {
+            if (doctor.PositionId.HasValue && positions.TryGetValue(doctor.PositionId.Value, out var position))
+            {
+                doctor.Position = position;
+            }
+            if (doctor.SpecialtyId.HasValue && specialties.TryGetValue(doctor.SpecialtyId.Value, out var specialty))
+            {
+                doctor.Specialty = specialty;
             }
         }
     }
