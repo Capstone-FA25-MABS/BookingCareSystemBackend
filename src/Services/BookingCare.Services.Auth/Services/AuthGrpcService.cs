@@ -1,6 +1,8 @@
 using Grpc.Core;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Auth.Repositories;
+using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Auth.Models.DTOs;
 
 namespace BookingCare.Services.Auth.Services;
 
@@ -10,17 +12,19 @@ namespace BookingCare.Services.Auth.Services;
 public class AuthGrpcService : Protos.AuthService.AuthServiceBase
 {
     private readonly IAuthRepository _authRepository;
+    private readonly IAuthService _authService;
     private readonly ILogger<AuthGrpcService> _logger;
 
-    public AuthGrpcService(IAuthRepository authRepository, ILogger<AuthGrpcService> logger)
+    public AuthGrpcService(IAuthRepository authRepository, IAuthService authService, ILogger<AuthGrpcService> logger)
     {
         _authRepository = authRepository;
+        _authService = authService;
         _logger = logger;
     }
 
-    public override async Task<CheckAccountExistsResponse> CheckAccountExists(
-        CheckAccountExistsRequest request,
-        ServerCallContext context)
+        public override async Task<CheckAccountExistsResponse> CheckAccountExists(
+            CheckAccountExistsRequest request,
+            ServerCallContext context)
     {
         try
         {
@@ -60,7 +64,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in gRPC CheckAccountExists");
-            throw new RpcException(new Status(StatusCode.Internal, "Internal error occurred"));
+            throw new RpcException(new Grpc.Core.Status(StatusCode.Internal, "Internal error occurred"));
         }
     }
 
@@ -141,7 +145,101 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in gRPC GetAccountStatusByIds");
-            throw new RpcException(new Status(StatusCode.Internal, "Internal error occurred"));
+            throw new RpcException(new Grpc.Core.Status(StatusCode.Internal, "Internal error occurred"));
         }
     }
+
+    public override async Task<CreateAccountResponse> CreateAccount(
+        CreateAccountRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("gRPC CreateAccount called for email: {Email}", request.Email);
+
+            // Parse role
+            if (!Enum.TryParse<Role>(request.Role, true, out var role))
+            {
+                return new CreateAccountResponse
+                {
+                    Success = false,
+                    Message = $"Invalid role: {request.Role}"
+                };
+            }
+
+            // Map gRPC request to RegisterRequest
+            var registerRequest = new RegisterRequest
+            {
+                Email = request.Email,
+                Password = request.Password,
+                PhoneNumber = request.PhoneNumber,
+                Purpose = ParsePurpose(request.Purpose) ?? OtpPurpose.REGISTER,
+                Channel = request.Channel,
+                Proof = request.Proof,
+                IssuedAt = request.IssuedAt
+            };
+
+            // Call existing AuthService logic
+            var result = await _authService.CreateAccountForSagaAsync(registerRequest, role);
+
+            return new CreateAccountResponse
+            {
+                Success = result.Success,
+                AccountId = result.AccountId,
+                Message = result.Message
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in gRPC CreateAccount for email: {Email}", request.Email);
+            return new CreateAccountResponse
+            {
+                Success = false,
+                Message = ex.Message
+            };
+        }
+    }
+
+    public override async Task<DeleteAccountResponse> DeleteAccount(
+        DeleteAccountRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("gRPC DeleteAccount called for AccountId: {AccountId}", request.AccountId);
+
+            // Call existing AuthService logic
+            var result = await _authService.DeleteAccountForSagaAsync(request.AccountId);
+
+            return new DeleteAccountResponse
+            {
+                Success = result.Success,
+                Message = result.Message
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in gRPC DeleteAccount for AccountId: {AccountId}", request.AccountId);
+            return new DeleteAccountResponse
+            {
+                Success = false,
+                Message = ex.Message
+            };
+        }
+    }
+
+    #region Private Helper Methods
+
+    private static OtpPurpose? ParsePurpose(string? purpose)
+    {
+        if (string.IsNullOrWhiteSpace(purpose))
+            return null;
+
+        if (Enum.TryParse<OtpPurpose>(purpose, true, out var parsedPurpose))
+            return parsedPurpose;
+
+        return null;
+    }
+
+    #endregion
 }

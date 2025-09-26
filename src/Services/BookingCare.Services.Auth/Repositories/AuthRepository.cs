@@ -138,6 +138,31 @@ public class AuthRepository : IAuthRepository
     }
 
     /// <summary>
+    /// Delete account
+    /// </summary>
+    public async Task<bool> DeleteAccountAsync(AccountEntity account)
+    {
+        try
+        {
+            var result = await _userManager.DeleteAsync(account);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogError("Failed to delete account {AccountId}: {Errors}", account.Id, errors);
+                return false;
+            }
+
+            _logger.LogInformation("Account deleted successfully: {AccountId}", account.Id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting account: {AccountId}", account.Id);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Check if email exists using AnyAsync for optimal performance
     /// </summary>
     public async Task<bool> EmailExistsAsync(string email)

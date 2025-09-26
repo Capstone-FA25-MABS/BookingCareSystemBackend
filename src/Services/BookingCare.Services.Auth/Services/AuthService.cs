@@ -104,6 +104,22 @@ public class AuthService : BaseService, IAuthService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
+            var accountResult = await CreateAccountForSagaAsync(request, role);
+
+            return new AuthResponse
+            {
+                Message = "Registration successful",
+            };
+        }, "Register");
+    }
+
+    /// <summary>
+    /// Create account for Saga step - contains the core registration logic
+    /// </summary>
+    public async Task<(bool Success, string AccountId, string Message)> CreateAccountForSagaAsync(RegisterRequest request, Role role)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
             LogInfo("Registration attempt for email: {Email}", null, request.Email);
 
             // Check if email already exists
@@ -148,11 +164,41 @@ public class AuthService : BaseService, IAuthService
 
             LogInfo("Registration successful for email: {Email}", null, request.Email);
 
-            return new AuthResponse
+            return (true, createdAccount.Id.ToString(), "Account created successfully");
+        }, "CreateAccountForSaga");
+    }
+
+    /// <summary>
+    /// Delete account for Saga compensation
+    /// </summary>
+    public async Task<(bool Success, string Message)> DeleteAccountForSagaAsync(string accountId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Deleting account for compensation: {AccountId}", null, accountId);
+
+            if (!Guid.TryParse(accountId, out var id))
             {
-                Message = "Registration successful",
-            };
-        }, "Register");
+                return (false, "Invalid account ID format");
+            }
+
+            var account = await _authRepository.GetAccountByIdAsync(id);
+            if (account == null)
+            {
+                return (true, "Account not found or already deleted"); // Consider success if already deleted
+            }
+
+            var result = await _authRepository.DeleteAccountAsync(account);
+            if (result)
+            {
+                LogInfo("Account deleted successfully for compensation: {AccountId}", null, accountId);
+                return (true, "Account deleted successfully");
+            }
+            else
+            {
+                return (false, "Failed to delete account");
+            }
+        }, "DeleteAccountForSaga");
     }
 
     /// <summary>
