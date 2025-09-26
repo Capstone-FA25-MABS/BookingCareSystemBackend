@@ -22,9 +22,9 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         _logger = logger;
     }
 
-        public override async Task<CheckAccountExistsResponse> CheckAccountExists(
-            CheckAccountExistsRequest request,
-            ServerCallContext context)
+    public override async Task<CheckAccountExistsResponse> CheckAccountExists(
+        CheckAccountExistsRequest request,
+        ServerCallContext context)
     {
         try
         {

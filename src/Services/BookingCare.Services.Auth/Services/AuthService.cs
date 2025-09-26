@@ -192,10 +192,10 @@ public class AuthService : BaseService, IAuthService
     {
         var account = _mapper.Map<AccountEntity>(request);
         var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
-        
+
         await _authRepository.AssignRoleToAccountAsync(createdAccount, targetRole);
         LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRole.Name, request.Email);
-        
+
         return createdAccount;
     }
 

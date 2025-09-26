@@ -21,7 +21,7 @@ public class CreateAccountGrpcStep : BaseGrpcStep
     public override int Order => 1;
     public override TimeSpan Timeout => TimeSpan.FromMinutes(2);
 
-    public CreateAccountGrpcStep(ILogger<CreateAccountGrpcStep> logger, IConfiguration configuration) 
+    public CreateAccountGrpcStep(ILogger<CreateAccountGrpcStep> logger, IConfiguration configuration)
         : base(logger)
     {
         _configuration = configuration;
@@ -97,7 +97,7 @@ public class CreateAccountGrpcStep : BaseGrpcStep
         {
             return HandleGrpcException(ex, "creating account", StepName);
         }
-    }       
+    }
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
@@ -157,7 +157,7 @@ public class CreateUserProfileGrpcStep : BaseGrpcStep
     public override int Order => 2;
     public override TimeSpan Timeout => TimeSpan.FromMinutes(2);
 
-    public CreateUserProfileGrpcStep(ILogger<CreateUserProfileGrpcStep> logger, IConfiguration configuration) 
+    public CreateUserProfileGrpcStep(ILogger<CreateUserProfileGrpcStep> logger, IConfiguration configuration)
         : base(logger)
     {
         _configuration = configuration;
@@ -290,7 +290,7 @@ public class CreateDoctorProfileGrpcStep : BaseGrpcStep
     public override int Order => 2;
     public override TimeSpan Timeout => TimeSpan.FromMinutes(2);
 
-    public CreateDoctorProfileGrpcStep(ILogger<CreateDoctorProfileGrpcStep> logger, IConfiguration configuration) 
+    public CreateDoctorProfileGrpcStep(ILogger<CreateDoctorProfileGrpcStep> logger, IConfiguration configuration)
         : base(logger)
     {
         _configuration = configuration;
