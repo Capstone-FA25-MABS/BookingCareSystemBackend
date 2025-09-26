@@ -15,6 +15,9 @@ using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Auth.Providers;
+using BookingCare.Shared.Saga.Extensions;
+using BookingCare.Shared.Saga.Steps;
+using BookingCare.Shared.Saga.SagaDefinition;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -85,6 +88,12 @@ builder.Services.AddIdentity<AccountEntity, RoleEntity>(options =>
 .AddEntityFrameworkStores<AuthDbContext>()
 .AddDefaultTokenProviders();
 
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    // Reset password token expires based on configuration
+    options.TokenLifespan = TimeSpan.FromHours(1);
+});
+
 // Add HttpContextAccessor for cookie management
 builder.Services.AddHttpContextAccessor();
 
@@ -146,6 +155,18 @@ builder.Services.AddSwaggerGen(c =>
         string.Equals(docName, apiDesc.GroupName, StringComparison.OrdinalIgnoreCase));
 });
 
+
+// Add Saga Orchestration
+builder.Services.AddSagaOrchestration(builder.Configuration);
+
+// Register Saga Definitions
+builder.Services.AddSaga<UserRegistrationSaga>();
+builder.Services.AddSaga<DoctorRegistrationSaga>();
+
+// Register Saga Steps
+builder.Services.AddSagaStep<CreateAccountGrpcStep>();
+builder.Services.AddSagaStep<CreateUserProfileGrpcStep>();
+builder.Services.AddSagaStep<CreateDoctorProfileGrpcStep>();
 
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth-service-queue");
