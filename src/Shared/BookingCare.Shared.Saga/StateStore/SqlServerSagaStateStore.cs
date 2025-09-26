@@ -32,7 +32,7 @@ public class SagaStepExecutionLogParameters
 public class SqlServerSagaStateStore : ISagaStateStore
 {
     private const string SagaIdParameter = "@SagaId";
-    
+
     private readonly string _connectionString;
     private readonly ILogger<SqlServerSagaStateStore> _logger;
     private readonly JsonSerializerOptions _jsonOptions;

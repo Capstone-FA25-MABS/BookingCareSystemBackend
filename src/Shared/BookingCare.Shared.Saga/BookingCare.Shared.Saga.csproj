@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -21,9 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="Protos\auth.proto" GrpcServices="Client" />
-    <Protobuf Include="Protos\user.proto" GrpcServices="Client" />
-    <Protobuf Include="Protos\notification.proto" GrpcServices="Client" />
+    <Protobuf Include="../../Services/BookingCare.Services.Auth/Protos/auth.proto" GrpcServices="Client" />
+    <Protobuf Include="../../Services/BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" />
+    <Protobuf Include="../../Services/BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>
