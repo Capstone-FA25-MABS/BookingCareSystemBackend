@@ -335,7 +335,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     #region Private Helper Methods
 
     private static (List<Guid> validIds, List<string> invalidIds) ValidateAccountIds(
-        IEnumerable<string> accountIds, 
+        IEnumerable<string> accountIds,
         GetAccountDetailsResponse response)
     {
         var validAccountIds = new List<Guid>();
