@@ -26,22 +26,18 @@ public class AuthController : BaseApiController
     private readonly IAuthService _authService;
     private readonly CookieService _cookieService;
     private readonly ISagaManager _sagaManager;
-    private readonly ISagaStateStore _sagaStateStore;
-
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         IAuthService authService,
         CookieService cookieService,
         ISagaManager sagaManager,
-        ISagaStateStore sagaStateStore,
         ILogger<AuthController> logger)
     {
         _authService = authService;
         _cookieService = cookieService;
         _sagaManager = sagaManager;
         _logger = logger;
-        _sagaStateStore = sagaStateStore;
     }
 
     #region Authentication Operations
