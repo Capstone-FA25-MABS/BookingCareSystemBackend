@@ -142,14 +142,7 @@ public class DoctorService : BaseService, IDoctorService
         if (doctor == null) return null;
 
         // Include Position và Specialty
-        if (doctor.PositionId.HasValue)
-        {
-            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
-        }
-        if (doctor.SpecialtyId.HasValue)
-        {
-            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
-        }
+        await IncludePositionAndSpecialtyAsync(doctor);
 
         var response = _mapper.Map<DoctorResponse>(doctor);
 
@@ -165,22 +158,12 @@ public class DoctorService : BaseService, IDoctorService
         if (doctor == null) return null;
 
         // Include Position và Specialty
-        if (doctor.PositionId.HasValue)
-        {
-            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
-        }
-        if (doctor.SpecialtyId.HasValue)
-        {
-            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
-        }
+        await IncludePositionAndSpecialtyAsync(doctor);
 
         var response = _mapper.Map<DoctorResponse>(doctor);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
-
-        // Enrich with review statistics
-        await EnrichDoctorWithReviewStatisticsAsync(response);
+        // Enrich with status and review statistics
+        await EnrichSingleDoctorAsync(response);
 
         return response;
     }
@@ -191,22 +174,12 @@ public class DoctorService : BaseService, IDoctorService
         if (doctor == null) return null;
 
         // Include Position và Specialty
-        if (doctor.PositionId.HasValue)
-        {
-            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
-        }
-        if (doctor.SpecialtyId.HasValue)
-        {
-            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
-        }
+        await IncludePositionAndSpecialtyAsync(doctor);
 
         var response = _mapper.Map<DoctorResponse>(doctor);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
-
-        // Enrich with review statistics
-        await EnrichDoctorWithReviewStatisticsAsync(response);
+        // Enrich with status and review statistics
+        await EnrichSingleDoctorAsync(response);
 
         return response;
     }
@@ -326,11 +299,8 @@ public class DoctorService : BaseService, IDoctorService
         response.PageSize = query.PageSize;
         response.TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response.Doctors);
-
-        // Enrich with review statistics
-        await EnrichDoctorsWithReviewStatisticsAsync(response.Doctors);
+        // Enrich with status and review statistics
+        await EnrichDoctorListAsync(response.Doctors);
 
         // Filter by status if specified (after getting status from Auth service)
         if (query.Status.HasValue)
@@ -373,11 +343,8 @@ public class DoctorService : BaseService, IDoctorService
         var doctors = await _repository.GetDoctorsByHospitalAsync(hospitalId);
         var response = _mapper.Map<List<DoctorResponse>>(doctors);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response);
-
-        // Enrich with review statistics
-        await EnrichDoctorsWithReviewStatisticsAsync(response);
+        // Enrich with status and review statistics
+        await EnrichDoctorListAsync(response);
 
         return response;
     }
@@ -387,11 +354,8 @@ public class DoctorService : BaseService, IDoctorService
         var doctors = await _repository.GetDoctorsBySpecialtyAsync(specialtyId);
         var response = _mapper.Map<List<DoctorResponse>>(doctors);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response);
-
-        // Enrich with review statistics
-        await EnrichDoctorsWithReviewStatisticsAsync(response);
+        // Enrich with status and review statistics
+        await EnrichDoctorListAsync(response);
 
         return response;
     }
@@ -401,11 +365,8 @@ public class DoctorService : BaseService, IDoctorService
         var doctors = await _repository.GetDoctorsByPositionAsync(positionId);
         var response = _mapper.Map<List<DoctorResponse>>(doctors);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response);
-
-        // Enrich with review statistics
-        await EnrichDoctorsWithReviewStatisticsAsync(response);
+        // Enrich with status and review statistics
+        await EnrichDoctorListAsync(response);
 
         return response;
     }
@@ -415,11 +376,8 @@ public class DoctorService : BaseService, IDoctorService
         var doctors = await _repository.GetActiveDoctorsAsync();
         var response = _mapper.Map<List<DoctorResponse>>(doctors);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response);
-
-        // Enrich with review statistics
-        await EnrichDoctorsWithReviewStatisticsAsync(response);
+        // Enrich with status and review statistics
+        await EnrichDoctorListAsync(response);
 
         return response;
     }
@@ -474,8 +432,7 @@ public class DoctorService : BaseService, IDoctorService
         var mappedDoctors = _mapper.Map<List<DoctorResponse>>(filteredDoctors);
 
         SetFavoriteStatus(mappedDoctors, allDoctorIds);
-        await EnrichDoctorsWithStatusAsync(mappedDoctors);
-        await EnrichDoctorsWithReviewStatisticsAsync(mappedDoctors);
+        await EnrichDoctorListAsync(mappedDoctors);
 
         return new DoctorListResponse
         {
@@ -508,8 +465,7 @@ public class DoctorService : BaseService, IDoctorService
         var mappedPage = _mapper.Map<List<DoctorResponse>>(pageDoctors);
 
         SetFavoriteStatus(mappedPage, doctorIds);
-        await EnrichDoctorsWithStatusAsync(mappedPage);
-        await EnrichDoctorsWithReviewStatisticsAsync(mappedPage);
+        await EnrichDoctorListAsync(mappedPage);
 
         var totalCount = response.TotalCount;
         var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
@@ -801,6 +757,45 @@ public class DoctorService : BaseService, IDoctorService
             };
             await _repository.CreateDoctorPriceAsync(doctorPrice);
         }
+    }
+
+    /// <summary>
+    /// Include Position và Specialty for a single doctor
+    /// </summary>
+    private async Task IncludePositionAndSpecialtyAsync(DoctorEntity doctor)
+    {
+        if (doctor.PositionId.HasValue)
+        {
+            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
+        }
+        if (doctor.SpecialtyId.HasValue)
+        {
+            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
+        }
+    }
+
+    /// <summary>
+    /// Enrich single doctor with status and review statistics
+    /// </summary>
+    private async Task EnrichSingleDoctorAsync(DoctorResponse doctor)
+    {
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { doctor });
+
+        // Enrich with review statistics
+        await EnrichDoctorWithReviewStatisticsAsync(doctor);
+    }
+
+    /// <summary>
+    /// Enrich doctor list with status and review statistics
+    /// </summary>
+    private async Task EnrichDoctorListAsync(List<DoctorResponse> doctors)
+    {
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(doctors);
+
+        // Enrich with review statistics
+        await EnrichDoctorsWithReviewStatisticsAsync(doctors);
     }
 
     /// <summary>
