@@ -15,6 +15,9 @@ service UserService {
   // Create new user
   rpc CreateUser (CreateUserRequest) returns (UserResponse);
   
+  // Delete user for Saga compensation
+  rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
+  
   // Batch retrieval for performance optimization
   rpc GetUsersByAccountIds (GetUsersByAccountIdsRequest) returns (UserBatchResponse);
 }
@@ -71,4 +74,13 @@ message UserBasicInfo {
 // Response message for batch user retrieval
 message UserBatchResponse {
   repeated UserBasicInfo users = 1;
+}
+
+message DeleteUserRequest {
+  string id = 1;
+}
+
+message DeleteUserResponse {
+  bool success = 1;
+  string message = 2;
 }

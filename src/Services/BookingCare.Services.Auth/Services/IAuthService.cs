@@ -13,6 +13,11 @@ public interface IAuthService
     Task<AuthResponse> RegisterAsync(RegisterRequest request, Role role);
     Task<AuthResponse> RefreshTokenAsync(string refreshToken);
     Task<bool> LogoutAsync(string refreshToken);
+
+    // Saga operations
+    Task<(bool Success, string AccountId, string Message)> CreateAccountForSagaAsync(RegisterRequest request, Role role);
+    Task<(bool Success, string AccountId, string Message)> CreateExternalAccountForSagaAsync(string email, string fullName, string? avatarUrl, string externalProvider, string externalUserId);
+    Task<(bool Success, string Message)> DeleteAccountForSagaAsync(string accountId);
     Task<bool> ChangePasswordAsync(ChangePasswordRequest request);
     Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request);
     Task<bool> ResetPasswordAsync(ResetPasswordRequest request);

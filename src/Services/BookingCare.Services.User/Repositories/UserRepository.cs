@@ -214,4 +214,31 @@ public class UserRepository : IUserRepository
             .Take(query.PageSize);
     }
 
+    public async Task<bool> DeleteAsync(UserEntity user)
+    {
+        try
+        {
+            _logger.LogInformation("[{ServiceName}] Deleting user: {UserId}", ServiceName, user.Id);
+
+            _context.Users.Remove(user);
+            var result = await _context.SaveChangesAsync();
+
+            if (result > 0)
+            {
+                _logger.LogInformation("[{ServiceName}] User deleted successfully: {UserId}", ServiceName, user.Id);
+                return true;
+            }
+            else
+            {
+                _logger.LogWarning("[{ServiceName}] No changes made when deleting user: {UserId}", ServiceName, user.Id);
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{ServiceName}] Database error when deleting user: {UserId}", ServiceName, user.Id);
+            throw new UserException($"[{ServiceName}] Failed to delete user: {user.Id}", innerException: ex);
+        }
+    }
+
 }

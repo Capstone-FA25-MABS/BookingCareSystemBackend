@@ -153,4 +153,34 @@ public class UserService : BaseService, IUserService
         }, "GetUsersByAccountIds");
     }
 
+    /// <summary>
+    /// Delete user by ID
+    /// </summary>
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Deleting user: {UserId}", null, id);
+
+            var user = await _userRepository.GetByIdAsync(id);
+            if (user == null)
+            {
+                LogWarning("User not found for deletion: {UserId}", null, id);
+                return true; // Consider success if already deleted
+            }
+
+            var result = await _userRepository.DeleteAsync(user);
+            if (result)
+            {
+                LogInfo("User deleted successfully: {UserId}", null, id);
+            }
+            else
+            {
+                LogWarning("Failed to delete user: {UserId}", null, id);
+            }
+
+            return result;
+        }, "DeleteUser");
+    }
+
 }
