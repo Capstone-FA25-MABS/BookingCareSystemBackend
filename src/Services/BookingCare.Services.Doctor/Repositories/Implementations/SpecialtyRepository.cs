@@ -83,36 +83,11 @@ public class SpecialtyRepository : ISpecialtyRepository
     {
         var queryable = _context.Specialties.AsQueryable();
 
-        // Apply search filter
-        if (!string.IsNullOrEmpty(query.SearchTerm))
-        {
-            var searchTerm = query.SearchTerm.ToLower();
-            queryable = queryable.Where(s => s.Name.ToLower().Contains(searchTerm));
-        }
-
-        // Apply status filter
-        if (query.Status.HasValue)
-        {
-            queryable = queryable.Where(s => s.Status == query.Status.Value);
-        }
+        // Apply filters
+        queryable = ApplyFilters(queryable, query);
 
         // Apply sorting
-        if (!string.IsNullOrEmpty(query.SortBy))
-        {
-            var isDescending = query.SortOrder?.ToLower() == "desc";
-            queryable = query.SortBy.ToLower() switch
-            {
-                "name" => isDescending ? queryable.OrderByDescending(s => s.Name) : queryable.OrderBy(s => s.Name),
-                "status" => isDescending ? queryable.OrderByDescending(s => s.Status) : queryable.OrderBy(s => s.Status),
-                "createdat" => isDescending ? queryable.OrderByDescending(s => s.CreatedAt) : queryable.OrderBy(s => s.CreatedAt),
-                "updatedat" => isDescending ? queryable.OrderByDescending(s => s.UpdatedAt) : queryable.OrderBy(s => s.UpdatedAt),
-                _ => queryable.OrderBy(s => s.Name)
-            };
-        }
-        else
-        {
-            queryable = queryable.OrderBy(s => s.Name);
-        }
+        queryable = ApplySorting(queryable, query);
 
         // Get total count
         var totalCount = await queryable.CountAsync();
@@ -124,6 +99,40 @@ public class SpecialtyRepository : ISpecialtyRepository
             .ToListAsync();
 
         return (specialties, totalCount);
+    }
+
+    private static IQueryable<SpecialtyEntity> ApplyFilters(IQueryable<SpecialtyEntity> queryable, SpecialtyQueryRequest query)
+    {
+        if (!string.IsNullOrEmpty(query.SearchTerm))
+        {
+            var searchTerm = query.SearchTerm.ToLower();
+            queryable = queryable.Where(s => s.Name.ToLower().Contains(searchTerm));
+        }
+
+        if (query.Status.HasValue)
+        {
+            queryable = queryable.Where(s => s.Status == query.Status.Value);
+        }
+
+        return queryable;
+    }
+
+    private static IQueryable<SpecialtyEntity> ApplySorting(IQueryable<SpecialtyEntity> queryable, SpecialtyQueryRequest query)
+    {
+        if (string.IsNullOrEmpty(query.SortBy))
+        {
+            return queryable.OrderBy(s => s.Name);
+        }
+
+        var isDescending = query.SortOrder?.ToLower() == "desc";
+        return query.SortBy.ToLower() switch
+        {
+            "name" => isDescending ? queryable.OrderByDescending(s => s.Name) : queryable.OrderBy(s => s.Name),
+            "status" => isDescending ? queryable.OrderByDescending(s => s.Status) : queryable.OrderBy(s => s.Status),
+            "createdat" => isDescending ? queryable.OrderByDescending(s => s.CreatedAt) : queryable.OrderBy(s => s.CreatedAt),
+            "updatedat" => isDescending ? queryable.OrderByDescending(s => s.UpdatedAt) : queryable.OrderBy(s => s.UpdatedAt),
+            _ => queryable.OrderBy(s => s.Name)
+        };
     }
 
     public async Task<List<SpecialtyEntity>> GetAllSpecialtiesAsync()
