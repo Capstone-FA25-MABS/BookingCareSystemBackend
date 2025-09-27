@@ -2,10 +2,8 @@ using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Core;
 using BookingCare.Shared.Saga.Manager;
 using BookingCare.Shared.Saga.StateStore;
-using BookingCare.Shared.Saga.Steps.Grpc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace BookingCare.Shared.Saga.Extensions;
 
@@ -118,17 +116,6 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>
-    /// Registers gRPC saga steps for distributed transactions
-    /// </summary>
-    public static IServiceCollection AddGrpcSagaSteps(this IServiceCollection services)
-    {
-        services.AddTransient<CreateUserAccountGrpcStep>();
-        services.AddTransient<CreateUserProfileGrpcStep>();
-        services.AddTransient<SendVerificationEmailGrpcStep>();
-
-        return services;
-    }
 
     /// <summary>
     /// Registers a saga event handler

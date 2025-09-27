@@ -10,6 +10,7 @@ public interface IUserRepository
     Task<UserEntity?> GetByAccountIdAsync(Guid accountId);
     Task<UserEntity> CreateAsync(UserEntity user);
     Task<UserEntity> UpdateAsync(UserEntity user);
+    Task<bool> DeleteAsync(UserEntity user);
 
     // Query operations
     Task<(List<UserEntity> Users, int TotalCount)> GetUsersAsync(UserQueryRequest query);
