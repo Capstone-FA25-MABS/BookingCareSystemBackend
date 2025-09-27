@@ -8,6 +8,9 @@ using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Auth.Utils;
 using System.ComponentModel.DataAnnotations;
 using BookingCare.Services.Auth.Constants;
+using BookingCare.Shared.Saga.Abstractions;
+using BookingCare.Shared.Saga.Models;
+using BookingCare.Shared.Saga.SagaDefinition;
 
 namespace BookingCare.Services.Auth.Controllers;
 
@@ -22,11 +25,19 @@ public class AuthController : BaseApiController
 {
     private readonly IAuthService _authService;
     private readonly CookieService _cookieService;
+    private readonly ISagaManager _sagaManager;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, CookieService cookieService)
+    public AuthController(
+        IAuthService authService,
+        CookieService cookieService,
+        ISagaManager sagaManager,
+        ILogger<AuthController> logger)
     {
         _authService = authService;
         _cookieService = cookieService;
+        _sagaManager = sagaManager;
+        _logger = logger;
     }
 
     #region Authentication Operations
@@ -62,26 +73,6 @@ public class AuthController : BaseApiController
 
         var result = await _authService.LoginAsync(request);
         return Success(result, "Login successful");
-    }
-
-    /// <summary>
-    /// Register new patient account
-    /// </summary>
-    /// <param name="request">Registration information</param>
-    /// <returns>Authentication response message</returns>
-    [HttpPost("register/patient")]
-    [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> RegisterPatient([FromBody] RegisterRequest request)
-    {
-        var validation = ValidateBasicRequest();
-        if (validation != null) return validation;
-
-        // Role-specific validation
-        var roleValidation = ValidateRoleSpecificRequirements(request, Role.PATIENT);
-        if (roleValidation != null) return roleValidation;
-
-        var result = await _authService.RegisterAsync(request, Role.PATIENT);
-        return Created(result, "Account registered successfully");
     }
 
     /// <summary>
@@ -266,6 +257,155 @@ public class AuthController : BaseApiController
 
         var result = await _authService.FacebookLoginAsync(request);
         return Success(result, "Facebook login successful");
+    }
+
+    /// <summary>
+    /// Register new patient using Saga pattern
+    /// </summary>
+    /// <param name="request">Registration information</param>
+    /// <returns>Saga execution result</returns>
+    [HttpPost("register/patient")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RegisterPatient([FromBody] RegisterRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        // Role-specific validation
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.PATIENT);
+        if (roleValidation != null) return roleValidation;
+
+        // Create saga context
+        var sagaContext = new SagaContext
+        {
+            SagaName = "UserRegistration",
+            CorrelationId = Guid.NewGuid().ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        sagaContext.SetData("Role", Role.PATIENT.ToString());
+        sagaContext.SetData("Email", request.Email);
+        sagaContext.SetData("Password", request.Password);
+        sagaContext.SetData("FullName", request.FullName);
+        sagaContext.SetData("PhoneNumber", request.PhoneNumber);
+        sagaContext.SetData("Gender", request.Gender?.ToString());
+        sagaContext.SetData("Birthday", request.Birthday?.ToString("yyyy-MM-dd"));
+        sagaContext.SetData("Address", request.Address);
+
+        // OTP verification fields for Patient registration
+        sagaContext.SetData("Purpose", request.Purpose.ToKey());
+        sagaContext.SetData("Channel", string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant());
+        sagaContext.SetData("Proof", request.Proof);
+        sagaContext.SetData("IssuedAt", request.IssuedAt);
+
+        try
+        {
+            // Execute User Registration Saga synchronously
+            var result = await _sagaManager.ExecuteSagaAsync<UserRegistrationSaga>(sagaContext);
+
+            if (result.Status == SagaStatus.Completed)
+            {
+                return Success("User registration completed successfully");
+            }
+            else
+            {
+                return BadRequest(new
+                {
+                    SagaId = result.SagaId,
+                    Status = result.Status.ToString(),
+                    Message = "User registration failed",
+                    Error = result.ErrorMessage
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing user registration saga");
+            return BadRequest(new
+            {
+                Message = "User registration failed",
+                Error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Register new doctor using Saga pattern
+    /// </summary>
+    /// <param name="request">Registration information</param>
+    /// <returns>Saga execution result</returns>
+    [HttpPost("register/doctor-saga")]
+    [Authorize(Policy = "Role:Clinic")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RegisterDoctorSaga([FromBody] RegisterRequest request)
+    {
+        var validation = ValidateBasicRequest();
+        if (validation != null) return validation;
+
+        // Role-specific validation
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.DOCTOR);
+        if (roleValidation != null) return roleValidation;
+
+        // Create saga context
+        var sagaContext = new SagaContext
+        {
+            SagaName = "DoctorRegistration",
+            CorrelationId = Guid.NewGuid().ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        sagaContext.SetData("Role", Role.DOCTOR.ToString());
+        sagaContext.SetData("Email", request.Email);
+        sagaContext.SetData("Password", request.Password);
+        sagaContext.SetData("FullName", request.FullName);
+        sagaContext.SetData("PhoneNumber", request.PhoneNumber);
+        sagaContext.SetData("Gender", request.Gender?.ToString());
+        sagaContext.SetData("Address", request.Address);
+
+        // Doctor-specific data from DoctorProfile
+        if (request.DoctorProfile != null)
+        {
+            sagaContext.SetData("Bio", request.DoctorProfile.Bio);
+            sagaContext.SetData("YearsOfExperience", request.DoctorProfile.YearsOfExperience);
+            sagaContext.SetData("SpecialtyId", request.DoctorProfile.SpecialtyId.ToString());
+            sagaContext.SetData("PositionId", request.DoctorProfile.PositionId.ToString());
+            sagaContext.SetData("ClinicId", request.DoctorProfile.ClinicId.ToString());
+        }
+
+        try
+        {
+            // Execute Doctor Registration Saga synchronously
+            var result = await _sagaManager.ExecuteSagaAsync<DoctorRegistrationSaga>(sagaContext);
+
+            if (result.Status == SagaStatus.Completed)
+            {
+                return Created(new
+                {
+                    SagaId = result.SagaId,
+                    Status = result.Status.ToString(),
+                    Message = "Doctor registration completed successfully",
+                }, "Doctor registration completed successfully");
+            }
+            else
+            {
+                return BadRequest(new
+                {
+                    SagaId = result.SagaId,
+                    Status = result.Status.ToString(),
+                    Message = "Doctor registration failed",
+                    Error = result.ErrorMessage
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing doctor registration saga");
+            return BadRequest(new
+            {
+                Message = "Doctor registration failed",
+                Error = ex.Message
+            });
+        }
     }
 
     #endregion

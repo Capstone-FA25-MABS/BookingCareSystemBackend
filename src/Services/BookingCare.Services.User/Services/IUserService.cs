@@ -9,6 +9,7 @@ public interface IUserService
     Task<UserResponse?> GetByAccountIdAsync(Guid accountId);
     Task<UserResponse> CreateAsync(CreateUserRequest createUserRequest);
     Task<UserResponse> UpdateAsync(Guid id, UpdateUserRequest updateUserRequest);
+    Task<bool> DeleteAsync(Guid id);
 
     // Query operations
     Task<UserListResponse> GetUsersAsync(UserQueryRequest query);
