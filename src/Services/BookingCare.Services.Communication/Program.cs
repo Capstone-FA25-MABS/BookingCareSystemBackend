@@ -36,7 +36,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "BookingCare Communication API",
         Version = "v1.0",
-        Description = "Communication Service with Hybrid File Upload Support (AWS S3 + Cloudinary)"
+        Description = "Communication Service with S3-Only File Upload Support (AWS S3 + CloudFront)"
     });
 });
 
@@ -64,7 +64,7 @@ builder.Services.AddCors(options =>
 // Add MongoDB configuration
 builder.Services.AddMongoDb(builder.Configuration);
 
-// === HYBRID FILE UPLOAD CONFIGURATION ===
+// === S3-ONLY FILE UPLOAD CONFIGURATION ===
 // Add AWS S3 + CloudFront file upload service
 builder.Services.AddS3FileUpload(builder.Configuration);
 
@@ -72,13 +72,7 @@ builder.Services.AddS3FileUpload(builder.Configuration);
 builder.Services.Configure<FileUploadConfiguration>(
     builder.Configuration.GetSection(FileUploadConfiguration.SectionName));
 
-builder.Services.Configure<EnhancedFileUploadConfiguration>(
-    builder.Configuration.GetSection(EnhancedFileUploadConfiguration.SectionName));
-
-// Register Cloudinary storage provider (existing)
-builder.Services.AddSingleton<ICloudStorageProvider, CloudinaryStorageProvider>();
-
-// Register hybrid file upload service (NEW)
+// Register S3-only file upload service (formerly hybrid, now S3-only)
 builder.Services.AddScoped<IHybridFileUploadService, HybridFileUploadService>();
 
 // Register wrapper for backward compatibility (IMPORTANT)
@@ -107,7 +101,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Communication Service V1.0 (Hybrid Upload)");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Communication Service V1.0 (S3-Only Upload)");
         c.RoutePrefix = "swagger";
     });
 }

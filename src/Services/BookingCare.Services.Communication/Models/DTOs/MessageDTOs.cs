@@ -29,6 +29,7 @@ public class CreateMessageRequest
 
     /// <summary>
     /// Loại tin nhắn (Text, Image, File, Video, Audio, System)
+    /// Server sẽ tự động detect và override nếu cần thiết
     /// </summary>
     public MessageType Type { get; set; } = MessageType.Text;
 

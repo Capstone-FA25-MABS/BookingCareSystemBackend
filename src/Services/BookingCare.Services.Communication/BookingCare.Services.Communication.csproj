@@ -37,10 +37,7 @@
     <PackageReference Include="MongoDB.Driver" Version="2.25.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     
-    <!-- Cloudinary SDK -->
-    <PackageReference Include="CloudinaryDotNet" Version="1.26.2" />
-    
-    <!-- Image Processing -->
+    <!-- Image Processing - Keep for basic operations -->
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
   </ItemGroup>
 

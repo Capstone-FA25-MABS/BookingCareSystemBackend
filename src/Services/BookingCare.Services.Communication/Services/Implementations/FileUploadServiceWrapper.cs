@@ -1,15 +1,11 @@
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Services.Interfaces;
 
-// Type aliases to resolve ambiguous references
-using CommFileUploadResult = BookingCare.Services.Communication.Services.Interfaces.FileUploadResult;
-using CommPresignedUrlResult = BookingCare.Services.Communication.Services.Interfaces.PresignedUrlResult;
-
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Wrapper service to maintain backward compatibility with existing Communication Service APIs
-/// Delegates to HybridFileUploadService while preserving existing interface
+/// S3-only FileUploadService wrapper - delegates to HybridFileUploadService in S3-only mode
+/// Maintains backward compatibility with existing MessageService
 /// </summary>
 public class FileUploadServiceWrapper : IFileUploadService
 {
@@ -25,64 +21,93 @@ public class FileUploadServiceWrapper : IFileUploadService
     }
 
     /// <summary>
-    /// Upload file - delegates to hybrid service with smart routing
+    /// Upload file - delegates to S3-only HybridFileUploadService
     /// </summary>
-    public async Task<CommFileUploadResult> UploadFileAsync(IFormFile file, string userId, MessageType messageType)
+    public async Task<FileUploadResult> UploadFileAsync(IFormFile file, string userId, MessageType messageType)
     {
-        _logger.LogInformation("FileUploadServiceWrapper: Delegating upload to hybrid service for user {UserId}, file {FileName}",
-            userId, file.FileName);
+        _logger.LogInformation("FileUploadService wrapper: routing to S3-only HybridFileUploadService");
 
-        return await _hybridService.UploadFileAsync(file, userId, messageType);
+        var hybridResult = await _hybridService.UploadFileAsync(file, userId, messageType);
+
+        // Map HybridFileUploadResult to FileUploadResult
+        return new FileUploadResult
+        {
+            Url = hybridResult.Url,
+            FileName = hybridResult.FileName,
+            Size = hybridResult.Size,
+            MimeType = hybridResult.MimeType,
+            ThumbnailUrl = hybridResult.ThumbnailUrl,
+            Width = hybridResult.Width,
+            Height = hybridResult.Height,
+            Duration = hybridResult.Duration
+        };
     }
 
     /// <summary>
-    /// Upload multiple files - delegates to hybrid service
+    /// Upload multiple files - delegates to S3-only HybridFileUploadService
     /// </summary>
-    public async Task<List<CommFileUploadResult>> UploadMultipleFilesAsync(IEnumerable<IFormFile> files, string userId, MessageType messageType)
+    public async Task<List<FileUploadResult>> UploadMultipleFilesAsync(IEnumerable<IFormFile> files, string userId, MessageType messageType)
     {
-        _logger.LogInformation("FileUploadServiceWrapper: Delegating multiple upload to hybrid service for user {UserId}", userId);
+        _logger.LogInformation("FileUploadService wrapper: routing multiple files to S3-only HybridFileUploadService");
 
-        return await _hybridService.UploadMultipleFilesAsync(files, userId, messageType);
+        var hybridResults = await _hybridService.UploadMultipleFilesAsync(files, userId, messageType);
+
+        // Map results
+        return hybridResults.Select(hr => new FileUploadResult
+        {
+            Url = hr.Url,
+            FileName = hr.FileName,
+            Size = hr.Size,
+            MimeType = hr.MimeType,
+            ThumbnailUrl = hr.ThumbnailUrl,
+            Width = hr.Width,
+            Height = hr.Height,
+            Duration = hr.Duration
+        }).ToList();
     }
 
     /// <summary>
-    /// Generate presigned URL - delegates to hybrid service
+    /// Generate presigned URL - delegates to S3-only HybridFileUploadService
     /// </summary>
-    public async Task<CommPresignedUrlResult> GeneratePresignedUrlAsync(string fileName, string contentType, string userId, MessageType messageType)
+    public async Task<PresignedUrlResult> GeneratePresignedUrlAsync(string fileName, string contentType, string userId, MessageType messageType)
     {
-        _logger.LogInformation("FileUploadServiceWrapper: Delegating presigned URL generation to hybrid service for user {UserId}, file {FileName}",
-            userId, fileName);
+        _logger.LogInformation("FileUploadService wrapper: generating S3 presigned URL via HybridFileUploadService");
 
-        return await _hybridService.GeneratePresignedUrlAsync(fileName, contentType, userId, messageType);
+        var hybridResult = await _hybridService.GeneratePresignedUrlAsync(fileName, contentType, userId, messageType);
+
+        // Map result
+        return new PresignedUrlResult
+        {
+            UploadUrl = hybridResult.UploadUrl,
+            FinalUrl = hybridResult.FinalUrl,
+            ExpiresAt = hybridResult.ExpiresAt,
+            Headers = hybridResult.Headers
+        };
     }
 
     /// <summary>
-    /// Delete file - delegates to hybrid service
+    /// Delete file - delegates to S3-only HybridFileUploadService
     /// </summary>
     public async Task<bool> DeleteFileAsync(string fileUrl)
     {
-        _logger.LogInformation("FileUploadServiceWrapper: Delegating file deletion to hybrid service for URL {FileUrl}", fileUrl);
-
+        _logger.LogInformation("FileUploadService wrapper: deleting file via S3-only HybridFileUploadService");
         return await _hybridService.DeleteFileAsync(fileUrl);
     }
 
     /// <summary>
-    /// Generate thumbnail - delegates to hybrid service  
+    /// Generate thumbnail - delegates to S3-only HybridFileUploadService
     /// </summary>
     public async Task<string?> GenerateThumbnailAsync(string originalUrl)
     {
-        _logger.LogInformation("FileUploadServiceWrapper: Delegating thumbnail generation to hybrid service for URL {OriginalUrl}", originalUrl);
-
+        _logger.LogInformation("FileUploadService wrapper: generating thumbnail via S3-only HybridFileUploadService");
         return await _hybridService.GenerateThumbnailAsync(originalUrl);
     }
 
     /// <summary>
-    /// Validate file - delegates to hybrid service
+    /// Validate file - delegates to S3-only HybridFileUploadService
     /// </summary>
     public async Task<FileValidationResult> ValidateFileAsync(IFormFile file, MessageType messageType)
     {
-        _logger.LogDebug("FileUploadServiceWrapper: Delegating file validation to hybrid service for file {FileName}", file.FileName);
-
         return await _hybridService.ValidateFileAsync(file, messageType);
     }
 }

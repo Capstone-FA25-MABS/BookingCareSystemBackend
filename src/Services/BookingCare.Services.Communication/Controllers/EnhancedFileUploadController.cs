@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Shared.Common.Controllers;
@@ -28,7 +28,7 @@ public class EnhancedFileUploadController : BaseApiController
     }
 
     /// <summary>
-    /// Upload file to AWS S3 + CloudFront (NEW ENDPOINT)
+    /// Upload file to AWS S3 + CloudFront (S3-ONLY MODE)
     /// </summary>
     [HttpPost("s3/upload")]
     public async Task<IActionResult> UploadToS3(
@@ -39,7 +39,7 @@ public class EnhancedFileUploadController : BaseApiController
     {
         if (file == null || file.Length == 0)
         {
-            return BadRequest("File kh�ng ???c ?? tr?ng");
+            return BadRequest("File không được để trống");
         }
 
         try
@@ -54,52 +54,17 @@ public class EnhancedFileUploadController : BaseApiController
             // Upload to S3
             var result = await _hybridFileUploadService.UploadToS3Async(file, userId, messageType, customFolder);
 
-            return Success(result, "Upload file to AWS S3 + CloudFront th�nh c�ng!");
+            return Success(result, "Upload file to AWS S3 + CloudFront thành công!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "L?i khi upload file to S3: {FileName}", file.FileName);
-            return BadRequest("L?i khi upload file to S3");
+            _logger.LogError(ex, "Lỗi khi upload file to S3: {FileName}", file.FileName);
+            return BadRequest("Lỗi khi upload file to S3");
         }
     }
 
     /// <summary>
-    /// Upload file to Cloudinary (NEW ENDPOINT)
-    /// </summary>
-    [HttpPost("cloudinary/upload")]
-    public async Task<IActionResult> UploadToCloudinary(
-        [FromForm] IFormFile file,
-        [FromForm] string userId,
-        [FromForm] MessageType messageType)
-    {
-        if (file == null || file.Length == 0)
-        {
-            return BadRequest("File kh�ng ???c ?? tr?ng");
-        }
-
-        try
-        {
-            // Validate file first
-            var validation = await _hybridFileUploadService.ValidateFileAsync(file, messageType);
-            if (!validation.IsValid)
-            {
-                return BadRequest(new { Errors = validation.Errors });
-            }
-
-            // Upload to Cloudinary
-            var result = await _hybridFileUploadService.UploadToCloudinaryAsync(file, userId, messageType);
-
-            return Success(result, "Upload file to Cloudinary th�nh c�ng!");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "L?i khi upload file to Cloudinary: {FileName}", file.FileName);
-            return BadRequest("L?i khi upload file to Cloudinary");
-        }
-    }
-
-    /// <summary>
-    /// Smart upload - auto-routes to best storage provider (NEW ENDPOINT)
+    /// Smart upload - auto-routes to AWS S3 (S3-ONLY MODE)
     /// </summary>
     [HttpPost("smart-upload")]
     public async Task<IActionResult> SmartUpload(
@@ -109,7 +74,7 @@ public class EnhancedFileUploadController : BaseApiController
     {
         if (file == null || file.Length == 0)
         {
-            return BadRequest("File kh�ng ???c ?? tr?ng");
+            return BadRequest("File không được để trống");
         }
 
         try
@@ -121,24 +86,20 @@ public class EnhancedFileUploadController : BaseApiController
                 return BadRequest(new { Errors = validation.Errors });
             }
 
-            // Smart upload with automatic routing
+            // Smart upload with automatic routing (always S3 now)
             var result = await _hybridFileUploadService.UploadFileAsync(file, userId, messageType);
-
-            var provider = result.Url.Contains("cloudfront.net") || result.Url.Contains("amazonaws.com")
-                ? "AWS S3 + CloudFront"
-                : "Cloudinary";
 
             return Success(new
             {
                 Result = result,
-                Provider = provider,
-                Routing = "Auto-routed based on MessageType and content"
-            }, $"Smart upload th�nh c�ng qua {provider}!");
+                Provider = "AWS S3 + CloudFront",
+                Routing = "S3-only mode - all files stored in AWS S3"
+            }, "Smart upload thành công qua AWS S3 + CloudFront!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "L?i khi smart upload file: {FileName}", file.FileName);
-            return BadRequest("L?i khi smart upload file");
+            _logger.LogError(ex, "Lỗi khi smart upload file: {FileName}", file.FileName);
+            return BadRequest("Lỗi khi smart upload file");
         }
     }
 
