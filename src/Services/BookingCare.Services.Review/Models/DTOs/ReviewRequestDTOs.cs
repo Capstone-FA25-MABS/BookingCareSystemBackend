@@ -29,9 +29,9 @@ public class CreateReviewRequest
     public Guid? DoctorId { get; set; }
 
     /// <summary>
-    /// ID of the clinic service being reviewed (required if TargetType is SERVICE)
+    /// ID of the service being reviewed (required if TargetType is SERVICE)
     /// </summary>
-    public Guid? ClinicServiceId { get; set; }
+    public Guid? ServiceId { get; set; }
 
     /// <summary>
     /// Rating from 1 to 5 stars
@@ -125,12 +125,12 @@ public class BatchDoctorsStatisticsRequest
 }
 
 /// <summary>
-/// Request DTO for getting batch statistics for multiple clinic services
+/// Request DTO for getting batch statistics for multiple services
 /// </summary>
 public class BatchServicesStatisticsRequest
 {
     /// <summary>
-    /// List of clinic service IDs to get statistics for
+    /// List of service IDs to get statistics for
     /// </summary>
     public List<Guid> ServiceIds { get; set; } = new();
 }
@@ -151,9 +151,9 @@ public class GetReviewsRequest
     public Guid? DoctorId { get; set; }
 
     /// <summary>
-    /// Filter by clinic service ID
+    /// Filter by service ID
     /// </summary>
-    public Guid? ClinicServiceId { get; set; }
+    public Guid? ServiceId { get; set; }
 
     /// <summary>
     /// Filter by target type
