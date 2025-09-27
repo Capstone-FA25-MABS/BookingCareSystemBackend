@@ -224,6 +224,39 @@ public class AuthRepository : IAuthRepository
         }
     }
 
+    /// <summary>
+    /// Get accounts with their roles by list of IDs
+    /// </summary>
+    public async Task<List<(Guid AccountId, List<string> Roles)>> GetAccountsWithRolesAsync(List<Guid> accountIds)
+    {
+        try
+        {
+            if (accountIds == null || accountIds.Count == 0)
+            {
+                return new List<(Guid, List<string>)>();
+            }
+
+            var accounts = await _userManager.Users
+                .Where(u => accountIds.Contains(u.Id))
+                .ToListAsync();
+
+            var result = new List<(Guid AccountId, List<string> Roles)>();
+
+            foreach (var account in accounts)
+            {
+                var roles = await _userManager.GetRolesAsync(account);
+                result.Add((account.Id, roles.ToList()));
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting accounts with roles by IDs: {AccountIds}", string.Join(", ", accountIds));
+            throw new AuthException("Failed to retrieve accounts with roles by IDs", innerException: ex);
+        }
+    }
+
     #endregion
 
     #region Role Operations

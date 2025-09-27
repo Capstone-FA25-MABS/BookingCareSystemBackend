@@ -18,6 +18,7 @@ public interface IAuthRepository
     Task<bool> EmailExistsAsync(string email);
     Task<bool> PhoneNumberExistsAsync(string phoneNumber);
     Task<List<AccountEntity>> GetAccountsByIdsAsync(List<Guid> accountIds);
+    Task<List<(Guid AccountId, List<string> Roles)>> GetAccountsWithRolesAsync(List<Guid> accountIds);
 
     // Role operations
     Task<RoleEntity?> GetRoleByIdAsync(Guid id);
