@@ -77,6 +77,7 @@ public class SagaStepResult
 /// </summary>
 public class SagaExecutionResult
 {
+    public Guid SagaId { get; set; }
     public bool IsSuccess { get; set; }
     public SagaStatus Status { get; set; }
     public string? ErrorMessage { get; set; }

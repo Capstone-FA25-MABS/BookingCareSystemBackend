@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.User.Models.DTOs;
 using BookingCare.Services.User.Models.Entities;
 
@@ -8,11 +8,10 @@ public class UserMappingProfile : Profile
 {
     public UserMappingProfile()
     {
-        // Entity to Response mappings
-        CreateMap<UserEntity, UserResponse>();
+        // Entity to Response mappings - explicit mapping with all computed properties ignored
+        CreateMap<UserEntity, UserResponse>()
+            .ForMember(dest => dest.FullName, opt => opt.Ignore()); // bỏ qua computed property
 
-        // Collection mappings for individual items
-        CreateMap<List<UserEntity>, List<UserResponse>>();
 
         // Request to Entity mappings
         CreateMap<CreateUserRequest, UserEntity>()

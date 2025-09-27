@@ -4,12 +4,16 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Suppress proto type conflicts warnings -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <Protobuf Include="Protos/auth.proto" GrpcServices="Server" />
     <!-- Use solution-root based path and link into local Protos folder to satisfy gRPC tooling on Linux CI -->
     <Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Notification/Protos/otp.proto" GrpcServices="Client" Link="Protos/otp.proto" ProtoRoot="$(SolutionDir)" />
+    <Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" Link="Protos/user.proto" ProtoRoot="$(SolutionDir)" />
+    <Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" Link="Protos/doctor.proto" ProtoRoot="$(SolutionDir)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -37,6 +41,7 @@
     <ProjectReference Include="../../Shared/BookingCare.Shared.Common/BookingCare.Shared.Common.csproj" />
     <ProjectReference Include="../../Shared/BookingCare.Shared.EventBus/BookingCare.Shared.EventBus.csproj" />
     <ProjectReference Include="..\..\Shared\BookingCare.Shared.Cache\BookingCare.Shared.Cache.csproj" />
+    <ProjectReference Include="..\..\Shared\BookingCare.Shared.Saga\BookingCare.Shared.Saga.csproj" />
   </ItemGroup>
 
 </Project>

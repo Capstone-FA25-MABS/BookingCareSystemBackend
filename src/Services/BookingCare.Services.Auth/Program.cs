@@ -15,7 +15,11 @@ using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Auth.Providers;
-
+using BookingCare.Shared.Saga.Extensions;
+using BookingCare.Shared.Saga.Steps;
+using BookingCare.Shared.Saga.SagaDefinition;
+using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.User.Protos;
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
@@ -85,6 +89,12 @@ builder.Services.AddIdentity<AccountEntity, RoleEntity>(options =>
 .AddEntityFrameworkStores<AuthDbContext>()
 .AddDefaultTokenProviders();
 
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    // Reset password token expires based on configuration
+    options.TokenLifespan = TimeSpan.FromHours(1);
+});
+
 // Add HttpContextAccessor for cookie management
 builder.Services.AddHttpContextAccessor();
 
@@ -113,6 +123,20 @@ builder.Services.AddScoped<ExternalAuthProviderService>();
 builder.Services.AddGrpcClient<OtpVerifier.OtpVerifierClient>(o =>
 {
     var endpoint = builder.Configuration.GetSection("OtpVerification").GetValue<string>("GrpcEndpoint") ?? "http://localhost:6020";
+    o.Address = new Uri(endpoint);
+});
+
+// Add gRPC client for User service
+builder.Services.AddGrpcClient<UserService.UserServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6024";
+    o.Address = new Uri(endpoint);
+});
+
+// Add gRPC client for Doctor service  
+builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6018";
     o.Address = new Uri(endpoint);
 });
 
@@ -147,6 +171,20 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 
+// Add Saga Orchestration
+builder.Services.AddSagaOrchestration(builder.Configuration);
+
+// Register Saga Definitions
+builder.Services.AddSaga<UserRegistrationSaga>();
+builder.Services.AddSaga<DoctorRegistrationSaga>();
+builder.Services.AddSaga<ExternalUserRegistrationSaga>();
+
+// Register Saga Steps
+builder.Services.AddSagaStep<CreateAccountGrpcStep>();
+builder.Services.AddSagaStep<CreateExternalAccountGrpcStep>();
+builder.Services.AddSagaStep<CreateUserProfileGrpcStep>();
+builder.Services.AddSagaStep<CreateDoctorProfileGrpcStep>();
+
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth-service-queue");
 
@@ -180,7 +218,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseGlobalExceptionHandling();
-
 app.UseStandardAuthPipeline();
 
 app.MapControllers();
