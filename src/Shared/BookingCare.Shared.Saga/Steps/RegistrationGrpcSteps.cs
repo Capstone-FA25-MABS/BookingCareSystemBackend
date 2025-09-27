@@ -1,6 +1,4 @@
-using BookingCare.Shared.Saga.Core;
 using BookingCare.Shared.Saga.Models;
-using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -396,6 +394,130 @@ public class CreateDoctorProfileGrpcStep : BaseGrpcStep
         catch (Exception ex)
         {
             return HandleGrpcException(ex, "compensating doctor profile", StepName);
+        }
+    }
+}
+
+/// <summary>
+/// Step 1: Create External Account in Auth Service (for Google/Facebook login)
+/// </summary>
+public class CreateExternalAccountGrpcStep : BaseGrpcStep
+{
+    private readonly IConfiguration _configuration;
+
+    public override string StepName => "CreateExternalAccount";
+    public override int Order => 1;
+    public override TimeSpan Timeout => TimeSpan.FromMinutes(2);
+
+    public CreateExternalAccountGrpcStep(ILogger<CreateExternalAccountGrpcStep> logger, IConfiguration configuration)
+        : base(logger)
+    {
+        _configuration = configuration;
+    }
+
+    public override async Task<SagaStepResult> ExecuteAsync(SagaContext context, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("[CreateExternalAccountGrpcStep] Creating external account for saga {SagaId}", context.SagaId);
+
+            // Get external user data from context (limited information from Google/Facebook)
+            var email = context.GetData<string>("Email");
+            var fullName = context.GetData<string>("FullName");
+            var avatarUrl = context.GetData<string>("AvatarUrl");
+            var externalProvider = context.GetData<string>("ExternalProvider");
+            var externalUserId = context.GetData<string>("ExternalUserId");
+
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(externalProvider) || string.IsNullOrEmpty(externalUserId))
+            {
+                return Failure("Missing required data: Email, ExternalProvider, or ExternalUserId");
+            }
+
+            // Create gRPC client for Auth Service
+            var authGrpcUrl = _configuration["Services:Auth:GrpcUrl"];
+            if (string.IsNullOrEmpty(authGrpcUrl))
+            {
+                return Failure("Auth service gRPC URL not configured");
+            }
+
+            using var grpcChannel = GrpcChannel.ForAddress(authGrpcUrl);
+            var client = new AuthService.AuthServiceClient(grpcChannel);
+
+            // Call CreateExternalAccount gRPC method
+            var request = new CreateExternalAccountRequest
+            {
+                Email = email,
+                FullName = fullName ?? "",
+                AvatarUrl = avatarUrl ?? "",
+                ExternalProvider = externalProvider,
+                ExternalUserId = externalUserId
+            };
+
+            var response = await client.CreateExternalAccountAsync(request, cancellationToken: cancellationToken);
+
+            if (response.Success)
+            {
+                // Store AccountId for next steps and compensation
+                context.SetData("AccountId", response.AccountId);
+
+                _logger.LogInformation("[CreateExternalAccountGrpcStep] External account created successfully: {AccountId}", response.AccountId);
+
+                return Success(new Dictionary<string, object>
+                {
+                    { "AccountId", response.AccountId },
+                    { "AccountEmail", response.Email }
+                });
+            }
+            else
+            {
+                return Failure($"Failed to create external account: {response.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            return HandleGrpcException(ex, "creating external account", StepName);
+        }
+    }
+
+    public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            LogCompensationStart(StepName, context.SagaId, "deleting external account");
+
+            var accountId = context.GetData<string>("AccountId");
+            if (string.IsNullOrEmpty(accountId))
+            {
+                return LogCompensationWarning(StepName, "AccountId");
+            }
+
+            // Create gRPC client for Auth Service
+            var authGrpcUrl = _configuration["Services:Auth:GrpcUrl"];
+            if (string.IsNullOrEmpty(authGrpcUrl))
+            {
+                return Failure("Auth service gRPC URL not configured for compensation");
+            }
+
+            using var grpcChannel = GrpcChannel.ForAddress(authGrpcUrl);
+            var client = new AuthService.AuthServiceClient(grpcChannel);
+
+            // Call DeleteAccount gRPC method for compensation
+            var request = new DeleteAccountRequest { AccountId = accountId };
+            var response = await client.DeleteAccountAsync(request, cancellationToken: cancellationToken);
+
+            if (response.Success)
+            {
+                _logger.LogInformation("[CreateExternalAccountGrpcStep] External account deleted successfully for compensation: {AccountId}", accountId);
+                return Success();
+            }
+            else
+            {
+                return Failure($"Failed to compensate external account: {response.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            return HandleGrpcException(ex, "compensating external account", StepName);
         }
     }
 }

@@ -41,3 +41,21 @@ public class DoctorRegistrationSaga : SagaDefinitionBase
     }
 }
 
+/// <summary>
+/// Saga definition for External User registration process (Google/Facebook login)
+/// </summary>
+public class ExternalUserRegistrationSaga : SagaDefinitionBase
+{
+    public override string SagaName => "ExternalUserRegistration";
+    public override TimeSpan GlobalTimeout => TimeSpan.FromMinutes(5);
+
+    public ExternalUserRegistrationSaga(IServiceProvider serviceProvider)
+    {
+        // Step 1: Create Account in Auth Service (with external login)
+        AddStep(serviceProvider.GetRequiredService<CreateExternalAccountGrpcStep>());
+
+        // Step 2: Create User Profile in User Service
+        AddStep(serviceProvider.GetRequiredService<CreateUserProfileGrpcStep>());
+    }
+}
+

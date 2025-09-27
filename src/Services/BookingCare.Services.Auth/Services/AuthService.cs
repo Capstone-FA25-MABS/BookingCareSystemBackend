@@ -14,6 +14,9 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Protos;
 using BookingCare.Services.Auth.Utils;
 using BookingCare.Services.Auth.Providers;
+using BookingCare.Shared.Saga.Abstractions;
+using BookingCare.Shared.Saga.Models;
+using BookingCare.Shared.Saga.SagaDefinition;
 
 namespace BookingCare.Services.Auth.Services;
 
@@ -30,6 +33,7 @@ public class AuthService : BaseService, IAuthService
     private readonly IEventBus _eventBus;
     private readonly OtpVerifier.OtpVerifierClient _otpClient;
     private readonly ExternalAuthProviderService _externalAuthProviderService;
+    private readonly ISagaManager _sagaManager;
 
     public AuthService(
         IAuthRepository authRepository,
@@ -40,6 +44,7 @@ public class AuthService : BaseService, IAuthService
         CookieService cookieService,
         IEventBus eventBus,
         ExternalAuthProviderService externalAuthProviderService,
+        ISagaManager sagaManager,
         OtpVerifier.OtpVerifierClient? otpClient = null) : base(logger)
     {
         _authRepository = authRepository;
@@ -49,6 +54,7 @@ public class AuthService : BaseService, IAuthService
         _cookieService = cookieService;
         _eventBus = eventBus;
         _externalAuthProviderService = externalAuthProviderService;
+        _sagaManager = sagaManager;
         _otpClient = otpClient!;
     }
 
@@ -194,7 +200,7 @@ public class AuthService : BaseService, IAuthService
         var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
 
         await _authRepository.AssignRoleToAccountAsync(createdAccount, targetRole);
-        LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRole.Name, request.Email);
+        LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRole.Name!, request.Email);
 
         return createdAccount;
     }
@@ -1180,6 +1186,8 @@ public class AuthService : BaseService, IAuthService
             async token => await _externalAuthProviderService.VerifyGoogleAccessTokenAsync(token),
             userInfo => userInfo?.Sub,
             userInfo => userInfo?.Email,
+            userInfo => userInfo?.Name,
+            userInfo => userInfo?.Picture,
             "Invalid Google access token",
             "Google login successful"
         );
@@ -1197,6 +1205,8 @@ public class AuthService : BaseService, IAuthService
             async token => await _externalAuthProviderService.VerifyFacebookAccessTokenAsync(token),
             userInfo => userInfo?.Id,
             userInfo => userInfo?.Email,
+            userInfo => userInfo?.Name,
+            userInfo => userInfo?.Picture,
             "Invalid Facebook access token",
             "Facebook login successful"
         );
@@ -1212,6 +1222,8 @@ public class AuthService : BaseService, IAuthService
         Func<string, Task<T?>> tokenVerifier,
         Func<T, string?> userIdExtractor,
         Func<T, string?> emailExtractor,
+        Func<T, string?> nameExtractor,
+        Func<T, string?> pictureExtractor,
         string invalidTokenMessage,
         string successMessage) where T : class
     {
@@ -1226,6 +1238,8 @@ public class AuthService : BaseService, IAuthService
 
             var email = emailExtractor(userInfo);
             var userId = userIdExtractor(userInfo);
+            var fullName = nameExtractor(userInfo) ?? ExtractNameFromEmail(email ?? "");
+            var avatarUrl = pictureExtractor(userInfo);
 
             if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(userId))
             {
@@ -1240,7 +1254,7 @@ public class AuthService : BaseService, IAuthService
             }
             else
             {
-                return await CreateNewAccountAndLoginAsync(email, providerName, userId, successMessage);
+                return await CreateNewAccountAndLoginAsync(email, providerName, userId, fullName, avatarUrl, successMessage);
             }
         }, operationName);
     }
@@ -1278,43 +1292,149 @@ public class AuthService : BaseService, IAuthService
     }
 
     /// <summary>
-    /// Create new account and login
+    /// Create new account and login using Saga pattern
     /// </summary>
     private async Task<AuthResponse> CreateNewAccountAndLoginAsync(
         string email,
         string providerName,
         string userId,
+        string fullName,
+        string? avatarUrl,
         string successMessage)
     {
-        // Create new account
-        var newAccount = new AccountEntity
+        // Use Saga pattern to create complete user (Account + User Profile)
+        var sagaResult = await CreateExternalUserWithSagaAsync(email, providerName, userId, fullName, avatarUrl);
+
+        if (!sagaResult.Success)
         {
-            UserName = email,
-            Email = email,
-            EmailConfirmed = true, // External provider email is already verified
+            throw new InvalidOperationException($"Failed to create user account: {sagaResult.Message}");
+        }
+
+        // Get the created account
+        var createdAccount = await _authRepository.GetAccountByEmailAsync(email);
+        if (createdAccount == null)
+        {
+            throw new InvalidOperationException("Account was not created successfully");
+        }
+
+        return await GenerateAuthResponseAsync(createdAccount, successMessage);
+    }
+
+    /// <summary>
+    /// Create external user (Account + User Profile) using Saga pattern
+    /// </summary>
+    private async Task<(bool Success, string Message)> CreateExternalUserWithSagaAsync(
+        string email,
+        string providerName,
+        string userId,
+        string fullName,
+        string? avatarUrl)
+    {
+        // Create saga context for external user registration
+        var sagaContext = new SagaContext
+        {
+            SagaName = "ExternalUserRegistration",
+            CorrelationId = Guid.NewGuid().ToString(),
+            CreatedAt = DateTime.UtcNow
         };
 
-        // Validate role exists BEFORE creating account
-        var targetRole = await _authRepository.GetRoleByNameAsync("Patient");
-        if (targetRole == null)
+        // Set external user data (limited information from Google/Facebook)
+        sagaContext.SetData("Email", email);
+        sagaContext.SetData("FullName", fullName);
+        sagaContext.SetData("AvatarUrl", avatarUrl ?? "");
+        sagaContext.SetData("ExternalProvider", providerName);
+        sagaContext.SetData("ExternalUserId", userId);
+
+        try
         {
-            throw new ValidationException("Role Patient does not exist in the system. Cannot create account without valid role.");
-        }
+            // Execute External User Registration Saga
+            var result = await _sagaManager.ExecuteSagaAsync<ExternalUserRegistrationSaga>(sagaContext);
 
-        var result = await _authRepository.CreateAccountAsync(newAccount);
-        if (!result.Succeeded)
+            if (result.Status == SagaStatus.Completed)
+            {
+                LogInfo("External user registration completed successfully for {Email} via {Provider}", null, email, providerName);
+                return (true, "External user registration completed successfully");
+            }
+            else
+            {
+                LogError(new InvalidOperationException("External user registration failed"), "External user registration failed for {Email} via {Provider}: {Error}", null, email, providerName, result.ErrorMessage ?? "Unknown error");
+                return (false, result.ErrorMessage ?? "External user registration failed");
+            }
+        }
+        catch (Exception ex)
         {
-            throw new InvalidOperationException($"Failed to create account: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            LogError(ex, "Error executing external user registration saga for {Email}: {Error}", email, ex.Message);
+            return (false, ex.Message);
         }
+    }
 
-        // Add external login
-        await _authRepository.AddExternalLoginAsync(newAccount.Id, providerName, userId);
+    /// <summary>
+    /// Create external account for Saga step - contains the core external account creation logic
+    /// </summary>
+    public async Task<(bool Success, string AccountId, string Message)> CreateExternalAccountForSagaAsync(
+        string email,
+        string fullName,
+        string? avatarUrl,
+        string externalProvider,
+        string externalUserId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Creating external account for email: {Email} via {Provider}", null, email, externalProvider);
 
-        // Assign role to account (guaranteed to exist)
-        await _authRepository.AssignRoleToAccountAsync(newAccount, targetRole);
-        LogInfo("Role '{Role}' assigned to account: {Email}", null, "Patient", newAccount.Email);
+            // Check if account already exists
+            if (await _authRepository.EmailExistsAsync(email))
+            {
+                throw new AccountConflictException(email, "Email");
+            }
 
-        return await GenerateAuthResponseAsync(newAccount, successMessage);
+            // Create account entity for external user
+            var account = new AccountEntity
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true, // External provider email is already verified
+            };
+
+            // Get Patient role (external users are always patients)
+            var targetRole = await _authRepository.GetRoleByNameAsync("Patient");
+            if (targetRole == null)
+            {
+                throw new ValidationException("Role 'Patient' does not exist in the system. Cannot create external account without valid role.");
+            }
+
+            var result = await _authRepository.CreateAccountAsync(account);
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException($"Failed to create account: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
+
+
+            // Add external login
+            await _authRepository.AddExternalLoginAsync(account.Id, externalProvider, externalUserId);
+
+            // Assign Patient role to account
+            await _authRepository.AssignRoleToAccountAsync(account, targetRole);
+            LogInfo("Role 'Patient' assigned to external account: {Email}", null, email);
+
+            LogInfo("External account created successfully for email: {Email} via {Provider}", null, email, externalProvider);
+
+            return (true, account.Id.ToString(), "External account created successfully");
+        }, "CreateExternalAccountForSaga");
+    }
+
+
+    /// <summary>
+    /// Extract name from email for external users
+    /// </summary>
+    private static string ExtractNameFromEmail(string email)
+    {
+        if (string.IsNullOrEmpty(email)) return "";
+
+        var localPart = email.Split('@')[0];
+        // Replace common separators with spaces and capitalize
+        var name = localPart.Replace(".", " ").Replace("_", " ").Replace("-", " ");
+        return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.ToLower());
     }
 
     /// <summary>
