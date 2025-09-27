@@ -8,6 +8,7 @@ using BookingCare.Services.Doctor.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 
@@ -21,8 +22,9 @@ public class DoctorService : BaseService, IDoctorService
     private readonly IMapper _mapper;
     private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
     private readonly AuthService.AuthServiceClient _authClient;
+    private readonly ReviewService.ReviewServiceClient _reviewClient;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, ISpecialtyRepository specialtyRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger) : base(logger)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, ISpecialtyRepository specialtyRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ReviewService.ReviewServiceClient reviewClient, ILogger<DoctorService> logger) : base(logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
@@ -30,6 +32,7 @@ public class DoctorService : BaseService, IDoctorService
         _mapper = mapper;
         _favoritesClient = favoritesClient;
         _authClient = authClient;
+        _reviewClient = reviewClient;
     }
 
     #region Doctor CRUD Operations
@@ -149,6 +152,10 @@ public class DoctorService : BaseService, IDoctorService
         }
 
         var response = _mapper.Map<DoctorResponse>(doctor);
+
+        // Enrich with review statistics
+        await EnrichDoctorWithReviewStatisticsAsync(response);
+
         return response;
     }
 
@@ -172,6 +179,9 @@ public class DoctorService : BaseService, IDoctorService
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
 
+        // Enrich with review statistics
+        await EnrichDoctorWithReviewStatisticsAsync(response);
+
         return response;
     }
 
@@ -194,6 +204,9 @@ public class DoctorService : BaseService, IDoctorService
 
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
+
+        // Enrich with review statistics
+        await EnrichDoctorWithReviewStatisticsAsync(response);
 
         return response;
     }
@@ -316,6 +329,9 @@ public class DoctorService : BaseService, IDoctorService
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response.Doctors);
 
+        // Enrich with review statistics
+        await EnrichDoctorsWithReviewStatisticsAsync(response.Doctors);
+
         // Filter by status if specified (after getting status from Auth service)
         if (query.Status.HasValue)
         {
@@ -360,6 +376,9 @@ public class DoctorService : BaseService, IDoctorService
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response);
 
+        // Enrich with review statistics
+        await EnrichDoctorsWithReviewStatisticsAsync(response);
+
         return response;
     }
 
@@ -370,6 +389,9 @@ public class DoctorService : BaseService, IDoctorService
 
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response);
+
+        // Enrich with review statistics
+        await EnrichDoctorsWithReviewStatisticsAsync(response);
 
         return response;
     }
@@ -382,6 +404,9 @@ public class DoctorService : BaseService, IDoctorService
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response);
 
+        // Enrich with review statistics
+        await EnrichDoctorsWithReviewStatisticsAsync(response);
+
         return response;
     }
 
@@ -392,6 +417,9 @@ public class DoctorService : BaseService, IDoctorService
 
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response);
+
+        // Enrich with review statistics
+        await EnrichDoctorsWithReviewStatisticsAsync(response);
 
         return response;
     }
@@ -447,6 +475,7 @@ public class DoctorService : BaseService, IDoctorService
 
         SetFavoriteStatus(mappedDoctors, allDoctorIds);
         await EnrichDoctorsWithStatusAsync(mappedDoctors);
+        await EnrichDoctorsWithReviewStatisticsAsync(mappedDoctors);
 
         return new DoctorListResponse
         {
@@ -480,6 +509,7 @@ public class DoctorService : BaseService, IDoctorService
 
         SetFavoriteStatus(mappedPage, doctorIds);
         await EnrichDoctorsWithStatusAsync(mappedPage);
+        await EnrichDoctorsWithReviewStatisticsAsync(mappedPage);
 
         var totalCount = response.TotalCount;
         var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
@@ -770,6 +800,93 @@ public class DoctorService : BaseService, IDoctorService
                 Amount = amount
             };
             await _repository.CreateDoctorPriceAsync(doctorPrice);
+        }
+    }
+
+    /// <summary>
+    /// Enrich single doctor with review statistics
+    /// </summary>
+    private async Task EnrichDoctorWithReviewStatisticsAsync(DoctorResponse doctor)
+    {
+        try
+        {
+            var request = new GetDoctorStatisticsRequest
+            {
+                DoctorId = doctor.Id.ToString()
+            };
+
+            var response = await _reviewClient.GetDoctorDetailedStatisticsAsync(request);
+
+            doctor.ReviewStatistics = new DoctorReviewStatistics
+            {
+                AverageRating = response.AverageRating,
+                TotalReviews = response.TotalReviews,
+                RatingDistribution = response.RatingDistribution.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value
+                )
+            };
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Review gRPC GetDoctorDetailedStatistics failed for doctor {DoctorId}", doctor.Id);
+            // Set default values on failure
+            doctor.ReviewStatistics = new DoctorReviewStatistics
+            {
+                AverageRating = 0.0,
+                TotalReviews = 0,
+                RatingDistribution = new Dictionary<int, long>()
+            };
+        }
+    }
+
+    /// <summary>
+    /// Enrich multiple doctors with review statistics (batch processing)
+    /// </summary>
+    private async Task EnrichDoctorsWithReviewStatisticsAsync(List<DoctorResponse> doctors)
+    {
+        if (!doctors.Any()) return;
+
+        try
+        {
+            var request = new BatchDoctorsStatisticsRequest();
+            request.DoctorIds.AddRange(doctors.Select(d => d.Id.ToString()));
+
+            var response = await _reviewClient.GetBatchDoctorsStatisticsAsync(request);
+
+            foreach (var doctor in doctors)
+            {
+                if (response.DoctorStatistics.TryGetValue(doctor.Id.ToString(), out var stats))
+                {
+                    doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                    {
+                        AverageRating = stats.AverageRating,
+                        TotalReviews = stats.TotalReviews
+                    };
+                }
+                else
+                {
+                    // Set default values if no statistics found
+                    doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                    {
+                        AverageRating = 0.0,
+                        TotalReviews = 0
+                    };
+                }
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Review gRPC GetBatchDoctorsStatistics failed");
+            // Set default values for all doctors on failure
+            foreach (var doctor in doctors)
+            {
+                doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                {
+                    AverageRating = 0.0,
+                    TotalReviews = 0
+                };
+            }
         }
     }
 

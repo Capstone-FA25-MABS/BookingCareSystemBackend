@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Review.Grpc;
 using BookingCare.Services.Doctor.Services.Grpc;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -98,6 +99,12 @@ var authAddress = builder.Configuration.GetSection("GrpcClients:Auth:Address").V
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
 {
     options.Address = new Uri(authAddress);
+});
+
+var reviewAddress = builder.Configuration.GetSection("GrpcClients:Review:Address").Value ?? "http://localhost:6010";
+builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
+{
+    options.Address = new Uri(reviewAddress);
 });
 
 // Add logging

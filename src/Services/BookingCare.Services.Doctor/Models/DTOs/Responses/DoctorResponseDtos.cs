@@ -28,6 +28,9 @@ public class DoctorResponse
     public List<LanguageResponse> Languages { get; set; } = new();
     public bool IsFavorited { get; set; }
     public Status Status { get; set; } // Không set mặc định
+
+    // Review statistics - can be detailed (with rating distribution) or basic (without)
+    public object? ReviewStatistics { get; set; }
 }
 
 public class DoctorPriceResponse
@@ -56,4 +59,17 @@ public class DoctorBasicInfoResponse
     public string Email { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string AvatarUrl { get; set; } = string.Empty;
+}
+
+public class DoctorReviewStatistics
+{
+    public double AverageRating { get; set; }
+    public long TotalReviews { get; set; }
+    public Dictionary<int, long> RatingDistribution { get; set; } = new();
+}
+
+public class DoctorReviewStatisticsBasic
+{
+    public double AverageRating { get; set; }
+    public long TotalReviews { get; set; }
 }
