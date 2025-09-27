@@ -10,6 +10,7 @@ using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
+using BookingCare.Services.Hospital;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
@@ -20,14 +21,16 @@ public class DoctorService : BaseService, IDoctorService
     private readonly IMapper _mapper;
     private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
     private readonly AuthService.AuthServiceClient _authClient;
+    private readonly HospitalService.HospitalServiceClient _hospitalClient;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, ILogger<DoctorService> logger) : base(logger)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, HospitalService.HospitalServiceClient hospitalClient, ILogger<DoctorService> logger) : base(logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
         _mapper = mapper;
         _favoritesClient = favoritesClient;
         _authClient = authClient;
+        _hospitalClient = hospitalClient;
     }
 
     #region Doctor CRUD Operations
@@ -131,11 +134,19 @@ public class DoctorService : BaseService, IDoctorService
         await _repository.CreateDoctorLanguageAsync(doctorLanguage);
     }
 
-    public async Task<DoctorResponse?> GetDoctorByIdAsync(Guid id)
+    public async Task<DoctorDetailResponse?> GetDoctorByIdAsync(Guid id)
     {
         var doctor = await _repository.GetDoctorByIdAsync(id);
         if (doctor == null) return null;
-        var response = _mapper.Map<DoctorResponse>(doctor);
+
+        var response = _mapper.Map<DoctorDetailResponse>(doctor);
+
+        // Enrich with detailed hospital info
+        await EnrichDoctorWithHospitalDetailInfoAsync(response);
+
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
+
         return response;
     }
 
@@ -304,6 +315,9 @@ public class DoctorService : BaseService, IDoctorService
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response);
 
+        // Enrich with hospital basic info
+        await EnrichDoctorsWithHospitalBasicInfoAsync(response);
+
         return response;
     }
 
@@ -314,6 +328,9 @@ public class DoctorService : BaseService, IDoctorService
 
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response);
+
+        // Enrich with hospital basic info
+        await EnrichDoctorsWithHospitalBasicInfoAsync(response);
 
         return response;
     }
@@ -326,6 +343,9 @@ public class DoctorService : BaseService, IDoctorService
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response);
 
+        // Enrich with hospital basic info
+        await EnrichDoctorsWithHospitalBasicInfoAsync(response);
+
         return response;
     }
 
@@ -336,6 +356,9 @@ public class DoctorService : BaseService, IDoctorService
 
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(response);
+
+        // Enrich with hospital basic info
+        await EnrichDoctorsWithHospitalBasicInfoAsync(response);
 
         return response;
     }
@@ -652,6 +675,124 @@ public class DoctorService : BaseService, IDoctorService
             }
         }
     }
+
+    #region Hospital Enrichment Methods
+
+    /// <summary>
+    /// Enrich doctors with basic hospital information (Id, Name, Address)
+    /// </summary>
+    private async Task EnrichDoctorsWithHospitalBasicInfoAsync(List<DoctorResponse> doctors)
+    {
+        if (!doctors.Any()) return;
+
+        var hospitalIds = doctors.Where(d => d.HospitalId.HasValue)
+                                 .Select(d => d.HospitalId!.Value)
+                                 .Distinct()
+                                 .ToList();
+
+        if (!hospitalIds.Any()) return;
+
+        try
+        {
+            var hospitalInfoMap = await GetHospitalBasicInfoMapAsync(hospitalIds);
+
+            foreach (var doctor in doctors.Where(d => d.HospitalId.HasValue))
+            {
+                if (hospitalInfoMap.TryGetValue(doctor.HospitalId!.Value, out var hospitalInfo))
+                {
+                    doctor.Hospital = hospitalInfo;
+                }
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Hospital gRPC GetHospitalsList failed");
+            // Continue without hospital info on failure
+        }
+    }
+
+    /// <summary>
+    /// Enrich single doctor with detailed hospital information
+    /// </summary>
+    private async Task EnrichDoctorWithHospitalDetailInfoAsync(DoctorDetailResponse doctor)
+    {
+        if (!doctor.HospitalId.HasValue) return;
+
+        try
+        {
+            var request = new GetHospitalRequest
+            {
+                Id = doctor.HospitalId.Value.ToString()
+            };
+
+            var hospitalResponse = await _hospitalClient.GetHospitalAsync(request);
+
+            doctor.Hospital = new HospitalDetailInfo
+            {
+                Id = Guid.Parse(hospitalResponse.Id),
+                AccountId = Guid.Parse(hospitalResponse.AccountId),
+                Name = hospitalResponse.Name,
+                Address = hospitalResponse.Address,
+                Phone = hospitalResponse.Phone,
+                Email = hospitalResponse.Email,
+                Description = hospitalResponse.Description,
+                BackgroundUrl = hospitalResponse.BackgroundUrl,
+                AvatarUrl = hospitalResponse.AvatarUrl,
+                Status = hospitalResponse.Status,
+                CreatedAt = DateTime.Parse(hospitalResponse.CreatedAt),
+                UpdatedAt = DateTime.Parse(hospitalResponse.UpdatedAt)
+            };
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Hospital gRPC GetHospital failed for hospital {HospitalId}", doctor.HospitalId);
+            // Continue without hospital info on failure
+        }
+    }
+
+    /// <summary>
+    /// Get hospital basic info map from Hospital service
+    /// </summary>
+    private async Task<Dictionary<Guid, HospitalBasicInfo>> GetHospitalBasicInfoMapAsync(List<Guid> hospitalIds)
+    {
+        var hospitalMap = new Dictionary<Guid, HospitalBasicInfo>();
+
+        try
+        {
+            // Call Hospital service to get basic hospital info
+            var request = new GetHospitalsListRequest
+            {
+                Page = 1,
+                PageSize = 1000, // Get all hospitals we need
+                Status = "ACTIVE"
+            };
+
+            var response = await _hospitalClient.GetHospitalsListAsync(request);
+
+            // Filter only the hospitals we need
+            var relevantHospitals = response.Hospitals.Where(h => hospitalIds.Contains(Guid.Parse(h.Id)));
+
+            foreach (var hospital in relevantHospitals)
+            {
+                hospitalMap[Guid.Parse(hospital.Id)] = new HospitalBasicInfo
+                {
+                    Id = Guid.Parse(hospital.Id),
+                    Name = hospital.Name,
+                    Address = hospital.Address
+                };
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Hospital gRPC GetHospitalsList failed");
+            // Return empty map on failure
+        }
+
+        return hospitalMap;
+    }
+
+
+    #endregion
 
     private async Task UpdateDoctorPriceAsync(DoctorEntity doctor, decimal amount)
     {

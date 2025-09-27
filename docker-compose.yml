@@ -272,9 +272,9 @@ services:
     networks:
       - bookingcare-network
 
-  clinic-service:
+  hospital-service:
     build:
-      context: ./src/Services/ClinicService/BookingCare.ClinicService
+      context: ./src/Services/BookingCare.Services.Hospital
       dockerfile: Dockerfile
     ports:
       - "5004:80"
@@ -283,7 +283,7 @@ services:
       - rabbitmq
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Clinics;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BookingCare_Hospitals;User Id=sa;Password=BookingCare123!;TrustServerCertificate=true
       - RabbitMQ__Host=rabbitmq
     networks:
       - bookingcare-network

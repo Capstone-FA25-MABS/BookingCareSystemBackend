@@ -98,6 +98,12 @@ builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
     options.Address = new Uri(authAddress);
 });
 
+var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6014";
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
+{
+    options.Address = new Uri(hospitalAddress);
+});
+
 // Add logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();

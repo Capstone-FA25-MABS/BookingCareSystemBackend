@@ -46,7 +46,7 @@ public class DoctorsController : BaseApiController
     #region Doctor Endpoints
 
     /// <summary>
-    /// Get doctor by ID
+    /// Get doctor by ID with detailed hospital info
     /// </summary>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -58,7 +58,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Doctor with ID {id} not found");
         }
 
-        return Success<DoctorResponse>(doctor, "Doctor retrieved successfully");
+        return Success<DoctorDetailResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
