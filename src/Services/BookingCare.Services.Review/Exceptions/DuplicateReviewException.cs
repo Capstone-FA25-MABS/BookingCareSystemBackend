@@ -9,15 +9,15 @@ public class DuplicateReviewException : BusinessException
 {
     public Guid PatientId { get; }
     public Guid? DoctorId { get; }
-    public Guid? ClinicServiceId { get; }
+    public Guid? ServiceId { get; }
     public string ExistingReviewId { get; }
 
-    public DuplicateReviewException(Guid patientId, Guid? doctorId, Guid? clinicServiceId, string existingReviewId, string targetName)
+    public DuplicateReviewException(Guid patientId, Guid? doctorId, Guid? serviceId, string existingReviewId, string targetName)
         : base($"Patient has already reviewed {targetName}. Please update the existing review instead of creating a new one.")
     {
         PatientId = patientId;
         DoctorId = doctorId;
-        ClinicServiceId = clinicServiceId;
+        ServiceId = serviceId;
         ExistingReviewId = existingReviewId;
     }
 }

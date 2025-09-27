@@ -172,9 +172,9 @@ public class ReviewResponse
     public Guid? DoctorId { get; set; }
 
     /// <summary>
-    /// ID of the clinic service being reviewed (null if reviewing doctor)
+    /// ID of the service being reviewed (null if reviewing doctor)
     /// </summary>
-    public Guid? ClinicServiceId { get; set; }
+    public Guid? ServiceId { get; set; }
 
     /// <summary>
     /// Rating from 1 to 5 stars
