@@ -1,4 +1,5 @@
 using BookingCare.Shared.Saga.Models;
+using BookingCare.Shared.Saga.Constants;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -76,13 +77,13 @@ public class CreateAccountGrpcStep : BaseGrpcStep
             if (response.Success)
             {
                 // Store AccountId for next steps
-                context.SetData("AccountId", response.AccountId);
+                context.SetData(SagaConstants.ACCOUNT_ID_KEY, response.AccountId);
 
                 _logger.LogInformation("[CreateAccountGrpcStep] Account created successfully: {AccountId}", response.AccountId);
 
                 return Success(new Dictionary<string, object>
                 {
-                    { "AccountId", response.AccountId },
+                    { SagaConstants.ACCOUNT_ID_KEY, response.AccountId },
                     { "Message", response.Message }
                 });
             }
@@ -99,48 +100,7 @@ public class CreateAccountGrpcStep : BaseGrpcStep
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            LogCompensationStart(StepName, context.SagaId, "deleting account");
-
-            var accountId = context.GetData<string>("AccountId");
-            if (string.IsNullOrEmpty(accountId))
-            {
-                return LogCompensationWarning(StepName, "AccountId");
-            }
-
-            // Create gRPC client for Auth Service
-            var authGrpcUrl = _configuration["Services:Auth:GrpcUrl"];
-            if (string.IsNullOrEmpty(authGrpcUrl))
-            {
-                return Failure("Auth service gRPC URL not configured for compensation");
-            }
-
-            using var grpcChannel = GrpcChannel.ForAddress(authGrpcUrl);
-            var client = new AuthService.AuthServiceClient(grpcChannel);
-
-            // Call DeleteAccount gRPC method
-            var request = new DeleteAccountRequest
-            {
-                AccountId = accountId
-            };
-
-            var response = await client.DeleteAccountAsync(request, cancellationToken: cancellationToken);
-
-            if (response.Success)
-            {
-                _logger.LogInformation("[CreateAccountGrpcStep] Account compensated successfully: {AccountId}", accountId);
-                return Success();
-            }
-            else
-            {
-                return Failure($"Failed to compensate account: {response.Message}");
-            }
-        }
-        catch (Exception ex)
-        {
-            return HandleGrpcException(ex, "compensating account", StepName);
-        }
+        return await CompensateAccountDeletionAsync(context, _configuration, StepName, "deleting account", SagaConstants.ACCOUNT_ID_KEY, cancellationToken);
     }
 }
 
@@ -168,7 +128,7 @@ public class CreateUserProfileGrpcStep : BaseGrpcStep
             _logger.LogInformation("[CreateUserProfileGrpcStep] Creating user profile for saga {SagaId}", context.SagaId);
 
             // Get data from context
-            var accountId = context.GetData<string>("AccountId");
+            var accountId = context.GetData<string>(SagaConstants.ACCOUNT_ID_KEY);
             var email = context.GetData<string>("Email");
             var fullName = context.GetData<string>("FullName");
             var phoneNumber = context.GetData<string>("PhoneNumber");
@@ -292,7 +252,7 @@ public class CreateDoctorProfileGrpcStep : BaseGrpcStep
             _logger.LogInformation("[CreateDoctorProfileGrpcStep] Creating doctor profile for saga {SagaId}", context.SagaId);
 
             // Get data from context
-            var accountId = context.GetData<string>("AccountId");
+            var accountId = context.GetData<string>(SagaConstants.ACCOUNT_ID_KEY);
             var email = context.GetData<string>("Email");
             var fullName = context.GetData<string>("FullName");
             var gender = context.GetData<string>("Gender");
@@ -458,13 +418,13 @@ public class CreateExternalAccountGrpcStep : BaseGrpcStep
             if (response.Success)
             {
                 // Store AccountId for next steps and compensation
-                context.SetData("AccountId", response.AccountId);
+                context.SetData(SagaConstants.ACCOUNT_ID_KEY, response.AccountId);
 
                 _logger.LogInformation("[CreateExternalAccountGrpcStep] External account created successfully: {AccountId}", response.AccountId);
 
                 return Success(new Dictionary<string, object>
                 {
-                    { "AccountId", response.AccountId },
+                    { SagaConstants.ACCOUNT_ID_KEY, response.AccountId },
                     { "AccountEmail", response.Email }
                 });
             }
@@ -481,43 +441,6 @@ public class CreateExternalAccountGrpcStep : BaseGrpcStep
 
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            LogCompensationStart(StepName, context.SagaId, "deleting external account");
-
-            var accountId = context.GetData<string>("AccountId");
-            if (string.IsNullOrEmpty(accountId))
-            {
-                return LogCompensationWarning(StepName, "AccountId");
-            }
-
-            // Create gRPC client for Auth Service
-            var authGrpcUrl = _configuration["Services:Auth:GrpcUrl"];
-            if (string.IsNullOrEmpty(authGrpcUrl))
-            {
-                return Failure("Auth service gRPC URL not configured for compensation");
-            }
-
-            using var grpcChannel = GrpcChannel.ForAddress(authGrpcUrl);
-            var client = new AuthService.AuthServiceClient(grpcChannel);
-
-            // Call DeleteAccount gRPC method for compensation
-            var request = new DeleteAccountRequest { AccountId = accountId };
-            var response = await client.DeleteAccountAsync(request, cancellationToken: cancellationToken);
-
-            if (response.Success)
-            {
-                _logger.LogInformation("[CreateExternalAccountGrpcStep] External account deleted successfully for compensation: {AccountId}", accountId);
-                return Success();
-            }
-            else
-            {
-                return Failure($"Failed to compensate external account: {response.Message}");
-            }
-        }
-        catch (Exception ex)
-        {
-            return HandleGrpcException(ex, "compensating external account", StepName);
-        }
+        return await CompensateAccountDeletionAsync(context, _configuration, StepName, "deleting external account", SagaConstants.ACCOUNT_ID_KEY, cancellationToken);
     }
 }

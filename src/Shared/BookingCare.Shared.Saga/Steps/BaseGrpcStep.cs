@@ -2,6 +2,9 @@ using BookingCare.Shared.Saga.Core;
 using BookingCare.Shared.Saga.Models;
 using Grpc.Core;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using Grpc.Net.Client;
+using BookingCare.Services.Auth.Protos;
 
 namespace BookingCare.Shared.Saga.Steps;
 
@@ -85,5 +88,63 @@ public abstract class BaseGrpcStep : CompensatableSagaStepBase
             result[$"{idKey.Replace("Id", "Email")}"] = email;
 
         return Success(result);
+    }
+
+    /// <summary>
+    /// Common method to compensate account deletion
+    /// </summary>
+    protected async Task<SagaStepResult> CompensateAccountDeletionAsync(
+        SagaContext context,
+        IConfiguration configuration,
+        string stepName,
+        string operation,
+        string accountIdKey = "AccountId",
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            LogCompensationStart(stepName, context.SagaId, operation);
+
+            var accountId = context.GetData<string>(accountIdKey);
+            if (string.IsNullOrEmpty(accountId))
+            {
+                return LogCompensationWarning(stepName, accountIdKey);
+            }
+
+            // Create gRPC client for Auth Service
+            var authGrpcUrl = configuration["Services:Auth:GrpcUrl"];
+            if (string.IsNullOrEmpty(authGrpcUrl))
+            {
+                return Failure("Auth service gRPC URL not configured for compensation");
+            }
+
+            using var grpcChannel = GrpcChannel.ForAddress(authGrpcUrl);
+            var client = new AuthService.AuthServiceClient(grpcChannel);
+
+            // Call DeleteAccount gRPC method
+            var request = new DeleteAccountRequest
+            {
+                AccountId = accountId
+            };
+
+            var response = await client.DeleteAccountAsync(request, cancellationToken: cancellationToken);
+
+            if (response.Success)
+            {
+                _logger.LogInformation("[{StepName}] Account {AccountId} deleted successfully during compensation",
+                    stepName, accountId);
+                return Success();
+            }
+            else
+            {
+                _logger.LogError("[{StepName}] Failed to delete account {AccountId}: {Message}",
+                    stepName, accountId, response.Message);
+                return Failure($"Failed to delete account: {response.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            return HandleGrpcException(ex, $"compensating {operation}", stepName);
+        }
     }
 }

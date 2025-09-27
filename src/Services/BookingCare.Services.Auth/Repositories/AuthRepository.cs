@@ -231,11 +231,6 @@ public class AuthRepository : IAuthRepository
     {
         try
         {
-            if (accountIds == null || accountIds.Count == 0)
-            {
-                return new List<(Guid, List<string>)>();
-            }
-
             var accounts = await _userManager.Users
                 .Where(u => accountIds.Contains(u.Id))
                 .ToListAsync();

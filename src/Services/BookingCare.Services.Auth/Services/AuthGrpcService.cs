@@ -296,146 +296,25 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 return response;
             }
 
-            // Parse and validate account IDs
-            var validAccountIds = new List<Guid>();
-            var invalidIds = new List<string>();
+            var (validAccountIds, invalidIds) = ValidateAccountIds(request.AccountIds, response);
 
-            foreach (var accountIdString in request.AccountIds)
-            {
-                if (Guid.TryParse(accountIdString, out var accountId))
-                {
-                    validAccountIds.Add(accountId);
-                }
-                else
-                {
-                    invalidIds.Add(accountIdString);
-                    // Add invalid ID to response with not found status
-                    response.AccountDetails.Add(new AccountDetail
-                    {
-                        AccountId = accountIdString,
-                        Found = false,
-                        Role = "Unknown"
-                    });
-                }
-            }
-
-            if (invalidIds.Count > 0)
+            if (invalidIds.Any())
             {
                 _logger.LogWarning("Invalid account IDs provided: {InvalidIds}", string.Join(", ", invalidIds));
             }
 
-            if (validAccountIds.Count == 0)
+            if (!validAccountIds.Any())
             {
                 response.Message = "No valid account IDs provided";
                 return response;
             }
 
-            // Get accounts with their roles from repository
             var accounts = await _authRepository.GetAccountsWithRolesAsync(validAccountIds);
             var accountDict = accounts.ToDictionary(a => a.AccountId, a => a);
 
-            // Group accounts by role
-            var patientAccountIds = accounts
-                .Where(a => a.Roles.Any(r => r == Role.PATIENT.ToString()))
-                .Select(a => a.AccountId.ToString())
-                .ToList();
+            var (userDetails, doctorDetails) = await FetchUserAndDoctorDetailsAsync(accounts);
 
-            var doctorAccountIds = accounts
-                .Where(a => a.Roles.Any(r => r == Role.DOCTOR.ToString()))
-                .Select(a => a.AccountId.ToString())
-                .ToList();
-
-            // Fetch user details for patients
-            var userDetails = new Dictionary<string, (string Email, string FullName, string AvatarUrl)>();
-            if (patientAccountIds.Count > 0)
-            {
-                try
-                {
-                    var userRequest = new GetUsersByAccountIdsRequest();
-                    userRequest.AccountIds.AddRange(patientAccountIds);
-
-                    var userResponse = await _userGrpcClient.GetUsersByAccountIdsAsync(userRequest);
-                    foreach (var user in userResponse.Users)
-                    {
-                        userDetails[user.AccountId] = (user.Email, user.FullName, user.AvatarUrl ?? string.Empty);
-                    }
-
-                    _logger.LogInformation("Retrieved {Count} user details from UserService", userResponse.Users.Count);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error calling UserService for account IDs: {AccountIds}", string.Join(", ", patientAccountIds));
-                }
-            }
-
-            // Fetch doctor details for doctors
-            var doctorDetails = new Dictionary<string, (string Email, string FullName, string AvatarUrl)>();
-            if (doctorAccountIds.Count > 0)
-            {
-                try
-                {
-                    var doctorRequest = new GetDoctorsByAccountIdsRequest();
-                    doctorRequest.AccountIds.AddRange(doctorAccountIds);
-
-                    var doctorResponse = await _doctorGrpcClient.GetDoctorsByAccountIdsAsync(doctorRequest);
-                    foreach (var doctor in doctorResponse.Doctors)
-                    {
-                        doctorDetails[doctor.AccountId] = (doctor.Email, doctor.FullName, doctor.AvatarUrl ?? string.Empty);
-                    }
-
-                    _logger.LogInformation("Retrieved {Count} doctor details from DoctorService", doctorResponse.Doctors.Count);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error calling DoctorService for account IDs: {AccountIds}", string.Join(", ", doctorAccountIds));
-                }
-            }
-
-            // Build response for valid account IDs
-            foreach (var accountId in validAccountIds)
-            {
-                var accountIdString = accountId.ToString();
-                var accountDetail = new AccountDetail
-                {
-                    AccountId = accountIdString,
-                    Found = false
-                };
-
-                if (accountDict.TryGetValue(accountId, out var account))
-                {
-                    accountDetail.Found = true;
-                    accountDetail.Role = string.Join(",", account.Roles); // In case of multiple roles
-
-                    // Try to get details from user or doctor services
-                    if (userDetails.TryGetValue(accountIdString, out var userDetail))
-                    {
-                        accountDetail.Email = userDetail.Email;
-                        accountDetail.FullName = userDetail.FullName;
-                        accountDetail.AvatarUrl = userDetail.AvatarUrl;
-                    }
-                    else if (doctorDetails.TryGetValue(accountIdString, out var doctorDetail))
-                    {
-                        accountDetail.Email = doctorDetail.Email;
-                        accountDetail.FullName = doctorDetail.FullName;
-                        accountDetail.AvatarUrl = doctorDetail.AvatarUrl;
-                    }
-                    else
-                    {
-                        // Account exists but no profile found
-                        accountDetail.Email = string.Empty;
-                        accountDetail.FullName = string.Empty;
-                        accountDetail.AvatarUrl = string.Empty;
-                        _logger.LogWarning("Account {AccountId} with role {Role} found but no profile details available",
-                            accountIdString, accountDetail.Role);
-                    }
-                }
-                else
-                {
-                    accountDetail.Role = "NotFound";
-                }
-
-                response.AccountDetails.Add(accountDetail);
-            }
+            BuildAccountDetailsResponse(validAccountIds, accountDict, userDetails, doctorDetails, response);
 
             _logger.LogInformation("Successfully processed {TotalRequested} account IDs: {ValidCount} valid, {FoundCount} found",
                 request.AccountIds.Count, validAccountIds.Count, accounts.Count);
@@ -454,6 +333,185 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     }
 
     #region Private Helper Methods
+
+    private (List<Guid> validIds, List<string> invalidIds) ValidateAccountIds(
+        IEnumerable<string> accountIds,
+        GetAccountDetailsResponse response)
+    {
+        var validAccountIds = new List<Guid>();
+        var invalidIds = new List<string>();
+
+        foreach (var accountIdString in accountIds)
+        {
+            if (Guid.TryParse(accountIdString, out var accountId))
+            {
+                validAccountIds.Add(accountId);
+            }
+            else
+            {
+                invalidIds.Add(accountIdString);
+                response.AccountDetails.Add(new AccountDetail
+                {
+                    AccountId = accountIdString,
+                    Found = false,
+                    Role = "Unknown"
+                });
+            }
+        }
+
+        return (validAccountIds, invalidIds);
+    }
+
+    private async Task<(Dictionary<string, (string Email, string FullName, string AvatarUrl)> userDetails,
+                       Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails)>
+        FetchUserAndDoctorDetailsAsync(List<(Guid AccountId, List<string> Roles)> accounts)
+    {
+        var patientAccountIds = accounts
+            .Where(a => a.Roles.Any(r => r == Role.PATIENT.ToString()))
+            .Select(a => a.AccountId.ToString())
+            .ToList();
+
+        var doctorAccountIds = accounts
+            .Where(a => a.Roles.Any(r => r == Role.DOCTOR.ToString()))
+            .Select(a => a.AccountId.ToString())
+            .ToList();
+
+        var userDetails = await FetchUserDetailsAsync(patientAccountIds);
+        var doctorDetails = await FetchDoctorDetailsAsync(doctorAccountIds);
+
+        return (userDetails, doctorDetails);
+    }
+
+    private async Task<Dictionary<string, (string Email, string FullName, string AvatarUrl)>>
+        FetchUserDetailsAsync(List<string> patientAccountIds)
+    {
+        var userDetails = new Dictionary<string, (string Email, string FullName, string AvatarUrl)>();
+
+        if (!patientAccountIds.Any())
+            return userDetails;
+
+        try
+        {
+            var userRequest = new GetUsersByAccountIdsRequest();
+            userRequest.AccountIds.AddRange(patientAccountIds);
+
+            var userResponse = await _userGrpcClient.GetUsersByAccountIdsAsync(userRequest);
+            foreach (var user in userResponse.Users)
+            {
+                userDetails[user.AccountId] = (user.Email, user.FullName, user.AvatarUrl ?? string.Empty);
+            }
+
+            _logger.LogInformation("Retrieved {Count} user details from UserService", userResponse.Users.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calling UserService for account IDs: {AccountIds}",
+                string.Join(", ", patientAccountIds));
+        }
+
+        return userDetails;
+    }
+
+    private async Task<Dictionary<string, (string Email, string FullName, string AvatarUrl)>>
+        FetchDoctorDetailsAsync(List<string> doctorAccountIds)
+    {
+        var doctorDetails = new Dictionary<string, (string Email, string FullName, string AvatarUrl)>();
+
+        if (!doctorAccountIds.Any())
+            return doctorDetails;
+
+        try
+        {
+            var doctorRequest = new GetDoctorsByAccountIdsRequest();
+            doctorRequest.AccountIds.AddRange(doctorAccountIds);
+
+            var doctorResponse = await _doctorGrpcClient.GetDoctorsByAccountIdsAsync(doctorRequest);
+            foreach (var doctor in doctorResponse.Doctors)
+            {
+                doctorDetails[doctor.AccountId] = (doctor.Email, doctor.FullName, doctor.AvatarUrl ?? string.Empty);
+            }
+
+            _logger.LogInformation("Retrieved {Count} doctor details from DoctorService", doctorResponse.Doctors.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calling DoctorService for account IDs: {AccountIds}",
+                string.Join(", ", doctorAccountIds));
+        }
+
+        return doctorDetails;
+    }
+
+    private void BuildAccountDetailsResponse(
+        List<Guid> validAccountIds,
+        Dictionary<Guid, (Guid AccountId, List<string> Roles)> accountDict,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> userDetails,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails,
+        GetAccountDetailsResponse response)
+    {
+        foreach (var accountId in validAccountIds)
+        {
+            var accountIdString = accountId.ToString();
+            var accountDetail = CreateAccountDetail(accountIdString, accountDict, userDetails, doctorDetails, accountId);
+            response.AccountDetails.Add(accountDetail);
+        }
+    }
+
+    private AccountDetail CreateAccountDetail(
+        string accountIdString,
+        Dictionary<Guid, (Guid AccountId, List<string> Roles)> accountDict,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> userDetails,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails,
+        Guid accountId)
+    {
+        var accountDetail = new AccountDetail
+        {
+            AccountId = accountIdString,
+            Found = false
+        };
+
+        if (accountDict.TryGetValue(accountId, out var account))
+        {
+            accountDetail.Found = true;
+            accountDetail.Role = string.Join(",", account.Roles);
+
+            SetAccountDetailProfile(accountDetail, accountIdString, userDetails, doctorDetails);
+        }
+        else
+        {
+            accountDetail.Role = "NotFound";
+        }
+
+        return accountDetail;
+    }
+
+    private void SetAccountDetailProfile(
+        AccountDetail accountDetail,
+        string accountIdString,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> userDetails,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails)
+    {
+        if (userDetails.TryGetValue(accountIdString, out var userDetail))
+        {
+            accountDetail.Email = userDetail.Email;
+            accountDetail.FullName = userDetail.FullName;
+            accountDetail.AvatarUrl = userDetail.AvatarUrl;
+        }
+        else if (doctorDetails.TryGetValue(accountIdString, out var doctorDetail))
+        {
+            accountDetail.Email = doctorDetail.Email;
+            accountDetail.FullName = doctorDetail.FullName;
+            accountDetail.AvatarUrl = doctorDetail.AvatarUrl;
+        }
+        else
+        {
+            accountDetail.Email = string.Empty;
+            accountDetail.FullName = string.Empty;
+            accountDetail.AvatarUrl = string.Empty;
+            _logger.LogWarning("Account {AccountId} with role {Role} found but no profile details available",
+                accountIdString, accountDetail.Role);
+        }
+    }
 
     private static OtpPurpose? ParsePurpose(string? purpose)
     {
