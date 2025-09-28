@@ -15,21 +15,19 @@ DECLARE @SubscriptionStatusActive NVARCHAR(20) = 'ACTIVE';
 DECLARE @SubscriptionStatusExpired NVARCHAR(20) = 'EXPIRED';
 DECLARE @SubscriptionStatusPending NVARCHAR(20) = 'PENDING';
 DECLARE @SubscriptionStatusTrial NVARCHAR(20) = 'TRIAL';
-GO
 
 -- =============================================================================
 -- 1. INSERT SUBSCRIPTION PLANS
 -- =============================================================================
-INSERT INTO subscription_plans (id, name, description, price, billing_cycle, max_doctors, max_appointments, max_storage_gb, features, status, created_at, updated_at)
+INSERT INTO subscription_plans (id, name, description, price, billing_cycle, max_doctors, max_specialties, features, status, created_at, updated_at)
 VALUES 
-    (NEWID(), N'Gói Cơ Bản', N'Gói dành cho phòng khám nhỏ với các tính năng cơ bản', 500000, N'MONTHLY', 5, 100, 1, N'Quản lý bệnh nhân cơ bản, Lịch hẹn, Báo cáo đơn giản', @StatusActive, @CurrentTime, @CurrentTime),
-    (NEWID(), N'Gói Tiêu Chuẩn', N'Gói dành cho phòng khám vừa với nhiều tính năng hơn', 1000000, N'MONTHLY', 15, 500, 5, N'Quản lý bệnh nhân nâng cao, Lịch hẹn, Báo cáo chi tiết, Tích hợp thanh toán', @StatusActive, @CurrentTime, @CurrentTime),
-    (NEWID(), N'Gói Chuyên Nghiệp', N'Gói dành cho bệnh viện lớn với đầy đủ tính năng', 2000000, N'MONTHLY', 50, 2000, 20, N'Tất cả tính năng, API không giới hạn, Hỗ trợ 24/7, Tùy chỉnh giao diện', @StatusActive, @CurrentTime, @CurrentTime),
-    (NEWID(), N'Gói Doanh Nghiệp', N'Gói dành cho hệ thống bệnh viện lớn', 5000000, N'MONTHLY', 200, 10000, 100, N'Tất cả tính năng Premium, Multi-tenant, Tích hợp hệ thống, Đào tạo chuyên sâu', @StatusActive, @CurrentTime, @CurrentTime),
-    (NEWID(), N'Gói Năm Cơ Bản', N'Gói cơ bản thanh toán theo năm (giảm 20%)', 4800000, N'YEARLY', 5, 100, 1, N'Quản lý bệnh nhân cơ bản, Lịch hẹn, Báo cáo đơn giản', @StatusActive, @CurrentTime, @CurrentTime),
-    (NEWID(), N'Gói Năm Tiêu Chuẩn', N'Gói tiêu chuẩn thanh toán theo năm (giảm 20%)', 9600000, N'YEARLY', 15, 500, 5, N'Quản lý bệnh nhân nâng cao, Lịch hẹn, Báo cáo chi tiết, Tích hợp thanh toán', @StatusActive, @CurrentTime, @CurrentTime),
-    (NEWID(), N'Gói Dùng Thử', N'Gói dùng thử miễn phí 30 ngày', 0, N'TRIAL', 3, 50, 0.5, N'Tính năng cơ bản, Giới hạn 30 ngày', @StatusActive, @CurrentTime, @CurrentTime);
-GO
+    (NEWID(), N'Gói Cơ Bản', N'Gói dành cho phòng khám nhỏ với các tính năng cơ bản', 500000, N'MONTHLY', 5, 3, N'Quản lý bệnh nhân cơ bản, Lịch hẹn, Báo cáo đơn giản', @StatusActive, @CurrentTime, @CurrentTime),
+    (NEWID(), N'Gói Tiêu Chuẩn', N'Gói dành cho phòng khám vừa với nhiều tính năng hơn', 1000000, N'MONTHLY', 15, 8, N'Quản lý bệnh nhân nâng cao, Lịch hẹn, Báo cáo chi tiết, Tích hợp thanh toán', @StatusActive, @CurrentTime, @CurrentTime),
+    (NEWID(), N'Gói Chuyên Nghiệp', N'Gói dành cho bệnh viện lớn với đầy đủ tính năng', 2000000, N'MONTHLY', 50, 20, N'Tất cả tính năng, API không giới hạn, Hỗ trợ 24/7, Tùy chỉnh giao diện', @StatusActive, @CurrentTime, @CurrentTime),
+    (NEWID(), N'Gói Doanh Nghiệp', N'Gói dành cho hệ thống bệnh viện lớn', 5000000, N'MONTHLY', 200, 50, N'Tất cả tính năng Premium, Multi-tenant, Tích hợp hệ thống, Đào tạo chuyên sâu', @StatusActive, @CurrentTime, @CurrentTime),
+    (NEWID(), N'Gói Năm Cơ Bản', N'Gói cơ bản thanh toán theo năm (giảm 20%)', 4800000, N'YEARLY', 5, 3, N'Quản lý bệnh nhân cơ bản, Lịch hẹn, Báo cáo đơn giản', @StatusActive, @CurrentTime, @CurrentTime),
+    (NEWID(), N'Gói Năm Tiêu Chuẩn', N'Gói tiêu chuẩn thanh toán theo năm (giảm 20%)', 9600000, N'YEARLY', 15, 8, N'Quản lý bệnh nhân nâng cao, Lịch hẹn, Báo cáo chi tiết, Tích hợp thanh toán', @StatusActive, @CurrentTime, @CurrentTime),
+    (NEWID(), N'Gói Dùng Thử', N'Gói dùng thử miễn phí 30 ngày', 0, N'MONTHLY', 2, 1, N'Các tính năng cơ bản, Giới hạn số lượng bác sĩ và chuyên khoa', @StatusActive, @CurrentTime, @CurrentTime);
 
 -- =============================================================================
 -- 2. INSERT HOSPITALS
@@ -46,7 +44,6 @@ VALUES
     (NEWID(), NEWID(), N'Phòng khám Tâm lý Dr. Mind', N'258 Đường Pasteur, Quận 3, TP.HCM', N'028-3822-6666', N'support@drmind.vn', N'Phòng khám chuyên về tâm lý học và tâm thần học với các bác sĩ tâm lý có kinh nghiệm. Chuyên tư vấn tâm lý, điều trị stress, trầm cảm và các rối loạn tâm lý.', N'https://example.com/hospital8-bg.jpg', N'https://example.com/hospital8-avatar.jpg', @StatusActive, @CurrentTime, @CurrentTime),
     (NEWID(), NEWID(), N'Bệnh viện Chỉnh hình và Phục hồi chức năng', N'369 Đường Nam Kỳ Khởi Nghĩa, Quận 3, TP.HCM', N'028-3930-3333', N'info@bvchinhhinh.vn', N'Bệnh viện chuyên khoa chỉnh hình với các dịch vụ phẫu thuật xương khớp, phục hồi chức năng và vật lý trị liệu. Có khoa cấp cứu chấn thương 24/7.', N'https://example.com/hospital9-bg.jpg', N'https://example.com/hospital9-avatar.jpg', @StatusActive, @CurrentTime, @CurrentTime),
     (NEWID(), NEWID(), N'Phòng khám Dinh dưỡng Healthy Life', N'741 Đường Đinh Tiên Hoàng, Quận Bình Thạnh, TP.HCM', N'028-3899-4444', N'hello@healthylife.vn', N'Phòng khám chuyên về dinh dưỡng và tư vấn sức khỏe. Chuyên tư vấn chế độ ăn uống, giảm cân, tăng cân và điều trị các bệnh liên quan đến dinh dưỡng.', N'https://example.com/hospital10-bg.jpg', N'https://example.com/hospital10-avatar.jpg', @StatusActive, @CurrentTime, @CurrentTime);
-GO
 
 -- =============================================================================
 -- 3. INSERT HOSPITAL SUBSCRIPTIONS
@@ -80,7 +77,6 @@ VALUES
     (NEWID(), @HospitalId8, @PlanTrial, DATEADD(day, -25, @CurrentTime), DATEADD(day, 5, @CurrentTime), @SubscriptionStatusTrial, @CurrentTime, @CurrentTime),
     (NEWID(), @HospitalId9, @PlanStandard, DATEADD(day, -35, @CurrentTime), DATEADD(day, 325, @CurrentTime), @SubscriptionStatusActive, @CurrentTime, @CurrentTime),
     (NEWID(), @HospitalId10, @PlanBasic, DATEADD(day, -2, @CurrentTime), DATEADD(day, 358, @CurrentTime), @SubscriptionStatusPending, @CurrentTime, @CurrentTime);
-GO
 
 -- =============================================================================
 -- 4. INSERT HOSPITAL SPECIALTIES (Sample specialty IDs)
@@ -108,7 +104,6 @@ VALUES
     (@HospitalId9, NEWID()), -- Chỉnh hình
     (@HospitalId9, NEWID()), -- Phục hồi chức năng
     (@HospitalId10, NEWID()); -- Dinh dưỡng
-GO
 
 -- =============================================================================
 -- 5. INSERT HOSPITAL IMAGES
@@ -125,7 +120,6 @@ VALUES
     (NEWID(), @HospitalId4, 'hospitals/hospital4/treatment-room.jpg', 'https://example.com/hospital4-treatment.jpg', N'Phòng điều trị da', @CurrentTime),
     (NEWID(), @HospitalId5, 'hospitals/hospital5/surgery-room.jpg', 'https://example.com/hospital5-surgery.jpg', N'Phòng phẫu thuật mắt', @CurrentTime),
     (NEWID(), @HospitalId6, 'hospitals/hospital6/dental-chair.jpg', 'https://example.com/hospital6-dental.jpg', N'Ghế nha khoa', @CurrentTime);
-GO
 
 -- =============================================================================
 -- VERIFICATION QUERIES
@@ -162,3 +156,4 @@ PRINT '- Hospitals: 10';
 PRINT '- Hospital Subscriptions: 10';
 PRINT '- Hospital Specialties: 20';
 PRINT '- Hospital Images: 10';
+
