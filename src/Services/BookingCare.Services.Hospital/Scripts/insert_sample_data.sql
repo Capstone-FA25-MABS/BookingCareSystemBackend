@@ -4,7 +4,7 @@
 -- This script inserts sample data for all entities in the Hospital service
 -- Run this script after creating the database schema
 
-USE [BookingCare_Hospital]; -- Replace with your actual database name
+USE [MABS_Hospital];
 GO
 
 -- Define constants

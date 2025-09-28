@@ -17,4 +17,5 @@ public interface IPositionRepository
     // Position Query operations
     Task<(List<PositionEntity> Positions, int TotalCount)> GetPositionsAsync(PositionQueryRequest query);
     Task<List<PositionEntity>> GetAllPositionsAsync();
+    Task<List<PositionEntity>> GetPositionsByIdsAsync(List<Guid> ids);
 }

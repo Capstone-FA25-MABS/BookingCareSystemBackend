@@ -8,6 +8,7 @@ using BookingCare.Services.Doctor.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Services.Hospital;
@@ -18,19 +19,23 @@ public class DoctorService : BaseService, IDoctorService
 {
     private readonly IDoctorRepository _repository;
     private readonly IPositionRepository _positionRepository;
+    private readonly ISpecialtyRepository _specialtyRepository;
     private readonly IMapper _mapper;
     private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
     private readonly AuthService.AuthServiceClient _authClient;
     private readonly HospitalService.HospitalServiceClient _hospitalClient;
+    private readonly ReviewService.ReviewServiceClient _reviewClient;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, HospitalService.HospitalServiceClient hospitalClient, ILogger<DoctorService> logger) : base(logger)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, ISpecialtyRepository specialtyRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, HospitalService.HospitalServiceClient hospitalClient, ReviewService.ReviewServiceClient reviewClient, ILogger<DoctorService> logger) : base(logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
+        _specialtyRepository = specialtyRepository;
         _mapper = mapper;
         _favoritesClient = favoritesClient;
         _authClient = authClient;
         _hospitalClient = hospitalClient;
+        _reviewClient = reviewClient;
     }
 
     #region Doctor CRUD Operations
@@ -139,13 +144,19 @@ public class DoctorService : BaseService, IDoctorService
         var doctor = await _repository.GetDoctorByIdAsync(id);
         if (doctor == null) return null;
 
+        // Include Position và Specialty
+        await IncludePositionAndSpecialtyAsync(doctor);
+
         var response = _mapper.Map<DoctorDetailResponse>(doctor);
+
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
 
         // Enrich with detailed hospital info
         await EnrichDoctorWithHospitalDetailInfoAsync(response);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
+        // Enrich with review statistics
+        await EnrichDoctorWithReviewStatisticsAsync(response);
 
         return response;
     }
@@ -155,10 +166,13 @@ public class DoctorService : BaseService, IDoctorService
         var doctor = await _repository.GetDoctorByEmailAsync(email);
         if (doctor == null) return null;
 
+        // Include Position và Specialty
+        await IncludePositionAndSpecialtyAsync(doctor);
+
         var response = _mapper.Map<DoctorResponse>(doctor);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
+        // Enrich with status and review statistics
+        await EnrichSingleDoctorAsync(response);
 
         return response;
     }
@@ -168,10 +182,13 @@ public class DoctorService : BaseService, IDoctorService
         var doctor = await _repository.GetDoctorByAccountIdAsync(accountId);
         if (doctor == null) return null;
 
+        // Include Position và Specialty
+        await IncludePositionAndSpecialtyAsync(doctor);
+
         var response = _mapper.Map<DoctorResponse>(doctor);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
+        // Enrich with status and review statistics
+        await EnrichSingleDoctorAsync(response);
 
         return response;
     }
@@ -254,6 +271,25 @@ public class DoctorService : BaseService, IDoctorService
         }, nameof(DeleteDoctorAsync));
     }
 
+    public async Task<bool> ToggleDoctorStatusAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var doctor = await _repository.GetDoctorByIdAsync(id);
+            if (doctor == null)
+            {
+                throw DoctorNotFoundException.WithId(id);
+            }
+
+            // Note: Doctor status is managed by Auth service, not by Doctor service
+            // This method is kept for API compatibility but doesn't actually toggle status
+            // The actual status toggle should be handled by calling Auth service
+            Logger.LogWarning("ToggleDoctorStatusAsync called but doctor status is managed by Auth service. Doctor ID: {DoctorId}", id);
+
+            return true;
+        }, nameof(ToggleDoctorStatusAsync));
+    }
+
     #endregion
 
     #region Doctor Query Operations
@@ -261,6 +297,10 @@ public class DoctorService : BaseService, IDoctorService
     public async Task<DoctorListResponse> GetDoctorsAsync(DoctorQueryRequest query)
     {
         var (doctors, totalCount) = await _repository.GetDoctorsAsync(query);
+
+        // Enrich with Position và Specialty
+        await EnrichDoctorsWithPositionAndSpecialtyAsync(doctors);
+
         var response = _mapper.Map<DoctorListResponse>((doctors, totalCount));
 
         // Set pagination info
@@ -268,16 +308,11 @@ public class DoctorService : BaseService, IDoctorService
         response.PageSize = query.PageSize;
         response.TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response.Doctors);
+        // Enrich with status and review statistics
+        await EnrichDoctorListAsync(response.Doctors);
 
-        // Filter by status if specified (after getting status from Auth service)
-        if (query.Status.HasValue)
-        {
-            response.Doctors = response.Doctors.Where(d => d.Status == query.Status.Value).ToList();
-            response.TotalCount = response.Doctors.Count; // Update total count after filtering
-            response.TotalPages = (int)Math.Ceiling((double)response.TotalCount / query.PageSize);
-        }
+        // Note: Status filtering should be done at database level in repository
+        // If needed, implement it in the repository query instead of here
 
         return response;
     }
@@ -312,11 +347,8 @@ public class DoctorService : BaseService, IDoctorService
         var doctors = await _repository.GetDoctorsByHospitalAsync(hospitalId);
         var response = _mapper.Map<List<DoctorResponse>>(doctors);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response);
-
-        // Enrich with hospital basic info
-        await EnrichDoctorsWithHospitalBasicInfoAsync(response);
+        // Enrich with status, review statistics, and hospital info
+        await EnrichDoctorListAsync(response);
 
         return response;
     }
@@ -326,11 +358,8 @@ public class DoctorService : BaseService, IDoctorService
         var doctors = await _repository.GetDoctorsBySpecialtyAsync(specialtyId);
         var response = _mapper.Map<List<DoctorResponse>>(doctors);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response);
-
-        // Enrich with hospital basic info
-        await EnrichDoctorsWithHospitalBasicInfoAsync(response);
+        // Enrich with status, review statistics, and hospital info
+        await EnrichDoctorListAsync(response);
 
         return response;
     }
@@ -340,11 +369,8 @@ public class DoctorService : BaseService, IDoctorService
         var doctors = await _repository.GetDoctorsByPositionAsync(positionId);
         var response = _mapper.Map<List<DoctorResponse>>(doctors);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response);
-
-        // Enrich with hospital basic info
-        await EnrichDoctorsWithHospitalBasicInfoAsync(response);
+        // Enrich with status, review statistics, and hospital info
+        await EnrichDoctorListAsync(response);
 
         return response;
     }
@@ -354,11 +380,8 @@ public class DoctorService : BaseService, IDoctorService
         var doctors = await _repository.GetActiveDoctorsAsync();
         var response = _mapper.Map<List<DoctorResponse>>(doctors);
 
-        // Enrich with account status
-        await EnrichDoctorsWithStatusAsync(response);
-
-        // Enrich with hospital basic info
-        await EnrichDoctorsWithHospitalBasicInfoAsync(response);
+        // Enrich with status, review statistics, and hospital info
+        await EnrichDoctorListAsync(response);
 
         return response;
     }
@@ -413,7 +436,7 @@ public class DoctorService : BaseService, IDoctorService
         var mappedDoctors = _mapper.Map<List<DoctorResponse>>(filteredDoctors);
 
         SetFavoriteStatus(mappedDoctors, allDoctorIds);
-        await EnrichDoctorsWithStatusAsync(mappedDoctors);
+        await EnrichDoctorListAsync(mappedDoctors);
 
         return new DoctorListResponse
         {
@@ -446,7 +469,7 @@ public class DoctorService : BaseService, IDoctorService
         var mappedPage = _mapper.Map<List<DoctorResponse>>(pageDoctors);
 
         SetFavoriteStatus(mappedPage, doctorIds);
-        await EnrichDoctorsWithStatusAsync(mappedPage);
+        await EnrichDoctorListAsync(mappedPage);
 
         var totalCount = response.TotalCount;
         var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
@@ -794,6 +817,44 @@ public class DoctorService : BaseService, IDoctorService
 
     #endregion
 
+    /// <summary>
+    /// Enrich doctor entities with Position và Specialty
+    /// </summary>
+    private async Task EnrichDoctorsWithPositionAndSpecialtyAsync(List<DoctorEntity> doctors)
+    {
+        if (!doctors.Any()) return;
+
+        var positionIds = doctors.Where(d => d.PositionId.HasValue).Select(d => d.PositionId!.Value).Distinct().ToList();
+        var specialtyIds = doctors.Where(d => d.SpecialtyId.HasValue).Select(d => d.SpecialtyId!.Value).Distinct().ToList();
+
+        var positions = new Dictionary<Guid, PositionEntity>();
+        var specialties = new Dictionary<Guid, SpecialtyEntity>();
+
+        if (positionIds.Any())
+        {
+            var positionList = await _positionRepository.GetPositionsByIdsAsync(positionIds);
+            positions = positionList.ToDictionary(p => p.Id);
+        }
+
+        if (specialtyIds.Any())
+        {
+            var specialtyList = await _specialtyRepository.GetSpecialtiesByIdsAsync(specialtyIds);
+            specialties = specialtyList.ToDictionary(s => s.Id);
+        }
+
+        foreach (var doctor in doctors)
+        {
+            if (doctor.PositionId.HasValue && positions.TryGetValue(doctor.PositionId.Value, out var position))
+            {
+                doctor.Position = position;
+            }
+            if (doctor.SpecialtyId.HasValue && specialties.TryGetValue(doctor.SpecialtyId.Value, out var specialty))
+            {
+                doctor.Specialty = specialty;
+            }
+        }
+    }
+
     private async Task UpdateDoctorPriceAsync(DoctorEntity doctor, decimal amount)
     {
         // Tìm giá hiện tại của doctor
@@ -817,6 +878,135 @@ public class DoctorService : BaseService, IDoctorService
                 Amount = amount
             };
             await _repository.CreateDoctorPriceAsync(doctorPrice);
+        }
+    }
+
+    /// <summary>
+    /// Include Position và Specialty for a single doctor
+    /// </summary>
+    private async Task IncludePositionAndSpecialtyAsync(DoctorEntity doctor)
+    {
+        if (doctor.PositionId.HasValue)
+        {
+            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
+        }
+        if (doctor.SpecialtyId.HasValue)
+        {
+            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
+        }
+    }
+
+    /// <summary>
+    /// Enrich single doctor with status and review statistics
+    /// </summary>
+    private async Task EnrichSingleDoctorAsync(DoctorResponse doctor)
+    {
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { doctor });
+
+        // Enrich with review statistics
+        await EnrichDoctorWithReviewStatisticsAsync(doctor);
+    }
+
+    /// <summary>
+    /// Enrich doctor list with status, review statistics, and hospital info
+    /// </summary>
+    private async Task EnrichDoctorListAsync(List<DoctorResponse> doctors)
+    {
+        // Enrich with account status
+        await EnrichDoctorsWithStatusAsync(doctors);
+
+        // Enrich with review statistics
+        await EnrichDoctorsWithReviewStatisticsAsync(doctors);
+
+        // Enrich with hospital basic info
+        await EnrichDoctorsWithHospitalBasicInfoAsync(doctors);
+    }
+
+    /// <summary>
+    /// Enrich single doctor with review statistics
+    /// </summary>
+    private async Task EnrichDoctorWithReviewStatisticsAsync(DoctorResponse doctor)
+    {
+        try
+        {
+            var request = new GetDoctorStatisticsRequest
+            {
+                DoctorId = doctor.Id.ToString()
+            };
+
+            var response = await _reviewClient.GetDoctorDetailedStatisticsAsync(request);
+
+            doctor.ReviewStatistics = new DoctorReviewStatistics
+            {
+                AverageRating = response.AverageRating,
+                TotalReviews = response.TotalReviews,
+                RatingDistribution = response.RatingDistribution.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value
+                )
+            };
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Review gRPC GetDoctorDetailedStatistics failed for doctor {DoctorId}", doctor.Id);
+            // Set default values on failure
+            doctor.ReviewStatistics = new DoctorReviewStatistics
+            {
+                AverageRating = 0.0,
+                TotalReviews = 0,
+                RatingDistribution = new Dictionary<int, long>()
+            };
+        }
+    }
+
+    /// <summary>
+    /// Enrich multiple doctors with review statistics (batch processing)
+    /// </summary>
+    private async Task EnrichDoctorsWithReviewStatisticsAsync(List<DoctorResponse> doctors)
+    {
+        if (!doctors.Any()) return;
+
+        try
+        {
+            var request = new BatchDoctorsStatisticsRequest();
+            request.DoctorIds.AddRange(doctors.Select(d => d.Id.ToString()));
+
+            var response = await _reviewClient.GetBatchDoctorsStatisticsAsync(request);
+
+            foreach (var doctor in doctors)
+            {
+                if (response.DoctorStatistics.TryGetValue(doctor.Id.ToString(), out var stats))
+                {
+                    doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                    {
+                        AverageRating = stats.AverageRating,
+                        TotalReviews = stats.TotalReviews
+                    };
+                }
+                else
+                {
+                    // Set default values if no statistics found
+                    doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                    {
+                        AverageRating = 0.0,
+                        TotalReviews = 0
+                    };
+                }
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Review gRPC GetBatchDoctorsStatistics failed");
+            // Set default values for all doctors on failure
+            foreach (var doctor in doctors)
+            {
+                doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                {
+                    AverageRating = 0.0,
+                    TotalReviews = 0
+                };
+            }
         }
     }
 

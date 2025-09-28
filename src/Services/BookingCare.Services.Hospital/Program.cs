@@ -40,7 +40,7 @@ builder.Services.AddApiVersioning();
 
 // Add Entity Framework
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=localhost;Database=BookingCare_Hospitals;Trusted_Connection=true;TrustServerCertificate=true;";
+    ?? "Server=(local);Database=MABS_Hospital;Trusted_Connection=True;TrustServerCertificate=True;";
 builder.Services.AddDbContext<HospitalDbContext>(options =>
     options.UseSqlServer(connectionString));
 

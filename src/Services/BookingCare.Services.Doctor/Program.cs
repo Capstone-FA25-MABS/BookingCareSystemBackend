@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Review.Grpc;
 using BookingCare.Services.Doctor.Services.Grpc;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -72,18 +73,20 @@ builder.Services.AddDbContext<DoctorDbContext>(options =>
 // Repository registration
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IPositionRepository, PositionRepository>();
+builder.Services.AddScoped<ISpecialtyRepository, SpecialtyRepository>();
 builder.Services.AddScoped<ILanguageRepository, LanguageRepository>();
 builder.Services.AddScoped<IServiceTypeRepository, ServiceTypeRepository>();
 
 // Service registration
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
+builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<IServiceTypeService, ServiceTypeService>();
 
 
 // AutoMapper configuration
-builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile));
+builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(SpecialtyMappingProfile));
 
 // gRPC clients
 var favoritesAddress = builder.Configuration.GetSection("GrpcClients:Favorites:Address").Value ?? "http://localhost:6019";
@@ -102,6 +105,12 @@ var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Add
 builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
 {
     options.Address = new Uri(hospitalAddress);
+});
+
+var reviewAddress = builder.Configuration.GetSection("GrpcClients:Review:Address").Value ?? "http://localhost:6010";
+builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
+{
+    options.Address = new Uri(reviewAddress);
 });
 
 // Add logging
@@ -162,7 +171,7 @@ if (app.Environment.IsDevelopment())
     try
     {
         var context = scope.ServiceProvider.GetRequiredService<DoctorDbContext>();
-        await context.Database.EnsureCreatedAsync();
+        context.Database.EnsureCreated();
         app.Logger.LogInformation("Database ensured created successfully");
     }
     catch (Exception ex)

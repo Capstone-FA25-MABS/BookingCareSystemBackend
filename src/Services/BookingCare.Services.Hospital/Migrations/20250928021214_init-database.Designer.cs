@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Hospital.Migrations
 {
     [DbContext(typeof(HospitalDbContext))]
-    [Migration("20250927150635_init-database")]
+    [Migration("20250928021214_init-database")]
     partial class initdatabase
     {
         /// <inheritdoc />

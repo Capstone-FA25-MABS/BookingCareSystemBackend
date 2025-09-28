@@ -13,6 +13,7 @@ public interface IDoctorService
     Task<DoctorResponse?> GetDoctorByAccountIdAsync(Guid accountId);
     Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request);
     Task<bool> DeleteDoctorAsync(Guid id);
+    Task<bool> ToggleDoctorStatusAsync(Guid id);
 
     // Doctor Query operations
     Task<DoctorListResponse> GetDoctorsAsync(DoctorQueryRequest query);

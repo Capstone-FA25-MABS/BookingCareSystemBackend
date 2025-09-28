@@ -4,37 +4,39 @@ using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
 
-public class CreateServiceTypeRequest
+public class CreateSpecialtyRequest
 {
     [Required(ErrorMessage = "Name is required")]
-    [StringLength(100, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 100 characters")]
+    [StringLength(255, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 255 characters")]
     public string Name { get; set; } = string.Empty;
 
-    [StringLength(255, ErrorMessage = "Description cannot exceed 255 characters")]
-    public string? Description { get; set; }
+    [Required(ErrorMessage = "Image URL is required")]
+    [Url(ErrorMessage = "Image URL must be a valid URL")]
+    public string ImageUrl { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Status is required")]
     public Status Status { get; set; } = Status.ACTIVE;
 }
 
-public class UpdateServiceTypeRequest
+public class UpdateSpecialtyRequest
 {
-    [Required(ErrorMessage = "Service type ID is required")]
+    [Required(ErrorMessage = "Specialty ID is required")]
     [JsonRequired]
     public Guid Id { get; set; }
 
     [Required(ErrorMessage = "Name is required")]
-    [StringLength(100, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 100 characters")]
+    [StringLength(255, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 255 characters")]
     public string Name { get; set; } = string.Empty;
 
-    [StringLength(255, ErrorMessage = "Description cannot exceed 255 characters")]
-    public string? Description { get; set; }
+    [Required(ErrorMessage = "Image URL is required")]
+    [Url(ErrorMessage = "Image URL must be a valid URL")]
+    public string ImageUrl { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Status is required")]
     public Status Status { get; set; } = Status.ACTIVE;
 }
 
-public class ServiceTypeQueryRequest
+public class SpecialtyQueryRequest
 {
     public string? SearchTerm { get; set; }
     public Status? Status { get; set; }

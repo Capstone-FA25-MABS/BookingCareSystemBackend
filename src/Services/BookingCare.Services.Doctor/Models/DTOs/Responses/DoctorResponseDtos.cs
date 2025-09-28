@@ -23,6 +23,7 @@ public class DoctorResponse
 
     // Navigation properties
     public PositionResponse? Position { get; set; }
+    public SpecialtyResponse? Specialty { get; set; }
     public List<DoctorPriceResponse> Prices { get; set; } = new();
     public List<LanguageResponse> Languages { get; set; } = new();
     public bool IsFavorited { get; set; }
@@ -30,6 +31,8 @@ public class DoctorResponse
 
     // Hospital information
     public HospitalBasicInfo? Hospital { get; set; }
+    // Review statistics - can be detailed (with rating distribution) or basic (without)
+    public object? ReviewStatistics { get; set; }
 }
 
 public class DoctorPriceResponse
@@ -84,4 +87,17 @@ public class DoctorBasicInfoResponse
     public string Email { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string AvatarUrl { get; set; } = string.Empty;
+}
+
+public class DoctorReviewStatistics
+{
+    public double AverageRating { get; set; }
+    public long TotalReviews { get; set; }
+    public Dictionary<int, long> RatingDistribution { get; set; } = new();
+}
+
+public class DoctorReviewStatisticsBasic
+{
+    public double AverageRating { get; set; }
+    public long TotalReviews { get; set; }
 }

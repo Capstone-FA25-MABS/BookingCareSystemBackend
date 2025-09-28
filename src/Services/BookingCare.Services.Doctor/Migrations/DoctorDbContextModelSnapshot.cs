@@ -112,6 +112,8 @@ namespace BookingCare.Services.Doctor.Migrations
 
                     b.HasIndex("PositionId");
 
+                    b.HasIndex("SpecialtyId");
+
                     b.ToTable("doctors");
                 });
 
@@ -200,6 +202,12 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasColumnType("nvarchar(100)")
                         .HasColumnName("name");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("status");
+
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -229,6 +237,12 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)")
                         .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -265,6 +279,12 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasColumnType("nvarchar(100)")
                         .HasColumnName("name");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("status");
+
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -273,7 +293,48 @@ namespace BookingCare.Services.Doctor.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("service_types");
+                    b.ToTable("doctor_service_types");
+                });
+
+            modelBuilder.Entity("BookingCare.Services.Doctor.Models.Entities.SpecialtyEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("image_url");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("specialties");
                 });
 
             modelBuilder.Entity("BookingCare.Services.Doctor.Models.Entities.DoctorEntity", b =>
@@ -283,7 +344,14 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasForeignKey("PositionId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("BookingCare.Services.Doctor.Models.Entities.SpecialtyEntity", "Specialty")
+                        .WithMany()
+                        .HasForeignKey("SpecialtyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Position");
+
+                    b.Navigation("Specialty");
                 });
 
             modelBuilder.Entity("BookingCare.Services.Doctor.Models.Entities.DoctorLanguageEntity", b =>

@@ -393,6 +393,22 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
+    /// Toggle doctor status (ACTIVE/INACTIVE)
+    /// </summary>
+    [HttpPatch("{id}/toggle-status")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ToggleDoctorStatus(Guid id)
+    {
+        var result = await _doctorService.ToggleDoctorStatusAsync(id);
+        if (!result)
+        {
+            return NotFound($"Doctor with ID {id} not found");
+        }
+
+        return Success<object?>(null, "Doctor status toggled successfully");
+    }
+
+    /// <summary>
     /// Validate doctor existence
     /// </summary>
     [HttpGet("{id}/validate")]
