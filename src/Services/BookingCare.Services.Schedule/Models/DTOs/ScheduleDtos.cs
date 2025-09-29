@@ -21,7 +21,7 @@ public class DoctorDailyScheduleDto
     public long Id { get; set; }
     public long DoctorId { get; set; }
     public DateOnly ScheduleDate { get; set; }
-    public SchedulePatterns SchedulePattern { get; set; }
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
@@ -59,7 +59,7 @@ public class ServiceScheduleDto
 {
     public long Id { get; set; }
     public long ServiceId { get; set; }
-    public SchedulePatterns SchedulePattern { get; set; }
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
     public long? ClinicId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

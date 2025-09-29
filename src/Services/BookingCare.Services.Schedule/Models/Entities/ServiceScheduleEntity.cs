@@ -19,8 +19,8 @@ public class ServiceScheduleEntity
     public long ServiceId { get; set; }
 
     [Required]
-    [Column("schedule_pattern")]
-    public SchedulePatterns SchedulePattern { get; set; }
+    [Column("schedule_patterns")]
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
 
     [Column("clinic_id")]
     public long? ClinicId { get; set; } // if service applies only to one clinic

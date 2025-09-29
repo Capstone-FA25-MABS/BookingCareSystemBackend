@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Schedule.Migrations
 {
     [DbContext(typeof(ScheduleDbContext))]
-    [Migration("20250929041203_InitialCreate")]
+    [Migration("20250929060942_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -77,9 +77,10 @@ namespace BookingCare.Services.Schedule.Migrations
                         .HasColumnType("date")
                         .HasColumnName("schedule_date");
 
-                    b.Property<int>("SchedulePattern")
-                        .HasColumnType("int")
-                        .HasColumnName("schedule_pattern");
+                    b.Property<string>("SchedulePatterns")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("schedule_patterns");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -171,9 +172,10 @@ namespace BookingCare.Services.Schedule.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
 
-                    b.Property<int>("SchedulePattern")
-                        .HasColumnType("int")
-                        .HasColumnName("schedule_pattern");
+                    b.Property<string>("SchedulePatterns")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("schedule_patterns");
 
                     b.Property<long>("ServiceId")
                         .HasColumnType("bigint")

@@ -141,7 +141,8 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             {
                 DoctorId = request.DoctorId,
                 ScheduleDate = DateOnly.Parse(request.ScheduleDate),
-                SchedulePattern = (SchedulePatterns)request.PatternId
+                // Convert single pattern ID to list for backward compatibility
+                SchedulePatterns = new List<SchedulePatterns> { (SchedulePatterns)request.PatternId }
             };
 
             var schedule = await _scheduleService.CreateOrUpdateDoctorDailyScheduleAsync(serviceRequest);
@@ -175,7 +176,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 DoctorId = request.DoctorId,
                 ExceptionDate = DateOnly.Parse(request.ExceptionDate),
                 AppointmentTime = request.AppointmentTimeId == 0 ? null : (BookingCare.Shared.Common.Enums.AppointmentTime)request.AppointmentTimeId,
-                ExceptionType = System.Enum.Parse<Models.Entities.ExceptionType>(request.ExceptionType),
+                ExceptionType = System.Enum.Parse<ExceptionType>(request.ExceptionType),
                 IsAvailable = request.IsAvailable,
                 Reason = request.Reason
             };
@@ -280,22 +281,25 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
 
     private static DoctorDailySchedule MapToDoctorDailySchedule(Models.DTOs.DoctorDailyScheduleDto dto)
     {
+        // For backward compatibility, use the first pattern when multiple patterns exist
+        var primaryPattern = dto.SchedulePatterns.FirstOrDefault();
+        
         var schedule = new DoctorDailySchedule
         {
             Id = dto.Id,
             DoctorId = dto.DoctorId,
             ScheduleDate = dto.ScheduleDate.ToString("yyyy-MM-dd"),
-            PatternId = (long)dto.SchedulePattern,
+            PatternId = (long)primaryPattern,
             CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(dto.CreatedAt.ToUniversalTime()),
             UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(dto.UpdatedAt.ToUniversalTime())
         };
 
-        // Set pattern details based on enum value
+        // Set pattern details based on primary pattern
         schedule.Pattern = new SchedulePattern
         {
-            Id = (long)dto.SchedulePattern,
-            Name = dto.SchedulePattern.ToString(),
-            Description = GetSchedulePatternDescription(dto.SchedulePattern),
+            Id = (long)primaryPattern,
+            Name = primaryPattern.ToString(),
+            Description = GetSchedulePatternDescription(primaryPattern),
             CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow),
             UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow)
         };
@@ -343,34 +347,55 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
         return exception;
     }
 
-    private static (string startTime, string endTime) GetTimeStringsFromEnum(BookingCare.Shared.Common.Enums.AppointmentTime appointmentTime)
+    private static (string startTime, string endTime) GetTimeStringsFromEnum(Shared.Common.Enums.AppointmentTime appointmentTime)
     {
         return appointmentTime switch
         {
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_08_00_08_30 => ("08:00", "08:30"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_08_30_09_00 => ("08:30", "09:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_09_00_09_30 => ("09:00", "09:30"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_09_30_10_00 => ("09:30", "10:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_10_00_10_30 => ("10:00", "10:30"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_10_30_11_00 => ("10:30", "11:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_11_00_11_30 => ("11:00", "11:30"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_11_30_12_00 => ("11:30", "12:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_13_00_13_30 => ("13:00", "13:30"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_13_30_14_00 => ("13:30", "14:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_14_00_14_30 => ("14:00", "14:30"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_14_30_15_00 => ("14:30", "15:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_15_00_15_30 => ("15:00", "15:30"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_15_30_16_00 => ("15:30", "16:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_16_00_16_30 => ("16:00", "16:30"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_16_30_17_00 => ("16:30", "17:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_08_00_09_00 => ("08:00", "09:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_09_00_10_00 => ("09:00", "10:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_10_00_11_00 => ("10:00", "11:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_11_00_12_00 => ("11:00", "12:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_13_00_14_00 => ("13:00", "14:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_14_00_15_00 => ("14:00", "15:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_15_00_16_00 => ("15:00", "16:00"),
-            BookingCare.Shared.Common.Enums.AppointmentTime.AT_16_00_17_00 => ("16:00", "17:00"),
+            // Range time 30 minutes
+            Shared.Common.Enums.AppointmentTime.AT_08_00_08_30 => ("08:00", "08:30"),
+            Shared.Common.Enums.AppointmentTime.AT_08_30_09_00 => ("08:30", "09:00"),
+            Shared.Common.Enums.AppointmentTime.AT_09_00_09_30 => ("09:00", "09:30"),
+            Shared.Common.Enums.AppointmentTime.AT_09_30_10_00 => ("09:30", "10:00"),
+            Shared.Common.Enums.AppointmentTime.AT_10_00_10_30 => ("10:00", "10:30"),
+            Shared.Common.Enums.AppointmentTime.AT_10_30_11_00 => ("10:30", "11:00"),
+            Shared.Common.Enums.AppointmentTime.AT_11_00_11_30 => ("11:00", "11:30"),
+            Shared.Common.Enums.AppointmentTime.AT_11_30_12_00 => ("11:30", "12:00"),
+            Shared.Common.Enums.AppointmentTime.AT_13_00_13_30 => ("13:00", "13:30"),
+            Shared.Common.Enums.AppointmentTime.AT_13_30_14_00 => ("13:30", "14:00"),
+            Shared.Common.Enums.AppointmentTime.AT_14_00_14_30 => ("14:00", "14:30"),
+            Shared.Common.Enums.AppointmentTime.AT_14_30_15_00 => ("14:30", "15:00"),
+            Shared.Common.Enums.AppointmentTime.AT_15_00_15_30 => ("15:00", "15:30"),
+            Shared.Common.Enums.AppointmentTime.AT_15_30_16_00 => ("15:30", "16:00"),
+            Shared.Common.Enums.AppointmentTime.AT_16_00_16_30 => ("16:00", "16:30"),
+            Shared.Common.Enums.AppointmentTime.AT_16_30_17_00 => ("16:30", "17:00"),
+            Shared.Common.Enums.AppointmentTime.AT_17_00_17_30 => ("17:00", "17:30"),
+            Shared.Common.Enums.AppointmentTime.AT_17_30_18_00 => ("17:30", "18:00"),
+            Shared.Common.Enums.AppointmentTime.AT_18_00_18_30 => ("18:00", "18:30"),
+            Shared.Common.Enums.AppointmentTime.AT_18_30_19_00 => ("18:30", "19:00"),
+            Shared.Common.Enums.AppointmentTime.AT_19_00_19_30 => ("19:00", "19:30"),
+            Shared.Common.Enums.AppointmentTime.AT_19_30_20_00 => ("19:30", "20:00"),
+            Shared.Common.Enums.AppointmentTime.AT_20_00_20_30 => ("20:00", "20:30"),
+            Shared.Common.Enums.AppointmentTime.AT_20_30_21_00 => ("20:30", "21:00"),
+            Shared.Common.Enums.AppointmentTime.AT_21_00_21_30 => ("21:00", "21:30"),
+            Shared.Common.Enums.AppointmentTime.AT_21_30_22_00 => ("21:30", "22:00"),
+            Shared.Common.Enums.AppointmentTime.AT_22_00_22_30 => ("22:00", "22:30"),
+            Shared.Common.Enums.AppointmentTime.AT_22_30_23_00 => ("22:30", "23:00"),
+
+            // Range time one hour
+            Shared.Common.Enums.AppointmentTime.AT_08_00_09_00 => ("08:00", "09:00"),
+            Shared.Common.Enums.AppointmentTime.AT_09_00_10_00 => ("09:00", "10:00"),
+            Shared.Common.Enums.AppointmentTime.AT_10_00_11_00 => ("10:00", "11:00"),
+            Shared.Common.Enums.AppointmentTime.AT_11_00_12_00 => ("11:00", "12:00"),
+            Shared.Common.Enums.AppointmentTime.AT_13_00_14_00 => ("13:00", "14:00"),
+            Shared.Common.Enums.AppointmentTime.AT_14_00_15_00 => ("14:00", "15:00"),
+            Shared.Common.Enums.AppointmentTime.AT_15_00_16_00 => ("15:00", "16:00"),
+            Shared.Common.Enums.AppointmentTime.AT_16_00_17_00 => ("16:00", "17:00"),
+            Shared.Common.Enums.AppointmentTime.AT_17_00_18_00 => ("17:00", "18:00"),
+            Shared.Common.Enums.AppointmentTime.AT_18_00_19_00 => ("18:00", "19:00"),
+            Shared.Common.Enums.AppointmentTime.AT_19_00_20_00 => ("19:00", "20:00"),
+            Shared.Common.Enums.AppointmentTime.AT_20_00_21_00 => ("20:00", "21:00"),
+            Shared.Common.Enums.AppointmentTime.AT_21_00_22_00 => ("21:00", "22:00"),
+            Shared.Common.Enums.AppointmentTime.AT_22_00_23_00 => ("22:00", "23:00"),
             _ => ("Unknown", "Unknown")
         };
     }

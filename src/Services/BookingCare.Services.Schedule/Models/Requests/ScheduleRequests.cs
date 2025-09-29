@@ -31,7 +31,7 @@ public class CreateDoctorDailyScheduleRequest
     public DateOnly ScheduleDate { get; set; }
 
     [Required]
-    public SchedulePatterns SchedulePattern { get; set; }
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
 }
 
 /// <summary>
@@ -80,7 +80,7 @@ public class CreateServiceScheduleRequest
     public long ServiceId { get; set; }
 
     [Required]
-    public SchedulePatterns SchedulePattern { get; set; }
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
 
     public long? ClinicId { get; set; }
 }

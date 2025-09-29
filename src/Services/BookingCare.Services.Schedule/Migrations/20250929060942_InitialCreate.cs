@@ -34,7 +34,7 @@ namespace BookingCare.Services.Schedule.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     doctor_id = table.Column<long>(type: "bigint", nullable: false),
                     schedule_date = table.Column<DateOnly>(type: "date", nullable: false),
-                    schedule_pattern = table.Column<int>(type: "int", nullable: false),
+                    schedule_patterns = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
@@ -69,7 +69,7 @@ namespace BookingCare.Services.Schedule.Migrations
                     id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     service_id = table.Column<long>(type: "bigint", nullable: false),
-                    schedule_pattern = table.Column<int>(type: "int", nullable: false),
+                    schedule_patterns = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     clinic_id = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")

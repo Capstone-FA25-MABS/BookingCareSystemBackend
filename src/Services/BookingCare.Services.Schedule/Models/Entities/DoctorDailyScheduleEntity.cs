@@ -23,8 +23,8 @@ public class DoctorDailyScheduleEntity
     public DateOnly ScheduleDate { get; set; }
 
     [Required]
-    [Column("schedule_pattern")]
-    public SchedulePatterns SchedulePattern { get; set; }
+    [Column("schedule_patterns")]
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

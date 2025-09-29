@@ -1,4 +1,5 @@
 using BookingCare.Services.Schedule.Models.Entities;
+using BookingCare.Services.Schedule.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Schedule.Data;
@@ -38,9 +39,12 @@ public class ScheduleDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
-            // Configure SchedulePattern enum property
-            entity.Property(e => e.SchedulePattern)
-                .HasConversion<int>()
+            // Configure SchedulePatterns collection as JSON
+            entity.Property(e => e.SchedulePatterns)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, new System.Text.Json.JsonSerializerOptions()),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<SchedulePatterns>>(v, new System.Text.Json.JsonSerializerOptions()) ?? new List<SchedulePatterns>())
+                .HasColumnType("nvarchar(max)")
                 .IsRequired();
 
             // Unique constraint: one schedule per doctor per day
@@ -118,9 +122,12 @@ public class ScheduleDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
-            // Configure SchedulePattern enum property
-            entity.Property(e => e.SchedulePattern)
-                .HasConversion<int>()
+            // Configure SchedulePatterns collection as JSON
+            entity.Property(e => e.SchedulePatterns)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, new System.Text.Json.JsonSerializerOptions()),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<SchedulePatterns>>(v, new System.Text.Json.JsonSerializerOptions()) ?? new List<SchedulePatterns>())
+                .HasColumnType("nvarchar(max)")
                 .IsRequired();
 
             // Indexes for performance

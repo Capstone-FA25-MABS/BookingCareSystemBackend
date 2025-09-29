@@ -5,7 +5,6 @@ using BookingCare.Services.Schedule.Repositories;
 using BookingCare.Shared.Cache.Abstractions;
 using BookingCare.Shared.Cache.Constants;
 using BookingCare.Shared.Common.Enums;
-using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Schedule.Services;
 
@@ -78,7 +77,7 @@ public class ScheduleService : IScheduleService
         {
             DoctorId = request.DoctorId,
             ScheduleDate = request.ScheduleDate,
-            SchedulePattern = request.SchedulePattern
+            SchedulePatterns = request.SchedulePatterns
         };
 
         var created = await _repository.CreateOrUpdateDoctorDailyScheduleAsync(entity);
@@ -239,7 +238,7 @@ public class ScheduleService : IScheduleService
         var entity = new ServiceScheduleEntity
         {
             ServiceId = request.ServiceId,
-            SchedulePattern = request.SchedulePattern,
+            SchedulePatterns = request.SchedulePatterns,
             ClinicId = request.ClinicId
         };
 
@@ -303,6 +302,7 @@ public class ScheduleService : IScheduleService
     {
         return appointmentTime switch
         {
+            // Range time 30 minutes
             AppointmentTime.AT_08_00_08_30 => ("08:00", "08:30"),
             AppointmentTime.AT_08_30_09_00 => ("08:30", "09:00"),
             AppointmentTime.AT_09_00_09_30 => ("09:00", "09:30"),
@@ -319,6 +319,20 @@ public class ScheduleService : IScheduleService
             AppointmentTime.AT_15_30_16_00 => ("15:30", "16:00"),
             AppointmentTime.AT_16_00_16_30 => ("16:00", "16:30"),
             AppointmentTime.AT_16_30_17_00 => ("16:30", "17:00"),
+            AppointmentTime.AT_17_00_17_30 => ("17:00", "17:30"),
+            AppointmentTime.AT_17_30_18_00 => ("17:30", "18:00"),
+            AppointmentTime.AT_18_00_18_30 => ("18:00", "18:30"),
+            AppointmentTime.AT_18_30_19_00 => ("18:30", "19:00"),
+            AppointmentTime.AT_19_00_19_30 => ("19:00", "19:30"),
+            AppointmentTime.AT_19_30_20_00 => ("19:30", "20:00"),
+            AppointmentTime.AT_20_00_20_30 => ("20:00", "20:30"),
+            AppointmentTime.AT_20_30_21_00 => ("20:30", "21:00"),
+            AppointmentTime.AT_21_00_21_30 => ("21:00", "21:30"),
+            AppointmentTime.AT_21_30_22_00 => ("21:30", "22:00"),
+            AppointmentTime.AT_22_00_22_30 => ("22:00", "22:30"),
+            AppointmentTime.AT_22_30_23_00 => ("22:30", "23:00"),
+
+            // Range time one hour
             AppointmentTime.AT_08_00_09_00 => ("08:00", "09:00"),
             AppointmentTime.AT_09_00_10_00 => ("09:00", "10:00"),
             AppointmentTime.AT_10_00_11_00 => ("10:00", "11:00"),
@@ -327,6 +341,12 @@ public class ScheduleService : IScheduleService
             AppointmentTime.AT_14_00_15_00 => ("14:00", "15:00"),
             AppointmentTime.AT_15_00_16_00 => ("15:00", "16:00"),
             AppointmentTime.AT_16_00_17_00 => ("16:00", "17:00"),
+            AppointmentTime.AT_17_00_18_00 => ("17:00", "18:00"),
+            AppointmentTime.AT_18_00_19_00 => ("18:00", "19:00"),
+            AppointmentTime.AT_19_00_20_00 => ("19:00", "20:00"),
+            AppointmentTime.AT_20_00_21_00 => ("20:00", "21:00"),
+            AppointmentTime.AT_21_00_22_00 => ("21:00", "22:00"),
+            AppointmentTime.AT_22_00_23_00 => ("22:00", "23:00"),
             _ => ("Unknown", "Unknown")
         };
     }
@@ -340,7 +360,7 @@ public class ScheduleService : IScheduleService
             Id = entity.Id,
             DoctorId = entity.DoctorId,
             ScheduleDate = entity.ScheduleDate,
-            SchedulePattern = entity.SchedulePattern,
+            SchedulePatterns = entity.SchedulePatterns,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt
         };
@@ -378,7 +398,7 @@ public class ScheduleService : IScheduleService
         {
             Id = entity.Id,
             ServiceId = entity.ServiceId,
-            SchedulePattern = entity.SchedulePattern,
+            SchedulePatterns = entity.SchedulePatterns,
             ClinicId = entity.ClinicId,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt

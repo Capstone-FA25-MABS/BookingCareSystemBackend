@@ -1,19 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using BookingCare.Services.Schedule.Enums;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Schedule.Models.Entities;
-
-/// <summary>
-/// Exception types for schedule exceptions
-/// </summary>
-public enum ExceptionType
-{
-    BLOCK_SLOT,
-    UNBLOCK_SLOT,
-    DAY_OFF,
-    CAPACITY_CHANGE
-}
 
 /// <summary>
 /// Represents exceptions (override schedule: full day off, block slot or reopen slot)
