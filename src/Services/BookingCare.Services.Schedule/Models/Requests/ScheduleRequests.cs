@@ -45,7 +45,7 @@ public class CreateDoctorScheduleExceptionRequest
     [Required]
     public DateOnly ExceptionDate { get; set; }
 
-    public AppointmentTime? AppointmentTime { get; set; } // NULL for full day off
+    public List<AppointmentTime>? AppointmentTimes { get; set; } // NULL or empty for full day off
 
     [Required]
     public ExceptionType ExceptionType { get; set; }

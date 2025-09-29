@@ -34,13 +34,16 @@ public class DoctorScheduleExceptionsController : BaseApiController
     }
 
     /// <summary>
-    /// Create a doctor schedule exception
+    /// Create doctor schedule exceptions for multiple appointment times
     /// </summary>
     [HttpPost]
     public async Task<IActionResult> CreateDoctorScheduleException([FromBody] CreateDoctorScheduleExceptionRequest request)
     {
-        var exception = await _scheduleService.CreateDoctorScheduleExceptionAsync(request);
-        return Success(exception, "Doctor schedule exception created successfully");
+        var exceptions = await _scheduleService.CreateDoctorScheduleExceptionAsync(request);
+        var message = exceptions.Count == 1
+            ? "Doctor schedule exception created successfully"
+            : $"{exceptions.Count} doctor schedule exceptions created successfully";
+        return Success(exceptions, message);
     }
 
     /// <summary>

@@ -1,18 +1,18 @@
--- Appointment Times
-CREATE TABLE appointment_times (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    start_time CHAR(5) NOT NULL,
-    end_time CHAR(5) NOT NULL
-);
+-- -- Appointment Times
+-- CREATE TABLE appointment_times (
+--     id BIGINT IDENTITY(1,1) PRIMARY KEY,
+--     start_time CHAR(5) NOT NULL,
+--     end_time CHAR(5) NOT NULL
+-- );
 
--- 2. Pattern (mẫu lịch): full day, morning only, afternoon only, evening only
-CREATE TABLE schedule_patterns (
-    id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(100) CHECK (name IN ('FULL_DAY', 'MORNING_ONLY', 'AFTERNOON_ONLY', 'EVENING_ONLY')) DEFAULT 'FULL_DAY',
-    description NVARCHAR(MAX),
-    created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    updated_at DATETIME NOT NULL DEFAULT GETDATE()
-);
+-- -- 2. Pattern (mẫu lịch): full day, morning only, afternoon only, evening only
+-- CREATE TABLE schedule_patterns (
+--     id BIGINT IDENTITY(1,1) PRIMARY KEY,
+--     name NVARCHAR(100) CHECK (name IN ('FULL_DAY', 'MORNING_ONLY', 'AFTERNOON_ONLY', 'EVENING_ONLY')) DEFAULT 'FULL_DAY',
+--     description NVARCHAR(MAX),
+--     created_at DATETIME NOT NULL DEFAULT GETDATE(),
+--     updated_at DATETIME NOT NULL DEFAULT GETDATE()
+-- );
 
 -- 3. Slot thuộc 1 pattern (pattern = tập hợp slot)
 CREATE TABLE schedule_pattern_slots (

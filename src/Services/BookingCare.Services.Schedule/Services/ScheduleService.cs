@@ -128,19 +128,46 @@ public class ScheduleService : IScheduleService
         return dtos;
     }
 
-    public async Task<DoctorScheduleExceptionDto> CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request)
+    public async Task<List<DoctorScheduleExceptionDto>> CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request)
     {
-        var entity = new DoctorScheduleExceptionEntity
-        {
-            DoctorId = request.DoctorId,
-            ExceptionDate = request.ExceptionDate,
-            AppointmentTime = request.AppointmentTime,
-            ExceptionType = request.ExceptionType,
-            IsAvailable = request.IsAvailable,
-            Reason = request.Reason
-        };
+        var createdExceptions = new List<DoctorScheduleExceptionEntity>();
 
-        var created = await _repository.CreateDoctorScheduleExceptionAsync(entity);
+        // Handle multiple appointment times or single day-off exception
+        if (request.AppointmentTimes == null || request.AppointmentTimes.Count == 0)
+        {
+            // Full day off - create single exception with null appointment time
+            var dayOffEntity = new DoctorScheduleExceptionEntity
+            {
+                DoctorId = request.DoctorId,
+                ExceptionDate = request.ExceptionDate,
+                AppointmentTime = null,
+                ExceptionType = request.ExceptionType,
+                IsAvailable = request.IsAvailable,
+                Reason = request.Reason
+            };
+
+            var created = await _repository.CreateDoctorScheduleExceptionAsync(dayOffEntity);
+            createdExceptions.Add(created);
+        }
+        else
+        {
+            // Create exception for each appointment time
+            foreach (var appointmentTime in request.AppointmentTimes)
+            {
+                var entity = new DoctorScheduleExceptionEntity
+                {
+                    DoctorId = request.DoctorId,
+                    ExceptionDate = request.ExceptionDate,
+                    AppointmentTime = appointmentTime,
+                    ExceptionType = request.ExceptionType,
+                    IsAvailable = request.IsAvailable,
+                    Reason = request.Reason
+                };
+
+                var created = await _repository.CreateDoctorScheduleExceptionAsync(entity);
+                createdExceptions.Add(created);
+            }
+        }
 
         // Invalidate related caches
         var exceptionsCacheKey = CacheKeys.Format(CacheKeys.DoctorExceptions, request.DoctorId, request.ExceptionDate.ToString("yyyy-MM-dd"));
@@ -149,7 +176,7 @@ public class ScheduleService : IScheduleService
         var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.ExceptionDate.ToString("yyyy-MM-dd"), "*");
         await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
 
-        return MapToDto(created);
+        return createdExceptions.Select(MapToDto).ToList();
     }
 
     public async Task DeleteDoctorScheduleExceptionAsync(long id)

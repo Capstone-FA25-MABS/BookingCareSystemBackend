@@ -16,7 +16,7 @@ public interface IScheduleService
 
     // DoctorScheduleException operations
     Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsAsync(long doctorId, DateOnly date);
-    Task<DoctorScheduleExceptionDto> CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request);
+    Task<List<DoctorScheduleExceptionDto>> CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request);
     Task DeleteDoctorScheduleExceptionAsync(long id);
 
     // ClinicException operations

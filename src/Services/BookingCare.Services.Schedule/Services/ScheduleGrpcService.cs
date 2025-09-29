@@ -175,19 +175,21 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             {
                 DoctorId = request.DoctorId,
                 ExceptionDate = DateOnly.Parse(request.ExceptionDate),
-                AppointmentTime = request.AppointmentTimeId == 0 ? null : (BookingCare.Shared.Common.Enums.AppointmentTime)request.AppointmentTimeId,
+                // Convert single appointment time to list for gRPC compatibility
+                AppointmentTimes = request.AppointmentTimeId == 0 ? null : new List<BookingCare.Shared.Common.Enums.AppointmentTime> { (BookingCare.Shared.Common.Enums.AppointmentTime)request.AppointmentTimeId },
                 ExceptionType = System.Enum.Parse<ExceptionType>(request.ExceptionType),
                 IsAvailable = request.IsAvailable,
                 Reason = request.Reason
             };
 
-            var exception = await _scheduleService.CreateDoctorScheduleExceptionAsync(serviceRequest);
+            var exceptions = await _scheduleService.CreateDoctorScheduleExceptionAsync(serviceRequest);
 
             var response = new DoctorScheduleExceptionResponse
             {
                 Success = true,
                 Message = "Doctor schedule exception created successfully",
-                Exception = MapToDoctorScheduleException(exception)
+                // Return the first exception for gRPC compatibility
+                Exception = exceptions.Any() ? MapToDoctorScheduleException(exceptions.First()) : null
             };
 
             return response;
