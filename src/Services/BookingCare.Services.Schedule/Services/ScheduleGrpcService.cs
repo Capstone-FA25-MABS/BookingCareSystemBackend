@@ -283,7 +283,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
     {
         // For backward compatibility, use the first pattern when multiple patterns exist
         var primaryPattern = dto.SchedulePatterns.FirstOrDefault();
-        
+
         var schedule = new DoctorDailySchedule
         {
             Id = dto.Id,

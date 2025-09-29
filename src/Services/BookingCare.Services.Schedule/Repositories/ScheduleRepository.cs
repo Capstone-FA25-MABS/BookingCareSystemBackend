@@ -183,7 +183,7 @@ public class ScheduleRepository : IScheduleRepository
         foreach (var exception in exceptions)
         {
             Console.WriteLine($"Processing exception: Type={exception.ExceptionType}, AppointmentTime={exception.AppointmentTime}, IsAvailable={exception.IsAvailable}");
-            
+
             if (exception.ExceptionType == ExceptionType.DAY_OFF)
             {
                 // Doctor is off for the entire day
@@ -193,7 +193,7 @@ public class ScheduleRepository : IScheduleRepository
             else if (exception.AppointmentTime.HasValue && exception.AppointmentTime.Value != 0)
             {
                 Console.WriteLine($"Before applying exception: Available slots count = {availableSlots.Count}");
-                
+
                 // Handle slot-specific exceptions based on isAvailable flag
                 if (!exception.IsAvailable)
                 {
@@ -214,7 +214,7 @@ public class ScheduleRepository : IScheduleRepository
                         Console.WriteLine($"Slot {exception.AppointmentTime.Value} already exists");
                     }
                 }
-                
+
                 Console.WriteLine($"After applying exception: Available slots count = {availableSlots.Count}");
             }
             else
