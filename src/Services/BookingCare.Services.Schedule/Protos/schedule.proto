@@ -32,14 +32,14 @@ service ScheduleService {
 
 // Messages for appointment times
 message AppointmentTime {
-  int64 id = 1;
+  string id = 1; // GUID as string
   string start_time = 2;
   string end_time = 3;
 }
 
 // Messages for schedule patterns
 message SchedulePattern {
-  int64 id = 1;
+  string id = 1; // GUID as string
   string name = 2;
   string description = 3;
   google.protobuf.Timestamp created_at = 4;
@@ -49,10 +49,10 @@ message SchedulePattern {
 
 // Messages for doctor daily schedule
 message DoctorDailySchedule {
-  int64 id = 1;
-  int64 doctor_id = 2;
+  string id = 1; // GUID as string
+  string doctor_id = 2; // GUID as string
   string schedule_date = 3; // Format: YYYY-MM-DD
-  int64 pattern_id = 4;
+  string pattern_id = 4; // GUID as string
   SchedulePattern pattern = 5;
   google.protobuf.Timestamp created_at = 6;
   google.protobuf.Timestamp updated_at = 7;
@@ -60,10 +60,10 @@ message DoctorDailySchedule {
 
 // Messages for doctor schedule exceptions
 message DoctorScheduleException {
-  int64 id = 1;
-  int64 doctor_id = 2;
+  string id = 1; // GUID as string
+  string doctor_id = 2; // GUID as string
   string exception_date = 3; // Format: YYYY-MM-DD
-  int64 appointment_time_id = 4;
+  string appointment_time_id = 4; // GUID as string
   AppointmentTime appointment_time = 5;
   string exception_type = 6;
   bool is_available = 7;
@@ -73,32 +73,32 @@ message DoctorScheduleException {
 
 // Request messages
 message GetAvailableSlotsRequest {
-  int64 doctor_id = 1;
+  string doctor_id = 1; // GUID as string
   string date = 2; // Format: YYYY-MM-DD
-  int64 service_id = 3; // Optional
+  string service_id = 3; // GUID as string - Optional
 }
 
 message GetDoctorDailyScheduleRequest {
-  int64 doctor_id = 1;
+  string doctor_id = 1; // GUID as string
   string date = 2; // Format: YYYY-MM-DD
 }
 
 message GetDoctorScheduleRangeRequest {
-  int64 doctor_id = 1;
+  string doctor_id = 1; // GUID as string
   string start_date = 2; // Format: YYYY-MM-DD
   string end_date = 3; // Format: YYYY-MM-DD
 }
 
 message CreateDoctorDailyScheduleRequest {
-  int64 doctor_id = 1;
+  string doctor_id = 1; // GUID as string
   string schedule_date = 2; // Format: YYYY-MM-DD
-  int64 pattern_id = 3;
+  string pattern_id = 3; // GUID as string
 }
 
 message CreateDoctorScheduleExceptionRequest {
-  int64 doctor_id = 1;
+  string doctor_id = 1; // GUID as string
   string exception_date = 2; // Format: YYYY-MM-DD
-  int64 appointment_time_id = 3; // Optional, null for full day off
+  string appointment_time_id = 3; // GUID as string - Optional, null for full day off
   string exception_type = 4;
   bool is_available = 5;
   string reason = 6;

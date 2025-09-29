@@ -8,7 +8,7 @@ namespace BookingCare.Services.Schedule.Models.DTOs;
 /// </summary>
 public class AppointmentTimeDto
 {
-    public long Id { get; set; }
+    public Guid Id { get; set; }
     public string StartTime { get; set; } = string.Empty;
     public string EndTime { get; set; } = string.Empty;
 }
@@ -18,8 +18,8 @@ public class AppointmentTimeDto
 /// </summary>
 public class DoctorDailyScheduleDto
 {
-    public long Id { get; set; }
-    public long DoctorId { get; set; }
+    public Guid Id { get; set; }
+    public Guid DoctorId { get; set; }
     public DateOnly ScheduleDate { get; set; }
     public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
     public DateTime CreatedAt { get; set; }
@@ -31,8 +31,8 @@ public class DoctorDailyScheduleDto
 /// </summary>
 public class DoctorScheduleExceptionDto
 {
-    public long Id { get; set; }
-    public long DoctorId { get; set; }
+    public Guid Id { get; set; }
+    public Guid DoctorId { get; set; }
     public DateOnly ExceptionDate { get; set; }
     public AppointmentTime? AppointmentTime { get; set; }
     public string ExceptionType { get; set; } = string.Empty;
@@ -46,8 +46,8 @@ public class DoctorScheduleExceptionDto
 /// </summary>
 public class ClinicExceptionDto
 {
-    public long Id { get; set; }
-    public long ClinicId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ClinicId { get; set; }
     public DateOnly ExceptionDate { get; set; }
     public string? Reason { get; set; }
 }
@@ -57,10 +57,10 @@ public class ClinicExceptionDto
 /// </summary>
 public class ServiceScheduleDto
 {
-    public long Id { get; set; }
-    public long ServiceId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ServiceId { get; set; }
     public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
-    public long? ClinicId { get; set; }
+    public Guid? ClinicId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

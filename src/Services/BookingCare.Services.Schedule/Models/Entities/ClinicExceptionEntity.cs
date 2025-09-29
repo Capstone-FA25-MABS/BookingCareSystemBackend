@@ -11,11 +11,11 @@ public class ClinicExceptionEntity
 {
     [Key]
     [Column("id")]
-    public long Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
     [Column("clinic_id")]
-    public long ClinicId { get; set; }
+    public Guid ClinicId { get; set; }
 
     [Required]
     [Column("exception_date")]

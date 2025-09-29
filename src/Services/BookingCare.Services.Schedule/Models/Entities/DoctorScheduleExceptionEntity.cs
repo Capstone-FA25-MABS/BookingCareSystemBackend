@@ -13,11 +13,11 @@ public class DoctorScheduleExceptionEntity
 {
     [Key]
     [Column("id")]
-    public long Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
     [Column("doctor_id")]
-    public long DoctorId { get; set; }
+    public Guid DoctorId { get; set; }
 
     [Required]
     [Column("exception_date")]

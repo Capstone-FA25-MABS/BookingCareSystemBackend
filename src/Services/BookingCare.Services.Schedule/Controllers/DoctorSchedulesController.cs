@@ -27,7 +27,7 @@ public class DoctorSchedulesController : BaseApiController
     /// Get doctor's daily schedule
     /// </summary>
     [HttpGet("{doctorId}/daily/{date}")]
-    public async Task<IActionResult> GetDoctorDailySchedule(long doctorId, DateOnly date)
+    public async Task<IActionResult> GetDoctorDailySchedule(Guid doctorId, DateOnly date)
     {
         var schedule = await _scheduleService.GetDoctorDailyScheduleAsync(doctorId, date);
         if (schedule == null)
@@ -42,7 +42,7 @@ public class DoctorSchedulesController : BaseApiController
     /// </summary>
     [HttpGet("{doctorId}/range")]
     public async Task<IActionResult> GetDoctorScheduleRange(
-        long doctorId,
+        Guid doctorId,
         [FromQuery] DateOnly startDate,
         [FromQuery] DateOnly endDate)
     {
@@ -71,7 +71,7 @@ public class DoctorSchedulesController : BaseApiController
     /// Delete doctor's daily schedule
     /// </summary>
     [HttpDelete("{doctorId}/daily/{date}")]
-    public async Task<IActionResult> DeleteDoctorDailySchedule(long doctorId, DateOnly date)
+    public async Task<IActionResult> DeleteDoctorDailySchedule(Guid doctorId, DateOnly date)
     {
         await _scheduleService.DeleteDoctorDailyScheduleAsync(doctorId, date);
         return Success<string>("Doctor daily schedule deleted successfully");
@@ -82,9 +82,9 @@ public class DoctorSchedulesController : BaseApiController
     /// </summary>
     [HttpGet("{doctorId}/available-slots")]
     public async Task<IActionResult> GetAvailableSlots(
-        long doctorId,
+        Guid doctorId,
         [FromQuery] DateOnly date,
-        [FromQuery] long? serviceId = null)
+        [FromQuery] Guid? serviceId = null)
     {
         var request = new GetAvailableSlotsRequest
         {

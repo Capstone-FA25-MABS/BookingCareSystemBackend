@@ -27,7 +27,7 @@ public class DoctorScheduleExceptionsController : BaseApiController
     /// Get doctor's schedule exceptions for a specific date
     /// </summary>
     [HttpGet("{doctorId}/{date}")]
-    public async Task<IActionResult> GetDoctorExceptions(long doctorId, DateOnly date)
+    public async Task<IActionResult> GetDoctorExceptions(Guid doctorId, DateOnly date)
     {
         var exceptions = await _scheduleService.GetDoctorExceptionsAsync(doctorId, date);
         return Success(exceptions, "Doctor schedule exceptions retrieved successfully");
@@ -50,7 +50,7 @@ public class DoctorScheduleExceptionsController : BaseApiController
     /// Delete a doctor schedule exception
     /// </summary>
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteDoctorScheduleException(long id)
+    public async Task<IActionResult> DeleteDoctorScheduleException(Guid id)
     {
         await _scheduleService.DeleteDoctorScheduleExceptionAsync(id);
         return Success<string>("Doctor schedule exception deleted successfully");

@@ -25,7 +25,7 @@ public class CreateAppointmentTimeRequest
 public class CreateDoctorDailyScheduleRequest
 {
     [Required]
-    public long DoctorId { get; set; }
+    public Guid DoctorId { get; set; }
 
     [Required]
     public DateOnly ScheduleDate { get; set; }
@@ -40,7 +40,7 @@ public class CreateDoctorDailyScheduleRequest
 public class CreateDoctorScheduleExceptionRequest
 {
     [Required]
-    public long DoctorId { get; set; }
+    public Guid DoctorId { get; set; }
 
     [Required]
     public DateOnly ExceptionDate { get; set; }
@@ -62,7 +62,7 @@ public class CreateDoctorScheduleExceptionRequest
 public class CreateClinicExceptionRequest
 {
     [Required]
-    public long ClinicId { get; set; }
+    public Guid ClinicId { get; set; }
 
     [Required]
     public DateOnly ExceptionDate { get; set; }
@@ -77,12 +77,12 @@ public class CreateClinicExceptionRequest
 public class CreateServiceScheduleRequest
 {
     [Required]
-    public long ServiceId { get; set; }
+    public Guid ServiceId { get; set; }
 
     [Required]
     public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
 
-    public long? ClinicId { get; set; }
+    public Guid? ClinicId { get; set; }
 }
 
 /// <summary>
@@ -91,12 +91,12 @@ public class CreateServiceScheduleRequest
 public class GetAvailableSlotsRequest
 {
     [Required]
-    public long DoctorId { get; set; }
+    public Guid DoctorId { get; set; }
 
     [Required]
     public DateOnly Date { get; set; }
 
-    public long? ServiceId { get; set; }
+    public Guid? ServiceId { get; set; }
 }
 
 /// <summary>
@@ -105,7 +105,7 @@ public class GetAvailableSlotsRequest
 public class GetDoctorScheduleRequest
 {
     [Required]
-    public long DoctorId { get; set; }
+    public Guid DoctorId { get; set; }
 
     [Required]
     public DateOnly StartDate { get; set; }

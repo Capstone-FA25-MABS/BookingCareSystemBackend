@@ -66,7 +66,9 @@ app.UseRouting();
 app.MapControllers();
 
 // Configure gRPC services
-app.MapGrpcService<ScheduleGrpcService>();
+// TODO: Update gRPC service to handle GUID conversions
+// Configure gRPC (temporarily disabled during GUID conversion)
+// app.MapGrpcService<ScheduleGrpcService>();
 app.MapGet("/", () => "BookingCare Schedule Service is running...");
 
 app.Run();

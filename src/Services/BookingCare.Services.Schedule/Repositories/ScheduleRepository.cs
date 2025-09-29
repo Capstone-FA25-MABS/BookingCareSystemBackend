@@ -22,13 +22,13 @@ public class ScheduleRepository : IScheduleRepository
 
     #region DoctorDailySchedule operations
 
-    public async Task<DoctorDailyScheduleEntity?> GetDoctorDailyScheduleAsync(long doctorId, DateOnly date)
+    public async Task<DoctorDailyScheduleEntity?> GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date)
     {
         return await _context.DoctorDailySchedules
             .FirstOrDefaultAsync(x => x.DoctorId == doctorId && x.ScheduleDate == date);
     }
 
-    public async Task<IEnumerable<DoctorDailyScheduleEntity>> GetDoctorScheduleRangeAsync(long doctorId, DateOnly startDate, DateOnly endDate)
+    public async Task<IEnumerable<DoctorDailyScheduleEntity>> GetDoctorScheduleRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate)
     {
         return await _context.DoctorDailySchedules
             .Where(x => x.DoctorId == doctorId && x.ScheduleDate >= startDate && x.ScheduleDate <= endDate)
@@ -56,7 +56,7 @@ public class ScheduleRepository : IScheduleRepository
         return existing ?? schedule;
     }
 
-    public async Task DeleteDoctorDailyScheduleAsync(long doctorId, DateOnly date)
+    public async Task DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date)
     {
         var schedule = await _context.DoctorDailySchedules
             .FirstOrDefaultAsync(x => x.DoctorId == doctorId && x.ScheduleDate == date);
@@ -72,14 +72,14 @@ public class ScheduleRepository : IScheduleRepository
 
     #region DoctorScheduleException operations
 
-    public async Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsAsync(long doctorId, DateOnly date)
+    public async Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsAsync(Guid doctorId, DateOnly date)
     {
         return await _context.DoctorScheduleExceptions
             .Where(x => x.DoctorId == doctorId && x.ExceptionDate == date)
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsRangeAsync(long doctorId, DateOnly startDate, DateOnly endDate)
+    public async Task<IEnumerable<DoctorScheduleExceptionEntity>> GetDoctorExceptionsRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate)
     {
         return await _context.DoctorScheduleExceptions
             .Where(x => x.DoctorId == doctorId && x.ExceptionDate >= startDate && x.ExceptionDate <= endDate)
@@ -94,7 +94,7 @@ public class ScheduleRepository : IScheduleRepository
         return exception;
     }
 
-    public async Task DeleteDoctorScheduleExceptionAsync(long id)
+    public async Task DeleteDoctorScheduleExceptionAsync(Guid id)
     {
         var exception = await _context.DoctorScheduleExceptions.FindAsync(id);
         if (exception != null)
@@ -108,7 +108,7 @@ public class ScheduleRepository : IScheduleRepository
 
     #region ClinicException operations
 
-    public async Task<IEnumerable<ClinicExceptionEntity>> GetClinicExceptionsAsync(long clinicId, DateOnly date)
+    public async Task<IEnumerable<ClinicExceptionEntity>> GetClinicExceptionsAsync(Guid clinicId, DateOnly date)
     {
         return await _context.ClinicExceptions
             .Where(x => x.ClinicId == clinicId && x.ExceptionDate == date)
@@ -122,7 +122,7 @@ public class ScheduleRepository : IScheduleRepository
         return exception;
     }
 
-    public async Task DeleteClinicExceptionAsync(long id)
+    public async Task DeleteClinicExceptionAsync(Guid id)
     {
         var exception = await _context.ClinicExceptions.FindAsync(id);
         if (exception != null)
@@ -136,7 +136,7 @@ public class ScheduleRepository : IScheduleRepository
 
     #region ServiceSchedule operations
 
-    public async Task<IEnumerable<ServiceScheduleEntity>> GetServiceSchedulesAsync(long serviceId)
+    public async Task<IEnumerable<ServiceScheduleEntity>> GetServiceSchedulesAsync(Guid serviceId)
     {
         return await _context.ServiceSchedules
             .Where(x => x.ServiceId == serviceId)
@@ -150,7 +150,7 @@ public class ScheduleRepository : IScheduleRepository
         return serviceSchedule;
     }
 
-    public async Task DeleteServiceScheduleAsync(long id)
+    public async Task DeleteServiceScheduleAsync(Guid id)
     {
         var serviceSchedule = await _context.ServiceSchedules.FindAsync(id);
         if (serviceSchedule != null)
@@ -164,7 +164,7 @@ public class ScheduleRepository : IScheduleRepository
 
     #region Available slots operations
 
-    public async Task<IEnumerable<AppointmentTime>> GetAvailableSlotsAsync(long doctorId, DateOnly date, long? serviceId = null)
+    public async Task<IEnumerable<AppointmentTime>> GetAvailableSlotsAsync(Guid doctorId, DateOnly date, Guid? serviceId = null)
     {
         // Get doctor's schedule for the day
         var doctorSchedule = await GetDoctorDailyScheduleAsync(doctorId, date);

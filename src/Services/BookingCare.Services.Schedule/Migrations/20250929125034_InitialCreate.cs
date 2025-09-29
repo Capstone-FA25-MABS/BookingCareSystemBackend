@@ -15,9 +15,8 @@ namespace BookingCare.Services.Schedule.Migrations
                 name: "clinic_exceptions",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    clinic_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    clinic_id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     exception_date = table.Column<DateOnly>(type: "date", nullable: false),
                     reason = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true)
                 },
@@ -30,9 +29,8 @@ namespace BookingCare.Services.Schedule.Migrations
                 name: "doctor_daily_schedules",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    doctor_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    doctor_id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     schedule_date = table.Column<DateOnly>(type: "date", nullable: false),
                     schedule_patterns = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
@@ -47,9 +45,8 @@ namespace BookingCare.Services.Schedule.Migrations
                 name: "doctor_schedule_exceptions",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    doctor_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    doctor_id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     exception_date = table.Column<DateOnly>(type: "date", nullable: false),
                     appointment_time = table.Column<int>(type: "int", nullable: true),
                     exception_type = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
@@ -66,11 +63,10 @@ namespace BookingCare.Services.Schedule.Migrations
                 name: "service_schedules",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    service_id = table.Column<long>(type: "bigint", nullable: false),
+                    id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    service_id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     schedule_patterns = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    clinic_id = table.Column<long>(type: "bigint", nullable: true),
+                    clinic_id = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },

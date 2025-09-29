@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Schedule.Migrations
 {
     [DbContext(typeof(ScheduleDbContext))]
-    [Migration("20250929060942_InitialCreate")]
+    [Migration("20250929125034_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -27,15 +27,13 @@ namespace BookingCare.Services.Schedule.Migrations
 
             modelBuilder.Entity("BookingCare.Services.Schedule.Models.Entities.ClinicExceptionEntity", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long>("ClinicId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("clinic_id");
 
                     b.Property<DateOnly>("ExceptionDate")
@@ -56,12 +54,10 @@ namespace BookingCare.Services.Schedule.Migrations
 
             modelBuilder.Entity("BookingCare.Services.Schedule.Models.Entities.DoctorDailyScheduleEntity", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -69,8 +65,8 @@ namespace BookingCare.Services.Schedule.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
 
-                    b.Property<long>("DoctorId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("doctor_id");
 
                     b.Property<DateOnly>("ScheduleDate")
@@ -102,12 +98,10 @@ namespace BookingCare.Services.Schedule.Migrations
 
             modelBuilder.Entity("BookingCare.Services.Schedule.Models.Entities.DoctorScheduleExceptionEntity", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int?>("AppointmentTime")
                         .HasColumnType("int")
@@ -119,8 +113,8 @@ namespace BookingCare.Services.Schedule.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
 
-                    b.Property<long>("DoctorId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("doctor_id");
 
                     b.Property<DateOnly>("ExceptionDate")
@@ -155,15 +149,13 @@ namespace BookingCare.Services.Schedule.Migrations
 
             modelBuilder.Entity("BookingCare.Services.Schedule.Models.Entities.ServiceScheduleEntity", b =>
                 {
-                    b.Property<long>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<long?>("ClinicId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid?>("ClinicId")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("clinic_id");
 
                     b.Property<DateTime>("CreatedAt")
@@ -177,8 +169,8 @@ namespace BookingCare.Services.Schedule.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("schedule_patterns");
 
-                    b.Property<long>("ServiceId")
-                        .HasColumnType("bigint")
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uniqueidentifier")
                         .HasColumnName("service_id");
 
                     b.Property<DateTime>("UpdatedAt")

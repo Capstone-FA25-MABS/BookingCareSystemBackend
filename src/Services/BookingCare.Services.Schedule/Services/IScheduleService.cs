@@ -9,25 +9,25 @@ namespace BookingCare.Services.Schedule.Services;
 public interface IScheduleService
 {
     // DoctorDailySchedule operations
-    Task<DoctorDailyScheduleDto?> GetDoctorDailyScheduleAsync(long doctorId, DateOnly date);
+    Task<DoctorDailyScheduleDto?> GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date);
     Task<IEnumerable<DoctorDailyScheduleDto>> GetDoctorScheduleRangeAsync(GetDoctorScheduleRequest request);
     Task<DoctorDailyScheduleDto> CreateOrUpdateDoctorDailyScheduleAsync(CreateDoctorDailyScheduleRequest request);
-    Task DeleteDoctorDailyScheduleAsync(long doctorId, DateOnly date);
+    Task DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date);
 
     // DoctorScheduleException operations
-    Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsAsync(long doctorId, DateOnly date);
+    Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsAsync(Guid doctorId, DateOnly date);
     Task<List<DoctorScheduleExceptionDto>> CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request);
-    Task DeleteDoctorScheduleExceptionAsync(long id);
+    Task DeleteDoctorScheduleExceptionAsync(Guid id);
 
     // ClinicException operations
-    Task<IEnumerable<ClinicExceptionDto>> GetClinicExceptionsAsync(long clinicId, DateOnly date);
+    Task<IEnumerable<ClinicExceptionDto>> GetClinicExceptionsAsync(Guid clinicId, DateOnly date);
     Task<ClinicExceptionDto> CreateClinicExceptionAsync(CreateClinicExceptionRequest request);
-    Task DeleteClinicExceptionAsync(long id);
+    Task DeleteClinicExceptionAsync(Guid id);
 
     // ServiceSchedule operations
-    Task<IEnumerable<ServiceScheduleDto>> GetServiceSchedulesAsync(long serviceId);
+    Task<IEnumerable<ServiceScheduleDto>> GetServiceSchedulesAsync(Guid serviceId);
     Task<ServiceScheduleDto> CreateServiceScheduleAsync(CreateServiceScheduleRequest request);
-    Task DeleteServiceScheduleAsync(long id);
+    Task DeleteServiceScheduleAsync(Guid id);
 
     // Available slots operations
     Task<IEnumerable<AppointmentTimeDto>> GetAvailableSlotsAsync(GetAvailableSlotsRequest request);

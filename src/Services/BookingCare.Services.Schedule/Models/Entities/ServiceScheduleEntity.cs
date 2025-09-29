@@ -12,18 +12,18 @@ public class ServiceScheduleEntity
 {
     [Key]
     [Column("id")]
-    public long Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
     [Column("service_id")]
-    public long ServiceId { get; set; }
+    public Guid ServiceId { get; set; }
 
     [Required]
     [Column("schedule_patterns")]
     public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
 
     [Column("clinic_id")]
-    public long? ClinicId { get; set; } // if service applies only to one clinic
+    public Guid? ClinicId { get; set; } // if service applies only to one clinic
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

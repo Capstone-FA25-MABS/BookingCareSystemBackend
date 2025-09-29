@@ -29,7 +29,7 @@ public class ScheduleService : IScheduleService
 
     #region DoctorDailySchedule operations
 
-    public async Task<DoctorDailyScheduleDto?> GetDoctorDailyScheduleAsync(long doctorId, DateOnly date)
+    public async Task<DoctorDailyScheduleDto?> GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date)
     {
         var cacheKey = CacheKeys.Format(CacheKeys.DoctorDailySchedule, doctorId, date.ToString("yyyy-MM-dd"));
 
@@ -93,7 +93,7 @@ public class ScheduleService : IScheduleService
         return MapToDto(created);
     }
 
-    public async Task DeleteDoctorDailyScheduleAsync(long doctorId, DateOnly date)
+    public async Task DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date)
     {
         await _repository.DeleteDoctorDailyScheduleAsync(doctorId, date);
 
@@ -109,7 +109,7 @@ public class ScheduleService : IScheduleService
 
     #region DoctorScheduleException operations
 
-    public async Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsAsync(long doctorId, DateOnly date)
+    public async Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsAsync(Guid doctorId, DateOnly date)
     {
         var cacheKey = CacheKeys.Format(CacheKeys.DoctorExceptions, doctorId, date.ToString("yyyy-MM-dd"));
 
@@ -179,7 +179,7 @@ public class ScheduleService : IScheduleService
         return createdExceptions.Select(MapToDto).ToList();
     }
 
-    public async Task DeleteDoctorScheduleExceptionAsync(long id)
+    public async Task DeleteDoctorScheduleExceptionAsync(Guid id)
     {
         await _repository.DeleteDoctorScheduleExceptionAsync(id);
 
@@ -192,7 +192,7 @@ public class ScheduleService : IScheduleService
 
     #region ClinicException operations
 
-    public async Task<IEnumerable<ClinicExceptionDto>> GetClinicExceptionsAsync(long clinicId, DateOnly date)
+    public async Task<IEnumerable<ClinicExceptionDto>> GetClinicExceptionsAsync(Guid clinicId, DateOnly date)
     {
         var cacheKey = CacheKeys.Format(CacheKeys.ClinicExceptions, clinicId, date.ToString("yyyy-MM-dd"));
 
@@ -229,7 +229,7 @@ public class ScheduleService : IScheduleService
         return MapToDto(created);
     }
 
-    public async Task DeleteClinicExceptionAsync(long id)
+    public async Task DeleteClinicExceptionAsync(Guid id)
     {
         await _repository.DeleteClinicExceptionAsync(id);
 
@@ -241,7 +241,7 @@ public class ScheduleService : IScheduleService
 
     #region ServiceSchedule operations
 
-    public async Task<IEnumerable<ServiceScheduleDto>> GetServiceSchedulesAsync(long serviceId)
+    public async Task<IEnumerable<ServiceScheduleDto>> GetServiceSchedulesAsync(Guid serviceId)
     {
         var cacheKey = CacheKeys.Format(CacheKeys.ServiceSchedules, serviceId);
 
@@ -278,7 +278,7 @@ public class ScheduleService : IScheduleService
         return MapToDto(created);
     }
 
-    public async Task DeleteServiceScheduleAsync(long id)
+    public async Task DeleteServiceScheduleAsync(Guid id)
     {
         await _repository.DeleteServiceScheduleAsync(id);
 
@@ -319,10 +319,31 @@ public class ScheduleService : IScheduleService
         var (startTime, endTime) = GetTimeStringsFromEnum(appointmentTime);
         return new AppointmentTimeDto
         {
-            Id = (int)appointmentTime,
+            Id = GenerateDeterministicGuid((int)appointmentTime), // Convert enum int value to deterministic GUID
             StartTime = startTime,
             EndTime = endTime
         };
+    }
+
+    /// <summary>
+    /// Generate a deterministic GUID from an integer value for appointment time slots
+    /// </summary>
+    private static Guid GenerateDeterministicGuid(int value)
+    {
+        // Create a deterministic GUID based on the enum value
+        // Using a namespace GUID for appointment times with the enum value
+        byte[] guidBytes = new byte[16];
+        byte[] valueBytes = BitConverter.GetBytes(value);
+        
+        // Fill first 4 bytes with the value, rest with a predetermined pattern
+        Array.Copy(valueBytes, 0, guidBytes, 0, 4);
+        // Use a fixed pattern for appointment time slots namespace
+        for (int i = 4; i < 16; i++)
+        {
+            guidBytes[i] = (byte)(0xA0 + (i % 16)); // Predetermined pattern for appointment times
+        }
+        
+        return new Guid(guidBytes);
     }
 
     private static (string startTime, string endTime) GetTimeStringsFromEnum(AppointmentTime appointmentTime)
