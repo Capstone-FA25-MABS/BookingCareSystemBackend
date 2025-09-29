@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <Protobuf Include="Protos\schedule.proto" GrpcServices="Server" />
+    <Protobuf Include="..\BookingCare.Services.Doctor\Protos\doctor.proto" GrpcServices="Client" />
+    <Protobuf Include="..\BookingCare.Services.ServiceMedical\Protos\serviceMedical.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>

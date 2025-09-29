@@ -45,6 +45,19 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 
+// Configure gRPC clients for inter-service communication following ASP.NET Core DI best practices
+var doctorAddress = builder.Configuration.GetSection("GrpcClients:Doctor:Address").Value ?? "http://localhost:6018";
+builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(options =>
+{
+    options.Address = new Uri(doctorAddress);
+});
+
+var serviceMedicalAddress = builder.Configuration.GetSection("GrpcClients:ServiceMedical:Address").Value ?? "http://localhost:6023";
+builder.Services.AddGrpcClient<BookingCare.Services.ServiceMedical.Protos.ServiceMedicalService.ServiceMedicalServiceClient>(options =>
+{
+    options.Address = new Uri(serviceMedicalAddress);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -68,7 +81,7 @@ app.MapControllers();
 // Configure gRPC services
 // TODO: Update gRPC service to handle GUID conversions
 // Configure gRPC (temporarily disabled during GUID conversion)
-// app.MapGrpcService<ScheduleGrpcService>();
+app.MapGrpcService<ScheduleGrpcService>();
 app.MapGet("/", () => "BookingCare Schedule Service is running...");
 
 app.Run();

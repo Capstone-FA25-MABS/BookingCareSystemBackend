@@ -5,6 +5,8 @@ using BookingCare.Services.Schedule.Repositories;
 using BookingCare.Shared.Cache.Abstractions;
 using BookingCare.Shared.Cache.Constants;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.ServiceMedical.Protos;
 
 namespace BookingCare.Services.Schedule.Services;
 
@@ -16,15 +18,21 @@ public class ScheduleService : IScheduleService
     private readonly IScheduleRepository _repository;
     private readonly ICacheService _cacheService;
     private readonly ILogger<ScheduleService> _logger;
+    private readonly DoctorService.DoctorServiceClient _doctorClient;
+    private readonly ServiceMedicalService.ServiceMedicalServiceClient _serviceMedicalClient;
 
     public ScheduleService(
         IScheduleRepository repository,
         ICacheService cacheService,
-        ILogger<ScheduleService> logger)
+        ILogger<ScheduleService> logger,
+        DoctorService.DoctorServiceClient doctorClient,
+        ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient)
     {
         _repository = repository;
         _cacheService = cacheService;
         _logger = logger;
+        _doctorClient = doctorClient;
+        _serviceMedicalClient = serviceMedicalClient;
     }
 
     #region DoctorDailySchedule operations
@@ -73,6 +81,14 @@ public class ScheduleService : IScheduleService
 
     public async Task<DoctorDailyScheduleDto> CreateOrUpdateDoctorDailyScheduleAsync(CreateDoctorDailyScheduleRequest request)
     {
+        // Validate doctor exists and is active
+        var isDoctorValid = await ValidateDoctorAsync(request.DoctorId);
+        if (!isDoctorValid)
+        {
+            _logger.LogWarning("Invalid or inactive doctor {DoctorId} attempted to create schedule", request.DoctorId);
+            throw new ArgumentException($"Doctor {request.DoctorId} is not valid or inactive");
+        }
+
         var entity = new DoctorDailyScheduleEntity
         {
             DoctorId = request.DoctorId,
@@ -292,6 +308,25 @@ public class ScheduleService : IScheduleService
 
     public async Task<IEnumerable<AppointmentTimeDto>> GetAvailableSlotsAsync(GetAvailableSlotsRequest request)
     {
+        // Validate doctor exists and is active
+        var isDoctorValid = await ValidateDoctorAsync(request.DoctorId);
+        if (!isDoctorValid)
+        {
+            _logger.LogWarning("Invalid or inactive doctor {DoctorId} attempted to get available slots", request.DoctorId);
+            throw new ArgumentException($"Doctor {request.DoctorId} is not valid or inactive");
+        }
+
+        // Validate service if provided
+        if (request.ServiceId.HasValue)
+        {
+            var isServiceValid = await ValidateServiceMedicalAsync(request.ServiceId.Value);
+            if (!isServiceValid)
+            {
+                _logger.LogWarning("Invalid or inactive service {ServiceId} for available slots request", request.ServiceId);
+                throw new ArgumentException($"Service {request.ServiceId} is not valid or inactive");
+            }
+        }
+
         var serviceIdStr = request.ServiceId?.ToString() ?? "null";
         var cacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.Date.ToString("yyyy-MM-dd"), serviceIdStr);
 
@@ -334,7 +369,7 @@ public class ScheduleService : IScheduleService
         // Using a namespace GUID for appointment times with the enum value
         byte[] guidBytes = new byte[16];
         byte[] valueBytes = BitConverter.GetBytes(value);
-        
+
         // Fill first 4 bytes with the value, rest with a predetermined pattern
         Array.Copy(valueBytes, 0, guidBytes, 0, 4);
         // Use a fixed pattern for appointment time slots namespace
@@ -342,7 +377,7 @@ public class ScheduleService : IScheduleService
         {
             guidBytes[i] = (byte)(0xA0 + (i % 16)); // Predetermined pattern for appointment times
         }
-        
+
         return new Guid(guidBytes);
     }
 
@@ -399,7 +434,65 @@ public class ScheduleService : IScheduleService
         };
     }
 
+    #endregion
 
+    #region Validation Methods
+
+    /// <summary>
+    /// Validates if a doctor exists and is active using gRPC call to Doctor service
+    /// </summary>
+    private async Task<bool> ValidateDoctorAsync(Guid doctorId)
+    {
+        try
+        {
+            var request = new GetDoctorRequest
+            {
+                Id = doctorId.ToString()
+            };
+
+            var response = await _doctorClient.GetDoctorAsync(request);
+
+            if (response != null && !string.IsNullOrEmpty(response.Id))
+            {
+                // Check if doctor is active
+                return response.Status == "ACTIVE";
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating doctor {DoctorId}", doctorId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Validates if a medical service exists and is active using gRPC call to ServiceMedical service
+    /// </summary>
+    private async Task<bool> ValidateServiceMedicalAsync(Guid serviceId)
+    {
+        try
+        {
+            var request = new ValidateServiceMedicalRequest
+            {
+                Id = serviceId.ToString()
+            };
+
+            var response = await _serviceMedicalClient.ValidateServiceMedicalAsync(request);
+
+            return response != null && response.IsValid && response.IsActive;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating service {ServiceId}", serviceId);
+            return false;
+        }
+    }
+
+    #endregion
+
+    #region Helper Methods
 
     private static DoctorDailyScheduleDto MapToDto(DoctorDailyScheduleEntity entity)
     {
