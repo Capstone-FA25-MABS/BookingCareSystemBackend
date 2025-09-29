@@ -6,7 +6,7 @@ namespace BookingCare.Services.ServiceMedical.Services;
 public class ServiceMedicalGrpcService : ServiceMedicalService.ServiceMedicalServiceBase
 {
     private readonly ILogger<ServiceMedicalGrpcService> _logger;
-    
+
     public ServiceMedicalGrpcService(ILogger<ServiceMedicalGrpcService> logger)
     {
         _logger = logger;
@@ -16,7 +16,7 @@ public class ServiceMedicalGrpcService : ServiceMedicalService.ServiceMedicalSer
     {
         // TODO: Implement actual service lookup logic
         _logger.LogInformation("Getting service medical with ID: {ServiceId}", request.Id);
-        
+
         return Task.FromResult(new ServiceMedicalResponse
         {
             Id = request.Id,
@@ -35,10 +35,10 @@ public class ServiceMedicalGrpcService : ServiceMedicalService.ServiceMedicalSer
     {
         // TODO: Implement actual validation logic
         _logger.LogInformation("Validating service medical with ID: {ServiceId}", request.Id);
-        
+
         // For now, return valid for any GUID format
         var isValidGuid = Guid.TryParse(request.Id, out _);
-        
+
         return Task.FromResult(new ValidateServiceMedicalResponse
         {
             IsValid = isValidGuid,
@@ -51,9 +51,9 @@ public class ServiceMedicalGrpcService : ServiceMedicalService.ServiceMedicalSer
     {
         // TODO: Implement actual batch lookup logic
         _logger.LogInformation("Getting multiple service medicals for {Count} IDs", request.Ids.Count);
-        
+
         var response = new ServiceMedicalBatchResponse();
-        
+
         foreach (var id in request.Ids)
         {
             if (Guid.TryParse(id, out _))
@@ -72,7 +72,7 @@ public class ServiceMedicalGrpcService : ServiceMedicalService.ServiceMedicalSer
                 });
             }
         }
-        
+
         return Task.FromResult(response);
     }
 }
