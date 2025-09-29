@@ -60,7 +60,7 @@ public class ScheduleRepository : IScheduleRepository
     {
         var schedule = await _context.DoctorDailySchedules
             .FirstOrDefaultAsync(x => x.DoctorId == doctorId && x.ScheduleDate == date);
-        
+
         if (schedule != null)
         {
             _context.DoctorDailySchedules.Remove(schedule);

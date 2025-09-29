@@ -42,8 +42,8 @@ public class DoctorSchedulesController : BaseApiController
     /// </summary>
     [HttpGet("{doctorId}/range")]
     public async Task<IActionResult> GetDoctorScheduleRange(
-        long doctorId, 
-        [FromQuery] DateOnly startDate, 
+        long doctorId,
+        [FromQuery] DateOnly startDate,
         [FromQuery] DateOnly endDate)
     {
         var request = new GetDoctorScheduleRequest
@@ -82,8 +82,8 @@ public class DoctorSchedulesController : BaseApiController
     /// </summary>
     [HttpGet("{doctorId}/available-slots")]
     public async Task<IActionResult> GetAvailableSlots(
-        long doctorId, 
-        [FromQuery] DateOnly date, 
+        long doctorId,
+        [FromQuery] DateOnly date,
         [FromQuery] long? serviceId = null)
     {
         var request = new GetAvailableSlotsRequest

@@ -33,7 +33,7 @@ public class ScheduleService : IScheduleService
     public async Task<DoctorDailyScheduleDto?> GetDoctorDailyScheduleAsync(long doctorId, DateOnly date)
     {
         var cacheKey = CacheKeys.Format(CacheKeys.DoctorDailySchedule, doctorId, date.ToString("yyyy-MM-dd"));
-        
+
         var cached = await _cacheService.GetAsync<DoctorDailyScheduleDto>(cacheKey);
         if (cached != null)
         {
@@ -46,17 +46,17 @@ public class ScheduleService : IScheduleService
 
         var dto = MapToDto(entity);
         await _cacheService.SetAsync(cacheKey, dto, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
-        
+
         return dto;
     }
 
     public async Task<IEnumerable<DoctorDailyScheduleDto>> GetDoctorScheduleRangeAsync(GetDoctorScheduleRequest request)
     {
-        var cacheKey = CacheKeys.Format(CacheKeys.DoctorScheduleRange, 
-            request.DoctorId, 
-            request.StartDate.ToString("yyyy-MM-dd"), 
+        var cacheKey = CacheKeys.Format(CacheKeys.DoctorScheduleRange,
+            request.DoctorId,
+            request.StartDate.ToString("yyyy-MM-dd"),
             request.EndDate.ToString("yyyy-MM-dd"));
-        
+
         var cached = await _cacheService.GetAsync<IEnumerable<DoctorDailyScheduleDto>>(cacheKey);
         if (cached != null)
         {
@@ -66,9 +66,9 @@ public class ScheduleService : IScheduleService
 
         var entities = await _repository.GetDoctorScheduleRangeAsync(request.DoctorId, request.StartDate, request.EndDate);
         var dtos = entities.Select(MapToDto).ToList();
-        
+
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
-        
+
         return dtos;
     }
 
@@ -82,26 +82,26 @@ public class ScheduleService : IScheduleService
         };
 
         var created = await _repository.CreateOrUpdateDoctorDailyScheduleAsync(entity);
-        
+
         // Invalidate related caches
         var dailyCacheKey = CacheKeys.Format(CacheKeys.DoctorDailySchedule, request.DoctorId, request.ScheduleDate.ToString("yyyy-MM-dd"));
         await _cacheService.RemoveAsync(dailyCacheKey);
-        
+
         // Invalidate available slots cache
         var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.ScheduleDate.ToString("yyyy-MM-dd"), "*");
         await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
-        
+
         return MapToDto(created);
     }
 
     public async Task DeleteDoctorDailyScheduleAsync(long doctorId, DateOnly date)
     {
         await _repository.DeleteDoctorDailyScheduleAsync(doctorId, date);
-        
+
         // Invalidate related caches
         var dailyCacheKey = CacheKeys.Format(CacheKeys.DoctorDailySchedule, doctorId, date.ToString("yyyy-MM-dd"));
         await _cacheService.RemoveAsync(dailyCacheKey);
-        
+
         var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, doctorId, date.ToString("yyyy-MM-dd"), "*");
         await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
     }
@@ -113,7 +113,7 @@ public class ScheduleService : IScheduleService
     public async Task<IEnumerable<DoctorScheduleExceptionDto>> GetDoctorExceptionsAsync(long doctorId, DateOnly date)
     {
         var cacheKey = CacheKeys.Format(CacheKeys.DoctorExceptions, doctorId, date.ToString("yyyy-MM-dd"));
-        
+
         var cached = await _cacheService.GetAsync<IEnumerable<DoctorScheduleExceptionDto>>(cacheKey);
         if (cached != null)
         {
@@ -123,9 +123,9 @@ public class ScheduleService : IScheduleService
 
         var entities = await _repository.GetDoctorExceptionsAsync(doctorId, date);
         var dtos = entities.Select(MapToDto).ToList();
-        
+
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
-        
+
         return dtos;
     }
 
@@ -142,21 +142,21 @@ public class ScheduleService : IScheduleService
         };
 
         var created = await _repository.CreateDoctorScheduleExceptionAsync(entity);
-        
+
         // Invalidate related caches
         var exceptionsCacheKey = CacheKeys.Format(CacheKeys.DoctorExceptions, request.DoctorId, request.ExceptionDate.ToString("yyyy-MM-dd"));
         await _cacheService.RemoveAsync(exceptionsCacheKey);
-        
+
         var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.ExceptionDate.ToString("yyyy-MM-dd"), "*");
         await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
-        
+
         return MapToDto(created);
     }
 
     public async Task DeleteDoctorScheduleExceptionAsync(long id)
     {
         await _repository.DeleteDoctorScheduleExceptionAsync(id);
-        
+
         // Note: We would need to know the doctor and date to invalidate specific cache keys
         // For now, we'll use pattern-based invalidation
         await _cacheService.RemoveByPatternAsync(CacheKeys.SchedulePattern);
@@ -169,7 +169,7 @@ public class ScheduleService : IScheduleService
     public async Task<IEnumerable<ClinicExceptionDto>> GetClinicExceptionsAsync(long clinicId, DateOnly date)
     {
         var cacheKey = CacheKeys.Format(CacheKeys.ClinicExceptions, clinicId, date.ToString("yyyy-MM-dd"));
-        
+
         var cached = await _cacheService.GetAsync<IEnumerable<ClinicExceptionDto>>(cacheKey);
         if (cached != null)
         {
@@ -179,9 +179,9 @@ public class ScheduleService : IScheduleService
 
         var entities = await _repository.GetClinicExceptionsAsync(clinicId, date);
         var dtos = entities.Select(MapToDto).ToList();
-        
+
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
-        
+
         return dtos;
     }
 
@@ -195,18 +195,18 @@ public class ScheduleService : IScheduleService
         };
 
         var created = await _repository.CreateClinicExceptionAsync(entity);
-        
+
         // Invalidate cache
         var cacheKey = CacheKeys.Format(CacheKeys.ClinicExceptions, request.ClinicId, request.ExceptionDate.ToString("yyyy-MM-dd"));
         await _cacheService.RemoveAsync(cacheKey);
-        
+
         return MapToDto(created);
     }
 
     public async Task DeleteClinicExceptionAsync(long id)
     {
         await _repository.DeleteClinicExceptionAsync(id);
-        
+
         // Pattern-based invalidation
         await _cacheService.RemoveByPatternAsync("clinic_exceptions:*");
     }
@@ -218,7 +218,7 @@ public class ScheduleService : IScheduleService
     public async Task<IEnumerable<ServiceScheduleDto>> GetServiceSchedulesAsync(long serviceId)
     {
         var cacheKey = CacheKeys.Format(CacheKeys.ServiceSchedules, serviceId);
-        
+
         var cached = await _cacheService.GetAsync<IEnumerable<ServiceScheduleDto>>(cacheKey);
         if (cached != null)
         {
@@ -228,9 +228,9 @@ public class ScheduleService : IScheduleService
 
         var entities = await _repository.GetServiceSchedulesAsync(serviceId);
         var dtos = entities.Select(MapToDto).ToList();
-        
+
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.MediumCacheExpiration));
-        
+
         return dtos;
     }
 
@@ -244,18 +244,18 @@ public class ScheduleService : IScheduleService
         };
 
         var created = await _repository.CreateServiceScheduleAsync(entity);
-        
+
         // Invalidate cache
         var cacheKey = CacheKeys.Format(CacheKeys.ServiceSchedules, request.ServiceId);
         await _cacheService.RemoveAsync(cacheKey);
-        
+
         return MapToDto(created);
     }
 
     public async Task DeleteServiceScheduleAsync(long id)
     {
         await _repository.DeleteServiceScheduleAsync(id);
-        
+
         // Pattern-based invalidation
         await _cacheService.RemoveByPatternAsync("service_schedules:*");
     }
@@ -268,7 +268,7 @@ public class ScheduleService : IScheduleService
     {
         var serviceIdStr = request.ServiceId?.ToString() ?? "null";
         var cacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.Date.ToString("yyyy-MM-dd"), serviceIdStr);
-        
+
         var cached = await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey);
         if (cached != null)
         {
@@ -278,9 +278,9 @@ public class ScheduleService : IScheduleService
 
         var entities = await _repository.GetAvailableSlotsAsync(request.DoctorId, request.Date, request.ServiceId);
         var dtos = entities.Select(ConvertEnumToDto).ToList();
-        
+
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
-        
+
         return dtos;
     }
 

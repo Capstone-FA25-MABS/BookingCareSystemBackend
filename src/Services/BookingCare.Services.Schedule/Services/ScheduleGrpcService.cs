@@ -31,7 +31,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             };
 
             var slots = await _scheduleService.GetAvailableSlotsAsync(serviceRequest);
-            
+
             var response = new GetAvailableSlotsResponse
             {
                 Success = true,
@@ -66,7 +66,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
         try
         {
             var schedule = await _scheduleService.GetDoctorDailyScheduleAsync(request.DoctorId, DateOnly.Parse(request.Date));
-            
+
             if (schedule == null)
             {
                 return new GetDoctorDailyScheduleResponse
@@ -108,7 +108,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             };
 
             var schedules = await _scheduleService.GetDoctorScheduleRangeAsync(serviceRequest);
-            
+
             var response = new GetDoctorScheduleRangeResponse
             {
                 Success = true,
@@ -145,7 +145,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             };
 
             var schedule = await _scheduleService.CreateOrUpdateDoctorDailyScheduleAsync(serviceRequest);
-            
+
             var response = new DoctorDailyScheduleResponse
             {
                 Success = true,
@@ -181,7 +181,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             };
 
             var exception = await _scheduleService.CreateDoctorScheduleExceptionAsync(serviceRequest);
-            
+
             var response = new DoctorScheduleExceptionResponse
             {
                 Success = true,
@@ -208,7 +208,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
         {
             // Return all predefined appointment time enum values
             var appointmentTimeEnums = System.Enum.GetValues<BookingCare.Shared.Common.Enums.AppointmentTime>();
-            
+
             var response = new GetAllAppointmentTimesResponse
             {
                 Success = true,
