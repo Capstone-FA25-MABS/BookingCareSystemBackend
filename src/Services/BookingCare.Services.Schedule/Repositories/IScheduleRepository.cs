@@ -1,4 +1,5 @@
 using BookingCare.Services.Schedule.Models.Entities;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Schedule.Repositories;
 
@@ -7,19 +8,7 @@ namespace BookingCare.Services.Schedule.Repositories;
 /// </summary>
 public interface IScheduleRepository
 {
-    // AppointmentTime operations
-    Task<AppointmentTimeEntity?> GetAppointmentTimeByIdAsync(long id);
-    Task<IEnumerable<AppointmentTimeEntity>> GetAllAppointmentTimesAsync();
-    Task<AppointmentTimeEntity> CreateAppointmentTimeAsync(AppointmentTimeEntity appointmentTime);
-    Task<AppointmentTimeEntity> UpdateAppointmentTimeAsync(AppointmentTimeEntity appointmentTime);
-    Task DeleteAppointmentTimeAsync(long id);
 
-    // SchedulePattern operations
-    Task<SchedulePatternEntity?> GetSchedulePatternByIdAsync(long id);
-    Task<IEnumerable<SchedulePatternEntity>> GetAllSchedulePatternsAsync();
-    Task<SchedulePatternEntity> CreateSchedulePatternAsync(SchedulePatternEntity pattern, List<long> appointmentTimeIds);
-    Task<SchedulePatternEntity> UpdateSchedulePatternAsync(SchedulePatternEntity pattern, List<long> appointmentTimeIds);
-    Task DeleteSchedulePatternAsync(long id);
 
     // DoctorDailySchedule operations
     Task<DoctorDailyScheduleEntity?> GetDoctorDailyScheduleAsync(long doctorId, DateOnly date);
@@ -44,5 +33,5 @@ public interface IScheduleRepository
     Task DeleteServiceScheduleAsync(long id);
 
     // Available slots operations
-    Task<IEnumerable<AppointmentTimeEntity>> GetAvailableSlotsAsync(long doctorId, DateOnly date, long? serviceId = null);
+    Task<IEnumerable<AppointmentTime>> GetAvailableSlotsAsync(long doctorId, DateOnly date, long? serviceId = null);
 }

@@ -1,5 +1,7 @@
 using BookingCare.Services.Schedule.Data;
+using BookingCare.Services.Schedule.Enums;
 using BookingCare.Services.Schedule.Models.Entities;
+using BookingCare.Shared.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Schedule.Repositories;
@@ -16,161 +18,19 @@ public class ScheduleRepository : IScheduleRepository
         _context = context;
     }
 
-    #region AppointmentTime operations
 
-    public async Task<AppointmentTimeEntity?> GetAppointmentTimeByIdAsync(long id)
-    {
-        return await _context.AppointmentTimes.FindAsync(id);
-    }
-
-    public async Task<IEnumerable<AppointmentTimeEntity>> GetAllAppointmentTimesAsync()
-    {
-        return await _context.AppointmentTimes
-            .OrderBy(x => x.StartTime)
-            .ToListAsync();
-    }
-
-    public async Task<AppointmentTimeEntity> CreateAppointmentTimeAsync(AppointmentTimeEntity appointmentTime)
-    {
-        _context.AppointmentTimes.Add(appointmentTime);
-        await _context.SaveChangesAsync();
-        return appointmentTime;
-    }
-
-    public async Task<AppointmentTimeEntity> UpdateAppointmentTimeAsync(AppointmentTimeEntity appointmentTime)
-    {
-        _context.AppointmentTimes.Update(appointmentTime);
-        await _context.SaveChangesAsync();
-        return appointmentTime;
-    }
-
-    public async Task DeleteAppointmentTimeAsync(long id)
-    {
-        var appointmentTime = await _context.AppointmentTimes.FindAsync(id);
-        if (appointmentTime != null)
-        {
-            _context.AppointmentTimes.Remove(appointmentTime);
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    #endregion
-
-    #region SchedulePattern operations
-
-    public async Task<SchedulePatternEntity?> GetSchedulePatternByIdAsync(long id)
-    {
-        return await _context.SchedulePatterns
-            .Include(x => x.SchedulePatternSlots)
-            .ThenInclude(x => x.AppointmentTime)
-            .FirstOrDefaultAsync(x => x.Id == id);
-    }
-
-    public async Task<IEnumerable<SchedulePatternEntity>> GetAllSchedulePatternsAsync()
-    {
-        return await _context.SchedulePatterns
-            .Include(x => x.SchedulePatternSlots)
-            .ThenInclude(x => x.AppointmentTime)
-            .ToListAsync();
-    }
-
-    public async Task<SchedulePatternEntity> CreateSchedulePatternAsync(SchedulePatternEntity pattern, List<long> appointmentTimeIds)
-    {
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        
-        try
-        {
-            _context.SchedulePatterns.Add(pattern);
-            await _context.SaveChangesAsync();
-
-            foreach (var appointmentTimeId in appointmentTimeIds)
-            {
-                var slot = new SchedulePatternSlotEntity
-                {
-                    PatternId = pattern.Id,
-                    AppointmentTimeId = appointmentTimeId
-                };
-                _context.SchedulePatternSlots.Add(slot);
-            }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            return await GetSchedulePatternByIdAsync(pattern.Id) ?? pattern;
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
-    }
-
-    public async Task<SchedulePatternEntity> UpdateSchedulePatternAsync(SchedulePatternEntity pattern, List<long> appointmentTimeIds)
-    {
-        using var transaction = await _context.Database.BeginTransactionAsync();
-        
-        try
-        {
-            _context.SchedulePatterns.Update(pattern);
-
-            // Remove existing slots
-            var existingSlots = await _context.SchedulePatternSlots
-                .Where(x => x.PatternId == pattern.Id)
-                .ToListAsync();
-            _context.SchedulePatternSlots.RemoveRange(existingSlots);
-
-            // Add new slots
-            foreach (var appointmentTimeId in appointmentTimeIds)
-            {
-                var slot = new SchedulePatternSlotEntity
-                {
-                    PatternId = pattern.Id,
-                    AppointmentTimeId = appointmentTimeId
-                };
-                _context.SchedulePatternSlots.Add(slot);
-            }
-
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            return await GetSchedulePatternByIdAsync(pattern.Id) ?? pattern;
-        }
-        catch
-        {
-            await transaction.RollbackAsync();
-            throw;
-        }
-    }
-
-    public async Task DeleteSchedulePatternAsync(long id)
-    {
-        var pattern = await _context.SchedulePatterns.FindAsync(id);
-        if (pattern != null)
-        {
-            _context.SchedulePatterns.Remove(pattern);
-            await _context.SaveChangesAsync();
-        }
-    }
-
-    #endregion
 
     #region DoctorDailySchedule operations
 
     public async Task<DoctorDailyScheduleEntity?> GetDoctorDailyScheduleAsync(long doctorId, DateOnly date)
     {
         return await _context.DoctorDailySchedules
-            .Include(x => x.Pattern)
-            .ThenInclude(x => x.SchedulePatternSlots)
-            .ThenInclude(x => x.AppointmentTime)
             .FirstOrDefaultAsync(x => x.DoctorId == doctorId && x.ScheduleDate == date);
     }
 
     public async Task<IEnumerable<DoctorDailyScheduleEntity>> GetDoctorScheduleRangeAsync(long doctorId, DateOnly startDate, DateOnly endDate)
     {
         return await _context.DoctorDailySchedules
-            .Include(x => x.Pattern)
-            .ThenInclude(x => x.SchedulePatternSlots)
-            .ThenInclude(x => x.AppointmentTime)
             .Where(x => x.DoctorId == doctorId && x.ScheduleDate >= startDate && x.ScheduleDate <= endDate)
             .OrderBy(x => x.ScheduleDate)
             .ToListAsync();
@@ -183,7 +43,7 @@ public class ScheduleRepository : IScheduleRepository
 
         if (existing != null)
         {
-            existing.PatternId = schedule.PatternId;
+            existing.SchedulePattern = schedule.SchedulePattern;
             existing.UpdatedAt = DateTime.UtcNow;
             _context.DoctorDailySchedules.Update(existing);
         }
@@ -281,9 +141,6 @@ public class ScheduleRepository : IScheduleRepository
     public async Task<IEnumerable<ServiceScheduleEntity>> GetServiceSchedulesAsync(long serviceId)
     {
         return await _context.ServiceSchedules
-            .Include(x => x.Pattern)
-            .ThenInclude(x => x.SchedulePatternSlots)
-            .ThenInclude(x => x.AppointmentTime)
             .Where(x => x.ServiceId == serviceId)
             .ToListAsync();
     }
@@ -309,19 +166,17 @@ public class ScheduleRepository : IScheduleRepository
 
     #region Available slots operations
 
-    public async Task<IEnumerable<AppointmentTimeEntity>> GetAvailableSlotsAsync(long doctorId, DateOnly date, long? serviceId = null)
+    public async Task<IEnumerable<AppointmentTime>> GetAvailableSlotsAsync(long doctorId, DateOnly date, long? serviceId = null)
     {
         // Get doctor's schedule for the day
         var doctorSchedule = await GetDoctorDailyScheduleAsync(doctorId, date);
-        if (doctorSchedule?.Pattern == null)
+        if (doctorSchedule == null)
         {
-            return new List<AppointmentTimeEntity>();
+            return new List<AppointmentTime>();
         }
 
-        // Get all slots from the pattern
-        var availableSlots = doctorSchedule.Pattern.SchedulePatternSlots
-            .Select(x => x.AppointmentTime)
-            .ToList();
+        // Get all slots from the pattern based on enum
+        var availableSlots = GetAppointmentTimesForPattern(doctorSchedule.SchedulePattern).ToList();
 
         // Get doctor's exceptions for the day
         var exceptions = await GetDoctorExceptionsAsync(doctorId, date);
@@ -332,22 +187,21 @@ public class ScheduleRepository : IScheduleRepository
             if (exception.ExceptionType == ExceptionType.DAY_OFF)
             {
                 // Doctor is off for the entire day
-                return new List<AppointmentTimeEntity>();
+                return new List<AppointmentTime>();
             }
-            else if (exception.AppointmentTimeId.HasValue)
+            else if (exception.AppointmentTime.HasValue)
             {
                 if (exception.ExceptionType == ExceptionType.BLOCK_SLOT && !exception.IsAvailable)
                 {
                     // Remove blocked slot
-                    availableSlots.RemoveAll(x => x.Id == exception.AppointmentTimeId.Value);
+                    availableSlots.Remove(exception.AppointmentTime.Value);
                 }
                 else if (exception.ExceptionType == ExceptionType.UNBLOCK_SLOT && exception.IsAvailable)
                 {
                     // Add unblocked slot if not already present
-                    var slotToAdd = await GetAppointmentTimeByIdAsync(exception.AppointmentTimeId.Value);
-                    if (slotToAdd != null && !availableSlots.Any(x => x.Id == slotToAdd.Id))
+                    if (!availableSlots.Contains(exception.AppointmentTime.Value))
                     {
-                        availableSlots.Add(slotToAdd);
+                        availableSlots.Add(exception.AppointmentTime.Value);
                     }
                 }
             }
@@ -358,17 +212,87 @@ public class ScheduleRepository : IScheduleRepository
         {
             var serviceSchedules = await GetServiceSchedulesAsync(serviceId.Value);
             var serviceSlots = serviceSchedules
-                .SelectMany(x => x.Pattern.SchedulePatternSlots)
-                .Select(x => x.AppointmentTime)
-                .ToList();
+                .SelectMany(x => GetAppointmentTimesForPattern(x.SchedulePattern))
+                .ToHashSet();
 
             // Only return slots that are available for both doctor and service
             availableSlots = availableSlots
-                .Where(slot => serviceSlots.Any(serviceSlot => serviceSlot.Id == slot.Id))
+                .Where(slot => serviceSlots.Contains(slot))
                 .ToList();
         }
 
-        return availableSlots.OrderBy(x => x.StartTime);
+        return availableSlots.OrderBy(x => (int)x);
+    }
+
+    private static IEnumerable<AppointmentTime> GetAppointmentTimesForPattern(BookingCare.Services.Schedule.Enums.SchedulePatterns pattern)
+    {
+        return pattern switch
+        {
+            BookingCare.Services.Schedule.Enums.SchedulePatterns.MORNING => new[]
+            {
+                AppointmentTime.AT_08_00_08_30,
+                AppointmentTime.AT_08_30_09_00,
+                AppointmentTime.AT_09_00_09_30,
+                AppointmentTime.AT_09_30_10_00,
+                AppointmentTime.AT_10_00_10_30,
+                AppointmentTime.AT_10_30_11_00,
+                AppointmentTime.AT_11_00_11_30,
+                AppointmentTime.AT_11_30_12_00
+            },
+            BookingCare.Services.Schedule.Enums.SchedulePatterns.AFTERNOON => new[]
+            {
+                AppointmentTime.AT_13_00_13_30,
+                AppointmentTime.AT_13_30_14_00,
+                AppointmentTime.AT_14_00_14_30,
+                AppointmentTime.AT_14_30_15_00,
+                AppointmentTime.AT_15_00_15_30,
+                AppointmentTime.AT_15_30_16_00,
+                AppointmentTime.AT_16_00_16_30,
+                AppointmentTime.AT_16_30_17_00
+            },
+            BookingCare.Services.Schedule.Enums.SchedulePatterns.EVENING => new[]
+            {
+                AppointmentTime.AT_17_00_17_30,
+                AppointmentTime.AT_17_30_18_00,
+                AppointmentTime.AT_18_00_18_30,
+                AppointmentTime.AT_18_30_19_00,
+                AppointmentTime.AT_19_00_19_30,
+                AppointmentTime.AT_19_30_20_00,
+                AppointmentTime.AT_20_00_20_30,
+                AppointmentTime.AT_20_30_21_00
+            },
+            BookingCare.Services.Schedule.Enums.SchedulePatterns.FULL_DAY => new[]
+            {
+                // Morning slots
+                AppointmentTime.AT_08_00_08_30,
+                AppointmentTime.AT_08_30_09_00,
+                AppointmentTime.AT_09_00_09_30,
+                AppointmentTime.AT_09_30_10_00,
+                AppointmentTime.AT_10_00_10_30,
+                AppointmentTime.AT_10_30_11_00,
+                AppointmentTime.AT_11_00_11_30,
+                AppointmentTime.AT_11_30_12_00,
+                // Afternoon slots
+                AppointmentTime.AT_13_00_13_30,
+                AppointmentTime.AT_13_30_14_00,
+                AppointmentTime.AT_14_00_14_30,
+                AppointmentTime.AT_14_30_15_00,
+                AppointmentTime.AT_15_00_15_30,
+                AppointmentTime.AT_15_30_16_00,
+                AppointmentTime.AT_16_00_16_30,
+                AppointmentTime.AT_16_30_17_00,
+                // Evening slots
+                AppointmentTime.AT_17_00_17_30,
+                AppointmentTime.AT_17_30_18_00,
+                AppointmentTime.AT_18_00_18_30,
+                AppointmentTime.AT_18_30_19_00,
+                AppointmentTime.AT_19_00_19_30,
+                AppointmentTime.AT_19_30_20_00,
+                AppointmentTime.AT_20_00_20_30,
+                AppointmentTime.AT_20_30_21_00
+            },
+            _ => new AppointmentTime[0]
+        };
     }
 
     #endregion

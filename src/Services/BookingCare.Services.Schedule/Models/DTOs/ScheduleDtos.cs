@@ -1,3 +1,6 @@
+using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Schedule.Enums;
+
 namespace BookingCare.Services.Schedule.Models.DTOs;
 
 /// <summary>
@@ -11,19 +14,6 @@ public class AppointmentTimeDto
 }
 
 /// <summary>
-/// DTO for schedule patterns
-/// </summary>
-public class SchedulePatternDto
-{
-    public long Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-    public List<AppointmentTimeDto> Slots { get; set; } = new();
-}
-
-/// <summary>
 /// DTO for doctor daily schedule
 /// </summary>
 public class DoctorDailyScheduleDto
@@ -31,8 +21,7 @@ public class DoctorDailyScheduleDto
     public long Id { get; set; }
     public long DoctorId { get; set; }
     public DateOnly ScheduleDate { get; set; }
-    public long PatternId { get; set; }
-    public SchedulePatternDto? Pattern { get; set; }
+    public SchedulePatterns SchedulePattern { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
@@ -45,8 +34,7 @@ public class DoctorScheduleExceptionDto
     public long Id { get; set; }
     public long DoctorId { get; set; }
     public DateOnly ExceptionDate { get; set; }
-    public long? AppointmentTimeId { get; set; }
-    public AppointmentTimeDto? AppointmentTime { get; set; }
+    public AppointmentTime? AppointmentTime { get; set; }
     public string ExceptionType { get; set; } = string.Empty;
     public bool IsAvailable { get; set; }
     public string? Reason { get; set; }
@@ -71,8 +59,7 @@ public class ServiceScheduleDto
 {
     public long Id { get; set; }
     public long ServiceId { get; set; }
-    public long PatternId { get; set; }
-    public SchedulePatternDto? Pattern { get; set; }
+    public SchedulePatterns SchedulePattern { get; set; }
     public long? ClinicId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

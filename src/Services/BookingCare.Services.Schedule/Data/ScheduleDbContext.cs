@@ -8,9 +8,6 @@ namespace BookingCare.Services.Schedule.Data;
 /// </summary>
 public class ScheduleDbContext : DbContext
 {
-    public DbSet<AppointmentTimeEntity> AppointmentTimes { get; set; }
-    public DbSet<SchedulePatternEntity> SchedulePatterns { get; set; }
-    public DbSet<SchedulePatternSlotEntity> SchedulePatternSlots { get; set; }
     public DbSet<DoctorDailyScheduleEntity> DoctorDailySchedules { get; set; }
     public DbSet<DoctorScheduleExceptionEntity> DoctorScheduleExceptions { get; set; }
     public DbSet<ClinicExceptionEntity> ClinicExceptions { get; set; }
@@ -23,66 +20,6 @@ public class ScheduleDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        // Configure AppointmentTimeEntity
-        modelBuilder.Entity<AppointmentTimeEntity>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.StartTime)
-                .HasMaxLength(5)
-                .IsRequired();
-
-            entity.Property(e => e.EndTime)
-                .HasMaxLength(5)
-                .IsRequired();
-
-            // Indexes for performance
-            entity.HasIndex(e => new { e.StartTime, e.EndTime });
-        });
-
-        // Configure SchedulePatternEntity
-        modelBuilder.Entity<SchedulePatternEntity>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Name)
-                .HasMaxLength(100)
-                .IsRequired()
-                .HasDefaultValue("FULL_DAY");
-
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETDATE()");
-
-            entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("GETDATE()");
-
-            // Check constraint for valid pattern names
-            entity.ToTable(t => t.HasCheckConstraint("CK_SchedulePattern_Name", 
-                "[name] IN ('FULL_DAY', 'MORNING_ONLY', 'AFTERNOON_ONLY', 'EVENING_ONLY')"));
-
-            // Index for performance
-            entity.HasIndex(e => e.Name);
-        });
-
-        // Configure SchedulePatternSlotEntity
-        modelBuilder.Entity<SchedulePatternSlotEntity>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-
-            entity.HasOne(e => e.Pattern)
-                .WithMany(e => e.SchedulePatternSlots)
-                .HasForeignKey(e => e.PatternId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.AppointmentTime)
-                .WithMany(e => e.SchedulePatternSlots)
-                .HasForeignKey(e => e.AppointmentTimeId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // Composite index for performance
-            entity.HasIndex(e => new { e.PatternId, e.AppointmentTimeId });
-        });
 
         // Configure DoctorDailyScheduleEntity
         modelBuilder.Entity<DoctorDailyScheduleEntity>(entity =>
@@ -101,10 +38,10 @@ public class ScheduleDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
-            entity.HasOne(e => e.Pattern)
-                .WithMany(e => e.DoctorDailySchedules)
-                .HasForeignKey(e => e.PatternId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // Configure SchedulePattern enum property
+            entity.Property(e => e.SchedulePattern)
+                .HasConversion<int>()
+                .IsRequired();
 
             // Unique constraint: one schedule per doctor per day
             entity.HasIndex(e => new { e.DoctorId, e.ScheduleDate })
@@ -140,10 +77,9 @@ public class ScheduleDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
-            entity.HasOne(e => e.AppointmentTime)
-                .WithMany(e => e.DoctorScheduleExceptions)
-                .HasForeignKey(e => e.AppointmentTimeId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // Configure enum as integer in database
+            entity.Property(e => e.AppointmentTime)
+                .HasConversion<int>();
 
             // Indexes for performance
             entity.HasIndex(e => new { e.DoctorId, e.ExceptionDate });
@@ -182,10 +118,10 @@ public class ScheduleDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
-            entity.HasOne(e => e.Pattern)
-                .WithMany(e => e.ServiceSchedules)
-                .HasForeignKey(e => e.PatternId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // Configure SchedulePattern enum property
+            entity.Property(e => e.SchedulePattern)
+                .HasConversion<int>()
+                .IsRequired();
 
             // Indexes for performance
             entity.HasIndex(e => e.ServiceId);
@@ -212,15 +148,7 @@ public class ScheduleDbContext : DbContext
 
         foreach (var entityEntry in entries)
         {
-            if (entityEntry.Entity is SchedulePatternEntity schedulePattern)
-            {
-                if (entityEntry.State == EntityState.Added)
-                {
-                    schedulePattern.CreatedAt = DateTime.UtcNow;
-                }
-                schedulePattern.UpdatedAt = DateTime.UtcNow;
-            }
-            else if (entityEntry.Entity is DoctorDailyScheduleEntity doctorSchedule)
+            if (entityEntry.Entity is DoctorDailyScheduleEntity doctorSchedule)
             {
                 if (entityEntry.State == EntityState.Added)
                 {

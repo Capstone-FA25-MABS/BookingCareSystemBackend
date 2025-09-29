@@ -8,16 +8,6 @@ namespace BookingCare.Services.Schedule.Services;
 /// </summary>
 public interface IScheduleService
 {
-    // AppointmentTime operations
-    Task<AppointmentTimeDto?> GetAppointmentTimeByIdAsync(long id);
-    Task<IEnumerable<AppointmentTimeDto>> GetAllAppointmentTimesAsync();
-    Task<AppointmentTimeDto> CreateAppointmentTimeAsync(CreateAppointmentTimeRequest request);
-
-    // SchedulePattern operations
-    Task<SchedulePatternDto?> GetSchedulePatternByIdAsync(long id);
-    Task<IEnumerable<SchedulePatternDto>> GetAllSchedulePatternsAsync();
-    Task<SchedulePatternDto> CreateSchedulePatternAsync(CreateSchedulePatternRequest request);
-
     // DoctorDailySchedule operations
     Task<DoctorDailyScheduleDto?> GetDoctorDailyScheduleAsync(long doctorId, DateOnly date);
     Task<IEnumerable<DoctorDailyScheduleDto>> GetDoctorScheduleRangeAsync(GetDoctorScheduleRequest request);

@@ -1,5 +1,6 @@
 using Grpc.Core;
 using BookingCare.Services.Schedule.Protos;
+using BookingCare.Services.Schedule.Enums;
 using Google.Protobuf.WellKnownTypes;
 
 namespace BookingCare.Services.Schedule.Services;
@@ -140,7 +141,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             {
                 DoctorId = request.DoctorId,
                 ScheduleDate = DateOnly.Parse(request.ScheduleDate),
-                PatternId = request.PatternId
+                SchedulePattern = (SchedulePatterns)request.PatternId
             };
 
             var schedule = await _scheduleService.CreateOrUpdateDoctorDailyScheduleAsync(serviceRequest);
@@ -173,7 +174,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             {
                 DoctorId = request.DoctorId,
                 ExceptionDate = DateOnly.Parse(request.ExceptionDate),
-                AppointmentTimeId = request.AppointmentTimeId == 0 ? null : request.AppointmentTimeId,
+                AppointmentTime = request.AppointmentTimeId == 0 ? null : (BookingCare.Shared.Common.Enums.AppointmentTime)request.AppointmentTimeId,
                 ExceptionType = System.Enum.Parse<Models.Entities.ExceptionType>(request.ExceptionType),
                 IsAvailable = request.IsAvailable,
                 Reason = request.Reason
@@ -201,11 +202,12 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
         }
     }
 
-    public override async Task<GetAllAppointmentTimesResponse> GetAllAppointmentTimes(GetAllAppointmentTimesRequest request, ServerCallContext context)
+    public override Task<GetAllAppointmentTimesResponse> GetAllAppointmentTimes(GetAllAppointmentTimesRequest request, ServerCallContext context)
     {
         try
         {
-            var appointmentTimes = await _scheduleService.GetAllAppointmentTimesAsync();
+            // Return all predefined appointment time enum values
+            var appointmentTimeEnums = System.Enum.GetValues<BookingCare.Shared.Common.Enums.AppointmentTime>();
             
             var response = new GetAllAppointmentTimesResponse
             {
@@ -213,56 +215,64 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 Message = "Appointment times retrieved successfully"
             };
 
-            foreach (var appointmentTime in appointmentTimes)
+            foreach (var appointmentTimeEnum in appointmentTimeEnums)
             {
+                var (startTime, endTime) = GetTimeStringsFromEnum(appointmentTimeEnum);
                 response.AppointmentTimes.Add(new AppointmentTime
                 {
-                    Id = appointmentTime.Id,
-                    StartTime = appointmentTime.StartTime,
-                    EndTime = appointmentTime.EndTime
+                    Id = (int)appointmentTimeEnum,
+                    StartTime = startTime,
+                    EndTime = endTime
                 });
             }
 
-            return response;
+            return Task.FromResult(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting all appointment times");
-            return new GetAllAppointmentTimesResponse
+            return Task.FromResult(new GetAllAppointmentTimesResponse
             {
                 Success = false,
                 Message = $"Error: {ex.Message}"
-            };
+            });
         }
     }
 
-    public override async Task<GetAllSchedulePatternsResponse> GetAllSchedulePatterns(GetAllSchedulePatternsRequest request, ServerCallContext context)
+    public override Task<GetAllSchedulePatternsResponse> GetAllSchedulePatterns(GetAllSchedulePatternsRequest request, ServerCallContext context)
     {
         try
         {
-            var patterns = await _scheduleService.GetAllSchedulePatternsAsync();
-            
             var response = new GetAllSchedulePatternsResponse
             {
                 Success = true,
                 Message = "Schedule patterns retrieved successfully"
             };
 
+            // Return predefined schedule patterns from enum
+            var patterns = new[]
+            {
+                new SchedulePattern { Id = (int)SchedulePatterns.MORNING, Name = "Morning", Description = "Morning pattern (08:00 - 12:00)", CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow), UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow) },
+                new SchedulePattern { Id = (int)SchedulePatterns.AFTERNOON, Name = "Afternoon", Description = "Afternoon pattern (13:00 - 17:00)", CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow), UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow) },
+                new SchedulePattern { Id = (int)SchedulePatterns.EVENING, Name = "Evening", Description = "Evening pattern (17:00 - 21:00)", CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow), UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow) },
+                new SchedulePattern { Id = (int)SchedulePatterns.FULL_DAY, Name = "Full Day", Description = "Full day pattern (08:00 - 21:00)", CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow), UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow) }
+            };
+
             foreach (var pattern in patterns)
             {
-                response.Patterns.Add(MapToSchedulePattern(pattern));
+                response.Patterns.Add(pattern);
             }
 
-            return response;
+            return Task.FromResult(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting all schedule patterns");
-            return new GetAllSchedulePatternsResponse
+            return Task.FromResult(new GetAllSchedulePatternsResponse
             {
                 Success = false,
                 Message = $"Error: {ex.Message}"
-            };
+            });
         }
     }
 
@@ -275,41 +285,34 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             Id = dto.Id,
             DoctorId = dto.DoctorId,
             ScheduleDate = dto.ScheduleDate.ToString("yyyy-MM-dd"),
-            PatternId = dto.PatternId,
+            PatternId = (long)dto.SchedulePattern,
             CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(dto.CreatedAt.ToUniversalTime()),
             UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(dto.UpdatedAt.ToUniversalTime())
         };
 
-        if (dto.Pattern != null)
+        // Set pattern details based on enum value
+        schedule.Pattern = new SchedulePattern
         {
-            schedule.Pattern = MapToSchedulePattern(dto.Pattern);
-        }
+            Id = (long)dto.SchedulePattern,
+            Name = dto.SchedulePattern.ToString(),
+            Description = GetSchedulePatternDescription(dto.SchedulePattern),
+            CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow),
+            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.UtcNow)
+        };
 
         return schedule;
     }
 
-    private static SchedulePattern MapToSchedulePattern(Models.DTOs.SchedulePatternDto dto)
+    private static string GetSchedulePatternDescription(SchedulePatterns pattern)
     {
-        var pattern = new SchedulePattern
+        return pattern switch
         {
-            Id = dto.Id,
-            Name = dto.Name,
-            Description = dto.Description ?? string.Empty,
-            CreatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(dto.CreatedAt.ToUniversalTime()),
-            UpdatedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(dto.UpdatedAt.ToUniversalTime())
+            SchedulePatterns.MORNING => "Morning pattern (08:00 - 12:00)",
+            SchedulePatterns.AFTERNOON => "Afternoon pattern (13:00 - 17:00)",
+            SchedulePatterns.EVENING => "Evening pattern (17:00 - 21:00)",
+            SchedulePatterns.FULL_DAY => "Full day pattern (08:00 - 21:00)",
+            _ => "Unknown pattern"
         };
-
-        foreach (var slot in dto.Slots)
-        {
-            pattern.Slots.Add(new AppointmentTime
-            {
-                Id = slot.Id,
-                StartTime = slot.StartTime,
-                EndTime = slot.EndTime
-            });
-        }
-
-        return pattern;
     }
 
     private static DoctorScheduleException MapToDoctorScheduleException(Models.DTOs.DoctorScheduleExceptionDto dto)
@@ -319,7 +322,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             Id = dto.Id,
             DoctorId = dto.DoctorId,
             ExceptionDate = dto.ExceptionDate.ToString("yyyy-MM-dd"),
-            AppointmentTimeId = dto.AppointmentTimeId ?? 0,
+            AppointmentTimeId = dto.AppointmentTime.HasValue ? (int)dto.AppointmentTime.Value : 0,
             ExceptionType = dto.ExceptionType,
             IsAvailable = dto.IsAvailable,
             Reason = dto.Reason ?? string.Empty,
@@ -328,15 +331,48 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
 
         if (dto.AppointmentTime != null)
         {
+            var (startTime, endTime) = GetTimeStringsFromEnum(dto.AppointmentTime.Value);
             exception.AppointmentTime = new AppointmentTime
             {
-                Id = dto.AppointmentTime.Id,
-                StartTime = dto.AppointmentTime.StartTime,
-                EndTime = dto.AppointmentTime.EndTime
+                Id = (int)dto.AppointmentTime.Value,
+                StartTime = startTime,
+                EndTime = endTime
             };
         }
 
         return exception;
+    }
+
+    private static (string startTime, string endTime) GetTimeStringsFromEnum(BookingCare.Shared.Common.Enums.AppointmentTime appointmentTime)
+    {
+        return appointmentTime switch
+        {
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_08_00_08_30 => ("08:00", "08:30"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_08_30_09_00 => ("08:30", "09:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_09_00_09_30 => ("09:00", "09:30"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_09_30_10_00 => ("09:30", "10:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_10_00_10_30 => ("10:00", "10:30"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_10_30_11_00 => ("10:30", "11:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_11_00_11_30 => ("11:00", "11:30"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_11_30_12_00 => ("11:30", "12:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_13_00_13_30 => ("13:00", "13:30"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_13_30_14_00 => ("13:30", "14:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_14_00_14_30 => ("14:00", "14:30"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_14_30_15_00 => ("14:30", "15:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_15_00_15_30 => ("15:00", "15:30"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_15_30_16_00 => ("15:30", "16:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_16_00_16_30 => ("16:00", "16:30"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_16_30_17_00 => ("16:30", "17:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_08_00_09_00 => ("08:00", "09:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_09_00_10_00 => ("09:00", "10:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_10_00_11_00 => ("10:00", "11:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_11_00_12_00 => ("11:00", "12:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_13_00_14_00 => ("13:00", "14:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_14_00_15_00 => ("14:00", "15:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_15_00_16_00 => ("15:00", "16:00"),
+            BookingCare.Shared.Common.Enums.AppointmentTime.AT_16_00_17_00 => ("16:00", "17:00"),
+            _ => ("Unknown", "Unknown")
+        };
     }
 
     #endregion

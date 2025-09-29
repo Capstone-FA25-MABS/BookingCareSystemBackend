@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using BookingCare.Services.Schedule.Enums;
 
 namespace BookingCare.Services.Schedule.Models.Entities;
 
@@ -18,8 +19,8 @@ public class ServiceScheduleEntity
     public long ServiceId { get; set; }
 
     [Required]
-    [Column("pattern_id")]
-    public long PatternId { get; set; }
+    [Column("schedule_pattern")]
+    public SchedulePatterns SchedulePattern { get; set; }
 
     [Column("clinic_id")]
     public long? ClinicId { get; set; } // if service applies only to one clinic
@@ -29,8 +30,4 @@ public class ServiceScheduleEntity
 
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-    // Navigation properties
-    [ForeignKey("PatternId")]
-    public virtual SchedulePatternEntity Pattern { get; set; } = null!;
 }

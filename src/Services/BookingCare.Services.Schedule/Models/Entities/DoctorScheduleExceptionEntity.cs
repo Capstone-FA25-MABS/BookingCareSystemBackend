@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Schedule.Models.Entities;
 
@@ -32,8 +33,8 @@ public class DoctorScheduleExceptionEntity
     [Column("exception_date")]
     public DateOnly ExceptionDate { get; set; }
 
-    [Column("appointment_time_id")]
-    public long? AppointmentTimeId { get; set; } // NULL = full day off
+    [Column("appointment_time")]
+    public AppointmentTime? AppointmentTime { get; set; } // NULL = full day off
 
     [Required]
     [StringLength(20)]
@@ -50,7 +51,5 @@ public class DoctorScheduleExceptionEntity
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Navigation properties
-    [ForeignKey("AppointmentTimeId")]
-    public virtual AppointmentTimeEntity? AppointmentTime { get; set; }
+
 }

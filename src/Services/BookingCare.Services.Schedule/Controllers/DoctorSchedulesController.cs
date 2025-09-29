@@ -2,6 +2,7 @@ using BookingCare.Services.Schedule.Models.DTOs;
 using BookingCare.Services.Schedule.Models.Requests;
 using BookingCare.Services.Schedule.Services;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Schedule.Controllers;
@@ -9,7 +10,10 @@ namespace BookingCare.Services.Schedule.Controllers;
 /// <summary>
 /// Controller for managing doctor schedules
 /// </summary>
-[Route("api/v{version:apiVersion}/doctor-schedules")]
+[ApiController]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
+[Produces("application/json")]
 public class DoctorSchedulesController : BaseApiController
 {
     private readonly IScheduleService _scheduleService;

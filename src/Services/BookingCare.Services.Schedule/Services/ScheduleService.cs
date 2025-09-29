@@ -4,6 +4,7 @@ using BookingCare.Services.Schedule.Models.Requests;
 using BookingCare.Services.Schedule.Repositories;
 using BookingCare.Shared.Cache.Abstractions;
 using BookingCare.Shared.Cache.Constants;
+using BookingCare.Shared.Common.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Schedule.Services;
@@ -26,124 +27,6 @@ public class ScheduleService : IScheduleService
         _cacheService = cacheService;
         _logger = logger;
     }
-
-    #region AppointmentTime operations
-
-    public async Task<AppointmentTimeDto?> GetAppointmentTimeByIdAsync(long id)
-    {
-        var cacheKey = CacheKeys.Format(CacheKeys.AppointmentTimeById, id);
-        
-        var cached = await _cacheService.GetAsync<AppointmentTimeDto>(cacheKey);
-        if (cached != null)
-        {
-            _logger.LogDebug("Retrieved appointment time {Id} from cache", id);
-            return cached;
-        }
-
-        var entity = await _repository.GetAppointmentTimeByIdAsync(id);
-        if (entity == null) return null;
-
-        var dto = MapToDto(entity);
-        await _cacheService.SetAsync(cacheKey, dto, TimeSpan.FromMinutes(CacheKeys.LongCacheExpiration));
-        
-        return dto;
-    }
-
-    public async Task<IEnumerable<AppointmentTimeDto>> GetAllAppointmentTimesAsync()
-    {
-        var cacheKey = CacheKeys.AllAppointmentTimes;
-        
-        var cached = await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey);
-        if (cached != null)
-        {
-            _logger.LogDebug("Retrieved all appointment times from cache");
-            return cached;
-        }
-
-        var entities = await _repository.GetAllAppointmentTimesAsync();
-        var dtos = entities.Select(MapToDto).ToList();
-        
-        await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.LongCacheExpiration));
-        
-        return dtos;
-    }
-
-    public async Task<AppointmentTimeDto> CreateAppointmentTimeAsync(CreateAppointmentTimeRequest request)
-    {
-        var entity = new AppointmentTimeEntity
-        {
-            StartTime = request.StartTime,
-            EndTime = request.EndTime
-        };
-
-        var created = await _repository.CreateAppointmentTimeAsync(entity);
-        
-        // Invalidate cache
-        await _cacheService.RemoveAsync(CacheKeys.AllAppointmentTimes);
-        
-        return MapToDto(created);
-    }
-
-    #endregion
-
-    #region SchedulePattern operations
-
-    public async Task<SchedulePatternDto?> GetSchedulePatternByIdAsync(long id)
-    {
-        var cacheKey = CacheKeys.Format(CacheKeys.SchedulePatternById, id);
-        
-        var cached = await _cacheService.GetAsync<SchedulePatternDto>(cacheKey);
-        if (cached != null)
-        {
-            _logger.LogDebug("Retrieved schedule pattern {Id} from cache", id);
-            return cached;
-        }
-
-        var entity = await _repository.GetSchedulePatternByIdAsync(id);
-        if (entity == null) return null;
-
-        var dto = MapToDto(entity);
-        await _cacheService.SetAsync(cacheKey, dto, TimeSpan.FromMinutes(CacheKeys.MediumCacheExpiration));
-        
-        return dto;
-    }
-
-    public async Task<IEnumerable<SchedulePatternDto>> GetAllSchedulePatternsAsync()
-    {
-        var cacheKey = CacheKeys.AllSchedulePatterns;
-        
-        var cached = await _cacheService.GetAsync<IEnumerable<SchedulePatternDto>>(cacheKey);
-        if (cached != null)
-        {
-            _logger.LogDebug("Retrieved all schedule patterns from cache");
-            return cached;
-        }
-
-        var entities = await _repository.GetAllSchedulePatternsAsync();
-        var dtos = entities.Select(MapToDto).ToList();
-        
-        await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.MediumCacheExpiration));
-        
-        return dtos;
-    }
-
-    public async Task<SchedulePatternDto> CreateSchedulePatternAsync(CreateSchedulePatternRequest request)
-    {
-        var entity = new SchedulePatternEntity
-        {
-            Name = request.Name,
-            Description = request.Description
-        };
-
-        var created = await _repository.CreateSchedulePatternAsync(entity, request.AppointmentTimeIds);
-        
-        // Invalidate cache
-        await _cacheService.RemoveAsync(CacheKeys.AllSchedulePatterns);
-        
-        return MapToDto(created);
-    }
-
-    #endregion
 
     #region DoctorDailySchedule operations
 
@@ -195,7 +78,7 @@ public class ScheduleService : IScheduleService
         {
             DoctorId = request.DoctorId,
             ScheduleDate = request.ScheduleDate,
-            PatternId = request.PatternId
+            SchedulePattern = request.SchedulePattern
         };
 
         var created = await _repository.CreateOrUpdateDoctorDailyScheduleAsync(entity);
@@ -252,7 +135,7 @@ public class ScheduleService : IScheduleService
         {
             DoctorId = request.DoctorId,
             ExceptionDate = request.ExceptionDate,
-            AppointmentTimeId = request.AppointmentTimeId,
+            AppointmentTime = request.AppointmentTime,
             ExceptionType = request.ExceptionType,
             IsAvailable = request.IsAvailable,
             Reason = request.Reason
@@ -356,7 +239,7 @@ public class ScheduleService : IScheduleService
         var entity = new ServiceScheduleEntity
         {
             ServiceId = request.ServiceId,
-            PatternId = request.PatternId,
+            SchedulePattern = request.SchedulePattern,
             ClinicId = request.ClinicId
         };
 
@@ -394,7 +277,7 @@ public class ScheduleService : IScheduleService
         }
 
         var entities = await _repository.GetAvailableSlotsAsync(request.DoctorId, request.Date, request.ServiceId);
-        var dtos = entities.Select(MapToDto).ToList();
+        var dtos = entities.Select(ConvertEnumToDto).ToList();
         
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
         
@@ -405,28 +288,50 @@ public class ScheduleService : IScheduleService
 
     #region Mapping methods
 
-    private static AppointmentTimeDto MapToDto(AppointmentTimeEntity entity)
+    private static AppointmentTimeDto ConvertEnumToDto(AppointmentTime appointmentTime)
     {
+        var (startTime, endTime) = GetTimeStringsFromEnum(appointmentTime);
         return new AppointmentTimeDto
         {
-            Id = entity.Id,
-            StartTime = entity.StartTime,
-            EndTime = entity.EndTime
+            Id = (int)appointmentTime,
+            StartTime = startTime,
+            EndTime = endTime
         };
     }
 
-    private static SchedulePatternDto MapToDto(SchedulePatternEntity entity)
+    private static (string startTime, string endTime) GetTimeStringsFromEnum(AppointmentTime appointmentTime)
     {
-        return new SchedulePatternDto
+        return appointmentTime switch
         {
-            Id = entity.Id,
-            Name = entity.Name,
-            Description = entity.Description,
-            CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt,
-            Slots = entity.SchedulePatternSlots?.Select(x => MapToDto(x.AppointmentTime)).ToList() ?? new List<AppointmentTimeDto>()
+            AppointmentTime.AT_08_00_08_30 => ("08:00", "08:30"),
+            AppointmentTime.AT_08_30_09_00 => ("08:30", "09:00"),
+            AppointmentTime.AT_09_00_09_30 => ("09:00", "09:30"),
+            AppointmentTime.AT_09_30_10_00 => ("09:30", "10:00"),
+            AppointmentTime.AT_10_00_10_30 => ("10:00", "10:30"),
+            AppointmentTime.AT_10_30_11_00 => ("10:30", "11:00"),
+            AppointmentTime.AT_11_00_11_30 => ("11:00", "11:30"),
+            AppointmentTime.AT_11_30_12_00 => ("11:30", "12:00"),
+            AppointmentTime.AT_13_00_13_30 => ("13:00", "13:30"),
+            AppointmentTime.AT_13_30_14_00 => ("13:30", "14:00"),
+            AppointmentTime.AT_14_00_14_30 => ("14:00", "14:30"),
+            AppointmentTime.AT_14_30_15_00 => ("14:30", "15:00"),
+            AppointmentTime.AT_15_00_15_30 => ("15:00", "15:30"),
+            AppointmentTime.AT_15_30_16_00 => ("15:30", "16:00"),
+            AppointmentTime.AT_16_00_16_30 => ("16:00", "16:30"),
+            AppointmentTime.AT_16_30_17_00 => ("16:30", "17:00"),
+            AppointmentTime.AT_08_00_09_00 => ("08:00", "09:00"),
+            AppointmentTime.AT_09_00_10_00 => ("09:00", "10:00"),
+            AppointmentTime.AT_10_00_11_00 => ("10:00", "11:00"),
+            AppointmentTime.AT_11_00_12_00 => ("11:00", "12:00"),
+            AppointmentTime.AT_13_00_14_00 => ("13:00", "14:00"),
+            AppointmentTime.AT_14_00_15_00 => ("14:00", "15:00"),
+            AppointmentTime.AT_15_00_16_00 => ("15:00", "16:00"),
+            AppointmentTime.AT_16_00_17_00 => ("16:00", "17:00"),
+            _ => ("Unknown", "Unknown")
         };
     }
+
+
 
     private static DoctorDailyScheduleDto MapToDto(DoctorDailyScheduleEntity entity)
     {
@@ -435,8 +340,7 @@ public class ScheduleService : IScheduleService
             Id = entity.Id,
             DoctorId = entity.DoctorId,
             ScheduleDate = entity.ScheduleDate,
-            PatternId = entity.PatternId,
-            Pattern = entity.Pattern != null ? MapToDto(entity.Pattern) : null,
+            SchedulePattern = entity.SchedulePattern,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt
         };
@@ -449,8 +353,7 @@ public class ScheduleService : IScheduleService
             Id = entity.Id,
             DoctorId = entity.DoctorId,
             ExceptionDate = entity.ExceptionDate,
-            AppointmentTimeId = entity.AppointmentTimeId,
-            AppointmentTime = entity.AppointmentTime != null ? MapToDto(entity.AppointmentTime) : null,
+            AppointmentTime = entity.AppointmentTime,
             ExceptionType = entity.ExceptionType.ToString(),
             IsAvailable = entity.IsAvailable,
             Reason = entity.Reason,
@@ -475,8 +378,7 @@ public class ScheduleService : IScheduleService
         {
             Id = entity.Id,
             ServiceId = entity.ServiceId,
-            PatternId = entity.PatternId,
-            Pattern = entity.Pattern != null ? MapToDto(entity.Pattern) : null,
+            SchedulePattern = entity.SchedulePattern,
             ClinicId = entity.ClinicId,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt

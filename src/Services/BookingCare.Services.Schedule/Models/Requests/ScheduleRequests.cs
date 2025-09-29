@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using BookingCare.Services.Schedule.Models.Entities;
+using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Schedule.Enums;
 
 namespace BookingCare.Services.Schedule.Models.Requests;
 
@@ -18,21 +20,6 @@ public class CreateAppointmentTimeRequest
 }
 
 /// <summary>
-/// Request to create a schedule pattern
-/// </summary>
-public class CreateSchedulePatternRequest
-{
-    [Required]
-    [StringLength(100)]
-    public string Name { get; set; } = string.Empty;
-
-    public string? Description { get; set; }
-
-    [Required]
-    public List<long> AppointmentTimeIds { get; set; } = new();
-}
-
-/// <summary>
 /// Request to create or update doctor daily schedule
 /// </summary>
 public class CreateDoctorDailyScheduleRequest
@@ -44,7 +31,7 @@ public class CreateDoctorDailyScheduleRequest
     public DateOnly ScheduleDate { get; set; }
 
     [Required]
-    public long PatternId { get; set; }
+    public SchedulePatterns SchedulePattern { get; set; }
 }
 
 /// <summary>
@@ -58,7 +45,7 @@ public class CreateDoctorScheduleExceptionRequest
     [Required]
     public DateOnly ExceptionDate { get; set; }
 
-    public long? AppointmentTimeId { get; set; } // NULL for full day off
+    public AppointmentTime? AppointmentTime { get; set; } // NULL for full day off
 
     [Required]
     public ExceptionType ExceptionType { get; set; }
@@ -93,7 +80,7 @@ public class CreateServiceScheduleRequest
     public long ServiceId { get; set; }
 
     [Required]
-    public long PatternId { get; set; }
+    public SchedulePatterns SchedulePattern { get; set; }
 
     public long? ClinicId { get; set; }
 }

@@ -139,20 +139,20 @@ services:
     networks:
       - bookingcare-network
 
-  # sqlserver-user-service:
-  #   image: mcr.microsoft.com/azure-sql-edge:latest
-  #   container_name: bookingcare_sqlserver_user_service
-  #   ports:
-  #     - "1444:1433"
-  #   environment:
-  #     - ACCEPT_EULA=Y
-  #     - SA_PASSWORD=User@1234!
-  #     # - MSSQL_DB=MABS_Users
-  #     - MSSQL_PID=Developer
-  #   volumes:
-  #     - sqlserver_user_data:/var/opt/mssql
-  #   networks:
-  #     - bookingcare-network
+  sqlserver-user-service:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_user_service
+    ports:
+      - "1444:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=User@1234!
+      # - MSSQL_DB=MABS_Users
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_user_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
 
   sqlserver-user-service-v2:
     image: mcr.microsoft.com/azure-sql-edge:latest
