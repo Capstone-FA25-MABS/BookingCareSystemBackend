@@ -120,5 +120,13 @@ public class PositionRepository : IPositionRepository
             .ToListAsync();
     }
 
+    public async Task<Dictionary<Guid, int>> GetDoctorCountsByPositionAsync()
+    {
+        return await _context.Doctors
+            .Where(d => d.PositionId.HasValue)
+            .GroupBy(d => d.PositionId.Value)
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
+    }
+
     #endregion
 }

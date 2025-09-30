@@ -311,6 +311,26 @@ public class DoctorService : BaseService, IDoctorService
         // Enrich with status and review statistics
         await EnrichDoctorListAsync(response.Doctors);
 
+        // Apply rating filtering after getting review statistics
+        if (query.MinRating.HasValue || (query.MinRatings != null && query.MinRatings.Any()))
+        {
+            Console.WriteLine($"Before rating filtering: {response.Doctors.Count} doctors");
+            Console.WriteLine($"MinRating: {query.MinRating}, MinRatings: {string.Join(", ", query.MinRatings ?? new List<double>())}");
+
+            response.Doctors = FilterDoctorsByRating(response.Doctors, query.MinRating, query.MinRatings);
+            response.TotalCount = response.Doctors.Count;
+            response.TotalPages = (int)Math.Ceiling((double)response.TotalCount / query.PageSize);
+
+            Console.WriteLine($"After rating filtering: {response.Doctors.Count} doctors");
+            Console.WriteLine($"TotalCount: {response.TotalCount}, TotalPages: {response.TotalPages}, PageNumber: {response.PageNumber}");
+
+            // Ensure page number is valid after filtering
+            if (response.PageNumber > response.TotalPages && response.TotalPages > 0)
+            {
+                response.PageNumber = response.TotalPages;
+            }
+        }
+
         // Note: Status filtering should be done at database level in repository
         // If needed, implement it in the repository query instead of here
 
@@ -319,27 +339,52 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<DoctorListResponse> FilterDoctorsAsync(DoctorAdvancedFilterRequest filter)
     {
-        // Convert advanced filter to basic query
-        var query = new DoctorQueryRequest
+        try
         {
-            SpecialtyId = filter.SpecialtyId,
-            Gender = filter.Gender,
-            MinYearsOfExperience = filter.MinYearsOfExperience,
-            MaxYearsOfExperience = filter.MaxYearsOfExperience,
-            MinPrice = filter.MinPrice,
-            MaxPrice = filter.MaxPrice,
-            HospitalId = filter.HospitalId,
-            ServiceType = filter.ServiceType,
-            Language = filter.Language,
-            MinRating = filter.MinRating,
-            Address = filter.Address,
-            SortBy = filter.SortBy,
-            SortOrder = filter.SortOrder,
-            PageNumber = filter.PageNumber,
-            PageSize = filter.PageSize
-        };
+            Console.WriteLine($"FilterDoctorsAsync called with ExperienceRanges: {filter.ExperienceRanges?.Count ?? 0}");
+            if (filter.ExperienceRanges != null)
+            {
+                foreach (var range in filter.ExperienceRanges)
+                {
+                    Console.WriteLine($"ExperienceRange: MinYears={range.MinYears}, MaxYears={range.MaxYears}");
+                }
+            }
 
-        return await GetDoctorsAsync(query);
+            // Convert advanced filter to basic query
+            var query = new DoctorQueryRequest
+            {
+                SpecialtyId = filter.SpecialtyId,
+                PositionId = filter.PositionId,
+                PositionIds = filter.PositionIds,
+                Gender = filter.Gender,
+                Genders = filter.Genders,
+                MinYearsOfExperience = filter.MinYearsOfExperience,
+                MaxYearsOfExperience = filter.MaxYearsOfExperience,
+                ExperienceRanges = filter.ExperienceRanges,
+                MinPrice = filter.MinPrice,
+                MaxPrice = filter.MaxPrice,
+                HospitalId = filter.HospitalId,
+                ServiceType = filter.ServiceType,
+                ServiceTypes = filter.ServiceTypes,
+                Language = filter.Language,
+                Languages = filter.Languages,
+                MinRating = filter.MinRating,
+                MinRatings = filter.MinRatings,
+                Address = filter.Address,
+                SortBy = filter.SortBy,
+                SortOrder = filter.SortOrder,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize
+            };
+
+            return await GetDoctorsAsync(query);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in FilterDoctorsAsync: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            throw;
+        }
     }
 
     public async Task<List<DoctorResponse>> GetDoctorsByHospitalAsync(Guid hospitalId)
@@ -1008,6 +1053,32 @@ public class DoctorService : BaseService, IDoctorService
                 };
             }
         }
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    private List<DoctorResponse> FilterDoctorsByRating(List<DoctorResponse> doctors, double? minRating, List<double>? minRatings)
+    {
+        if (minRating.HasValue)
+        {
+            // Filter doctors with rating >= minRating and < minRating + 1
+            // Example: minRating = 3.0 means rating >= 3.0 and < 4.0
+            return doctors.Where(d => d.ReviewStatistics != null &&
+                                     d.ReviewStatistics.AverageRating >= minRating.Value &&
+                                     d.ReviewStatistics.AverageRating < minRating.Value + 1.0).ToList();
+        }
+
+        if (minRatings != null && minRatings.Any())
+        {
+            // Filter doctors with rating in any of the specified ranges
+            return doctors.Where(d => d.ReviewStatistics != null &&
+                minRatings.Any(rating => d.ReviewStatistics.AverageRating >= rating &&
+                                       d.ReviewStatistics.AverageRating < rating + 1.0)).ToList();
+        }
+
+        return doctors;
     }
 
     #endregion

@@ -32,7 +32,7 @@ public class DoctorResponse
     // Hospital information
     public HospitalBasicInfo? Hospital { get; set; }
     // Review statistics - can be detailed (with rating distribution) or basic (without)
-    public object? ReviewStatistics { get; set; }
+    public IDoctorReviewStatistics? ReviewStatistics { get; set; }
 }
 
 public class DoctorPriceResponse
@@ -89,14 +89,20 @@ public class DoctorBasicInfoResponse
     public string AvatarUrl { get; set; } = string.Empty;
 }
 
-public class DoctorReviewStatistics
+public interface IDoctorReviewStatistics
+{
+    double AverageRating { get; set; }
+    long TotalReviews { get; set; }
+}
+
+public class DoctorReviewStatistics : IDoctorReviewStatistics
 {
     public double AverageRating { get; set; }
     public long TotalReviews { get; set; }
     public Dictionary<int, long> RatingDistribution { get; set; } = new();
 }
 
-public class DoctorReviewStatisticsBasic
+public class DoctorReviewStatisticsBasic : IDoctorReviewStatistics
 {
     public double AverageRating { get; set; }
     public long TotalReviews { get; set; }

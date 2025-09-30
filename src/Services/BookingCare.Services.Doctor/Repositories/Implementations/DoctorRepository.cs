@@ -150,22 +150,53 @@ public class DoctorRepository : IDoctorRepository
     {
         if (query.AccountId.HasValue)
             queryable = queryable.Where(d => d.AccountId == query.AccountId.Value);
+
+        // Position filters - support both single and multiple
         if (query.PositionId.HasValue)
             queryable = queryable.Where(d => d.PositionId == query.PositionId.Value);
+        if (query.PositionIds != null && query.PositionIds.Any())
+            queryable = queryable.Where(d => query.PositionIds.Contains(d.PositionId.Value));
+
         if (query.SpecialtyId.HasValue)
             queryable = queryable.Where(d => d.SpecialtyId == query.SpecialtyId.Value);
         if (query.HospitalId.HasValue)
             queryable = queryable.Where(d => d.HospitalId == query.HospitalId.Value);
-        if (query.Gender.HasValue)
-            queryable = queryable.Where(d => d.Gender == query.Gender.Value);
+
+        // Gender filters - support both single and multiple
+        if (!string.IsNullOrEmpty(query.Gender))
+        {
+            Console.WriteLine($"Filtering by single gender: {query.Gender}");
+            queryable = queryable.Where(d => d.Gender.ToString() == query.Gender);
+        }
+        if (query.Genders != null && query.Genders.Any())
+        {
+            Console.WriteLine($"Filtering by multiple genders: {string.Join(", ", query.Genders)}");
+            queryable = queryable.Where(d => query.Genders.Contains(d.Gender.ToString()));
+        }
+
+        // Experience filters - support both single range and multiple ranges
         if (query.MinYearsOfExperience.HasValue)
             queryable = queryable.Where(d => d.YearsOfExperience >= query.MinYearsOfExperience.Value);
         if (query.MaxYearsOfExperience.HasValue)
             queryable = queryable.Where(d => d.YearsOfExperience <= query.MaxYearsOfExperience.Value);
+        if (query.ExperienceRanges != null && query.ExperienceRanges.Any())
+        {
+            Console.WriteLine($"Applying experience ranges filter: {query.ExperienceRanges.Count} ranges");
+            foreach (var range in query.ExperienceRanges)
+            {
+                Console.WriteLine($"Range: MinYears={range.MinYears}, MaxYears={range.MaxYears}");
+            }
+
+            queryable = queryable.Where(d => query.ExperienceRanges.Any(range =>
+                d.YearsOfExperience >= range.MinYears && d.YearsOfExperience <= range.MaxYears));
+        }
+
         if (!string.IsNullOrEmpty(query.Address))
             queryable = queryable.Where(d => d.Address != null && d.Address.Contains(query.Address));
-        if (query.MinRating.HasValue)
-            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value));
+
+        // Rating filters - will be handled at service layer using Review service
+        // Note: Rating filtering is complex and requires calling Review service
+        // This will be implemented in DoctorService layer
 
         return queryable;
     }
@@ -180,10 +211,18 @@ public class DoctorRepository : IDoctorRepository
                 d.LastName.ToLower().Contains(searchTerm) ||
                 d.Email.ToLower().Contains(searchTerm));
         }
+
+        // Language filters - support both single and multiple
         if (!string.IsNullOrEmpty(query.Language))
-            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.Language.Name.Contains(query.Language)));
+            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.Language.Name == query.Language));
+        if (query.Languages != null && query.Languages.Any())
+            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => query.Languages.Contains(dl.Language.Name)));
+
+        // Service type filters - support both single and multiple
         if (!string.IsNullOrEmpty(query.ServiceType))
-            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.ServiceType.Name.Contains(query.ServiceType)));
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.ServiceType.Name == query.ServiceType));
+        if (query.ServiceTypes != null && query.ServiceTypes.Any())
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => query.ServiceTypes.Contains(dp.ServiceType.Name)));
 
         return queryable;
     }

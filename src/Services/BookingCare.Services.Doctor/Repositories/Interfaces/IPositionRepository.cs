@@ -18,4 +18,5 @@ public interface IPositionRepository
     Task<(List<PositionEntity> Positions, int TotalCount)> GetPositionsAsync(PositionQueryRequest query);
     Task<List<PositionEntity>> GetAllPositionsAsync();
     Task<List<PositionEntity>> GetPositionsByIdsAsync(List<Guid> ids);
+    Task<Dictionary<Guid, int>> GetDoctorCountsByPositionAsync();
 }

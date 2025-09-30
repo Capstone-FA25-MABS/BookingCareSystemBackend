@@ -128,7 +128,17 @@ public class PositionService : BaseService, IPositionService
     public async Task<List<PositionResponse>> GetAllPositionsAsync()
     {
         var positions = await _repository.GetAllPositionsAsync();
-        return _mapper.Map<List<PositionResponse>>(positions);
+        var doctorCounts = await _repository.GetDoctorCountsByPositionAsync();
+
+        var positionResponses = _mapper.Map<List<PositionResponse>>(positions);
+
+        // Set doctor count for each position
+        foreach (var position in positionResponses)
+        {
+            position.DoctorCount = doctorCounts.GetValueOrDefault(position.Id, 0);
+        }
+
+        return positionResponses;
     }
 
     #endregion

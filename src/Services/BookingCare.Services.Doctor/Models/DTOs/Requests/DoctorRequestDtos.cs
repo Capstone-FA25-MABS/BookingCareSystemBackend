@@ -99,13 +99,16 @@ public class DoctorQueryRequest
 {
     public Guid? AccountId { get; set; }
     public Guid? PositionId { get; set; }
+    public List<Guid>? PositionIds { get; set; } // Support multiple position filters
     public Guid? SpecialtyId { get; set; }
     public Guid? HospitalId { get; set; }
-    public Gender? Gender { get; set; }
+    public string? Gender { get; set; }
+    public List<string>? Genders { get; set; } // Support multiple gender filters
     public Status? Status { get; set; } // Filter by doctor status (ACTIVE/INACTIVE)
     public string? SearchTerm { get; set; }
     public int? MinYearsOfExperience { get; set; }
     public int? MaxYearsOfExperience { get; set; }
+    public List<ExperienceRange>? ExperienceRanges { get; set; } // Support multiple experience ranges
     [JsonRequired]
     public int PageNumber { get; set; } = 1;
     [JsonRequired]
@@ -114,26 +117,55 @@ public class DoctorQueryRequest
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
     public string? ServiceType { get; set; }
+    [JsonPropertyName("serviceTypes")]
+    public List<string>? ServiceTypes { get; set; } // Support multiple service type filters
     public string? Language { get; set; }
+    [JsonPropertyName("languages")]
+    public List<string>? Languages { get; set; } // Support multiple language filters
     public double? MinRating { get; set; }
+    [JsonPropertyName("minRatings")]
+    public List<double>? MinRatings { get; set; } // Support multiple rating filters
     public string? Address { get; set; }
     public string? SortBy { get; set; }
     public string? SortOrder { get; set; } // asc/desc
 }
 
+public class ExperienceRange
+{
+    [JsonPropertyName("MinYears")]
+    public int MinYears { get; set; }
+
+    [JsonPropertyName("MaxYears")]
+    public int MaxYears { get; set; }
+}
+
 public class DoctorAdvancedFilterRequest
 {
     public Guid? SpecialtyId { get; set; }
+    public Guid? PositionId { get; set; }
+    [JsonPropertyName("positionIds")]
+    public List<Guid>? PositionIds { get; set; } // Support multiple position filters
     public string? AvailableTime { get; set; }
-    public Gender? Gender { get; set; }
+    [JsonPropertyName("gender")]
+    public string? Gender { get; set; }
+    [JsonPropertyName("genders")]
+    public List<string>? Genders { get; set; } // Support multiple gender filters
     public int? MinYearsOfExperience { get; set; }
     public int? MaxYearsOfExperience { get; set; }
+    [JsonPropertyName("ExperienceRanges")]
+    public List<ExperienceRange>? ExperienceRanges { get; set; } // Support multiple experience ranges
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
     public Guid? HospitalId { get; set; }
     public string? ServiceType { get; set; }
+    [JsonPropertyName("serviceTypes")]
+    public List<string>? ServiceTypes { get; set; } // Support multiple service type filters
     public string? Language { get; set; }
+    [JsonPropertyName("languages")]
+    public List<string>? Languages { get; set; } // Support multiple language filters
     public double? MinRating { get; set; }
+    [JsonPropertyName("minRatings")]
+    public List<double>? MinRatings { get; set; } // Support multiple rating filters
     public string? Address { get; set; }
     public string? SortBy { get; set; }
     public string? SortOrder { get; set; }
