@@ -74,16 +74,16 @@ public class AppointmentsController : BaseApiController
     }
 
     /// <summary>
-    /// Get appointments with filtering and pagination
+    /// Get appointments by patient with filtering and pagination
     /// </summary>
-    /// <param name="query">Query parameters</param>
-    /// <returns>Paginated list of appointments</returns>
-    [HttpGet]
+    /// <param name="query">Query parameters (must include PatientId)</param>
+    /// <returns>Paginated list of patient appointments with enriched data</returns>
+    [HttpPost("patient")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetAppointments([FromQuery] AppointmentQueryRequest query)
+    public async Task<IActionResult> GetAppointmentsByPatient([FromBody] AppointmentQueryRequest query)
     {
-        var appointments = await _appointmentService.GetAppointmentsAsync(query);
-        return Success(appointments, "Appointments retrieved successfully");
+        var appointments = await _appointmentService.GetAppointmentsByPatientAsync(query);
+        return Success(appointments, "Patient appointments retrieved successfully");
     }
 
     /// <summary>

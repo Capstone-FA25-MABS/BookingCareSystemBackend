@@ -30,7 +30,7 @@ public class AppointmentEntity
 
     [Required]
     [MaxLength(20)]
-    public AppointmentStatus Status { get; set; } = AppointmentStatus.PENDING;
+    public AppointmentStatus Status { get; set; } = AppointmentStatus.CONFIRMED;
 
     [MaxLength(4000)]
     public string? Reason { get; set; }

@@ -20,6 +20,10 @@ public class AppointmentMappingProfile : Profile
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => AppointmentStatus.PENDING))
             .ForMember(dest => dest.Result, opt => opt.Ignore());
 
-        CreateMap<AppointmentEntity, AppointmentResponse>();
+        CreateMap<AppointmentEntity, AppointmentResponse>()
+            .ForMember(dest => dest.PatientInfo, opt => opt.Ignore())
+            .ForMember(dest => dest.DoctorInfo, opt => opt.Ignore())
+            .ForMember(dest => dest.ServiceInfo, opt => opt.Ignore())
+            .ForMember(dest => dest.HospitalInfo, opt => opt.Ignore());
     }
 }
