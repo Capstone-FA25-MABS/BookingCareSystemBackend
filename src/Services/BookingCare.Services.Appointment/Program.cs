@@ -60,6 +60,13 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<DataInitializationService>();
 
+// Add gRPC client for Doctor service  
+builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6018";
+    o.Address = new Uri(endpoint);
+});
+
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 

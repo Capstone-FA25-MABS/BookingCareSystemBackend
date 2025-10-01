@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Protobuf Include="Protos\greet.proto" GrpcServices="Server" />
+	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" Link="Protos/doctor.proto" ProtoRoot="$(SolutionDir)" />
   </ItemGroup>
 
   <ItemGroup>
