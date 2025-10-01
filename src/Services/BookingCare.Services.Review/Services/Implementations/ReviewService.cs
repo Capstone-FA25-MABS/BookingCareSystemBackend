@@ -6,8 +6,170 @@ using BookingCare.Services.Review.Models.Entities;
 using BookingCare.Services.Review.Repositories.Interfaces;
 using BookingCare.Services.Review.Services.Interfaces;
 using BookingCare.Services.Review.Exceptions;
+using BookingCare.Services.Auth.Protos;
+using Grpc.Core;
 
 namespace BookingCare.Services.Review.Services.Implementations;
+
+/// <summary>
+/// Service for enriching account information from Auth service
+/// </summary>
+public class AccountEnrichmentService : BaseService, IAccountEnrichmentService
+{
+    private readonly AuthService.AuthServiceClient _authClient;
+
+    public AccountEnrichmentService(AuthService.AuthServiceClient authClient, ILogger<AccountEnrichmentService> logger)
+        : base(logger)
+    {
+        _authClient = authClient;
+    }
+
+    /// <summary>
+    /// Gets account information for multiple account IDs
+    /// </summary>
+    /// <param name="accountIds">List of account IDs to fetch</param>
+    /// <returns>Dictionary mapping account ID to AccountInfo</returns>
+    public async Task<Dictionary<string, AccountInfo>> GetAccountDetailsAsync(List<string> accountIds)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            if (!accountIds.Any())
+            {
+                LogInfo("No account IDs provided for enrichment", null);
+                return new Dictionary<string, AccountInfo>();
+            }
+
+            var uniqueAccountIds = GetUniqueAccountIds(accountIds);
+            LogInfo("Fetching account details for {Count} accounts", null, uniqueAccountIds.Count);
+
+            var request = new GetAccountDetailsRequest();
+            request.AccountIds.AddRange(uniqueAccountIds);
+
+            try
+            {
+                var response = await _authClient.GetAccountDetailsAsync(request);
+                return await ProcessAuthServiceResponse(response, uniqueAccountIds);
+            }
+            catch (RpcException ex)
+            {
+                return HandleGrpcException(ex, uniqueAccountIds);
+            }
+
+        }, "GetAccountDetails");
+    }
+
+    /// <summary>
+    /// Filters and removes duplicates from account IDs
+    /// </summary>
+    private static List<string> GetUniqueAccountIds(List<string> accountIds)
+    {
+        return accountIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Processes the response from Auth service and creates account info dictionary
+    /// </summary>
+    private async Task<Dictionary<string, AccountInfo>> ProcessAuthServiceResponse(
+        GetAccountDetailsResponse response,
+        List<string> uniqueAccountIds)
+    {
+        if (!response.Success)
+        {
+            LogWarning("Auth service returned unsuccessful response: {Message}", null, response.Message);
+            return CreateEmptyAccountInfos(uniqueAccountIds);
+        }
+
+        var accountInfoDict = MapFoundAccounts(response.AccountDetails);
+        AddMissingAccounts(accountInfoDict, uniqueAccountIds);
+
+        LogInfo("Successfully enriched {Found}/{Total} account details",
+            null, accountInfoDict.Values.Count(a => a.Found), uniqueAccountIds.Count);
+
+        return accountInfoDict;
+    }
+
+    /// <summary>
+    /// Maps found account details to AccountInfo objects
+    /// </summary>
+    private static Dictionary<string, AccountInfo> MapFoundAccounts(
+        IEnumerable<AccountDetail> accountDetails)
+    {
+        var accountInfoDict = new Dictionary<string, AccountInfo>();
+
+        foreach (var accountDetail in accountDetails)
+        {
+            accountInfoDict[accountDetail.AccountId] = new AccountInfo
+            {
+                AccountId = accountDetail.AccountId,
+                Email = accountDetail.Email ?? string.Empty,
+                FullName = accountDetail.FullName ?? string.Empty,
+                AvatarUrl = accountDetail.AvatarUrl ?? string.Empty,
+                Role = accountDetail.Role ?? string.Empty,
+                Found = accountDetail.Found
+            };
+        }
+
+        return accountInfoDict;
+    }
+
+    /// <summary>
+    /// Adds missing account IDs as not found entries
+    /// </summary>
+    private static void AddMissingAccounts(
+        Dictionary<string, AccountInfo> accountInfoDict,
+        List<string> uniqueAccountIds)
+    {
+        foreach (var accountId in uniqueAccountIds)
+        {
+            if (!accountInfoDict.ContainsKey(accountId))
+            {
+                accountInfoDict[accountId] = new AccountInfo
+                {
+                    AccountId = accountId,
+                    Found = false
+                };
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handles gRPC exceptions and returns appropriate fallback response
+    /// </summary>
+    private Dictionary<string, AccountInfo> HandleGrpcException(RpcException ex, List<string> uniqueAccountIds)
+    {
+        var errorMessage = ex.StatusCode switch
+        {
+            StatusCode.DeadlineExceeded => "Auth service call timed out: {Status}",
+            StatusCode.Unavailable => "Auth service is unavailable: {Status}",
+            _ => "gRPC call to Auth service failed: {Status} - {Detail}"
+        };
+
+        if (ex.StatusCode == StatusCode.DeadlineExceeded || ex.StatusCode == StatusCode.Unavailable)
+        {
+            LogWarning(errorMessage, null, ex.StatusCode.ToString());
+        }
+        else
+        {
+            LogWarning(errorMessage, null, ex.StatusCode.ToString(), ex.Status.Detail);
+        }
+
+        return CreateEmptyAccountInfos(uniqueAccountIds);
+    }
+
+    /// <summary>
+    /// Creates empty account info objects for when Auth service is unavailable
+    /// </summary>
+    private static Dictionary<string, AccountInfo> CreateEmptyAccountInfos(List<string> accountIds)
+    {
+        return accountIds.ToDictionary(
+            accountId => accountId,
+            accountId => new AccountInfo
+            {
+                AccountId = accountId,
+                Found = false
+            });
+    }
+}
 
 /// <summary>
 /// Service implementation for Review operations
@@ -15,14 +177,17 @@ namespace BookingCare.Services.Review.Services.Implementations;
 public class ReviewService : BaseService, IReviewService
 {
     private readonly IReviewRepository _reviewRepository;
+    private readonly IAccountEnrichmentService _accountEnrichmentService;
     private readonly IMapper _mapper;
 
     public ReviewService(
         IReviewRepository reviewRepository,
+        IAccountEnrichmentService accountEnrichmentService,
         IMapper mapper,
         ILogger<ReviewService> logger) : base(logger)
     {
         _reviewRepository = reviewRepository;
+        _accountEnrichmentService = accountEnrichmentService;
         _mapper = mapper;
     }
 
@@ -173,8 +338,23 @@ public class ReviewService : BaseService, IReviewService
     /// </summary>
     public async Task<PagedReviewsResponse> GetReviewsByDoctorAsync(Guid doctorId, int page = 1, int pageSize = 10)
     {
-        ValidateGuid(doctorId, nameof(doctorId));
-        return await _reviewRepository.GetReviewsByDoctorAsync(doctorId, page, pageSize);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            ValidateGuid(doctorId, nameof(doctorId));
+
+            LogInfo("Getting reviews for doctor: {DoctorId} with account enrichment", null, doctorId);
+
+            // Get reviews from repository
+            var pagedReviews = await _reviewRepository.GetReviewsByDoctorAsync(doctorId, page, pageSize);
+
+            // Enrich with account information
+            await EnrichReviewsWithAccountInfo(pagedReviews.Reviews);
+
+            LogInfo("Retrieved {Count} reviews for doctor {DoctorId} with account enrichment",
+                null, pagedReviews.Reviews.Count, doctorId);
+
+            return pagedReviews;
+        }, "GetReviewsByDoctorWithEnrichment");
     }
 
     /// <summary>
@@ -182,8 +362,102 @@ public class ReviewService : BaseService, IReviewService
     /// </summary>
     public async Task<PagedReviewsResponse> GetReviewsByServiceAsync(Guid serviceId, int page = 1, int pageSize = 10)
     {
-        ValidateGuid(serviceId, nameof(serviceId));
-        return await _reviewRepository.GetReviewsByServiceAsync(serviceId, page, pageSize);
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            ValidateGuid(serviceId, nameof(serviceId));
+
+            LogInfo("Getting reviews for service: {ServiceId} with account enrichment", null, serviceId);
+
+            // Get reviews from repository
+            var pagedReviews = await _reviewRepository.GetReviewsByServiceAsync(serviceId, page, pageSize);
+
+            // Enrich with account information
+            await EnrichReviewsWithAccountInfo(pagedReviews.Reviews);
+
+            LogInfo("Retrieved {Count} reviews for service {ServiceId} with account enrichment",
+                null, pagedReviews.Reviews.Count, serviceId);
+
+            return pagedReviews;
+        }, "GetReviewsByServiceWithEnrichment");
+    }
+
+    /// <summary>
+    /// Enriches a list of reviews with account information for patients and reply authors
+    /// </summary>
+    private async Task EnrichReviewsWithAccountInfo(List<ReviewResponse> reviews)
+    {
+        if (!reviews.Any())
+        {
+            return;
+        }
+
+        // Collect all unique account IDs (patients + reply authors)
+        var accountIds = new HashSet<string>();
+
+        // Add patient IDs
+        foreach (var review in reviews)
+        {
+            accountIds.Add(review.PatientId.ToString());
+
+            // Add reply author IDs
+            foreach (var reply in review.Replies)
+            {
+                accountIds.Add(reply.AuthorId.ToString());
+            }
+        }
+
+        if (!accountIds.Any())
+        {
+            return;
+        }
+
+        LogInfo("Enriching {ReviewCount} reviews with {AccountCount} unique accounts",
+            null, reviews.Count, accountIds.Count);
+
+        // Get account details in batch
+        var accountDetails = await _accountEnrichmentService.GetAccountDetailsAsync(accountIds.ToList());
+
+        // Map account info to reviews and replies
+        foreach (var review in reviews)
+        {
+            // Enrich patient info
+            var patientKey = review.PatientId.ToString();
+            if (accountDetails.TryGetValue(patientKey, out var patientInfo))
+            {
+                review.PatientInfo = patientInfo;
+            }
+            else
+            {
+                // Fallback for missing patient info
+                review.PatientInfo = new AccountInfo
+                {
+                    AccountId = patientKey,
+                    Found = false
+                };
+            }
+
+            // Enrich reply author info
+            foreach (var reply in review.Replies)
+            {
+                var authorKey = reply.AuthorId.ToString();
+                if (accountDetails.TryGetValue(authorKey, out var authorInfo))
+                {
+                    reply.AuthorInfo = authorInfo;
+                }
+                else
+                {
+                    // Fallback for missing author info
+                    reply.AuthorInfo = new AccountInfo
+                    {
+                        AccountId = authorKey,
+                        Found = false
+                    };
+                }
+            }
+        }
+
+        LogInfo("Successfully enriched {ReviewCount} reviews with account information",
+            null, reviews.Count);
     }
 
     /// <summary>

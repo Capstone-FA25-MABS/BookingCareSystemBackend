@@ -6,6 +6,7 @@ using BookingCare.Services.Review.Grpc.Services;
 using BookingCare.Services.Review.Filters;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Services.Auth.Protos;
 using FluentValidation;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Mvc;
@@ -70,6 +71,13 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     // Disable default model validation behavior since we handle it with FluentValidation
     options.SuppressModelStateInvalidFilter = true;
+});
+
+// Configure gRPC clients
+var authServiceAddress = builder.Configuration.GetSection("Services:Auth:GrpcUrl").Value ?? "http://localhost:6013";
+builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
+{
+    options.Address = new Uri(authServiceAddress);
 });
 
 var app = builder.Build();
