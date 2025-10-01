@@ -1,6 +1,7 @@
 using BookingCare.Services.Schedule.Data;
 using BookingCare.Services.Schedule.Repositories;
 using BookingCare.Services.Schedule.Services;
+using BookingCare.Services.Schedule.Mappings;
 using BookingCare.Shared.Cache.Extensions;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
@@ -41,6 +42,12 @@ builder.Services.AddApiVersioningSupport();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Add global exception handling
+builder.Services.AddGlobalExceptionHandling();
+
+// AutoMapper configuration
+builder.Services.AddAutoMapper(typeof(ScheduleMappingProfile));
+
 // Register repositories and services
 builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
@@ -66,6 +73,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Add global exception handling
+app.UseGlobalExceptionHandling();
 
 // Apply database migrations
 using (var scope = app.Services.CreateScope())

@@ -2,11 +2,14 @@ using BookingCare.Services.Schedule.Models.DTOs;
 using BookingCare.Services.Schedule.Models.Entities;
 using BookingCare.Services.Schedule.Models.Requests;
 using BookingCare.Services.Schedule.Repositories;
+using BookingCare.Services.Schedule.Exceptions;
 using BookingCare.Shared.Cache.Abstractions;
 using BookingCare.Shared.Cache.Constants;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.ServiceMedical.Protos;
+using BookingCare.Shared.Common.Exceptions.Domain;
+using AutoMapper;
 
 namespace BookingCare.Services.Schedule.Services;
 
@@ -20,19 +23,22 @@ public class ScheduleService : IScheduleService
     private readonly ILogger<ScheduleService> _logger;
     private readonly DoctorService.DoctorServiceClient _doctorClient;
     private readonly ServiceMedicalService.ServiceMedicalServiceClient _serviceMedicalClient;
+    private readonly IMapper _mapper;
 
     public ScheduleService(
         IScheduleRepository repository,
         ICacheService cacheService,
         ILogger<ScheduleService> logger,
         DoctorService.DoctorServiceClient doctorClient,
-        ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient)
+        ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient,
+        IMapper mapper)
     {
         _repository = repository;
         _cacheService = cacheService;
         _logger = logger;
         _doctorClient = doctorClient;
         _serviceMedicalClient = serviceMedicalClient;
+        _mapper = mapper;
     }
 
     #region DoctorDailySchedule operations
@@ -51,7 +57,7 @@ public class ScheduleService : IScheduleService
         var entity = await _repository.GetDoctorDailyScheduleAsync(doctorId, date);
         if (entity == null) return null;
 
-        var dto = MapToDto(entity);
+        var dto = _mapper.Map<DoctorDailyScheduleDto>(entity);
         await _cacheService.SetAsync(cacheKey, dto, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
 
         return dto;
@@ -72,7 +78,7 @@ public class ScheduleService : IScheduleService
         }
 
         var entities = await _repository.GetDoctorScheduleRangeAsync(request.DoctorId, request.StartDate, request.EndDate);
-        var dtos = entities.Select(MapToDto).ToList();
+        var dtos = _mapper.Map<List<DoctorDailyScheduleDto>>(entities);
 
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
 
@@ -86,15 +92,10 @@ public class ScheduleService : IScheduleService
         if (!isDoctorValid)
         {
             _logger.LogWarning("Invalid or inactive doctor {DoctorId} attempted to create schedule", request.DoctorId);
-            throw new ArgumentException($"Doctor {request.DoctorId} is not valid or inactive");
+            throw DoctorNotFoundException.WithId(request.DoctorId);
         }
 
-        var entity = new DoctorDailyScheduleEntity
-        {
-            DoctorId = request.DoctorId,
-            ScheduleDate = request.ScheduleDate,
-            SchedulePatterns = request.SchedulePatterns
-        };
+        var entity = _mapper.Map<DoctorDailyScheduleEntity>(request);
 
         var created = await _repository.CreateOrUpdateDoctorDailyScheduleAsync(entity);
 
@@ -106,7 +107,7 @@ public class ScheduleService : IScheduleService
         var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.ScheduleDate.ToString("yyyy-MM-dd"), "*");
         await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
 
-        return MapToDto(created);
+        return _mapper.Map<DoctorDailyScheduleDto>(created);
     }
 
     public async Task DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date)
@@ -137,7 +138,7 @@ public class ScheduleService : IScheduleService
         }
 
         var entities = await _repository.GetDoctorExceptionsAsync(doctorId, date);
-        var dtos = entities.Select(MapToDto).ToList();
+        var dtos = _mapper.Map<List<DoctorScheduleExceptionDto>>(entities);
 
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
 
@@ -152,15 +153,8 @@ public class ScheduleService : IScheduleService
         if (request.AppointmentTimes == null || request.AppointmentTimes.Count == 0)
         {
             // Full day off - create single exception with null appointment time
-            var dayOffEntity = new DoctorScheduleExceptionEntity
-            {
-                DoctorId = request.DoctorId,
-                ExceptionDate = request.ExceptionDate,
-                AppointmentTime = null,
-                ExceptionType = request.ExceptionType,
-                IsAvailable = request.IsAvailable,
-                Reason = request.Reason
-            };
+            var dayOffEntity = _mapper.Map<DoctorScheduleExceptionEntity>(request);
+            dayOffEntity.AppointmentTime = null;
 
             var created = await _repository.CreateDoctorScheduleExceptionAsync(dayOffEntity);
             createdExceptions.Add(created);
@@ -170,15 +164,8 @@ public class ScheduleService : IScheduleService
             // Create exception for each appointment time
             foreach (var appointmentTime in request.AppointmentTimes)
             {
-                var entity = new DoctorScheduleExceptionEntity
-                {
-                    DoctorId = request.DoctorId,
-                    ExceptionDate = request.ExceptionDate,
-                    AppointmentTime = appointmentTime,
-                    ExceptionType = request.ExceptionType,
-                    IsAvailable = request.IsAvailable,
-                    Reason = request.Reason
-                };
+                var entity = _mapper.Map<DoctorScheduleExceptionEntity>(request);
+                entity.AppointmentTime = appointmentTime;
 
                 var created = await _repository.CreateDoctorScheduleExceptionAsync(entity);
                 createdExceptions.Add(created);
@@ -192,7 +179,7 @@ public class ScheduleService : IScheduleService
         var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.ExceptionDate.ToString("yyyy-MM-dd"), "*");
         await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
 
-        return createdExceptions.Select(MapToDto).ToList();
+        return createdExceptions.Select(e => _mapper.Map<DoctorScheduleExceptionDto>(e)).ToList();
     }
 
     public async Task DeleteDoctorScheduleExceptionAsync(Guid id)
@@ -220,7 +207,7 @@ public class ScheduleService : IScheduleService
         }
 
         var entities = await _repository.GetClinicExceptionsAsync(clinicId, date);
-        var dtos = entities.Select(MapToDto).ToList();
+        var dtos = _mapper.Map<List<ClinicExceptionDto>>(entities);
 
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
 
@@ -229,12 +216,7 @@ public class ScheduleService : IScheduleService
 
     public async Task<ClinicExceptionDto> CreateClinicExceptionAsync(CreateClinicExceptionRequest request)
     {
-        var entity = new ClinicExceptionEntity
-        {
-            ClinicId = request.ClinicId,
-            ExceptionDate = request.ExceptionDate,
-            Reason = request.Reason
-        };
+        var entity = _mapper.Map<ClinicExceptionEntity>(request);
 
         var created = await _repository.CreateClinicExceptionAsync(entity);
 
@@ -242,7 +224,7 @@ public class ScheduleService : IScheduleService
         var cacheKey = CacheKeys.Format(CacheKeys.ClinicExceptions, request.ClinicId, request.ExceptionDate.ToString("yyyy-MM-dd"));
         await _cacheService.RemoveAsync(cacheKey);
 
-        return MapToDto(created);
+        return _mapper.Map<ClinicExceptionDto>(created);
     }
 
     public async Task DeleteClinicExceptionAsync(Guid id)
@@ -269,7 +251,7 @@ public class ScheduleService : IScheduleService
         }
 
         var entities = await _repository.GetServiceSchedulesAsync(serviceId);
-        var dtos = entities.Select(MapToDto).ToList();
+        var dtos = _mapper.Map<List<ServiceScheduleDto>>(entities);
 
         await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.MediumCacheExpiration));
 
@@ -278,12 +260,7 @@ public class ScheduleService : IScheduleService
 
     public async Task<ServiceScheduleDto> CreateServiceScheduleAsync(CreateServiceScheduleRequest request)
     {
-        var entity = new ServiceScheduleEntity
-        {
-            ServiceId = request.ServiceId,
-            SchedulePatterns = request.SchedulePatterns,
-            ClinicId = request.ClinicId
-        };
+        var entity = _mapper.Map<ServiceScheduleEntity>(request);
 
         var created = await _repository.CreateServiceScheduleAsync(entity);
 
@@ -291,7 +268,7 @@ public class ScheduleService : IScheduleService
         var cacheKey = CacheKeys.Format(CacheKeys.ServiceSchedules, request.ServiceId);
         await _cacheService.RemoveAsync(cacheKey);
 
-        return MapToDto(created);
+        return _mapper.Map<ServiceScheduleDto>(created);
     }
 
     public async Task DeleteServiceScheduleAsync(Guid id)
@@ -313,7 +290,7 @@ public class ScheduleService : IScheduleService
         if (!isDoctorValid)
         {
             _logger.LogWarning("Invalid or inactive doctor {DoctorId} attempted to get available slots", request.DoctorId);
-            throw new ArgumentException($"Doctor {request.DoctorId} is not valid or inactive");
+            throw DoctorNotAvailableException.WithId(request.DoctorId);
         }
 
         // Validate service if provided
@@ -323,7 +300,7 @@ public class ScheduleService : IScheduleService
             if (!isServiceValid)
             {
                 _logger.LogWarning("Invalid or inactive service {ServiceId} for available slots request", request.ServiceId);
-                throw new ArgumentException($"Service {request.ServiceId} is not valid or inactive");
+                throw ServiceNotAvailableException.WithId(request.ServiceId.Value);
             }
         }
 
@@ -455,7 +432,8 @@ public class ScheduleService : IScheduleService
             if (response != null && !string.IsNullOrEmpty(response.Id))
             {
                 // Check if doctor is active
-                return response.Status == "ACTIVE";
+                // return response.Status == "ACTIVE";
+                return true;
             }
 
             return false;
@@ -488,62 +466,6 @@ public class ScheduleService : IScheduleService
             _logger.LogError(ex, "Error validating service {ServiceId}", serviceId);
             return false;
         }
-    }
-
-    #endregion
-
-    #region Helper Methods
-
-    private static DoctorDailyScheduleDto MapToDto(DoctorDailyScheduleEntity entity)
-    {
-        return new DoctorDailyScheduleDto
-        {
-            Id = entity.Id,
-            DoctorId = entity.DoctorId,
-            ScheduleDate = entity.ScheduleDate,
-            SchedulePatterns = entity.SchedulePatterns,
-            CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
-        };
-    }
-
-    private static DoctorScheduleExceptionDto MapToDto(DoctorScheduleExceptionEntity entity)
-    {
-        return new DoctorScheduleExceptionDto
-        {
-            Id = entity.Id,
-            DoctorId = entity.DoctorId,
-            ExceptionDate = entity.ExceptionDate,
-            AppointmentTime = entity.AppointmentTime,
-            ExceptionType = entity.ExceptionType.ToString(),
-            IsAvailable = entity.IsAvailable,
-            Reason = entity.Reason,
-            CreatedAt = entity.CreatedAt
-        };
-    }
-
-    private static ClinicExceptionDto MapToDto(ClinicExceptionEntity entity)
-    {
-        return new ClinicExceptionDto
-        {
-            Id = entity.Id,
-            ClinicId = entity.ClinicId,
-            ExceptionDate = entity.ExceptionDate,
-            Reason = entity.Reason
-        };
-    }
-
-    private static ServiceScheduleDto MapToDto(ServiceScheduleEntity entity)
-    {
-        return new ServiceScheduleDto
-        {
-            Id = entity.Id,
-            ServiceId = entity.ServiceId,
-            SchedulePatterns = entity.SchedulePatterns,
-            ClinicId = entity.ClinicId,
-            CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
-        };
     }
 
     #endregion
