@@ -166,12 +166,16 @@ public class DoctorRepository : IDoctorRepository
         if (!string.IsNullOrEmpty(query.Gender))
         {
             Console.WriteLine($"Filtering by single gender: {query.Gender}");
-            queryable = queryable.Where(d => d.Gender.ToString() == query.Gender);
+            var genderEnum = Enum.Parse<Gender>(query.Gender.ToUpper());
+            queryable = queryable.Where(d => d.Gender == genderEnum);
         }
         if (query.Genders != null && query.Genders.Any())
         {
             Console.WriteLine($"Filtering by multiple genders: {string.Join(", ", query.Genders)}");
-            queryable = queryable.Where(d => query.Genders.Contains(d.Gender.ToString()));
+            var genderEnums = query.Genders
+                .Select(g => Enum.Parse<Gender>(g.ToUpper()))
+                .ToList();
+            queryable = queryable.Where(d => d.Gender.HasValue && genderEnums.Contains(d.Gender.Value));
         }
 
         // Experience filters - support both single range and multiple ranges

@@ -108,6 +108,7 @@ public class DoctorQueryRequest
     public string? SearchTerm { get; set; }
     public int? MinYearsOfExperience { get; set; }
     public int? MaxYearsOfExperience { get; set; }
+    [JsonPropertyName("experienceRanges")]
     public List<ExperienceRange>? ExperienceRanges { get; set; } // Support multiple experience ranges
     [JsonRequired]
     public int PageNumber { get; set; } = 1;
@@ -152,7 +153,7 @@ public class DoctorAdvancedFilterRequest
     public List<string>? Genders { get; set; } // Support multiple gender filters
     public int? MinYearsOfExperience { get; set; }
     public int? MaxYearsOfExperience { get; set; }
-    [JsonPropertyName("ExperienceRanges")]
+    [JsonPropertyName("experienceRanges")]
     public List<ExperienceRange>? ExperienceRanges { get; set; } // Support multiple experience ranges
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
