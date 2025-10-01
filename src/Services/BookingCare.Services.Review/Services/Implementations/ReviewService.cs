@@ -39,9 +39,7 @@ public class AccountEnrichmentService : BaseService, IAccountEnrichmentService
                 return new Dictionary<string, AccountInfo>();
             }
 
-            // Remove duplicates and empty values
-            var uniqueAccountIds = accountIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
-
+            var uniqueAccountIds = GetUniqueAccountIds(accountIds);
             LogInfo("Fetching account details for {Count} accounts", null, uniqueAccountIds.Count);
 
             var request = new GetAccountDetailsRequest();
@@ -50,64 +48,112 @@ public class AccountEnrichmentService : BaseService, IAccountEnrichmentService
             try
             {
                 var response = await _authClient.GetAccountDetailsAsync(request);
-
-                if (!response.Success)
-                {
-                    LogWarning("Auth service returned unsuccessful response: {Message}", null, response.Message);
-                    return CreateEmptyAccountInfos(uniqueAccountIds);
-                }
-
-                var accountInfoDict = new Dictionary<string, AccountInfo>();
-
-                // Map found accounts
-                foreach (var accountDetail in response.AccountDetails)
-                {
-                    accountInfoDict[accountDetail.AccountId] = new AccountInfo
-                    {
-                        AccountId = accountDetail.AccountId,
-                        Email = accountDetail.Email ?? string.Empty,
-                        FullName = accountDetail.FullName ?? string.Empty,
-                        AvatarUrl = accountDetail.AvatarUrl ?? string.Empty,
-                        Role = accountDetail.Role ?? string.Empty,
-                        Found = accountDetail.Found
-                    };
-                }
-
-                // Add missing accounts as not found
-                foreach (var accountId in uniqueAccountIds)
-                {
-                    if (!accountInfoDict.ContainsKey(accountId))
-                    {
-                        accountInfoDict[accountId] = new AccountInfo
-                        {
-                            AccountId = accountId,
-                            Found = false
-                        };
-                    }
-                }
-
-                LogInfo("Successfully enriched {Found}/{Total} account details",
-                    null, accountInfoDict.Values.Count(a => a.Found), uniqueAccountIds.Count);
-
-                return accountInfoDict;
-            }
-            catch (RpcException ex) when (ex.StatusCode == StatusCode.DeadlineExceeded)
-            {
-                LogWarning("Auth service call timed out: {Status}", null, ex.StatusCode.ToString());
-                return CreateEmptyAccountInfos(uniqueAccountIds);
-            }
-            catch (RpcException ex) when (ex.StatusCode == StatusCode.Unavailable)
-            {
-                LogWarning("Auth service is unavailable: {Status}", null, ex.StatusCode.ToString());
-                return CreateEmptyAccountInfos(uniqueAccountIds);
+                return await ProcessAuthServiceResponse(response, uniqueAccountIds);
             }
             catch (RpcException ex)
             {
-                LogWarning("gRPC call to Auth service failed: {Status} - {Detail}", null, ex.StatusCode.ToString(), ex.Status.Detail);
-                return CreateEmptyAccountInfos(uniqueAccountIds);
+                return HandleGrpcException(ex, uniqueAccountIds);
             }
 
         }, "GetAccountDetails");
+    }
+
+    /// <summary>
+    /// Filters and removes duplicates from account IDs
+    /// </summary>
+    private static List<string> GetUniqueAccountIds(List<string> accountIds)
+    {
+        return accountIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Processes the response from Auth service and creates account info dictionary
+    /// </summary>
+    private async Task<Dictionary<string, AccountInfo>> ProcessAuthServiceResponse(
+        GetAccountDetailsResponse response,
+        List<string> uniqueAccountIds)
+    {
+        if (!response.Success)
+        {
+            LogWarning("Auth service returned unsuccessful response: {Message}", null, response.Message);
+            return CreateEmptyAccountInfos(uniqueAccountIds);
+        }
+
+        var accountInfoDict = MapFoundAccounts(response.AccountDetails);
+        AddMissingAccounts(accountInfoDict, uniqueAccountIds);
+
+        LogInfo("Successfully enriched {Found}/{Total} account details",
+            null, accountInfoDict.Values.Count(a => a.Found), uniqueAccountIds.Count);
+
+        return accountInfoDict;
+    }
+
+    /// <summary>
+    /// Maps found account details to AccountInfo objects
+    /// </summary>
+    private static Dictionary<string, AccountInfo> MapFoundAccounts(
+        IEnumerable<AccountDetail> accountDetails)
+    {
+        var accountInfoDict = new Dictionary<string, AccountInfo>();
+
+        foreach (var accountDetail in accountDetails)
+        {
+            accountInfoDict[accountDetail.AccountId] = new AccountInfo
+            {
+                AccountId = accountDetail.AccountId,
+                Email = accountDetail.Email ?? string.Empty,
+                FullName = accountDetail.FullName ?? string.Empty,
+                AvatarUrl = accountDetail.AvatarUrl ?? string.Empty,
+                Role = accountDetail.Role ?? string.Empty,
+                Found = accountDetail.Found
+            };
+        }
+
+        return accountInfoDict;
+    }
+
+    /// <summary>
+    /// Adds missing account IDs as not found entries
+    /// </summary>
+    private static void AddMissingAccounts(
+        Dictionary<string, AccountInfo> accountInfoDict,
+        List<string> uniqueAccountIds)
+    {
+        foreach (var accountId in uniqueAccountIds)
+        {
+            if (!accountInfoDict.ContainsKey(accountId))
+            {
+                accountInfoDict[accountId] = new AccountInfo
+                {
+                    AccountId = accountId,
+                    Found = false
+                };
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handles gRPC exceptions and returns appropriate fallback response
+    /// </summary>
+    private Dictionary<string, AccountInfo> HandleGrpcException(RpcException ex, List<string> uniqueAccountIds)
+    {
+        var errorMessage = ex.StatusCode switch
+        {
+            StatusCode.DeadlineExceeded => "Auth service call timed out: {Status}",
+            StatusCode.Unavailable => "Auth service is unavailable: {Status}",
+            _ => "gRPC call to Auth service failed: {Status} - {Detail}"
+        };
+
+        if (ex.StatusCode == StatusCode.DeadlineExceeded || ex.StatusCode == StatusCode.Unavailable)
+        {
+            LogWarning(errorMessage, null, ex.StatusCode.ToString());
+        }
+        else
+        {
+            LogWarning(errorMessage, null, ex.StatusCode.ToString(), ex.Status.Detail);
+        }
+
+        return CreateEmptyAccountInfos(uniqueAccountIds);
     }
 
     /// <summary>
