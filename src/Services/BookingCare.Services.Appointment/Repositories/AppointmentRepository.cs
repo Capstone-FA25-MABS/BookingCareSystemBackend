@@ -5,7 +5,6 @@ using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Services.Appointment.Exceptions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Appointment.Repositories;
 
@@ -65,25 +64,30 @@ public class AppointmentRepository : IAppointmentRepository
     /// <summary>
     /// Get appointments with filtering, sorting and pagination
     /// </summary>
-    public async Task<(List<AppointmentEntity> Appointments, int TotalCount)> GetAppointmentsAsync(AppointmentQueryRequest query)
+    public async Task<(List<AppointmentEntity> Appointments, int TotalCount)> GetAppointmentsAsync(AppointmentQueryRequest query, Role role)
     {
         try
         {
             var queryable = _context.Appointments.AsQueryable();
 
-            // Apply filters
-            if (query.PatientId.HasValue)
-                queryable = queryable.Where(a => a.PatientId == query.PatientId);
+            // Apply role-based primary filters first
+            switch (role)
+            {
+                case Role.PATIENT:
+                    queryable = queryable.Where(a => a.PatientId == query.PatientId);
+                    break;
+                case Role.DOCTOR:
+                    queryable = queryable.Where(a => a.DoctorId == query.DoctorId);
+                    break;
+                case Role.CLINIC:
+                    queryable = queryable.Where(a => a.HospitalId == query.HospitalId);
+                    break;
+                default:
+                    // Admin can see all appointments - no primary filter
+                    break;
+            }
 
-            if (query.DoctorId.HasValue)
-                queryable = queryable.Where(a => a.DoctorId == query.DoctorId);
-
-            if (query.HospitalId.HasValue)
-                queryable = queryable.Where(a => a.HospitalId == query.HospitalId);
-
-            if (query.ServiceId.HasValue)
-                queryable = queryable.Where(a => a.ServiceId == query.ServiceId);
-
+            // Apply additional filters
             if (query.AppointmentType.HasValue)
                 queryable = queryable.Where(a => a.AppointmentType == query.AppointmentType);
 

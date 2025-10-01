@@ -13,7 +13,7 @@ public interface IAppointmentRepository
     // Appointment operations
     Task<AppointmentEntity?> GetAppointmentByIdAsync(Guid id);
     Task<AppointmentEntity> CreateAppointmentAsync(AppointmentEntity appointment);
-    Task<(List<AppointmentEntity> Appointments, int TotalCount)> GetAppointmentsAsync(AppointmentQueryRequest query);
+    Task<(List<AppointmentEntity> Appointments, int TotalCount)> GetAppointmentsAsync(AppointmentQueryRequest query, Role role);
     Task<bool> HasConflictingAppointmentAsync(Guid patientId, DateTime appointmentDate, Guid appointmentTimeId, Guid? excludeAppointmentId = null);
     Task<bool> IsDoctorAvailableAsync(Guid doctorId, DateTime appointmentDate, Guid appointmentTimeId, Guid? excludeAppointmentId = null);
 

@@ -12,7 +12,7 @@ public interface IAppointmentService
     // Appointment operations
     Task<bool> CreateAppointmentAsync(CreateAppointmentRequest request);
     Task<AppointmentResponse?> GetAppointmentByIdAsync(Guid id);
-    Task<AppointmentListResponse> GetAppointmentsAsync(AppointmentQueryRequest query);
+    Task<AppointmentListResponse> GetAppointmentsByPatientAsync(AppointmentQueryRequest query);
 
     // Status operations
     Task<bool> UpdateAppointmentStatusAsync(UpdateAppointmentStatusRequest request);
