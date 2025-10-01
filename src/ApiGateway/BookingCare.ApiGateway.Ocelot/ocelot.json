@@ -1,7 +1,7 @@
 {
   "Routes": [
     {
-      "DownstreamPathTemplate": "/api/v{version}/auths/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/auth/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -9,7 +9,7 @@
           "Port": 6003
         }
       ],
-      "UpstreamPathTemplate": "/api/v{version}/auths/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/auth/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "RouteClaimsRequirement": {},
       "AddHeadersToRequest": {},
@@ -19,7 +19,7 @@
       "FileCacheOptions": { "TtlSeconds": 0 }
     },
     {
-      "DownstreamPathTemplate": "/api/auths/{everything}",
+      "DownstreamPathTemplate": "/api/auth/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -27,7 +27,7 @@
           "Port": 6003
         }
       ],
-      "UpstreamPathTemplate": "/api/auths/{everything}",
+      "UpstreamPathTemplate": "/api/auth/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "RouteClaimsRequirement": {},
       "AddHeadersToRequest": {
@@ -208,6 +208,22 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/notifications/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/otp/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6010
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/otp/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
