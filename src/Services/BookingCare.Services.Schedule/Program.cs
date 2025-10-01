@@ -1,14 +1,97 @@
+using BookingCare.Services.Schedule.Data;
+using BookingCare.Services.Schedule.Repositories;
 using BookingCare.Services.Schedule.Services;
+using BookingCare.Services.Schedule.Mappings;
+using BookingCare.Shared.Cache.Extensions;
+using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.EntityFrameworkCore;
+
+// Enable HTTP/2 without TLS for gRPC (development only)
+AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Configure Kestrel for both HTTP and gRPC
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(6015, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+    });
+    options.ListenAnyIP(6025, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http2;
+    });
+});
+
+// Add DbContext
+builder.Services.AddDbContext<ScheduleDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add Redis Cache
+builder.Services.AddRedisCache(builder.Configuration);
+
+// Add gRPC
 builder.Services.AddGrpc();
+
+// Add Controllers and API versioning
+builder.Services.AddControllers();
+builder.Services.AddApiVersioningSupport();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Add global exception handling
+builder.Services.AddGlobalExceptionHandling();
+
+// AutoMapper configuration
+builder.Services.AddAutoMapper(typeof(ScheduleMappingProfile));
+
+// Register repositories and services
+builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
+builder.Services.AddScoped<IScheduleService, ScheduleService>();
+
+// Configure gRPC clients for inter-service communication following ASP.NET Core DI best practices
+var doctorAddress = builder.Configuration.GetSection("GrpcClients:Doctor:Address").Value ?? "http://localhost:6018";
+builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(options =>
+{
+    options.Address = new Uri(doctorAddress);
+});
+
+var serviceMedicalAddress = builder.Configuration.GetSection("GrpcClients:ServiceMedical:Address").Value ?? "http://localhost:6023";
+builder.Services.AddGrpcClient<BookingCare.Services.ServiceMedical.Protos.ServiceMedicalService.ServiceMedicalServiceClient>(options =>
+{
+    options.Address = new Uri(serviceMedicalAddress);
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-app.MapGrpcService<GreeterService>();
-app.MapGet("/", () => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Add global exception handling
+app.UseGlobalExceptionHandling();
+
+// Apply database migrations
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ScheduleDbContext>();
+    context.Database.Migrate();
+}
+
+app.UseRouting();
+// app.UseApiVersioning();
+app.MapControllers();
+
+// Configure gRPC services
+// TODO: Update gRPC service to handle GUID conversions
+// Configure gRPC (temporarily disabled during GUID conversion)
+app.MapGrpcService<ScheduleGrpcService>();
+app.MapGet("/", () => "BookingCare Schedule Service is running...");
 
 app.Run();

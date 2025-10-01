@@ -51,6 +51,18 @@ public static class CacheKeys
     public const string OtpVerified = "otp:verified:{0}:{1}"; // purpose:subject
     public const string OtpPattern = "otp:*";
 
+    // Schedule related cache keys
+    public const string SchedulePatternById = "schedule_pattern:id:{0}";
+    public const string AllSchedulePatterns = "schedule_patterns:all";
+    public const string AppointmentTimeById = "appointment_time:id:{0}";
+    public const string AllAppointmentTimes = "appointment_times:all";
+    public const string DoctorDailySchedule = "doctor_schedule:daily:{0}:{1}"; // doctorId:date
+    public const string DoctorScheduleRange = "doctor_schedule:range:{0}:{1}:{2}"; // doctorId:startDate:endDate
+    public const string DoctorExceptions = "doctor_exceptions:{0}:{1}"; // doctorId:date
+    public const string AvailableSlots = "available_slots:{0}:{1}:{2}"; // doctorId:date:serviceId
+    public const string ServiceSchedules = "service_schedules:{0}"; // serviceId
+    public const string ClinicExceptions = "clinic_exceptions:{0}:{1}"; // clinicId:date
+
     // Common patterns for bulk operations
     public const string UserPattern = "user:*";
     public const string DoctorPattern = "doctor:*";
@@ -58,6 +70,12 @@ public static class CacheKeys
     public const string AppointmentPattern = "appointment:*";
     public const string ServicePattern = "service:*";
     public const string AuthPattern = "auth:*";
+    public const string SchedulePattern = "schedule*";
+
+    // Cache expiration times in minutes
+    public const int ShortCacheExpiration = 5;
+    public const int MediumCacheExpiration = 30;
+    public const int LongCacheExpiration = 120;
 
     /// <summary>
     /// Format cache key with parameters
