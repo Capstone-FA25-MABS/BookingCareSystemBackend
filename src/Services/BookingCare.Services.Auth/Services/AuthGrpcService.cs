@@ -366,13 +366,14 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                        Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails)>
         FetchUserAndDoctorDetailsAsync(List<(Guid AccountId, List<string> Roles)> accounts)
     {
+
         var patientAccountIds = accounts
-            .Where(a => a.Roles.Any(r => r == Role.PATIENT.ToString()))
+            .Where(a => a.Roles.Any(r => r.Equals(Role.PATIENT.ToString(), StringComparison.OrdinalIgnoreCase)))
             .Select(a => a.AccountId.ToString())
             .ToList();
 
         var doctorAccountIds = accounts
-            .Where(a => a.Roles.Any(r => r == Role.DOCTOR.ToString()))
+            .Where(a => a.Roles.Any(r => r.Equals(Role.DOCTOR.ToString(), StringComparison.OrdinalIgnoreCase)))
             .Select(a => a.AccountId.ToString())
             .ToList();
 
