@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
 
@@ -11,6 +12,9 @@ public class CreateServiceTypeRequest
 
     [StringLength(255, ErrorMessage = "Description cannot exceed 255 characters")]
     public string? Description { get; set; }
+
+    [Required(ErrorMessage = "Status is required")]
+    public Status Status { get; set; } = Status.ACTIVE;
 }
 
 public class UpdateServiceTypeRequest
@@ -25,11 +29,15 @@ public class UpdateServiceTypeRequest
 
     [StringLength(255, ErrorMessage = "Description cannot exceed 255 characters")]
     public string? Description { get; set; }
+
+    [Required(ErrorMessage = "Status is required")]
+    public Status Status { get; set; } = Status.ACTIVE;
 }
 
 public class ServiceTypeQueryRequest
 {
     public string? SearchTerm { get; set; }
+    public Status? Status { get; set; }
     [JsonRequired]
     public int PageNumber { get; set; } = 1;
     [JsonRequired]

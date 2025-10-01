@@ -46,7 +46,7 @@ public class DoctorsController : BaseApiController
     #region Doctor Endpoints
 
     /// <summary>
-    /// Get doctor by ID
+    /// Get doctor by ID with detailed hospital info
     /// </summary>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -58,7 +58,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Doctor with ID {id} not found");
         }
 
-        return Success<DoctorResponse>(doctor, "Doctor retrieved successfully");
+        return Success<DoctorDetailResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
@@ -390,6 +390,22 @@ public class DoctorsController : BaseApiController
         }
 
         return Success<object?>(null, "Doctor deleted successfully");
+    }
+
+    /// <summary>
+    /// Toggle doctor status (ACTIVE/INACTIVE)
+    /// </summary>
+    [HttpPatch("{id}/toggle-status")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ToggleDoctorStatus(Guid id)
+    {
+        var result = await _doctorService.ToggleDoctorStatusAsync(id);
+        if (!result)
+        {
+            return NotFound($"Doctor with ID {id} not found");
+        }
+
+        return Success<object?>(null, "Doctor status toggled successfully");
     }
 
     /// <summary>
