@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.ServiceMedical.Protos";
+
+package servicemedical;
+
+// The medical service definition.
+service ServiceMedicalService {
+  // Get medical service by ID
+  rpc GetServiceMedical (GetServiceMedicalRequest) returns (ServiceMedicalResponse);
+  
+  // Validate if a medical service exists and is active
+  rpc ValidateServiceMedical (ValidateServiceMedicalRequest) returns (ValidateServiceMedicalResponse);
+  
+  // Get multiple medical services by IDs
+  rpc GetServiceMedicalsByIds (GetServiceMedicalsByIdsRequest) returns (ServiceMedicalBatchResponse);
+}
+
+// Request messages
+message GetServiceMedicalRequest {
+  string id = 1; // GUID as string
+}
+
+message ValidateServiceMedicalRequest {
+  string id = 1; // GUID as string
+}
+
+message GetServiceMedicalsByIdsRequest {
+  repeated string ids = 1; // GUID as string
+}
+
+// Response messages
+message ServiceMedicalResponse {
+  string id = 1; // GUID as string
+  string name = 2;
+  string description = 3;
+  string category = 4;
+  double price = 5;
+  int32 duration_minutes = 6;
+  bool is_active = 7;
+  string created_at = 8; // ISO 8601
+  string updated_at = 9; // ISO 8601
+}
+
+message ValidateServiceMedicalResponse {
+  bool is_valid = 1;
+  bool is_active = 2;
+  string message = 3;
+}
+
+message ServiceMedicalBatchResponse {
+  repeated ServiceMedicalResponse services = 1;
+}
