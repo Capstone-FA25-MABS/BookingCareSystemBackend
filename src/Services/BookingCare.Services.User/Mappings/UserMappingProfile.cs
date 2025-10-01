@@ -22,7 +22,6 @@ public class UserMappingProfile : Profile
         CreateMap<UpdateUserRequest, UserEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.AccountId, opt => opt.Ignore())
-            .ForMember(dest => dest.Email, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
             .ForAllMembers(opt => opt.Condition((src, dest, srcMember) => srcMember != null));

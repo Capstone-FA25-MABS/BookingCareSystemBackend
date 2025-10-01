@@ -37,7 +37,8 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 // Register services
 builder.Services.AddScoped<IUserService, UserService>();
-
+// Add JWT Authentication and Authorization using centralized configuration
+builder.Services.AddJwtAuthAndAuthorization();
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
@@ -74,8 +75,7 @@ using (var scope = app.Services.CreateScope())
     await context.Database.EnsureCreatedAsync();
 }
 app.UseGlobalExceptionHandling();
-app.UseCors("AllowAll");
-app.UseRouting();
+app.UseStandardAuthPipeline();
 app.MapControllers();
 
 // Configure gRPC services

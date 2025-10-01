@@ -48,6 +48,15 @@ public class UpdateUserRequest
     [StringLength(50, MinimumLength = 2)]
     public string? LastName { get; set; }
 
+    [EmailAddress]
+    [StringLength(100, MinimumLength = 5)]
+    public string? Email { get; set; }
+
+    [Phone]
+    [RegularExpression(@"^0\d{9}$", ErrorMessage = "Phone number must be 10 digits starting with 0")]
+    [StringLength(10, MinimumLength = 10, ErrorMessage = "Phone number must be exactly 10 digits")]
+    public string? PhoneNumber { get; set; }
+
     public Gender? Gender { get; set; }
 
     public DateTime? DateOfBirth { get; set; }
