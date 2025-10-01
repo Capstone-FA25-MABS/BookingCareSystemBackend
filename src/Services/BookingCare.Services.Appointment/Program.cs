@@ -8,7 +8,6 @@ using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
-using BookingCare.Shared.Common.AppRouting;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -118,7 +117,6 @@ app.UseStandardAuthPipeline();
 app.MapControllers();
 
 // Map gRPC services
-app.MapGrpcService<GreeterService>();
 app.MapGet("/", () => "BookingCare Appointment Service is running...");
 
 // Initialize default data

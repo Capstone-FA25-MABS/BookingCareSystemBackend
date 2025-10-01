@@ -17,7 +17,6 @@ public class AppointmentMappingProfile : Profile
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => AppointmentStatus.PENDING))
             .ForMember(dest => dest.Result, opt => opt.Ignore());
 
         CreateMap<AppointmentEntity, AppointmentResponse>()

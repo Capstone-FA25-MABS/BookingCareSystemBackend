@@ -1,6 +1,4 @@
 using BookingCare.Services.Appointment.Models.DTOs;
-using BookingCare.Shared.Common.Enums;
-using BookingCare.Services.Appointment.Enums;
 
 namespace BookingCare.Services.Appointment.Services;
 
