@@ -1,4 +1,5 @@
 
+namespace BookingCare.Shared.Common.Models;
 /// <summary>
 /// Configuration model for Kestrel settings
 /// </summary>
