@@ -15,6 +15,9 @@ service DoctorService {
   // Create new doctor
   rpc CreateDoctor (CreateDoctorRequest) returns (DoctorResponse);
 
+  // Delete doctor for Saga compensation
+  rpc DeleteDoctor (DeleteDoctorRequest) returns (DeleteDoctorResponse);
+
   // Batch retrieval for performance optimization
   rpc GetDoctorsByAccountIds (GetDoctorsByAccountIdsRequest) returns (DoctorBatchResponse);
 }
@@ -80,4 +83,13 @@ message DoctorBasicInfo {
 // Response message for batch doctor retrieval
 message DoctorBatchResponse {
   repeated DoctorBasicInfo doctors = 1;
+}
+
+message DeleteDoctorRequest {
+  string id = 1;
+}
+
+message DeleteDoctorResponse {
+  bool success = 1;
+  string message = 2;
 }

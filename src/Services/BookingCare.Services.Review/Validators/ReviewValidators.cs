@@ -27,11 +27,11 @@ public class CreateReviewRequestValidator : AbstractValidator<CreateReviewReques
             .WithMessage("Doctor ID is required when reviewing a doctor")
             .WithName("Doctor ID");
 
-        RuleFor(x => x.ClinicServiceId)
+        RuleFor(x => x.ServiceId)
             .NotEmptyGuidRequired()
             .When(x => x.TargetType == TargetType.SERVICE)
-            .WithMessage("Clinic Service ID is required when reviewing a service")
-            .WithName("Clinic Service ID");
+            .WithMessage("Service ID is required when reviewing a service")
+            .WithName("Service ID");
 
         // Ensure mutual exclusivity
         RuleFor(x => x.DoctorId)
@@ -39,10 +39,10 @@ public class CreateReviewRequestValidator : AbstractValidator<CreateReviewReques
             .When(x => x.TargetType == TargetType.SERVICE)
             .WithMessage("Doctor ID should not be provided when reviewing a service");
 
-        RuleFor(x => x.ClinicServiceId)
+        RuleFor(x => x.ServiceId)
             .Empty()
             .When(x => x.TargetType == TargetType.DOCTOR)
-            .WithMessage("Clinic Service ID should not be provided when reviewing a doctor");
+            .WithMessage("Service ID should not be provided when reviewing a doctor");
 
         RuleFor(x => x.Rating)
             .ValidRating();
@@ -53,7 +53,7 @@ public class CreateReviewRequestValidator : AbstractValidator<CreateReviewReques
         // Cross-field validation
         RuleFor(x => x)
             .Must(BeValidTargetCombination)
-            .WithMessage("Invalid target combination: Either Doctor ID or Clinic Service ID must be provided based on target type")
+            .WithMessage("Invalid target combination: Either Doctor ID or Service ID must be provided based on target type")
             .OverridePropertyName("TargetCombination");
     }
 
@@ -61,8 +61,8 @@ public class CreateReviewRequestValidator : AbstractValidator<CreateReviewReques
     {
         return request.TargetType switch
         {
-            TargetType.DOCTOR => request.DoctorId.HasValue && request.DoctorId != Guid.Empty && !request.ClinicServiceId.HasValue,
-            TargetType.SERVICE => request.ClinicServiceId.HasValue && request.ClinicServiceId != Guid.Empty && !request.DoctorId.HasValue,
+            TargetType.DOCTOR => request.DoctorId.HasValue && request.DoctorId != Guid.Empty && !request.ServiceId.HasValue,
+            TargetType.SERVICE => request.ServiceId.HasValue && request.ServiceId != Guid.Empty && !request.DoctorId.HasValue,
             _ => false
         };
     }
@@ -84,6 +84,77 @@ public class UpdateReviewRequestValidator : AbstractValidator<UpdateReviewReques
 
         RuleFor(x => x.Comment)
             .ValidComment();
+    }
+}
+
+/// <summary>
+/// Validator for GetReviewsRequest
+/// </summary>
+public class GetReviewsRequestValidator : AbstractValidator<GetReviewsRequest>
+{
+    public GetReviewsRequestValidator()
+    {
+        When(x => x.PatientId.HasValue, () =>
+        {
+            RuleFor(x => x.PatientId!.Value)
+                .NotEmpty()
+                .WithMessage("Patient ID cannot be empty")
+                .WithName("Patient ID");
+        });
+
+        When(x => x.DoctorId.HasValue, () =>
+        {
+            RuleFor(x => x.DoctorId!.Value)
+                .NotEmpty()
+                .WithMessage("Doctor ID cannot be empty")
+                .WithName("Doctor ID");
+        });
+
+        When(x => x.ServiceId.HasValue, () =>
+        {
+            RuleFor(x => x.ServiceId!.Value)
+                .NotEmpty()
+                .WithMessage("Service ID cannot be empty")
+                .WithName("Service ID");
+        });
+
+        RuleFor(x => x.TargetType)
+            .IsInEnum()
+            .When(x => x.TargetType.HasValue)
+            .WithMessage("Target type must be either 'DOCTOR' or 'SERVICE'");
+
+        When(x => x.MinRating.HasValue, () =>
+        {
+            RuleFor(x => x.MinRating!.Value)
+                .ValidRating();
+        });
+
+        When(x => x.MaxRating.HasValue, () =>
+        {
+            RuleFor(x => x.MaxRating!.Value)
+                .ValidRating();
+        });
+
+        RuleFor(x => x)
+            .Must(BeValidRatingRange)
+            .WithMessage("Maximum rating must be greater than or equal to minimum rating")
+            .When(x => x.MinRating.HasValue && x.MaxRating.HasValue)
+            .OverridePropertyName("RatingRange");
+
+        RuleFor(x => x.Page)
+            .ValidPage();
+
+        RuleFor(x => x.PageSize)
+            .ValidPageSize();
+    }
+
+    private static bool BeValidRatingRange(GetReviewsRequest request)
+    {
+        if (request.MinRating.HasValue && request.MaxRating.HasValue)
+        {
+            return request.MaxRating >= request.MinRating;
+        }
+        return true;
     }
 }
 
@@ -128,7 +199,7 @@ public class UpdateReplyRequestValidator : AbstractValidator<UpdateReplyRequest>
 }
 
 /// <summary>
-/// Enhanced validator for BatchDoctorsStatisticsRequest
+/// Validator for BatchDoctorsStatisticsRequest
 /// </summary>
 public class BatchDoctorsStatisticsRequestValidator : AbstractValidator<BatchDoctorsStatisticsRequest>
 {
@@ -136,30 +207,18 @@ public class BatchDoctorsStatisticsRequestValidator : AbstractValidator<BatchDoc
     {
         RuleFor(x => x.DoctorIds)
             .NotEmpty()
-            .WithMessage("Doctor IDs list cannot be empty");
-
-        RuleFor(x => x.DoctorIds.Count)
-            .ValidBatchSize(100)
-            .WithName("Batch Size");
+            .WithMessage("At least one doctor ID must be provided")
+            .Must(x => x.Count <= 100)
+            .WithMessage("Maximum 100 doctor IDs allowed per request");
 
         RuleForEach(x => x.DoctorIds)
             .NotEmptyGuid()
-            .WithMessage("All Doctor IDs must be valid non-empty GUIDs");
-
-        // Check for duplicates
-        RuleFor(x => x.DoctorIds)
-            .Must(BeUnique)
-            .WithMessage("Doctor IDs list should not contain duplicates");
-    }
-
-    private static bool BeUnique(List<Guid> doctorIds)
-    {
-        return doctorIds.Count == doctorIds.Distinct().Count();
+            .WithName("Doctor ID");
     }
 }
 
 /// <summary>
-/// Enhanced validator for BatchServicesStatisticsRequest
+/// Validator for BatchServicesStatisticsRequest
 /// </summary>
 public class BatchServicesStatisticsRequestValidator : AbstractValidator<BatchServicesStatisticsRequest>
 {
@@ -167,86 +226,12 @@ public class BatchServicesStatisticsRequestValidator : AbstractValidator<BatchSe
     {
         RuleFor(x => x.ServiceIds)
             .NotEmpty()
-            .WithMessage("Service IDs list cannot be empty");
-
-        RuleFor(x => x.ServiceIds.Count)
-            .ValidBatchSize(100)
-            .WithName("Batch Size");
+            .WithMessage("At least one service ID must be provided")
+            .Must(x => x.Count <= 100)
+            .WithMessage("Maximum 100 service IDs allowed per request");
 
         RuleForEach(x => x.ServiceIds)
             .NotEmptyGuid()
-            .WithMessage("All Service IDs must be valid non-empty GUIDs");
-
-        // Check for duplicates
-        RuleFor(x => x.ServiceIds)
-            .Must(BeUnique)
-            .WithMessage("Service IDs list should not contain duplicates");
-    }
-
-    private static bool BeUnique(List<Guid> serviceIds)
-    {
-        return serviceIds.Count == serviceIds.Distinct().Count();
-    }
-}
-
-/// <summary>
-/// Enhanced validator for GetReviewsRequest
-/// </summary>
-public class GetReviewsRequestValidator : AbstractValidator<GetReviewsRequest>
-{
-    public GetReviewsRequestValidator()
-    {
-        RuleFor(x => x.Page)
-            .ValidPage();
-
-        RuleFor(x => x.PageSize)
-            .ValidPageSize();
-
-        RuleFor(x => x.MinRating)
-            .InclusiveBetween(1, 5)
-            .When(x => x.MinRating.HasValue)
-            .WithMessage("Minimum rating must be between 1 and 5 stars");
-
-        RuleFor(x => x.MaxRating)
-            .InclusiveBetween(1, 5)
-            .When(x => x.MaxRating.HasValue)
-            .WithMessage("Maximum rating must be between 1 and 5 stars");
-
-        RuleFor(x => x.MaxRating)
-            .ValidRatingRange(x => x.MinRating);
-
-        RuleFor(x => x.TargetType)
-            .IsInEnum()
-            .When(x => x.TargetType.HasValue)
-            .WithMessage("Target type must be either 'DOCTOR' or 'SERVICE'");
-
-        // Validate optional GUIDs
-        RuleFor(x => x.PatientId)
-            .NotEmptyGuidWhenHasValue()
-            .WithName("Patient ID");
-
-        RuleFor(x => x.DoctorId)
-            .NotEmptyGuidWhenHasValue()
-            .WithName("Doctor ID");
-
-        RuleFor(x => x.ClinicServiceId)
-            .NotEmptyGuidWhenHasValue()
-            .WithName("Clinic Service ID");
-
-        // Logical validation
-        RuleFor(x => x)
-            .Must(BeValidSearchCriteria)
-            .WithMessage("At least one filter criteria must be provided (PatientId, DoctorId, ClinicServiceId, or TargetType)")
-            .OverridePropertyName("SearchCriteria");
-    }
-
-    private static bool BeValidSearchCriteria(GetReviewsRequest request)
-    {
-        return request.PatientId.HasValue ||
-               request.DoctorId.HasValue ||
-               request.ClinicServiceId.HasValue ||
-               request.TargetType.HasValue ||
-               request.MinRating.HasValue ||
-               request.MaxRating.HasValue;
+            .WithName("Service ID");
     }
 }

@@ -3,6 +3,19 @@ using BookingCare.Services.Review.Models.DTOs;
 namespace BookingCare.Services.Review.Services.Interfaces;
 
 /// <summary>
+/// Interface for enriching account information from Auth service
+/// </summary>
+public interface IAccountEnrichmentService
+{
+    /// <summary>
+    /// Gets account information for multiple account IDs
+    /// </summary>
+    /// <param name="accountIds">List of account IDs to fetch</param>
+    /// <returns>Dictionary mapping account ID to AccountInfo</returns>
+    Task<Dictionary<string, AccountInfo>> GetAccountDetailsAsync(List<string> accountIds);
+}
+
+/// <summary>
 /// Service interface for Review operations
 /// </summary>
 public interface IReviewService
@@ -52,13 +65,13 @@ public interface IReviewService
     Task<PagedReviewsResponse> GetReviewsByDoctorAsync(Guid doctorId, int page = 1, int pageSize = 10);
 
     /// <summary>
-    /// Gets reviews for a specific clinic service
+    /// Gets reviews for a specific service
     /// </summary>
-    /// <param name="clinicServiceId">The clinic service ID</param>
+    /// <param name="serviceId">The service ID</param>
     /// <param name="page">Page number</param>
     /// <param name="pageSize">Page size</param>
-    /// <returns>Paginated reviews for the clinic service</returns>
-    Task<PagedReviewsResponse> GetReviewsByClinicServiceAsync(Guid clinicServiceId, int page = 1, int pageSize = 10);
+    /// <returns>Paginated reviews for the service</returns>
+    Task<PagedReviewsResponse> GetReviewsByServiceAsync(Guid serviceId, int page = 1, int pageSize = 10);
 
     /// <summary>
     /// Gets reviews by a specific patient
@@ -99,11 +112,11 @@ public interface IReviewService
     Task<double> GetAverageRatingByDoctorAsync(Guid doctorId);
 
     /// <summary>
-    /// Gets the average rating for a clinic service
+    /// Gets the average rating for a service
     /// </summary>
-    /// <param name="clinicServiceId">The clinic service ID</param>
+    /// <param name="serviceId">The service ID</param>
     /// <returns>Average rating</returns>
-    Task<double> GetAverageRatingByClinicServiceAsync(Guid clinicServiceId);
+    Task<double> GetAverageRatingByServiceAsync(Guid serviceId);
 
     /// <summary>
     /// Gets the total count of reviews for a doctor
@@ -113,11 +126,11 @@ public interface IReviewService
     Task<long> GetReviewCountByDoctorAsync(Guid doctorId);
 
     /// <summary>
-    /// Gets the total count of reviews for a clinic service
+    /// Gets the total count of reviews for a service
     /// </summary>
-    /// <param name="clinicServiceId">The clinic service ID</param>
+    /// <param name="serviceId">The service ID</param>
     /// <returns>Review count</returns>
-    Task<long> GetReviewCountByClinicServiceAsync(Guid clinicServiceId);
+    Task<long> GetReviewCountByServiceAsync(Guid serviceId);
 
     /// <summary>
     /// Gets optimized statistics for a doctor (used by batch operations)
@@ -127,11 +140,11 @@ public interface IReviewService
     Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId);
 
     /// <summary>
-    /// Gets optimized statistics for a clinic service (used by batch operations)
+    /// Gets optimized statistics for a service (used by batch operations)
     /// </summary>
-    /// <param name="clinicServiceId">The clinic service ID</param>
+    /// <param name="serviceId">The service ID</param>
     /// <returns>Review statistics without rating distribution</returns>
-    Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId);
+    Task<ReviewStatisticsResponse> GetServiceStatisticsAsync(Guid serviceId);
 
     /// <summary>
     /// Gets detailed statistics with rating distribution for a doctor (single endpoint)
@@ -141,11 +154,11 @@ public interface IReviewService
     Task<ReviewDetailedStatisticsResponse> GetDoctorDetailedStatisticsAsync(Guid doctorId);
 
     /// <summary>
-    /// Gets detailed statistics with rating distribution for a clinic service (single endpoint)
+    /// Gets detailed statistics with rating distribution for a service (single endpoint)
     /// </summary>
-    /// <param name="clinicServiceId">The clinic service ID</param>
+    /// <param name="serviceId">The service ID</param>
     /// <returns>Detailed review statistics including rating distribution</returns>
-    Task<ReviewDetailedStatisticsResponse> GetClinicServiceDetailedStatisticsAsync(Guid clinicServiceId);
+    Task<ReviewDetailedStatisticsResponse> GetServiceDetailedStatisticsAsync(Guid serviceId);
 
     /// <summary>
     /// Gets comprehensive statistics for multiple doctors in a single request
@@ -155,7 +168,7 @@ public interface IReviewService
     Task<BatchDoctorsStatisticsResponse> GetBatchDoctorsStatisticsAsync(BatchDoctorsStatisticsRequest request);
 
     /// <summary>
-    /// Gets comprehensive statistics for multiple clinic services in a single request
+    /// Gets comprehensive statistics for multiple services in a single request
     /// </summary>
     /// <param name="request">Batch services statistics request</param>
     /// <returns>Batch statistics response for all services</returns>

@@ -278,6 +278,7 @@ public class DiscountsController : BaseApiController
     /// Health check endpoint
     /// </summary>
     [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Health()
     {
         var healthData = new { Status = "Healthy", Service = "Discount", Timestamp = DateTime.UtcNow };

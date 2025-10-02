@@ -26,7 +26,7 @@ public class ReviewMappingProfile : Profile
             .ForMember(dest => dest.PatientId, opt => opt.Ignore())
             .ForMember(dest => dest.TargetType, opt => opt.Ignore())
             .ForMember(dest => dest.DoctorId, opt => opt.Ignore())
-            .ForMember(dest => dest.ClinicServiceId, opt => opt.Ignore())
+            .ForMember(dest => dest.ServiceId, opt => opt.Ignore())
             .ForMember(dest => dest.Replies, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => DateTime.UtcNow));

@@ -3,6 +3,42 @@ using BookingCare.Services.Review.Enums;
 namespace BookingCare.Services.Review.Models.DTOs;
 
 /// <summary>
+/// Account information for review/reply author
+/// </summary>
+public class AccountInfo
+{
+    /// <summary>
+    /// Account ID
+    /// </summary>
+    public string AccountId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Email address
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Full name
+    /// </summary>
+    public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Avatar URL
+    /// </summary>
+    public string AvatarUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Account role
+    /// </summary>
+    public string Role { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the account was found
+    /// </summary>
+    public bool Found { get; set; } = true;
+}
+
+/// <summary>
 /// Response DTO for a reply
 /// </summary>
 public class ReplyResponse
@@ -18,6 +54,11 @@ public class ReplyResponse
     public Guid AuthorId { get; set; }
 
     /// <summary>
+    /// Author account information
+    /// </summary>
+    public AccountInfo? AuthorInfo { get; set; }
+
+    /// <summary>
     /// Content of the reply
     /// </summary>
     public string Content { get; set; } = string.Empty;
@@ -29,6 +70,62 @@ public class ReplyResponse
 
     /// <summary>
     /// When the reply was last updated
+    /// </summary>
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Response DTO for a review
+/// </summary>
+public class ReviewResponse
+{
+    /// <summary>
+    /// Unique identifier for the review
+    /// </summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID of the patient who created the review
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Patient account information
+    /// </summary>
+    public AccountInfo? PatientInfo { get; set; }
+
+    /// <summary>
+    /// ID of the doctor being reviewed (null if reviewing service)
+    /// </summary>
+    public Guid? DoctorId { get; set; }
+
+    /// <summary>
+    /// ID of the service being reviewed (null if reviewing doctor)
+    /// </summary>
+    public Guid? ServiceId { get; set; }
+
+    /// <summary>
+    /// Rating from 1 to 5 stars
+    /// </summary>
+    public int Rating { get; set; }
+
+    /// <summary>
+    /// Comment content
+    /// </summary>
+    public string Comment { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Replies to this review
+    /// </summary>
+    public List<ReplyResponse> Replies { get; set; } = new();
+
+    /// <summary>
+    /// When the review was created
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// When the review was last updated
     /// </summary>
     public DateTime UpdatedAt { get; set; }
 }
@@ -149,57 +246,6 @@ public class BatchServicesStatisticsResponse
     /// All requested service IDs will be present - those without reviews will have averageRating=0 and totalReviews=0
     /// </summary>
     public Dictionary<Guid, ReviewStatisticsResponse> ServiceStatistics { get; set; } = new();
-}
-
-/// <summary>
-/// Response DTO for a review
-/// </summary>
-public class ReviewResponse
-{
-    /// <summary>
-    /// Unique identifier for the review
-    /// </summary>
-    public string Id { get; set; } = string.Empty;
-
-    /// <summary>
-    /// ID of the patient who created the review
-    /// </summary>
-    public Guid PatientId { get; set; }
-
-    /// <summary>
-    /// ID of the doctor being reviewed (null if reviewing service)
-    /// </summary>
-    public Guid? DoctorId { get; set; }
-
-    /// <summary>
-    /// ID of the clinic service being reviewed (null if reviewing doctor)
-    /// </summary>
-    public Guid? ClinicServiceId { get; set; }
-
-    /// <summary>
-    /// Rating from 1 to 5 stars
-    /// </summary>
-    public int Rating { get; set; }
-
-    /// <summary>
-    /// Comment content
-    /// </summary>
-    public string Comment { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Replies to this review
-    /// </summary>
-    public List<ReplyResponse> Replies { get; set; } = new();
-
-    /// <summary>
-    /// When the review was created
-    /// </summary>
-    public DateTime CreatedAt { get; set; }
-
-    /// <summary>
-    /// When the review was last updated
-    /// </summary>
-    public DateTime UpdatedAt { get; set; }
 }
 
 /// <summary>
