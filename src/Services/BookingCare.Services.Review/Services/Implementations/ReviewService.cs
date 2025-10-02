@@ -48,7 +48,7 @@ public class AccountEnrichmentService : BaseService, IAccountEnrichmentService
             try
             {
                 var response = await _authClient.GetAccountDetailsAsync(request);
-                return await ProcessAuthServiceResponse(response, uniqueAccountIds);
+                return ProcessAuthServiceResponse(response, uniqueAccountIds);
             }
             catch (RpcException ex)
             {
@@ -69,7 +69,7 @@ public class AccountEnrichmentService : BaseService, IAccountEnrichmentService
     /// <summary>
     /// Processes the response from Auth service and creates account info dictionary
     /// </summary>
-    private async Task<Dictionary<string, AccountInfo>> ProcessAuthServiceResponse(
+    private Dictionary<string, AccountInfo> ProcessAuthServiceResponse(
         GetAccountDetailsResponse response,
         List<string> uniqueAccountIds)
     {

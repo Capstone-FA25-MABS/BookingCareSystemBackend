@@ -1,5 +1,4 @@
 using BookingCare.Services.Review.Extensions;
-using BookingCare.Services.Review.Data;
 using BookingCare.Services.Review.Mappings;
 using BookingCare.Services.Review.Validators;
 using BookingCare.Services.Review.Grpc.Services;
@@ -8,26 +7,12 @@ using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Auth.Protos;
 using FluentValidation;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Mvc;
-
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(6012, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-    options.ListenAnyIP(6022, listenOptions =>
-    {
-        // listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "review");
 
 // Add services to the container
 builder.Services.AddControllers(options =>
