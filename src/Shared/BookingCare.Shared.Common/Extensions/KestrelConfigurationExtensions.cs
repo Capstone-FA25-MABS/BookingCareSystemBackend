@@ -27,64 +27,107 @@ public static class KestrelConfigurationExtensions
             var kestrelConfig = configuration.GetSection("Kestrel").Get<KestrelConfiguration>()
                 ?? new KestrelConfiguration();
 
-            // Enable HTTP/2 without TLS for gRPC in development only
-            if (!environment.IsProduction())
-            {
-                AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-            }
-
-            // Configure HTTP endpoint for REST API
-            var httpPort = kestrelConfig.HttpPort ?? GetDefaultHttpPort(serviceName);
-            options.ListenAnyIP(httpPort, listenOptions =>
-            {
-                listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-
-                // Enable HTTPS in production
-                if (environment.IsProduction())
-                {
-                    if (!string.IsNullOrEmpty(kestrelConfig.CertificatePath) &&
-                        !string.IsNullOrEmpty(kestrelConfig.CertificatePassword))
-                    {
-                        listenOptions.UseHttps(kestrelConfig.CertificatePath, kestrelConfig.CertificatePassword);
-                    }
-                    else
-                    {
-                        listenOptions.UseHttps(); // Use default certificate
-                    }
-                }
-            });
-
-            // Configure gRPC endpoint if enabled
-            if (kestrelConfig.EnableGrpc)
-            {
-                var grpcPort = kestrelConfig.GrpcPort ?? GetDefaultGrpcPort(serviceName);
-                options.ListenAnyIP(grpcPort, listenOptions =>
-                {
-                    listenOptions.Protocols = HttpProtocols.Http2;
-
-                    // Enable HTTPS in production
-                    if (environment.IsProduction())
-                    {
-                        if (!string.IsNullOrEmpty(kestrelConfig.CertificatePath) &&
-                            !string.IsNullOrEmpty(kestrelConfig.CertificatePassword))
-                        {
-                            listenOptions.UseHttps(kestrelConfig.CertificatePath, kestrelConfig.CertificatePassword);
-                        }
-                        else
-                        {
-                            listenOptions.UseHttps(); // Use default certificate
-                        }
-                    }
-                });
-            }
-
-            // Configure connection limits for security
-            options.Limits.MaxConcurrentConnections = kestrelConfig.MaxConcurrentConnections;
-            options.Limits.MaxConcurrentUpgradedConnections = kestrelConfig.MaxConcurrentUpgradedConnections;
-            options.Limits.MaxRequestBodySize = kestrelConfig.MaxRequestBodySize;
-            options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(kestrelConfig.RequestHeadersTimeoutSeconds);
-            options.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(kestrelConfig.KeepAliveTimeoutSeconds);
+            EnableHttp2WithoutTlsForDevelopment(environment);
+            ConfigureHttpEndpoint(options, kestrelConfig, environment, serviceName);
+            ConfigureGrpcEndpoint(options, kestrelConfig, environment, serviceName);
+            ConfigureConnectionLimits(options, kestrelConfig);
         });
+    }
+
+    /// <summary>
+    /// Enables HTTP/2 without TLS for gRPC in development environment
+    /// </summary>
+    private static void EnableHttp2WithoutTlsForDevelopment(IHostEnvironment environment)
+    {
+        if (!environment.IsProduction())
+        {
+            AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+        }
+    }
+
+    /// <summary>
+    /// Configures HTTP endpoint for REST API
+    /// </summary>
+    private static void ConfigureHttpEndpoint(
+        KestrelServerOptions options,
+        KestrelConfiguration kestrelConfig,
+        IHostEnvironment environment,
+        string serviceName)
+    {
+        var httpPort = kestrelConfig.HttpPort ?? GetDefaultHttpPort(serviceName);
+        options.ListenAnyIP(httpPort, listenOptions =>
+        {
+            listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+            ConfigureHttpsForProduction(listenOptions, kestrelConfig, environment);
+        });
+    }
+
+    /// <summary>
+    /// Configures gRPC endpoint if enabled
+    /// </summary>
+    private static void ConfigureGrpcEndpoint(
+        KestrelServerOptions options,
+        KestrelConfiguration kestrelConfig,
+        IHostEnvironment environment,
+        string serviceName)
+    {
+        if (!kestrelConfig.EnableGrpc)
+        {
+            return;
+        }
+
+        var grpcPort = kestrelConfig.GrpcPort ?? GetDefaultGrpcPort(serviceName);
+        options.ListenAnyIP(grpcPort, listenOptions =>
+        {
+            listenOptions.Protocols = HttpProtocols.Http2;
+            ConfigureHttpsForProduction(listenOptions, kestrelConfig, environment);
+        });
+    }
+
+    /// <summary>
+    /// Configures HTTPS for production environment
+    /// </summary>
+    private static void ConfigureHttpsForProduction(
+        ListenOptions listenOptions,
+        KestrelConfiguration kestrelConfig,
+        IHostEnvironment environment)
+    {
+        if (!environment.IsProduction())
+        {
+            return;
+        }
+
+        if (HasCustomCertificate(kestrelConfig))
+        {
+            listenOptions.UseHttps(kestrelConfig.CertificatePath!, kestrelConfig.CertificatePassword!);
+        }
+        else
+        {
+            listenOptions.UseHttps(); // Use default certificate
+        }
+    }
+
+    /// <summary>
+    /// Checks if custom certificate is configured
+    /// </summary>
+    private static bool HasCustomCertificate(KestrelConfiguration kestrelConfig)
+    {
+        return !string.IsNullOrEmpty(kestrelConfig.CertificatePath) &&
+               !string.IsNullOrEmpty(kestrelConfig.CertificatePassword);
+    }
+
+    /// <summary>
+    /// Configures connection limits for security
+    /// </summary>
+    private static void ConfigureConnectionLimits(
+        KestrelServerOptions options,
+        KestrelConfiguration kestrelConfig)
+    {
+        options.Limits.MaxConcurrentConnections = kestrelConfig.MaxConcurrentConnections;
+        options.Limits.MaxConcurrentUpgradedConnections = kestrelConfig.MaxConcurrentUpgradedConnections;
+        options.Limits.MaxRequestBodySize = kestrelConfig.MaxRequestBodySize;
+        options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(kestrelConfig.RequestHeadersTimeoutSeconds);
+        options.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(kestrelConfig.KeepAliveTimeoutSeconds);
     }
 
     /// <summary>
