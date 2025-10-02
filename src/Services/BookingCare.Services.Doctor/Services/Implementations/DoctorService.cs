@@ -354,6 +354,7 @@ public class DoctorService : BaseService, IDoctorService
             var query = new DoctorQueryRequest
             {
                 SpecialtyId = filter.SpecialtyId,
+                SpecialtyIds = filter.SpecialtyIds, // Add multiple specialty support
                 PositionId = filter.PositionId,
                 PositionIds = filter.PositionIds,
                 Gender = filter.Gender,
@@ -364,6 +365,7 @@ public class DoctorService : BaseService, IDoctorService
                 MinPrice = filter.MinPrice,
                 MaxPrice = filter.MaxPrice,
                 HospitalId = filter.HospitalId,
+                HospitalIds = filter.HospitalIds, // Add multiple hospital support
                 ServiceType = filter.ServiceType,
                 ServiceTypes = filter.ServiceTypes,
                 Language = filter.Language,

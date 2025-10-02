@@ -155,12 +155,19 @@ public class DoctorRepository : IDoctorRepository
         if (query.PositionId.HasValue)
             queryable = queryable.Where(d => d.PositionId == query.PositionId.Value);
         if (query.PositionIds != null && query.PositionIds.Any())
-            queryable = queryable.Where(d => query.PositionIds.Contains(d.PositionId.Value));
+            queryable = queryable.Where(d => d.PositionId.HasValue && query.PositionIds.Contains(d.PositionId.Value));
 
+        // Specialty filters - support both single and multiple
         if (query.SpecialtyId.HasValue)
             queryable = queryable.Where(d => d.SpecialtyId == query.SpecialtyId.Value);
+        if (query.SpecialtyIds != null && query.SpecialtyIds.Any())
+            queryable = queryable.Where(d => d.SpecialtyId.HasValue && query.SpecialtyIds.Contains(d.SpecialtyId.Value));
+
+        // Hospital filters - support both single and multiple
         if (query.HospitalId.HasValue)
             queryable = queryable.Where(d => d.HospitalId == query.HospitalId.Value);
+        if (query.HospitalIds != null && query.HospitalIds.Any())
+            queryable = queryable.Where(d => d.HospitalId.HasValue && query.HospitalIds.Contains(d.HospitalId.Value));
 
         // Gender filters - support both single and multiple
         if (!string.IsNullOrEmpty(query.Gender))
@@ -178,21 +185,26 @@ public class DoctorRepository : IDoctorRepository
             queryable = queryable.Where(d => d.Gender.HasValue && genderEnums.Contains(d.Gender.Value));
         }
 
-        // Experience filters - support both single range and multiple ranges
+        // Experience filters - prioritize min/max over ranges (like price filter)
         if (query.MinYearsOfExperience.HasValue)
+        {
+            Console.WriteLine($"Applying min experience filter: {query.MinYearsOfExperience.Value} years");
             queryable = queryable.Where(d => d.YearsOfExperience >= query.MinYearsOfExperience.Value);
+        }
         if (query.MaxYearsOfExperience.HasValue)
+        {
+            Console.WriteLine($"Applying max experience filter: {query.MaxYearsOfExperience.Value} years");
             queryable = queryable.Where(d => d.YearsOfExperience <= query.MaxYearsOfExperience.Value);
-        if (query.ExperienceRanges != null && query.ExperienceRanges.Any())
+        }
+
+        // Only apply experience ranges if min/max are not specified (for backward compatibility)
+        if (!query.MinYearsOfExperience.HasValue && !query.MaxYearsOfExperience.HasValue &&
+            query.ExperienceRanges != null && query.ExperienceRanges.Any())
         {
             Console.WriteLine($"Applying experience ranges filter: {query.ExperienceRanges.Count} ranges");
-            foreach (var range in query.ExperienceRanges)
-            {
-                Console.WriteLine($"Range: MinYears={range.MinYears}, MaxYears={range.MaxYears}");
-            }
-
-            queryable = queryable.Where(d => query.ExperienceRanges.Any(range =>
-                d.YearsOfExperience >= range.MinYears && d.YearsOfExperience <= range.MaxYears));
+            var ranges = query.ExperienceRanges.ToList();
+            queryable = queryable.Where(d => ranges.Any(r =>
+                d.YearsOfExperience >= r.MinYears && d.YearsOfExperience <= r.MaxYears));
         }
 
         if (!string.IsNullOrEmpty(query.Address))

@@ -46,6 +46,17 @@ public class DoctorsController : BaseApiController
     #region Doctor Endpoints
 
     /// <summary>
+    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ)
+    /// </summary>
+    [HttpPost("filter")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> FilterDoctors([FromBody] DoctorAdvancedFilterRequest filter)
+    {
+        var result = await _doctorService.FilterDoctorsAsync(filter);
+        return Success<DoctorListResponse>(result, "Doctors filtered successfully");
+    }
+
+    /// <summary>
     /// Get doctor by ID with detailed hospital info
     /// </summary>
     [HttpGet("{id}")]
@@ -143,17 +154,6 @@ public class DoctorsController : BaseApiController
             result = await _doctorService.GetDoctorsAsync(query);
         }
         return Success<DoctorListResponse>(result, "Doctors retrieved successfully");
-    }
-
-    /// <summary>
-    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ)
-    /// </summary>
-    [HttpPost("filter")]
-    [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> FilterDoctors([FromBody] DoctorAdvancedFilterRequest filter)
-    {
-        var result = await _doctorService.FilterDoctorsAsync(filter);
-        return Success<DoctorListResponse>(result, "Doctors filtered successfully");
     }
 
     /// <summary>
