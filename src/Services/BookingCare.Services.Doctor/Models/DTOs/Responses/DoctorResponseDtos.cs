@@ -33,6 +33,8 @@ public class DoctorResponse
     public HospitalBasicInfo? Hospital { get; set; }
     // Review statistics - can be detailed (with rating distribution) or basic (without)
     public IDoctorReviewStatistics? ReviewStatistics { get; set; }
+    // Distance from user's selected location (in kilometers)
+    public double? DistanceFromUser { get; set; }
 }
 
 public class DoctorPriceResponse

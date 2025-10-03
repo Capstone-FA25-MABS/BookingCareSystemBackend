@@ -104,6 +104,8 @@ public class DoctorQueryRequest
     public List<Guid>? SpecialtyIds { get; set; } // Support multiple specialty filters
     public Guid? HospitalId { get; set; }
     public List<Guid>? HospitalIds { get; set; } // Support multiple hospital filters
+    public string? ProvinceId { get; set; } // Province/City ID for location filtering
+    public string? DistrictId { get; set; } // District ID for location filtering
     public string? Gender { get; set; }
     public List<string>? Genders { get; set; } // Support multiple gender filters
     public Status? Status { get; set; } // Filter by doctor status (ACTIVE/INACTIVE)
@@ -164,6 +166,8 @@ public class DoctorAdvancedFilterRequest
     public Guid? HospitalId { get; set; }
     [JsonPropertyName("hospitalIds")]
     public List<Guid>? HospitalIds { get; set; } // Support multiple hospital filters
+    public string? ProvinceId { get; set; } // Province/City ID for location filtering
+    public string? DistrictId { get; set; } // District ID for location filtering
     public string? ServiceType { get; set; }
     [JsonPropertyName("serviceTypes")]
     public List<string>? ServiceTypes { get; set; } // Support multiple service type filters

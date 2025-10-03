@@ -169,6 +169,16 @@ public class DoctorRepository : IDoctorRepository
         if (query.HospitalIds != null && query.HospitalIds.Any())
             queryable = queryable.Where(d => d.HospitalId.HasValue && query.HospitalIds.Contains(d.HospitalId.Value));
 
+        // Location filters - filter by province/district (requires hospital address data)
+        // Note: This filtering will be enhanced at service layer with distance calculation
+        if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
+        {
+            Console.WriteLine($"Location filtering requested - ProvinceId: {query.ProvinceId}, DistrictId: {query.DistrictId}");
+            // Basic filtering - this will be enhanced with distance calculation at service layer
+            // For now, we return all doctors and let the service layer handle location-based filtering
+            Console.WriteLine("Location filtering will be handled at service layer with distance calculation");
+        }
+
         // Gender filters - support both single and multiple
         if (!string.IsNullOrEmpty(query.Gender))
         {

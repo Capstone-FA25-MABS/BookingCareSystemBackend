@@ -12,6 +12,7 @@ using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Services.Hospital;
+using BookingCare.Services.Doctor.Models.ApiModels;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
@@ -20,17 +21,19 @@ public class DoctorService : BaseService, IDoctorService
     private readonly IDoctorRepository _repository;
     private readonly IPositionRepository _positionRepository;
     private readonly ISpecialtyRepository _specialtyRepository;
+    private readonly ILocationApiService _locationApiService;
     private readonly IMapper _mapper;
     private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
     private readonly AuthService.AuthServiceClient _authClient;
     private readonly HospitalService.HospitalServiceClient _hospitalClient;
     private readonly ReviewService.ReviewServiceClient _reviewClient;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, ISpecialtyRepository specialtyRepository, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, HospitalService.HospitalServiceClient hospitalClient, ReviewService.ReviewServiceClient reviewClient, ILogger<DoctorService> logger) : base(logger)
+    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, ISpecialtyRepository specialtyRepository, ILocationApiService locationApiService, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, HospitalService.HospitalServiceClient hospitalClient, ReviewService.ReviewServiceClient reviewClient, ILogger<DoctorService> logger) : base(logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;
         _specialtyRepository = specialtyRepository;
+        _locationApiService = locationApiService;
         _mapper = mapper;
         _favoritesClient = favoritesClient;
         _authClient = authClient;
@@ -311,6 +314,12 @@ public class DoctorService : BaseService, IDoctorService
         // Enrich with status and review statistics
         await EnrichDoctorListAsync(response.Doctors);
 
+        // Apply location filtering if needed
+        if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
+        {
+            response.Doctors = await _locationApiService.ApplyLocationFilteringAsync(response.Doctors, query.ProvinceId, query.DistrictId);
+        }
+
         // Apply rating filtering after getting review statistics
         if (query.MinRating.HasValue || (query.MinRatings != null && query.MinRatings.Any()))
         {
@@ -342,6 +351,7 @@ public class DoctorService : BaseService, IDoctorService
         try
         {
             Console.WriteLine($"FilterDoctorsAsync called with ExperienceRanges: {filter.ExperienceRanges?.Count ?? 0}");
+            Console.WriteLine($"FilterDoctorsAsync called with ProvinceId: {filter.ProvinceId}, DistrictId: {filter.DistrictId}");
             if (filter.ExperienceRanges != null)
             {
                 foreach (var range in filter.ExperienceRanges)
@@ -366,6 +376,8 @@ public class DoctorService : BaseService, IDoctorService
                 MaxPrice = filter.MaxPrice,
                 HospitalId = filter.HospitalId,
                 HospitalIds = filter.HospitalIds, // Add multiple hospital support
+                ProvinceId = filter.ProvinceId, // Add location filtering
+                DistrictId = filter.DistrictId, // Add location filtering
                 ServiceType = filter.ServiceType,
                 ServiceTypes = filter.ServiceTypes,
                 Language = filter.Language,
@@ -1084,4 +1096,5 @@ public class DoctorService : BaseService, IDoctorService
     }
 
     #endregion
+
 }

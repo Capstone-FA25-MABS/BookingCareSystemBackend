@@ -83,7 +83,7 @@ builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<IServiceTypeService, ServiceTypeService>();
-
+builder.Services.AddScoped<ILocationApiService, LocationApiService>();
 
 // AutoMapper configuration
 builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(SpecialtyMappingProfile));
