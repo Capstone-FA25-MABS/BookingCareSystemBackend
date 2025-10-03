@@ -197,6 +197,18 @@ public class AuthService : BaseService, IAuthService
     private async Task<AccountEntity> CreateAndAssignAccountAsync(RegisterRequest request, RoleEntity targetRole)
     {
         var account = _mapper.Map<AccountEntity>(request);
+        if (!string.IsNullOrWhiteSpace(request.Channel))
+        {
+            var channel = request.Channel.ToLowerInvariant();
+            if (channel == "phone")
+            {
+                account.PhoneNumberConfirmed = true;
+            }
+            else if (channel == "email")
+            {
+                account.EmailConfirmed = true;
+            }
+        }
         var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
 
         await _authRepository.AssignRoleToAccountAsync(createdAccount, targetRole);
@@ -292,14 +304,14 @@ public class AuthService : BaseService, IAuthService
     /// <summary>
     /// Change account password
     /// </summary>
-    public async Task<bool> ChangePasswordAsync(ChangePasswordRequest request)
+    public async Task<bool> ChangePasswordAsync(ChangePasswordRequest request, Guid accountId)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Password change attempt for account: {AccountId}", null, request.AccountId);
+            LogInfo("Password change attempt for account: {AccountId}", null, accountId);
 
             // Get account
-            var account = await _authRepository.GetAccountByIdAsync(request.AccountId) ?? throw new AccountNotFoundException(request.AccountId);
+            var account = await _authRepository.GetAccountByIdAsync(accountId) ?? throw new AccountNotFoundException(accountId);
 
             // Check if account has external login providers
             var hasExternalLogin = await _authRepository.HasExternalLoginAsync(account);
@@ -309,20 +321,20 @@ public class AuthService : BaseService, IAuthService
             {
                 if (string.IsNullOrEmpty(request.CurrentPassword))
                 {
-                    throw new AuthenticationException("Current password is required for regular accounts");
+                    throw new ValidationException("Current password is required for regular accounts");
                 }
 
                 // Validate current password
                 var isValidCurrentPassword = await _authRepository.ValidateCredentialsAsync(account, request.CurrentPassword);
                 if (!isValidCurrentPassword)
                 {
-                    throw new AuthenticationException("Current password is incorrect");
+                    throw new ValidationException("Current password is incorrect");
                 }
             }
             else
             {
                 // For external login accounts, current password is not required
-                LogInfo("Account has external login providers, skipping current password validation", null, request.AccountId);
+                LogInfo("Account has external login providers, skipping current password validation", null, accountId);
             }
 
             // Validate password complexity
@@ -340,7 +352,7 @@ public class AuthService : BaseService, IAuthService
                 throw new AuthException("Failed to change password");
             }
 
-            LogInfo("Password changed successfully for account: {AccountId}", null, request.AccountId);
+            LogInfo("Password changed successfully for account: {AccountId}", null, accountId);
             return true;
         }, "ChangePassword");
     }
