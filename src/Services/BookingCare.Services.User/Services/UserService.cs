@@ -287,7 +287,7 @@ public class UserService : BaseService, IUserService
         return true;
     }
 
-    private bool UpdateEmailIfNew(UserEntity user, string? newEmail)
+    private static bool UpdateEmailIfNew(UserEntity user, string? newEmail)
     {
         if (string.IsNullOrEmpty(newEmail)) return false;
 
@@ -295,7 +295,7 @@ public class UserService : BaseService, IUserService
         return true;
     }
 
-    private bool UpdatePhoneIfNew(UserEntity user, string? newPhone)
+    private static bool UpdatePhoneIfNew(UserEntity user, string? newPhone)
     {
         if (string.IsNullOrEmpty(newPhone)) return false;
 
@@ -303,7 +303,7 @@ public class UserService : BaseService, IUserService
         return true;
     }
 
-    private bool UpdateGender(UserEntity user, Gender? gender)
+    private static bool UpdateGender(UserEntity user, Gender? gender)
     {
         if (!gender.HasValue || gender.Value == user.Gender) return false;
 
@@ -345,7 +345,7 @@ public class UserService : BaseService, IUserService
         return true;
     }
 
-    private bool UpdateAvatarUrl(UserEntity user, string? avatarUrl)
+    private static bool UpdateAvatarUrl(UserEntity user, string? avatarUrl)
     {
         if (string.IsNullOrEmpty(avatarUrl) || avatarUrl == user.AvatarUrl) return false;
 
