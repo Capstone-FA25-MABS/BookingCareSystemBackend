@@ -6,6 +6,7 @@ using BookingCare.Services.User.Repositories;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.User.Services;
 
@@ -111,186 +112,23 @@ public class UserService : BaseService, IUserService
         LogInfo("Updating user ID: {UserId}, EmailConfirmed: {EmailConfirmed}, PhoneConfirmed: {PhoneConfirmed}",
             null, existingUser.Id, emailConfirmed, phoneConfirmed);
 
+        // Business rule validation
+        ValidateBusinessRules(emailConfirmed, phoneConfirmed);
+
         // Get original values for comparison
         var originalEmail = existingUser.Email;
         var originalPhone = existingUser.Phone;
 
-        // Business rule: At least one of email or phone must be confirmed
-        if (!emailConfirmed && !phoneConfirmed)
-        {
-            LogError(new InvalidOperationException("Business rule violation: At least one of email or phone must be confirmed"),
-                "At least one of email or phone must be confirmed");
-            throw new InvalidOperationException("Business rule violation: At least one of email or phone must be confirmed");
-        }
+        // Handle email and phone updates
+        var (newEmail, needsEmailSync) = await HandleEmailUpdateAsync(updateUserRequest.Email, originalEmail, emailConfirmed, existingUser.Id);
+        var (newPhone, needsPhoneSync) = await HandlePhoneUpdateAsync(updateUserRequest.Phone, originalPhone, phoneConfirmed, existingUser.Id);
 
-        // Handle email update
-        string? newEmail = null;
-        bool needsEmailSync = false;
+        // Publish SAGA event if needed
+        await PublishSagaSyncEventIfNeededAsync(needsEmailSync, needsPhoneSync, existingUser, originalEmail, originalPhone, newEmail, newPhone);
 
-        if (!string.IsNullOrEmpty(updateUserRequest.Email) && updateUserRequest.Email != originalEmail)
-        {
-            if (emailConfirmed)
-            {
-                // Silently ignore attempt to update confirmed email
-                LogWarning("Ignoring attempt to update confirmed email for user: {UserId} - Email will not be changed",
-                    null, existingUser.Id);
-            }
-            else
-            {
-                // Email is not confirmed, can update
-                LogInfo("Checking if new email already exists: {Email}", null, updateUserRequest.Email);
+        // Apply all field updates
+        var hasChanges = ApplyFieldUpdates(existingUser, updateUserRequest, newEmail, newPhone);
 
-                var emailExists = await _userRepository.EmailExistsAsync(updateUserRequest.Email);
-                if (emailExists)
-                {
-                    LogWarning("Email already exists: {Email}", null, updateUserRequest.Email);
-                    throw new EmailAlreadyExistsException(updateUserRequest.Email);
-                }
-
-                newEmail = updateUserRequest.Email;
-                needsEmailSync = true;
-                LogInfo("Email update will require SAGA synchronization", null);
-            }
-        }
-
-        // Handle phone update
-        string? newPhone = null;
-        bool needsPhoneSync = false;
-
-        if (!string.IsNullOrEmpty(updateUserRequest.Phone) && updateUserRequest.Phone != originalPhone)
-        {
-            if (phoneConfirmed)
-            {
-                // Silently ignore attempt to update confirmed phone
-                LogWarning("Ignoring attempt to update confirmed phone for user: {UserId} - Phone will not be changed",
-                    null, existingUser.Id);
-            }
-            else
-            {
-                // Phone is not confirmed, can update
-                LogInfo("Checking if new phone already exists: {Phone}", null, updateUserRequest.Phone);
-
-                var phoneExists = await _userRepository.PhoneExistsAsync(updateUserRequest.Phone);
-                if (phoneExists)
-                {
-                    LogWarning("Phone already exists: {Phone}", null, updateUserRequest.Phone);
-                    throw new PhoneAlreadyExistsException(updateUserRequest.Phone);
-                }
-
-                newPhone = updateUserRequest.Phone;
-                needsPhoneSync = true;
-                LogInfo("Phone update will require SAGA synchronization", null);
-            }
-        }
-
-        bool needsSagaSync = needsEmailSync || needsPhoneSync;
-
-        // If SAGA synchronization is needed, publish event
-        if (needsSagaSync)
-        {
-            var correlationId = Guid.NewGuid().ToString();
-            LogInfo("Publishing UserEmailPhoneSyncRequestedEvent with CorrelationId: {CorrelationId}", null, correlationId);
-
-            var syncEvent = new UserEmailPhoneSyncRequestedEvent
-            {
-                AccountId = existingUser.AccountId,
-                UserId = existingUser.Id,
-                OriginalEmail = originalEmail,
-                OriginalPhone = originalPhone,
-                NewEmail = newEmail,
-                NewPhone = newPhone,
-                CorrelationId = correlationId,
-                RequestedAt = DateTime.UtcNow
-            };
-
-            await _eventBus.PublishAsync(syncEvent);
-            LogInfo("UserEmailPhoneSyncRequestedEvent published successfully", null);
-        }
-
-        // Track if any changes were made
-        bool hasChanges = false;
-
-        // Apply updates to user entity only if values are different
-        if (!string.IsNullOrEmpty(updateUserRequest.FirstName) && updateUserRequest.FirstName != existingUser.FirstName)
-        {
-            if (updateUserRequest.FirstName.Trim().Length < 2)
-            {
-                LogError(new InvalidOperationException("First name must be at least 2 characters"),
-                    "First name must be at least 2 characters");
-                throw new InvalidOperationException("First name must be at least 2 characters");
-            }
-            existingUser.FirstName = updateUserRequest.FirstName.Trim();
-            hasChanges = true;
-        }
-
-        if (!string.IsNullOrEmpty(updateUserRequest.LastName) && updateUserRequest.LastName != existingUser.LastName)
-        {
-            if (updateUserRequest.LastName.Trim().Length < 2)
-            {
-                LogError(new InvalidOperationException("Last name must be at least 2 characters"),
-                    "Last name must be at least 2 characters");
-                throw new InvalidOperationException("Last name must be at least 2 characters");
-            }
-            existingUser.LastName = updateUserRequest.LastName.Trim();
-            hasChanges = true;
-        }
-
-        // Only update email if it's not confirmed or if it's the same value
-        if (!string.IsNullOrEmpty(newEmail))
-        {
-            existingUser.Email = newEmail;
-            hasChanges = true;
-        }
-
-        // Only update phone if it's not confirmed or if it's the same value
-        if (!string.IsNullOrEmpty(newPhone))
-        {
-            existingUser.Phone = newPhone;
-            hasChanges = true;
-        }
-
-        if (updateUserRequest.Gender.HasValue && updateUserRequest.Gender != existingUser.Gender)
-        {
-            existingUser.Gender = updateUserRequest.Gender.Value;
-            hasChanges = true;
-        }
-
-        if (updateUserRequest.DateOfBirth.HasValue && updateUserRequest.DateOfBirth != existingUser.DateOfBirth)
-        {
-            // Validate age >= 18
-            var age = DateTime.UtcNow.Year - updateUserRequest.DateOfBirth.Value.Year;
-            if (updateUserRequest.DateOfBirth.Value > DateTime.UtcNow.AddYears(-age)) age--;
-
-            if (age < 18)
-            {
-                LogError(new InvalidOperationException("User must be at least 18 years old"),
-                    "User must be at least 18 years old");
-                throw new InvalidOperationException("User must be at least 18 years old");
-            }
-
-            existingUser.DateOfBirth = updateUserRequest.DateOfBirth;
-            hasChanges = true;
-        }
-
-        if (!string.IsNullOrEmpty(updateUserRequest.Address) && updateUserRequest.Address != existingUser.Address)
-        {
-            if (updateUserRequest.Address.Trim().Length < 5)
-            {
-                LogError(new InvalidOperationException("Address must be at least 5 characters"),
-                    "Address must be at least 5 characters");
-                throw new InvalidOperationException("Address must be at least 5 characters");
-            }
-            existingUser.Address = updateUserRequest.Address.Trim();
-            hasChanges = true;
-        }
-
-        if (!string.IsNullOrEmpty(updateUserRequest.AvatarUrl) && updateUserRequest.AvatarUrl != existingUser.AvatarUrl)
-        {
-            existingUser.AvatarUrl = updateUserRequest.AvatarUrl;
-            hasChanges = true;
-        }
-
-        // Only update if there are actual changes
         if (!hasChanges)
         {
             LogInfo("No changes detected for user: {UserId}, skipping database update", null, existingUser.Id);
@@ -302,6 +140,217 @@ public class UserService : BaseService, IUserService
 
         LogInfo("User updated successfully with ID: {UserId}", null, existingUser.Id);
         return _mapper.Map<UserResponse>(updatedUser);
+    }
+
+    /// <summary>
+    /// Validate business rules for user update
+    /// </summary>
+    private void ValidateBusinessRules(bool emailConfirmed, bool phoneConfirmed)
+    {
+        if (emailConfirmed || phoneConfirmed) return;
+
+        LogError(new InvalidOperationException("Business rule violation: At least one of email or phone must be confirmed"),
+            "At least one of email or phone must be confirmed");
+        throw new InvalidOperationException("Business rule violation: At least one of email or phone must be confirmed");
+    }
+
+    /// <summary>
+    /// Handle email update validation
+    /// </summary>
+    private async Task<(string? newEmail, bool needsSync)> HandleEmailUpdateAsync(string? requestedEmail, string? originalEmail, bool emailConfirmed, Guid userId)
+    {
+        if (string.IsNullOrEmpty(requestedEmail) || requestedEmail == originalEmail)
+        {
+            return (null, false);
+        }
+
+        if (emailConfirmed)
+        {
+            LogWarning("Ignoring attempt to update confirmed email for user: {UserId} - Email will not be changed", null, userId);
+            return (null, false);
+        }
+
+        LogInfo("Checking if new email already exists: {Email}", null, requestedEmail);
+
+        var emailExists = await _userRepository.EmailExistsAsync(requestedEmail);
+        if (emailExists)
+        {
+            LogWarning("Email already exists: {Email}", null, requestedEmail);
+            throw new EmailAlreadyExistsException(requestedEmail);
+        }
+
+        LogInfo("Email update will require SAGA synchronization", null);
+        return (requestedEmail, true);
+    }
+
+    /// <summary>
+    /// Handle phone update validation
+    /// </summary>
+    private async Task<(string? newPhone, bool needsSync)> HandlePhoneUpdateAsync(string? requestedPhone, string? originalPhone, bool phoneConfirmed, Guid userId)
+    {
+        if (string.IsNullOrEmpty(requestedPhone) || requestedPhone == originalPhone)
+        {
+            return (null, false);
+        }
+
+        if (phoneConfirmed)
+        {
+            LogWarning("Ignoring attempt to update confirmed phone for user: {UserId} - Phone will not be changed", null, userId);
+            return (null, false);
+        }
+
+        LogInfo("Checking if new phone already exists: {Phone}", null, requestedPhone);
+
+        var phoneExists = await _userRepository.PhoneExistsAsync(requestedPhone);
+        if (phoneExists)
+        {
+            LogWarning("Phone already exists: {Phone}", null, requestedPhone);
+            throw new PhoneAlreadyExistsException(requestedPhone);
+        }
+
+        LogInfo("Phone update will require SAGA synchronization", null);
+        return (requestedPhone, true);
+    }
+
+    /// <summary>
+    /// Publish SAGA sync event if email or phone update is needed
+    /// </summary>
+    private async Task PublishSagaSyncEventIfNeededAsync(bool needsEmailSync, bool needsPhoneSync, UserEntity user, string? originalEmail, string? originalPhone, string? newEmail, string? newPhone)
+    {
+        if (!needsEmailSync && !needsPhoneSync) return;
+
+        var correlationId = Guid.NewGuid().ToString();
+        LogInfo("Publishing UserEmailPhoneSyncRequestedEvent with CorrelationId: {CorrelationId}", null, correlationId);
+
+        var syncEvent = new UserEmailPhoneSyncRequestedEvent
+        {
+            AccountId = user.AccountId,
+            UserId = user.Id,
+            OriginalEmail = originalEmail,
+            OriginalPhone = originalPhone,
+            NewEmail = newEmail,
+            NewPhone = newPhone,
+            CorrelationId = correlationId,
+            RequestedAt = DateTime.UtcNow
+        };
+
+        await _eventBus.PublishAsync(syncEvent);
+        LogInfo("UserEmailPhoneSyncRequestedEvent published successfully", null);
+    }
+
+    /// <summary>
+    /// Apply all field updates to user entity
+    /// </summary>
+    private bool ApplyFieldUpdates(UserEntity user, UpdateUserRequest request, string? newEmail, string? newPhone)
+    {
+        var hasChanges = false;
+
+        hasChanges |= UpdateFirstName(user, request.FirstName);
+        hasChanges |= UpdateLastName(user, request.LastName);
+        hasChanges |= UpdateEmailIfNew(user, newEmail);
+        hasChanges |= UpdatePhoneIfNew(user, newPhone);
+        hasChanges |= UpdateGender(user, request.Gender);
+        hasChanges |= UpdateDateOfBirth(user, request.DateOfBirth);
+        hasChanges |= UpdateAddress(user, request.Address);
+        hasChanges |= UpdateAvatarUrl(user, request.AvatarUrl);
+
+        return hasChanges;
+    }
+
+    private bool UpdateFirstName(UserEntity user, string? firstName)
+    {
+        if (string.IsNullOrEmpty(firstName) || firstName == user.FirstName) return false;
+
+        if (firstName.Trim().Length < 2)
+        {
+            LogError(new InvalidOperationException("First name must be at least 2 characters"),
+                "First name must be at least 2 characters");
+            throw new InvalidOperationException("First name must be at least 2 characters");
+        }
+
+        user.FirstName = firstName.Trim();
+        return true;
+    }
+
+    private bool UpdateLastName(UserEntity user, string? lastName)
+    {
+        if (string.IsNullOrEmpty(lastName) || lastName == user.LastName) return false;
+
+        if (lastName.Trim().Length < 2)
+        {
+            LogError(new InvalidOperationException("Last name must be at least 2 characters"),
+                "Last name must be at least 2 characters");
+            throw new InvalidOperationException("Last name must be at least 2 characters");
+        }
+
+        user.LastName = lastName.Trim();
+        return true;
+    }
+
+    private bool UpdateEmailIfNew(UserEntity user, string? newEmail)
+    {
+        if (string.IsNullOrEmpty(newEmail)) return false;
+
+        user.Email = newEmail;
+        return true;
+    }
+
+    private bool UpdatePhoneIfNew(UserEntity user, string? newPhone)
+    {
+        if (string.IsNullOrEmpty(newPhone)) return false;
+
+        user.Phone = newPhone;
+        return true;
+    }
+
+    private bool UpdateGender(UserEntity user, Gender? gender)
+    {
+        if (!gender.HasValue || gender.Value == user.Gender) return false;
+
+        user.Gender = gender.Value;
+        return true;
+    }
+
+    private bool UpdateDateOfBirth(UserEntity user, DateTime? dateOfBirth)
+    {
+        if (!dateOfBirth.HasValue || dateOfBirth == user.DateOfBirth) return false;
+
+        // Validate age >= 18
+        var age = DateTime.UtcNow.Year - dateOfBirth.Value.Year;
+        if (dateOfBirth.Value > DateTime.UtcNow.AddYears(-age)) age--;
+
+        if (age < 18)
+        {
+            LogError(new InvalidOperationException("User must be at least 18 years old"),
+                "User must be at least 18 years old");
+            throw new InvalidOperationException("User must be at least 18 years old");
+        }
+
+        user.DateOfBirth = dateOfBirth;
+        return true;
+    }
+
+    private bool UpdateAddress(UserEntity user, string? address)
+    {
+        if (string.IsNullOrEmpty(address) || address == user.Address) return false;
+
+        if (address.Trim().Length < 5)
+        {
+            LogError(new InvalidOperationException("Address must be at least 5 characters"),
+                "Address must be at least 5 characters");
+            throw new InvalidOperationException("Address must be at least 5 characters");
+        }
+
+        user.Address = address.Trim();
+        return true;
+    }
+
+    private bool UpdateAvatarUrl(UserEntity user, string? avatarUrl)
+    {
+        if (string.IsNullOrEmpty(avatarUrl) || avatarUrl == user.AvatarUrl) return false;
+
+        user.AvatarUrl = avatarUrl;
+        return true;
     }
 
     public async Task<UserListResponse> GetUsersAsync(UserQueryRequest query)

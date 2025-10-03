@@ -158,7 +158,7 @@ public class AvatarController : BaseApiController
     /// <summary>
     /// Extract S3 key from full URL
     /// </summary>
-    private string? ExtractS3KeyFromUrl(string url)
+    private static string? ExtractS3KeyFromUrl(string url)
     {
         try
         {

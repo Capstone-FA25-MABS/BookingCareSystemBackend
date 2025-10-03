@@ -1,4 +1,5 @@
 using AutoMapper;
+using BookingCare.Services.Auth.Constants;
 using BookingCare.Services.Auth.Exceptions;
 using BookingCare.Services.Auth.Models.DTOs;
 using BookingCare.Services.Auth.Models.Entities;
@@ -170,8 +171,8 @@ public class AuthService : BaseService, IAuthService
         if (role == Role.PATIENT)
         {
             var purpose = request.Purpose.ToKey();
-            var channel = string.IsNullOrWhiteSpace(request.Channel) ? "phone" : request.Channel.ToLowerInvariant();
-            var subject = channel == "email" ? $"email:{request.Email}" : $"phone:{request.PhoneNumber}";
+            var channel = string.IsNullOrWhiteSpace(request.Channel) ? AuthConstants.CHANNEL_PHONE : request.Channel.ToLowerInvariant();
+            var subject = channel == AuthConstants.CHANNEL_EMAIL ? $"{AuthConstants.CHANNEL_EMAIL}:{request.Email}" : $"{AuthConstants.CHANNEL_PHONE}:{request.PhoneNumber}";
             var verified = await VerifyOtpOrProofAsync(purpose, subject, request.Proof, request.IssuedAt);
             if (!verified) throw new ValidationException("OTP verification required before registration");
         }
@@ -200,11 +201,11 @@ public class AuthService : BaseService, IAuthService
         if (!string.IsNullOrWhiteSpace(request.Channel))
         {
             var channel = request.Channel.ToLowerInvariant();
-            if (channel == "phone")
+            if (channel == AuthConstants.CHANNEL_PHONE)
             {
                 account.PhoneNumberConfirmed = true;
             }
-            else if (channel == "email")
+            else if (channel == AuthConstants.CHANNEL_EMAIL)
             {
                 account.EmailConfirmed = true;
             }
@@ -386,10 +387,10 @@ public class AuthService : BaseService, IAuthService
                     UserId = accountId,
                     Title = "Password Reset",
                     Message = message,
-                    Type = "email",
+                    Type = AuthConstants.CHANNEL_EMAIL,
                     Data = new Dictionary<string, object>
                     {
-                        { "email", request.Email! },
+                        { AuthConstants.CHANNEL_EMAIL, request.Email! },
                         { "subject", "Reset your password" },
                         { "html", false },
                         { "purpose", OtpPurpose.FORGOT_PASSWORD.ToKey() },
