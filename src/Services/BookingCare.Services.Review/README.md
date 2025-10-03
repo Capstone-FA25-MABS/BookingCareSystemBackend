@@ -88,7 +88,7 @@ POST /api/reviews
   "patientId": "550e8400-e29b-41d4-a716-446655440001",
   "targetType": "DOCTOR",
   "doctorId": "550e8400-e29b-41d4-a716-446655440003",
-  "clinicServiceId": null,
+  "serviceId": null,
   "rating": 5,
   "comment": "Excellent doctor, very professional!"
 }

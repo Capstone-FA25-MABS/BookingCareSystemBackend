@@ -68,6 +68,39 @@ public class SagaManager : ISagaManager
         }
     }
 
+    public async Task<SagaExecutionResult> ExecuteSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default)
+        where TSaga : class, ISagaDefinition
+    {
+        try
+        {
+            var sagaId = Guid.NewGuid();
+            context.SagaId = sagaId;
+
+            var sagaDefinition = _serviceProvider.GetRequiredService<TSaga>();
+            context.SagaName = sagaDefinition.SagaName;
+
+            _logger.LogInformation("Executing saga synchronously: {SagaName} with SagaId: {SagaId}",
+                sagaDefinition.SagaName, sagaId);
+
+            // Execute saga synchronously and return result
+            var result = await _orchestrator.ExecuteAsync(sagaId, context, cancellationToken);
+
+            // Set SagaId and Context in result
+            result.SagaId = sagaId;
+
+            _logger.LogInformation("Saga execution completed: {SagaName} with SagaId: {SagaId}, Status: {Status}",
+                sagaDefinition.SagaName, sagaId, result.Status);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = $"Error executing saga {typeof(TSaga).Name}";
+            _logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
+        }
+    }
+
     public async Task HandleEventAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : IntegrationEvent
     {

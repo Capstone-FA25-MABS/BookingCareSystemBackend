@@ -138,6 +138,31 @@ public class AuthRepository : IAuthRepository
     }
 
     /// <summary>
+    /// Delete account
+    /// </summary>
+    public async Task<bool> DeleteAccountAsync(AccountEntity account)
+    {
+        try
+        {
+            var result = await _userManager.DeleteAsync(account);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogError("Failed to delete account {AccountId}: {Errors}", account.Id, errors);
+                return false;
+            }
+
+            _logger.LogInformation("Account deleted successfully: {AccountId}", account.Id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting account: {AccountId}", account.Id);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Check if email exists using AnyAsync for optimal performance
     /// </summary>
     public async Task<bool> EmailExistsAsync(string email)
@@ -196,6 +221,34 @@ public class AuthRepository : IAuthRepository
         {
             _logger.LogError(ex, "Error getting accounts by IDs: {AccountIds}", string.Join(", ", accountIds));
             throw new AuthException("Failed to get accounts by IDs", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get accounts with their roles by list of IDs
+    /// </summary>
+    public async Task<List<(Guid AccountId, List<string> Roles)>> GetAccountsWithRolesAsync(List<Guid> accountIds)
+    {
+        try
+        {
+            var accounts = await _userManager.Users
+                .Where(u => accountIds.Contains(u.Id))
+                .ToListAsync();
+
+            var result = new List<(Guid AccountId, List<string> Roles)>();
+
+            foreach (var account in accounts)
+            {
+                var roles = await _userManager.GetRolesAsync(account);
+                result.Add((account.Id, roles.ToList()));
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting accounts with roles by IDs: {AccountIds}", string.Join(", ", accountIds));
+            throw new AuthException("Failed to retrieve accounts with roles by IDs", innerException: ex);
         }
     }
 

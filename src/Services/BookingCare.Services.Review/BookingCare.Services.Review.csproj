@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Protobuf Include="Protos\ReviewService.proto" GrpcServices="Server" />
+    <Protobuf Include="..\BookingCare.Services.Auth\Protos\auth.proto" GrpcServices="Client" Link="Protos\auth.proto" />
   </ItemGroup>
 
   <ItemGroup>

@@ -25,6 +25,9 @@ public static class ServiceCollectionExtensions
         // Register repositories
         services.AddScoped<IReviewRepository, ReviewRepository>();
 
+        // Register account enrichment service
+        services.AddScoped<IAccountEnrichmentService, AccountEnrichmentService>();
+
         // Register business services
         services.AddScoped<IReviewService, ReviewService>();
 

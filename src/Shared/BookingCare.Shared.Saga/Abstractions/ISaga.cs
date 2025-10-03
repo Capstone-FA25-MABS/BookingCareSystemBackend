@@ -78,6 +78,16 @@ public interface ISagaManager
     Task<Guid> StartSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default)
         where TSaga : class, ISagaDefinition;
 
+    /// <summary>
+    /// Executes a saga synchronously and returns the result
+    /// </summary>
+    /// <typeparam name="TSaga">The saga definition type</typeparam>
+    /// <param name="context">The saga context</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The saga execution result</returns>
+    Task<SagaExecutionResult> ExecuteSagaAsync<TSaga>(SagaContext context, CancellationToken cancellationToken = default)
+        where TSaga : class, ISagaDefinition;
+
     Task HandleEventAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : IntegrationEvent;
 
