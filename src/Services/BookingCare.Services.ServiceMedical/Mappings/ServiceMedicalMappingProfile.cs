@@ -33,12 +33,10 @@ namespace BookingCare.Services.ServiceMedical.Mappings
             CreateMap<CreateServiceRequest, ServiceEntity>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => "INACTIVE"))
-                .ForMember(dest => dest.ServiceCategory, opt => opt.Ignore())
-                .ForMember(dest => dest.Schedules, opt => opt.Ignore());
+                .ForMember(dest => dest.ServiceCategory, opt => opt.Ignore());
 
             CreateMap<UpdateServiceRequest, ServiceEntity>()
-                .ForMember(dest => dest.ServiceCategory, opt => opt.Ignore())
-                .ForMember(dest => dest.Schedules, opt => opt.Ignore());
+                .ForMember(dest => dest.ServiceCategory, opt => opt.Ignore());
 
         }
     }

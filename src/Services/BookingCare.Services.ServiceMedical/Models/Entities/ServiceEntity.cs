@@ -44,7 +44,5 @@ namespace BookingCare.Services.ServiceMedical.Models.Entities
         // 🔗 Navigation properties
         [ForeignKey("ServiceCategoryId")]
         public ServiceCategoryEntity? ServiceCategory { get; set; }
-
-        public ICollection<ServiceScheduleEntity> Schedules { get; set; } = new List<ServiceScheduleEntity>();
     }
 }

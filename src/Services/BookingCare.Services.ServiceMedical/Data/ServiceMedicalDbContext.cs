@@ -12,7 +12,6 @@ namespace BookingCare.Services.ServiceMedical.Data
         // DbSets
         public DbSet<ServiceCategoryEntity> ServiceCategories { get; set; }
         public DbSet<ServiceEntity> Services { get; set; }
-        public DbSet<ServiceScheduleEntity> ServiceSchedules { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -33,12 +32,6 @@ namespace BookingCare.Services.ServiceMedical.Data
                 .OnDelete(DeleteBehavior.SetNull); // Match SQL schema
 
 
-            // Configure ServiceSchedule -> Service relationship
-            modelBuilder.Entity<ServiceScheduleEntity>()
-                .HasOne(ss => ss.Service)
-                .WithMany(s => s.Schedules)
-                .HasForeignKey(ss => ss.ServiceId)
-                .OnDelete(DeleteBehavior.Cascade); // Match SQL schema
 
             // Configure check constraints for status fields
             modelBuilder.Entity<ServiceCategoryEntity>()
@@ -58,13 +51,6 @@ namespace BookingCare.Services.ServiceMedical.Data
                 .HasDefaultValue("INACTIVE");
 
 
-            modelBuilder.Entity<ServiceScheduleEntity>()
-                .Property(ss => ss.CreatedAt)
-                .HasDefaultValueSql("GETDATE()");
-
-            modelBuilder.Entity<ServiceScheduleEntity>()
-                .Property(ss => ss.UpdatedAt)
-                .HasDefaultValueSql("GETDATE()");
 
             // Configure Guid primary keys to use NEWID() for SQL Server
             modelBuilder.Entity<ServiceCategoryEntity>()
@@ -76,9 +62,6 @@ namespace BookingCare.Services.ServiceMedical.Data
                 .HasDefaultValueSql("NEWID()");
 
 
-            modelBuilder.Entity<ServiceScheduleEntity>()
-                .Property(ss => ss.Id)
-                .HasDefaultValueSql("NEWID()");
 
             // Configure decimal precision for price fields
             modelBuilder.Entity<ServiceEntity>()
@@ -101,13 +84,8 @@ namespace BookingCare.Services.ServiceMedical.Data
 
         private void UpdateTimestamps()
         {
-            var entries = ChangeTracker.Entries<ServiceScheduleEntity>()
-                .Where(e => e.State == EntityState.Modified);
-
-            foreach (var entry in entries)
-            {
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
-            }
+            // Update timestamps for entities that have UpdatedAt property
+            // Currently no entities require timestamp updates
         }
     }
 }

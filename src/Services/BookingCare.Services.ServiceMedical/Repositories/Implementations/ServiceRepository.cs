@@ -26,7 +26,6 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
         {
             return await _context.Services
                 .Include(s => s.ServiceCategory)
-                .Include(s => s.Schedules)
                 .FirstOrDefaultAsync(s => s.Id == id);
         }
 
