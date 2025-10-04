@@ -13,6 +13,7 @@ using BookingCare.Services.Review.Grpc;
 using BookingCare.Services.Doctor.Services.Grpc;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using BookingCare.Services.Doctor.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,23 +21,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "doctor");
 
 // Add services to the container.
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
-    });
-
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    // Register common group names to avoid mismatch (some setups produce v1 instead of v1.0)
-    c.SwaggerDoc("v1", new() { Title = "BookingCare Doctor API", Version = "v1" });
-    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Doctor API", Version = "v1.0" });
-    // Ensure endpoints are included in the correct Swagger doc based on ApiExplorer group name (e.g., v1.0)
-    c.DocInclusionPredicate((docName, apiDesc) =>
-        string.Equals(docName, apiDesc.GroupName, StringComparison.OrdinalIgnoreCase));
-});
+builder.Services.AddCommonControllers();
+builder.Services.AddCommonSwagger("Doctor");
 
 // Database configuration
 builder.Services.AddDbContext<DoctorDbContext>(options =>
@@ -92,9 +78,7 @@ builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
 builder.Services.AddGlobalExceptionHandling();
 
 // Add logging
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
+builder.Logging.AddCommonLogging();
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
@@ -105,17 +89,7 @@ builder.Services.AddGrpc();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
-    app.UseSwaggerUI(c =>
-    {
-        provider.ApiVersionDescriptions.ToList().ForEach(description =>
-            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"BookingCare Doctor API {description.GroupName.ToUpperInvariant()}"));
-        c.RoutePrefix = "swagger";
-    });
-}
+app.UseCommonSwaggerUI("Doctor");
 
 app.UseGlobalExceptionHandling();
 
@@ -138,13 +112,7 @@ app.MapGrpcService<DoctorGrpcService>();
 app.MapGet("/", () => "BookingCare Doctor Service is running. REST API: /swagger, gRPC: port 6018");
 
 // Health check endpoint
-app.MapGet("/health", () => Results.Ok(new
-{
-    Service = "Doctor",
-    Status = "Healthy",
-    Timestamp = DateTime.UtcNow,
-    Version = "1.0.0"
-}));
+app.MapCommonHealthCheck("Doctor");
 
 // Database migration and seeding (development only)
 if (app.Environment.IsDevelopment())

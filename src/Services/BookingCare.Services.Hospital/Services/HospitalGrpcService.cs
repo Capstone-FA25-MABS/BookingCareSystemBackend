@@ -22,39 +22,68 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
 
     private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.Entities.HospitalEntity hospital)
     {
-        return new HospitalReply
-        {
-            Id = hospital.Id.ToString(),
-            AccountId = hospital.AccountId.ToString(),
-            Name = hospital.Name,
-            Address = hospital.Address,
-            Phone = hospital.Phone ?? "",
-            Email = hospital.Email,
-            Description = hospital.Description,
-            BackgroundUrl = hospital.BackgroundUrl ?? "",
-            AvatarUrl = hospital.AvatarUrl ?? "",
-            Status = hospital.Status.ToString(),
-            CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-            UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        };
+        return MapToHospitalReplyInternal(
+            hospital.Id,
+            hospital.AccountId,
+            hospital.Name,
+            hospital.Address,
+            hospital.Phone,
+            hospital.Email,
+            hospital.Description,
+            hospital.BackgroundUrl,
+            hospital.AvatarUrl,
+            hospital.Status,
+            hospital.CreatedAt,
+            hospital.UpdatedAt
+        );
     }
 
     private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalDetailResponse hospital)
     {
+        return MapToHospitalReplyInternal(
+            hospital.Id,
+            hospital.AccountId,
+            hospital.Name,
+            hospital.Address,
+            hospital.Phone,
+            hospital.Email,
+            hospital.Description,
+            hospital.BackgroundUrl,
+            hospital.AvatarUrl,
+            hospital.Status,
+            hospital.CreatedAt,
+            hospital.UpdatedAt
+        );
+    }
+
+    private static HospitalReply MapToHospitalReplyInternal(
+        Guid id,
+        Guid accountId,
+        string name,
+        string address,
+        string? phone,
+        string email,
+        string? description,
+        string? backgroundUrl,
+        string? avatarUrl,
+        BookingCare.Shared.Common.Enums.Status status,
+        DateTime createdAt,
+        DateTime updatedAt)
+    {
         return new HospitalReply
         {
-            Id = hospital.Id.ToString(),
-            AccountId = hospital.AccountId.ToString(),
-            Name = hospital.Name,
-            Address = hospital.Address,
-            Phone = hospital.Phone ?? "",
-            Email = hospital.Email,
-            Description = hospital.Description,
-            BackgroundUrl = hospital.BackgroundUrl ?? "",
-            AvatarUrl = hospital.AvatarUrl ?? "",
-            Status = hospital.Status.ToString(),
-            CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-            UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            Id = id.ToString(),
+            AccountId = accountId.ToString(),
+            Name = name,
+            Address = address,
+            Phone = phone ?? "",
+            Email = email,
+            Description = description,
+            BackgroundUrl = backgroundUrl ?? "",
+            AvatarUrl = avatarUrl ?? "",
+            Status = status.ToString(),
+            CreatedAt = createdAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            UpdatedAt = updatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         };
     }
 

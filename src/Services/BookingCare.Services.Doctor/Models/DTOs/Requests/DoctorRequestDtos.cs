@@ -4,6 +4,25 @@ using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
 
+// Base class for common doctor query properties
+public abstract class BaseDoctorQueryRequest
+{
+    public decimal? MinPrice { get; set; }
+    public decimal? MaxPrice { get; set; }
+    public string? ServiceType { get; set; }
+    [JsonPropertyName("serviceTypes")]
+    public List<string>? ServiceTypes { get; set; } // Support multiple service type filters
+    public string? Language { get; set; }
+    [JsonPropertyName("languages")]
+    public List<string>? Languages { get; set; } // Support multiple language filters
+    public double? MinRating { get; set; }
+    [JsonPropertyName("minRatings")]
+    public List<double>? MinRatings { get; set; } // Support multiple rating filters
+    public string? Address { get; set; }
+    public string? SortBy { get; set; }
+    public string? SortOrder { get; set; } // asc/desc
+}
+
 // Base class for common doctor properties
 public abstract class BaseDoctorRequest
 {
@@ -72,7 +91,7 @@ public class UpdateDoctorRequest : BaseDoctorRequest
     public Guid Id { get; set; }
 }
 
-public class DoctorQueryRequest
+public class DoctorQueryRequest : BaseDoctorQueryRequest
 {
     public Guid? AccountId { get; set; }
     public Guid? PositionId { get; set; }
@@ -96,20 +115,6 @@ public class DoctorQueryRequest
     [JsonRequired]
     public int PageSize { get; set; } = 10;
     public string? AvailableTime { get; set; } // ISO 8601 hoặc custom format
-    public decimal? MinPrice { get; set; }
-    public decimal? MaxPrice { get; set; }
-    public string? ServiceType { get; set; }
-    [JsonPropertyName("serviceTypes")]
-    public List<string>? ServiceTypes { get; set; } // Support multiple service type filters
-    public string? Language { get; set; }
-    [JsonPropertyName("languages")]
-    public List<string>? Languages { get; set; } // Support multiple language filters
-    public double? MinRating { get; set; }
-    [JsonPropertyName("minRatings")]
-    public List<double>? MinRatings { get; set; } // Support multiple rating filters
-    public string? Address { get; set; }
-    public string? SortBy { get; set; }
-    public string? SortOrder { get; set; } // asc/desc
 }
 
 public class ExperienceRange
@@ -121,7 +126,7 @@ public class ExperienceRange
     public int MaxYears { get; set; }
 }
 
-public class DoctorAdvancedFilterRequest
+public class DoctorAdvancedFilterRequest : BaseDoctorQueryRequest
 {
     public Guid? SpecialtyId { get; set; }
     [JsonPropertyName("specialtyIds")]
@@ -138,25 +143,11 @@ public class DoctorAdvancedFilterRequest
     public int? MaxYearsOfExperience { get; set; }
     [JsonPropertyName("experienceRanges")]
     public List<ExperienceRange>? ExperienceRanges { get; set; } // Support multiple experience ranges
-    public decimal? MinPrice { get; set; }
-    public decimal? MaxPrice { get; set; }
     public Guid? HospitalId { get; set; }
     [JsonPropertyName("hospitalIds")]
     public List<Guid>? HospitalIds { get; set; } // Support multiple hospital filters
     public string? ProvinceId { get; set; } // Province/City ID for location filtering
     public string? DistrictId { get; set; } // District ID for location filtering
-    public string? ServiceType { get; set; }
-    [JsonPropertyName("serviceTypes")]
-    public List<string>? ServiceTypes { get; set; } // Support multiple service type filters
-    public string? Language { get; set; }
-    [JsonPropertyName("languages")]
-    public List<string>? Languages { get; set; } // Support multiple language filters
-    public double? MinRating { get; set; }
-    [JsonPropertyName("minRatings")]
-    public List<double>? MinRatings { get; set; } // Support multiple rating filters
-    public string? Address { get; set; }
-    public string? SortBy { get; set; }
-    public string? SortOrder { get; set; }
     [JsonRequired]
     public int PageNumber { get; set; } = 1;
     [JsonRequired]
