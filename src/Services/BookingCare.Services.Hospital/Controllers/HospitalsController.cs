@@ -20,6 +20,7 @@ public class HospitalsController : ControllerBase
     }
 
     [HttpGet("health")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
         return Ok(new { Status = "Healthy", Service = "Hospital", Timestamp = DateTime.UtcNow });

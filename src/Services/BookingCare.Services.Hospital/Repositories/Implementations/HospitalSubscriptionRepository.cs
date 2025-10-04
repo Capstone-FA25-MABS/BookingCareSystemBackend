@@ -40,74 +40,65 @@ public class HospitalSubscriptionRepository : IHospitalSubscriptionRepository
             .Include(hs => hs.SubscriptionPlan)
             .AsQueryable();
 
-        // Apply filters
-        if (filter.HospitalId.HasValue)
-        {
-            query = query.Where(hs => hs.HospitalId == filter.HospitalId.Value);
-        }
-
-        if (filter.SubscriptionId.HasValue)
-        {
-            query = query.Where(hs => hs.SubscriptionId == filter.SubscriptionId.Value);
-        }
-
-        if (filter.Status.HasValue)
-        {
-            query = query.Where(hs => hs.Status == filter.Status.Value);
-        }
-
-        if (filter.StartDateFrom.HasValue)
-        {
-            query = query.Where(hs => hs.StartDate >= filter.StartDateFrom.Value);
-        }
-
-        if (filter.StartDateTo.HasValue)
-        {
-            query = query.Where(hs => hs.StartDate <= filter.StartDateTo.Value);
-        }
-
-        if (filter.EndDateFrom.HasValue)
-        {
-            query = query.Where(hs => hs.EndDate >= filter.EndDateFrom.Value);
-        }
-
-        if (filter.EndDateTo.HasValue)
-        {
-            query = query.Where(hs => hs.EndDate <= filter.EndDateTo.Value);
-        }
-
-        // Get total count before pagination
+        query = ApplyFilters(query, filter);
         var totalCount = await query.CountAsync();
-
-        // Apply sorting
-        if (!string.IsNullOrEmpty(filter.SortBy))
-        {
-            query = filter.SortBy.ToLower() switch
-            {
-                "startdate" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(hs => hs.StartDate)
-                    : query.OrderBy(hs => hs.StartDate),
-                "enddate" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(hs => hs.EndDate)
-                    : query.OrderBy(hs => hs.EndDate),
-                "createdat" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(hs => hs.CreatedAt)
-                    : query.OrderBy(hs => hs.CreatedAt),
-                _ => query.OrderByDescending(hs => hs.CreatedAt)
-            };
-        }
-        else
-        {
-            query = query.OrderByDescending(hs => hs.CreatedAt);
-        }
-
-        // Apply pagination
-        var subscriptions = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .ToListAsync();
+        query = ApplySorting(query, filter);
+        var subscriptions = await ApplyPagination(query, filter).ToListAsync();
 
         return (subscriptions, totalCount);
+    }
+
+    private IQueryable<HospitalSubscriptionEntity> ApplyFilters(IQueryable<HospitalSubscriptionEntity> query, HospitalSubscriptionFilterRequest filter)
+    {
+        if (filter.HospitalId.HasValue)
+            query = query.Where(hs => hs.HospitalId == filter.HospitalId.Value);
+
+        if (filter.SubscriptionId.HasValue)
+            query = query.Where(hs => hs.SubscriptionId == filter.SubscriptionId.Value);
+
+        if (filter.Status.HasValue)
+            query = query.Where(hs => hs.Status == filter.Status.Value);
+
+        if (filter.StartDateFrom.HasValue)
+            query = query.Where(hs => hs.StartDate >= filter.StartDateFrom.Value);
+
+        if (filter.StartDateTo.HasValue)
+            query = query.Where(hs => hs.StartDate <= filter.StartDateTo.Value);
+
+        if (filter.EndDateFrom.HasValue)
+            query = query.Where(hs => hs.EndDate >= filter.EndDateFrom.Value);
+
+        if (filter.EndDateTo.HasValue)
+            query = query.Where(hs => hs.EndDate <= filter.EndDateTo.Value);
+
+        return query;
+    }
+
+    private IQueryable<HospitalSubscriptionEntity> ApplySorting(IQueryable<HospitalSubscriptionEntity> query, HospitalSubscriptionFilterRequest filter)
+    {
+        if (string.IsNullOrEmpty(filter.SortBy))
+            return query.OrderByDescending(hs => hs.CreatedAt);
+
+        return filter.SortBy.ToLower() switch
+        {
+            "startdate" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(hs => hs.StartDate)
+                : query.OrderBy(hs => hs.StartDate),
+            "enddate" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(hs => hs.EndDate)
+                : query.OrderBy(hs => hs.EndDate),
+            "createdat" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(hs => hs.CreatedAt)
+                : query.OrderBy(hs => hs.CreatedAt),
+            _ => query.OrderByDescending(hs => hs.CreatedAt)
+        };
+    }
+
+    private IQueryable<HospitalSubscriptionEntity> ApplyPagination(IQueryable<HospitalSubscriptionEntity> query, HospitalSubscriptionFilterRequest filter)
+    {
+        return query
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize);
     }
 
     public async Task<HospitalSubscriptionEntity> CreateAsync(HospitalSubscriptionEntity subscription)

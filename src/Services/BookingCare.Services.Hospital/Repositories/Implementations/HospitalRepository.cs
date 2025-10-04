@@ -51,59 +51,56 @@ public class HospitalRepository : IHospitalRepository
             .Include(h => h.HospitalImages)
             .AsQueryable();
 
-        // Apply filters
-        if (!string.IsNullOrEmpty(filter.Name))
-        {
-            query = query.Where(h => h.Name.Contains(filter.Name));
-        }
-
-        if (!string.IsNullOrEmpty(filter.Email))
-        {
-            query = query.Where(h => h.Email.Contains(filter.Email));
-        }
-
-        if (filter.Status.HasValue)
-        {
-            query = query.Where(h => h.Status == filter.Status.Value);
-        }
-
-        if (filter.SpecialtyIds != null && filter.SpecialtyIds.Any())
-        {
-            query = query.Where(h => h.HospitalSpecialties.Any(hs => filter.SpecialtyIds.Contains(hs.SpecialtyId)));
-        }
-
-        // Get total count before pagination
+        query = ApplyFilters(query, filter);
         var totalCount = await query.CountAsync();
-
-        // Apply sorting
-        if (!string.IsNullOrEmpty(filter.SortBy))
-        {
-            query = filter.SortBy.ToLower() switch
-            {
-                "name" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(h => h.Name)
-                    : query.OrderBy(h => h.Name),
-                "email" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(h => h.Email)
-                    : query.OrderBy(h => h.Email),
-                "createdat" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(h => h.CreatedAt)
-                    : query.OrderBy(h => h.CreatedAt),
-                _ => query.OrderBy(h => h.Name)
-            };
-        }
-        else
-        {
-            query = query.OrderBy(h => h.Name);
-        }
-
-        // Apply pagination
-        var hospitals = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .ToListAsync();
+        query = ApplySorting(query, filter);
+        var hospitals = await ApplyPagination(query, filter).ToListAsync();
 
         return (hospitals, totalCount);
+    }
+
+    private IQueryable<HospitalEntity> ApplyFilters(IQueryable<HospitalEntity> query, HospitalFilterRequest filter)
+    {
+        if (!string.IsNullOrEmpty(filter.Name))
+            query = query.Where(h => h.Name.Contains(filter.Name));
+
+        if (!string.IsNullOrEmpty(filter.Email))
+            query = query.Where(h => h.Email.Contains(filter.Email));
+
+        if (filter.Status.HasValue)
+            query = query.Where(h => h.Status == filter.Status.Value);
+
+        if (filter.SpecialtyIds != null && filter.SpecialtyIds.Any())
+            query = query.Where(h => h.HospitalSpecialties.Any(hs => filter.SpecialtyIds.Contains(hs.SpecialtyId)));
+
+        return query;
+    }
+
+    private IQueryable<HospitalEntity> ApplySorting(IQueryable<HospitalEntity> query, HospitalFilterRequest filter)
+    {
+        if (string.IsNullOrEmpty(filter.SortBy))
+            return query.OrderBy(h => h.Name);
+
+        return filter.SortBy.ToLower() switch
+        {
+            "name" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(h => h.Name)
+                : query.OrderBy(h => h.Name),
+            "email" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(h => h.Email)
+                : query.OrderBy(h => h.Email),
+            "createdat" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(h => h.CreatedAt)
+                : query.OrderBy(h => h.CreatedAt),
+            _ => query.OrderBy(h => h.Name)
+        };
+    }
+
+    private IQueryable<HospitalEntity> ApplyPagination(IQueryable<HospitalEntity> query, HospitalFilterRequest filter)
+    {
+        return query
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize);
     }
 
     public async Task<HospitalEntity> CreateAsync(HospitalEntity hospital)

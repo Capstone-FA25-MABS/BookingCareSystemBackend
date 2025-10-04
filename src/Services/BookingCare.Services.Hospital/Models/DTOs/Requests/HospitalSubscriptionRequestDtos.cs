@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using BookingCare.Services.Hospital.Enums;
 
 namespace BookingCare.Services.Hospital.Models.DTOs.Requests;
@@ -6,15 +7,19 @@ namespace BookingCare.Services.Hospital.Models.DTOs.Requests;
 public class CreateHospitalSubscriptionRequest
 {
     [Required]
+    [JsonRequired]
     public Guid HospitalId { get; set; }
 
     [Required]
+    [JsonRequired]
     public Guid SubscriptionId { get; set; }
 
     [Required]
+    [JsonRequired]
     public DateTime StartDate { get; set; }
 
     [Required]
+    [JsonRequired]
     public DateTime EndDate { get; set; }
 }
 

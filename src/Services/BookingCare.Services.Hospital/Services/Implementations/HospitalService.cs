@@ -105,12 +105,9 @@ public class HospitalService : IHospitalService
         }
 
         // Validate email uniqueness if email is being updated
-        if (!string.IsNullOrEmpty(request.Email) && request.Email != existingHospital.Email)
+        if (!string.IsNullOrEmpty(request.Email) && request.Email != existingHospital.Email && await _hospitalRepository.EmailExistsAsync(request.Email, id))
         {
-            if (await _hospitalRepository.EmailExistsAsync(request.Email, id))
-            {
-                throw new HospitalAlreadyExistsException(request.Email);
-            }
+            throw new HospitalAlreadyExistsException(request.Email);
         }
 
         // Update hospital properties

@@ -16,13 +16,12 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Kestrel with security best practices
 builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "hospital");
 
-// Add services to the container
+// Add services
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
-builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -41,11 +40,13 @@ builder.Services.AddGlobalExceptionHandling();
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
 
-// Add Entity Framework
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=(local);Database=MABS_Hospital;Trusted_Connection=True;TrustServerCertificate=True;";
+// Add gRPC server
+builder.Services.AddGrpc();
+
+// Database configuration
 builder.Services.AddDbContext<HospitalDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Server=(local);Database=MABS_Hospital;Trusted_Connection=True;TrustServerCertificate=True;"));
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(HospitalMappingProfile));
@@ -63,17 +64,6 @@ builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionSer
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
-
-// Add CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
 
 var app = builder.Build();
 
@@ -93,24 +83,6 @@ if (app.Environment.IsDevelopment())
 
 // Add global exception handling
 app.UseGlobalExceptionHandling();
-
-// Auto-migrate database in development
-if (app.Environment.IsDevelopment())
-{
-    using var scope = app.Services.CreateScope();
-    var context = scope.ServiceProvider.GetRequiredService<HospitalDbContext>();
-    try
-    {
-        context.Database.EnsureCreated();
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while creating the database");
-    }
-}
-
-app.UseCors("AllowAll");
 
 // Configure routing
 app.UseRouting();
@@ -133,4 +105,20 @@ app.MapGet("/health", () => Results.Ok(new
     Version = "1.0.0"
 }));
 
-app.Run();
+// Database migration and seeding (development only)
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    try
+    {
+        var context = scope.ServiceProvider.GetRequiredService<HospitalDbContext>();
+        await context.Database.EnsureCreatedAsync();
+        app.Logger.LogInformation("Database ensured created successfully");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "An error occurred while ensuring database creation");
+    }
+}
+
+await app.RunAsync();

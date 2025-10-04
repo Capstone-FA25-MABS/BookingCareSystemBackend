@@ -154,7 +154,7 @@ if (app.Environment.IsDevelopment())
     try
     {
         var context = scope.ServiceProvider.GetRequiredService<DoctorDbContext>();
-        context.Database.EnsureCreated();
+        await context.Database.EnsureCreatedAsync();
         app.Logger.LogInformation("Database ensured created successfully");
     }
     catch (Exception ex)

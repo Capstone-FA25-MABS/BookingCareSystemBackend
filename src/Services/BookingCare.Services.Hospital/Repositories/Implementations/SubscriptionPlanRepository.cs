@@ -40,64 +40,59 @@ public class SubscriptionPlanRepository : ISubscriptionPlanRepository
     {
         var query = _context.SubscriptionPlans.AsQueryable();
 
-        // Apply filters
-        if (!string.IsNullOrEmpty(filter.Name))
-        {
-            query = query.Where(s => s.Name.Contains(filter.Name));
-        }
-
-        if (filter.Status.HasValue)
-        {
-            query = query.Where(s => s.Status == filter.Status.Value);
-        }
-
-        if (filter.MinPrice.HasValue)
-        {
-            query = query.Where(s => s.Price >= filter.MinPrice.Value);
-        }
-
-        if (filter.MaxPrice.HasValue)
-        {
-            query = query.Where(s => s.Price <= filter.MaxPrice.Value);
-        }
-
-        if (!string.IsNullOrEmpty(filter.BillingCycle))
-        {
-            query = query.Where(s => s.BillingCycle == filter.BillingCycle);
-        }
-
-        // Get total count before pagination
+        query = ApplyFilters(query, filter);
         var totalCount = await query.CountAsync();
-
-        // Apply sorting
-        if (!string.IsNullOrEmpty(filter.SortBy))
-        {
-            query = filter.SortBy.ToLower() switch
-            {
-                "name" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(s => s.Name)
-                    : query.OrderBy(s => s.Name),
-                "price" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(s => s.Price)
-                    : query.OrderBy(s => s.Price),
-                "createdat" => filter.SortOrder?.ToLower() == "desc"
-                    ? query.OrderByDescending(s => s.CreatedAt)
-                    : query.OrderBy(s => s.CreatedAt),
-                _ => query.OrderBy(s => s.Name)
-            };
-        }
-        else
-        {
-            query = query.OrderBy(s => s.Name);
-        }
-
-        // Apply pagination
-        var plans = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .ToListAsync();
+        query = ApplySorting(query, filter);
+        var plans = await ApplyPagination(query, filter).ToListAsync();
 
         return (plans, totalCount);
+    }
+
+    private IQueryable<SubscriptionPlanEntity> ApplyFilters(IQueryable<SubscriptionPlanEntity> query, SubscriptionPlanFilterRequest filter)
+    {
+        if (!string.IsNullOrEmpty(filter.Name))
+            query = query.Where(s => s.Name.Contains(filter.Name));
+
+        if (filter.Status.HasValue)
+            query = query.Where(s => s.Status == filter.Status.Value);
+
+        if (filter.MinPrice.HasValue)
+            query = query.Where(s => s.Price >= filter.MinPrice.Value);
+
+        if (filter.MaxPrice.HasValue)
+            query = query.Where(s => s.Price <= filter.MaxPrice.Value);
+
+        if (!string.IsNullOrEmpty(filter.BillingCycle))
+            query = query.Where(s => s.BillingCycle == filter.BillingCycle);
+
+        return query;
+    }
+
+    private IQueryable<SubscriptionPlanEntity> ApplySorting(IQueryable<SubscriptionPlanEntity> query, SubscriptionPlanFilterRequest filter)
+    {
+        if (string.IsNullOrEmpty(filter.SortBy))
+            return query.OrderBy(s => s.Name);
+
+        return filter.SortBy.ToLower() switch
+        {
+            "name" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(s => s.Name)
+                : query.OrderBy(s => s.Name),
+            "price" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(s => s.Price)
+                : query.OrderBy(s => s.Price),
+            "createdat" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(s => s.CreatedAt)
+                : query.OrderBy(s => s.CreatedAt),
+            _ => query.OrderBy(s => s.Name)
+        };
+    }
+
+    private IQueryable<SubscriptionPlanEntity> ApplyPagination(IQueryable<SubscriptionPlanEntity> query, SubscriptionPlanFilterRequest filter)
+    {
+        return query
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize);
     }
 
     public async Task<SubscriptionPlanEntity> CreateAsync(SubscriptionPlanEntity plan)

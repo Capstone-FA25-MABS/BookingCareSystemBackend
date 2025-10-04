@@ -28,7 +28,17 @@ public class DoctorService : BaseService, IDoctorService
     private readonly HospitalService.HospitalServiceClient _hospitalClient;
     private readonly ReviewService.ReviewServiceClient _reviewClient;
 
-    public DoctorService(IDoctorRepository repository, IPositionRepository positionRepository, ISpecialtyRepository specialtyRepository, ILocationApiService locationApiService, IMapper mapper, FavoritesService.FavoritesServiceClient favoritesClient, AuthService.AuthServiceClient authClient, HospitalService.HospitalServiceClient hospitalClient, ReviewService.ReviewServiceClient reviewClient, ILogger<DoctorService> logger) : base(logger)
+    public DoctorService(
+        IDoctorRepository repository,
+        IPositionRepository positionRepository,
+        ISpecialtyRepository specialtyRepository,
+        ILocationApiService locationApiService,
+        IMapper mapper,
+        FavoritesService.FavoritesServiceClient favoritesClient,
+        AuthService.AuthServiceClient authClient,
+        HospitalService.HospitalServiceClient hospitalClient,
+        ReviewService.ReviewServiceClient reviewClient,
+        ILogger<DoctorService> logger) : base(logger)
     {
         _repository = repository;
         _positionRepository = positionRepository;

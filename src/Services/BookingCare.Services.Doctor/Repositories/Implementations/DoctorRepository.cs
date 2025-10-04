@@ -148,38 +148,64 @@ public class DoctorRepository : IDoctorRepository
 
     private IQueryable<DoctorEntity> ApplyBasicFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
     {
+        queryable = ApplyAccountFilter(queryable, query);
+        queryable = ApplyPositionFilters(queryable, query);
+        queryable = ApplySpecialtyFilters(queryable, query);
+        queryable = ApplyHospitalFilters(queryable, query);
+        queryable = ApplyLocationFilters(queryable, query);
+        queryable = ApplyGenderFilters(queryable, query);
+        queryable = ApplyExperienceFilters(queryable, query);
+        queryable = ApplyAddressFilter(queryable, query);
+
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyAccountFilter(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.AccountId.HasValue)
             queryable = queryable.Where(d => d.AccountId == query.AccountId.Value);
+        return queryable;
+    }
 
-        // Position filters - support both single and multiple
+    private IQueryable<DoctorEntity> ApplyPositionFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.PositionId.HasValue)
             queryable = queryable.Where(d => d.PositionId == query.PositionId.Value);
         if (query.PositionIds != null && query.PositionIds.Any())
             queryable = queryable.Where(d => d.PositionId.HasValue && query.PositionIds.Contains(d.PositionId.Value));
+        return queryable;
+    }
 
-        // Specialty filters - support both single and multiple
+    private IQueryable<DoctorEntity> ApplySpecialtyFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.SpecialtyId.HasValue)
             queryable = queryable.Where(d => d.SpecialtyId == query.SpecialtyId.Value);
         if (query.SpecialtyIds != null && query.SpecialtyIds.Any())
             queryable = queryable.Where(d => d.SpecialtyId.HasValue && query.SpecialtyIds.Contains(d.SpecialtyId.Value));
+        return queryable;
+    }
 
-        // Hospital filters - support both single and multiple
+    private IQueryable<DoctorEntity> ApplyHospitalFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.HospitalId.HasValue)
             queryable = queryable.Where(d => d.HospitalId == query.HospitalId.Value);
         if (query.HospitalIds != null && query.HospitalIds.Any())
             queryable = queryable.Where(d => d.HospitalId.HasValue && query.HospitalIds.Contains(d.HospitalId.Value));
+        return queryable;
+    }
 
-        // Location filters - filter by province/district (requires hospital address data)
-        // Note: This filtering will be enhanced at service layer with distance calculation
+    private IQueryable<DoctorEntity> ApplyLocationFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
         {
             Console.WriteLine($"Location filtering requested - ProvinceId: {query.ProvinceId}, DistrictId: {query.DistrictId}");
-            // Basic filtering - this will be enhanced with distance calculation at service layer
-            // For now, we return all doctors and let the service layer handle location-based filtering
             Console.WriteLine("Location filtering will be handled at service layer with distance calculation");
         }
+        return queryable;
+    }
 
-        // Gender filters - support both single and multiple
+    private IQueryable<DoctorEntity> ApplyGenderFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (!string.IsNullOrEmpty(query.Gender))
         {
             Console.WriteLine($"Filtering by single gender: {query.Gender}");
@@ -194,8 +220,11 @@ public class DoctorRepository : IDoctorRepository
                 .ToList();
             queryable = queryable.Where(d => d.Gender.HasValue && genderEnums.Contains(d.Gender.Value));
         }
+        return queryable;
+    }
 
-        // Experience filters - prioritize min/max over ranges (like price filter)
+    private IQueryable<DoctorEntity> ApplyExperienceFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.MinYearsOfExperience.HasValue)
         {
             Console.WriteLine($"Applying min experience filter: {query.MinYearsOfExperience.Value} years");
@@ -216,14 +245,13 @@ public class DoctorRepository : IDoctorRepository
             queryable = queryable.Where(d => ranges.Any(r =>
                 d.YearsOfExperience >= r.MinYears && d.YearsOfExperience <= r.MaxYears));
         }
+        return queryable;
+    }
 
+    private IQueryable<DoctorEntity> ApplyAddressFilter(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (!string.IsNullOrEmpty(query.Address))
             queryable = queryable.Where(d => d.Address != null && d.Address.Contains(query.Address));
-
-        // Rating filters - will be handled at service layer using Review service
-        // Note: Rating filtering is complex and requires calling Review service
-        // This will be implemented in DoctorService layer
-
         return queryable;
     }
 

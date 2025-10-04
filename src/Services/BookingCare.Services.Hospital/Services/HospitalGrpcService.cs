@@ -10,16 +10,13 @@ namespace BookingCare.Services.Hospital.Services;
 public class HospitalGrpcService : HospitalService.HospitalServiceBase
 {
     private readonly IHospitalService _hospitalService;
-    private readonly IMapper _mapper;
     private readonly ILogger<HospitalGrpcService> _logger;
 
     public HospitalGrpcService(
         IHospitalService hospitalService,
-        IMapper mapper,
         ILogger<HospitalGrpcService> logger)
     {
         _hospitalService = hospitalService;
-        _mapper = mapper;
         _logger = logger;
     }
 
@@ -120,12 +117,9 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             };
 
             // Apply status filter if provided
-            if (!string.IsNullOrEmpty(request.Status))
+            if (!string.IsNullOrEmpty(request.Status) && Enum.TryParse<CommonStatus>(request.Status, true, out var status))
             {
-                if (Enum.TryParse<CommonStatus>(request.Status, true, out var status))
-                {
-                    filter.Status = status;
-                }
+                filter.Status = status;
             }
 
             var hospitalsResponse = await _hospitalService.GetFilteredAsync(filter);
