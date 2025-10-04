@@ -108,13 +108,13 @@ message ReviewResponse {
   string id = 1;
   string patient_id = 2;
   google.protobuf.StringValue doctor_id = 3;
-  google.protobuf.StringValue clinic_service_id = 4;
+  google.protobuf.StringValue service_id = 4;
   int32 rating = 5;
   string comment = 6;
   repeated ReplyResponse replies = 7;
   int64 created_at = 8;
   int64 updated_at = 9;
-  // target_type removed - clients can infer from doctor_id vs clinic_service_id
+  // target_type removed - clients can infer from doctor_id vs service_id
 }
 
 message ReplyResponse {
@@ -138,4 +138,4 @@ message PagedReviewsResponse {
 // Note: TargetType enum removed as target type can be inferred from context:
 // - Doctor endpoints ? DOCTOR type
 // - Service endpoints ? SERVICE type  
-// - ReviewResponse ? infer from doctor_id vs clinic_service_id fields
+// - ReviewResponse ? infer from doctor_id vs service_id fields

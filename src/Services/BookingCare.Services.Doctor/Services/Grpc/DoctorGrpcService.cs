@@ -154,6 +154,56 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         }
     }
 
+    public override async Task<Protos.DeleteDoctorResponse> DeleteDoctor(Protos.DeleteDoctorRequest request, ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[DoctorGrpcService] gRPC DeleteDoctor called for ID: {DoctorId}", request.Id);
+
+            if (!Guid.TryParse(request.Id, out var doctorId))
+            {
+                return new Protos.DeleteDoctorResponse
+                {
+                    Success = false,
+                    Message = "Invalid doctor ID format"
+                };
+            }
+
+            var result = await _doctorService.DeleteDoctorAsync(doctorId);
+
+            if (result)
+            {
+                _logger.LogInformation("[DoctorGrpcService] Doctor deleted successfully: {DoctorId}", doctorId);
+                return new Protos.DeleteDoctorResponse
+                {
+                    Success = true,
+                    Message = "Doctor deleted successfully"
+                };
+            }
+            else
+            {
+                return new Protos.DeleteDoctorResponse
+                {
+                    Success = true, // Consider it successful if already deleted
+                    Message = "Doctor not found or already deleted"
+                };
+            }
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error deleting doctor: {DoctorId}", request.Id);
+            return new Protos.DeleteDoctorResponse
+            {
+                Success = false,
+                Message = ex.Message
+            };
+        }
+    }
+
     private static Protos.DoctorResponse MapToGrpcDoctorResponse(DoctorResponse d)
     {
         return new Protos.DoctorResponse

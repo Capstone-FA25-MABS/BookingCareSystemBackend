@@ -1,6 +1,7 @@
 using BookingCare.Services.Favorites.Models.DTOs;
 using BookingCare.Services.Favorites.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,8 +11,7 @@ namespace BookingCare.Services.Favorites.Controllers;
 /// Controller for managing user favorites
 /// </summary>
 [ApiController]
-
-[Route("api/[controller]")]
+[ApiVersion(ApiVersions.V1_0)]
 public class FavoritesController : BaseApiController
 {
     private readonly IFavoriteService _favoriteService;
@@ -36,9 +36,10 @@ public class FavoritesController : BaseApiController
     /// </summary>
     /// <returns>Health status</returns>
     [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Health()
     {
-        return Success(new { Status = "Healthy", Service = "Favorites", Timestamp = DateTime.UtcNow }, "Service is healthy");
+        return Success(new { Status = "Healthy", Service = "Favorites", Version = ApiVersions.V1_0, Timestamp = DateTime.UtcNow }, "Service is healthy");
     }
 
     /// <summary>
@@ -47,6 +48,7 @@ public class FavoritesController : BaseApiController
     /// <param name="id">Favorite ID</param>
     /// <returns>Favorite details</returns>
     [HttpGet("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetFavoriteById(Guid id)
     {
         if (id == Guid.Empty)
@@ -68,6 +70,7 @@ public class FavoritesController : BaseApiController
     /// <param name="request">Toggle favorite request</param>
     /// <returns>Toggle result with current status and action performed</returns>
     [HttpPost("toggle")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ToggleFavorite([FromBody] ToggleFavoriteRequest request)
     {
         // Validate request
@@ -101,6 +104,7 @@ public class FavoritesController : BaseApiController
     /// <param name="doctorId">Doctor ID</param>
     /// <returns>Toggle result with current status and action performed</returns>
     [HttpPost("toggle/{patientId}/{doctorId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ToggleFavoriteByIds(Guid patientId, Guid doctorId)
     {
         var request = new ToggleFavoriteRequest
@@ -139,6 +143,7 @@ public class FavoritesController : BaseApiController
     /// <param name="request">Check multiple favorites request</param>
     /// <returns>List of favorited doctor IDs with statistics</returns>
     [HttpPost("check-multiple")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CheckMultipleFavorites([FromBody] CheckMultipleFavoritesRequest request)
     {
         // Validate request
@@ -168,6 +173,7 @@ public class FavoritesController : BaseApiController
     /// <param name="pageSize">Page size (default: 20)</param>
     /// <returns>Paginated list of favorites</returns>
     [HttpGet("patient/{patientId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPatientFavorites(
         Guid patientId,
         [FromQuery] int page = 1,
@@ -206,6 +212,7 @@ public class FavoritesController : BaseApiController
     /// <param name="doctorId">Doctor ID</param>
     /// <returns>True if favorited, false otherwise</returns>
     [HttpGet("check/{patientId}/{doctorId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> IsFavorited(Guid patientId, Guid doctorId)
     {
         if (patientId == Guid.Empty)
@@ -254,6 +261,7 @@ public class FavoritesController : BaseApiController
     /// <param name="doctorId">Doctor ID</param>
     /// <returns>Number of favorites</returns>
     [HttpGet("doctor/{doctorId}/count")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorFavoriteCount(Guid doctorId)
     {
         if (doctorId == Guid.Empty)
@@ -279,6 +287,7 @@ public class FavoritesController : BaseApiController
     /// <param name="limit">Number of recent favorites to return (default: 5, max: 50)</param>
     /// <returns>List of recent favorites</returns>
     [HttpGet("patient/{patientId}/recent")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRecentFavorites(Guid patientId, [FromQuery] int limit = 5)
     {
         if (patientId == Guid.Empty)
@@ -317,6 +326,7 @@ public class FavoritesController : BaseApiController
     /// <param name="pageSize">Page size (default: 20)</param>
     /// <returns>Paginated list of doctor's favorites</returns>
     [HttpGet("doctor/{doctorId}/analytics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDoctorFavorites(
         Guid doctorId,
         [FromQuery] int page = 1,

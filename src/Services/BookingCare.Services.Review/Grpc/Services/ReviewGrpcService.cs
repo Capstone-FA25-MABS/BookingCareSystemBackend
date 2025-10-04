@@ -61,7 +61,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     }
 
     /// <summary>
-    /// Gets detailed statistics with rating distribution for a single clinic service
+    /// Gets detailed statistics with rating distribution for a single service
     /// </summary>
     public override async Task<ReviewDetailedStatisticsResponse> GetServiceDetailedStatistics(GetServiceStatisticsRequest request, ServerCallContext context)
     {
@@ -74,7 +74,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid service ID format"));
             }
 
-            var statistics = await _reviewService.GetClinicServiceDetailedStatisticsAsync(serviceId);
+            var statistics = await _reviewService.GetServiceDetailedStatisticsAsync(serviceId);
             return MapToGrpcDetailedStatistics(statistics);
             // TargetType no longer needed - clients can infer SERVICE from endpoint
         }
@@ -202,7 +202,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
     }
 
     /// <summary>
-    /// Gets paginated reviews for a clinic service
+    /// Gets paginated reviews for a service
     /// </summary>
     public override async Task<PagedReviewsResponse> GetServiceReviews(GetServiceReviewsRequest request, ServerCallContext context)
     {
@@ -215,7 +215,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid service ID format"));
             }
 
-            var reviews = await _reviewService.GetReviewsByClinicServiceAsync(serviceId, request.Page, request.PageSize);
+            var reviews = await _reviewService.GetReviewsByServiceAsync(serviceId, request.Page, request.PageSize);
             return MapToGrpcPagedReviews(reviews);
         }
         catch (Exception ex)
@@ -294,7 +294,7 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
             Comment = dto.Comment,
             CreatedAt = ((DateTimeOffset)dto.CreatedAt).ToUnixTimeSeconds(),
             UpdatedAt = ((DateTimeOffset)dto.UpdatedAt).ToUnixTimeSeconds()
-            // TargetType removed from proto - clients can infer from doctor_id vs clinic_service_id
+            // TargetType removed from proto - clients can infer from doctor_id vs service_id
         };
 
         // Set optional fields
@@ -303,9 +303,9 @@ public class ReviewGrpcService : ReviewService.ReviewServiceBase
             response.DoctorId = dto.DoctorId.Value.ToString();
         }
 
-        if (dto.ClinicServiceId.HasValue)
+        if (dto.ServiceId.HasValue)
         {
-            response.ClinicServiceId = dto.ClinicServiceId.Value.ToString();
+            response.ServiceId = dto.ServiceId.Value.ToString();
         }
 
         // Map replies

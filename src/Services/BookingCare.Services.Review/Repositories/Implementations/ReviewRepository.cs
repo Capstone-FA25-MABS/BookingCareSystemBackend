@@ -80,9 +80,9 @@ public class ReviewRepository : IReviewRepository
             filter &= filterBuilder.Eq(r => r.DoctorId, request.DoctorId.Value);
         }
 
-        if (request.ClinicServiceId.HasValue)
+        if (request.ServiceId.HasValue)
         {
-            filter &= filterBuilder.Eq(r => r.ClinicServiceId, request.ClinicServiceId.Value);
+            filter &= filterBuilder.Eq(r => r.ServiceId, request.ServiceId.Value);
         }
 
         if (request.TargetType.HasValue)
@@ -147,17 +147,17 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Gets reviews for a specific clinic service
+    /// Gets reviews for a specific service
     /// </summary>
-    public async Task<PagedReviewsResponse> GetReviewsByClinicServiceAsync(
-        Guid clinicServiceId,
+    public async Task<PagedReviewsResponse> GetReviewsByServiceAsync(
+        Guid serviceId,
         int page = 1,
         int pageSize = 10
     )
     {
         var request = new GetReviewsRequest
         {
-            ClinicServiceId = clinicServiceId,
+            ServiceId = serviceId,
             TargetType = TargetType.SERVICE,
             Page = page,
             PageSize = pageSize,
@@ -254,11 +254,11 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Gets the average rating for a clinic service
+    /// Gets the average rating for a service
     /// </summary>
-    public async Task<double> GetAverageRatingByClinicServiceAsync(Guid clinicServiceId)
+    public async Task<double> GetAverageRatingByServiceAsync(Guid serviceId)
     {
-        return await GetAverageRatingAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE");
+        return await GetAverageRatingAsync("serviceId", serviceId.ToString(), "SERVICE");
     }
 
     /// <summary>
@@ -310,12 +310,12 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Gets the total count of reviews for a clinic service
+    /// Gets the total count of reviews for a service
     /// </summary>
-    public async Task<long> GetReviewCountByClinicServiceAsync(Guid clinicServiceId)
+    public async Task<long> GetReviewCountByServiceAsync(Guid serviceId)
     {
         var filter = Builders<ReviewEntity>.Filter.And(
-            Builders<ReviewEntity>.Filter.Eq(r => r.ClinicServiceId, clinicServiceId),
+            Builders<ReviewEntity>.Filter.Eq(r => r.ServiceId, serviceId),
             Builders<ReviewEntity>.Filter.Eq(r => r.TargetType, TargetType.SERVICE)
         );
         return await _reviews.CountDocumentsAsync(filter);
@@ -330,11 +330,11 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Gets comprehensive statistics for a clinic service
+    /// Gets comprehensive statistics for a service
     /// </summary>
-    public async Task<ReviewStatisticsResponse> GetClinicServiceStatisticsAsync(Guid clinicServiceId)
+    public async Task<ReviewStatisticsResponse> GetServiceStatisticsAsync(Guid serviceId)
     {
-        return await GetStatisticsAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE", clinicServiceId);
+        return await GetStatisticsAsync("serviceId", serviceId.ToString(), "SERVICE", serviceId);
     }
 
     /// <summary>
@@ -346,11 +346,11 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Gets detailed statistics with rating distribution for a clinic service (single endpoint)
+    /// Gets detailed statistics with rating distribution for a service (single endpoint)
     /// </summary>
-    public async Task<ReviewDetailedStatisticsResponse> GetClinicServiceDetailedStatisticsAsync(Guid clinicServiceId)
+    public async Task<ReviewDetailedStatisticsResponse> GetServiceDetailedStatisticsAsync(Guid serviceId)
     {
-        return await GetDetailedStatisticsAsync("clinicServiceId", clinicServiceId.ToString(), "SERVICE", clinicServiceId);
+        return await GetDetailedStatisticsAsync("serviceId", serviceId.ToString(), "SERVICE", serviceId);
     }
 
     /// <summary>
@@ -563,7 +563,7 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Gets comprehensive statistics for multiple clinic services in a single query
+    /// Gets comprehensive statistics for multiple services in a single query
     /// </summary>
     public async Task<BatchServicesStatisticsResponse> GetBatchServicesStatisticsAsync(
         List<Guid> serviceIds
@@ -575,7 +575,7 @@ public class ReviewRepository : IReviewRepository
             "$match",
             new BsonDocument
             {
-                { "clinicServiceId", new BsonDocument("$in", new BsonArray(serviceIdsStrings)) },
+                { "serviceId", new BsonDocument("$in", new BsonArray(serviceIdsStrings)) },
                 { "targetType", "SERVICE" },
             }
         );
@@ -584,7 +584,7 @@ public class ReviewRepository : IReviewRepository
             "$group",
             new BsonDocument
             {
-                { "_id", "$clinicServiceId" },
+                { "_id", "$serviceId" },
                 { "averageRating", new BsonDocument("$avg", "$rating") },
                 { "totalReviews", new BsonDocument("$sum", 1) }
             }
@@ -654,16 +654,16 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
-    /// Checks if a patient has already reviewed a specific clinic service
+    /// Checks if a patient has already reviewed a specific service
     /// </summary>
     public async Task<ReviewEntity?> GetExistingServiceReviewAsync(
         Guid patientId,
-        Guid clinicServiceId
+        Guid serviceId
     )
     {
         var filter = Builders<ReviewEntity>.Filter.And(
             Builders<ReviewEntity>.Filter.Eq(r => r.PatientId, patientId),
-            Builders<ReviewEntity>.Filter.Eq(r => r.ClinicServiceId, clinicServiceId),
+            Builders<ReviewEntity>.Filter.Eq(r => r.ServiceId, serviceId),
             Builders<ReviewEntity>.Filter.Eq(r => r.TargetType, TargetType.SERVICE)
         );
 

@@ -14,9 +14,11 @@ public interface IAuthRepository
     Task<AccountEntity?> GetAccountByPhoneNumberAsync(string phoneNumber);
     Task<AccountEntity> CreateAccountAsync(AccountEntity account, string password);
     Task<AccountEntity> UpdateAccountAsync(AccountEntity account);
+    Task<bool> DeleteAccountAsync(AccountEntity account);
     Task<bool> EmailExistsAsync(string email);
     Task<bool> PhoneNumberExistsAsync(string phoneNumber);
     Task<List<AccountEntity>> GetAccountsByIdsAsync(List<Guid> accountIds);
+    Task<List<(Guid AccountId, List<string> Roles)>> GetAccountsWithRolesAsync(List<Guid> accountIds);
 
     // Role operations
     Task<RoleEntity?> GetRoleByIdAsync(Guid id);
