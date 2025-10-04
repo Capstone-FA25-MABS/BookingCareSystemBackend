@@ -1,43 +1,28 @@
-
-using BookingCare.Services.Favorites.Extensions;
-using BookingCare.Services.Favorites.Models.Configuration;
+﻿using BookingCare.Services.Favorites.Extensions;
 using BookingCare.Services.Favorites.Services.Grpc;
 using BookingCare.Shared.Common.Extensions;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
-
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+using BookingCare.Shared.Common.Versioning;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Kestrel
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(6009, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-    options.ListenAnyIP(6019, listenOptions =>
-    {
-        // listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
-
-
-
-
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "favorites");
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
+
+// BẮT BUỘC: Add API versioning support
+builder.Services.AddApiVersioningSupport();
+
+// Swagger configuration with versioning
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    c.SwaggerDoc("v1.0", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Title = "BookingCare Favorites Service",
-        Version = "v1",
+        Title = "BookingCare Favorites API",
+        Version = "v1.0",
         Description = "API for managing user favorites for doctors"
     });
 });
@@ -65,7 +50,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BookingCare Favorites Service V1");
+        c.SwaggerEndpoint("/swagger/v1.0/swagger.json", "BookingCare Favorites Service V1.0");
         c.RoutePrefix = string.Empty; // Set Swagger UI at app root
     });
 }

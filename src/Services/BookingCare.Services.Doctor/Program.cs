@@ -3,11 +3,9 @@ using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Repositories.Implementations;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Services.Doctor.Services.Implementations;
-using BookingCare.Services.Doctor.Services;
 using BookingCare.Services.Doctor.Mappings;
 using BookingCare.Services.Doctor.Middlewares;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
@@ -16,25 +14,10 @@ using BookingCare.Services.Doctor.Services.Grpc;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Kestrel for dual HTTP/gRPC support
-builder.WebHost.ConfigureKestrel(options =>
-{
-    // HTTP endpoint for REST API
-    options.ListenAnyIP(6008, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-    // gRPC endpoint
-    options.ListenAnyIP(6018, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "doctor");
 
 // Add services
 builder.Services.AddControllers()
@@ -89,25 +72,25 @@ builder.Services.AddScoped<ILocationApiService, LocationApiService>();
 builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(SpecialtyMappingProfile));
 
 // gRPC clients
-var favoritesAddress = builder.Configuration.GetSection("GrpcClients:Favorites:Address").Value ?? "http://localhost:6019";
+var favoritesAddress = builder.Configuration.GetSection("GrpcClients:Favorites:Address").Value ?? "http://localhost:6109";
 builder.Services.AddGrpcClient<FavoritesService.FavoritesServiceClient>(options =>
 {
     options.Address = new Uri(favoritesAddress);
 });
 
-var authAddress = builder.Configuration.GetSection("GrpcClients:Auth:Address").Value ?? "http://localhost:6001";
+var authAddress = builder.Configuration.GetSection("GrpcClients:Auth:Address").Value ?? "http://localhost:6103";
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
 {
     options.Address = new Uri(authAddress);
 });
 
-var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6014";
+var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6104";
 builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
 {
     options.Address = new Uri(hospitalAddress);
 });
 
-var reviewAddress = builder.Configuration.GetSection("GrpcClients:Review:Address").Value ?? "http://localhost:6010";
+var reviewAddress = builder.Configuration.GetSection("GrpcClients:Review:Address").Value ?? "http://localhost:6112";
 builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
 {
     options.Address = new Uri(reviewAddress);
