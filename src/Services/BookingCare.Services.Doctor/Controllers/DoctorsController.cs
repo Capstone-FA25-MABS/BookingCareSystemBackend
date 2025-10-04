@@ -205,9 +205,9 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patient/{patientId}/favorites")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetPatientFavoriteDoctors(Guid patientId, [FromQuery] int page = 1, [FromQuery] int pageSize = 9, [FromQuery] string? searchTerm = null)
+    public async Task<IActionResult> GetPatientFavoriteDoctors(Guid patientId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 9, [FromQuery] string? searchTerm = null)
     {
-        var result = await _doctorService.GetPatientFavoriteDoctorsAsync(patientId, page, pageSize, searchTerm);
+        var result = await _doctorService.GetPatientFavoriteDoctorsAsync(patientId, pageNumber, pageSize, searchTerm);
         return Success<DoctorListResponse>(result, $"Favorite doctors for patient {patientId} retrieved successfully");
     }
 
@@ -216,7 +216,7 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/search")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> SearchActiveDoctors([FromQuery] string? searchTerm, [FromQuery] Guid? specialtyId, [FromQuery] Guid? hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> SearchActiveDoctors([FromQuery] string? searchTerm, [FromQuery] Guid? specialtyId, [FromQuery] Guid? hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
         {
@@ -224,7 +224,7 @@ public class DoctorsController : BaseApiController
             SpecialtyId = specialtyId,
             HospitalId = hospitalId,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
-            PageNumber = page,
+            PageNumber = pageNumber,
             PageSize = pageSize
         };
 
@@ -245,13 +245,13 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/specialty/{specialtyId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDoctorsBySpecialty(Guid specialtyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> GetActiveDoctorsBySpecialty(Guid specialtyId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
         {
             SpecialtyId = specialtyId,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
-            PageNumber = page,
+            PageNumber = pageNumber,
             PageSize = pageSize
         };
 
@@ -272,13 +272,13 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/hospital/{hospitalId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDoctorsByHospital(Guid hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> GetActiveDoctorsByHospital(Guid hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
         {
             HospitalId = hospitalId,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
-            PageNumber = page,
+            PageNumber = pageNumber,
             PageSize = pageSize
         };
 

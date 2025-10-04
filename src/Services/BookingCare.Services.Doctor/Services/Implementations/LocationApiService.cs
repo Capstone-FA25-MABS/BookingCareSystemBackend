@@ -272,14 +272,14 @@ public class LocationApiService : BaseService, ILocationApiService
         var hospitalAddress = doctor.Hospital.Address.ToLower();
         var provinceName = locationInfo.ProvinceName.ToLower();
         var districtName = locationInfo.DistrictName?.ToLower() ?? "";
-        
+
         // Clean up province name - remove "thành phố" prefix
         var cleanProvinceName = provinceName.Replace("thành phố", "").Replace("tỉnh", "").Trim();
 
-        Logger.LogInformation("Checking doctor {DoctorId} with hospital address: '{HospitalAddress}' against location: Province='{ProvinceName}', District='{DistrictName}'", 
+        Logger.LogInformation("Checking doctor {DoctorId} with hospital address: '{HospitalAddress}' against location: Province='{ProvinceName}', District='{DistrictName}'",
             doctor.Id, hospitalAddress, locationInfo.ProvinceName, locationInfo.DistrictName);
-        
-        Logger.LogInformation("DEBUG - Normalized values: hospitalAddress='{HospitalAddress}', provinceName='{ProvinceName}', cleanProvinceName='{CleanProvinceName}', districtName='{DistrictName}'", 
+
+        Logger.LogInformation("DEBUG - Normalized values: hospitalAddress='{HospitalAddress}', provinceName='{ProvinceName}', cleanProvinceName='{CleanProvinceName}', districtName='{DistrictName}'",
             hospitalAddress, provinceName, cleanProvinceName, districtName);
 
         bool result;
@@ -289,9 +289,9 @@ public class LocationApiService : BaseService, ILocationApiService
             var provinceMatch = hospitalAddress.Contains(provinceName) || hospitalAddress.Contains(cleanProvinceName);
             var districtMatch = hospitalAddress.Contains(districtName);
             result = provinceMatch && districtMatch;
-            Logger.LogInformation("District filter result: ProvinceMatch={ProvinceMatch}, DistrictMatch={DistrictMatch}, Final={Result}", 
+            Logger.LogInformation("District filter result: ProvinceMatch={ProvinceMatch}, DistrictMatch={DistrictMatch}, Final={Result}",
                 provinceMatch, districtMatch, result);
-            Logger.LogInformation("DEBUG - Contains check: '{HospitalAddress}'.Contains('{ProvinceName}') OR Contains('{CleanProvinceName}') = {ProvinceMatch}, Contains('{DistrictName}') = {DistrictMatch}", 
+            Logger.LogInformation("DEBUG - Contains check: '{HospitalAddress}'.Contains('{ProvinceName}') OR Contains('{CleanProvinceName}') = {ProvinceMatch}, Contains('{DistrictName}') = {DistrictMatch}",
                 hospitalAddress, provinceName, cleanProvinceName, provinceMatch, districtName, districtMatch);
         }
         else
@@ -299,10 +299,10 @@ public class LocationApiService : BaseService, ILocationApiService
             // Filter by province only
             result = hospitalAddress.Contains(provinceName) || hospitalAddress.Contains(cleanProvinceName);
             Logger.LogInformation("Province filter result: {Result}", result);
-            Logger.LogInformation("DEBUG - Contains check: '{HospitalAddress}'.Contains('{ProvinceName}') OR Contains('{CleanProvinceName}') = {Result}", 
+            Logger.LogInformation("DEBUG - Contains check: '{HospitalAddress}'.Contains('{ProvinceName}') OR Contains('{CleanProvinceName}') = {Result}",
                 hospitalAddress, provinceName, cleanProvinceName, result);
         }
-        
+
         return result;
     }
 
@@ -322,10 +322,10 @@ public class LocationApiService : BaseService, ILocationApiService
         // Check if address contains any variation of the location name
         var variations = GetLocationVariations(normalizedLocation);
         var result = variations.Any(variation => normalizedAddress.Contains(variation));
-        
-        Logger.LogInformation("ContainsLocation check: Address='{Address}' -> Normalized='{NormalizedAddress}', Location='{LocationName}' -> Normalized='{NormalizedLocation}', Variations=[{Variations}], Result={Result}", 
+
+        Logger.LogInformation("ContainsLocation check: Address='{Address}' -> Normalized='{NormalizedAddress}', Location='{LocationName}' -> Normalized='{NormalizedLocation}', Variations=[{Variations}], Result={Result}",
             address, normalizedAddress, locationName, normalizedLocation, string.Join(", ", variations), result);
-        
+
         return result;
     }
 

@@ -321,7 +321,7 @@ public class DoctorService : BaseService, IDoctorService
             // Update total count and pages after location filtering
             response.TotalCount = response.Doctors.Count;
             response.TotalPages = (int)Math.Ceiling((double)response.TotalCount / query.PageSize);
-            
+
             // Ensure page number is valid after filtering
             if (response.PageNumber > response.TotalPages && response.TotalPages > 0)
             {
