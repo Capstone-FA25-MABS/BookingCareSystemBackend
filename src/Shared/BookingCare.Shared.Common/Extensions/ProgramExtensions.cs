@@ -2,11 +2,13 @@ using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Hosting;
 
-namespace BookingCare.Services.Doctor.Extensions;
+namespace BookingCare.Shared.Common.Extensions;
 
 /// <summary>
-/// Extension methods for configuring common services in Program.cs
+/// Extension methods for configuring common services in Program.cs files
 /// </summary>
 public static class ProgramExtensions
 {
@@ -76,7 +78,7 @@ public static class ProgramExtensions
     /// </summary>
     public static void MapCommonHealthCheck(this WebApplication app, string serviceName)
     {
-        app.MapGet("/health", () => Results.Ok(new
+        app.MapGet("/health", () => Microsoft.AspNetCore.Http.Results.Ok(new
         {
             Service = serviceName,
             Status = "Healthy",

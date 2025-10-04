@@ -13,7 +13,6 @@ using BookingCare.Services.Review.Grpc;
 using BookingCare.Services.Doctor.Services.Grpc;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
-using BookingCare.Services.Doctor.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 

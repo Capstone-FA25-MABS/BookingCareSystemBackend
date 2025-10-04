@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
-using BookingCare.Services.Hospital.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
