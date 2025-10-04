@@ -4,6 +4,7 @@ using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Exceptions;
 using CommonStatus = BookingCare.Shared.Common.Enums.Status;
 using GrpcStatus = Grpc.Core.Status;
+using BookingCare.Services.Hospital.Models.DTOs;
 
 namespace BookingCare.Services.Hospital.Services;
 
@@ -22,68 +23,62 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
 
     private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.Entities.HospitalEntity hospital)
     {
-        return MapToHospitalReplyInternal(
-            hospital.Id,
-            hospital.AccountId,
-            hospital.Name,
-            hospital.Address,
-            hospital.Phone,
-            hospital.Email,
-            hospital.Description,
-            hospital.BackgroundUrl,
-            hospital.AvatarUrl,
-            hospital.Status,
-            hospital.CreatedAt,
-            hospital.UpdatedAt
-        );
+        var dto = new HospitalMappingDto
+        {
+            Id = hospital.Id,
+            AccountId = hospital.AccountId,
+            Name = hospital.Name,
+            Address = hospital.Address,
+            Phone = hospital.Phone,
+            Email = hospital.Email,
+            Description = hospital.Description,
+            BackgroundUrl = hospital.BackgroundUrl,
+            AvatarUrl = hospital.AvatarUrl,
+            Status = hospital.Status,
+            CreatedAt = hospital.CreatedAt,
+            UpdatedAt = hospital.UpdatedAt
+        };
+        
+        return MapToHospitalReplyInternal(dto);
     }
 
     private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalDetailResponse hospital)
     {
-        return MapToHospitalReplyInternal(
-            hospital.Id,
-            hospital.AccountId,
-            hospital.Name,
-            hospital.Address,
-            hospital.Phone,
-            hospital.Email,
-            hospital.Description,
-            hospital.BackgroundUrl,
-            hospital.AvatarUrl,
-            hospital.Status,
-            hospital.CreatedAt,
-            hospital.UpdatedAt
-        );
+        var dto = new HospitalMappingDto
+        {
+            Id = hospital.Id,
+            AccountId = hospital.AccountId,
+            Name = hospital.Name,
+            Address = hospital.Address,
+            Phone = hospital.Phone,
+            Email = hospital.Email,
+            Description = hospital.Description,
+            BackgroundUrl = hospital.BackgroundUrl,
+            AvatarUrl = hospital.AvatarUrl,
+            Status = hospital.Status,
+            CreatedAt = hospital.CreatedAt,
+            UpdatedAt = hospital.UpdatedAt
+        };
+        
+        return MapToHospitalReplyInternal(dto);
     }
 
-    private static HospitalReply MapToHospitalReplyInternal(
-        Guid id,
-        Guid accountId,
-        string name,
-        string address,
-        string? phone,
-        string email,
-        string? description,
-        string? backgroundUrl,
-        string? avatarUrl,
-        BookingCare.Shared.Common.Enums.Status status,
-        DateTime createdAt,
-        DateTime updatedAt)
+    private static HospitalReply MapToHospitalReplyInternal(HospitalMappingDto dto)
     {
         return new HospitalReply
         {
-            Id = id.ToString(),
-            AccountId = accountId.ToString(),
-            Name = name,
-            Address = address,
-            Phone = phone ?? "",
-            Email = email,
-            Description = description,
-            BackgroundUrl = backgroundUrl ?? "",
-            AvatarUrl = avatarUrl ?? "",
-            Status = status.ToString(),
-            CreatedAt = createdAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-            UpdatedAt = updatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            Id = dto.Id.ToString(),
+            AccountId = dto.AccountId.ToString(),
+            Name = dto.Name,
+            Address = dto.Address,
+            Phone = dto.Phone ?? "",
+            Email = dto.Email,
+            Description = dto.Description,
+            BackgroundUrl = dto.BackgroundUrl ?? "",
+            AvatarUrl = dto.AvatarUrl ?? "",
+            Status = dto.Status.ToString(),
+            CreatedAt = dto.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            UpdatedAt = dto.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         };
     }
 
