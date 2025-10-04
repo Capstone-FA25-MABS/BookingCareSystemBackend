@@ -53,6 +53,7 @@ builder.Services.AddScoped<ILanguageRepository, LanguageRepository>();
 builder.Services.AddScoped<IServiceTypeRepository, ServiceTypeRepository>();
 
 // Service registration
+builder.Services.AddScoped<IDoctorServiceDependencies, DoctorServiceDependencies>();
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();

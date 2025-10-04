@@ -18,37 +18,13 @@ namespace BookingCare.Services.Doctor.Services.Implementations;
 
 public class DoctorService : BaseService, IDoctorService
 {
-    private readonly IDoctorRepository _repository;
-    private readonly IPositionRepository _positionRepository;
-    private readonly ISpecialtyRepository _specialtyRepository;
-    private readonly ILocationApiService _locationApiService;
-    private readonly IMapper _mapper;
-    private readonly FavoritesService.FavoritesServiceClient _favoritesClient;
-    private readonly AuthService.AuthServiceClient _authClient;
-    private readonly HospitalService.HospitalServiceClient _hospitalClient;
-    private readonly ReviewService.ReviewServiceClient _reviewClient;
+    private readonly IDoctorServiceDependencies _dependencies;
 
     public DoctorService(
-        IDoctorRepository repository,
-        IPositionRepository positionRepository,
-        ISpecialtyRepository specialtyRepository,
-        ILocationApiService locationApiService,
-        IMapper mapper,
-        FavoritesService.FavoritesServiceClient favoritesClient,
-        AuthService.AuthServiceClient authClient,
-        HospitalService.HospitalServiceClient hospitalClient,
-        ReviewService.ReviewServiceClient reviewClient,
+        IDoctorServiceDependencies dependencies,
         ILogger<DoctorService> logger) : base(logger)
     {
-        _repository = repository;
-        _positionRepository = positionRepository;
-        _specialtyRepository = specialtyRepository;
-        _locationApiService = locationApiService;
-        _mapper = mapper;
-        _favoritesClient = favoritesClient;
-        _authClient = authClient;
-        _hospitalClient = hospitalClient;
-        _reviewClient = reviewClient;
+        _dependencies = dependencies;
     }
 
     #region Doctor CRUD Operations
@@ -63,28 +39,28 @@ public class DoctorService : BaseService, IDoctorService
             await ValidateCreateDoctorRequest(request);
 
             var doctor = CreateDoctorEntity(request);
-            var createdDoctor = await _repository.CreateDoctorAsync(doctor);
+            var createdDoctor = await _dependencies.Repository.CreateDoctorAsync(doctor);
 
             await CreateDoctorPricesAsync(createdDoctor.Id, request.Prices);
             await CreateDoctorLanguagesAsync(createdDoctor.Id, request.LanguageIds);
 
-            return _mapper.Map<DoctorResponse>(createdDoctor);
+            return _dependencies.Mapper.Map<DoctorResponse>(createdDoctor);
         }, nameof(CreateDoctorAsync));
     }
 
     private async Task ValidateCreateDoctorRequest(CreateDoctorRequest request)
     {
-        if (await _repository.DoctorEmailExistsAsync(request.Email))
+        if (await _dependencies.Repository.DoctorEmailExistsAsync(request.Email))
         {
             throw DoctorConflictException.WithEmail(request.Email);
         }
 
-        if (await _repository.DoctorAccountExistsAsync(request.AccountId))
+        if (await _dependencies.Repository.DoctorAccountExistsAsync(request.AccountId))
         {
             throw DoctorConflictException.WithAccountId(request.AccountId);
         }
 
-        if (request.PositionId.HasValue && !await _positionRepository.PositionExistsAsync(request.PositionId.Value))
+        if (request.PositionId.HasValue && !await _dependencies.PositionRepository.PositionExistsAsync(request.PositionId.Value))
         {
             throw PositionNotFoundException.WithId(request.PositionId.Value);
         }
@@ -92,7 +68,7 @@ public class DoctorService : BaseService, IDoctorService
 
     private DoctorEntity CreateDoctorEntity(CreateDoctorRequest request)
     {
-        var doctor = _mapper.Map<DoctorEntity>(request);
+        var doctor = _dependencies.Mapper.Map<DoctorEntity>(request);
         doctor.Id = Guid.NewGuid();
         return doctor;
     }
@@ -109,7 +85,7 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task ValidateAndCreateDoctorPrice(Guid doctorId, DoctorPriceRequest priceRequest)
     {
-        var serviceType = await _repository.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
+        var serviceType = await _dependencies.Repository.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
         if (serviceType == null)
         {
             throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
@@ -122,7 +98,7 @@ public class DoctorService : BaseService, IDoctorService
             ServiceTypeId = priceRequest.ServiceTypeId,
             Amount = priceRequest.Amount
         };
-        await _repository.CreateDoctorPriceAsync(doctorPrice);
+        await _dependencies.Repository.CreateDoctorPriceAsync(doctorPrice);
     }
 
     private async Task CreateDoctorLanguagesAsync(Guid doctorId, IEnumerable<Guid>? languageIds)
@@ -137,7 +113,7 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task ValidateAndCreateDoctorLanguage(Guid doctorId, Guid languageId)
     {
-        var language = await _repository.GetLanguageByIdAsync(languageId);
+        var language = await _dependencies.Repository.GetLanguageByIdAsync(languageId);
         if (language == null)
         {
             throw new ArgumentException($"Language with ID {languageId} not found");
@@ -149,18 +125,18 @@ public class DoctorService : BaseService, IDoctorService
             DoctorId = doctorId,
             LanguageId = languageId
         };
-        await _repository.CreateDoctorLanguageAsync(doctorLanguage);
+        await _dependencies.Repository.CreateDoctorLanguageAsync(doctorLanguage);
     }
 
     public async Task<DoctorDetailResponse?> GetDoctorByIdAsync(Guid id)
     {
-        var doctor = await _repository.GetDoctorByIdAsync(id);
+        var doctor = await _dependencies.Repository.GetDoctorByIdAsync(id);
         if (doctor == null) return null;
 
         // Include Position và Specialty
         await IncludePositionAndSpecialtyAsync(doctor);
 
-        var response = _mapper.Map<DoctorDetailResponse>(doctor);
+        var response = _dependencies.Mapper.Map<DoctorDetailResponse>(doctor);
 
         // Enrich with account status
         await EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
@@ -176,13 +152,13 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<DoctorResponse?> GetDoctorByEmailAsync(string email)
     {
-        var doctor = await _repository.GetDoctorByEmailAsync(email);
+        var doctor = await _dependencies.Repository.GetDoctorByEmailAsync(email);
         if (doctor == null) return null;
 
         // Include Position và Specialty
         await IncludePositionAndSpecialtyAsync(doctor);
 
-        var response = _mapper.Map<DoctorResponse>(doctor);
+        var response = _dependencies.Mapper.Map<DoctorResponse>(doctor);
 
         // Enrich with status and review statistics
         await EnrichSingleDoctorAsync(response);
@@ -192,13 +168,13 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<DoctorResponse?> GetDoctorByAccountIdAsync(Guid accountId)
     {
-        var doctor = await _repository.GetDoctorByAccountIdAsync(accountId);
+        var doctor = await _dependencies.Repository.GetDoctorByAccountIdAsync(accountId);
         if (doctor == null) return null;
 
         // Include Position và Specialty
         await IncludePositionAndSpecialtyAsync(doctor);
 
-        var response = _mapper.Map<DoctorResponse>(doctor);
+        var response = _dependencies.Mapper.Map<DoctorResponse>(doctor);
 
         // Enrich with status and review statistics
         await EnrichSingleDoctorAsync(response);
@@ -222,14 +198,14 @@ public class DoctorService : BaseService, IDoctorService
             await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
             await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
 
-            var updatedDoctor = await _repository.UpdateDoctorAsync(existingDoctor);
-            return _mapper.Map<DoctorResponse>(updatedDoctor);
+            var updatedDoctor = await _dependencies.Repository.UpdateDoctorAsync(existingDoctor);
+            return _dependencies.Mapper.Map<DoctorResponse>(updatedDoctor);
         }, nameof(UpdateDoctorAsync));
     }
 
     private async Task<DoctorEntity> ValidateAndGetExistingDoctor(Guid id)
     {
-        var existingDoctor = await _repository.GetDoctorByIdAsync(id);
+        var existingDoctor = await _dependencies.Repository.GetDoctorByIdAsync(id);
         if (existingDoctor == null)
         {
             throw DoctorNotFoundException.WithId(id);
@@ -239,7 +215,7 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task ValidateUpdateDoctorRequest(UpdateDoctorRequest request)
     {
-        if (request.PositionId.HasValue && !await _positionRepository.PositionExistsAsync(request.PositionId.Value))
+        if (request.PositionId.HasValue && !await _dependencies.PositionRepository.PositionExistsAsync(request.PositionId.Value))
         {
             throw PositionNotFoundException.WithId(request.PositionId.Value);
         }
@@ -247,7 +223,7 @@ public class DoctorService : BaseService, IDoctorService
 
     private void UpdateDoctorEntity(DoctorEntity existingDoctor, UpdateDoctorRequest request)
     {
-        _mapper.Map(request, existingDoctor);
+        _dependencies.Mapper.Map(request, existingDoctor);
         existingDoctor.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -255,7 +231,7 @@ public class DoctorService : BaseService, IDoctorService
     {
         if (prices == null || !prices.Any()) return;
 
-        await _repository.DeleteAllDoctorPricesAsync(doctorId);
+        await _dependencies.Repository.DeleteAllDoctorPricesAsync(doctorId);
 
         foreach (var priceRequest in prices)
         {
@@ -265,7 +241,7 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task UpdateDoctorLanguagesAsync(Guid doctorId, IEnumerable<Guid>? languageIds)
     {
-        await _repository.DeleteAllDoctorLanguagesAsync(doctorId);
+        await _dependencies.Repository.DeleteAllDoctorLanguagesAsync(doctorId);
 
         if (languageIds != null && languageIds.Any())
         {
@@ -280,7 +256,7 @@ public class DoctorService : BaseService, IDoctorService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            return await _repository.DeleteDoctorAsync(id);
+            return await _dependencies.Repository.DeleteDoctorAsync(id);
         }, nameof(DeleteDoctorAsync));
     }
 
@@ -288,7 +264,7 @@ public class DoctorService : BaseService, IDoctorService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            var doctor = await _repository.GetDoctorByIdAsync(id);
+            var doctor = await _dependencies.Repository.GetDoctorByIdAsync(id);
             if (doctor == null)
             {
                 throw DoctorNotFoundException.WithId(id);
@@ -309,12 +285,12 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<DoctorListResponse> GetDoctorsAsync(DoctorQueryRequest query)
     {
-        var (doctors, totalCount) = await _repository.GetDoctorsAsync(query);
+        var (doctors, totalCount) = await _dependencies.Repository.GetDoctorsAsync(query);
 
         // Enrich with Position và Specialty
         await EnrichDoctorsWithPositionAndSpecialtyAsync(doctors);
 
-        var response = _mapper.Map<DoctorListResponse>((doctors, totalCount));
+        var response = _dependencies.Mapper.Map<DoctorListResponse>((doctors, totalCount));
 
         // Set pagination info
         response.PageNumber = query.PageNumber;
@@ -327,7 +303,7 @@ public class DoctorService : BaseService, IDoctorService
         // Apply location filtering if needed
         if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
         {
-            response.Doctors = await _locationApiService.ApplyLocationFilteringAsync(response.Doctors, query.ProvinceId, query.DistrictId);
+            response.Doctors = await _dependencies.LocationApiService.ApplyLocationFilteringAsync(response.Doctors, query.ProvinceId, query.DistrictId);
             // Update total count and pages after location filtering
             response.TotalCount = response.Doctors.Count;
             response.TotalPages = (int)Math.Ceiling((double)response.TotalCount / query.PageSize);
@@ -422,8 +398,8 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<List<DoctorResponse>> GetDoctorsByHospitalAsync(Guid hospitalId)
     {
-        var doctors = await _repository.GetDoctorsByHospitalAsync(hospitalId);
-        var response = _mapper.Map<List<DoctorResponse>>(doctors);
+        var doctors = await _dependencies.Repository.GetDoctorsByHospitalAsync(hospitalId);
+        var response = _dependencies.Mapper.Map<List<DoctorResponse>>(doctors);
 
         // Enrich with status, review statistics, and hospital info
         await EnrichDoctorListAsync(response);
@@ -433,8 +409,8 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<List<DoctorResponse>> GetDoctorsBySpecialtyAsync(Guid specialtyId)
     {
-        var doctors = await _repository.GetDoctorsBySpecialtyAsync(specialtyId);
-        var response = _mapper.Map<List<DoctorResponse>>(doctors);
+        var doctors = await _dependencies.Repository.GetDoctorsBySpecialtyAsync(specialtyId);
+        var response = _dependencies.Mapper.Map<List<DoctorResponse>>(doctors);
 
         // Enrich with status, review statistics, and hospital info
         await EnrichDoctorListAsync(response);
@@ -444,8 +420,8 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<List<DoctorResponse>> GetDoctorsByPositionAsync(Guid positionId)
     {
-        var doctors = await _repository.GetDoctorsByPositionAsync(positionId);
-        var response = _mapper.Map<List<DoctorResponse>>(doctors);
+        var doctors = await _dependencies.Repository.GetDoctorsByPositionAsync(positionId);
+        var response = _dependencies.Mapper.Map<List<DoctorResponse>>(doctors);
 
         // Enrich with status, review statistics, and hospital info
         await EnrichDoctorListAsync(response);
@@ -455,8 +431,8 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<List<DoctorResponse>> GetActiveDoctorsAsync()
     {
-        var doctors = await _repository.GetActiveDoctorsAsync();
-        var response = _mapper.Map<List<DoctorResponse>>(doctors);
+        var doctors = await _dependencies.Repository.GetActiveDoctorsAsync();
+        var response = _dependencies.Mapper.Map<List<DoctorResponse>>(doctors);
 
         // Enrich with status, review statistics, and hospital info
         await EnrichDoctorListAsync(response);
@@ -466,7 +442,7 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<List<DoctorBasicInfoResponse>> GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds)
     {
-        var doctors = await _repository.GetDoctorsByAccountIdsAsync(accountIds);
+        var doctors = await _dependencies.Repository.GetDoctorsByAccountIdsAsync(accountIds);
         var result = new List<DoctorBasicInfoResponse>();
         foreach (var d in doctors)
         {
@@ -508,10 +484,10 @@ public class DoctorService : BaseService, IDoctorService
         }
 
         var allDoctorIds = await GetAllFavoriteDoctorIds(patientId, totalFavorites);
-        var doctors = await _repository.GetDoctorsByIdsAsync(allDoctorIds);
+        var doctors = await _dependencies.Repository.GetDoctorsByIdsAsync(allDoctorIds);
 
         var filteredDoctors = FilterDoctorsBySearchTerm(doctors, searchTerm);
-        var mappedDoctors = _mapper.Map<List<DoctorResponse>>(filteredDoctors);
+        var mappedDoctors = _dependencies.Mapper.Map<List<DoctorResponse>>(filteredDoctors);
 
         SetFavoriteStatus(mappedDoctors, allDoctorIds);
         await EnrichDoctorListAsync(mappedDoctors);
@@ -535,7 +511,7 @@ public class DoctorService : BaseService, IDoctorService
             PageSize = pageSize
         };
 
-        var response = await _favoritesClient.GetPatientFavoritesAsync(request);
+        var response = await _dependencies.FavoritesClient.GetPatientFavoritesAsync(request);
         var doctorIds = response.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
 
         if (!doctorIds.Any())
@@ -543,8 +519,8 @@ public class DoctorService : BaseService, IDoctorService
             return CreateEmptyDoctorListResponse(page, pageSize, null);
         }
 
-        var pageDoctors = await _repository.GetDoctorsByIdsAsync(doctorIds);
-        var mappedPage = _mapper.Map<List<DoctorResponse>>(pageDoctors);
+        var pageDoctors = await _dependencies.Repository.GetDoctorsByIdsAsync(doctorIds);
+        var mappedPage = _dependencies.Mapper.Map<List<DoctorResponse>>(pageDoctors);
 
         SetFavoriteStatus(mappedPage, doctorIds);
         await EnrichDoctorListAsync(mappedPage);
@@ -565,7 +541,7 @@ public class DoctorService : BaseService, IDoctorService
     private async Task<int> GetTotalFavoriteCount(Guid patientId)
     {
         var countReq = new GetPatientFavoriteCountRequest { PatientId = patientId.ToString() };
-        var countRes = await _favoritesClient.GetPatientFavoriteCountAsync(countReq);
+        var countRes = await _dependencies.FavoritesClient.GetPatientFavoriteCountAsync(countReq);
         return (int)countRes.FavoriteCount;
     }
 
@@ -577,7 +553,7 @@ public class DoctorService : BaseService, IDoctorService
             Page = 1,
             PageSize = totalFavorites
         };
-        var allRes = await _favoritesClient.GetPatientFavoritesAsync(allReq);
+        var allRes = await _dependencies.FavoritesClient.GetPatientFavoritesAsync(allReq);
         return allRes.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
     }
 
@@ -625,7 +601,7 @@ public class DoctorService : BaseService, IDoctorService
             };
             request.DoctorIds.AddRange(baseList.Doctors.Select(d => d.Id.ToString()));
 
-            var check = await _favoritesClient.CheckMultipleFavoritesAsync(request);
+            var check = await _dependencies.FavoritesClient.CheckMultipleFavoritesAsync(request);
             var favorited = check.FavoritedDoctorIds.Select(Guid.Parse).ToHashSet();
 
             foreach (var doc in baseList.Doctors)
@@ -647,8 +623,8 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<List<DoctorPriceResponse>> GetDoctorPricesAsync(Guid doctorId)
     {
-        var prices = await _repository.GetDoctorPricesAsync(doctorId);
-        return _mapper.Map<List<DoctorPriceResponse>>(prices);
+        var prices = await _dependencies.Repository.GetDoctorPricesAsync(doctorId);
+        return _dependencies.Mapper.Map<List<DoctorPriceResponse>>(prices);
     }
 
     public async Task<DoctorPriceResponse> AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request)
@@ -656,13 +632,13 @@ public class DoctorService : BaseService, IDoctorService
         return await ExecuteWithErrorHandling(async () =>
         {
             // Validate doctor exists
-            if (!await _repository.DoctorExistsAsync(request.DoctorId))
+            if (!await _dependencies.Repository.DoctorExistsAsync(request.DoctorId))
             {
                 throw DoctorNotFoundException.WithId(request.DoctorId);
             }
 
             // Get doctor
-            var doctor = await _repository.GetDoctorByIdAsync(request.DoctorId);
+            var doctor = await _dependencies.Repository.GetDoctorByIdAsync(request.DoctorId);
             if (doctor == null)
             {
                 throw DoctorNotFoundException.WithId(request.DoctorId);
@@ -676,14 +652,14 @@ public class DoctorService : BaseService, IDoctorService
                 Amount = request.Amount
             };
 
-            var createdDoctorPrice = await _repository.CreateDoctorPriceAsync(doctorPrice);
-            return _mapper.Map<DoctorPriceResponse>(createdDoctorPrice);
+            var createdDoctorPrice = await _dependencies.Repository.CreateDoctorPriceAsync(doctorPrice);
+            return _dependencies.Mapper.Map<DoctorPriceResponse>(createdDoctorPrice);
         }, nameof(AssignPriceToDoctorAsync));
     }
 
     public async Task<bool> RemovePriceFromDoctorAsync(Guid doctorId, Guid priceId)
     {
-        return await _repository.DeleteDoctorPriceAsync(doctorId, priceId);
+        return await _dependencies.Repository.DeleteDoctorPriceAsync(doctorId, priceId);
     }
 
     #endregion
@@ -692,22 +668,22 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<bool> DoctorExistsAsync(Guid id)
     {
-        return await _repository.DoctorExistsAsync(id);
+        return await _dependencies.Repository.DoctorExistsAsync(id);
     }
 
     public async Task<bool> DoctorEmailExistsAsync(string email, Guid? excludeId = null)
     {
-        return await _repository.DoctorEmailExistsAsync(email, excludeId);
+        return await _dependencies.Repository.DoctorEmailExistsAsync(email, excludeId);
     }
 
     public async Task<bool> DoctorAccountExistsAsync(Guid accountId, Guid? excludeId = null)
     {
-        return await _repository.DoctorAccountExistsAsync(accountId, excludeId);
+        return await _dependencies.Repository.DoctorAccountExistsAsync(accountId, excludeId);
     }
 
     public async Task<bool> DoctorPriceExistsAsync(Guid doctorId, Guid priceId)
     {
-        return await _repository.DoctorPriceExistsAsync(doctorId, priceId);
+        return await _dependencies.Repository.DoctorPriceExistsAsync(doctorId, priceId);
     }
 
     #endregion
@@ -716,7 +692,7 @@ public class DoctorService : BaseService, IDoctorService
 
     public IQueryable<DoctorEntity> GetQueryableDoctors()
     {
-        return _repository.GetQueryableDoctors();
+        return _dependencies.Repository.GetQueryableDoctors();
     }
 
     /// <summary>
@@ -731,7 +707,7 @@ public class DoctorService : BaseService, IDoctorService
             var request = new GetAccountStatusByIdsRequest();
             request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
 
-            var response = await _authClient.GetAccountStatusByIdsAsync(request);
+            var response = await _dependencies.AuthClient.GetAccountStatusByIdsAsync(request);
 
             foreach (var accountStatus in response.AccountStatuses)
             {
@@ -825,7 +801,7 @@ public class DoctorService : BaseService, IDoctorService
                 Id = doctor.HospitalId.Value.ToString()
             };
 
-            var hospitalResponse = await _hospitalClient.GetHospitalAsync(request);
+            var hospitalResponse = await _dependencies.HospitalClient.GetHospitalAsync(request);
 
             doctor.Hospital = new HospitalDetailInfo
             {
@@ -867,7 +843,7 @@ public class DoctorService : BaseService, IDoctorService
                 Status = "ACTIVE"
             };
 
-            var response = await _hospitalClient.GetHospitalsListAsync(request);
+            var response = await _dependencies.HospitalClient.GetHospitalsListAsync(request);
 
             // Filter only the hospitals we need
             var relevantHospitals = response.Hospitals.Where(h => hospitalIds.Contains(Guid.Parse(h.Id)));
@@ -909,13 +885,13 @@ public class DoctorService : BaseService, IDoctorService
 
         if (positionIds.Any())
         {
-            var positionList = await _positionRepository.GetPositionsByIdsAsync(positionIds);
+            var positionList = await _dependencies.PositionRepository.GetPositionsByIdsAsync(positionIds);
             positions = positionList.ToDictionary(p => p.Id);
         }
 
         if (specialtyIds.Any())
         {
-            var specialtyList = await _specialtyRepository.GetSpecialtiesByIdsAsync(specialtyIds);
+            var specialtyList = await _dependencies.SpecialtyRepository.GetSpecialtiesByIdsAsync(specialtyIds);
             specialties = specialtyList.ToDictionary(s => s.Id);
         }
 
@@ -935,7 +911,7 @@ public class DoctorService : BaseService, IDoctorService
     private async Task UpdateDoctorPriceAsync(DoctorEntity doctor, decimal amount)
     {
         // Tìm giá hiện tại của doctor
-        var existingPrices = await _repository.GetDoctorPricesAsync(doctor.Id);
+        var existingPrices = await _dependencies.Repository.GetDoctorPricesAsync(doctor.Id);
         var existingPrice = existingPrices.FirstOrDefault();
 
         if (existingPrice != null)
@@ -943,7 +919,7 @@ public class DoctorService : BaseService, IDoctorService
             // Cập nhật giá hiện tại
             existingPrice.Amount = amount;
             existingPrice.UpdatedAt = DateTime.UtcNow;
-            await _repository.UpdateDoctorPriceAsync(existingPrice);
+            await _dependencies.Repository.UpdateDoctorPriceAsync(existingPrice);
         }
         else
         {
@@ -954,7 +930,7 @@ public class DoctorService : BaseService, IDoctorService
                 DoctorId = doctor.Id,
                 Amount = amount
             };
-            await _repository.CreateDoctorPriceAsync(doctorPrice);
+            await _dependencies.Repository.CreateDoctorPriceAsync(doctorPrice);
         }
     }
 
@@ -965,11 +941,11 @@ public class DoctorService : BaseService, IDoctorService
     {
         if (doctor.PositionId.HasValue)
         {
-            doctor.Position = await _positionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
+            doctor.Position = await _dependencies.PositionRepository.GetPositionByIdAsync(doctor.PositionId.Value);
         }
         if (doctor.SpecialtyId.HasValue)
         {
-            doctor.Specialty = await _specialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
+            doctor.Specialty = await _dependencies.SpecialtyRepository.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
         }
     }
 
@@ -1012,7 +988,7 @@ public class DoctorService : BaseService, IDoctorService
                 DoctorId = doctor.Id.ToString()
             };
 
-            var response = await _reviewClient.GetDoctorDetailedStatisticsAsync(request);
+            var response = await _dependencies.ReviewClient.GetDoctorDetailedStatisticsAsync(request);
 
             doctor.ReviewStatistics = new DoctorReviewStatistics
             {
@@ -1049,7 +1025,7 @@ public class DoctorService : BaseService, IDoctorService
             var request = new BatchDoctorsStatisticsRequest();
             request.DoctorIds.AddRange(doctors.Select(d => d.Id.ToString()));
 
-            var response = await _reviewClient.GetBatchDoctorsStatisticsAsync(request);
+            var response = await _dependencies.ReviewClient.GetBatchDoctorsStatisticsAsync(request);
 
             foreach (var doctor in doctors)
             {
