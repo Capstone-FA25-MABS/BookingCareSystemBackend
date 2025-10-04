@@ -4,62 +4,9 @@ using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
 
-// Doctor Request DTOs
-public class CreateDoctorRequest
+// Base class for common doctor properties
+public abstract class BaseDoctorRequest
 {
-    [Required(ErrorMessage = "AccountId is required")]
-    [JsonRequired]
-    public Guid AccountId { get; set; }
-
-    [Required(ErrorMessage = "Email is required")]
-    [EmailAddress(ErrorMessage = "Invalid email format")]
-    [StringLength(100, ErrorMessage = "Email cannot exceed 100 characters")]
-    public string Email { get; set; } = string.Empty;
-
-    [StringLength(500, ErrorMessage = "Address cannot exceed 500 characters")]
-    public string? Address { get; set; }
-
-    [Required(ErrorMessage = "First name is required")]
-    [StringLength(50, MinimumLength = 2, ErrorMessage = "First name must be between 2 and 50 characters")]
-    [RegularExpression(@"^[a-zA-Z\s\-']+$", ErrorMessage = "First name can only contain letters, spaces, hyphens, and apostrophes")]
-    public string FirstName { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Last name is required")]
-    [StringLength(50, MinimumLength = 2, ErrorMessage = "Last name must be between 2 and 50 characters")]
-    [RegularExpression(@"^[a-zA-Z\s\-']+$", ErrorMessage = "Last name can only contain letters, spaces, hyphens, and apostrophes")]
-    public string LastName { get; set; } = string.Empty;
-
-    [EnumDataType(typeof(Gender), ErrorMessage = "Gender must be one of: MALE, FEMALE, OTHER")]
-    public Gender? Gender { get; set; }
-
-    public Guid? PositionId { get; set; }
-
-    public Guid? SpecialtyId { get; set; }
-
-    public Guid? HospitalId { get; set; }
-
-    [StringLength(2000, ErrorMessage = "Bio cannot exceed 2000 characters")]
-    public string? Bio { get; set; }
-
-    [Range(0, 50, ErrorMessage = "Years of experience must be between 0 and 50")]
-    [JsonRequired]
-    public int YearsOfExperience { get; set; } = 0;
-
-    [Url(ErrorMessage = "Invalid URL format")]
-    [StringLength(500, ErrorMessage = "Avatar URL cannot exceed 500 characters")]
-    public string? AvatarUrl { get; set; }
-
-    public List<Guid>? LanguageIds { get; set; }
-
-    public List<DoctorPriceRequest>? Prices { get; set; }
-}
-
-public class UpdateDoctorRequest
-{
-    [Required(ErrorMessage = "Doctor ID is required")]
-    [JsonRequired]
-    public Guid Id { get; set; }
-
     [StringLength(500, ErrorMessage = "Address cannot exceed 500 characters")]
     public string? Address { get; set; }
 
@@ -93,6 +40,36 @@ public class UpdateDoctorRequest
     public List<Guid>? LanguageIds { get; set; }
 
     public List<DoctorPriceRequest>? Prices { get; set; }
+}
+
+// Doctor Request DTOs
+public class CreateDoctorRequest : BaseDoctorRequest
+{
+    [Required(ErrorMessage = "AccountId is required")]
+    [JsonRequired]
+    public Guid AccountId { get; set; }
+
+    [Required(ErrorMessage = "Email is required")]
+    [EmailAddress(ErrorMessage = "Invalid email format")]
+    [StringLength(100, ErrorMessage = "Email cannot exceed 100 characters")]
+    public string Email { get; set; } = string.Empty;
+
+    // Override base properties with required attributes for creation
+    [Required(ErrorMessage = "First name is required")]
+    public new string FirstName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Last name is required")]
+    public new string LastName { get; set; } = string.Empty;
+
+    [JsonRequired]
+    public new int YearsOfExperience { get; set; } = 0;
+}
+
+public class UpdateDoctorRequest : BaseDoctorRequest
+{
+    [Required(ErrorMessage = "Doctor ID is required")]
+    [JsonRequired]
+    public Guid Id { get; set; }
 }
 
 public class DoctorQueryRequest

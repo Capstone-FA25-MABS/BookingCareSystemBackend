@@ -20,6 +20,63 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         _logger = logger;
     }
 
+    private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.Entities.HospitalEntity hospital)
+    {
+        return new HospitalReply
+        {
+            Id = hospital.Id.ToString(),
+            AccountId = hospital.AccountId.ToString(),
+            Name = hospital.Name,
+            Address = hospital.Address,
+            Phone = hospital.Phone ?? "",
+            Email = hospital.Email,
+            Description = hospital.Description,
+            BackgroundUrl = hospital.BackgroundUrl ?? "",
+            AvatarUrl = hospital.AvatarUrl ?? "",
+            Status = hospital.Status.ToString(),
+            CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        };
+    }
+
+    private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalDetailResponse hospital)
+    {
+        return new HospitalReply
+        {
+            Id = hospital.Id.ToString(),
+            AccountId = hospital.AccountId.ToString(),
+            Name = hospital.Name,
+            Address = hospital.Address,
+            Phone = hospital.Phone ?? "",
+            Email = hospital.Email,
+            Description = hospital.Description,
+            BackgroundUrl = hospital.BackgroundUrl ?? "",
+            AvatarUrl = hospital.AvatarUrl ?? "",
+            Status = hospital.Status.ToString(),
+            CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        };
+    }
+
+    private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalResponse hospital)
+    {
+        return new HospitalReply
+        {
+            Id = hospital.Id.ToString(),
+            AccountId = hospital.AccountId.ToString(),
+            Name = hospital.Name,
+            Address = hospital.Address,
+            Phone = hospital.Phone ?? "",
+            Email = hospital.Email,
+            Description = hospital.Description,
+            BackgroundUrl = hospital.BackgroundUrl ?? "",
+            AvatarUrl = hospital.AvatarUrl ?? "",
+            Status = hospital.Status.ToString(),
+            CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        };
+    }
+
     public override async Task<HospitalReply> GetHospital(GetHospitalRequest request, ServerCallContext context)
     {
         try
@@ -35,21 +92,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
                 throw new RpcException(new GrpcStatus(StatusCode.NotFound, $"Hospital with ID {request.Id} not found"));
             }
 
-            return new HospitalReply
-            {
-                Id = hospital.Id.ToString(),
-                AccountId = hospital.AccountId.ToString(),
-                Name = hospital.Name,
-                Address = hospital.Address,
-                Phone = hospital.Phone ?? "",
-                Email = hospital.Email,
-                Description = hospital.Description,
-                BackgroundUrl = hospital.BackgroundUrl ?? "",
-                AvatarUrl = hospital.AvatarUrl ?? "",
-                Status = hospital.Status.ToString(),
-                CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-                UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-            };
+            return MapToHospitalReply(hospital);
         }
         catch (HospitalNotFoundException)
         {
@@ -79,21 +122,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
 
             foreach (var hospital in hospitals)
             {
-                reply.Hospitals.Add(new HospitalReply
-                {
-                    Id = hospital.Id.ToString(),
-                    AccountId = hospital.AccountId.ToString(),
-                    Name = hospital.Name,
-                    Address = hospital.Address,
-                    Phone = hospital.Phone ?? "",
-                    Email = hospital.Email,
-                    Description = hospital.Description,
-                    BackgroundUrl = hospital.BackgroundUrl ?? "",
-                    AvatarUrl = hospital.AvatarUrl ?? "",
-                    Status = hospital.Status.ToString(),
-                    CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-                    UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                });
+                reply.Hospitals.Add(MapToHospitalReply(hospital));
             }
 
             return reply;
@@ -172,21 +201,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
 
             var hospital = await _hospitalService.CreateAsync(createRequest);
 
-            return new HospitalReply
-            {
-                Id = hospital.Id.ToString(),
-                AccountId = hospital.AccountId.ToString(),
-                Name = hospital.Name,
-                Address = hospital.Address,
-                Phone = hospital.Phone ?? "",
-                Email = hospital.Email,
-                Description = hospital.Description,
-                BackgroundUrl = hospital.BackgroundUrl ?? "",
-                AvatarUrl = hospital.AvatarUrl ?? "",
-                Status = hospital.Status.ToString(),
-                CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-                UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-            };
+            return MapToHospitalReply(hospital);
         }
         catch (HospitalAlreadyExistsException ex)
         {

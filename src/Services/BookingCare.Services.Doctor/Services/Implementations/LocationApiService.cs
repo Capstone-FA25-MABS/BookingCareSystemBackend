@@ -24,6 +24,29 @@ public class LocationApiService : BaseService, ILocationApiService
         _httpClient = httpClient;
     }
 
+    private async Task<T?> CallApiAsync<T>(string endpoint, string operationName)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"{_provincesApiBaseUrl}{endpoint}");
+            response.EnsureSuccessStatusCode();
+
+            var jsonContent = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<T>(jsonContent, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            Logger.LogDebug("API call successful for {OperationName}", operationName);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error calling API for {OperationName}", operationName);
+            return default;
+        }
+    }
+
     /// <summary>
     /// Get province name from ID using provinces.open-api.vn
     /// </summary>
@@ -32,28 +55,15 @@ public class LocationApiService : BaseService, ILocationApiService
         if (string.IsNullOrEmpty(provinceId))
             return null;
 
-        try
-        {
-            var response = await _httpClient.GetAsync($"{_provincesApiBaseUrl}?depth=1");
-            response.EnsureSuccessStatusCode();
-
-            var jsonContent = await response.Content.ReadAsStringAsync();
-            var provinces = JsonSerializer.Deserialize<List<ProvinceApiModel>>(jsonContent, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            var province = provinces?.FirstOrDefault(p => p.Code.ToString() == provinceId);
-            var result = province?.Name;
-
-            Logger.LogDebug("Retrieved province name: {ProvinceName} for ID: {ProvinceId}", result, provinceId);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting province name from API for ID: {ProvinceId}", provinceId);
+        var provinces = await CallApiAsync<List<ProvinceApiModel>>("?depth=1", "GetProvinceNameById");
+        if (provinces == null)
             return null;
-        }
+
+        var province = provinces.FirstOrDefault(p => p.Code.ToString() == provinceId);
+        var result = province?.Name;
+
+        Logger.LogDebug("Retrieved province name: {ProvinceName} for ID: {ProvinceId}", result, provinceId);
+        return result;
     }
 
     /// <summary>
@@ -64,35 +74,22 @@ public class LocationApiService : BaseService, ILocationApiService
         if (string.IsNullOrEmpty(districtId))
             return null;
 
-        try
+        var provinces = await CallApiAsync<List<ProvinceWithDistrictsApiModel>>("?depth=2", "GetDistrictNameById");
+        if (provinces == null)
+            return null;
+
+        foreach (var province in provinces)
         {
-            var response = await _httpClient.GetAsync($"{_provincesApiBaseUrl}?depth=2");
-            response.EnsureSuccessStatusCode();
-
-            var jsonContent = await response.Content.ReadAsStringAsync();
-            var provinces = JsonSerializer.Deserialize<List<ProvinceWithDistrictsApiModel>>(jsonContent, new JsonSerializerOptions
+            var district = province.Districts?.FirstOrDefault(d => d.Code.ToString() == districtId);
+            if (district != null)
             {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            foreach (var province in provinces ?? new List<ProvinceWithDistrictsApiModel>())
-            {
-                var district = province.Districts?.FirstOrDefault(d => d.Code.ToString() == districtId);
-                if (district != null)
-                {
-                    Logger.LogDebug("Retrieved district name: {DistrictName} for ID: {DistrictId}", district.Name, districtId);
-                    return district.Name;
-                }
+                Logger.LogDebug("Retrieved district name: {DistrictName} for ID: {DistrictId}", district.Name, districtId);
+                return district.Name;
             }
+        }
 
-            Logger.LogWarning("District not found for ID: {DistrictId}", districtId);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error getting district name from API for ID: {DistrictId}", districtId);
-            return null;
-        }
+        Logger.LogWarning("District not found for ID: {DistrictId}", districtId);
+        return null;
     }
 
     /// <summary>
