@@ -262,23 +262,51 @@ public class LocationApiService : BaseService, ILocationApiService
     /// </summary>
     public bool IsDoctorInLocation(DoctorResponse doctor, LocationInfo locationInfo)
     {
+        // Simple location filtering based on hospital address
         if (doctor.Hospital?.Address == null)
-            return false;
-
-        var address = doctor.Hospital.Address;
-
-        if (locationInfo.HasDistrict)
         {
-            // Filter by both province and district
-            return ContainsLocation(address, locationInfo.ProvinceName) &&
-                   ContainsLocation(address, locationInfo.DistrictName);
+            Logger.LogInformation("Doctor {DoctorId} has no hospital address", doctor.Id);
+            return false;
+        }
+
+        var hospitalAddress = doctor.Hospital.Address.ToLower();
+        var provinceName = locationInfo.ProvinceName.ToLower();
+        var districtName = locationInfo.DistrictName?.ToLower() ?? "";
+        
+        // Clean up province name - remove "thành phố" prefix
+        var cleanProvinceName = provinceName.Replace("thành phố", "").Replace("tỉnh", "").Trim();
+
+        Logger.LogInformation("Checking doctor {DoctorId} with hospital address: '{HospitalAddress}' against location: Province='{ProvinceName}', District='{DistrictName}'", 
+            doctor.Id, hospitalAddress, locationInfo.ProvinceName, locationInfo.DistrictName);
+        
+        Logger.LogInformation("DEBUG - Normalized values: hospitalAddress='{HospitalAddress}', provinceName='{ProvinceName}', cleanProvinceName='{CleanProvinceName}', districtName='{DistrictName}'", 
+            hospitalAddress, provinceName, cleanProvinceName, districtName);
+
+        bool result;
+        if (locationInfo.HasDistrict && !string.IsNullOrEmpty(districtName))
+        {
+            // Filter by both province and district - both must be found in address
+            var provinceMatch = hospitalAddress.Contains(provinceName) || hospitalAddress.Contains(cleanProvinceName);
+            var districtMatch = hospitalAddress.Contains(districtName);
+            result = provinceMatch && districtMatch;
+            Logger.LogInformation("District filter result: ProvinceMatch={ProvinceMatch}, DistrictMatch={DistrictMatch}, Final={Result}", 
+                provinceMatch, districtMatch, result);
+            Logger.LogInformation("DEBUG - Contains check: '{HospitalAddress}'.Contains('{ProvinceName}') OR Contains('{CleanProvinceName}') = {ProvinceMatch}, Contains('{DistrictName}') = {DistrictMatch}", 
+                hospitalAddress, provinceName, cleanProvinceName, provinceMatch, districtName, districtMatch);
         }
         else
         {
             // Filter by province only
-            return ContainsLocation(address, locationInfo.ProvinceName);
+            result = hospitalAddress.Contains(provinceName) || hospitalAddress.Contains(cleanProvinceName);
+            Logger.LogInformation("Province filter result: {Result}", result);
+            Logger.LogInformation("DEBUG - Contains check: '{HospitalAddress}'.Contains('{ProvinceName}') OR Contains('{CleanProvinceName}') = {Result}", 
+                hospitalAddress, provinceName, cleanProvinceName, result);
         }
+        
+        return result;
     }
+
+
 
     /// <summary>
     /// Check if address contains location name
@@ -293,7 +321,12 @@ public class LocationApiService : BaseService, ILocationApiService
 
         // Check if address contains any variation of the location name
         var variations = GetLocationVariations(normalizedLocation);
-        return variations.Any(variation => normalizedAddress.Contains(variation));
+        var result = variations.Any(variation => normalizedAddress.Contains(variation));
+        
+        Logger.LogInformation("ContainsLocation check: Address='{Address}' -> Normalized='{NormalizedAddress}', Location='{LocationName}' -> Normalized='{NormalizedLocation}', Variations=[{Variations}], Result={Result}", 
+            address, normalizedAddress, locationName, normalizedLocation, string.Join(", ", variations), result);
+        
+        return result;
     }
 
     /// <summary>
@@ -341,6 +374,8 @@ public class LocationApiService : BaseService, ILocationApiService
             }
         }
 
-        return variations.Distinct().ToList();
+        var result = variations.Distinct().ToList();
+        Logger.LogInformation("Location variations for '{LocationName}': [{Variations}]", locationName, string.Join(", ", result));
+        return result;
     }
 }

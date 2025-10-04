@@ -235,7 +235,7 @@ public class DoctorRepository : IDoctorRepository
             queryable = queryable.Where(d =>
                 d.FirstName.ToLower().Contains(searchTerm) ||
                 d.LastName.ToLower().Contains(searchTerm) ||
-                d.Email.ToLower().Contains(searchTerm));
+                (d.FirstName + " " + d.LastName).ToLower().Contains(searchTerm));
         }
 
         // Language filters - support both single and multiple

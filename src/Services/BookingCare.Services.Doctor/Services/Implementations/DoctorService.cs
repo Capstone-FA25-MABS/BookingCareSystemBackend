@@ -318,6 +318,15 @@ public class DoctorService : BaseService, IDoctorService
         if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
         {
             response.Doctors = await _locationApiService.ApplyLocationFilteringAsync(response.Doctors, query.ProvinceId, query.DistrictId);
+            // Update total count and pages after location filtering
+            response.TotalCount = response.Doctors.Count;
+            response.TotalPages = (int)Math.Ceiling((double)response.TotalCount / query.PageSize);
+            
+            // Ensure page number is valid after filtering
+            if (response.PageNumber > response.TotalPages && response.TotalPages > 0)
+            {
+                response.PageNumber = response.TotalPages;
+            }
         }
 
         // Apply rating filtering after getting review statistics
@@ -568,8 +577,7 @@ public class DoctorService : BaseService, IDoctorService
         return doctors.Where(d =>
             d.FirstName.ToLower().Contains(searchLower) ||
             d.LastName.ToLower().Contains(searchLower) ||
-            d.Email.ToLower().Contains(searchLower) ||
-            (d.Bio != null && d.Bio.ToLower().Contains(searchLower))
+            (d.FirstName + " " + d.LastName).ToLower().Contains(searchLower)
         ).ToList();
     }
 
