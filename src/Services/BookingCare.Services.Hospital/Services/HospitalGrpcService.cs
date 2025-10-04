@@ -38,7 +38,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             CreatedAt = hospital.CreatedAt,
             UpdatedAt = hospital.UpdatedAt
         };
-        
+
         return MapToHospitalReplyInternal(dto);
     }
 
@@ -59,7 +59,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             CreatedAt = hospital.CreatedAt,
             UpdatedAt = hospital.UpdatedAt
         };
-        
+
         return MapToHospitalReplyInternal(dto);
     }
 
