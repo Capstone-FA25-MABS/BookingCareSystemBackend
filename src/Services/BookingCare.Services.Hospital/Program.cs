@@ -5,11 +5,9 @@ using BookingCare.Services.Hospital.Services.Implementations;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Repositories.Implementations;
 using BookingCare.Services.Hospital.Mappings;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 var builder = WebApplication.CreateBuilder(args);
 

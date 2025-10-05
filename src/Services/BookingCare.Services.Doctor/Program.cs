@@ -12,7 +12,6 @@ using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Services.Doctor.Services.Grpc;
 using BookingCare.Shared.Common.Versioning;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 var builder = WebApplication.CreateBuilder(args);
 
