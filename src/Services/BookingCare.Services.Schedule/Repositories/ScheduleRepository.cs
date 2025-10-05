@@ -191,7 +191,7 @@ public class ScheduleRepository : IScheduleRepository
         return availableSlots.OrderBy(x => (int)x);
     }
 
-    private List<AppointmentTime> ApplyExceptionsToSlots(List<AppointmentTime> availableSlots, IEnumerable<DoctorScheduleExceptionEntity> exceptions)
+    private static List<AppointmentTime> ApplyExceptionsToSlots(List<AppointmentTime> availableSlots, IEnumerable<DoctorScheduleExceptionEntity> exceptions)
     {
         foreach (var exception in exceptions)
         {
@@ -247,7 +247,7 @@ public class ScheduleRepository : IScheduleRepository
                       .OrderBy(slot => (int)slot);
     }
 
-    private IEnumerable<AppointmentTime> GetAppointmentTimesForPattern(SchedulePatterns pattern)
+    private static IEnumerable<AppointmentTime> GetAppointmentTimesForPattern(SchedulePatterns pattern)
     {
         return pattern switch
         {

@@ -349,8 +349,6 @@ public class ScheduleService : IScheduleService
 
             if (response != null && !string.IsNullOrEmpty(response.Id))
             {
-                // Check if doctor is active
-                // return response.Status == "ACTIVE";
                 return true;
             }
 
