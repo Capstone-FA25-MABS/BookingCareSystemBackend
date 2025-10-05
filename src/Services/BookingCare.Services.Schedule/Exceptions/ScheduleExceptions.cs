@@ -19,83 +19,8 @@ public class ScheduleException : BookingCareException
     }
 }
 
-#region Doctor Schedule Exceptions
-
-/// <summary>
-/// Exception thrown when doctor is not found in the context of schedule operations
-/// </summary>
-public class DoctorNotFoundException : NotFoundException
-{
-    public DoctorNotFoundException(string message)
-        : base(message, "SCHEDULE_DOCTOR_NOT_FOUND")
-    {
-    }
-
-    public static DoctorNotFoundException WithId(Guid doctorId)
-    {
-        var exception = new DoctorNotFoundException($"Doctor with identifier '{doctorId}' was not found.");
-        exception.Details["DoctorId"] = doctorId;
-        return exception;
-    }
-}
-
-/// <summary>
-/// Exception thrown when doctor is inactive or not available for scheduling
-/// </summary>
-public class DoctorNotAvailableException : BusinessException
-{
-    public DoctorNotAvailableException(string message)
-        : base(message, "SCHEDULE_DOCTOR_NOT_AVAILABLE")
-    {
-    }
-
-    public static DoctorNotAvailableException WithId(Guid doctorId)
-    {
-        var exception = new DoctorNotAvailableException($"Doctor with identifier '{doctorId}' is not available for scheduling.");
-        exception.Details["DoctorId"] = doctorId;
-        return exception;
-    }
-}
-
-/// <summary>
-/// Exception thrown when doctor schedule already exists for a given date
-/// </summary>
-public class DoctorScheduleConflictException : ConflictException
-{
-    public DoctorScheduleConflictException(string message)
-        : base(message, "SCHEDULE_DOCTOR_CONFLICT")
-    {
-    }
-
-    public static DoctorScheduleConflictException WithDoctorAndDate(Guid doctorId, DateOnly date)
-    {
-        var exception = new DoctorScheduleConflictException($"Doctor schedule already exists for doctor '{doctorId}' on date '{date:yyyy-MM-dd}'.");
-        exception.Details["DoctorId"] = doctorId;
-        exception.Details["ScheduleDate"] = date;
-        return exception;
-    }
-}
-
-/// <summary>
-/// Exception thrown when doctor daily schedule is not found
-/// </summary>
-public class DoctorDailyScheduleNotFoundException : NotFoundException
-{
-    public DoctorDailyScheduleNotFoundException(string message)
-        : base(message, "SCHEDULE_DOCTOR_DAILY_NOT_FOUND")
-    {
-    }
-
-    public static DoctorDailyScheduleNotFoundException WithDoctorAndDate(Guid doctorId, DateOnly date)
-    {
-        var exception = new DoctorDailyScheduleNotFoundException($"Doctor daily schedule not found for doctor '{doctorId}' on date '{date:yyyy-MM-dd}'.");
-        exception.Details["DoctorId"] = doctorId;
-        exception.Details["ScheduleDate"] = date;
-        return exception;
-    }
-}
-
-#endregion
+// Doctor-related exceptions are provided by the shared domain exceptions to avoid duplication across services.
+// Use BookingCare.Shared.Common.Exceptions.Domain.DoctorExceptions.* for doctor-specific errors
 
 #region Schedule Exception Management
 
