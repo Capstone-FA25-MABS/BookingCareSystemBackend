@@ -201,12 +201,12 @@ public class HospitalService : IHospitalService
 
     public async Task<Models.Entities.HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id)
     {
-        return await _repository.GetHospitalBasicInfoByIdAsync(id);
+        return await _hospitalRepository.GetHospitalBasicInfoByIdAsync(id);
     }
 
     public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
     {
-        return await _repository.GetHospitalsBasicInfoByIdsAsync(ids);
+        return await _hospitalRepository.GetHospitalsBasicInfoByIdsAsync(ids);
     }
 
     #endregion
