@@ -175,9 +175,6 @@ public class ClinicProfileRequest
 /// </summary>
 public class ChangePasswordRequest
 {
-    [Required]
-    public Guid AccountId { get; set; }
-
     // CurrentPassword is optional for external login accounts (Google/Facebook)
     public string? CurrentPassword { get; set; }
 

@@ -85,4 +85,44 @@ public static class JwtHelper
     {
         return httpContext.User.Claims.ToDictionary(c => c.Type, c => c.Value);
     }
+
+    /// <summary>
+    /// Gets the email confirmation status from JWT token claims
+    /// </summary>
+    /// <param name="httpContext">The HTTP context containing user claims</param>
+    /// <returns>True if email is confirmed, false otherwise</returns>
+    public static bool GetEmailConfirmationStatus(HttpContext httpContext)
+    {
+        var confirmEmailClaim = httpContext.User.FindFirst("confirmEmail");
+        if (confirmEmailClaim != null && bool.TryParse(confirmEmailClaim.Value, out var isConfirmed))
+        {
+            return isConfirmed;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Gets the phone confirmation status from JWT token claims
+    /// </summary>
+    /// <param name="httpContext">The HTTP context containing user claims</param>
+    /// <returns>True if phone is confirmed, false otherwise</returns>
+    public static bool GetPhoneConfirmationStatus(HttpContext httpContext)
+    {
+        var confirmPhoneClaim = httpContext.User.FindFirst("confirmPhone");
+        if (confirmPhoneClaim != null && bool.TryParse(confirmPhoneClaim.Value, out var isConfirmed))
+        {
+            return isConfirmed;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Gets both email and phone confirmation statuses from JWT token claims
+    /// </summary>
+    /// <param name="httpContext">The HTTP context containing user claims</param>
+    /// <returns>Tuple with email and phone confirmation statuses</returns>
+    public static (bool EmailConfirmed, bool PhoneConfirmed) GetConfirmationStatuses(HttpContext httpContext)
+    {
+        return (GetEmailConfirmationStatus(httpContext), GetPhoneConfirmationStatus(httpContext));
+    }
 }
