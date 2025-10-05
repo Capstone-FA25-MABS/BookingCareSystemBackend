@@ -18,6 +18,43 @@ public class UserProfileUpdatedEvent : IntegrationEvent
     public DateTime UpdatedAt { get; set; }
 }
 
+public class UserEmailPhoneSyncRequestedEvent : IntegrationEvent
+{
+    public Guid AccountId { get; set; }
+    public Guid UserId { get; set; }
+    public string? OriginalEmail { get; set; }
+    public string? OriginalPhone { get; set; }
+    public string? NewEmail { get; set; }
+    public string? NewPhone { get; set; }
+    public string CorrelationId { get; set; } = string.Empty;
+    public DateTime RequestedAt { get; set; }
+}
+
+public class UserEmailPhoneSyncCompletedEvent : IntegrationEvent
+{
+    public Guid AccountId { get; set; }
+    public Guid UserId { get; set; }
+    public string? UpdatedEmail { get; set; }
+    public string? UpdatedPhone { get; set; }
+    public string CorrelationId { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public string? ErrorMessage { get; set; }
+    public DateTime CompletedAt { get; set; }
+}
+
+public class UserEmailPhoneSyncFailedEvent : IntegrationEvent
+{
+    public Guid AccountId { get; set; }
+    public Guid UserId { get; set; }
+    public string? OriginalEmail { get; set; }
+    public string? OriginalPhone { get; set; }
+    public string? NewEmail { get; set; }
+    public string? NewPhone { get; set; }
+    public string CorrelationId { get; set; } = string.Empty;
+    public string ErrorMessage { get; set; } = string.Empty;
+    public DateTime FailedAt { get; set; }
+}
+
 public class UserDeletedEvent : IntegrationEvent
 {
     public Guid UserId { get; set; }

@@ -19,4 +19,8 @@ public interface IUserRepository
     // Batch operations for performance optimization
     Task<List<UserBasicInfoResponse>> GetUsersByAccountIdsAsync(List<Guid> accountIds);
 
+    // Validation operations
+    Task<bool> EmailExistsAsync(string email);
+    Task<bool> PhoneExistsAsync(string phone);
+
 }

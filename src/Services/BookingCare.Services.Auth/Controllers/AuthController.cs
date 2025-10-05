@@ -11,6 +11,7 @@ using BookingCare.Services.Auth.Constants;
 using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Models;
 using BookingCare.Shared.Saga.SagaDefinition;
+using BookingCare.Shared.Common.Helpers;
 
 namespace BookingCare.Services.Auth.Controllers;
 
@@ -163,11 +164,21 @@ public class AuthController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        var validation = ValidateBasicRequest();
-        if (validation != null) return validation;
+        try
+        {
+            var validation = ValidateBasicRequest();
+            if (validation != null) return validation;
 
-        await _authService.ChangePasswordAsync(request);
-        return Success("Password changed successfully");
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            await _authService.ChangePasswordAsync(request, accountId);
+            return Success("Password changed successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+
     }
 
     /// <summary>
@@ -291,6 +302,9 @@ public class AuthController : BaseApiController
         sagaContext.SetData("Gender", request.Gender?.ToString());
         sagaContext.SetData("Birthday", request.Birthday?.ToString("yyyy-MM-dd"));
         sagaContext.SetData("Address", request.Address);
+        sagaContext.SetData("AvatarUrl", request.Gender == Gender.MALE ?
+            "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png"
+            : "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/female_20251003_d13e4998.png");
 
         // OTP verification fields for Patient registration
         sagaContext.SetData("Purpose", request.Purpose.ToKey());

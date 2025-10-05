@@ -1,29 +1,20 @@
 using BookingCare.Services.User.Data;
+using BookingCare.Services.User.Handlers;
 using BookingCare.Services.User.Mappings;
 using BookingCare.Services.User.Repositories;
 using BookingCare.Services.User.Services;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.EventBus.Extensions;
+using BookingCare.Shared.FileUpload.Extensions;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(6014, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-    options.ListenAnyIP(6024, listenOptions =>
-    {
-        // listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "user");
 
 // Add DbContext
 builder.Services.AddDbContext<UserDbContext>(options =>
@@ -38,6 +29,18 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 // Register services
 builder.Services.AddScoped<IUserService, UserService>();
 
+// Add S3 File Upload Service
+builder.Services.AddS3FileUpload(builder.Configuration);
+
+// Register Event Handlers
+builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncFailedEventHandler>();
+builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncCompletedEventHandler>();
+
+// Add Event Bus (RabbitMQ)
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "user-service-queue");
+
+// Add JWT Authentication and Authorization using centralized configuration
+builder.Services.AddJwtAuthAndAuthorization();
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
@@ -74,12 +77,19 @@ using (var scope = app.Services.CreateScope())
     await context.Database.EnsureCreatedAsync();
 }
 app.UseGlobalExceptionHandling();
-app.UseCors("AllowAll");
-app.UseRouting();
+app.UseStandardAuthPipeline();
 app.MapControllers();
 
 // Configure gRPC services
 app.MapGrpcService<UserGrpcService>();
 app.MapGet("/", () => "BookingCare User Service is running...");
+
+// Configure EventBus subscriptions
+app.UseEventBus(eventBus =>
+{
+    // Subscribe to Auth Service sync results
+    eventBus.Subscribe<UserEmailPhoneSyncFailedEvent, UserEmailPhoneSyncFailedEventHandler>();
+    eventBus.Subscribe<UserEmailPhoneSyncCompletedEvent, UserEmailPhoneSyncCompletedEventHandler>();
+});
 
 app.Run();

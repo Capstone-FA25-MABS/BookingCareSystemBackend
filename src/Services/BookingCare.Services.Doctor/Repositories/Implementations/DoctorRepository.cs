@@ -148,25 +148,110 @@ public class DoctorRepository : IDoctorRepository
 
     private IQueryable<DoctorEntity> ApplyBasicFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
     {
+        queryable = ApplyAccountFilter(queryable, query);
+        queryable = ApplyPositionFilters(queryable, query);
+        queryable = ApplySpecialtyFilters(queryable, query);
+        queryable = ApplyHospitalFilters(queryable, query);
+        queryable = ApplyLocationFilters(queryable, query);
+        queryable = ApplyGenderFilters(queryable, query);
+        queryable = ApplyExperienceFilters(queryable, query);
+        queryable = ApplyAddressFilter(queryable, query);
+
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyAccountFilter(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.AccountId.HasValue)
             queryable = queryable.Where(d => d.AccountId == query.AccountId.Value);
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyPositionFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.PositionId.HasValue)
             queryable = queryable.Where(d => d.PositionId == query.PositionId.Value);
+        if (query.PositionIds != null && query.PositionIds.Any())
+            queryable = queryable.Where(d => d.PositionId.HasValue && query.PositionIds.Contains(d.PositionId.Value));
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplySpecialtyFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.SpecialtyId.HasValue)
             queryable = queryable.Where(d => d.SpecialtyId == query.SpecialtyId.Value);
+        if (query.SpecialtyIds != null && query.SpecialtyIds.Any())
+            queryable = queryable.Where(d => d.SpecialtyId.HasValue && query.SpecialtyIds.Contains(d.SpecialtyId.Value));
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyHospitalFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.HospitalId.HasValue)
             queryable = queryable.Where(d => d.HospitalId == query.HospitalId.Value);
-        if (query.Gender.HasValue)
-            queryable = queryable.Where(d => d.Gender == query.Gender.Value);
+        if (query.HospitalIds != null && query.HospitalIds.Any())
+            queryable = queryable.Where(d => d.HospitalId.HasValue && query.HospitalIds.Contains(d.HospitalId.Value));
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyLocationFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
+        if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
+        {
+            Console.WriteLine($"Location filtering requested - ProvinceId: {query.ProvinceId}, DistrictId: {query.DistrictId}");
+            Console.WriteLine("Location filtering will be handled at service layer with distance calculation");
+        }
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyGenderFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
+        if (!string.IsNullOrEmpty(query.Gender))
+        {
+            Console.WriteLine($"Filtering by single gender: {query.Gender}");
+            var genderEnum = Enum.Parse<Gender>(query.Gender.ToUpper());
+            queryable = queryable.Where(d => d.Gender == genderEnum);
+        }
+        if (query.Genders != null && query.Genders.Any())
+        {
+            Console.WriteLine($"Filtering by multiple genders: {string.Join(", ", query.Genders)}");
+            var genderEnums = query.Genders
+                .Select(g => Enum.Parse<Gender>(g.ToUpper()))
+                .ToList();
+            queryable = queryable.Where(d => d.Gender.HasValue && genderEnums.Contains(d.Gender.Value));
+        }
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyExperienceFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (query.MinYearsOfExperience.HasValue)
+        {
+            Console.WriteLine($"Applying min experience filter: {query.MinYearsOfExperience.Value} years");
             queryable = queryable.Where(d => d.YearsOfExperience >= query.MinYearsOfExperience.Value);
+        }
         if (query.MaxYearsOfExperience.HasValue)
+        {
+            Console.WriteLine($"Applying max experience filter: {query.MaxYearsOfExperience.Value} years");
             queryable = queryable.Where(d => d.YearsOfExperience <= query.MaxYearsOfExperience.Value);
+        }
+
+        // Only apply experience ranges if min/max are not specified (for backward compatibility)
+        if (!query.MinYearsOfExperience.HasValue && !query.MaxYearsOfExperience.HasValue &&
+            query.ExperienceRanges != null && query.ExperienceRanges.Any())
+        {
+            Console.WriteLine($"Applying experience ranges filter: {query.ExperienceRanges.Count} ranges");
+            var ranges = query.ExperienceRanges.ToList();
+            queryable = queryable.Where(d => ranges.Any(r =>
+                d.YearsOfExperience >= r.MinYears && d.YearsOfExperience <= r.MaxYears));
+        }
+        return queryable;
+    }
+
+    private IQueryable<DoctorEntity> ApplyAddressFilter(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
         if (!string.IsNullOrEmpty(query.Address))
             queryable = queryable.Where(d => d.Address != null && d.Address.Contains(query.Address));
-        if (query.MinRating.HasValue)
-            queryable = queryable.Where(d => d.Bio != null && d.Bio.Contains("rating:" + query.MinRating.Value));
-
         return queryable;
     }
 
@@ -178,12 +263,20 @@ public class DoctorRepository : IDoctorRepository
             queryable = queryable.Where(d =>
                 d.FirstName.ToLower().Contains(searchTerm) ||
                 d.LastName.ToLower().Contains(searchTerm) ||
-                d.Email.ToLower().Contains(searchTerm));
+                (d.FirstName + " " + d.LastName).ToLower().Contains(searchTerm));
         }
+
+        // Language filters - support both single and multiple
         if (!string.IsNullOrEmpty(query.Language))
-            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.Language.Name.Contains(query.Language)));
+            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.Language.Name == query.Language));
+        if (query.Languages != null && query.Languages.Any())
+            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => query.Languages.Contains(dl.Language.Name)));
+
+        // Service type filters - support both single and multiple
         if (!string.IsNullOrEmpty(query.ServiceType))
-            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.ServiceType.Name.Contains(query.ServiceType)));
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.ServiceType.Name == query.ServiceType));
+        if (query.ServiceTypes != null && query.ServiceTypes.Any())
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp => query.ServiceTypes.Contains(dp.ServiceType.Name)));
 
         return queryable;
     }
@@ -498,6 +591,51 @@ public class DoctorRepository : IDoctorRepository
         _context.ServiceTypes.Remove(serviceType);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    #endregion
+
+    #region Optimized Methods for gRPC Performance
+
+    public async Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id)
+    {
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.Specialty)
+            .Where(d => d.Id == id)
+            .Select(d => new DoctorEntity
+            {
+                Id = d.Id,
+                Email = d.Email,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                AvatarUrl = d.AvatarUrl,
+                HospitalId = d.HospitalId,
+                Position = d.Position != null ? new PositionEntity { Name = d.Position.Name } : null,
+                Specialty = d.Specialty != null ? new SpecialtyEntity { Name = d.Specialty.Name } : null
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids.ToList();
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.Specialty)
+            .Where(d => idList.Contains(d.Id))
+            .Select(d => new DoctorEntity
+            {
+                Id = d.Id,
+                Email = d.Email,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                AvatarUrl = d.AvatarUrl,
+                HospitalId = d.HospitalId,
+                Position = d.Position != null ? new PositionEntity { Name = d.Position.Name } : null,
+                Specialty = d.Specialty != null ? new SpecialtyEntity { Name = d.Specialty.Name } : null
+            })
+            .ToListAsync();
     }
 
     #endregion

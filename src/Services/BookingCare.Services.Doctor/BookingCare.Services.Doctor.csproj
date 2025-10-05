@@ -10,6 +10,8 @@
     <Protobuf Include="Protos\doctor.proto" GrpcServices="Server" />
     <Protobuf Include="..\BookingCare.Services.Favorites\Protos\greet.proto" GrpcServices="Client" />
     <Protobuf Include="..\BookingCare.Services.Auth\Protos\auth.proto" GrpcServices="Client" />
+    <Protobuf Include="..\BookingCare.Services.Hospital\Protos\hospital.proto" GrpcServices="Client" />
+    <Protobuf Include="..\BookingCare.Services.Review\Protos\ReviewService.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>

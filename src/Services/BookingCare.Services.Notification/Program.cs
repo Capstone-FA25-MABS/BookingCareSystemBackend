@@ -1,5 +1,4 @@
 using BookingCare.Services.Notification.Services;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Handlers;
@@ -17,24 +16,10 @@ using BookingCare.Services.Notification.Services.Grpc;
 using BookingCare.Shared.Cache.Extensions;
 using BookingCare.Shared.Common.Versioning;
 
-
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(6010, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-    options.ListenAnyIP(6020, listenOptions =>
-    {
-        // listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "notification");
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

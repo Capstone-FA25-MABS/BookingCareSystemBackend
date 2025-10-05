@@ -2,34 +2,16 @@ using BookingCare.Services.Appointment.Data;
 using BookingCare.Services.Appointment.Services;
 using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Mappings;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    // HTTP endpoint for REST API
-    options.ListenAnyIP(6002, listenOptions =>
-    {
-        //listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-
-    // gRPC endpoint
-    options.ListenAnyIP(6012, listenOptions =>
-    {
-        // listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "appointment");
 
 // Add services to the container.
 builder.Services.AddControllers()

@@ -1,14 +1,16 @@
 using BookingCare.Services.Auth.Data;
+using BookingCare.Services.Auth.Handlers;
 using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Repositories;
 using BookingCare.Services.Auth.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Services.Auth.Mappings;
 using System.Text.Json.Serialization;
 using BookingCare.Services.Notification.Protos;
 using BookingCare.Services.Auth.Utils;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.Common.AppRouting;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -20,27 +22,12 @@ using BookingCare.Shared.Saga.Steps;
 using BookingCare.Shared.Saga.SagaDefinition;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.User.Protos;
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    // HTTP endpoint for REST API
-    options.ListenAnyIP(6003, listenOptions =>
-    {
-        //listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "auth");
 
-    // gRPC endpoint
-    options.ListenAnyIP(6013, listenOptions =>
-    {
-        // listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -185,6 +172,9 @@ builder.Services.AddSagaStep<CreateExternalAccountGrpcStep>();
 builder.Services.AddSagaStep<CreateUserProfileGrpcStep>();
 builder.Services.AddSagaStep<CreateDoctorProfileGrpcStep>();
 
+// Register Event Handlers
+builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncEventHandler>();
+
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth-service-queue");
 
@@ -226,8 +216,12 @@ app.MapControllers();
 app.MapGrpcService<AuthGrpcService>();
 app.MapGet("/", () => "BookingCare Auth Service is running...");
 
-// Configure EventBus subscriptions (none for Auth now)
-app.UseEventBus(eventBus => { /* No subscriptions in Auth service currently */ });
+// Configure EventBus subscriptions
+app.UseEventBus(eventBus =>
+{
+    // Subscribe to User Service sync requests
+    eventBus.Subscribe<UserEmailPhoneSyncRequestedEvent, UserEmailPhoneSyncEventHandler>();
+});
 
 // Initialize default data
 if (app.Environment.IsDevelopment())
