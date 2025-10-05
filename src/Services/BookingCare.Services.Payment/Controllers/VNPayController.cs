@@ -3,13 +3,14 @@ using FluentValidation;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.VNPay;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 
 namespace BookingCare.Services.Payment.Controllers;
 
 /// <summary>
 /// Controller quản lý tích hợp VNPay
 /// </summary>
-[Route("api/[controller]")]
+[ApiVersion(ApiVersions.V1_0)]
 public class VNPayController : BaseApiController
 {
     private readonly IVNPayService _vnpayService;
@@ -34,6 +35,7 @@ public class VNPayController : BaseApiController
     /// </summary>
     /// <returns>Status của VNPay service</returns>
     [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult HealthCheck()
     {
         return Success(new
@@ -41,7 +43,7 @@ public class VNPayController : BaseApiController
             Service = "VNPay Integration",
             Status = "Healthy",
             Timestamp = DateTime.UtcNow,
-            Version = "1.0.0"
+            Version = ApiVersions.V1_0
         }, "VNPay service is healthy");
     }
 
@@ -51,6 +53,7 @@ public class VNPayController : BaseApiController
     /// <param name="request">Thông tin thanh toán</param>
     /// <returns>URL để redirect đến VNPay</returns>
     [HttpPost("create-payment-url")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreatePaymentUrl([FromBody] VNPayPaymentRequest request)
     {
         try
@@ -104,6 +107,7 @@ public class VNPayController : BaseApiController
     /// </summary>
     /// <returns>Kết quả xử lý callback</returns>
     [HttpGet("callback")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> VNPayCallback()
     {
         // Align with PayOS callback structure
@@ -185,6 +189,7 @@ public class VNPayController : BaseApiController
     /// <param name="transactionDate">Ngày giao dịch (yyyyMMdd)</param>
     /// <returns>Thông tin giao dịch</returns>
     [HttpGet("query/{transactionRef}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> QueryTransaction(string transactionRef, [FromQuery] string transactionDate)
     {
         try

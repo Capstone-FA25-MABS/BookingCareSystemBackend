@@ -9,9 +9,11 @@ using BookingCare.Services.Payment.Mappings;
 using BookingCare.Services.Payment.Validators;
 using BookingCare.Services.Payment.Models.Configurations;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using FluentValidation;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,10 +25,8 @@ builder.Services.AddDbContext<PaymentDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
         "Server=(local);Database=PaymentDb;Trusted_Connection=True;TrustServerCertificate=True;"));
 
-// Add VNPay Configuration
+// Add Payment-specific configurations
 builder.Services.Configure<VNPayConfiguration>(builder.Configuration.GetSection("VNPayConfiguration"));
-
-// Add PayOS Configuration
 builder.Services.Configure<PayOSConfiguration>(builder.Configuration.GetSection("PayOSConfiguration"));
 
 // Add repositories
@@ -49,18 +49,21 @@ builder.Services.AddAutoMapper(typeof(PaymentMappingProfile));
 // Add validators
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePaymentRequestValidator>();
 
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
+
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
-// Add controllers and other services
-builder.Services.AddControllers();
+// Add common services using ProgramExtensions
+builder.Services.AddCommonControllers();
 builder.Services.AddGrpc();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new() { Title = "BookingCare Payment Service", Version = "v1" });
 
-    // Include XML comments
+// Add Swagger with XML documentation support
+builder.Services.AddCommonSwagger("Payment Service");
+builder.Services.Configure<SwaggerGenOptions>(c =>
+{
+    // Include XML comments for Payment Service
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath))
@@ -83,12 +86,34 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Ensure database is created
-using (var scope = app.Services.CreateScope())
+await EnsureDatabaseCreated(app);
+
+// Add global exception handling early in pipeline
+app.UseGlobalExceptionHandling();
+
+app.UseCors("AllowAll");
+
+// Use common Swagger UI configuration
+app.UseCommonSwaggerUI("Payment Service");
+
+app.MapControllers();
+app.MapGrpcService<GreeterService>();
+
+// Map common health check
+app.MapCommonHealthCheck("Payment Service");
+
+app.Run();
+
+/// <summary>
+/// Ensures the database is created and configured properly
+/// </summary>
+static async Task EnsureDatabaseCreated(WebApplication app)
 {
+    using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
     try
     {
-        context.Database.EnsureCreated();
+        await context.Database.EnsureCreatedAsync();
         app.Logger.LogInformation("Database initialized successfully");
     }
     catch (Exception ex)
@@ -96,23 +121,3 @@ using (var scope = app.Services.CreateScope())
         app.Logger.LogError(ex, "An error occurred while initializing the database");
     }
 }
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "BookingCare Payment Service v1"));
-}
-
-// Add global exception handling early in pipeline
-app.UseGlobalExceptionHandling();
-
-app.UseCors("AllowAll");
-app.UseRouting();
-app.MapControllers();
-
-// Configure the HTTP request pipeline.
-app.MapGrpcService<GreeterService>();
-app.MapGet("/", () => "BookingCare Payment Service is running. Visit /swagger for API documentation.");
-
-app.Run();

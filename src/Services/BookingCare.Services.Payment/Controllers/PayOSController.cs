@@ -4,6 +4,7 @@ using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.PayOS;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using System.Text.Json;
 
 namespace BookingCare.Services.Payment.Controllers;
@@ -11,6 +12,7 @@ namespace BookingCare.Services.Payment.Controllers;
 /// <summary>
 /// Controller quản lý tích hợp PayOS
 /// </summary>
+[ApiVersion(ApiVersions.V1_0)]
 [Route("api/[controller]")]
 public class PayOSController : BaseApiController
 {
@@ -36,6 +38,7 @@ public class PayOSController : BaseApiController
     /// </summary>
     /// <returns>Status của PayOS service</returns>
     [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult HealthCheck()
     {
         return Success(new
@@ -43,7 +46,7 @@ public class PayOSController : BaseApiController
             Service = "PayOS Integration",
             Status = "Healthy",
             Timestamp = DateTime.UtcNow,
-            Version = "1.0.0"
+            Version = ApiVersions.V1_0
         }, "PayOS service is healthy");
     }
 
@@ -53,6 +56,7 @@ public class PayOSController : BaseApiController
     /// <param name="request">Thông tin thanh toán</param>
     /// <returns>Payment link PayOS</returns>
     [HttpPost("create-payment-link")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreatePaymentLink([FromBody] PayOSPaymentRequest request)
     {
         try
@@ -110,6 +114,7 @@ public class PayOSController : BaseApiController
     /// </summary>
     /// <returns>Kết quả thanh toán</returns>
     [HttpGet("payos-return")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> PayOSCallback([FromQuery] string code, [FromQuery] string id, [FromQuery] bool cancel, [FromQuery] string orderCode)
     {
         // Generate request ID để tracking duplicate calls
@@ -182,6 +187,7 @@ public class PayOSController : BaseApiController
     /// <param name="orderCode">Mã đơn hàng PayOS</param>
     /// <returns>Thông tin chi tiết payment</returns>
     [HttpGet("payment-info/{orderCode}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPaymentInfo(long orderCode)
     {
         try
@@ -203,6 +209,7 @@ public class PayOSController : BaseApiController
     /// </summary>
     /// <returns>Số lượng mapping đã xóa</returns>
     [HttpPost("cleanup-mappings")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CleanupMappings()
     {
         try
@@ -232,6 +239,7 @@ public class PayOSController : BaseApiController
     /// </summary>
     /// <returns>Kết quả hủy thanh toán</returns>
     [HttpGet("cancel-callback")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> PayOSCancelCallback([FromQuery] string orderCode)
     {
         try

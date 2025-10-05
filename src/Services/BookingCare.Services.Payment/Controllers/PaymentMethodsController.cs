@@ -1,6 +1,7 @@
 ﻿using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +10,7 @@ namespace BookingCare.Services.Payment.Controllers;
 /// <summary>
 /// Controller quản lý các phương thức thanh toán
 /// </summary>
-[Route("api/[controller]")]
+[ApiVersion(ApiVersions.V1_0)]
 public class PaymentMethodsController : BaseApiController
 {
     private readonly IPaymentMethodService _paymentMethodService;
@@ -28,6 +29,7 @@ public class PaymentMethodsController : BaseApiController
     /// Lấy tất cả payment methods
     /// </summary>
     [HttpGet]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAllPaymentMethods()
     {
         try
@@ -49,6 +51,7 @@ public class PaymentMethodsController : BaseApiController
     /// Lấy chỉ payment methods đang active
     /// </summary>
     [HttpGet("active")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetActivePaymentMethods()
     {
         try
@@ -70,6 +73,7 @@ public class PaymentMethodsController : BaseApiController
     /// Lấy payment method theo ID
     /// </summary>
     [HttpGet("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPaymentMethod(Guid id)
     {
         try
@@ -93,6 +97,7 @@ public class PaymentMethodsController : BaseApiController
     /// Lấy payment method theo tên
     /// </summary>
     [HttpGet("by-name/{name}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPaymentMethodByName(string name)
     {
         try
@@ -120,6 +125,7 @@ public class PaymentMethodsController : BaseApiController
     /// Toggle trạng thái payment method (ACTIVE <-> INACTIVE)
     /// </summary>
     [HttpPut("{id}/toggle")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> TogglePaymentMethodStatus(Guid id)
     {
         try

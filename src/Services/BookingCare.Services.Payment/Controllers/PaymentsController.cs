@@ -1,6 +1,7 @@
 ﻿using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +10,7 @@ namespace BookingCare.Services.Payment.Controllers;
 /// <summary>
 /// Controller quản lý các thao tác thanh toán
 /// </summary>
-[Route("api/[controller]")]
+[ApiVersion(ApiVersions.V1_0)]
 public class PaymentsController : BaseApiController
 {
     private readonly IPaymentService _paymentService;
@@ -43,6 +44,7 @@ public class PaymentsController : BaseApiController
     /// Lấy payment theo ID
     /// </summary>
     [HttpGet("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPayment(Guid id)
     {
         try
@@ -66,6 +68,7 @@ public class PaymentsController : BaseApiController
     /// Lấy payment theo appointment ID
     /// </summary>
     [HttpGet("appointment/{appointmentId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPaymentByAppointment(Guid appointmentId)
     {
         try
@@ -93,6 +96,7 @@ public class PaymentsController : BaseApiController
     /// Lấy payment theo subscription ID
     /// </summary>
     [HttpGet("subscription/{subscriptionId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPaymentBySubscription(Guid subscriptionId)
     {
         try
@@ -120,6 +124,7 @@ public class PaymentsController : BaseApiController
     /// Lấy danh sách payments theo clinic ID có phân trang
     /// </summary>
     [HttpGet("clinic/{clinicId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPagedPaymentsByClinic(
         Guid clinicId,
         [FromQuery] GetPaymentsPagedRequest request
@@ -156,6 +161,7 @@ public class PaymentsController : BaseApiController
     /// Lấy danh sách payments theo patient ID có phân trang
     /// </summary>
     [HttpGet("patient/{patientId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPagedPaymentsByPatient(
         Guid patientId,
         [FromQuery] GetPaymentsPagedRequest request
@@ -192,6 +198,7 @@ public class PaymentsController : BaseApiController
     /// Tạo payment cho appointment (patient đặt lịch)
     /// </summary>
     [HttpPost("appointment")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateAppointmentPayment(
         [FromBody] CreateAppointmentPaymentRequest request
     )
@@ -233,6 +240,7 @@ public class PaymentsController : BaseApiController
     /// Tạo payment cho subscription (clinic đăng ký gói)
     /// </summary>
     [HttpPost("subscription")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateSubscriptionPayment(
         [FromBody] CreateSubscriptionPaymentRequest request
     )
@@ -274,6 +282,7 @@ public class PaymentsController : BaseApiController
     /// Cập nhật trạng thái payment
     /// </summary>
     [HttpPut("{id}/status")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdatePaymentStatus(
         Guid id,
         [FromBody] UpdatePaymentStatusRequest request
@@ -313,6 +322,7 @@ public class PaymentsController : BaseApiController
     /// Xóa payment
     /// </summary>
     [HttpDelete("{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeletePayment(Guid id)
     {
         try
@@ -337,6 +347,7 @@ public class PaymentsController : BaseApiController
     /// Nếu không truyền FromDate, ToDate: mặc định lấy 6 tháng gần nhất và thống kê theo tháng
     /// </summary>
     [HttpGet("statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPaymentStatistics([FromQuery] GetPaymentStatisticsRequest request)
     {
         try
