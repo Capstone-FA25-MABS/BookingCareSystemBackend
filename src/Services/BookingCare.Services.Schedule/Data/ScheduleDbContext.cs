@@ -63,12 +63,9 @@ public class ScheduleDbContext : DbContext
                 }
                 serviceSchedule.UpdatedAt = DateTime.UtcNow;
             }
-            else if (entityEntry.Entity is DoctorScheduleExceptionEntity exception)
+            else if (entityEntry.Entity is DoctorScheduleExceptionEntity exception && entityEntry.State == EntityState.Added)
             {
-                if (entityEntry.State == EntityState.Added)
-                {
-                    exception.CreatedAt = DateTime.UtcNow;
-                }
+                exception.CreatedAt = DateTime.UtcNow;
             }
         }
     }

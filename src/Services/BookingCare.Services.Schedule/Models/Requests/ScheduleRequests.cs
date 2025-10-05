@@ -50,6 +50,7 @@ public class CreateDoctorScheduleExceptionRequest
     [Required]
     public ExceptionType ExceptionType { get; set; }
 
+    [Required]
     public bool IsAvailable { get; set; } = false;
 
     [StringLength(255)]

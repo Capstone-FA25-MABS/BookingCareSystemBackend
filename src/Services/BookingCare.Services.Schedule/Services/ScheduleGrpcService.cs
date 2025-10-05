@@ -13,6 +13,7 @@ namespace BookingCare.Services.Schedule.Services;
 /// </summary>
 public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
 {
+    private const string InvalidDoctorIdFormatMessage = "Invalid doctor ID format";
     private readonly IScheduleService _scheduleService;
     private readonly ILogger<ScheduleGrpcService> _logger;
 
@@ -35,7 +36,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 return new GetAvailableSlotsResponse
                 {
                     Success = false,
-                    Message = "Invalid doctor ID format"
+                    Message = InvalidDoctorIdFormatMessage
                 };
             }
 
@@ -116,7 +117,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 return new GetDoctorDailyScheduleResponse
                 {
                     Success = false,
-                    Message = "Invalid doctor ID format"
+                    Message = InvalidDoctorIdFormatMessage
                 };
             }
 
@@ -182,7 +183,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 return new DoctorDailyScheduleResponse
                 {
                     Success = false,
-                    Message = "Invalid doctor ID format"
+                    Message = InvalidDoctorIdFormatMessage
                 };
             }
 
@@ -248,7 +249,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 return new GetDoctorScheduleRangeResponse
                 {
                     Success = false,
-                    Message = "Invalid doctor ID format"
+                    Message = InvalidDoctorIdFormatMessage
                 };
             }
 

@@ -7,6 +7,8 @@ namespace BookingCare.Services.Schedule.Extensions;
 
 internal static class ScheduleModelBuilderExtensions
 {
+    private const string GetDateSql = "GETDATE()";
+
     public static void ConfigureScheduleEntities(this ModelBuilder modelBuilder)
     {
         // DoctorDailyScheduleEntity
@@ -16,8 +18,8 @@ internal static class ScheduleModelBuilderExtensions
 
             entity.Property(e => e.DoctorId).IsRequired();
             entity.Property(e => e.ScheduleDate).IsRequired();
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql(GetDateSql);
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql(GetDateSql);
 
             entity.Property(e => e.SchedulePatterns)
                 .HasConversion(
@@ -37,7 +39,7 @@ internal static class ScheduleModelBuilderExtensions
             entity.HasKey(e => e.Id);
 
             entity.Property(e => e.ServiceId).IsRequired();
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql(GetDateSql);
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETDATE()");
 
             entity.Property(e => e.SchedulePatterns)
@@ -61,7 +63,7 @@ internal static class ScheduleModelBuilderExtensions
             entity.Property(e => e.ExceptionType).HasConversion<string>().HasMaxLength(20).IsRequired();
             entity.Property(e => e.IsAvailable).HasDefaultValue(false);
             entity.Property(e => e.Reason).HasMaxLength(255);
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql(GetDateSql);
             entity.Property(e => e.AppointmentTime).HasConversion<int>();
             entity.HasIndex(e => new { e.DoctorId, e.ExceptionDate });
             entity.HasIndex(e => e.ExceptionType);

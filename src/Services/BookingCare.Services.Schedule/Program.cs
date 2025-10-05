@@ -81,16 +81,14 @@ app.UseGlobalExceptionHandling();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ScheduleDbContext>();
-    context.Database.Migrate();
+    await context.Database.MigrateAsync();
 }
 
 app.UseRouting();
-// app.UseApiVersioning();
 app.MapControllers();
 
 // Configure gRPC services
-// TODO: Update gRPC service to handle GUID conversions
-// Configure gRPC (temporarily disabled during GUID conversion)
+// gRPC service now properly handles GUID conversions
 app.MapGrpcService<ScheduleGrpcService>();
 app.MapGet("/", () => "BookingCare Schedule Service is running...");
 

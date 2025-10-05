@@ -179,65 +179,65 @@ public class ScheduleRepository : IScheduleRepository
         // Get doctor's exceptions for the day
         var exceptions = await GetDoctorExceptionsAsync(doctorId, date);
 
-        // Apply exceptions
-        foreach (var exception in exceptions)
-        {
-            Console.WriteLine($"Processing exception: Type={exception.ExceptionType}, AppointmentTime={exception.AppointmentTime}, IsAvailable={exception.IsAvailable}");
-
-            if (exception.ExceptionType == ExceptionType.DAY_OFF)
-            {
-                // Doctor is off for the entire day
-                Console.WriteLine("Doctor is off for the entire day - returning empty slots");
-                return new List<AppointmentTime>();
-            }
-            else if (exception.AppointmentTime.HasValue && exception.AppointmentTime.Value != 0)
-            {
-                Console.WriteLine($"Before applying exception: Available slots count = {availableSlots.Count}");
-
-                // Handle slot-specific exceptions based on isAvailable flag
-                if (!exception.IsAvailable)
-                {
-                    // Slot is not available - remove it regardless of exception type
-                    var removed = availableSlots.Remove(exception.AppointmentTime.Value);
-                    Console.WriteLine($"Removed slot {exception.AppointmentTime.Value}: {removed}");
-                }
-                else if (exception.IsAvailable && exception.ExceptionType == ExceptionType.UNBLOCK_SLOT)
-                {
-                    // Slot is explicitly made available - add it if not already present
-                    if (!availableSlots.Contains(exception.AppointmentTime.Value))
-                    {
-                        availableSlots.Add(exception.AppointmentTime.Value);
-                        Console.WriteLine($"Added slot {exception.AppointmentTime.Value}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Slot {exception.AppointmentTime.Value} already exists");
-                    }
-                }
-
-                Console.WriteLine($"After applying exception: Available slots count = {availableSlots.Count}");
-            }
-            else
-            {
-                Console.WriteLine($"Skipping exception: Invalid AppointmentTime = {exception.AppointmentTime}");
-            }
-        }
+        // Apply exceptions to filter available slots
+        availableSlots = ApplyExceptionsToSlots(availableSlots, exceptions);
 
         // If service is specified, filter by service schedule
         if (serviceId.HasValue)
         {
-            var serviceSchedules = await GetServiceSchedulesAsync(serviceId.Value);
-            var serviceSlots = serviceSchedules
-                .SelectMany(x => GetAppointmentTimesForPatterns(x.SchedulePatterns))
-                .ToHashSet();
-
-            // Only return slots that are available for both doctor and service
-            availableSlots = availableSlots
-                .Where(slot => serviceSlots.Contains(slot))
-                .ToList();
+            availableSlots = await FilterSlotsByService(availableSlots, serviceId.Value);
         }
 
         return availableSlots.OrderBy(x => (int)x);
+    }
+
+    private List<AppointmentTime> ApplyExceptionsToSlots(List<AppointmentTime> availableSlots, IEnumerable<DoctorScheduleExceptionEntity> exceptions)
+    {
+        foreach (var exception in exceptions)
+        {
+            if (exception.ExceptionType == ExceptionType.DAY_OFF)
+            {
+                // Doctor is off for the entire day
+                return new List<AppointmentTime>();
+            }
+
+            if (exception.AppointmentTime.HasValue && exception.AppointmentTime.Value != 0)
+            {
+                ProcessSlotException(availableSlots, exception);
+            }
+        }
+
+        return availableSlots;
+    }
+
+    private static void ProcessSlotException(List<AppointmentTime> availableSlots, DoctorScheduleExceptionEntity exception)
+    {
+        if (!exception.IsAvailable)
+        {
+            // Slot is not available - remove it regardless of exception type
+            availableSlots.Remove(exception.AppointmentTime!.Value);
+        }
+        else if (exception.ExceptionType == ExceptionType.UNBLOCK_SLOT)
+        {
+            // Slot is explicitly made available - add it if not already present
+            if (!availableSlots.Contains(exception.AppointmentTime!.Value))
+            {
+                availableSlots.Add(exception.AppointmentTime.Value);
+            }
+        }
+    }
+
+    private async Task<List<AppointmentTime>> FilterSlotsByService(List<AppointmentTime> availableSlots, Guid serviceId)
+    {
+        var serviceSchedules = await GetServiceSchedulesAsync(serviceId);
+        var serviceSlots = serviceSchedules
+            .SelectMany(x => GetAppointmentTimesForPatterns(x.SchedulePatterns))
+            .ToHashSet();
+
+        // Only return slots that are available for both doctor and service
+        return availableSlots
+            .Where(slot => serviceSlots.Contains(slot))
+            .ToList();
     }
 
     private IEnumerable<AppointmentTime> GetAppointmentTimesForPatterns(List<SchedulePatterns> patterns)
@@ -259,7 +259,7 @@ public class ScheduleRepository : IScheduleRepository
         };
     }
 
-    private IEnumerable<AppointmentTime> GetMorningSlots()
+    private static IEnumerable<AppointmentTime> GetMorningSlots()
     {
         // Morning slots: 8:00 AM to 12:00 PM (30-minute intervals)
         return new[]
@@ -271,7 +271,7 @@ public class ScheduleRepository : IScheduleRepository
         };
     }
 
-    private IEnumerable<AppointmentTime> GetAfternoonSlots()
+    private static IEnumerable<AppointmentTime> GetAfternoonSlots()
     {
         // Afternoon slots: 1:00 PM to 5:00 PM (30-minute intervals)
         return new[]
@@ -283,7 +283,7 @@ public class ScheduleRepository : IScheduleRepository
         };
     }
 
-    private IEnumerable<AppointmentTime> GetEveningSlots()
+    private static IEnumerable<AppointmentTime> GetEveningSlots()
     {
         // Evening slots: 5:00 PM to 9:00 PM (30-minute intervals)
         return new[]
