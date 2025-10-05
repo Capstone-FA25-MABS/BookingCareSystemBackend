@@ -1109,4 +1109,18 @@ public class DoctorService : BaseService, IDoctorService
 
     #endregion
 
+    #region Optimized Methods for gRPC Performance
+
+    public async Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id)
+    {
+        return await _repository.Value.GetDoctorBasicInfoByIdAsync(id);
+    }
+
+    public async Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+    {
+        return await _repository.Value.GetDoctorsBasicInfoByIdsAsync(ids);
+    }
+
+    #endregion
+
 }

@@ -160,4 +160,41 @@ public class HospitalRepository : IHospitalRepository
             .Where(h => h.AccountId == accountId)
             .ToListAsync();
     }
+
+    #region Optimized Methods for gRPC Performance
+
+    public async Task<HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id)
+    {
+        return await _context.Hospitals
+            .Where(h => h.Id == id)
+            .Select(h => new HospitalEntity
+            {
+                Id = h.Id,
+                Name = h.Name,
+                Address = h.Address,
+                Phone = h.Phone,
+                Email = h.Email,
+                AvatarUrl = h.AvatarUrl
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<List<HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids.ToList();
+        return await _context.Hospitals
+            .Where(h => idList.Contains(h.Id))
+            .Select(h => new HospitalEntity
+            {
+                Id = h.Id,
+                Name = h.Name,
+                Address = h.Address,
+                Phone = h.Phone,
+                Email = h.Email,
+                AvatarUrl = h.AvatarUrl
+            })
+            .ToListAsync();
+    }
+
+    #endregion
 }

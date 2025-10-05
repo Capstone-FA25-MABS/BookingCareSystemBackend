@@ -241,4 +241,80 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
         }
     }
+
+    public override async Task<HospitalBasicInfoResponse> GetHospitalBasicInfo(GetHospitalBasicInfoRequest request, ServerCallContext context)
+    {
+        try
+        {
+            if (!Guid.TryParse(request.Id, out var id))
+            {
+                throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            var hospital = await _hospitalService.GetHospitalBasicInfoByIdAsync(id);
+            if (hospital == null)
+            {
+                throw new RpcException(new GrpcStatus(StatusCode.NotFound, $"Hospital with ID {id} not found"));
+            }
+
+            return MapToHospitalBasicInfoResponse(hospital);
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetHospitalBasicInfo for {Id}", request.Id);
+            throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    public override async Task<HospitalsBasicInfoResponse> GetHospitalsBasicInfo(GetHospitalsBasicInfoRequest request, ServerCallContext context)
+    {
+        try
+        {
+            var ids = new List<Guid>();
+            foreach (var idStr in request.Ids)
+            {
+                if (!Guid.TryParse(idStr, out var id))
+                {
+                    throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, $"Invalid hospital ID format: {idStr}"));
+                }
+                ids.Add(id);
+            }
+
+            var hospitals = await _hospitalService.GetHospitalsBasicInfoByIdsAsync(ids);
+            var response = new HospitalsBasicInfoResponse();
+
+            foreach (var hospital in hospitals)
+            {
+                response.Hospitals.Add(MapToHospitalBasicInfoResponse(hospital));
+            }
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetHospitalsBasicInfo");
+            throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    private static HospitalBasicInfoResponse MapToHospitalBasicInfoResponse(BookingCare.Services.Hospital.Models.Entities.HospitalEntity hospital)
+    {
+        return new HospitalBasicInfoResponse
+        {
+            Id = hospital.Id.ToString(),
+            Name = hospital.Name,
+            Address = hospital.Address,
+            Phone = hospital.Phone ?? string.Empty,
+            Email = hospital.Email,
+            AvatarUrl = hospital.AvatarUrl ?? string.Empty
+        };
+    }
 }

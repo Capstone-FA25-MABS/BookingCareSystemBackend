@@ -17,6 +17,12 @@ service HospitalService {
   
   // Creates a hospital
   rpc CreateHospital (CreateHospitalGrpcRequest) returns (HospitalReply);
+
+  // Get hospital basic info (optimized for performance)
+  rpc GetHospitalBasicInfo (GetHospitalBasicInfoRequest) returns (HospitalBasicInfoResponse);
+
+  // Get multiple hospitals basic info (batch operation for performance)
+  rpc GetHospitalsBasicInfo (GetHospitalsBasicInfoRequest) returns (HospitalsBasicInfoResponse);
 }
 
 // The request message for getting a hospital by ID
@@ -84,4 +90,29 @@ message HospitalBasicListReply {
   int32 total_count = 2;
   int32 page = 3;
   int32 page_size = 4;
+}
+
+// Request message for getting hospital basic info
+message GetHospitalBasicInfoRequest {
+  string id = 1;
+}
+
+// Request message for getting multiple hospitals basic info
+message GetHospitalsBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Response message for hospital basic info (optimized for performance)
+message HospitalBasicInfoResponse {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  string phone = 4;
+  string email = 5;
+  string avatar_url = 6;
+}
+
+// Response message for multiple hospitals basic info
+message HospitalsBasicInfoResponse {
+  repeated HospitalBasicInfoResponse hospitals = 1;
 }

@@ -196,4 +196,18 @@ public class HospitalService : IHospitalService
             throw new HospitalOperationException($"Failed to remove specialty {specialtyId} from hospital {hospitalId}", ex);
         }
     }
+
+    #region Optimized Methods for gRPC Performance
+
+    public async Task<Models.Entities.HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id)
+    {
+        return await _repository.GetHospitalBasicInfoByIdAsync(id);
+    }
+
+    public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+    {
+        return await _repository.GetHospitalsBasicInfoByIdsAsync(ids);
+    }
+
+    #endregion
 }

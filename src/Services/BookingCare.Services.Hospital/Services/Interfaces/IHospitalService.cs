@@ -16,4 +16,8 @@ public interface IHospitalService
     Task<List<HospitalResponse>> GetByAccountIdAsync(Guid accountId);
     Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId);
     Task<bool> RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+
+    // Optimized methods for gRPC performance
+    Task<Models.Entities.HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id);
+    Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
 }

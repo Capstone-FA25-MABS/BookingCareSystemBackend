@@ -594,4 +594,49 @@ public class DoctorRepository : IDoctorRepository
     }
 
     #endregion
+
+    #region Optimized Methods for gRPC Performance
+
+    public async Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id)
+    {
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.Specialty)
+            .Where(d => d.Id == id)
+            .Select(d => new DoctorEntity
+            {
+                Id = d.Id,
+                Email = d.Email,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                AvatarUrl = d.AvatarUrl,
+                HospitalId = d.HospitalId,
+                Position = d.Position != null ? new PositionEntity { Name = d.Position.Name } : null,
+                Specialty = d.Specialty != null ? new SpecialtyEntity { Name = d.Specialty.Name } : null
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids.ToList();
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.Specialty)
+            .Where(d => idList.Contains(d.Id))
+            .Select(d => new DoctorEntity
+            {
+                Id = d.Id,
+                Email = d.Email,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                AvatarUrl = d.AvatarUrl,
+                HospitalId = d.HospitalId,
+                Position = d.Position != null ? new PositionEntity { Name = d.Position.Name } : null,
+                Specialty = d.Specialty != null ? new SpecialtyEntity { Name = d.Specialty.Name } : null
+            })
+            .ToListAsync();
+    }
+
+    #endregion
 }

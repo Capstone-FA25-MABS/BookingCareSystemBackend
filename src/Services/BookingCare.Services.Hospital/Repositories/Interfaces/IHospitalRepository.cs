@@ -16,4 +16,8 @@ public interface IHospitalRepository
     Task<bool> EmailExistsAsync(string email, Guid? excludeId = null);
     Task<List<HospitalEntity>> GetBySpecialtyAsync(Guid specialtyId);
     Task<List<HospitalEntity>> GetByAccountIdAsync(Guid accountId);
+
+    // Optimized methods for gRPC performance
+    Task<HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id);
+    Task<List<HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
 }

@@ -39,4 +39,8 @@ public interface IDoctorService
     // Helper methods
     IQueryable<DoctorEntity> GetQueryableDoctors();
     Task<DoctorListResponse> GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId);
+
+    // Optimized methods for gRPC performance
+    Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
+    Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
 }
