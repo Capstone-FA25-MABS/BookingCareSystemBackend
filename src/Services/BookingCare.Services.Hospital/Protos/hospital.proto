@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Hospital";
+
+package hospital;
+
+// The Hospital service definition.
+service HospitalService {
+  // Gets a hospital by ID
+  rpc GetHospital (GetHospitalRequest) returns (HospitalReply);
+  
+  // Gets hospitals by specialty
+  rpc GetHospitalsBySpecialty (GetHospitalsBySpecialtyRequest) returns (HospitalListReply);
+  
+  // Gets all hospitals with basic info (for doctor service)
+  rpc GetHospitalsList (GetHospitalsListRequest) returns (HospitalBasicListReply);
+  
+  // Creates a hospital
+  rpc CreateHospital (CreateHospitalGrpcRequest) returns (HospitalReply);
+
+  // Get hospital basic info (optimized for performance)
+  rpc GetHospitalBasicInfo (GetHospitalBasicInfoRequest) returns (HospitalBasicInfoResponse);
+
+  // Get multiple hospitals basic info (batch operation for performance)
+  rpc GetHospitalsBasicInfo (GetHospitalsBasicInfoRequest) returns (HospitalsBasicInfoResponse);
+}
+
+// The request message for getting a hospital by ID
+message GetHospitalRequest {
+  string id = 1; // Guid as string
+}
+
+// The request message for getting hospitals by specialty
+message GetHospitalsBySpecialtyRequest {
+  string specialty_id = 1; // Guid as string
+}
+
+// The request message for getting hospitals list (basic info)
+message GetHospitalsListRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string status = 3; // Optional filter by status
+}
+
+// The request message for creating a hospital
+message CreateHospitalGrpcRequest {
+  string account_id = 1; // Guid as string
+  string name = 2;
+  string address = 3;
+  string phone = 4;
+  string email = 5;
+  string description = 6;
+  string background_url = 7;
+  string avatar_url = 8;
+  repeated string specialty_ids = 9; // Guid as string
+}
+
+// The response message containing hospital details
+message HospitalReply {
+  string id = 1; // Guid as string
+  string account_id = 2; // Guid as string
+  string name = 3;
+  string address = 4;
+  string phone = 5;
+  string email = 6;
+  string description = 7;
+  string background_url = 8;
+  string avatar_url = 9;
+  string status = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+// The response message containing basic hospital info
+message HospitalBasicReply {
+  string id = 1; // Guid as string
+  string name = 2;
+  string address = 3;
+}
+
+// The response message containing a list of hospitals
+message HospitalListReply {
+  repeated HospitalReply hospitals = 1;
+  int32 total_count = 2;
+}
+
+// The response message containing a list of basic hospital info
+message HospitalBasicListReply {
+  repeated HospitalBasicReply hospitals = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Request message for getting hospital basic info
+message GetHospitalBasicInfoRequest {
+  string id = 1;
+}
+
+// Request message for getting multiple hospitals basic info
+message GetHospitalsBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Response message for hospital basic info (optimized for performance)
+message HospitalBasicInfoResponse {
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  string phone = 4;
+  string email = 5;
+  string avatar_url = 6;
+}
+
+// Response message for multiple hospitals basic info
+message HospitalsBasicInfoResponse {
+  repeated HospitalBasicInfoResponse hospitals = 1;
+}

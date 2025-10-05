@@ -131,22 +131,6 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/v{version}/doctors/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "localhost",
-          "Port": 6008
-        }
-      ],
-      "UpstreamPathTemplate": "/api/v{version}/doctors/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
-      "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
       "DownstreamPathTemplate": "/api/v{version}/favorites/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

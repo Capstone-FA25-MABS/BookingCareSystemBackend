@@ -20,6 +20,12 @@ service DoctorService {
 
   // Batch retrieval for performance optimization
   rpc GetDoctorsByAccountIds (GetDoctorsByAccountIdsRequest) returns (DoctorBatchResponse);
+
+  // Get doctor basic info with position and specialty names (optimized for performance)
+  rpc GetDoctorBasicInfo (GetDoctorBasicInfoRequest) returns (DoctorBasicInfoResponse);
+
+  // Get multiple doctors basic info (batch operation for performance)
+  rpc GetDoctorsBasicInfo (GetDoctorsBasicInfoRequest) returns (DoctorsBasicInfoResponse);
 }
 
 // Request messages
@@ -92,4 +98,32 @@ message DeleteDoctorRequest {
 message DeleteDoctorResponse {
   bool success = 1;
   string message = 2;
+}
+
+// Request message for getting doctor basic info
+message GetDoctorBasicInfoRequest {
+  string id = 1;
+}
+
+// Request message for getting multiple doctors basic info
+message GetDoctorsBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Response message for doctor basic info with position and specialty names
+message DoctorBasicInfoResponse {
+  string id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string full_name = 5;
+  string position_name = 6;
+  string specialty_name = 7;
+  string avatar_url = 8;
+  string hospital_id = 9;
+}
+
+// Response message for multiple doctors basic info
+message DoctorsBasicInfoResponse {
+  repeated DoctorBasicInfoResponse doctors = 1;
 }

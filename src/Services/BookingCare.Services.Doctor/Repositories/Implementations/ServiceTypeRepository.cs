@@ -2,6 +2,7 @@ using BookingCare.Services.Doctor.Data;
 using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
+using BookingCare.Shared.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Doctor.Repositories.Implementations;
@@ -48,7 +49,10 @@ public class ServiceTypeRepository : IServiceTypeRepository
         var serviceType = await GetServiceTypeByIdAsync(id);
         if (serviceType == null) return false;
 
-        _context.ServiceTypes.Remove(serviceType);
+        // Soft delete - chỉ thay đổi status thành INACTIVE
+        serviceType.Status = Status.INACTIVE;
+        serviceType.UpdatedAt = DateTime.UtcNow;
+        _context.ServiceTypes.Update(serviceType);
         await _context.SaveChangesAsync();
         return true;
     }
@@ -86,6 +90,12 @@ public class ServiceTypeRepository : IServiceTypeRepository
             queryable = queryable.Where(st =>
                 st.Name.ToLower().Contains(searchTerm) ||
                 (st.Description != null && st.Description.ToLower().Contains(searchTerm)));
+        }
+
+        // Apply status filter
+        if (query.Status.HasValue)
+        {
+            queryable = queryable.Where(st => st.Status == query.Status.Value);
         }
 
         // Sort
