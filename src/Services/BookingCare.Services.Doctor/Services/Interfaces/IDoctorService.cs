@@ -8,11 +8,12 @@ public interface IDoctorService
 {
     // Doctor CRUD operations
     Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request);
-    Task<DoctorResponse?> GetDoctorByIdAsync(Guid id);
+    Task<DoctorDetailResponse?> GetDoctorByIdAsync(Guid id);
     Task<DoctorResponse?> GetDoctorByEmailAsync(string email);
     Task<DoctorResponse?> GetDoctorByAccountIdAsync(Guid accountId);
     Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request);
     Task<bool> DeleteDoctorAsync(Guid id);
+    Task<bool> ToggleDoctorStatusAsync(Guid id);
 
     // Doctor Query operations
     Task<DoctorListResponse> GetDoctorsAsync(DoctorQueryRequest query);
@@ -38,4 +39,8 @@ public interface IDoctorService
     // Helper methods
     IQueryable<DoctorEntity> GetQueryableDoctors();
     Task<DoctorListResponse> GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId);
+
+    // Optimized methods for gRPC performance
+    Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
+    Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
 }

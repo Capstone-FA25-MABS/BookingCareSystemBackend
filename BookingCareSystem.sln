@@ -14,7 +14,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Appoin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Auth", "src\Services\BookingCare.Services.Auth\BookingCare.Services.Auth.csproj", "{0BBE64D7-72E9-4D70-BE4F-82E2B1528130}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Clinic", "src\Services\BookingCare.Services.Clinic\BookingCare.Services.Clinic.csproj", "{0255DC48-9FEB-4EB1-9CBE-1DEBE985EECD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Hospital", "src\Services\BookingCare.Services.Hospital\BookingCare.Services.Hospital.csproj", "{0255DC48-9FEB-4EB1-9CBE-1DEBE985EECD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookingCare.Services.Communication", "src\Services\BookingCare.Services.Communication\BookingCare.Services.Communication.csproj", "{2EE78C50-DCBB-40BC-A633-65DF99F80053}"
 EndProject

@@ -11,6 +11,7 @@ public interface IPositionService
     Task<PositionResponse?> GetPositionByNameAsync(string name);
     Task<PositionResponse> UpdatePositionAsync(UpdatePositionRequest request);
     Task<bool> DeletePositionAsync(Guid id);
+    Task<bool> TogglePositionStatusAsync(Guid id);
 
     // Position Query operations
     Task<PositionListResponse> GetPositionsAsync(PositionQueryRequest query);
