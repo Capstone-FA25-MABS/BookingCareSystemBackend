@@ -12,10 +12,20 @@ public class DoctorMappingProfile : Profile
         // Doctor Entity to Response mappings
         CreateMap<DoctorEntity, DoctorResponse>()
             .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Position))
+            .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src => src.Specialty))
             .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices))
             .ForMember(dest => dest.Languages, opt => opt.MapFrom(src => src.DoctorLanguages.Select(dl => dl.Language)))
             .ForMember(dest => dest.Status, opt => opt.Ignore()) // Status sẽ được set bởi EnrichDoctorsWithStatusAsync
-            .ForMember(dest => dest.IsFavorited, opt => opt.Ignore()); // IsFavorited sẽ được set bởi logic khác
+            .ForMember(dest => dest.IsFavorited, opt => opt.Ignore()) // IsFavorited sẽ được set bởi logic khác
+            .ForMember(dest => dest.Hospital, opt => opt.Ignore()); // Hospital sẽ được set bởi EnrichDoctorsWithHospitalBasicInfoAsync
+
+        CreateMap<DoctorEntity, DoctorDetailResponse>()
+            .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Position))
+            .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices))
+            .ForMember(dest => dest.Languages, opt => opt.MapFrom(src => src.DoctorLanguages.Select(dl => dl.Language)))
+            .ForMember(dest => dest.Status, opt => opt.Ignore()) // Status sẽ được set bởi EnrichDoctorsWithStatusAsync
+            .ForMember(dest => dest.IsFavorited, opt => opt.Ignore()) // IsFavorited sẽ được set bởi logic khác
+            .ForMember(dest => dest.Hospital, opt => opt.Ignore()); // Hospital sẽ được set bởi EnrichDoctorWithHospitalDetailInfoAsync
 
         // Doctor Request to Entity mappings
         CreateMap<CreateDoctorRequest, DoctorEntity>()

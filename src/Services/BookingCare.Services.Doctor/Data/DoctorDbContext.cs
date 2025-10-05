@@ -17,6 +17,7 @@ public class DoctorDbContext : DbContext
 
     public DbSet<DoctorEntity> Doctors { get; set; }
     public DbSet<PositionEntity> Positions { get; set; }
+    public DbSet<SpecialtyEntity> Specialties { get; set; }
     public DbSet<DoctorPriceEntity> DoctorPrices { get; set; }
     public DbSet<LanguageEntity> Languages { get; set; }
     public DbSet<DoctorLanguageEntity> DoctorLanguages { get; set; }
@@ -74,6 +75,11 @@ public class DoctorDbContext : DbContext
                 .HasForeignKey(e => e.PositionId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            entity.HasOne(e => e.Specialty)
+                .WithMany()
+                .HasForeignKey(e => e.SpecialtyId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasMany(e => e.DoctorPrices)
                 .WithOne(e => e.Doctor)
                 .HasForeignKey(e => e.DoctorId)
@@ -95,6 +101,38 @@ public class DoctorDbContext : DbContext
             entity.Property(e => e.Name)
                 .HasMaxLength(255)
                 .IsRequired();
+
+            // Configure enum properties
+            entity.Property(e => e.Status)
+                .HasConversion<string>()
+                .HasMaxLength(10);
+
+            // Configure datetime properties
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("GETDATE()");
+        });
+
+        // Configure SpecialtyEntity
+        modelBuilder.Entity<SpecialtyEntity>(entity =>
+        {
+            // Primary key
+            entity.HasKey(e => e.Id);
+
+            // Configure string properties
+            entity.Property(e => e.Name)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(e => e.ImageUrl)
+                .IsRequired();
+
+            // Configure enum properties
+            entity.Property(e => e.Status)
+                .HasConversion<string>()
+                .HasMaxLength(10);
 
             // Configure datetime properties
             entity.Property(e => e.CreatedAt)
@@ -143,6 +181,11 @@ public class DoctorDbContext : DbContext
                 .HasMaxLength(100)
                 .IsRequired();
 
+            // Configure enum properties
+            entity.Property(e => e.Status)
+                .HasConversion<string>()
+                .HasMaxLength(10);
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
@@ -181,6 +224,11 @@ public class DoctorDbContext : DbContext
             entity.Property(e => e.Description)
                 .HasMaxLength(255);
 
+            // Configure enum properties
+            entity.Property(e => e.Status)
+                .HasConversion<string>()
+                .HasMaxLength(10);
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
@@ -206,6 +254,8 @@ public class DoctorDbContext : DbContext
         UpdateEntityTimestamps<DoctorEntity>();
 
         UpdateEntityTimestamps<PositionEntity>();
+
+        UpdateEntityTimestamps<SpecialtyEntity>();
 
         UpdateEntityTimestamps<DoctorPriceEntity>();
 

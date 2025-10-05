@@ -2,6 +2,7 @@ using BookingCare.Services.Doctor.Data;
 using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
+using BookingCare.Shared.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Doctor.Repositories.Implementations;
@@ -48,7 +49,10 @@ public class LanguageRepository : ILanguageRepository
         var language = await GetLanguageByIdAsync(id);
         if (language == null) return false;
 
-        _context.Languages.Remove(language);
+        // Soft delete - chỉ thay đổi status thành INACTIVE
+        language.Status = Status.INACTIVE;
+        language.UpdatedAt = DateTime.UtcNow;
+        _context.Languages.Update(language);
         await _context.SaveChangesAsync();
         return true;
     }
@@ -84,6 +88,12 @@ public class LanguageRepository : ILanguageRepository
         {
             var searchTerm = query.SearchTerm.ToLower();
             queryable = queryable.Where(l => l.Name.ToLower().Contains(searchTerm));
+        }
+
+        // Apply status filter
+        if (query.Status.HasValue)
+        {
+            queryable = queryable.Where(l => l.Status == query.Status.Value);
         }
 
         // Sort
