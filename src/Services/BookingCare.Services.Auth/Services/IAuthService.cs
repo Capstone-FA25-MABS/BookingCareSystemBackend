@@ -18,7 +18,7 @@ public interface IAuthService
     Task<(bool Success, string AccountId, string Message)> CreateAccountForSagaAsync(RegisterRequest request, Role role);
     Task<(bool Success, string AccountId, string Message)> CreateExternalAccountForSagaAsync(string email, string fullName, string? avatarUrl, string externalProvider, string externalUserId);
     Task<(bool Success, string Message)> DeleteAccountForSagaAsync(string accountId);
-    Task<bool> ChangePasswordAsync(ChangePasswordRequest request);
+    Task<bool> ChangePasswordAsync(ChangePasswordRequest request, Guid accountId);
     Task<bool> ForgotPasswordAsync(ForgotPasswordRequest request);
     Task<bool> ResetPasswordAsync(ResetPasswordRequest request);
     Task<ResetTokenResponse> ResetTokenAsync(ResetTokenRequest request);

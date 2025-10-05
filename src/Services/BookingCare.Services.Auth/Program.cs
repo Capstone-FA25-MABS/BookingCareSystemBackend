@@ -1,4 +1,5 @@
 using BookingCare.Services.Auth.Data;
+using BookingCare.Services.Auth.Handlers;
 using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Repositories;
 using BookingCare.Services.Auth.Services;
@@ -8,6 +9,8 @@ using BookingCare.Services.Auth.Mappings;
 using System.Text.Json.Serialization;
 using BookingCare.Services.Notification.Protos;
 using BookingCare.Services.Auth.Utils;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.Common.AppRouting;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -169,6 +172,9 @@ builder.Services.AddSagaStep<CreateExternalAccountGrpcStep>();
 builder.Services.AddSagaStep<CreateUserProfileGrpcStep>();
 builder.Services.AddSagaStep<CreateDoctorProfileGrpcStep>();
 
+// Register Event Handlers
+builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncEventHandler>();
+
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth-service-queue");
 
@@ -210,8 +216,12 @@ app.MapControllers();
 app.MapGrpcService<AuthGrpcService>();
 app.MapGet("/", () => "BookingCare Auth Service is running...");
 
-// Configure EventBus subscriptions (none for Auth now)
-app.UseEventBus(eventBus => { /* No subscriptions in Auth service currently */ });
+// Configure EventBus subscriptions
+app.UseEventBus(eventBus =>
+{
+    // Subscribe to User Service sync requests
+    eventBus.Subscribe<UserEmailPhoneSyncRequestedEvent, UserEmailPhoneSyncEventHandler>();
+});
 
 // Initialize default data
 if (app.Environment.IsDevelopment())
