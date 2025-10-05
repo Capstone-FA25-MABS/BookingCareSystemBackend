@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using BookingCare.Services.Schedule.Models.Entities;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Schedule.Enums;
+using System.Text.Json.Serialization;
 
 namespace BookingCare.Services.Schedule.Models.Requests;
 
@@ -25,9 +26,11 @@ public class CreateAppointmentTimeRequest
 public class CreateDoctorDailyScheduleRequest
 {
     [Required]
+    [JsonRequired]
     public Guid DoctorId { get; set; }
 
     [Required]
+    [JsonRequired]
     public DateOnly ScheduleDate { get; set; }
 
     [Required]
@@ -40,14 +43,17 @@ public class CreateDoctorDailyScheduleRequest
 public class CreateDoctorScheduleExceptionRequest
 {
     [Required]
+    [JsonRequired]
     public Guid DoctorId { get; set; }
 
     [Required]
+    [JsonRequired]
     public DateOnly ExceptionDate { get; set; }
 
     public List<AppointmentTime>? AppointmentTimes { get; set; } // NULL or empty for full day off
 
     [Required]
+    [JsonRequired]
     public ExceptionType ExceptionType { get; set; }
 
     [Required]
