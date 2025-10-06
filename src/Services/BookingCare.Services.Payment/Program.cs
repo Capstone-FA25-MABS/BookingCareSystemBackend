@@ -33,12 +33,14 @@ builder.Services.Configure<PayOSConfiguration>(builder.Configuration.GetSection(
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 builder.Services.AddScoped<IPayOSPaymentMappingRepository, PayOSPaymentMappingRepository>();
+builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
 
 // Add services
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IVNPayService, VNPayService>();
 builder.Services.AddScoped<IPayOSService, PayOSService>();
+builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 
 // Add background services
 builder.Services.AddHostedService<PayOSMappingCleanupService>();

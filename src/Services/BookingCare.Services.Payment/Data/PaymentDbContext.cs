@@ -29,6 +29,11 @@ public class PaymentDbContext : DbContext
     /// </summary>
     public DbSet<PayOSPaymentMappingEntity> PayOSPaymentMappings { get; set; }
 
+    /// <summary>
+    /// DbSet cho bảng bank_accounts
+    /// </summary>
+    public DbSet<BankAccountEntity> BankAccounts { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -49,19 +54,21 @@ public class PaymentDbContext : DbContext
                     v => (PaymentStatus)Enum.Parse(typeof(PaymentStatus), v))
                 .HasMaxLength(10);
 
-            // Relationship với PaymentMethod - FIX: Sử dụng Restrict thay vì SetNull
+            // Relationship với PaymentMethod
             entity.HasOne(d => d.PaymentMethod)
                 .WithMany(p => p.Payments)
                 .HasForeignKey(d => d.PaymentMethodId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_payments_payment_method_id");
 
-            // Check constraints (tương đương SQL CHECK)
-            entity.HasCheckConstraint("CK_payments_transaction_type",
-                "[transaction_type] IN ('APPOINTMENT', 'SUBSCRIPTION')");
-
-            entity.HasCheckConstraint("CK_payments_status",
-                "[status] IN ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED')");
+            // Check constraints - Updated for EF Core 8
+            entity.ToTable("payments", t =>
+            {
+                t.HasCheckConstraint("CK_payments_transaction_type",
+                    "[transaction_type] IN ('APPOINTMENT', 'SUBSCRIPTION')");
+                t.HasCheckConstraint("CK_payments_status",
+                    "[status] IN ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED')");
+            });
         });
 
         // Cấu hình PaymentMethodEntity
@@ -74,26 +81,54 @@ public class PaymentDbContext : DbContext
                     v => (PaymentMethodStatus)Enum.Parse(typeof(PaymentMethodStatus), v))
                 .HasMaxLength(10);
 
-            // Unique constraint cho name
-            entity.HasIndex(e => e.Name)
-                .IsUnique()
-                .HasDatabaseName("UQ_payment_methods_name");
-
-            // Check constraint cho status
-            entity.HasCheckConstraint("CK_payment_methods_status",
-                "[status] IN ('ACTIVE', 'INACTIVE')");
+            // Check constraint cho status - Updated for EF Core 8
+            entity.ToTable("payment_methods", t =>
+            {
+                t.HasCheckConstraint("CK_payment_methods_status",
+                    "[status] IN ('ACTIVE', 'INACTIVE')");
+            });
         });
 
         // Cấu hình PayOSPaymentMappingEntity
         modelBuilder.Entity<PayOSPaymentMappingEntity>(entity =>
         {
-
-            // Relationship với Payment entity (optional)
+            // Relationship với Payment entity
             entity.HasOne<PaymentEntity>()
                 .WithMany()
                 .HasForeignKey(e => e.PaymentId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_payos_payment_mappings_payment_id");
+        });
+
+        // Cấu hình BankAccountEntity
+        modelBuilder.Entity<BankAccountEntity>(entity =>
+        {
+            // Primary key
+            entity.HasKey(e => e.Id);
+
+            // Check constraints - Updated for EF Core 8
+            entity.ToTable("bank_accounts", t =>
+            {
+                t.HasCheckConstraint("CK_bank_accounts_bank_code_length",
+                    "LEN([bank_code]) >= 2 AND LEN([bank_code]) <= 10");
+                t.HasCheckConstraint("CK_bank_accounts_account_number_length",
+                    "LEN([account_number]) >= 6 AND LEN([account_number]) <= 20");
+                t.HasCheckConstraint("CK_bank_accounts_account_number_numeric",
+                    "[account_number] NOT LIKE '%[^0-9]%'");
+            });
+
+            // Default values
+            entity.Property(e => e.IsDefault)
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("GETDATE()");
         });
 
         // Seed data cho payment methods
