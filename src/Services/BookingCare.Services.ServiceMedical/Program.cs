@@ -24,7 +24,7 @@ app.UseRouting();
 app.MapControllers();
 
 // Configure the HTTP request pipeline.
-app.MapGrpcService<GreeterService>();
+app.MapGrpcService<ServiceMedicalGrpcService>();
 app.MapGet("/", () => "BookingCare Service Medical Service is running...");
 
 app.Run();
