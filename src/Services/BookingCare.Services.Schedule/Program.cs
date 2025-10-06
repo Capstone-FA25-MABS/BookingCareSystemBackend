@@ -8,23 +8,11 @@ using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure Kestrel for both HTTP and gRPC
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(6015, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-    options.ListenAnyIP(6025, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "schedule");
 
 // Add DbContext
 builder.Services.AddDbContext<ScheduleDbContext>(options =>
@@ -37,6 +25,7 @@ builder.Services.AddRedisCache(builder.Configuration);
 builder.Services.AddGrpc();
 
 // Add Controllers and API versioning
+builder.Services.AddCommonControllers();
 builder.Services.AddControllers();
 builder.Services.AddApiVersioningSupport();
 builder.Services.AddEndpointsApiExplorer();
