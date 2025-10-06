@@ -56,8 +56,6 @@ app.UseCommonSwaggerUI("Hospital");
 
 app.UseGlobalExceptionHandling();
 app.UseStandardAuthPipeline();
-// Configure routing
-app.UseRouting();
 
 // Map controllers for REST API
 app.MapControllers();

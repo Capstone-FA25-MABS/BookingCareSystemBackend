@@ -97,10 +97,6 @@ app.UseStandardAuthPipeline();
 app.UseMiddleware<DoctorSecurityMiddleware>();
 app.UseMiddleware<DoctorRateLimitingMiddleware>();
 
-// Configure routing
-app.UseRouting();
-
-
 // Map controllers for REST API
 app.MapControllers();
 
