@@ -93,7 +93,7 @@ public class AppointmentRepository : IAppointmentRepository
         }
     }
 
-    private IQueryable<AppointmentEntity> ApplyRoleBasedFilter(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query, Role role)
+    private static IQueryable<AppointmentEntity> ApplyRoleBasedFilter(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query, Role role)
     {
         return role switch
         {
@@ -104,7 +104,7 @@ public class AppointmentRepository : IAppointmentRepository
         };
     }
 
-    private IQueryable<AppointmentEntity> ApplyAdditionalFilters(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query)
+    private static IQueryable<AppointmentEntity> ApplyAdditionalFilters(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query)
     {
         if (query.AppointmentType.HasValue)
             queryable = queryable.Where(a => a.AppointmentType == query.AppointmentType);
@@ -129,7 +129,7 @@ public class AppointmentRepository : IAppointmentRepository
         return queryable;
     }
 
-    private IQueryable<AppointmentEntity> ApplySorting(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query)
+    private static IQueryable<AppointmentEntity> ApplySorting(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query)
     {
         return query.SortBy?.ToLower() switch
         {
