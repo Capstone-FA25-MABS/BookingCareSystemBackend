@@ -53,6 +53,35 @@ public class UserService : BaseService, IUserService
         }, "GetUserByAccountId");
     }
 
+    public async Task<UserBasicInfoDto?> GetBasicInfoByIdAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            ValidateGuid(id, nameof(id));
+            LogDebug("Getting basic user info by ID: {UserId}", null, id);
+
+            return await _userRepository.GetBasicInfoByIdAsync(id);
+
+        }, "GetBasicUserInfoById");
+    }
+
+    public async Task<List<UserBasicInfoDto>> GetUsersBasicInfoByIdsAsync(List<Guid> ids)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            if (ids == null || !ids.Any())
+            {
+                LogDebug("GetUsersBasicInfoByIds called with empty list", null);
+                return new List<UserBasicInfoDto>();
+            }
+
+            LogDebug("Getting basic user info for {Count} user IDs", null, ids.Count);
+
+            return await _userRepository.GetUsersBasicInfoByIdsAsync(ids);
+
+        }, "GetUsersBasicInfoByIds");
+    }
+
     public async Task<UserResponse> CreateAsync(CreateUserRequest createUserRequest)
     {
         return await ExecuteWithErrorHandling(async () =>
