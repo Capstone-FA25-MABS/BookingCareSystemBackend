@@ -70,65 +70,12 @@ public class AppointmentRepository : IAppointmentRepository
         {
             var queryable = _context.Appointments.AsQueryable();
 
-            // Apply role-based primary filters first
-            switch (role)
-            {
-                case Role.PATIENT:
-                    queryable = queryable.Where(a => a.PatientId == query.PatientId);
-                    break;
-                case Role.DOCTOR:
-                    queryable = queryable.Where(a => a.DoctorId == query.DoctorId);
-                    break;
-                case Role.STAFF:
-                    queryable = queryable.Where(a => a.HospitalId == query.HospitalId);
-                    break;
-                default:
-                    // Admin can see all appointments - no primary filter
-                    break;
-            }
-
-            // Apply additional filters
-            if (query.AppointmentType.HasValue)
-                queryable = queryable.Where(a => a.AppointmentType == query.AppointmentType);
-
-            if (query.Status.HasValue)
-                queryable = queryable.Where(a => a.Status == query.Status);
-
-            if (query.FromDate.HasValue)
-                queryable = queryable.Where(a => a.AppointmentDate >= query.FromDate);
-
-            if (query.ToDate.HasValue)
-                queryable = queryable.Where(a => a.AppointmentDate <= query.ToDate);
-
-            if (!string.IsNullOrWhiteSpace(query.SearchTerm))
-            {
-                var searchTerm = query.SearchTerm.ToLower();
-                queryable = queryable.Where(a =>
-                    a.Reason != null && a.Reason.ToLower().Contains(searchTerm) ||
-                    a.Result != null && a.Result.ToLower().Contains(searchTerm));
-            }
+            queryable = ApplyRoleBasedFilter(queryable, query, role);
+            queryable = ApplyAdditionalFilters(queryable, query);
 
             var totalCount = await queryable.CountAsync();
 
-            // Apply sorting
-            queryable = query.SortBy?.ToLower() switch
-            {
-                "appointmentdate" => query.SortDescending
-                    ? queryable.OrderByDescending(a => a.AppointmentDate)
-                    : queryable.OrderBy(a => a.AppointmentDate),
-                "status" => query.SortDescending
-                    ? queryable.OrderByDescending(a => a.Status)
-                    : queryable.OrderBy(a => a.Status),
-                "appointmenttype" => query.SortDescending
-                    ? queryable.OrderByDescending(a => a.AppointmentType)
-                    : queryable.OrderBy(a => a.AppointmentType),
-                "updatedat" => query.SortDescending
-                    ? queryable.OrderByDescending(a => a.UpdatedAt)
-                    : queryable.OrderBy(a => a.UpdatedAt),
-                _ => query.SortDescending
-                    ? queryable.OrderByDescending(a => a.CreatedAt)
-                    : queryable.OrderBy(a => a.CreatedAt)
-            };
+            queryable = ApplySorting(queryable, query);
 
             // Apply pagination
             var appointments = await queryable
@@ -144,6 +91,64 @@ public class AppointmentRepository : IAppointmentRepository
             _logger.LogError(ex, "Error getting appointments with query");
             throw new AppointmentException("Failed to get appointments", innerException: ex);
         }
+    }
+
+    private IQueryable<AppointmentEntity> ApplyRoleBasedFilter(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query, Role role)
+    {
+        return role switch
+        {
+            Role.PATIENT => queryable.Where(a => a.PatientId == query.PatientId),
+            Role.DOCTOR => queryable.Where(a => a.DoctorId == query.DoctorId),
+            Role.STAFF => queryable.Where(a => a.HospitalId == query.HospitalId),
+            _ => queryable // Admin can see all appointments
+        };
+    }
+
+    private IQueryable<AppointmentEntity> ApplyAdditionalFilters(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query)
+    {
+        if (query.AppointmentType.HasValue)
+            queryable = queryable.Where(a => a.AppointmentType == query.AppointmentType);
+
+        if (query.Status.HasValue)
+            queryable = queryable.Where(a => a.Status == query.Status);
+
+        if (query.FromDate.HasValue)
+            queryable = queryable.Where(a => a.AppointmentDate >= query.FromDate);
+
+        if (query.ToDate.HasValue)
+            queryable = queryable.Where(a => a.AppointmentDate <= query.ToDate);
+
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var searchTerm = query.SearchTerm.ToLower();
+            queryable = queryable.Where(a =>
+                a.Reason != null && a.Reason.ToLower().Contains(searchTerm) ||
+                a.Result != null && a.Result.ToLower().Contains(searchTerm));
+        }
+
+        return queryable;
+    }
+
+    private IQueryable<AppointmentEntity> ApplySorting(IQueryable<AppointmentEntity> queryable, AppointmentQueryRequest query)
+    {
+        return query.SortBy?.ToLower() switch
+        {
+            "appointmentdate" => query.SortDescending
+                ? queryable.OrderByDescending(a => a.AppointmentDate)
+                : queryable.OrderBy(a => a.AppointmentDate),
+            "status" => query.SortDescending
+                ? queryable.OrderByDescending(a => a.Status)
+                : queryable.OrderBy(a => a.Status),
+            "appointmenttype" => query.SortDescending
+                ? queryable.OrderByDescending(a => a.AppointmentType)
+                : queryable.OrderBy(a => a.AppointmentType),
+            "updatedat" => query.SortDescending
+                ? queryable.OrderByDescending(a => a.UpdatedAt)
+                : queryable.OrderBy(a => a.UpdatedAt),
+            _ => query.SortDescending
+                ? queryable.OrderByDescending(a => a.CreatedAt)
+                : queryable.OrderBy(a => a.CreatedAt)
+        };
     }
 
     /// <summary>

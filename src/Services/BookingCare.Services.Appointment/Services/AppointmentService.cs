@@ -358,7 +358,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// <summary>
     /// Determine management role from user roles, excluding Patient role
     /// </summary>
-    private Role GetManagementRole(List<string> userRoles)
+    private static Role GetManagementRole(List<string> userRoles)
     {
         // Remove Patient role if present
         var managementRoles = userRoles.Where(role =>

@@ -32,8 +32,8 @@ public class DataInitializationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error initializing default data");
-            throw;
+            _logger.LogError(ex, "Error initializing default data for Appointment service");
+            throw new InvalidOperationException("Failed to initialize default data for Appointment service. Please check database connection and configuration.", ex);
         }
     }
 

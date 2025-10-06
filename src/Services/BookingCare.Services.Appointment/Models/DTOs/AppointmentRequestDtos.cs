@@ -9,22 +9,22 @@ namespace BookingCare.Services.Appointment.Models.DTOs;
 public class CreateAppointmentRequest
 {
     [Required(ErrorMessage = "Patient ID is required")]
-    public Guid PatientId { get; set; }
+    public required Guid PatientId { get; set; }
 
     public Guid? DoctorId { get; set; }
 
     public Guid? ServiceId { get; set; }
 
     [Required(ErrorMessage = "Appointment date is required")]
-    public DateTime AppointmentDate { get; set; }
+    public required DateTime AppointmentDate { get; set; }
 
     [Required(ErrorMessage = "Appointment time ID is required")]
-    public Guid AppointmentTimeId { get; set; }
+    public required Guid AppointmentTimeId { get; set; }
 
     public Guid? HospitalId { get; set; }
 
     [Required(ErrorMessage = "Appointment type is required")]
-    public AppointmentType AppointmentType { get; set; } = AppointmentType.IN_PERSON;
+    public required AppointmentType AppointmentType { get; set; } = AppointmentType.IN_PERSON;
 
     public AppointmentStatus? Status { get; set; }
 }
@@ -35,10 +35,10 @@ public class CreateAppointmentRequest
 public class UpdateAppointmentStatusRequest
 {
     [Required(ErrorMessage = "Appointment ID is required")]
-    public Guid Id { get; set; }
+    public required Guid Id { get; set; }
 
     [Required(ErrorMessage = "Status is required")]
-    public AppointmentStatus Status { get; set; }
+    public required AppointmentStatus Status { get; set; }
 
     [MaxLength(4000, ErrorMessage = "Result cannot exceed 4000 characters")]
     public string? Result { get; set; }

@@ -11,12 +11,12 @@ public class AppointmentDbContext : DbContext
     {
     }
 
-    protected override void OnModelCreating(ModelBuilder builder)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(builder);
+        base.OnModelCreating(modelBuilder);
 
         // Configure Appointment
-        builder.Entity<AppointmentEntity>(entity =>
+        modelBuilder.Entity<AppointmentEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
 
@@ -84,21 +84,15 @@ public class AppointmentDbContext : DbContext
 
         foreach (var entry in entries)
         {
-            if (entry.State == EntityState.Added)
+            if (entry.State == EntityState.Added && entry.Entity is AppointmentEntity addedAppointment)
             {
-                if (entry.Entity is AppointmentEntity appointment)
-                {
-                    appointment.CreatedAt = DateTime.UtcNow;
-                    appointment.UpdatedAt = DateTime.UtcNow;
-                }
+                addedAppointment.CreatedAt = DateTime.UtcNow;
+                addedAppointment.UpdatedAt = DateTime.UtcNow;
             }
-            else if (entry.State == EntityState.Modified)
+            else if (entry.State == EntityState.Modified && entry.Entity is AppointmentEntity modifiedAppointment)
             {
-                if (entry.Entity is AppointmentEntity appointment)
-                {
-                    appointment.UpdatedAt = DateTime.UtcNow;
-                    entry.Property(nameof(appointment.CreatedAt)).IsModified = false;
-                }
+                modifiedAppointment.UpdatedAt = DateTime.UtcNow;
+                entry.Property(nameof(modifiedAppointment.CreatedAt)).IsModified = false;
             }
         }
     }

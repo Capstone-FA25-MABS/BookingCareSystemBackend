@@ -226,30 +226,30 @@ public class DataInitializationService
             }
 
             // Patient role permissions: Basic read permissions
-            var patientPermissions = new[] { "Patient.Read", "Content.Read" };
+            var patientPermissions = new[] { PermissionConstants.PatientRead, PermissionConstants.ContentRead };
             await AssignPermissionsToRoleAsync(patientRole.Id, patientPermissions, "Patient");
 
             // Doctor role permissions: Medical management + patient read
             var doctorPermissions = new[] {
-                "Patient.Read", "Content.Read", "Content.Create", "Content.Update",
-                "Content.Delete", "Content.Moderate"
+                PermissionConstants.PatientRead, PermissionConstants.ContentRead, PermissionConstants.ContentCreate,
+                PermissionConstants.ContentUpdate, PermissionConstants.ContentDelete, PermissionConstants.ContentModerate
             };
             await AssignPermissionsToRoleAsync(doctorRole.Id, doctorPermissions, "Doctor");
 
             // Staff role permissions: Administrative support (create/update but not delete)
             var staffPermissions = new[] {
-                "Patient.Read", "Patient.Create", "Patient.Update",
-                "Content.Read", "Content.Create", "Content.Update",
-                "Role.Read"
+                PermissionConstants.PatientRead, PermissionConstants.PatientCreate, PermissionConstants.PatientUpdate,
+                PermissionConstants.ContentRead, PermissionConstants.ContentCreate, PermissionConstants.ContentUpdate,
+                PermissionConstants.RoleRead
             };
             await AssignPermissionsToRoleAsync(staffRole.Id, staffPermissions, "Staff");
 
             // Admin role permissions: Everything
             var adminPermissions = new[] {
-                "Patient.Read", "Patient.Create", "Patient.Update", "Patient.Delete",
-                "Role.Read", "Role.Create", "Role.Update", "Role.Delete", "Role.Assign",
-                "Permission.Read", "Permission.Create", "Permission.Update", "Permission.Delete", "Permission.Assign",
-                "Content.Read", "Content.Create", "Content.Update", "Content.Delete", "Content.Moderate"
+                PermissionConstants.PatientRead, PermissionConstants.PatientCreate, PermissionConstants.PatientUpdate, PermissionConstants.PatientDelete,
+                PermissionConstants.RoleRead, PermissionConstants.RoleCreate, PermissionConstants.RoleUpdate, PermissionConstants.RoleDelete, PermissionConstants.RoleAssign,
+                PermissionConstants.PermissionRead, PermissionConstants.PermissionCreate, PermissionConstants.PermissionUpdate, PermissionConstants.PermissionDelete, PermissionConstants.PermissionAssign,
+                PermissionConstants.ContentRead, PermissionConstants.ContentCreate, PermissionConstants.ContentUpdate, PermissionConstants.ContentDelete, PermissionConstants.ContentModerate
             };
             await AssignPermissionsToRoleAsync(adminRole.Id, adminPermissions, "Admin");
         }
