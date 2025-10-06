@@ -203,56 +203,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// </summary>
     private async Task EnrichForPatientRoleAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities)
     {
-        // Batch fetch doctor info to avoid N+1 problem
-        var doctorIds = entities
-            .Where(e => e.DoctorId.HasValue)
-            .Select(e => e.DoctorId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (doctorIds.Any())
-        {
-            try
-            {
-                var doctorRequest = new GetDoctorsBasicInfoRequest();
-                doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
-
-                var doctorsResponse = await _doctorGrpcClient.GetDoctorsBasicInfoAsync(doctorRequest);
-                var doctorDict = doctorsResponse.Doctors.ToDictionary(
-                    d => Guid.Parse(d.Id),
-                    d => d
-                );
-
-                LogInfo("Batch fetched {Count} doctors for appointments enrichment", null, doctorDict.Count);
-
-                // Map doctor info to appointments
-                for (int i = 0; i < responses.Count; i++)
-                {
-                    var entity = entities[i];
-                    if (entity.DoctorId.HasValue && doctorDict.TryGetValue(entity.DoctorId.Value, out var doctorInfo))
-                    {
-                        responses[i].DoctorInfo = new DoctorInfo
-                        {
-                            Id = Guid.Parse(doctorInfo.Id),
-                            Email = doctorInfo.Email,
-                            FirstName = doctorInfo.FirstName,
-                            LastName = doctorInfo.LastName,
-                            FullName = doctorInfo.FullName,
-                            PositionName = doctorInfo.PositionName,
-                            SpecialtyName = doctorInfo.SpecialtyName,
-                            AvatarUrl = doctorInfo.AvatarUrl,
-                            HospitalId = !string.IsNullOrEmpty(doctorInfo.HospitalId)
-                                ? Guid.Parse(doctorInfo.HospitalId)
-                                : null
-                        };
-                    }
-                }
-            }
-            catch (Grpc.Core.RpcException rpcEx)
-            {
-                LogWarning("gRPC error batch fetching doctors: {Error}", null, rpcEx.Status.Detail);
-            }
-        }
+        await FetchAndMapDoctorInfoAsync(responses, entities, "appointments enrichment");
 
         // TODO: Batch fetch Service info when available
         var serviceIds = entities
@@ -318,50 +269,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// </summary>
     private async Task EnrichForDoctorRoleAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities)
     {
-        // Batch fetch patient info to avoid N+1 problem
-        var patientIds = entities
-            .Select(e => e.PatientId)
-            .Distinct()
-            .ToList();
-
-        if (patientIds.Any())
-        {
-            try
-            {
-                var patientRequest = new GetUsersBasicInfoRequest();
-                patientRequest.Ids.AddRange(patientIds.Select(id => id.ToString()));
-
-                var patientsResponse = await _userGrpcClient.GetUsersBasicInfoAsync(patientRequest);
-                var patientDict = patientsResponse.Users.ToDictionary(
-                    p => Guid.Parse(p.Id),
-                    p => p
-                );
-
-                LogInfo("Batch fetched {Count} patients for doctor view", null, patientDict.Count);
-
-                // Map patient info to appointments
-                for (int i = 0; i < responses.Count; i++)
-                {
-                    var entity = entities[i];
-                    if (patientDict.TryGetValue(entity.PatientId, out var patientInfo))
-                    {
-                        responses[i].PatientInfo = new PatientInfo
-                        {
-                            Id = Guid.Parse(patientInfo.Id),
-                            Email = patientInfo.Email,
-                            Phone = patientInfo.Phone,
-                            FirstName = patientInfo.FirstName,
-                            LastName = patientInfo.LastName,
-                            AvatarUrl = patientInfo.AvatarUrl
-                        };
-                    }
-                }
-            }
-            catch (Grpc.Core.RpcException rpcEx)
-            {
-                LogWarning("gRPC error batch fetching patients for doctor: {Error}", null, rpcEx.Status.Detail);
-            }
-        }
+        await FetchAndMapPatientInfoAsync(responses, entities, "doctor view");
     }
 
     /// <summary>
@@ -369,101 +277,8 @@ public class AppointmentService : BaseService, IAppointmentService
     /// </summary>
     private async Task EnrichForStaffRoleAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities)
     {
-        // Batch fetch patient info to avoid N+1 problem
-        var patientIds = entities
-            .Select(e => e.PatientId)
-            .Distinct()
-            .ToList();
-
-        if (patientIds.Any())
-        {
-            try
-            {
-                var patientRequest = new GetUsersBasicInfoRequest();
-                patientRequest.Ids.AddRange(patientIds.Select(id => id.ToString()));
-
-                var patientsResponse = await _userGrpcClient.GetUsersBasicInfoAsync(patientRequest);
-                var patientDict = patientsResponse.Users.ToDictionary(
-                    p => Guid.Parse(p.Id),
-                    p => p
-                );
-
-                LogInfo("Batch fetched {Count} patients for staff view", null, patientDict.Count);
-
-                // Map patient info to appointments
-                for (int i = 0; i < responses.Count; i++)
-                {
-                    var entity = entities[i];
-                    if (patientDict.TryGetValue(entity.PatientId, out var patientInfo))
-                    {
-                        responses[i].PatientInfo = new PatientInfo
-                        {
-                            Id = Guid.Parse(patientInfo.Id),
-                            Email = patientInfo.Email,
-                            Phone = patientInfo.Phone,
-                            FirstName = patientInfo.FirstName,
-                            LastName = patientInfo.LastName,
-                            AvatarUrl = patientInfo.AvatarUrl
-                        };
-                    }
-                }
-            }
-            catch (Grpc.Core.RpcException rpcEx)
-            {
-                LogWarning("gRPC error batch fetching patients for staff: {Error}", null, rpcEx.Status.Detail);
-            }
-        }
-
-        // Batch fetch doctor info to avoid N+1 problem
-        var doctorIds = entities
-            .Where(e => e.DoctorId.HasValue)
-            .Select(e => e.DoctorId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (doctorIds.Any())
-        {
-            try
-            {
-                var doctorRequest = new GetDoctorsBasicInfoRequest();
-                doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
-
-                var doctorsResponse = await _doctorGrpcClient.GetDoctorsBasicInfoAsync(doctorRequest);
-                var doctorDict = doctorsResponse.Doctors.ToDictionary(
-                    d => Guid.Parse(d.Id),
-                    d => d
-                );
-
-                LogInfo("Batch fetched {Count} doctors for staff view", null, doctorDict.Count);
-
-                // Map doctor info to appointments
-                for (int i = 0; i < responses.Count; i++)
-                {
-                    var entity = entities[i];
-                    if (entity.DoctorId.HasValue && doctorDict.TryGetValue(entity.DoctorId.Value, out var doctorInfo))
-                    {
-                        responses[i].DoctorInfo = new DoctorInfo
-                        {
-                            Id = Guid.Parse(doctorInfo.Id),
-                            Email = doctorInfo.Email,
-                            FirstName = doctorInfo.FirstName,
-                            LastName = doctorInfo.LastName,
-                            FullName = doctorInfo.FullName,
-                            PositionName = doctorInfo.PositionName,
-                            SpecialtyName = doctorInfo.SpecialtyName,
-                            AvatarUrl = doctorInfo.AvatarUrl,
-                            HospitalId = !string.IsNullOrEmpty(doctorInfo.HospitalId)
-                                ? Guid.Parse(doctorInfo.HospitalId)
-                                : null
-                        };
-                    }
-                }
-            }
-            catch (Grpc.Core.RpcException rpcEx)
-            {
-                LogWarning("gRPC error batch fetching doctors for staff: {Error}", null, rpcEx.Status.Detail);
-            }
-        }
+        await FetchAndMapPatientInfoAsync(responses, entities, "staff view");
+        await FetchAndMapDoctorInfoAsync(responses, entities, "staff view");
     }
 
     #endregion
@@ -572,6 +387,116 @@ public class AppointmentService : BaseService, IAppointmentService
 
         // If no recognized management role, default to ADMIN for full access
         return Role.ADMIN;
+    }
+
+    /// <summary>
+    /// Batch fetch and map doctor information to appointments to avoid N+1 problem
+    /// </summary>
+    private async Task FetchAndMapDoctorInfoAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities, string context)
+    {
+        var doctorIds = entities
+            .Where(e => e.DoctorId.HasValue)
+            .Select(e => e.DoctorId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!doctorIds.Any())
+        {
+            return;
+        }
+
+        try
+        {
+            var doctorRequest = new GetDoctorsBasicInfoRequest();
+            doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
+
+            var doctorsResponse = await _doctorGrpcClient.GetDoctorsBasicInfoAsync(doctorRequest);
+            var doctorDict = doctorsResponse.Doctors.ToDictionary(
+                d => Guid.Parse(d.Id),
+                d => d
+            );
+
+            LogInfo("Batch fetched {Count} doctors for {Context}", null, doctorDict.Count, context);
+
+            // Map doctor info to appointments
+            for (int i = 0; i < responses.Count; i++)
+            {
+                var entity = entities[i];
+                if (entity.DoctorId.HasValue && doctorDict.TryGetValue(entity.DoctorId.Value, out var doctorInfo))
+                {
+                    responses[i].DoctorInfo = new DoctorInfo
+                    {
+                        Id = Guid.Parse(doctorInfo.Id),
+                        Email = doctorInfo.Email,
+                        FirstName = doctorInfo.FirstName,
+                        LastName = doctorInfo.LastName,
+                        FullName = doctorInfo.FullName,
+                        PositionName = doctorInfo.PositionName,
+                        SpecialtyName = doctorInfo.SpecialtyName,
+                        AvatarUrl = doctorInfo.AvatarUrl,
+                        HospitalId = !string.IsNullOrEmpty(doctorInfo.HospitalId)
+                            ? Guid.Parse(doctorInfo.HospitalId)
+                            : null
+                    };
+                }
+            }
+        }
+        catch (Grpc.Core.RpcException rpcEx)
+        {
+            LogWarning("gRPC error batch fetching doctors for {Context}: {Error}", null, context, rpcEx.Status.Detail);
+        }
+    }
+
+    /// <summary>
+    /// Batch fetch and map patient information to appointments to avoid N+1 problem
+    /// </summary>
+    private async Task FetchAndMapPatientInfoAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities, string context)
+    {
+        var patientIds = entities
+            .Select(e => e.PatientId)
+            .Distinct()
+            .ToList();
+
+        if (!patientIds.Any())
+        {
+            return;
+        }
+
+        try
+        {
+            var patientRequest = new GetUsersBasicInfoRequest();
+            patientRequest.Ids.AddRange(patientIds.Select(id => id.ToString()));
+
+            var patientsResponse = await _userGrpcClient.GetUsersBasicInfoAsync(patientRequest);
+            var patientDict = patientsResponse.Users.ToDictionary(
+                p => Guid.Parse(p.Id),
+                p => p
+            );
+
+            LogInfo("Batch fetched {Count} patients for {Context}", null, patientDict.Count, context);
+
+            // Map patient info to appointments
+            for (int i = 0; i < responses.Count; i++)
+            {
+                var entity = entities[i];
+                if (patientDict.TryGetValue(entity.PatientId, out var patientInfo))
+                {
+                    responses[i].PatientInfo = new PatientInfo
+                    {
+                        Id = Guid.Parse(patientInfo.Id),
+                        Email = patientInfo.Email,
+                        Phone = patientInfo.Phone,
+                        FirstName = patientInfo.FirstName,
+                        LastName = patientInfo.LastName,
+                        AvatarUrl = patientInfo.AvatarUrl
+                    };
+                }
+            }
+        }
+        catch (Grpc.Core.RpcException rpcEx)
+        {
+            LogWarning("gRPC error batch fetching patients for {Context}: {Error}", null, context, rpcEx.Status.Detail);
+        }
     }
 
     #endregion
