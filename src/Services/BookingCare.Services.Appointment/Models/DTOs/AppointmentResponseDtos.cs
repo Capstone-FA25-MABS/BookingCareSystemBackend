@@ -30,11 +30,11 @@ public class AppointmentResponse
 public class PatientInfo
 {
     public Guid Id { get; set; }
-    public string? FullName { get; set; }
     public string? Email { get; set; }
-    public string? PhoneNumber { get; set; }
-    public DateTime? DateOfBirth { get; set; }
-    public string? Gender { get; set; }
+    public string? Phone { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? AvatarUrl { get; set; }
 }
 
 /// <summary>
@@ -43,20 +43,14 @@ public class PatientInfo
 public class DoctorInfo
 {
     public Guid Id { get; set; }
-    public Guid AccountId { get; set; }
     public string? Email { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? FullName { get; set; }
-    public string? Gender { get; set; }
-    public string? Address { get; set; }
-    public Guid? SpecialtyId { get; set; }
-    public Guid? PositionId { get; set; }
-    public Guid? HospitalId { get; set; }
-    public string? Bio { get; set; }
-    public int YearsOfExperience { get; set; }
+    public string? PositionName { get; set; }
+    public string? SpecialtyName { get; set; }
     public string? AvatarUrl { get; set; }
-    public string? Status { get; set; }
+    public Guid? HospitalId { get; set; }
 }
 
 /// <summary>
@@ -72,15 +66,16 @@ public class ServiceInfo
 }
 
 /// <summary>
-/// Hospital information from gRPC call (to be implemented)
+/// Hospital information from gRPC call
 /// </summary>
 public class HospitalInfo
 {
     public Guid Id { get; set; }
     public string? Name { get; set; }
     public string? Address { get; set; }
-    public string? PhoneNumber { get; set; }
+    public string? Phone { get; set; }
     public string? Email { get; set; }
+    public string? AvatarUrl { get; set; }
 }
 
 /// <summary>

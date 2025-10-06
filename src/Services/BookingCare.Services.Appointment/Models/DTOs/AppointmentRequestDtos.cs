@@ -26,8 +26,7 @@ public class CreateAppointmentRequest
     [Required(ErrorMessage = "Appointment type is required")]
     public AppointmentType AppointmentType { get; set; } = AppointmentType.IN_PERSON;
 
-    [MaxLength(4000, ErrorMessage = "Reason cannot exceed 4000 characters")]
-    public string? Reason { get; set; }
+    public AppointmentStatus? Status { get; set; }
 }
 
 /// <summary>

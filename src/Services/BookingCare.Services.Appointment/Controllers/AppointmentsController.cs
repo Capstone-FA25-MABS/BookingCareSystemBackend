@@ -87,6 +87,19 @@ public class AppointmentsController : BaseApiController
     }
 
     /// <summary>
+    /// Get appointments for management roles (Doctor, Staff, Admin) with role-based filtering
+    /// </summary>
+    /// <param name="query">Query parameters</param>
+    /// <returns>Paginated list of appointments with enriched data based on user role</returns>
+    [HttpPost("management")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetAppointmentsForManagement([FromBody] AppointmentQueryRequest query)
+    {
+        var appointments = await _appointmentService.GetAppointmentsForManagementAsync(query);
+        return Success(appointments, "Management appointments retrieved successfully");
+    }
+
+    /// <summary>
     /// Update appointment status
     /// </summary>
     /// <param name="id">Appointment ID</param>
