@@ -44,7 +44,21 @@ builder.Services.AddScoped<DataInitializationService>();
 // Add gRPC client for Doctor service  
 builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(o =>
 {
-    var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6018";
+    var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6108";
+    o.Address = new Uri(endpoint);
+});
+
+// Add gRPC client for Hospital service  
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Hospital").GetValue<string>("GrpcUrl") ?? "http://localhost:6104";
+    o.Address = new Uri(endpoint);
+});
+
+// Add gRPC client for User service  
+builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.UserServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
     o.Address = new Uri(endpoint);
 });
 
