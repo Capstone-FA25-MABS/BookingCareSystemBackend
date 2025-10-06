@@ -2,6 +2,7 @@ using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
@@ -91,17 +92,25 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Get doctor by account ID
     /// </summary>
-    [HttpGet("by-account/{accountId}")]
+    [HttpGet("by-account")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetDoctorByAccountId(Guid accountId)
+    public async Task<IActionResult> GetDoctorByAccountId()
     {
-        var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
-        if (doctor == null)
+        try
         {
-            return NotFound($"Doctor with account ID {accountId} not found");
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
+            if (doctor == null)
+            {
+                return NotFound($"Doctor with account ID {accountId} not found");
+            }
+            return Success(doctor, "Doctor retrieved successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
         }
 
-        return Success<DoctorResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
