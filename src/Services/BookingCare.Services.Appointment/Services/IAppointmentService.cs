@@ -11,6 +11,7 @@ public interface IAppointmentService
     Task<bool> CreateAppointmentAsync(CreateAppointmentRequest request);
     Task<AppointmentResponse?> GetAppointmentByIdAsync(Guid id);
     Task<AppointmentListResponse> GetAppointmentsByPatientAsync(AppointmentQueryRequest query);
+    Task<AppointmentListResponse> GetAppointmentsForManagementAsync(AppointmentQueryRequest query);
 
     // Status operations
     Task<bool> UpdateAppointmentStatusAsync(UpdateAppointmentStatusRequest request);

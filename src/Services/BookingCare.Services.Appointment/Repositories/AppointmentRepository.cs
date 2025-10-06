@@ -79,7 +79,7 @@ public class AppointmentRepository : IAppointmentRepository
                 case Role.DOCTOR:
                     queryable = queryable.Where(a => a.DoctorId == query.DoctorId);
                     break;
-                case Role.CLINIC:
+                case Role.STAFF:
                     queryable = queryable.Where(a => a.HospitalId == query.HospitalId);
                     break;
                 default:

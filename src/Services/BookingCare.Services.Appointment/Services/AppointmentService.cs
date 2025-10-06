@@ -7,6 +7,9 @@ using BookingCare.Services.Appointment.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.Hospital;
+using BookingCare.Services.User.Protos;
+using BookingCare.Shared.Common.Helpers;
 
 namespace BookingCare.Services.Appointment.Services;
 
@@ -18,16 +21,25 @@ public class AppointmentService : BaseService, IAppointmentService
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
     private readonly DoctorService.DoctorServiceClient _doctorGrpcClient;
+    private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
+    private readonly UserService.UserServiceClient _userGrpcClient;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AppointmentService(
         IAppointmentRepository appointmentRepository,
         IMapper mapper,
         DoctorService.DoctorServiceClient doctorGrpcClient,
+        HospitalService.HospitalServiceClient hospitalGrpcClient,
+        UserService.UserServiceClient userGrpcClient,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<AppointmentService> logger) : base(logger)
     {
         _appointmentRepository = appointmentRepository;
         _mapper = mapper;
         _doctorGrpcClient = doctorGrpcClient;
+        _hospitalGrpcClient = hospitalGrpcClient;
+        _userGrpcClient = userGrpcClient;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     #region Appointment Operations
@@ -59,6 +71,11 @@ public class AppointmentService : BaseService, IAppointmentService
                 {
                     throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate, request.AppointmentTimeId);
                 }
+                request.Status = AppointmentStatus.CONFIRMED;
+            }
+            else
+            {
+                request.Status = AppointmentStatus.PENDING;
             }
 
             var appointmentEntity = _mapper.Map<AppointmentEntity>(request);
@@ -114,94 +131,337 @@ public class AppointmentService : BaseService, IAppointmentService
         }, "GetAppointmentsByPatient");
     }
 
+    public async Task<AppointmentListResponse> GetAppointmentsForManagementAsync(AppointmentQueryRequest query)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Getting management appointments with query: Page={PageNumber}, Size={PageSize}",
+                null, query.PageNumber, query.PageSize);
+
+            // Get user roles from JWT token
+            var userRoles = JwtHelper.GetUserRoles(_httpContextAccessor.HttpContext!);
+            var managementRole = GetManagementRole(userRoles);
+
+            LogInfo("User has roles: {Roles}, Management role determined: {ManagementRole}",
+                null, string.Join(",", userRoles), managementRole);
+
+            var (appointments, totalCount) = await _appointmentRepository.GetAppointmentsAsync(query, managementRole);
+            var responses = _mapper.Map<List<AppointmentResponse>>(appointments);
+
+            // Enrich appointments with additional information via gRPC calls based on user role
+            await EnrichAppointmentsWithExternalDataAsync(responses, appointments, managementRole);
+
+            var response = new AppointmentListResponse
+            {
+                Appointments = responses,
+                TotalCount = totalCount,
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize
+            };
+
+            LogInfo("Retrieved {Count} appointments out of {TotalCount} for management role {Role}",
+                null, appointments.Count, totalCount, managementRole);
+            return response;
+        }, "GetAppointmentsForManagement");
+    }
+
     /// <summary>
     /// Enrich appointments with external data via gRPC calls based on user role
+    /// Performance optimized with batch requests to avoid N+1 problem
     /// </summary>
     private async Task EnrichAppointmentsWithExternalDataAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities, Role role)
     {
-        for (int i = 0; i < responses.Count; i++)
-        {
-            var response = responses[i];
-            var entity = entities[i];
+        if (!responses.Any()) return;
 
+        try
+        {
+            switch (role)
+            {
+                case Role.PATIENT:
+                    await EnrichForPatientRoleAsync(responses, entities);
+                    break;
+
+                case Role.DOCTOR:
+                    await EnrichForDoctorRoleAsync(responses, entities);
+                    break;
+
+                case Role.STAFF:
+                case Role.ADMIN:
+                    await EnrichForStaffRoleAsync(responses, entities);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Failed to enrich appointments with external data: {Error}", null, ex.Message);
+            // Don't throw - continue with un-enriched data
+        }
+    }
+
+    /// <summary>
+    /// Enrich appointments for Patient role - shows doctor, service, and hospital info
+    /// </summary>
+    private async Task EnrichForPatientRoleAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities)
+    {
+        // Batch fetch doctor info to avoid N+1 problem
+        var doctorIds = entities
+            .Where(e => e.DoctorId.HasValue)
+            .Select(e => e.DoctorId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (doctorIds.Any())
+        {
             try
             {
-                switch (role)
+                var doctorRequest = new GetDoctorsBasicInfoRequest();
+                doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
+
+                var doctorsResponse = await _doctorGrpcClient.GetDoctorsBasicInfoAsync(doctorRequest);
+                var doctorDict = doctorsResponse.Doctors.ToDictionary(
+                    d => Guid.Parse(d.Id),
+                    d => d
+                );
+
+                LogInfo("Batch fetched {Count} doctors for appointments enrichment", null, doctorDict.Count);
+
+                // Map doctor info to appointments
+                for (int i = 0; i < responses.Count; i++)
                 {
-                    case Role.PATIENT:
-                        // Patient sees doctor, service, and hospital info
-                        if (entity.DoctorId.HasValue)
+                    var entity = entities[i];
+                    if (entity.DoctorId.HasValue && doctorDict.TryGetValue(entity.DoctorId.Value, out var doctorInfo))
+                    {
+                        responses[i].DoctorInfo = new DoctorInfo
                         {
-                            try
-                            {
-                                var doctorRequest = new GetDoctorRequest
-                                {
-                                    Id = entity.DoctorId.Value.ToString()
-                                };
-
-                                var doctorResponse = await _doctorGrpcClient.GetDoctorAsync(doctorRequest);
-
-                                response.DoctorInfo = new DoctorInfo
-                                {
-                                    Id = Guid.Parse(doctorResponse.Id),
-                                    AccountId = Guid.Parse(doctorResponse.AccountId),
-                                    Email = doctorResponse.Email,
-                                    FirstName = doctorResponse.FirstName,
-                                    LastName = doctorResponse.LastName,
-                                    FullName = doctorResponse.FullName,
-                                    Gender = doctorResponse.Gender,
-                                    Address = doctorResponse.Address,
-                                    SpecialtyId = !string.IsNullOrEmpty(doctorResponse.SpecialtyId) ? Guid.Parse(doctorResponse.SpecialtyId) : null,
-                                    PositionId = !string.IsNullOrEmpty(doctorResponse.PositionId) ? Guid.Parse(doctorResponse.PositionId) : null,
-                                    HospitalId = !string.IsNullOrEmpty(doctorResponse.HospitalId) ? Guid.Parse(doctorResponse.HospitalId) : null,
-                                    Bio = doctorResponse.Bio,
-                                    YearsOfExperience = doctorResponse.YearsOfExperience,
-                                    AvatarUrl = doctorResponse.AvatarUrl,
-                                    Status = doctorResponse.Status
-                                };
-
-                                LogInfo("Retrieved doctor info for appointment {AppointmentId}, DoctorId {DoctorId}",
-                                    null, response.Id, entity.DoctorId.Value);
-                            }
-                            catch (Grpc.Core.RpcException rpcEx)
-                            {
-                                LogWarning("gRPC error getting doctor {DoctorId}: {Error}", null, entity.DoctorId.Value, rpcEx.Status.Detail);
-                            }
-                        }
-
-                        // TODO: Get Service info when available
-                        if (entity.ServiceId.HasValue)
-                        {
-                            LogInfo("TODO: Get service info for appointment {AppointmentId}, ServiceId {ServiceId}",
-                                null, response.Id, entity.ServiceId.Value);
-                        }
-
-                        // TODO: Get Hospital info when available
-                        if (entity.HospitalId.HasValue)
-                        {
-                            LogInfo("TODO: Get hospital info for appointment {AppointmentId}, HospitalId {HospitalId}",
-                                null, response.Id, entity.HospitalId.Value);
-                        }
-                        break;
-
-                    case Role.DOCTOR:
-                        // Doctor sees patient info (and service/hospital if needed)
-                        LogInfo("TODO: Get patient info for appointment {AppointmentId}, PatientId {PatientId}",
-                            null, response.Id, entity.PatientId);
-                        break;
-
-                    case Role.CLINIC:
-                        // Hospital sees patient and doctor info
-                        LogInfo("TODO: Get patient info for appointment {AppointmentId}, PatientId {PatientId}",
-                            null, response.Id, entity.PatientId);
-                        break;
+                            Id = Guid.Parse(doctorInfo.Id),
+                            Email = doctorInfo.Email,
+                            FirstName = doctorInfo.FirstName,
+                            LastName = doctorInfo.LastName,
+                            FullName = doctorInfo.FullName,
+                            PositionName = doctorInfo.PositionName,
+                            SpecialtyName = doctorInfo.SpecialtyName,
+                            AvatarUrl = doctorInfo.AvatarUrl,
+                            HospitalId = !string.IsNullOrEmpty(doctorInfo.HospitalId)
+                                ? Guid.Parse(doctorInfo.HospitalId)
+                                : null
+                        };
+                    }
                 }
             }
-            catch (Exception ex)
+            catch (Grpc.Core.RpcException rpcEx)
             {
-                LogError(ex, "Failed to enrich appointment {AppointmentId} with external data: {Error}",
-                    null, response.Id, ex.Message);
-                // Continue processing other appointments even if one fails
+                LogWarning("gRPC error batch fetching doctors: {Error}", null, rpcEx.Status.Detail);
+            }
+        }
+
+        // TODO: Batch fetch Service info when available
+        var serviceIds = entities
+            .Where(e => e.ServiceId.HasValue)
+            .Select(e => e.ServiceId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (serviceIds.Any())
+        {
+            LogInfo("TODO: Batch fetch {Count} services for appointments enrichment", null, serviceIds.Count);
+        }
+
+        // Batch fetch Hospital info to avoid N+1 problem
+        var hospitalIds = entities
+            .Where(e => e.HospitalId.HasValue)
+            .Select(e => e.HospitalId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (hospitalIds.Any())
+        {
+            try
+            {
+                var hospitalRequest = new GetHospitalsBasicInfoRequest();
+                hospitalRequest.Ids.AddRange(hospitalIds.Select(id => id.ToString()));
+
+                var hospitalsResponse = await _hospitalGrpcClient.GetHospitalsBasicInfoAsync(hospitalRequest);
+                var hospitalDict = hospitalsResponse.Hospitals.ToDictionary(
+                    h => Guid.Parse(h.Id),
+                    h => h
+                );
+
+                LogInfo("Batch fetched {Count} hospitals for appointments enrichment", null, hospitalDict.Count);
+
+                // Map hospital info to appointments
+                for (int i = 0; i < responses.Count; i++)
+                {
+                    var entity = entities[i];
+                    if (entity.HospitalId.HasValue && hospitalDict.TryGetValue(entity.HospitalId.Value, out var hospitalInfo))
+                    {
+                        responses[i].HospitalInfo = new HospitalInfo
+                        {
+                            Id = Guid.Parse(hospitalInfo.Id),
+                            Name = hospitalInfo.Name,
+                            Address = hospitalInfo.Address,
+                            Phone = hospitalInfo.Phone,
+                            Email = hospitalInfo.Email,
+                            AvatarUrl = hospitalInfo.AvatarUrl
+                        };
+                    }
+                }
+            }
+            catch (Grpc.Core.RpcException rpcEx)
+            {
+                LogWarning("gRPC error batch fetching hospitals: {Error}", null, rpcEx.Status.Detail);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enrich appointments for Doctor role - shows patient info
+    /// </summary>
+    private async Task EnrichForDoctorRoleAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities)
+    {
+        // Batch fetch patient info to avoid N+1 problem
+        var patientIds = entities
+            .Select(e => e.PatientId)
+            .Distinct()
+            .ToList();
+
+        if (patientIds.Any())
+        {
+            try
+            {
+                var patientRequest = new GetUsersBasicInfoRequest();
+                patientRequest.Ids.AddRange(patientIds.Select(id => id.ToString()));
+
+                var patientsResponse = await _userGrpcClient.GetUsersBasicInfoAsync(patientRequest);
+                var patientDict = patientsResponse.Users.ToDictionary(
+                    p => Guid.Parse(p.Id),
+                    p => p
+                );
+
+                LogInfo("Batch fetched {Count} patients for doctor view", null, patientDict.Count);
+
+                // Map patient info to appointments
+                for (int i = 0; i < responses.Count; i++)
+                {
+                    var entity = entities[i];
+                    if (patientDict.TryGetValue(entity.PatientId, out var patientInfo))
+                    {
+                        responses[i].PatientInfo = new PatientInfo
+                        {
+                            Id = Guid.Parse(patientInfo.Id),
+                            Email = patientInfo.Email,
+                            Phone = patientInfo.Phone,
+                            FirstName = patientInfo.FirstName,
+                            LastName = patientInfo.LastName,
+                            AvatarUrl = patientInfo.AvatarUrl
+                        };
+                    }
+                }
+            }
+            catch (Grpc.Core.RpcException rpcEx)
+            {
+                LogWarning("gRPC error batch fetching patients for doctor: {Error}", null, rpcEx.Status.Detail);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enrich appointments for Staff/Admin role - shows both patient and doctor info
+    /// </summary>
+    private async Task EnrichForStaffRoleAsync(List<AppointmentResponse> responses, List<AppointmentEntity> entities)
+    {
+        // Batch fetch patient info to avoid N+1 problem
+        var patientIds = entities
+            .Select(e => e.PatientId)
+            .Distinct()
+            .ToList();
+
+        if (patientIds.Any())
+        {
+            try
+            {
+                var patientRequest = new GetUsersBasicInfoRequest();
+                patientRequest.Ids.AddRange(patientIds.Select(id => id.ToString()));
+
+                var patientsResponse = await _userGrpcClient.GetUsersBasicInfoAsync(patientRequest);
+                var patientDict = patientsResponse.Users.ToDictionary(
+                    p => Guid.Parse(p.Id),
+                    p => p
+                );
+
+                LogInfo("Batch fetched {Count} patients for staff view", null, patientDict.Count);
+
+                // Map patient info to appointments
+                for (int i = 0; i < responses.Count; i++)
+                {
+                    var entity = entities[i];
+                    if (patientDict.TryGetValue(entity.PatientId, out var patientInfo))
+                    {
+                        responses[i].PatientInfo = new PatientInfo
+                        {
+                            Id = Guid.Parse(patientInfo.Id),
+                            Email = patientInfo.Email,
+                            Phone = patientInfo.Phone,
+                            FirstName = patientInfo.FirstName,
+                            LastName = patientInfo.LastName,
+                            AvatarUrl = patientInfo.AvatarUrl
+                        };
+                    }
+                }
+            }
+            catch (Grpc.Core.RpcException rpcEx)
+            {
+                LogWarning("gRPC error batch fetching patients for staff: {Error}", null, rpcEx.Status.Detail);
+            }
+        }
+
+        // Batch fetch doctor info to avoid N+1 problem
+        var doctorIds = entities
+            .Where(e => e.DoctorId.HasValue)
+            .Select(e => e.DoctorId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (doctorIds.Any())
+        {
+            try
+            {
+                var doctorRequest = new GetDoctorsBasicInfoRequest();
+                doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
+
+                var doctorsResponse = await _doctorGrpcClient.GetDoctorsBasicInfoAsync(doctorRequest);
+                var doctorDict = doctorsResponse.Doctors.ToDictionary(
+                    d => Guid.Parse(d.Id),
+                    d => d
+                );
+
+                LogInfo("Batch fetched {Count} doctors for staff view", null, doctorDict.Count);
+
+                // Map doctor info to appointments
+                for (int i = 0; i < responses.Count; i++)
+                {
+                    var entity = entities[i];
+                    if (entity.DoctorId.HasValue && doctorDict.TryGetValue(entity.DoctorId.Value, out var doctorInfo))
+                    {
+                        responses[i].DoctorInfo = new DoctorInfo
+                        {
+                            Id = Guid.Parse(doctorInfo.Id),
+                            Email = doctorInfo.Email,
+                            FirstName = doctorInfo.FirstName,
+                            LastName = doctorInfo.LastName,
+                            FullName = doctorInfo.FullName,
+                            PositionName = doctorInfo.PositionName,
+                            SpecialtyName = doctorInfo.SpecialtyName,
+                            AvatarUrl = doctorInfo.AvatarUrl,
+                            HospitalId = !string.IsNullOrEmpty(doctorInfo.HospitalId)
+                                ? Guid.Parse(doctorInfo.HospitalId)
+                                : null
+                        };
+                    }
+                }
+            }
+            catch (Grpc.Core.RpcException rpcEx)
+            {
+                LogWarning("gRPC error batch fetching doctors for staff: {Error}", null, rpcEx.Status.Detail);
             }
         }
     }
@@ -274,6 +534,44 @@ public class AppointmentService : BaseService, IAppointmentService
             LogInfo("Appointment validation successful for patient {PatientId}", null, request.PatientId);
             return true;
         }, "ValidateAppointment");
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Determine management role from user roles, excluding Patient role
+    /// </summary>
+    private Role GetManagementRole(List<string> userRoles)
+    {
+        // Remove Patient role if present
+        var managementRoles = userRoles.Where(role =>
+            !string.Equals(role, "Patient", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (!managementRoles.Any())
+        {
+            throw new UnauthorizedAccessException("User does not have management roles");
+        }
+
+        // Priority order: Admin > Doctor > Staff
+        if (managementRoles.Any(role => string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)))
+        {
+            return Role.ADMIN;
+        }
+
+        if (managementRoles.Any(role => string.Equals(role, "Doctor", StringComparison.OrdinalIgnoreCase)))
+        {
+            return Role.DOCTOR;
+        }
+
+        if (managementRoles.Any(role => string.Equals(role, "Staff", StringComparison.OrdinalIgnoreCase)))
+        {
+            return Role.STAFF;
+        }
+
+        // If no recognized management role, default to ADMIN for full access
+        return Role.ADMIN;
     }
 
     #endregion
