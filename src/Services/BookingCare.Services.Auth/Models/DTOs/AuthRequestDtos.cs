@@ -86,7 +86,7 @@ public class RegisterRequest
 
     // Optional extended profiles depending on Role
     public DoctorProfileRequest? DoctorProfile { get; set; }
-    public ClinicProfileRequest? ClinicProfile { get; set; }
+    public HospitalProfileRequest? HospitalProfile { get; set; }
 
     // OTP verification proof (used when registration requires prior OTP verification)
     public string? Proof { get; set; }
@@ -135,11 +135,11 @@ public class RegisterRequest
                 yield return new ValidationResult("DoctorProfile is required for Doctor", new[] { nameof(DoctorProfile) });
             // DoctorProfile properties are validated by data annotations
         }
-        else if (role == Role.CLINIC)
+        else if (role == Role.STAFF)
         {
-            if (ClinicProfile == null)
-                yield return new ValidationResult("ClinicProfile is required for Clinic", new[] { nameof(ClinicProfile) });
-            // ClinicProfile properties are validated by data annotations
+            if (HospitalProfile == null)
+                yield return new ValidationResult("HospitalProfile is required for Staff", new[] { nameof(HospitalProfile) });
+            // HospitalProfile properties are validated by data annotations
         }
     }
 }
@@ -151,7 +151,7 @@ public class DoctorProfileRequest
     [Required]
     public Guid SpecialtyId { get; set; }
     [Required]
-    public Guid ClinicId { get; set; }
+    public Guid HospitalId { get; set; }
     [Required]
     [MaxLength(2000)]
     public string Bio { get; set; } = string.Empty;
@@ -160,7 +160,7 @@ public class DoctorProfileRequest
     public int YearsOfExperience { get; set; }
 }
 
-public class ClinicProfileRequest
+public class HospitalProfileRequest
 {
     [Required]
     [MaxLength(200)]

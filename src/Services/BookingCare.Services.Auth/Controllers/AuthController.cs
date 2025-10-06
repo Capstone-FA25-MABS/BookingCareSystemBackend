@@ -82,7 +82,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Registration information</param>
     /// <returns>Authentication response message</returns>
     [HttpPost("register/doctor")]
-    [Authorize(Policy = "Role:Clinic")]
+    [Authorize(Policy = "Role:Staff")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RegisterDoctor([FromBody] RegisterRequest request)
     {
@@ -98,23 +98,23 @@ public class AuthController : BaseApiController
     }
 
     /// <summary>
-    /// Register new clinic account
+    /// Register new hospital account
     /// </summary>
     /// <param name="request">Registration information</param>
     /// <returns>Authentication response message</returns>
-    [HttpPost("register/clinic")]
+    [HttpPost("register/staff")]
     [Authorize(Policy = "Role:Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> RegisterClinic([FromBody] RegisterRequest request)
+    public async Task<IActionResult> RegisterHospital([FromBody] RegisterRequest request)
     {
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
 
         // Role-specific validation
-        var roleValidation = ValidateRoleSpecificRequirements(request, Role.CLINIC);
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.STAFF);
         if (roleValidation != null) return roleValidation;
 
-        var result = await _authService.RegisterAsync(request, Role.CLINIC);
+        var result = await _authService.RegisterAsync(request, Role.STAFF);
         return Created(result, "Account registered successfully");
     }
 
@@ -349,7 +349,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Registration information</param>
     /// <returns>Saga execution result</returns>
     [HttpPost("register/doctor-saga")]
-    [Authorize(Policy = "Role:Clinic")]
+    [Authorize(Policy = "Role:Staff")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RegisterDoctorSaga([FromBody] RegisterRequest request)
     {
@@ -383,7 +383,7 @@ public class AuthController : BaseApiController
             sagaContext.SetData("YearsOfExperience", request.DoctorProfile.YearsOfExperience);
             sagaContext.SetData("SpecialtyId", request.DoctorProfile.SpecialtyId.ToString());
             sagaContext.SetData("PositionId", request.DoctorProfile.PositionId.ToString());
-            sagaContext.SetData("ClinicId", request.DoctorProfile.ClinicId.ToString());
+            sagaContext.SetData("HospitalId", request.DoctorProfile.HospitalId.ToString());
         }
 
         try

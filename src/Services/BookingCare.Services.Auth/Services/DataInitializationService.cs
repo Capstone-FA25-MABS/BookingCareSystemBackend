@@ -173,6 +173,7 @@ public class DataInitializationService
         {
             new() { Name = "Patient", Description = "Regular patient with basic permissions" },
             new() { Name = "Doctor", Description = "Doctor with medical management permissions" },
+            new() { Name = "Staff", Description = "Hospital/clinic staff with administrative support permissions" },
             new() { Name = "Admin", Description = "Administrator with full system permissions" }
         };
 
@@ -215,9 +216,10 @@ public class DataInitializationService
             // Get roles
             var patientRole = await _authRepository.GetRoleByNameAsync("Patient");
             var doctorRole = await _authRepository.GetRoleByNameAsync("Doctor");
+            var staffRole = await _authRepository.GetRoleByNameAsync("Staff");
             var adminRole = await _authRepository.GetRoleByNameAsync("Admin");
 
-            if (patientRole == null || doctorRole == null || adminRole == null)
+            if (patientRole == null || doctorRole == null || staffRole == null || adminRole == null)
             {
                 _logger.LogWarning("One or more default roles not found. Skipping permission assignment.");
                 return;
@@ -233,6 +235,14 @@ public class DataInitializationService
                 "Content.Delete", "Content.Moderate"
             };
             await AssignPermissionsToRoleAsync(doctorRole.Id, doctorPermissions, "Doctor");
+
+            // Staff role permissions: Administrative support (create/update but not delete)
+            var staffPermissions = new[] {
+                "Patient.Read", "Patient.Create", "Patient.Update",
+                "Content.Read", "Content.Create", "Content.Update",
+                "Role.Read"
+            };
+            await AssignPermissionsToRoleAsync(staffRole.Id, staffPermissions, "Staff");
 
             // Admin role permissions: Everything
             var adminPermissions = new[] {
