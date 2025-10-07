@@ -307,6 +307,22 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/DoctorSchedules/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6014
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedule/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/medical-services/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
