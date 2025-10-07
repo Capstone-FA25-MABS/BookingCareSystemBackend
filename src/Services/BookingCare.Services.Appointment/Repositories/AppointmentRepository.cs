@@ -112,19 +112,23 @@ public class AppointmentRepository : IAppointmentRepository
         if (query.Status.HasValue)
             queryable = queryable.Where(a => a.Status == query.Status);
 
+        // Date range filtering
         if (query.FromDate.HasValue)
-            queryable = queryable.Where(a => a.AppointmentDate >= query.FromDate);
+        {
+            // Include appointments from the start of FromDate
+            var fromDate = query.FromDate.Value.Date;
+            queryable = queryable.Where(a => a.AppointmentDate >= fromDate);
+        }
 
         if (query.ToDate.HasValue)
-            queryable = queryable.Where(a => a.AppointmentDate <= query.ToDate);
-
-        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
         {
-            var searchTerm = query.SearchTerm.ToLower();
-            queryable = queryable.Where(a =>
-                a.Reason != null && a.Reason.ToLower().Contains(searchTerm) ||
-                a.Result != null && a.Result.ToLower().Contains(searchTerm));
+            // Include appointments until the end of ToDate (23:59:59)
+            var toDate = query.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            queryable = queryable.Where(a => a.AppointmentDate <= toDate);
         }
+
+        // Note: SearchTerm is handled client-side in frontend for better UX
+        // (allows searching doctor/hospital/service names from gRPC data)
 
         return queryable;
     }
@@ -155,7 +159,7 @@ public class AppointmentRepository : IAppointmentRepository
     /// Check if patient has conflicting appointment
     /// </summary>
     public async Task<bool> HasConflictingAppointmentAsync(Guid patientId, DateTime appointmentDate,
-        Guid appointmentTimeId, Guid? excludeAppointmentId = null)
+        AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null)
     {
         try
         {
@@ -190,7 +194,7 @@ public class AppointmentRepository : IAppointmentRepository
     /// Check if doctor is available
     /// </summary>
     public async Task<bool> IsDoctorAvailableAsync(Guid doctorId, DateTime appointmentDate,
-        Guid appointmentTimeId, Guid? excludeAppointmentId = null)
+        AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null)
     {
         try
         {
@@ -252,6 +256,67 @@ public class AppointmentRepository : IAppointmentRepository
         {
             _logger.LogError(ex, "Error updating appointment status: {AppointmentId} to {Status}", appointmentId, status);
             throw new AppointmentException("Failed to update appointment status", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Statistics Operations
+
+    /// <summary>
+    /// Get counts for all appointment statuses for a specific user using a single optimized query
+    /// </summary>
+    public async Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(Guid? patientId, Guid? doctorId)
+    {
+        try
+        {
+            var query = _context.Appointments.AsQueryable();
+
+            // Apply user filter
+            if (patientId.HasValue)
+            {
+                query = query.Where(a => a.PatientId == patientId.Value);
+            }
+            else if (doctorId.HasValue)
+            {
+                query = query.Where(a => a.DoctorId == doctorId.Value);
+            }
+            else
+            {
+                return new Dictionary<AppointmentStatus, int>();
+            }
+
+            // Group by status and count - single DB query
+            var statusCounts = await query
+                .GroupBy(a => a.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            // Convert to dictionary with all statuses (including 0 counts)
+            var result = new Dictionary<AppointmentStatus, int>
+            {
+                { AppointmentStatus.PENDING, 0 },
+                { AppointmentStatus.CONFIRMED, 0 },
+                { AppointmentStatus.CANCELLED, 0 },
+                { AppointmentStatus.COMPLETED, 0 }
+            };
+
+            foreach (var item in statusCounts)
+            {
+                result[item.Status] = item.Count;
+            }
+
+            _logger.LogInformation(
+                "Retrieved status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId}): Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
+                patientId, doctorId, result[AppointmentStatus.PENDING], result[AppointmentStatus.CONFIRMED],
+                result[AppointmentStatus.CANCELLED], result[AppointmentStatus.COMPLETED]);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId})", patientId, doctorId);
+            throw new AppointmentException("Failed to get status counts", innerException: ex);
         }
     }
 
