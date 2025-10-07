@@ -65,7 +65,7 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAppointment(Guid id)
     {
-        var appointment = await _appointmentService.GetAppointmentByIdAsync(id);
+        var appointment = await _appointmentService.GetAppointmentByIdForPatientAsync(id);
 
         if (appointment == null)
             return NotFound($"Appointment with ID {id} not found");

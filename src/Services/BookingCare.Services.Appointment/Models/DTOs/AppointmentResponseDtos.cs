@@ -1,4 +1,5 @@
 using BookingCare.Services.Appointment.Enums;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Appointment.Models.DTOs;
 
@@ -9,7 +10,7 @@ public class AppointmentResponse
 {
     public Guid Id { get; set; }
     public DateTime AppointmentDate { get; set; }
-    public Guid AppointmentTimeId { get; set; }
+    public AppointmentTime AppointmentTimeId { get; set; }
     public AppointmentType AppointmentType { get; set; }
     public AppointmentStatus Status { get; set; }
     public string? Reason { get; set; }
@@ -79,6 +80,18 @@ public class HospitalInfo
 }
 
 /// <summary>
+/// Status counts for all appointment statuses
+/// </summary>
+public class AppointmentStatusCounts
+{
+    public int Pending { get; set; }
+    public int Confirmed { get; set; }
+    public int Cancelled { get; set; }
+    public int Completed { get; set; }
+    public int Total { get; set; }
+}
+
+/// <summary>
 /// Response for appointment list with pagination
 /// </summary>
 public class AppointmentListResponse
@@ -90,5 +103,10 @@ public class AppointmentListResponse
     public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
     public bool HasPreviousPage => PageNumber > 1;
     public bool HasNextPage => PageNumber < TotalPages;
+
+    /// <summary>
+    /// Counts for each status - only populated when requesting all statuses
+    /// </summary>
+    public AppointmentStatusCounts? StatusCounts { get; set; }
 }
 
