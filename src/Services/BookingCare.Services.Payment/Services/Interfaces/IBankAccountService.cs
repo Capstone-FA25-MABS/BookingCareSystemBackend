@@ -40,8 +40,16 @@ public interface IBankAccountService
     Task<BankAccountResponse> UpdateAsync(UpdateBankAccountRequest request);
 
     /// <summary>
-    /// Xóa bank account
+    /// Xóa ho?c deactivate bank account thông minh
+    /// N?u bank account ???c s? d?ng trong RefundHistories -> ch? deactivate
+    /// N?u không ???c s? d?ng -> xóa h?n
     /// </summary>
+    Task<BankAccountDeleteResult> SmartDeleteAsync(Guid id);
+
+    /// <summary>
+    /// Xóa bank account (method c? - deprecated)
+    /// </summary>
+    [Obsolete("S? d?ng SmartDeleteAsync thay th?")]
     Task<bool> DeleteAsync(Guid id);
 
     /// <summary>

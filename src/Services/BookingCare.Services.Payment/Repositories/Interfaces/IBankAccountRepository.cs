@@ -34,6 +34,21 @@ public interface IBankAccountRepository
     Task<bool> AccountNumberExistsAsync(string accountNumber, string bankCode, Guid? excludeId = null);
 
     /// <summary>
+    /// Ki?m tra s? tài kho?n ?ã t?n t?i user c? th? không
+    /// </summary>
+    Task<bool> AccountNumberExistsForUserAsync(string accountNumber, string bankCode, Guid userId, Guid? excludeId = null);
+
+    /// <summary>
+    /// T?i bank account theo accountNumber, bankCode v? userId (bao g?m c? inactive)
+    /// </summary>
+    Task<BankAccountEntity?> FindByAccountNumberAndUserAsync(string accountNumber, string bankCode, Guid userId);
+
+    /// <summary>
+    /// Ki?m tra bank account có ???c s?a d?ng trong RefundHistories kh?ng
+    /// </summary>
+    Task<bool> HasRefundHistoriesAsync(Guid bankAccountId);
+
+    /// <summary>
     /// T?o bank account m?i
     /// </summary>
     Task<BankAccountEntity> CreateAsync(BankAccountEntity entity);

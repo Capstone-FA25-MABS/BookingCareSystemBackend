@@ -339,6 +339,22 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/refundhistories/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6011
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/refundhistories/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/reviews/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

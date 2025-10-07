@@ -34,6 +34,7 @@ builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 builder.Services.AddScoped<IPayOSPaymentMappingRepository, PayOSPaymentMappingRepository>();
 builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
+builder.Services.AddScoped<IRefundHistoryRepository, RefundHistoryRepository>();
 
 // Add services
 builder.Services.AddScoped<IPaymentService, PaymentService>();
@@ -41,9 +42,11 @@ builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IVNPayService, VNPayService>();
 builder.Services.AddScoped<IPayOSService, PayOSService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
+builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
 
 // Add background services
 builder.Services.AddHostedService<PayOSMappingCleanupService>();
+builder.Services.AddHostedService<RefundHistoryProcessingService>();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(PaymentMappingProfile));

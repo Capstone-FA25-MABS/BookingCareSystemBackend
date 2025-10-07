@@ -2,6 +2,7 @@ using AutoMapper;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Models.Entities;
+using BookingCare.Services.Payment.Enums;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Payment.Mappings;
@@ -16,14 +17,13 @@ public class PaymentMappingProfile : Profile
         // Payment mappings
         CreateMap<CreatePaymentRequest, PaymentEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => PaymentStatus.PENDING))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
             .ForMember(dest => dest.PaymentMethod, opt => opt.Ignore());
 
         // Appointment Payment mappings
         CreateMap<CreateAppointmentPaymentRequest, PaymentEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.ClinicId, opt => opt.MapFrom(src => (Guid?)null))
-            .ForMember(dest => dest.SubscriptionId, opt => opt.MapFrom(src => (Guid?)null))
             .ForMember(dest => dest.TransactionType, opt => opt.MapFrom(src => TransactionType.APPOINTMENT))
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => PaymentStatus.PENDING))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
@@ -32,8 +32,6 @@ public class PaymentMappingProfile : Profile
         // Subscription Payment mappings
         CreateMap<CreateSubscriptionPaymentRequest, PaymentEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.AppointmentId, opt => opt.MapFrom(src => (Guid?)null))
-            .ForMember(dest => dest.PatientId, opt => opt.MapFrom(src => (Guid?)null))
             .ForMember(dest => dest.TransactionType, opt => opt.MapFrom(src => TransactionType.SUBSCRIPTION))
             .ForMember(dest => dest.Status, opt => opt.MapFrom(src => PaymentStatus.PENDING))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
@@ -71,6 +69,22 @@ public class PaymentMappingProfile : Profile
                 CreatedAt = src.CreatedAt,
                 UpdatedAt = src.UpdatedAt
             });
+
+        // RefundHistory mappings
+        CreateMap<CreateRefundHistoryRequest, RefundHistoryEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.Status, opt => opt.Ignore()) // S? ???c set trong service
+            .ForMember(dest => dest.TransferDate, opt => opt.Ignore())
+            .ForMember(dest => dest.StaffNotes, opt => opt.Ignore())
+            .ForMember(dest => dest.ProcessedByStaffId, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.Payment, opt => opt.Ignore())
+            .ForMember(dest => dest.BankAccount, opt => opt.Ignore());
+
+        CreateMap<RefundHistoryEntity, RefundHistoryResponse>()
+            .ForMember(dest => dest.BankAccount, opt => opt.MapFrom(src => src.BankAccount))
+            .ForMember(dest => dest.Payment, opt => opt.MapFrom(src => src.Payment));
     }
 
     /// <summary>

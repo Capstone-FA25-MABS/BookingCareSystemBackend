@@ -34,6 +34,11 @@ public class PaymentDbContext : DbContext
     /// </summary>
     public DbSet<BankAccountEntity> BankAccounts { get; set; }
 
+    /// <summary>
+    /// DbSet cho bảng refund_histories
+    /// </summary>
+    public DbSet<RefundHistoryEntity> RefundHistories { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -129,6 +134,54 @@ public class PaymentDbContext : DbContext
 
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
+        });
+
+        // Cấu hình RefundHistoryEntity
+        modelBuilder.Entity<RefundHistoryEntity>(entity =>
+        {
+            // Primary key
+            entity.HasKey(e => e.Id);
+
+            // Enum conversion cho Status
+            entity.Property(e => e.Status)
+                .HasConversion(
+                    v => v.ToString(),
+                    v => (RefundStatus)Enum.Parse(typeof(RefundStatus), v))
+                .HasMaxLength(20);
+
+            // Relationship với PaymentEntity (1:1 - mỗi payment chỉ có một refund history)
+            entity.HasOne(r => r.Payment)
+                .WithOne()
+                .HasForeignKey<RefundHistoryEntity>(r => r.PaymentId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_refund_histories_payment_id");
+
+            // Relationship với BankAccountEntity (optional - có thể null)
+            entity.HasOne(r => r.BankAccount)
+                .WithMany()
+                .HasForeignKey(r => r.BankAccountId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_refund_histories_bank_account_id");
+
+            // Check constraints và business rules
+            entity.ToTable("refund_histories", t =>
+            {
+                t.HasCheckConstraint("CK_refund_histories_status",
+                    "[status] IN ('WAITING', 'PENDING', 'COMPLETED')");
+                t.HasCheckConstraint("CK_refund_histories_refund_amount_positive",
+                    "[refund_amount] > 0");
+                // Transfer date chỉ có khi status = COMPLETED
+                t.HasCheckConstraint("CK_refund_histories_transfer_date_completed",
+                    "([status] = 'COMPLETED' AND [transfer_date] IS NOT NULL) OR ([status] != 'COMPLETED')");
+            });
+
+            // Default values
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("GETDATE()");
+
         });
 
         // Seed data cho payment methods

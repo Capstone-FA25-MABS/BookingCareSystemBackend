@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Repositories.Interfaces;
@@ -19,7 +19,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// L?y bank account theo ID
+    /// Lấy bank account theo ID
     /// </summary>
     public async Task<BankAccountEntity?> GetByIdAsync(Guid id)
     {
@@ -28,19 +28,19 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// L?y t?t c? bank accounts c?a user
+    /// Lấy tất cả bank accounts của user
     /// </summary>
     public async Task<IEnumerable<BankAccountEntity>> GetByUserIdAsync(Guid userId)
     {
         return await _context.BankAccounts
-            .Where(x => x.UserId == userId)
+            .Where(x => x.UserId == userId && x.IsActive)
             .OrderByDescending(x => x.IsDefault)
             .ThenByDescending(x => x.CreatedAt)
             .ToListAsync();
     }
 
     /// <summary>
-    /// L?y bank accounts c?a user v?i ph�n trang
+    /// Lấy bank accounts của user với phân trang
     /// </summary>
     public async Task<PagedResult<BankAccountEntity>> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, bool? activeOnly = null)
     {
@@ -71,7 +71,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// L?y bank account m?c ??nh c?a user
+    /// Lấy bank account mặc định của user
     /// </summary>
     public async Task<BankAccountEntity?> GetDefaultByUserIdAsync(Guid userId)
     {
@@ -80,7 +80,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Ki?m tra s? t�i kho?n ?� t?n t?i ch?a
+    /// Kiểm tra số tài khoản đã tồn tại chưa (không phân biệt user)
     /// </summary>
     public async Task<bool> AccountNumberExistsAsync(string accountNumber, string bankCode, Guid? excludeId = null)
     {
@@ -96,7 +96,43 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// T?o bank account m?i
+    /// Kiểm tra số tài khoản đã tồn tại của user cụ thể chưa
+    /// </summary>
+    public async Task<bool> AccountNumberExistsForUserAsync(string accountNumber, string bankCode, Guid userId, Guid? excludeId = null)
+    {
+        var query = _context.BankAccounts
+            .Where(x => x.AccountNumber == accountNumber && x.BankCode == bankCode && x.UserId == userId);
+
+        if (excludeId.HasValue)
+        {
+            query = query.Where(x => x.Id != excludeId.Value);
+        }
+
+        return await query.AnyAsync();
+    }
+
+    /// <summary>
+    /// Tìm bank account theo accountNumber, bankCode và userId (bao gồm cả inactive)
+    /// </summary>
+    public async Task<BankAccountEntity?> FindByAccountNumberAndUserAsync(string accountNumber, string bankCode, Guid userId)
+    {
+        return await _context.BankAccounts
+            .FirstOrDefaultAsync(x => x.AccountNumber == accountNumber &&
+                                     x.BankCode == bankCode &&
+                                     x.UserId == userId);
+    }
+
+    /// <summary>
+    /// Kiểm tra bank account có được sử dụng trong RefundHistories không
+    /// </summary>
+    public async Task<bool> HasRefundHistoriesAsync(Guid bankAccountId)
+    {
+        return await _context.RefundHistories
+            .AnyAsync(r => r.BankAccountId == bankAccountId);
+    }
+
+    /// <summary>
+    /// Tạo bank account mới
     /// </summary>
     public async Task<BankAccountEntity> CreateAsync(BankAccountEntity entity)
     {
@@ -109,7 +145,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// C?p nh?t bank account
+    /// Cập nhật bank account
     /// </summary>
     public async Task<BankAccountEntity> UpdateAsync(BankAccountEntity entity)
     {
@@ -120,7 +156,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// X�a bank account
+    /// Xóa bank account
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
@@ -134,20 +170,20 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// ??t t�i kho?n l�m m?c ??nh v� b? m?c ??nh c�c t�i kho?n kh�c c?a user
+    /// Đặt tài khoản làm mặc định và bỏ mặc định các tài khoản khác của user
     /// </summary>
     public async Task SetAsDefaultAsync(Guid bankAccountId, Guid userId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            // B? m?c ??nh t?t c? t�i kho?n kh�c c?a user
+            // Bỏ mặc định tất cả tài khoản khác của user
             await _context.BankAccounts
                 .Where(x => x.UserId == userId && x.Id != bankAccountId)
                 .ExecuteUpdateAsync(x => x.SetProperty(p => p.IsDefault, false)
                                          .SetProperty(p => p.UpdatedAt, DateTime.UtcNow));
 
-            // ??t t�i kho?n ???c ch?n l�m m?c ??nh
+            // Đặt tài khoản được chọn làm mặc định
             await _context.BankAccounts
                 .Where(x => x.Id == bankAccountId)
                 .ExecuteUpdateAsync(x => x.SetProperty(p => p.IsDefault, true)
@@ -163,7 +199,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// ??m s? l??ng bank accounts c?a user
+    /// Đếm số lượng bank accounts của user
     /// </summary>
     public async Task<int> CountByUserIdAsync(Guid userId)
     {

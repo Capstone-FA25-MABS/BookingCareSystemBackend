@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Models.Entities;
@@ -28,7 +28,7 @@ public class BankAccountService : BaseService, IBankAccountService
     }
 
     /// <summary>
-    /// L?y bank account theo ID - Thao t�c ??c ??n gi?n
+    /// L?y bank account theo ID - Thao tác ??c ??n gi?n
     /// </summary>
     public async Task<BankAccountResponse?> GetByIdAsync(Guid id)
     {
@@ -37,7 +37,7 @@ public class BankAccountService : BaseService, IBankAccountService
     }
 
     /// <summary>
-    /// L?y t?t c? bank accounts c?a user - Thao t�c ??c ??n gi?n
+    /// L?y t?t c? bank accounts c?a user - Thao tác ??c ??n gi?n
     /// </summary>
     public async Task<IEnumerable<BankAccountResponse>> GetByUserIdAsync(Guid userId)
     {
@@ -46,7 +46,7 @@ public class BankAccountService : BaseService, IBankAccountService
     }
 
     /// <summary>
-    /// L?y bank accounts c?a user v?i ph�n trang - Thao t�c ??c ??n gi?n
+    /// L?y bank accounts c?a user v?i phân trang - Thao tác ??c ??n gi?n
     /// </summary>
     public async Task<PagedResult<BankAccountResponse>> GetPagedByUserIdAsync(GetBankAccountsRequest request)
     {
@@ -65,7 +65,7 @@ public class BankAccountService : BaseService, IBankAccountService
     }
 
     /// <summary>
-    /// L?y bank account m?c ??nh c?a user - Thao t�c ??c ??n gi?n
+    /// L?y bank account m?c ??nh c?a user - Thao tác ??c ??n gi?n
     /// </summary>
     public async Task<BankAccountResponse?> GetDefaultByUserIdAsync(Guid userId)
     {
@@ -74,13 +74,14 @@ public class BankAccountService : BaseService, IBankAccountService
     }
 
     /// <summary>
-    /// T?o bank account m?i
+    /// T?o bank account m?i ho?c reactive account cũ n?u ?? t?n t?i nhung inactive
     /// </summary>
     public async Task<BankAccountResponse> CreateAsync(CreateBankAccountRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang t?o bank account m?i cho User: {UserId}", null, request.UserId);
+            LogInfo("Đang tạo bank account mới cho User: {UserId}, Account: {AccountNumber}@{BankCode}",
+                null, request.UserId, request.AccountNumber, request.BankCode);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -89,42 +90,89 @@ public class BankAccountService : BaseService, IBankAccountService
             ValidateRequiredString(request.AccountNumber, nameof(request.AccountNumber));
             ValidateRequiredString(request.AccountName, nameof(request.AccountName));
 
-            // Ki?m tra s? t�i kho?n ?� t?n t?i ch?a
-            var accountExists = await _bankAccountRepository.AccountNumberExistsAsync(request.AccountNumber, request.BankCode);
-            if (accountExists)
+            // Kiểm tra xem user đã có account number này chưa (bao gồm cả inactive)
+            var existingAccount = await _bankAccountRepository.FindByAccountNumberAndUserAsync(
+                request.AccountNumber, request.BankCode, request.UserId);
+
+            if (existingAccount != null)
             {
-                throw new ConflictException($"T�i kho?n ng�n h�ng {request.AccountNumber} t?i {request.BankCode} ?� t?n t?i");
+                if (existingAccount.IsActive)
+                {
+                    // Account đã active -> throw conflict
+                    throw new ConflictException($"Tài khoản ngân hàng {request.AccountNumber} tại {request.BankCode} đã tồn tại và đang hoạt động");
+                }
+                else
+                {
+                    // Account inactive -> reactive
+                    LogInfo("Tìm thấy bank account inactive, đang reactive lại: {Id}", null, existingAccount.Id);
+
+                    // Cập nhật thông tin từ request (có thể user muốn thay đổi bank name hoặc account name)
+                    existingAccount.BankName = request.BankName;
+                    existingAccount.AccountName = request.AccountName;
+                    existingAccount.IsActive = true;
+
+                    // Xử lý logic default cho reactive
+                    var existingActiveAccountsCount = (await _bankAccountRepository.GetByUserIdAsync(request.UserId))
+                        .Count(x => x.IsActive);
+                    var shouldBeDefaultForReactive = request.IsDefault || existingActiveAccountsCount == 0;
+
+                    if (shouldBeDefaultForReactive)
+                    {
+                        existingAccount.IsDefault = true;
+                        // Bỏ mặc định các tài khoản khác nếu cần
+                        if (existingActiveAccountsCount > 0)
+                        {
+                            await _bankAccountRepository.SetAsDefaultAsync(existingAccount.Id, request.UserId);
+                        }
+                    }
+
+                    var reactivated = await _bankAccountRepository.UpdateAsync(existingAccount);
+
+                    LogInfo("Bank account đã được reactive thành công: {Id}", null, reactivated.Id);
+                    return _mapper.Map<BankAccountResponse>(reactivated);
+                }
             }
 
-            // N?u ?�y l� t�i kho?n ??u ti�n c?a user ho?c ???c ??t l�m m?c ??nh
+            //// Kiểm tra account number đã tồn tại của user khác chưa
+            //var accountExistsGlobally = await _bankAccountRepository.AccountNumberExistsAsync(
+            //    request.AccountNumber, request.BankCode);
+
+            //if (accountExistsGlobally)
+            //{
+            //    throw new ConflictException($"Tài khoản ngân hàng {request.AccountNumber} tại {request.BankCode} đã được sử dụng bởi user khác");
+            //}
+
+            // Tạo bank account mới
+            LogInfo("Tạo bank account hoàn toàn mới cho User: {UserId}", null, request.UserId);
+
             var existingAccountsCount = await _bankAccountRepository.CountByUserIdAsync(request.UserId);
-            var shouldBeDefault = request.IsDefault || existingAccountsCount == 0;
+            var shouldBeDefaultForNew = request.IsDefault || existingAccountsCount == 0;
 
-            // T?o entity
             var entity = _mapper.Map<BankAccountEntity>(request);
-            entity.IsDefault = shouldBeDefault;
+            entity.IsDefault = shouldBeDefaultForNew;
+            entity.IsActive = true; // Đảm bảo account mới luôn active
 
-            // N?u ??t l�m m?c ??nh, c?n b? m?c ??nh c�c t�i kho?n kh�c
-            if (shouldBeDefault && existingAccountsCount > 0)
+            // Nếu đặt làm mặc định, cần bỏ mặc định các tài khoản khác
+            if (shouldBeDefaultForNew && existingAccountsCount > 0)
             {
                 await _bankAccountRepository.SetAsDefaultAsync(entity.Id, request.UserId);
             }
 
             var created = await _bankAccountRepository.CreateAsync(entity);
 
-            LogInfo("Bank account ???c t?o th�nh c�ng v?i ID: {Id}", null, created.Id);
+            LogInfo("Bank account được tạo thành công với ID: {Id}", null, created.Id);
             return _mapper.Map<BankAccountResponse>(created);
         }, "CreateBankAccount");
     }
 
     /// <summary>
-    /// C?p nh?t bank account
+    /// Cập nhật bank account
     /// </summary>
     public async Task<BankAccountResponse> UpdateAsync(UpdateBankAccountRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang c?p nh?t bank account v?i ID: {Id}", null, request.Id);
+            LogInfo("Đang cập nhật bank account với ID: {Id}", null, request.Id);
 
             ValidateRequired(request, nameof(request));
 
@@ -134,22 +182,23 @@ public class BankAccountService : BaseService, IBankAccountService
                 throw new NotFoundException("BankAccount", request.Id);
             }
 
-            // Ki?m tra uniqueness n?u c?p nh?t account number
+            // Kiểm tra uniqueness nếu cập nhật account number
             if (!string.IsNullOrEmpty(request.AccountNumber) && request.AccountNumber != existing.AccountNumber)
             {
-                // S? d?ng BankCode m?i n?u c�, n?u kh�ng d�ng BankCode hi?n t?i
+                // Sử dụng BankCode mới nếu có, nếu không dùng BankCode hiện tại
                 var bankCodeToCheck = !string.IsNullOrEmpty(request.BankCode) ? request.BankCode : existing.BankCode;
 
-                var accountExists = await _bankAccountRepository.AccountNumberExistsAsync(
+                // Kiểm tra trong toàn hệ thống (không phân biệt user)
+                var accountExistsGlobally = await _bankAccountRepository.AccountNumberExistsAsync(
                     request.AccountNumber, bankCodeToCheck, existing.Id);
 
-                if (accountExists)
+                if (accountExistsGlobally)
                 {
-                    throw new ConflictException($"T�i kho?n ng�n h�ng {request.AccountNumber} t?i {bankCodeToCheck} ?� t?n t?i");
+                    throw new ConflictException($"Tài khoản ngân hàng {request.AccountNumber} tại {bankCodeToCheck} đã được sử dụng bởi user khác");
                 }
             }
 
-            // C?p nh?t c�c tr??ng ???c cung c?p
+            // Cập nhật các trường được cung cấp
             if (!string.IsNullOrEmpty(request.BankCode))
                 existing.BankCode = request.BankCode;
 
@@ -165,7 +214,7 @@ public class BankAccountService : BaseService, IBankAccountService
             if (request.IsActive.HasValue)
                 existing.IsActive = request.IsActive.Value;
 
-            // X? l� vi?c ??t l�m m?c ??nh
+            // Xử lý việc đặt làm mặc định
             if (request.IsDefault.HasValue && request.IsDefault.Value && !existing.IsDefault)
             {
                 await _bankAccountRepository.SetAsDefaultAsync(existing.Id, existing.UserId);
@@ -177,19 +226,91 @@ public class BankAccountService : BaseService, IBankAccountService
 
             var updated = await _bankAccountRepository.UpdateAsync(existing);
 
-            LogInfo("Bank account ???c c?p nh?t th�nh c�ng v?i ID: {Id}", null, updated.Id);
+            LogInfo("Bank account được cập nhật thành công với ID: {Id}", null, updated.Id);
             return _mapper.Map<BankAccountResponse>(updated);
         }, "UpdateBankAccount");
     }
 
     /// <summary>
-    /// X�a bank account
+    /// Xóa hoặc deactivate bank account thông minh
     /// </summary>
+    public async Task<BankAccountDeleteResult> SmartDeleteAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Đang thực hiện Smart Delete bank account với ID: {Id}", null, id);
+
+            var existing = await _bankAccountRepository.GetByIdAsync(id);
+            if (existing == null)
+            {
+                return BankAccountDeleteResult.Failed($"Bank account với ID {id} không tìm thấy");
+            }
+
+            // Kiểm tra tài khoản mặc định
+            if (existing.IsDefault)
+            {
+                var totalAccounts = await _bankAccountRepository.CountByUserIdAsync(existing.UserId);
+                if (totalAccounts > 1)
+                {
+                    return BankAccountDeleteResult.Failed("Không thể xóa tài khoản mặc định khi còn tài khoản khác. Hãy đặt tài khoản khác làm mặc định trước.");
+                }
+            }
+
+            // Kiểm tra xem có refund histories sử dụng bank account này không
+            var hasRefundHistories = await _bankAccountRepository.HasRefundHistoriesAsync(id);
+
+            if (hasRefundHistories)
+            {
+                // Có refund histories -> chỉ deactivate
+                LogInfo("Bank account {Id} có refund histories, thực hiện deactivate thay vì xóa", null, id);
+
+                existing.IsActive = false;
+                if (existing.IsDefault)
+                {
+                    existing.IsDefault = false; // Bỏ mặc định nếu deactivate
+                }
+
+                var updated = await _bankAccountRepository.UpdateAsync(existing);
+                var updatedResponse = _mapper.Map<BankAccountResponse>(updated);
+
+                LogInfo("Bank account {Id} đã được deactivate do có refund histories", null, id);
+
+                return BankAccountDeleteResult.Deactivated(
+                    updatedResponse,
+                    0, // Có thể thêm count nếu cần
+                    "Bank account đã được vô hiệu hóa do có liên kết với lịch sử refund. Không thể xóa hoàn toàn."
+                );
+            }
+            else
+            {
+                // Không có refund histories -> xóa hoàn toàn
+                LogInfo("Bank account {Id} không có refund histories, thực hiện xóa hoàn toàn", null, id);
+
+                var result = await _bankAccountRepository.DeleteAsync(id);
+
+                if (result)
+                {
+                    LogInfo("Bank account {Id} đã được xóa hoàn toàn thành công", null, id);
+                    return BankAccountDeleteResult.Deleted("Bank account đã được xóa hoàn toàn thành công");
+                }
+                else
+                {
+                    LogWarning("Không thể xóa bank account {Id}", null, id);
+                    return BankAccountDeleteResult.Failed("Không thể xóa bank account");
+                }
+            }
+        }, "SmartDeleteBankAccount");
+    }
+
+    /// <summary>
+    /// Xóa bank account (method cũ - deprecated)
+    /// </summary>
+    [Obsolete("Sử dụng SmartDeleteAsync thay thế")]
     public async Task<bool> DeleteAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang x�a bank account v?i ID: {Id}", null, id);
+            LogInfo("Đang xóa bank account với ID: {Id}", null, id);
 
             var existing = await _bankAccountRepository.GetByIdAsync(id);
             if (existing == null)
@@ -197,31 +318,31 @@ public class BankAccountService : BaseService, IBankAccountService
                 return false;
             }
 
-            // Kh�ng cho ph�p x�a t�i kho?n m?c ??nh n?u c�n t�i kho?n kh�c
+            // Không cho phép xóa tài khoản mặc định nếu còn tài khoản khác
             if (existing.IsDefault)
             {
                 var totalAccounts = await _bankAccountRepository.CountByUserIdAsync(existing.UserId);
                 if (totalAccounts > 1)
                 {
-                    throw new InvalidOperationException("Kh�ng th? x�a t�i kho?n m?c ??nh khi c�n t�i kho?n kh�c. H�y ??t t�i kho?n kh�c l�m m?c ??nh tr??c.");
+                    throw new InvalidOperationException("Không thể xóa tài khoản mặc định khi còn tài khoản khác. Hãy đặt tài khoản khác làm mặc định trước.");
                 }
             }
 
             var result = await _bankAccountRepository.DeleteAsync(id);
 
-            LogInfo("Bank account ???c x�a th�nh c�ng v?i ID: {Id}", null, id);
+            LogInfo("Bank account được xóa thành công với ID: {Id}", null, id);
             return result;
         }, "DeleteBankAccount");
     }
 
     /// <summary>
-    /// ??t bank account l�m m?c ??nh
+    /// ??t bank account làm m?c ??nh
     /// </summary>
     public async Task<BankAccountResponse> SetAsDefaultAsync(Guid bankAccountId)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang ??t bank account l�m m?c ??nh v?i ID: {Id}", null, bankAccountId);
+            LogInfo("?ang ??t bank account làm m?c ??nh v?i ID: {Id}", null, bankAccountId);
 
             var existing = await _bankAccountRepository.GetByIdAsync(bankAccountId);
             if (existing == null)
@@ -231,27 +352,27 @@ public class BankAccountService : BaseService, IBankAccountService
 
             if (!existing.IsActive)
             {
-                throw new InvalidOperationException("Kh�ng th? ??t t�i kho?n kh�ng ho?t ??ng l�m m?c ??nh");
+                throw new InvalidOperationException("Không th? ??t tài kho?n không ho?t ??ng làm m?c ??nh");
             }
 
             await _bankAccountRepository.SetAsDefaultAsync(bankAccountId, existing.UserId);
 
-            // L?y l?i ?? c� d? li?u m?i nh?t
+            // L?y l?i ?? có d? li?u m?i nh?t
             var updated = await _bankAccountRepository.GetByIdAsync(bankAccountId);
 
-            LogInfo("Bank account ???c ??t l�m m?c ??nh th�nh c�ng v?i ID: {Id}", null, bankAccountId);
+            LogInfo("Bank account ???c ??t làm m?c ??nh thành công v?i ID: {Id}", null, bankAccountId);
             return _mapper.Map<BankAccountResponse>(updated!);
         }, "SetAsDefaultBankAccount");
     }
 
     /// <summary>
-    /// K�ch ho?t/v� hi?u h�a bank account
+    /// Kích ho?t/vô hi?u hóa bank account
     /// </summary>
     public async Task<BankAccountResponse> ToggleActiveStatusAsync(Guid bankAccountId)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang thay ??i tr?ng th�i bank account v?i ID: {Id}", null, bankAccountId);
+            LogInfo("?ang thay ??i tr?ng thái bank account v?i ID: {Id}", null, bankAccountId);
 
             var existing = await _bankAccountRepository.GetByIdAsync(bankAccountId);
             if (existing == null)
@@ -259,7 +380,7 @@ public class BankAccountService : BaseService, IBankAccountService
                 throw new NotFoundException("BankAccount", bankAccountId);
             }
 
-            // Kh�ng cho ph�p v� hi?u h�a t�i kho?n m?c ??nh
+            // Không cho phép vô hi?u hóa tài kho?n m?c ??nh
             if (existing.IsDefault && existing.IsActive)
             {
                 var totalActiveAccounts = (await _bankAccountRepository.GetByUserIdAsync(existing.UserId))
@@ -267,17 +388,17 @@ public class BankAccountService : BaseService, IBankAccountService
 
                 if (totalActiveAccounts <= 1)
                 {
-                    throw new InvalidOperationException("Kh�ng th? v� hi?u h�a t�i kho?n m?c ??nh duy nh?t");
+                    throw new InvalidOperationException("Không th? vô hi?u hóa tài kho?n m?c ??nh duy nh?t");
                 }
 
-                // B? m?c ??nh tr??c khi v� hi?u h�a
+                // B? m?c ??nh tr??c khi vô hi?u hóa
                 existing.IsDefault = false;
             }
 
             existing.IsActive = !existing.IsActive;
             var updated = await _bankAccountRepository.UpdateAsync(existing);
 
-            LogInfo("Tr?ng th�i bank account ???c thay ??i th�nh c�ng v?i ID: {Id}, Active: {IsActive}", null, bankAccountId, updated.IsActive);
+            LogInfo("Tr?ng thái bank account ???c thay ??i thành công v?i ID: {Id}, Active: {IsActive}", null, bankAccountId, updated.IsActive);
             return _mapper.Map<BankAccountResponse>(updated);
         }, "ToggleBankAccountStatus");
     }

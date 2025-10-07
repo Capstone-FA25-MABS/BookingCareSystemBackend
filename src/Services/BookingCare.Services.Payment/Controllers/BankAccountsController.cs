@@ -1,4 +1,5 @@
 ﻿using BookingCare.Services.Payment.Models.DTOs.Requests;
+using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
@@ -90,8 +91,6 @@ public class BankAccountsController : BaseApiController
                 accounts = accountsList,
                 count = count
             };
-
-
 
             return Success(responseData);
         }
@@ -249,10 +248,12 @@ public class BankAccountsController : BaseApiController
     }
 
     /// <summary>
-    /// Xóa bank account
+    /// Xóa hoặc vô hiệu hóa bank account thông minh
+    /// Nếu bank account có liên kết với RefundHistories -> chỉ vô hiệu hóa
+    /// Nếu không có liên kết -> xóa hoàn toàn
     /// </summary>
     /// <param name="id">ID của bank account</param>
-    /// <returns>Kết quả xóa</returns>
+    /// <returns>Kết quả xóa thông minh</returns>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteBankAccount(Guid id)
@@ -264,13 +265,29 @@ public class BankAccountsController : BaseApiController
                 return BadRequest("ID bank account không hợp lệ");
             }
 
-            var result = await _bankAccountService.DeleteAsync(id);
-            if (!result)
+            var result = await _bankAccountService.SmartDeleteAsync(id);
+
+            if (!result.Success)
             {
-                return NotFound($"Bank account với ID {id} không tìm thấy");
+                return BadRequest(result.Message);
             }
 
-            return Success("Xóa bank account thành công");
+            return result.Action switch
+            {
+                BankAccountDeleteAction.Deleted =>
+                    Success(result.Message),
+
+                BankAccountDeleteAction.Deactivated =>
+                    Success(new
+                    {
+                        message = result.Message,
+                        action = "deactivated",
+                        bankAccount = result.UpdatedBankAccount,
+                        refundHistoriesCount = result.RefundHistoriesCount
+                    }, result.Message),
+
+                _ => BadRequest("Thao tác không xác định")
+            };
         }
         catch (InvalidOperationException ex)
         {
