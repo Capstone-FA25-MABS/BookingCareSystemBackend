@@ -11,7 +11,7 @@ using BookingCare.Shared.Common.Models;
 namespace BookingCare.Services.Payment.Services.Implementations;
 
 /// <summary>
-/// Implementation của Payment Service
+/// Implementation of Payment Service
 /// </summary>
 public class PaymentService : BaseService, IPaymentService
 {
@@ -31,7 +31,7 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Lấy payment theo ID - Thao tác đọc đơn giản
+    /// Get payment by ID - Simple read operation
     /// </summary>
     public async Task<PaymentResponse?> GetByIdAsync(Guid id)
     {
@@ -40,7 +40,7 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Lấy payment theo appointment ID - Thao tác đọc đơn giản
+    /// Get payment by appointment ID - Simple read operation
     /// </summary>
     public async Task<PaymentResponse?> GetByAppointmentIdAsync(Guid appointmentId)
     {
@@ -49,7 +49,7 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Lấy payment theo subscription ID - Thao tác đọc đơn giản
+    /// Get payment by subscription ID - Simple read operation
     /// </summary>
     public async Task<PaymentResponse?> GetBySubscriptionIdAsync(Guid subscriptionId)
     {
@@ -58,7 +58,7 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Lấy danh sách payments theo clinic ID - Thao tác đọc đơn giản
+    /// Get list of payments by clinic ID - Simple read operation
     /// </summary>
     public async Task<IEnumerable<PaymentResponse>> GetByClinicIdAsync(Guid clinicId)
     {
@@ -67,7 +67,7 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Lấy danh sách payments theo patient ID - Thao tác đọc đơn giản
+    /// Get list of payments by patient ID - Simple read operation
     /// </summary>
     public async Task<IEnumerable<PaymentResponse>> GetByPatientIdAsync(Guid patientId)
     {
@@ -76,7 +76,7 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Lấy danh sách payments theo clinic ID với phân trang - Thao tác đọc đơn giản
+    /// Get list of payments by clinic ID with pagination - Simple read operation
     /// </summary>
     public async Task<PagedResult<PaymentResponse>> GetPagedByClinicIdAsync(Guid clinicId, GetPaymentsPagedRequest request)
     {
@@ -92,7 +92,7 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Lấy danh sách payments theo patient ID với phân trang - Thao tác đọc đơn giản
+    /// Get list of payments by patient ID with pagination - Simple read operation
     /// </summary>
     public async Task<PagedResult<PaymentResponse>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request)
     {
@@ -108,26 +108,26 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Tạo payment mới - Thao tác business BẮT BUỘC sử dụng ExecuteWithErrorHandling
+    /// Create new payment - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<PaymentResponse> CreateAsync(CreatePaymentRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu tạo payment - Type: {TransactionType}, AppointmentId: {AppointmentId}, SubscriptionId: {SubscriptionId}",
+            LogInfo("Starting to create payment - Type: {TransactionType}, AppointmentId: {AppointmentId}, SubscriptionId: {SubscriptionId}",
                 null, request.TransactionType, request.AppointmentId, request.SubscriptionId);
 
             // Validation
             ValidateRequired(request, nameof(request));
             ValidateGuid(request.PaymentMethodId, nameof(request.PaymentMethodId));
 
-            // Validate AppointmentId nếu có giá trị
+            // Validate AppointmentId if present
             if (request.AppointmentId.HasValue)
             {
                 ValidateGuid(request.AppointmentId.Value, nameof(request.AppointmentId));
             }
 
-            // Validate SubscriptionId nếu có giá trị
+            // Validate SubscriptionId if present
             if (request.SubscriptionId.HasValue)
             {
                 ValidateGuid(request.SubscriptionId.Value, nameof(request.SubscriptionId));
@@ -138,18 +138,18 @@ public class PaymentService : BaseService, IPaymentService
             if (!paymentMethodExists)
             {
                 LogError(new ArgumentException($"Payment method with ID {request.PaymentMethodId} does not exist"),
-                    "Payment method không tồn tại: {PaymentMethodId}", null, request.PaymentMethodId);
+                    "Payment method does not exist: {PaymentMethodId}", null, request.PaymentMethodId);
                 throw new ArgumentException($"Payment method with ID {request.PaymentMethodId} does not exist");
             }
 
-            // Check if payment already exists for this appointment (nếu AppointmentId có giá trị)
+            // Check if payment already exists for this appointment (if AppointmentId is present)
             if (request.AppointmentId.HasValue)
             {
                 var existingPayment = await _paymentRepository.GetByAppointmentIdAsync(request.AppointmentId.Value);
                 if (existingPayment != null)
                 {
                     LogError(new InvalidOperationException($"Payment already exists for appointment {request.AppointmentId}"),
-                        "Payment đã tồn tại cho appointment: {AppointmentId}", null, request.AppointmentId);
+                        "Payment already exists for appointment: {AppointmentId}", null, request.AppointmentId);
                     throw new InvalidOperationException($"Payment already exists for appointment {request.AppointmentId}");
                 }
             }
@@ -159,19 +159,19 @@ public class PaymentService : BaseService, IPaymentService
             var paymentEntity = _mapper.Map<PaymentEntity>(request);
             var createdPayment = await _paymentRepository.CreateAsync(paymentEntity);
 
-            LogInfo("Payment được tạo thành công với ID: {PaymentId}", null, createdPayment.Id);
+            LogInfo("Payment created successfully with ID: {PaymentId}", null, createdPayment.Id);
             return _mapper.Map<PaymentResponse>(createdPayment);
         }, "CreatePayment");
     }
 
     /// <summary>
-    /// Tạo payment cho appointment (patient đặt lịch) - Thao tác business BẮT BUỘC sử dụng ExecuteWithErrorHandling
+    /// Create payment for appointment (patient books appointment) - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<PaymentResponse> CreateAppointmentPaymentAsync(CreateAppointmentPaymentRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu tạo payment cho appointment: {AppointmentId}", null, request.AppointmentId);
+            LogInfo("Starting to create payment for appointment: {AppointmentId}", null, request.AppointmentId);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -184,7 +184,7 @@ public class PaymentService : BaseService, IPaymentService
             if (!paymentMethodExists)
             {
                 LogError(new ArgumentException($"Payment method with ID {request.PaymentMethodId} does not exist"),
-                    "Payment method không tồn tại: {PaymentMethodId}", null, request.PaymentMethodId);
+                    "Payment method does not exist: {PaymentMethodId}", null, request.PaymentMethodId);
                 throw new ArgumentException($"Payment method with ID {request.PaymentMethodId} does not exist");
             }
 
@@ -193,7 +193,7 @@ public class PaymentService : BaseService, IPaymentService
             if (existingPayment != null)
             {
                 LogError(new InvalidOperationException($"Payment already exists for appointment {request.AppointmentId}"),
-                    "Payment đã tồn tại cho appointment: {AppointmentId}", null, request.AppointmentId);
+                    "Payment already exists for appointment: {AppointmentId}", null, request.AppointmentId);
                 throw new InvalidOperationException($"Payment already exists for appointment {request.AppointmentId}");
             }
 
@@ -213,19 +213,19 @@ public class PaymentService : BaseService, IPaymentService
 
             var createdPayment = await _paymentRepository.CreateAsync(paymentEntity);
 
-            LogInfo("Payment cho appointment được tạo thành công với ID: {PaymentId}", null, createdPayment.Id);
+            LogInfo("Payment for appointment created successfully with ID: {PaymentId}", null, createdPayment.Id);
             return _mapper.Map<PaymentResponse>(createdPayment);
         }, "CreateAppointmentPayment");
     }
 
     /// <summary>
-    /// Tạo payment cho subscription (clinic đăng ký gói) - Thao tác business BẮT BUỘC sử dụng ExecuteWithErrorHandling
+    /// Create payment for subscription (clinic subscribes to package) - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<PaymentResponse> CreateSubscriptionPaymentAsync(CreateSubscriptionPaymentRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu tạo payment cho subscription: {SubscriptionId}", null, request.SubscriptionId);
+            LogInfo("Starting to create payment for subscription: {SubscriptionId}", null, request.SubscriptionId);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -238,7 +238,7 @@ public class PaymentService : BaseService, IPaymentService
             if (!paymentMethodExists)
             {
                 LogError(new ArgumentException($"Payment method with ID {request.PaymentMethodId} does not exist"),
-                    "Payment method không tồn tại: {PaymentMethodId}", null, request.PaymentMethodId);
+                    "Payment method does not exist: {PaymentMethodId}", null, request.PaymentMethodId);
                 throw new ArgumentException($"Payment method with ID {request.PaymentMethodId} does not exist");
             }
 
@@ -260,19 +260,19 @@ public class PaymentService : BaseService, IPaymentService
 
             var createdPayment = await _paymentRepository.CreateAsync(paymentEntity);
 
-            LogInfo("Payment cho subscription được tạo thành công với ID: {PaymentId}", null, createdPayment.Id);
+            LogInfo("Payment for subscription created successfully with ID: {PaymentId}", null, createdPayment.Id);
             return _mapper.Map<PaymentResponse>(createdPayment);
         }, "CreateSubscriptionPayment");
     }
 
     /// <summary>
-    /// Cập nhật trạng thái payment - Thao tác business BẮT BUỘC sử dụng ExecuteWithErrorHandling
+    /// Update payment status - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<PaymentResponse> UpdateStatusAsync(UpdatePaymentStatusRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu cập nhật trạng thái payment: {PaymentId} -> {Status}", null, request.Id, request.Status);
+            LogInfo("Starting to update payment status: {PaymentId} -> {Status}", null, request.Id, request.Status);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -282,7 +282,7 @@ public class PaymentService : BaseService, IPaymentService
             if (payment == null)
             {
                 LogError(new ArgumentException($"Payment with ID {request.Id} does not exist"),
-                    "Payment không tồn tại: {PaymentId}", null, request.Id);
+                    "Payment does not exist: {PaymentId}", null, request.Id);
                 throw new ArgumentException($"Payment with ID {request.Id} does not exist");
             }
 
@@ -290,26 +290,26 @@ public class PaymentService : BaseService, IPaymentService
             payment.Status = request.Status;
             var updatedPayment = await _paymentRepository.UpdateAsync(payment);
 
-            LogInfo("Trạng thái payment được cập nhật thành công: {PaymentId}", null, request.Id);
+            LogInfo("Payment status updated successfully: {PaymentId}", null, request.Id);
             return _mapper.Map<PaymentResponse>(updatedPayment);
         }, "UpdatePaymentStatus");
     }
 
     /// <summary>
-    /// Xóa payment - Thao tác business BẮT BUỘC sử dụng ExecuteWithErrorHandling
+    /// Delete payment - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu xóa payment: {PaymentId}", null, id);
+            LogInfo("Starting to delete payment: {PaymentId}", null, id);
 
             ValidateGuid(id, nameof(id));
 
             var exists = await _paymentRepository.ExistsAsync(id);
             if (!exists)
             {
-                LogWarning("Payment không tồn tại để xóa: {PaymentId}", null, id);
+                LogWarning("Payment does not exist to delete: {PaymentId}", null, id);
                 return false;
             }
 
@@ -318,12 +318,12 @@ public class PaymentService : BaseService, IPaymentService
 
             if (result)
             {
-                LogInfo("Payment được xóa thành công: {PaymentId}", null, id);
+                LogInfo("Payment deleted successfully: {PaymentId}", null, id);
             }
             else
             {
                 LogError(new InvalidOperationException("Failed to delete payment"),
-                    "Không thể xóa payment: {PaymentId}", null, id);
+                    "Unable to delete payment: {PaymentId}", null, id);
             }
 
             return result;
@@ -331,17 +331,17 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Lấy thống kê payments - Thao tác business BẮT BUỘC sử dụng ExecuteWithErrorHandling
+    /// Get payment statistics - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<PaymentStatisticsResponse> GetPaymentStatisticsAsync(GetPaymentStatisticsRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            // Sử dụng computed dates với default values
+            // Use computed dates with default values
             var fromDate = request.GetFromDate();
             var toDate = request.GetToDate();
 
-            LogInfo("Bắt đầu lấy thống kê payments - Period: {Period}, FromDate: {FromDate}, ToDate: {ToDate}",
+            LogInfo("Starting to get payment statistics - Period: {Period}, FromDate: {FromDate}, ToDate: {ToDate}",
                 null, request.Period, fromDate, toDate);
 
             // Validation
@@ -375,7 +375,7 @@ public class PaymentService : BaseService, IPaymentService
                 DateRange = $"{fromDate:yyyy-MM-dd} - {toDate:yyyy-MM-dd}"
             };
 
-            LogInfo("Thống kê payments được tạo thành công với {TimeSeriesCount} periods", null, response.TimeSeries.Count);
+            LogInfo("Payment statistics created successfully with {TimeSeriesCount} periods", null, response.TimeSeries.Count);
             return response;
         }, "GetPaymentStatistics");
     }

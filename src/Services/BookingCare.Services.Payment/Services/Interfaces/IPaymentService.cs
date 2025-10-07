@@ -5,72 +5,72 @@ using BookingCare.Shared.Common.Models;
 namespace BookingCare.Services.Payment.Services.Interfaces;
 
 /// <summary>
-/// Interface cho Payment Service
+/// Interface for Payment Service
 /// </summary>
 public interface IPaymentService
 {
     /// <summary>
-    /// L?y payment theo ID
+    /// Get payment by ID
     /// </summary>
     Task<PaymentResponse?> GetByIdAsync(Guid id);
 
     /// <summary>
-    /// L?y payment theo appointment ID
+    /// Get payment by appointment ID
     /// </summary>
     Task<PaymentResponse?> GetByAppointmentIdAsync(Guid appointmentId);
 
     /// <summary>
-    /// L?y payment theo subscription ID
+    /// Get payment by subscription ID
     /// </summary>
     Task<PaymentResponse?> GetBySubscriptionIdAsync(Guid subscriptionId);
 
     /// <summary>
-    /// L?y danh s?ch payments theo clinic ID
+    /// Get list of payments by clinic ID
     /// </summary>
     Task<IEnumerable<PaymentResponse>> GetByClinicIdAsync(Guid clinicId);
 
     /// <summary>
-    /// L?y danh s?ch payments theo clinic ID v?i phân trang
+    /// Get list of payments by clinic ID with pagination
     /// </summary>
     Task<PagedResult<PaymentResponse>> GetPagedByClinicIdAsync(Guid clinicId, GetPaymentsPagedRequest request);
 
     /// <summary>
-    /// L?y danh s?ch payments theo patient ID
+    /// Get list of payments by patient ID
     /// </summary>
     Task<IEnumerable<PaymentResponse>> GetByPatientIdAsync(Guid patientId);
 
     /// <summary>
-    /// L?y danh s?ch payments theo patient ID v?i phân trang
+    /// Get list of payments by patient ID with pagination
     /// </summary>
     Task<PagedResult<PaymentResponse>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request);
 
     /// <summary>
-    /// L?y th?ng kê payments
+    /// Get payment statistics
     /// </summary>
     Task<PaymentStatisticsResponse> GetPaymentStatisticsAsync(GetPaymentStatisticsRequest request);
 
     /// <summary>
-    /// T?o payment m?i (generic - deprecated, nên dùng CreateAppointmentPaymentAsync ho?c CreateSubscriptionPaymentAsync)
+    /// Create new payment (generic - deprecated, use CreateAppointmentPaymentAsync or CreateSubscriptionPaymentAsync)
     /// </summary>
     Task<PaymentResponse> CreateAsync(CreatePaymentRequest request);
 
     /// <summary>
-    /// T?o payment cho appointment (patient ??t l?ch)
+    /// Create payment for appointment (patient books appointment)
     /// </summary>
     Task<PaymentResponse> CreateAppointmentPaymentAsync(CreateAppointmentPaymentRequest request);
 
     /// <summary>
-    /// T?o payment cho subscription (clinic ??ng ký gói)
+    /// Create payment for subscription (clinic subscribes to package)
     /// </summary>
     Task<PaymentResponse> CreateSubscriptionPaymentAsync(CreateSubscriptionPaymentRequest request);
 
     /// <summary>
-    /// C?p nh?t tr?ng th?i payment
+    /// Update payment status
     /// </summary>
     Task<PaymentResponse> UpdateStatusAsync(UpdatePaymentStatusRequest request);
 
     /// <summary>
-    /// X?a payment
+    /// Delete payment
     /// </summary>
     Task<bool> DeleteAsync(Guid id);
 }

@@ -6,7 +6,7 @@ using BookingCare.Services.Payment.Repositories.Interfaces;
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 
 /// <summary>
-/// Implementation c?a PayOS Payment Mapping Repository
+/// Implementation of PayOS Payment Mapping Repository
 /// </summary>
 public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
 {
@@ -18,7 +18,7 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     }
 
     /// <summary>
-    /// T?o mapping m?i gi?a PaymentId và OrderCode
+    /// Create a new mapping between PaymentId and OrderCode
     /// </summary>
     public async Task<PayOSPaymentMappingEntity> CreateMappingAsync(Guid paymentId, long orderCode, DateTime? expiresAt = null)
     {
@@ -31,7 +31,7 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     }
 
     /// <summary>
-    /// L?y PaymentId theo OrderCode
+    /// Get PaymentId by OrderCode
     /// </summary>
     public async Task<Guid?> GetPaymentIdByOrderCodeAsync(long orderCode)
     {
@@ -43,7 +43,7 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     }
 
     /// <summary>
-    /// L?y OrderCode theo PaymentId
+    /// Get OrderCode by PaymentId
     /// </summary>
     public async Task<long?> GetOrderCodeByPaymentIdAsync(Guid paymentId)
     {
@@ -55,7 +55,7 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     }
 
     /// <summary>
-    /// L?y mapping theo OrderCode
+    /// Get mapping by OrderCode
     /// </summary>
     public async Task<PayOSPaymentMappingEntity?> GetMappingByOrderCodeAsync(long orderCode)
     {
@@ -65,7 +65,7 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     }
 
     /// <summary>
-    /// Xóa mapping theo OrderCode (sau khi thanh toán hoàn t?t)
+    /// Delete mapping by OrderCode (after payment completed)
     /// </summary>
     public async Task<bool> DeleteMappingAsync(long orderCode)
     {
@@ -82,7 +82,7 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     }
 
     /// <summary>
-    /// Xóa các mapping ?ã h?t h?n (cleanup job)
+    /// Delete expired mappings (cleanup job)
     /// </summary>
     public async Task<int> CleanupExpiredMappingsAsync()
     {
@@ -101,7 +101,7 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     }
 
     /// <summary>
-    /// Ki?m tra mapping có t?n t?i không
+    /// Check if a mapping exists
     /// </summary>
     public async Task<bool> MappingExistsAsync(long orderCode)
     {

@@ -4,37 +4,37 @@ using BookingCare.Services.Payment.Models.Configurations;
 namespace BookingCare.Services.Payment.Services.Interfaces;
 
 /// <summary>
-/// Interface cho VNPay Service
+/// Interface for VNPay Service
 /// </summary>
 public interface IVNPayService
 {
     /// <summary>
-    /// Tạo URL thanh toán VNPay
+    /// Create VNPay payment URL
     /// </summary>
-    /// <param name="request">Thông tin thanh toán</param>
-    /// <returns>URL để redirect đến VNPay</returns>
+    /// <param name="request">Payment information</param>
+    /// <returns>URL to redirect to VNPay</returns>
     Task<VNPayPaymentResponse> CreatePaymentUrlAsync(VNPayPaymentRequest request);
 
     /// <summary>
-    /// Xử lý callback từ VNPay
+    /// Handle callback from VNPay
     /// </summary>
-    /// <param name="queryParams">Query parameters từ VNPay callback</param>
-    /// <returns>Kết quả xử lý callback</returns>
+    /// <param name="queryParams">Query parameters from VNPay callback</param>
+    /// <returns>Callback handling result</returns>
     Task<VNPayCallbackResponse> ProcessCallbackAsync(Dictionary<string, string> queryParams);
 
     /// <summary>
-    /// Validate chữ ký từ VNPay
+    /// Validate signature from VNPay
     /// </summary>
-    /// <param name="queryParams">Parameters từ VNPay</param>
-    /// <param name="secureHash">Chữ ký cần validate</param>
-    /// <returns>True nếu chữ ký hợp lệ</returns>
+    /// <param name="queryParams">Parameters from VNPay</param>
+    /// <param name="secureHash">Signature to validate</param>
+    /// <returns>True if signature is valid</returns>
     bool ValidateSignature(Dictionary<string, string> queryParams, string secureHash);
 
     /// <summary>
-    /// Query trạng thái giao dịch từ VNPay
+    /// Query transaction status from VNPay
     /// </summary>
-    /// <param name="transactionRef">Mã giao dịch</param>
-    /// <param name="transactionDate">Ngày giao dịch (yyyyMMdd)</param>
-    /// <returns>Thông tin giao dịch</returns>
+    /// <param name="transactionRef">Transaction reference</param>
+    /// <param name="transactionDate">Transaction date (yyyyMMdd)</param>
+    /// <returns>Transaction information</returns>
     Task<object> QueryTransactionAsync(string transactionRef, string transactionDate);
 }

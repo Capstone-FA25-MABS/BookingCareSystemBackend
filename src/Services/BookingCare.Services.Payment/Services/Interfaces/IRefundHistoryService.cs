@@ -6,67 +6,67 @@ using BookingCare.Shared.Common.Models;
 namespace BookingCare.Services.Payment.Services.Interfaces;
 
 /// <summary>
-/// Service interface cho RefundHistory
+/// Service interface for RefundHistory
 /// </summary>
 public interface IRefundHistoryService
 {
     /// <summary>
-    /// L?y refund history theo ID
+    /// Get refund history by ID
     /// </summary>
     Task<RefundHistoryResponse?> GetByIdAsync(Guid id);
 
     /// <summary>
-    /// L?y refund history theo payment ID
+    /// Get refund history by payment ID
     /// </summary>
     Task<RefundHistoryResponse?> GetByPaymentIdAsync(Guid paymentId);
 
     /// <summary>
-    /// L?y danh sách refund histories theo user ID
+    /// Get list of refund histories by user ID
     /// </summary>
     Task<IEnumerable<RefundHistoryResponse>> GetByUserIdAsync(Guid userId);
 
     /// <summary>
-    /// L?y danh sách refund histories theo user ID ch? v?i status PENDING và COMPLETED
+    /// Get list of refund histories by user ID with status PENDING and COMPLETED only
     /// </summary>
     Task<IEnumerable<RefundHistoryResponse>> GetProcessableRefundsByUserIdAsync(Guid userId);
 
     /// <summary>
-    /// L?y danh sách refund histories theo tr?ng thái
+    /// Get list of refund histories by status
     /// </summary>
     Task<IEnumerable<RefundHistoryResponse>> GetByStatusAsync(RefundStatus status);
 
     /// <summary>
-    /// L?y danh sách refund histories v?i phân trang
+    /// Get list of refund histories with pagination
     /// </summary>
     Task<PagedResult<RefundHistoryResponse>> GetPagedAsync(GetRefundHistoriesRequest request);
 
     /// <summary>
-    /// T?o refund history m?i
+    /// Create new refund history
     /// </summary>
     Task<RefundHistoryResponse> CreateAsync(CreateRefundHistoryRequest request);
 
     /// <summary>
-    /// C?p nh?t tr?ng thái refund history
+    /// Update refund history status
     /// </summary>
     Task<RefundHistoryResponse> UpdateStatusAsync(UpdateRefundHistoryStatusRequest request);
 
     /// <summary>
-    /// Xóa refund history
+    /// Delete refund history
     /// </summary>
     Task<bool> DeleteAsync(Guid id);
 
     /// <summary>
-    /// T? ??ng c?p nh?t refund histories t? WAITING sang PENDING khi user có bank account
+    /// Automatically update refund histories from WAITING to PENDING when user has a bank account
     /// </summary>
     Task<int> ProcessWaitingRefundsAsync();
 
     /// <summary>
-    /// L?y th?ng kê refund theo tr?ng thái
+    /// Get refund statistics by status
     /// </summary>
     Task<Dictionary<RefundStatus, int>> GetRefundStatisticsAsync();
 
     /// <summary>
-    /// Ki?m tra payment có th? refund không
+    /// Check if payment can be refunded
     /// </summary>
     Task<bool> CanRefundPaymentAsync(Guid paymentId);
 }

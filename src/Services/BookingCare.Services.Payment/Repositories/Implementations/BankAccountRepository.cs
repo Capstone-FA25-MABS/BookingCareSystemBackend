@@ -7,7 +7,7 @@ using BookingCare.Shared.Common.Models;
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 
 /// <summary>
-/// Repository implementation cho BankAccount
+/// Repository implementation for BankAccount
 /// </summary>
 public class BankAccountRepository : IBankAccountRepository
 {
@@ -19,7 +19,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Lấy bank account theo ID
+    /// Get bank account by ID
     /// </summary>
     public async Task<BankAccountEntity?> GetByIdAsync(Guid id)
     {
@@ -28,7 +28,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Lấy tất cả bank accounts của user
+    /// Get all bank accounts of a user
     /// </summary>
     public async Task<IEnumerable<BankAccountEntity>> GetByUserIdAsync(Guid userId)
     {
@@ -40,7 +40,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Lấy bank accounts của user với phân trang
+    /// Get bank accounts of a user with pagination
     /// </summary>
     public async Task<PagedResult<BankAccountEntity>> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, bool? activeOnly = null)
     {
@@ -71,7 +71,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Lấy bank account mặc định của user
+    /// Get the default bank account of a user
     /// </summary>
     public async Task<BankAccountEntity?> GetDefaultByUserIdAsync(Guid userId)
     {
@@ -80,7 +80,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Kiểm tra số tài khoản đã tồn tại chưa (không phân biệt user)
+    /// Check if an account number already exists (across users)
     /// </summary>
     public async Task<bool> AccountNumberExistsAsync(string accountNumber, string bankCode, Guid? excludeId = null)
     {
@@ -96,7 +96,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Kiểm tra số tài khoản đã tồn tại của user cụ thể chưa
+    /// Check if an account number already exists for a specific user
     /// </summary>
     public async Task<bool> AccountNumberExistsForUserAsync(string accountNumber, string bankCode, Guid userId, Guid? excludeId = null)
     {
@@ -112,7 +112,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Tìm bank account theo accountNumber, bankCode và userId (bao gồm cả inactive)
+    /// Find bank account by accountNumber, bankCode and userId (includes inactive)
     /// </summary>
     public async Task<BankAccountEntity?> FindByAccountNumberAndUserAsync(string accountNumber, string bankCode, Guid userId)
     {
@@ -123,7 +123,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Kiểm tra bank account có được sử dụng trong RefundHistories không
+    /// Check if bank account is used in RefundHistories
     /// </summary>
     public async Task<bool> HasRefundHistoriesAsync(Guid bankAccountId)
     {
@@ -132,7 +132,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Tạo bank account mới
+    /// Create a new bank account
     /// </summary>
     public async Task<BankAccountEntity> CreateAsync(BankAccountEntity entity)
     {
@@ -145,7 +145,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Cập nhật bank account
+    /// Update bank account
     /// </summary>
     public async Task<BankAccountEntity> UpdateAsync(BankAccountEntity entity)
     {
@@ -156,7 +156,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Xóa bank account
+    /// Delete bank account
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
@@ -170,20 +170,20 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Đặt tài khoản làm mặc định và bỏ mặc định các tài khoản khác của user
+    /// Set account as default and unset other accounts of the user
     /// </summary>
     public async Task SetAsDefaultAsync(Guid bankAccountId, Guid userId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            // Bỏ mặc định tất cả tài khoản khác của user
+            // Unset default for all other accounts of the user
             await _context.BankAccounts
                 .Where(x => x.UserId == userId && x.Id != bankAccountId)
                 .ExecuteUpdateAsync(x => x.SetProperty(p => p.IsDefault, false)
                                          .SetProperty(p => p.UpdatedAt, DateTime.UtcNow));
 
-            // Đặt tài khoản được chọn làm mặc định
+            // Set the selected account as default
             await _context.BankAccounts
                 .Where(x => x.Id == bankAccountId)
                 .ExecuteUpdateAsync(x => x.SetProperty(p => p.IsDefault, true)
@@ -199,7 +199,7 @@ public class BankAccountRepository : IBankAccountRepository
     }
 
     /// <summary>
-    /// Đếm số lượng bank accounts của user
+    /// Count bank accounts of a user
     /// </summary>
     public async Task<int> CountByUserIdAsync(Guid userId)
     {

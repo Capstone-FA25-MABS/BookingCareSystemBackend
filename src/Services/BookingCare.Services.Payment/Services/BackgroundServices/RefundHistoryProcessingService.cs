@@ -3,14 +3,14 @@ using BookingCare.Services.Payment.Services.Interfaces;
 namespace BookingCare.Services.Payment.Services.BackgroundServices;
 
 /// <summary>
-/// Background service ?? t? ??ng x? lý refund histories t? WAITING sang PENDING
-/// khi user có bank account active
+/// Background service to automatically process refund histories from WAITING to PENDING
+/// when user has an active bank account
 /// </summary>
 public class RefundHistoryProcessingService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<RefundHistoryProcessingService> _logger;
-    private readonly TimeSpan _interval = TimeSpan.FromMinutes(5); // Ch?y m?i 5 phút
+    private readonly TimeSpan _interval = TimeSpan.FromMinutes(5); // Runs every 5 minutes
 
     public RefundHistoryProcessingService(
         IServiceProvider serviceProvider,

@@ -9,7 +9,7 @@ using BookingCare.Shared.Common.Services;
 namespace BookingCare.Services.Payment.Services.Implementations;
 
 /// <summary>
-/// Implementation c?a PaymentMethod Service
+/// Implementation of PaymentMethod Service
 /// </summary>
 public class PaymentMethodService : BaseService, IPaymentMethodService
 {
@@ -26,7 +26,7 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
     }
 
     /// <summary>
-    /// L?y t?t c? payment methods - Thao t?c ??c ??n gi?n
+    /// Get all payment methods - Simple read operation
     /// </summary>
     public async Task<IEnumerable<PaymentMethodResponse>> GetAllAsync()
     {
@@ -35,7 +35,7 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
     }
 
     /// <summary>
-    /// L?y ch? payment methods ?ang active - Thao t?c ??c ??n gi?n
+    /// Get only active payment methods - Simple read operation
     /// </summary>
     public async Task<IEnumerable<PaymentMethodResponse>> GetActiveAsync()
     {
@@ -44,7 +44,7 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
     }
 
     /// <summary>
-    /// L?y payment method theo ID - Thao t?c ??c ??n gi?n
+    /// Get payment method by ID - Simple read operation
     /// </summary>
     public async Task<PaymentMethodResponse?> GetByIdAsync(Guid id)
     {
@@ -53,7 +53,7 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
     }
 
     /// <summary>
-    /// L?y payment method theo t?n - Thao t?c ??c ??n gi?n
+    /// Get payment method by name - Simple read operation
     /// </summary>
     public async Task<PaymentMethodResponse?> GetByNameAsync(string name)
     {
@@ -62,13 +62,13 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
     }
 
     /// <summary>
-    /// C?p nh?t tr?ng thái payment method - Thao t?c business B?T BU?C s? d?ng ExecuteWithErrorHandling
+    /// Update payment method status - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<PaymentMethodResponse> UpdateStatusAsync(UpdatePaymentMethodStatusRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("B?t ??u c?p nh?t tr?ng thái payment method: {PaymentMethodId} -> {Status}", null, request.Id, request.Status);
+            LogInfo("Starting to update payment method status: {PaymentMethodId} -> {Status}", null, request.Id, request.Status);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -78,7 +78,7 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
             if (paymentMethod == null)
             {
                 LogError(new ArgumentException($"Payment method with ID {request.Id} does not exist"),
-                    "Payment method kh?ng t?n t?i: {PaymentMethodId}", null, request.Id);
+                    "Payment method does not exist: {PaymentMethodId}", null, request.Id);
                 throw new ArgumentException($"Payment method with ID {request.Id} does not exist");
             }
 
@@ -86,19 +86,19 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
             paymentMethod.Status = request.Status;
             var updatedPaymentMethod = await _paymentMethodRepository.UpdateAsync(paymentMethod);
 
-            LogInfo("Tr?ng thái payment method ???c c?p nh?t th?nh c?ng: {PaymentMethodId}", null, request.Id);
+            LogInfo("Payment method status updated successfully: {PaymentMethodId}", null, request.Id);
             return _mapper.Map<PaymentMethodResponse>(updatedPaymentMethod);
         }, "UpdatePaymentMethodStatus");
     }
 
     /// <summary>
-    /// Toggle tr?ng thái payment method - Thao t?c business B?T BU?C s? d?ng ExecuteWithErrorHandling
+    /// Toggle payment method status - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<PaymentMethodResponse> ToggleStatusAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("B?t ??u toggle tr?ng thái payment method: {PaymentMethodId}", null, id);
+            LogInfo("Starting to toggle payment method status: {PaymentMethodId}", null, id);
 
             ValidateGuid(id, nameof(id));
 
@@ -106,7 +106,7 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
             if (paymentMethod == null)
             {
                 LogError(new ArgumentException($"Payment method with ID {id} does not exist"),
-                    "Payment method kh?ng t?n t?i: {PaymentMethodId}", null, id);
+                    "Payment method does not exist: {PaymentMethodId}", null, id);
                 throw new ArgumentException($"Payment method with ID {id} does not exist");
             }
 
@@ -118,7 +118,7 @@ public class PaymentMethodService : BaseService, IPaymentMethodService
 
             var updatedPaymentMethod = await _paymentMethodRepository.UpdateAsync(paymentMethod);
 
-            LogInfo("Toggle tr?ng thái payment method th?nh c?ng: {PaymentMethodId} - {OldStatus} -> {NewStatus}",
+            LogInfo("Payment method status toggled successfully: {PaymentMethodId} - {OldStatus} -> {NewStatus}",
                 null, id, oldStatus, paymentMethod.Status);
             return _mapper.Map<PaymentMethodResponse>(updatedPaymentMethod);
         }, "TogglePaymentMethodStatus");

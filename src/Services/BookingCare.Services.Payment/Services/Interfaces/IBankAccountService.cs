@@ -5,60 +5,55 @@ using BookingCare.Shared.Common.Models;
 namespace BookingCare.Services.Payment.Services.Interfaces;
 
 /// <summary>
-/// Service interface cho BankAccount
+/// Service interface for BankAccount
 /// </summary>
 public interface IBankAccountService
 {
     /// <summary>
-    /// L?y bank account theo ID
+    /// Get bank account by ID
     /// </summary>
     Task<BankAccountResponse?> GetByIdAsync(Guid id);
 
     /// <summary>
-    /// L?y t?t c? bank accounts c?a user
+    /// Get all bank accounts of a user
     /// </summary>
     Task<IEnumerable<BankAccountResponse>> GetByUserIdAsync(Guid userId);
 
     /// <summary>
-    /// L?y bank accounts c?a user v?i phân trang
+    /// Get bank accounts of a user with pagination
     /// </summary>
     Task<PagedResult<BankAccountResponse>> GetPagedByUserIdAsync(GetBankAccountsRequest request);
 
     /// <summary>
-    /// L?y bank account m?c ??nh c?a user
+    /// Get the default bank account of a user
     /// </summary>
     Task<BankAccountResponse?> GetDefaultByUserIdAsync(Guid userId);
 
     /// <summary>
-    /// T?o bank account m?i
+    /// Create a new bank account
     /// </summary>
     Task<BankAccountResponse> CreateAsync(CreateBankAccountRequest request);
 
     /// <summary>
-    /// C?p nh?t bank account
+    /// Update bank account
     /// </summary>
     Task<BankAccountResponse> UpdateAsync(UpdateBankAccountRequest request);
 
     /// <summary>
-    /// Xóa ho?c deactivate bank account thông minh
-    /// N?u bank account ???c s? d?ng trong RefundHistories -> ch? deactivate
-    /// N?u không ???c s? d?ng -> xóa h?n
+    /// Smart delete or deactivate bank account
+    /// If the bank account is used in RefundHistories -> only deactivate
+    /// If not used -> permanently delete
     /// </summary>
     Task<BankAccountDeleteResult> SmartDeleteAsync(Guid id);
 
-    /// <summary>
-    /// Xóa bank account (method c? - deprecated)
-    /// </summary>
-    [Obsolete("S? d?ng SmartDeleteAsync thay th?")]
-    Task<bool> DeleteAsync(Guid id);
 
     /// <summary>
-    /// ??t bank account làm m?c ??nh
+    /// Set bank account as default
     /// </summary>
     Task<BankAccountResponse> SetAsDefaultAsync(Guid bankAccountId);
 
     /// <summary>
-    /// Kích ho?t/vô hi?u hóa bank account
+    /// Activate/deactivate bank account
     /// </summary>
     Task<BankAccountResponse> ToggleActiveStatusAsync(Guid bankAccountId);
 }

@@ -4,37 +4,37 @@ using BookingCare.Services.Payment.Models.DTOs.Responses;
 namespace BookingCare.Services.Payment.Services.Interfaces;
 
 /// <summary>
-/// Interface cho PaymentMethod Service
+/// Interface for PaymentMethod Service
 /// </summary>
 public interface IPaymentMethodService
 {
     /// <summary>
-    /// L?y t?t c? payment methods
+    /// Get all payment methods
     /// </summary>
     Task<IEnumerable<PaymentMethodResponse>> GetAllAsync();
 
     /// <summary>
-    /// L?y ch? payment methods ?ang active
+    /// Get only active payment methods
     /// </summary>
     Task<IEnumerable<PaymentMethodResponse>> GetActiveAsync();
 
     /// <summary>
-    /// L?y payment method theo ID
+    /// Get payment method by ID
     /// </summary>
     Task<PaymentMethodResponse?> GetByIdAsync(Guid id);
 
     /// <summary>
-    /// L?y payment method theo t?n
+    /// Get payment method by name
     /// </summary>
     Task<PaymentMethodResponse?> GetByNameAsync(string name);
 
     /// <summary>
-    /// C?p nh?t tr?ng thái payment method
+    /// Update payment method status
     /// </summary>
     Task<PaymentMethodResponse> UpdateStatusAsync(UpdatePaymentMethodStatusRequest request);
 
     /// <summary>
-    /// Toggle tr?ng thái payment method (ACTIVE <-> INACTIVE)
+    /// Toggle payment method status (ACTIVE <-> INACTIVE)
     /// </summary>
     Task<PaymentMethodResponse> ToggleStatusAsync(Guid id);
 }

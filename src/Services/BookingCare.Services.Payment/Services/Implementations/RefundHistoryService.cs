@@ -13,7 +13,7 @@ using BookingCare.Shared.Common.Enums;
 namespace BookingCare.Services.Payment.Services.Implementations;
 
 /// <summary>
-/// Service implementation cho RefundHistory
+/// Service implementation for RefundHistory
 /// </summary>
 public class RefundHistoryService : BaseService, IRefundHistoryService
 {
@@ -36,7 +36,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// L?y refund history theo ID
+    /// Get refund history by ID
     /// </summary>
     public async Task<RefundHistoryResponse?> GetByIdAsync(Guid id)
     {
@@ -45,7 +45,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// L?y refund history theo payment ID
+    /// Get refund history by payment ID
     /// </summary>
     public async Task<RefundHistoryResponse?> GetByPaymentIdAsync(Guid paymentId)
     {
@@ -54,7 +54,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo user ID
+    /// Get list of refund histories by user ID
     /// </summary>
     public async Task<IEnumerable<RefundHistoryResponse>> GetByUserIdAsync(Guid userId)
     {
@@ -63,7 +63,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo tr?ng thái
+    /// Get list of refund histories by status
     /// </summary>
     public async Task<IEnumerable<RefundHistoryResponse>> GetByStatusAsync(RefundStatus status)
     {
@@ -72,7 +72,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// L?y danh sách refund histories v?i phân trang
+    /// Get list of refund histories with pagination
     /// </summary>
     public async Task<PagedResult<RefundHistoryResponse>> GetPagedAsync(GetRefundHistoriesRequest request)
     {
@@ -89,55 +89,55 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// T?o refund history m?i
+    /// Create new refund history
     /// </summary>
     public async Task<RefundHistoryResponse> CreateAsync(CreateRefundHistoryRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang t?o refund history cho Payment: {PaymentId}, User: {UserId}",
+            LogInfo("Creating refund history for Payment: {PaymentId}, User: {UserId}",
                 null, request.PaymentId, request.UserId);
 
             // Validation
             ValidateRequired(request, nameof(request));
 
-            // Ki?m tra payment có t?n t?i và có th? refund không
+            // Check if payment exists and can be refunded
             var payment = await _paymentRepository.GetByIdAsync(request.PaymentId);
             if (payment == null)
             {
                 throw new NotFoundException("Payment", request.PaymentId);
             }
 
-            // Ki?m tra payment ?ã ???c refund ch?a
+            // Check if payment already has a refund history
             var existingRefund = await _refundHistoryRepository.PaymentHasRefundAsync(request.PaymentId);
             if (existingRefund)
             {
-                throw new ConflictException($"Payment {request.PaymentId} ?ã có refund history");
+                throw new ConflictException($"Payment {request.PaymentId} already has a refund history");
             }
 
-            // Ki?m tra payment status ph?i là COMPLETED ?? có th? refund
+            // Check if payment status is COMPLETED to allow refund
             if (payment.Status != PaymentStatus.COMPLETED)
             {
-                throw new InvalidOperationException($"Ch? có th? refund payment có status COMPLETED. Payment hi?n t?i: {payment.Status}");
+                throw new InvalidOperationException($"Only payments with status COMPLETED can be refunded. Current payment status: {payment.Status}");
             }
 
-            // Ki?m tra s? ti?n refund không v??t quá s? ti?n payment
+            // Check if refund amount does not exceed payment amount
             if (request.RefundAmount > payment.Amount)
             {
-                throw new InvalidOperationException($"S? ti?n refund ({request.RefundAmount}) không ???c v??t quá s? ti?n payment ({payment.Amount})");
+                throw new InvalidOperationException($"Refund amount ({request.RefundAmount}) cannot exceed payment amount ({payment.Amount})");
             }
 
-            // T? ??ng xác ??nh tr?ng thái và bank account
+            // Automatically determine status and bank account
             var (status, bankAccountId) = await DetermineRefundStatusAsync(request.UserId, request.BankAccountId);
 
-            // T?o entity
+            // Create entity
             var entity = _mapper.Map<RefundHistoryEntity>(request);
             entity.Status = status;
             entity.BankAccountId = bankAccountId;
 
             var created = await _refundHistoryRepository.CreateAsync(entity);
 
-            LogInfo("Refund history ???c t?o thành công v?i ID: {Id}, Status: {Status}",
+            LogInfo("Refund history created successfully with ID: {Id}, Status: {Status}",
                 null, created.Id, created.Status);
 
             return _mapper.Map<RefundHistoryResponse>(created);
@@ -145,13 +145,13 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// C?p nh?t tr?ng thái refund history
+    /// Update refund history status
     /// </summary>
     public async Task<RefundHistoryResponse> UpdateStatusAsync(UpdateRefundHistoryStatusRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang c?p nh?t refund history v?i ID: {Id} sang status: {Status}",
+            LogInfo("Updating refund history with ID: {Id} to status: {Status}",
                 null, request.Id, request.Status);
 
             ValidateRequired(request, nameof(request));
@@ -165,7 +165,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             // Validate status transition
             ValidateStatusTransition(existing.Status, request.Status);
 
-            // Validate business rules cho t?ng status
+            // Validate business rules for each status
             await ValidateStatusUpdateAsync(existing, request);
 
             // Update entity
@@ -183,7 +183,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             if (request.ProcessedByStaffId.HasValue)
                 existing.ProcessedByStaffId = request.ProcessedByStaffId.Value;
 
-            // T? ??ng set transfer date khi status = COMPLETED
+            // Automatically set transfer date when status = COMPLETED
             if (request.Status == RefundStatus.COMPLETED && !existing.TransferDate.HasValue)
             {
                 existing.TransferDate = DateTime.UtcNow;
@@ -191,7 +191,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
 
             var updated = await _refundHistoryRepository.UpdateAsync(existing);
 
-            LogInfo("Refund history ???c c?p nh?t thành công v?i ID: {Id}, Status: {Status}",
+            LogInfo("Refund history updated successfully with ID: {Id}, Status: {Status}",
                 null, updated.Id, updated.Status);
 
             return _mapper.Map<RefundHistoryResponse>(updated);
@@ -199,13 +199,13 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// Xóa refund history
+    /// Delete refund history
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang xóa refund history v?i ID: {Id}", null, id);
+            LogInfo("Deleting refund history with ID: {Id}", null, id);
 
             var existing = await _refundHistoryRepository.GetByIdAsync(id);
             if (existing == null)
@@ -213,27 +213,27 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
                 return false;
             }
 
-            // Ch? cho phép xóa khi status = WAITING
+            // Only allow deletion when status = WAITING
             if (existing.Status != RefundStatus.WAITING)
             {
-                throw new InvalidOperationException($"Ch? có th? xóa refund history có status WAITING. Status hi?n t?i: {existing.Status}");
+                throw new InvalidOperationException($"Only refund histories with status WAITING can be deleted. Current status: {existing.Status}");
             }
 
             var result = await _refundHistoryRepository.DeleteAsync(id);
 
-            LogInfo("Refund history ???c xóa thành công v?i ID: {Id}", null, id);
+            LogInfo("Refund history deleted successfully with ID: {Id}", null, id);
             return result;
         }, "DeleteRefundHistory");
     }
 
     /// <summary>
-    /// T? ??ng c?p nh?t refund histories t? WAITING sang PENDING khi user có bank account
+    /// Automatically update refund histories from WAITING to PENDING when user has a bank account
     /// </summary>
     public async Task<int> ProcessWaitingRefundsAsync()
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("?ang x? lý các refund history WAITING", null);
+            LogInfo("Processing WAITING refund histories", null);
 
             var waitingRefunds = await _refundHistoryRepository.GetPendingProcessAsync();
             int processedCount = 0;
@@ -242,7 +242,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             {
                 try
                 {
-                    // L?y default bank account c?a user
+                    // Get user's default bank account
                     var defaultBankAccount = await _bankAccountRepository.GetDefaultByUserIdAsync(refund.UserId);
                     if (defaultBankAccount != null)
                     {
@@ -251,23 +251,23 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
                         await _refundHistoryRepository.UpdateAsync(refund);
                         processedCount++;
 
-                        LogInfo("Refund history {Id} ???c chuy?n sang PENDING v?i bank account {BankAccountId}",
+                        LogInfo("Refund history {Id} moved to PENDING with bank account {BankAccountId}",
                             null, refund.Id, defaultBankAccount.Id);
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogError(ex, "L?i khi x? lý refund history {Id}", null, refund.Id);
+                    LogError(ex, "Error processing refund history {Id}", null, refund.Id);
                 }
             }
 
-            LogInfo("?ã x? lý {Count} refund histories t? WAITING sang PENDING", null, processedCount);
+            LogInfo("Processed {Count} refund histories from WAITING to PENDING", null, processedCount);
             return processedCount;
         }, "ProcessWaitingRefunds");
     }
 
     /// <summary>
-    /// L?y th?ng kê refund theo tr?ng thái
+    /// Get refund statistics by status
     /// </summary>
     public async Task<Dictionary<RefundStatus, int>> GetRefundStatisticsAsync()
     {
@@ -283,7 +283,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// Ki?m tra payment có th? refund không
+    /// Check if payment can be refunded
     /// </summary>
     public async Task<bool> CanRefundPaymentAsync(Guid paymentId)
     {
@@ -298,7 +298,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo user ID ch? v?i status PENDING và COMPLETED
+    /// Get list of refund histories by user ID with status PENDING and COMPLETED only
     /// </summary>
     public async Task<IEnumerable<RefundHistoryResponse>> GetProcessableRefundsByUserIdAsync(Guid userId)
     {
@@ -309,11 +309,11 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     #region Private Methods
 
     /// <summary>
-    /// Xác ??nh tr?ng thái refund d?a trên user bank account
+    /// Determine refund status based on user bank account
     /// </summary>
     private async Task<(RefundStatus status, Guid? bankAccountId)> DetermineRefundStatusAsync(Guid userId, Guid? requestedBankAccountId)
     {
-        // N?u có ch? ??nh bank account c? th?
+        // If a specific bank account is provided
         if (requestedBankAccountId.HasValue)
         {
             var bankAccount = await _bankAccountRepository.GetByIdAsync(requestedBankAccountId.Value);
@@ -323,14 +323,14 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             }
         }
 
-        // Ki?m tra default bank account c?a user
+        // Check user's default bank account
         var defaultBankAccount = await _bankAccountRepository.GetDefaultByUserIdAsync(userId);
         if (defaultBankAccount != null)
         {
             return (RefundStatus.PENDING, defaultBankAccount.Id);
         }
 
-        // User ch?a có bank account active nào
+        // User does not have any active bank account
         return (RefundStatus.WAITING, null);
     }
 
@@ -343,46 +343,46 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
         {
             [RefundStatus.WAITING] = [RefundStatus.PENDING, RefundStatus.COMPLETED],
             [RefundStatus.PENDING] = [RefundStatus.COMPLETED, RefundStatus.WAITING],
-            [RefundStatus.COMPLETED] = [] // Không th? chuy?n t? COMPLETED sang status khác
+            [RefundStatus.COMPLETED] = [] // Cannot transition from COMPLETED to another status
         };
 
         if (!validTransitions[currentStatus].Contains(newStatus))
         {
-            throw new InvalidOperationException($"Không th? chuy?n t? status {currentStatus} sang {newStatus}");
+            throw new InvalidOperationException($"Cannot transition from status {currentStatus} to {newStatus}");
         }
     }
 
     /// <summary>
-    /// Validate business rules khi update status
+    /// Validate business rules when updating status
     /// </summary>
     private async Task ValidateStatusUpdateAsync(RefundHistoryEntity existing, UpdateRefundHistoryStatusRequest request)
     {
         switch (request.Status)
         {
             case RefundStatus.PENDING:
-                // Ph?i có bank account khi chuy?n sang PENDING
+                // Must have bank account when moving to PENDING
                 if (!request.BankAccountId.HasValue && !existing.BankAccountId.HasValue)
                 {
-                    throw new InvalidOperationException("Ph?i có bank account ?? chuy?n sang status PENDING");
+                    throw new InvalidOperationException("Must have a bank account to move to status PENDING");
                 }
 
-                // Validate bank account belongs to user và active
+                // Validate bank account belongs to user and is active
                 var bankAccountId = request.BankAccountId ?? existing.BankAccountId!.Value;
                 var bankAccount = await _bankAccountRepository.GetByIdAsync(bankAccountId);
                 if (bankAccount == null || bankAccount.UserId != existing.UserId || !bankAccount.IsActive)
                 {
-                    throw new InvalidOperationException("Bank account không h?p l? ho?c không thu?c v? user");
+                    throw new InvalidOperationException("Bank account is invalid or does not belong to user");
                 }
                 break;
 
             case RefundStatus.COMPLETED:
-                // Ph?i có bank account khi hoàn thành
+                // Must have bank account when completing refund
                 if (!request.BankAccountId.HasValue && !existing.BankAccountId.HasValue)
                 {
-                    throw new InvalidOperationException("Ph?i có bank account ?? hoàn thành refund");
+                    throw new InvalidOperationException("Must have a bank account to complete refund");
                 }
 
-                // Transfer date s? ???c t? ??ng set n?u không có
+                // Transfer date will be set automatically if not provided
                 break;
         }
     }

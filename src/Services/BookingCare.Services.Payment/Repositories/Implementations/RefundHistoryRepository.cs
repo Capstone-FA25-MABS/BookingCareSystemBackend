@@ -9,7 +9,7 @@ using BookingCare.Shared.Common.Models;
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 
 /// <summary>
-/// Repository implementation cho RefundHistory
+/// Repository implementation for RefundHistory
 /// </summary>
 public class RefundHistoryRepository : IRefundHistoryRepository
 {
@@ -21,7 +21,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// L?y refund history theo ID
+    /// Get refund history by ID
     /// </summary>
     public async Task<RefundHistoryEntity?> GetByIdAsync(Guid id)
     {
@@ -33,7 +33,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// L?y refund history theo payment ID
+    /// Get refund history by payment ID
     /// </summary>
     public async Task<RefundHistoryEntity?> GetByPaymentIdAsync(Guid paymentId)
     {
@@ -45,7 +45,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo user ID
+    /// Get list of refund histories by user ID
     /// </summary>
     public async Task<IEnumerable<RefundHistoryEntity>> GetByUserIdAsync(Guid userId)
     {
@@ -59,7 +59,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo user ID ch? v?i status PENDING và COMPLETED
+    /// Get list of refund histories by user ID with status PENDING and COMPLETED only
     /// </summary>
     public async Task<IEnumerable<RefundHistoryEntity>> GetProcessableRefundsByUserIdAsync(Guid userId)
     {
@@ -74,7 +74,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo tr?ng thái
+    /// Get list of refund histories by status
     /// </summary>
     public async Task<IEnumerable<RefundHistoryEntity>> GetByStatusAsync(RefundStatus status)
     {
@@ -88,7 +88,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// L?y danh sách refund histories v?i phân trang và filter
+    /// Get list of refund histories with pagination and filter
     /// </summary>
     public async Task<PagedResult<RefundHistoryEntity>> GetPagedAsync(GetRefundHistoriesRequest request)
     {
@@ -137,7 +137,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// Ki?m tra payment ?ã có refund history ch?a
+    /// Check if a payment already has a refund history
     /// </summary>
     public async Task<bool> PaymentHasRefundAsync(Guid paymentId)
     {
@@ -146,7 +146,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// ??m s? l??ng refund histories theo tr?ng thái
+    /// Count refund histories by status
     /// </summary>
     public async Task<int> CountByStatusAsync(RefundStatus status)
     {
@@ -155,7 +155,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// ??m s? l??ng refund histories c?a user
+    /// Count refund histories of a user
     /// </summary>
     public async Task<int> CountByUserIdAsync(Guid userId)
     {
@@ -164,7 +164,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// T?o refund history m?i
+    /// Create a new refund history
     /// </summary>
     public async Task<RefundHistoryEntity> CreateAsync(RefundHistoryEntity entity)
     {
@@ -179,7 +179,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// C?p nh?t refund history
+    /// Update refund history
     /// </summary>
     public async Task<RefundHistoryEntity> UpdateAsync(RefundHistoryEntity entity)
     {
@@ -193,7 +193,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// Xóa refund history
+    /// Delete refund history
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
@@ -207,7 +207,7 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
-    /// L?y danh sách refund histories c?n x? lý (WAITING -> PENDING khi user có bank account)
+    /// Get list of refund histories that need processing (WAITING -> PENDING when user has a bank account)
     /// </summary>
     public async Task<IEnumerable<RefundHistoryEntity>> GetPendingProcessAsync()
     {

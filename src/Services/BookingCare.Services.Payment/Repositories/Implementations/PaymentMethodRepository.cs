@@ -7,7 +7,7 @@ using BookingCare.Services.Payment.Enums;
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 
 /// <summary>
-/// Implementation của PaymentMethod Repository
+/// Implementation of PaymentMethod Repository
 /// </summary>
 public class PaymentMethodRepository : IPaymentMethodRepository
 {

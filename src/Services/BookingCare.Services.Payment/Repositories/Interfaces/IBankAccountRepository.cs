@@ -4,72 +4,72 @@ using BookingCare.Shared.Common.Models;
 namespace BookingCare.Services.Payment.Repositories.Interfaces;
 
 /// <summary>
-/// Repository interface cho BankAccount
+/// Repository interface for BankAccount
 /// </summary>
 public interface IBankAccountRepository
 {
     /// <summary>
-    /// L?y bank account theo ID
+    /// Get bank account by ID
     /// </summary>
     Task<BankAccountEntity?> GetByIdAsync(Guid id);
 
     /// <summary>
-    /// L?y t?t c? bank accounts c?a user
+    /// Get all bank accounts of a user
     /// </summary>
     Task<IEnumerable<BankAccountEntity>> GetByUserIdAsync(Guid userId);
 
     /// <summary>
-    /// L?y bank accounts c?a user v?i phân trang
+    /// Get bank accounts of a user with pagination
     /// </summary>
     Task<PagedResult<BankAccountEntity>> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, bool? activeOnly = null);
 
     /// <summary>
-    /// L?y bank account m?c ??nh c?a user
+    /// Get the default bank account of a user
     /// </summary>
     Task<BankAccountEntity?> GetDefaultByUserIdAsync(Guid userId);
 
     /// <summary>
-    /// Ki?m tra s? tài kho?n ?ã t?n t?i ch?a
+    /// Check if an account number already exists
     /// </summary>
     Task<bool> AccountNumberExistsAsync(string accountNumber, string bankCode, Guid? excludeId = null);
 
     /// <summary>
-    /// Ki?m tra s? tài kho?n ?ã t?n t?i user c? th? không
+    /// Check if an account number exists for a specific user
     /// </summary>
     Task<bool> AccountNumberExistsForUserAsync(string accountNumber, string bankCode, Guid userId, Guid? excludeId = null);
 
     /// <summary>
-    /// T?i bank account theo accountNumber, bankCode v? userId (bao g?m c? inactive)
+    /// Find bank account by accountNumber, bankCode and userId (includes inactive)
     /// </summary>
     Task<BankAccountEntity?> FindByAccountNumberAndUserAsync(string accountNumber, string bankCode, Guid userId);
 
     /// <summary>
-    /// Ki?m tra bank account có ???c s?a d?ng trong RefundHistories kh?ng
+    /// Check if bank account is used in RefundHistories
     /// </summary>
     Task<bool> HasRefundHistoriesAsync(Guid bankAccountId);
 
     /// <summary>
-    /// T?o bank account m?i
+    /// Create a new bank account
     /// </summary>
     Task<BankAccountEntity> CreateAsync(BankAccountEntity entity);
 
     /// <summary>
-    /// C?p nh?t bank account
+    /// Update bank account
     /// </summary>
     Task<BankAccountEntity> UpdateAsync(BankAccountEntity entity);
 
     /// <summary>
-    /// Xóa bank account
+    /// Delete bank account
     /// </summary>
     Task<bool> DeleteAsync(Guid id);
 
     /// <summary>
-    /// ??t tài kho?n làm m?c ??nh và b? m?c ??nh các tài kho?n khác c?a user
+    /// Set account as default and unset other accounts of the user
     /// </summary>
     Task SetAsDefaultAsync(Guid bankAccountId, Guid userId);
 
     /// <summary>
-    /// ??m s? l??ng bank accounts c?a user
+    /// Count bank accounts of a user
     /// </summary>
     Task<int> CountByUserIdAsync(Guid userId);
 }

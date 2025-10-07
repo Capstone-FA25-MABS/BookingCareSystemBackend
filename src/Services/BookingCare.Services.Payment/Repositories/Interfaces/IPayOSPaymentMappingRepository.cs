@@ -3,57 +3,57 @@ using BookingCare.Services.Payment.Models.Entities;
 namespace BookingCare.Services.Payment.Repositories.Interfaces;
 
 /// <summary>
-/// Interface cho PayOS Payment Mapping Repository
+/// Interface for PayOS Payment Mapping Repository
 /// </summary>
 public interface IPayOSPaymentMappingRepository
 {
     /// <summary>
-    /// T?o mapping m?i gi?a PaymentId và OrderCode
+    /// Create a new mapping between PaymentId and OrderCode
     /// </summary>
-    /// <param name="paymentId">ID c?a payment</param>
-    /// <param name="orderCode">Order code t? PayOS</param>
-    /// <param name="expiresAt">Th?i gian h?t h?n (tùy ch?n)</param>
-    /// <returns>Mapping entity ?ã t?o</returns>
+    /// <param name="paymentId">ID of the payment</param>
+    /// <param name="orderCode">Order code from PayOS</param>
+    /// <param name="expiresAt">Expiration time (optional)</param>
+    /// <returns>The created mapping entity</returns>
     Task<PayOSPaymentMappingEntity> CreateMappingAsync(Guid paymentId, long orderCode, DateTime? expiresAt = null);
 
     /// <summary>
-    /// L?y PaymentId theo OrderCode
+    /// Get PaymentId by OrderCode
     /// </summary>
-    /// <param name="orderCode">Order code t? PayOS</param>
-    /// <returns>PaymentId n?u tìm th?y, null n?u không</returns>
+    /// <param name="orderCode">Order code from PayOS</param>
+    /// <returns>PaymentId if found, null otherwise</returns>
     Task<Guid?> GetPaymentIdByOrderCodeAsync(long orderCode);
 
     /// <summary>
-    /// L?y OrderCode theo PaymentId
+    /// Get OrderCode by PaymentId
     /// </summary>
-    /// <param name="paymentId">ID c?a payment</param>
-    /// <returns>OrderCode n?u tìm th?y, null n?u không</returns>
+    /// <param name="paymentId">ID of the payment</param>
+    /// <returns>OrderCode if found, null otherwise</returns>
     Task<long?> GetOrderCodeByPaymentIdAsync(Guid paymentId);
 
     /// <summary>
-    /// L?y mapping theo OrderCode
+    /// Get mapping by OrderCode
     /// </summary>
-    /// <param name="orderCode">Order code t? PayOS</param>
-    /// <returns>Mapping entity n?u tìm th?y, null n?u không</returns>
+    /// <param name="orderCode">Order code from PayOS</param>
+    /// <returns>Mapping entity if found, null otherwise</returns>
     Task<PayOSPaymentMappingEntity?> GetMappingByOrderCodeAsync(long orderCode);
 
     /// <summary>
-    /// Xóa mapping theo OrderCode (sau khi thanh toán hoàn t?t)
+    /// Delete mapping by OrderCode (after payment completed)
     /// </summary>
-    /// <param name="orderCode">Order code t? PayOS</param>
-    /// <returns>True n?u xóa thành công</returns>
+    /// <param name="orderCode">Order code from PayOS</param>
+    /// <returns>True if deletion succeeded</returns>
     Task<bool> DeleteMappingAsync(long orderCode);
 
     /// <summary>
-    /// Xóa các mapping ?ã h?t h?n (cleanup job)
+    /// Delete expired mappings (cleanup job)
     /// </summary>
-    /// <returns>S? l??ng mapping ?ã xóa</returns>
+    /// <returns>Number of mappings deleted</returns>
     Task<int> CleanupExpiredMappingsAsync();
 
     /// <summary>
-    /// Ki?m tra mapping có t?n t?i không
+    /// Check if a mapping exists
     /// </summary>
-    /// <param name="orderCode">Order code t? PayOS</param>
-    /// <returns>True n?u t?n t?i</returns>
+    /// <param name="orderCode">Order code from PayOS</param>
+    /// <returns>True if exists</returns>
     Task<bool> MappingExistsAsync(long orderCode);
 }

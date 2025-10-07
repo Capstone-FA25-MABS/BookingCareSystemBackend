@@ -10,7 +10,7 @@ using BookingCare.Shared.Common.Services;
 namespace BookingCare.Services.Payment.Services.Implementations;
 
 /// <summary>
-/// Implementation của VNPay Service
+/// Implementation of VNPay Service
 /// </summary>
 public class VNPayService : BaseService, IVNPayService
 {
@@ -45,7 +45,7 @@ public class VNPayService : BaseService, IVNPayService
     }
 
     /// <summary>
-    /// Tạo URL thanh toán VNPay
+    /// Create VNPay payment URL
     /// </summary>
     public async Task<VNPayPaymentResponse> CreatePaymentUrlAsync(VNPayPaymentRequest request)
     {
@@ -58,7 +58,7 @@ public class VNPayService : BaseService, IVNPayService
             ValidateGuid(request.PaymentId, nameof(request.PaymentId));
 
             if (request.Amount <= 0)
-                throw new ArgumentException("Amount phải lớn hơn 0");
+                throw new ArgumentException("Amount must be greater than 0");
 
             // Generate transaction data
             var vietnamTime = DateTime.Now;
@@ -112,7 +112,7 @@ public class VNPayService : BaseService, IVNPayService
     }
 
     /// <summary>
-    /// Xử lý callback từ VNPay
+    /// Handle callback from VNPay
     /// </summary>
     public async Task<VNPayCallbackResponse> ProcessCallbackAsync(Dictionary<string, string> queryParams)
     {
@@ -128,8 +128,6 @@ public class VNPayService : BaseService, IVNPayService
 
             // Extract and validate signature
             var receivedHash = queryParams["vnp_SecureHash"];
-
-
 
             // Create response object
             var response = new VNPayCallbackResponse
@@ -154,7 +152,7 @@ public class VNPayService : BaseService, IVNPayService
     }
 
     /// <summary>
-    /// Validate chữ ký từ VNPay
+    /// Validate signature from VNPay
     /// </summary>
     public bool ValidateSignature(Dictionary<string, string> queryParams, string inputHash)
     {
@@ -199,7 +197,7 @@ public class VNPayService : BaseService, IVNPayService
     }
 
     /// <summary>
-    /// Query trạng thái giao dịch từ VNPay (tính năng nâng cao)
+    /// Query transaction status from VNPay (advanced feature)
     /// </summary>
     public async Task<object> QueryTransactionAsync(string transactionRef, string transactionDate)
     {
@@ -212,7 +210,7 @@ public class VNPayService : BaseService, IVNPayService
 
             return new
             {
-                Message = "VNPay Query Transaction API chưa được implement",
+                Message = "VNPay Query Transaction API not implemented yet",
                 TransactionRef = transactionRef,
                 TransactionDate = transactionDate
             };
@@ -220,7 +218,7 @@ public class VNPayService : BaseService, IVNPayService
     }
 
     /// <summary>
-    /// Tạo URL request với signature
+    /// Create request URL with signature
     /// </summary>
     private string CreateRequestUrl(string baseUrl, SortedList<string, string> requestData, string hashSecret)
     {
@@ -247,31 +245,31 @@ public class VNPayService : BaseService, IVNPayService
     }
 
     /// <summary>
-    /// Clean OrderInfo để tuân thủ VNPay format
+    /// Clean OrderInfo to comply with VNPay format
     /// </summary>
     private string CleanOrderInfo(string orderInfo)
     {
         if (string.IsNullOrEmpty(orderInfo))
-            return "Thanh toan don hang";
+            return "Order payment";
 
-        // VNPay chỉ chấp nhận: a-z, A-Z, 0-9, space, dot, dash, underscore
+        // VNPay only accepts: a-z, A-Z, 0-9, space, dot, dash, underscore
         var cleaned = System.Text.RegularExpressions.Regex.Replace(orderInfo, @"[^a-zA-Z0-9\s\.\-_]", "");
 
         if (cleaned.Length > 255)
             cleaned = cleaned.Substring(0, 255);
 
-        return string.IsNullOrWhiteSpace(cleaned) ? "Thanh toan don hang" : cleaned.Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "Order payment" : cleaned.Trim();
     }
 
     /// <summary>
-    /// Clean customer info để tuân thủ VNPay format
+    /// Clean customer info to comply with VNPay format
     /// </summary>
     private string CleanCustomerInfo(string customerInfo)
     {
         if (string.IsNullOrEmpty(customerInfo))
             return "";
 
-        // Chỉ giữ lại chữ cái và số
+        // Only keep letters and numbers
         var cleaned = System.Text.RegularExpressions.Regex.Replace(customerInfo, @"[^a-zA-Z0-9\s]", "");
 
         if (cleaned.Length > 50)

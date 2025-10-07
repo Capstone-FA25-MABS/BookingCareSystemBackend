@@ -3,44 +3,44 @@
 namespace BookingCare.Services.Payment.Services.Interfaces;
 
 /// <summary>
-/// Interface cho PayOS Service
+/// Interface for PayOS Service
 /// </summary>
 public interface IPayOSService
 {
     /// <summary>
-    /// T?o payment link PayOS
+    /// Create PayOS payment link
     /// </summary>
-    /// <param name="request">Thông tin thanh toán</param>
-    /// <returns>Payment link và thông tin thanh toán</returns>
+    /// <param name="request">Payment information</param>
+    /// <returns>Payment link and payment information</returns>
     Task<PayOSPaymentResponse> CreatePaymentLinkAsync(PayOSPaymentRequest request);
 
     /// <summary>
-    /// Xử lý callback từ PayOS (khi user quay về từ PayOS)
+    /// Handle callback from PayOS (when user returns from PayOS)
     /// </summary>
-    /// <param name="orderCode">Order code từ PayOS</param>
-    /// <param name="code">Mã phản hồi từ PayOS</param>
-    /// <param name="cancel">Có bị hủy không</param>
-    /// <returns>Kết quả xử lý callback</returns>
+    /// <param name="orderCode">Order code from PayOS</param>
+    /// <param name="code">Response code from PayOS</param>
+    /// <param name="cancel">Was it cancelled</param>
+    /// <returns>Callback handling result</returns>
     Task<PayOSCallbackResponse> ProcessCallbackAsync(long orderCode, string code, bool cancel);
 
     /// <summary>
-    /// L?y thông tin payment t? PayOS
+    /// Get payment info from PayOS
     /// </summary>
-    /// <param name="orderCode">Mã ??n hàng PayOS</param>
-    /// <returns>Thông tin chi ti?t payment</returns>
+    /// <param name="orderCode">PayOS order code</param>
+    /// <returns>Detailed payment information</returns>
     Task<object> GetPaymentInfoAsync(long orderCode);
 
     /// <summary>
-    /// H?y payment link PayOS
+    /// Cancel PayOS payment link
     /// </summary>
-    /// <param name="orderCode">Mã ??n hàng PayOS</param>
-    /// <param name="cancellationReason">Lý do h?y</param>
-    /// <returns>K?t qu? h?y payment</returns>
+    /// <param name="orderCode">PayOS order code</param>
+    /// <param name="cancellationReason">Reason for cancellation</param>
+    /// <returns>Result of payment cancellation</returns>
     Task<bool> CancelPaymentLinkAsync(long orderCode, string cancellationReason = "");
 
     /// <summary>
-    /// Cleanup các mapping đã hết hạn
+    /// Cleanup expired mappings
     /// </summary>
-    /// <returns>Số lượng mapping đã xóa</returns>
+    /// <returns>Number of mappings deleted</returns>
     Task<int> CleanupExpiredMappingsAsync();
 }

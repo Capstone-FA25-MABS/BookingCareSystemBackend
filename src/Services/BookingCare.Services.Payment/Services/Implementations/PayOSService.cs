@@ -13,7 +13,7 @@ using BookingCare.Shared.Common.Services;
 namespace BookingCare.Services.Payment.Services.Implementations;
 
 /// <summary>
-/// Implementation của PayOS Service
+/// Implementation of PayOS Service
 /// </summary>
 public class PayOSService : BaseService, IPayOSService
 {
@@ -59,7 +59,7 @@ public class PayOSService : BaseService, IPayOSService
     }
 
     /// <summary>
-    /// Tạo payment link PayOS
+    /// Create PayOS payment link
     /// </summary>
     public async Task<PayOSPaymentResponse> CreatePaymentLinkAsync(PayOSPaymentRequest request)
     {
@@ -72,12 +72,12 @@ public class PayOSService : BaseService, IPayOSService
             ValidateGuid(request.PaymentId, nameof(request.PaymentId));
 
             if (request.Amount <= 0)
-                throw new ArgumentException("Amount phải lớn hơn 0");
+                throw new ArgumentException("Amount must be greater than 0");
 
-            // Kiểm tra payment tồn tại
+            // Check if payment exists
             var payment = await _paymentService.GetByIdAsync(request.PaymentId);
             if (payment == null)
-                throw new ArgumentException($"Payment với ID {request.PaymentId} không tìm thấy");
+                throw new ArgumentException($"Payment with ID {request.PaymentId} not found");
 
             // Generate unique order code (timestamp + random)
             var orderCode = GenerateOrderCode();
@@ -91,7 +91,7 @@ public class PayOSService : BaseService, IPayOSService
             }
             else
             {
-                // Default item nếu không có items
+                // Default item if no items provided
                 items.Add(new ItemData(request.Description, 1, (int)request.Amount));
             }
 
@@ -99,13 +99,13 @@ public class PayOSService : BaseService, IPayOSService
             var expireAt = DateTime.Now.AddMinutes(_payOSConfig.TimeoutInMinutes);
             var expiredAt = ((DateTimeOffset)expireAt).ToUnixTimeSeconds();
 
-            // CancelUrl cần mang orderCode để client biết user đã hủy đơn nào
+            // CancelUrl should include orderCode so client knows which order was cancelled
             string cancelUrl = $"{_payOSConfig.CancelUrl}?orderCode={orderCode}";
 
             // Create PaymentData with buyer info if available
             var paymentData = new PaymentData(
                 orderCode: orderCode,
-                amount: (int)4000,
+                amount: (int)request.Amount,
                 description: request.Description,
                 items: items,
                 returnUrl: _payOSConfig.ReturnUrl,
@@ -121,7 +121,7 @@ public class PayOSService : BaseService, IPayOSService
             // Create payment link
             var createResult = await _payOS.createPaymentLink(paymentData);
 
-            // Lưu mapping PaymentId -> OrderCode (giữ lại cho cả webhook & callback để tránh trạng thái race)
+            // Save mapping PaymentId -> OrderCode (for both webhook & callback to avoid race conditions)
             await _mappingRepository.CreateMappingAsync(request.PaymentId, orderCode, DateTime.UtcNow);
 
             LogInfo("PayOS payment link created successfully - OrderCode: {OrderCode}, CheckoutUrl: {CheckoutUrl}",
@@ -138,7 +138,7 @@ public class PayOSService : BaseService, IPayOSService
     }
 
     /// <summary>
-    /// Xử lý callback từ PayOS (khi user quay về từ PayOS)
+    /// Handle callback from PayOS (when user returns from PayOS)
     /// </summary>
     public async Task<PayOSCallbackResponse> ProcessCallbackAsync(long orderCode, string code, bool cancel)
     {
@@ -147,7 +147,7 @@ public class PayOSService : BaseService, IPayOSService
             LogInfo("Processing PayOS callback - OrderCode: {OrderCode}, Code: {Code}, Cancel: {Cancel}",
                 null, orderCode, code, cancel);
 
-            // Lấy PaymentId từ mapping (mapping được giữ lại dù webhook đã xử lý để callback vẫn biết PaymentId)
+            // Get PaymentId from mapping (mapping is kept even if webhook processed so callback can still resolve PaymentId)
             var paymentId = await _mappingRepository.GetPaymentIdByOrderCodeAsync(orderCode);
 
             if (!paymentId.HasValue)
@@ -155,7 +155,7 @@ public class PayOSService : BaseService, IPayOSService
                 LogWarning("PayOS Callback - Cannot find PaymentId for OrderCode: {OrderCode} (mapping absent, possibly cleaned or race)",
                     null, orderCode);
 
-                // Thử lấy payment info từ PayOS để tạo response (không suy ra được PaymentId nữa)
+                // Try to get payment info from PayOS to create response (cannot resolve PaymentId anymore)
                 try
                 {
                     var paymentInfo = await _payOS.getPaymentLinkInformation(orderCode);
@@ -172,7 +172,7 @@ public class PayOSService : BaseService, IPayOSService
                         OrderCode = orderCode,
                         Amount = paymentInfo.amount,
                         ResponseCode = code ?? "00",
-                        Message = callbackSuccess ? "Thanh toán đã được xử lý thành công (mapping missing)" : "Thanh toán đã được xử lý nhưng thất bại",
+                        Message = callbackSuccess ? "Payment processed successfully (mapping missing)" : "Payment processed but failed",
                         PaymentDate = callbackSuccess ? DateTime.UtcNow : null,
                         Reference = orderCode.ToString()
                     };
@@ -191,7 +191,7 @@ public class PayOSService : BaseService, IPayOSService
                         OrderCode = orderCode,
                         Amount = 0,
                         ResponseCode = code ?? "UNKNOWN",
-                        Message = "Giao dịch đã được xử lý trước đó (mapping missing)",
+                        Message = "Transaction was processed previously (mapping missing)",
                         PaymentDate = null,
                         Reference = orderCode.ToString()
                     };
@@ -200,15 +200,15 @@ public class PayOSService : BaseService, IPayOSService
                 }
             }
 
-            // Lấy thông tin payment từ hệ thống
+            // Get payment info from system
             var payment = await _paymentService.GetByIdAsync(paymentId.Value);
             if (payment == null)
             {
                 LogWarning("PayOS Callback - Payment not found in system for PaymentId: {PaymentId}", null, paymentId.Value);
-                throw new ArgumentException($"Payment với ID {paymentId.Value} không tìm thấy");
+                throw new ArgumentException($"Payment with ID {paymentId.Value} not found");
             }
 
-            // Nếu payment đã được xử lý bởi webhook trước (khác PENDING) -> vẫn trả PaymentId (không xóa mapping ngay)
+            // If payment was already processed by webhook (not PENDING) -> still return PaymentId (do not delete mapping immediately)
             if (payment.Status != PaymentStatus.PENDING)
             {
                 LogInfo("PayOS Callback - Payment already processed - PaymentId: {PaymentId}, Status: {Status}",
@@ -221,7 +221,7 @@ public class PayOSService : BaseService, IPayOSService
                     OrderCode = orderCode,
                     Amount = payment.Amount,
                     ResponseCode = payment.Status == PaymentStatus.COMPLETED ? "00" : "01",
-                    Message = payment.Status == PaymentStatus.COMPLETED ? "Thanh toán đã hoàn thành" : "Thanh toán đã thất bại",
+                    Message = payment.Status == PaymentStatus.COMPLETED ? "Payment completed" : "Payment failed",
                     PaymentDate = payment.Status == PaymentStatus.COMPLETED ? DateTime.UtcNow : null,
                     Reference = orderCode.ToString()
                 };
@@ -229,7 +229,7 @@ public class PayOSService : BaseService, IPayOSService
                 return alreadyProcessedResponse;
             }
 
-            // Xử lý payment mới
+            // Process new payment
             PaymentStatus newStatus;
             bool isSuccess;
             string message;
@@ -238,13 +238,13 @@ public class PayOSService : BaseService, IPayOSService
             {
                 newStatus = PaymentStatus.FAILED;
                 isSuccess = false;
-                message = "Thanh toán đã bị hủy bởi người dùng";
+                message = "Payment was cancelled by user";
             }
             else
             {
                 isSuccess = code == "00";
                 newStatus = isSuccess ? PaymentStatus.COMPLETED : PaymentStatus.FAILED;
-                message = isSuccess ? "Thanh toán thành công" : $"Thanh toán thất bại - Mã lỗi: {code}";
+                message = isSuccess ? "Payment successful" : $"Payment failed - Error code: {code}";
             }
 
             await _paymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
@@ -253,8 +253,8 @@ public class PayOSService : BaseService, IPayOSService
                 Status = newStatus
             });
 
-            // KHÔNG xóa mapping tại đây để webhook/callback có thể tra cứu bất kỳ thứ tự nào.
-            // Mapping sẽ được dọn bởi job cleanup dựa trên expiresAt.
+            // DO NOT delete mapping here so webhook/callback can resolve any order.
+            // Mapping will be cleaned up by scheduled job based on expiresAt.
 
             LogInfo("PayOS Callback - Successfully processed - PaymentId: {PaymentId}, Status: {Status}",
                 null, paymentId.Value, newStatus);
@@ -276,10 +276,8 @@ public class PayOSService : BaseService, IPayOSService
         }, "ProcessCallbackAsync");
     }
 
-
-
     /// <summary>
-    /// Cleanup các mapping đã hết hạn
+    /// Cleanup expired mappings
     /// </summary>
     public async Task<int> CleanupExpiredMappingsAsync()
     {
@@ -295,10 +293,8 @@ public class PayOSService : BaseService, IPayOSService
         }, "CleanupExpiredMappingsAsync");
     }
 
-
-
     /// <summary>
-    /// Lấy thông tin payment từ PayOS
+    /// Get payment info from PayOS
     /// </summary>
     public async Task<object> GetPaymentInfoAsync(long orderCode)
     {
@@ -317,7 +313,7 @@ public class PayOSService : BaseService, IPayOSService
     }
 
     /// <summary>
-    /// Hủy payment link PayOS
+    /// Cancel PayOS payment link
     /// </summary>
     public async Task<bool> CancelPaymentLinkAsync(long orderCode, string cancellationReason = "")
     {
@@ -333,8 +329,8 @@ public class PayOSService : BaseService, IPayOSService
 
             if (success)
             {
-                // Có thể giữ mapping để client vẫn resolve được PaymentId sau khi user trở về trang hủy.
-                // Không xóa mapping ở đây; cleanup định kỳ sẽ xử lý.
+                // Mapping can be kept so client can still resolve PaymentId after user returns to cancel page.
+                // Do not delete mapping here; periodic cleanup will handle it.
             }
 
             LogInfo("PayOS payment link cancellation result - OrderCode: {OrderCode}, Success: {Success}",
@@ -346,7 +342,7 @@ public class PayOSService : BaseService, IPayOSService
     }
 
     /// <summary>
-    /// Generate unique order code cho PayOS
+    /// Generate unique order code for PayOS
     /// </summary>
     private long GenerateOrderCode()
     {
