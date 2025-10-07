@@ -24,6 +24,22 @@ public class UserNotFoundException : NotFoundException
     }
 }
 
+public class EmailAlreadyExistsException : ConflictException
+{
+    public EmailAlreadyExistsException(string email)
+        : base($"Email {email} already exists.", "EMAIL_ALREADY_EXISTS")
+    {
+    }
+}
+
+public class PhoneAlreadyExistsException : ConflictException
+{
+    public PhoneAlreadyExistsException(string phone)
+        : base($"Phone {phone} already exists.", "PHONE_ALREADY_EXISTS")
+    {
+    }
+}
+
 
 
 

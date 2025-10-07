@@ -99,7 +99,11 @@ public class UsersController : BaseApiController
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            var updatedUser = await _userService.UpdateAsync(accountId, updateUserRequest);
+            // Get confirmation statuses from JWT claims
+            var (emailConfirmed, phoneConfirmed) = JwtHelper.GetConfirmationStatuses(HttpContext);
+
+            // Update with confirmation statuses (service will handle user lookup)
+            var updatedUser = await _userService.UpdateByAccountIdAsync(accountId, updateUserRequest, emailConfirmed, phoneConfirmed);
             return Success(updatedUser, "User profile updated successfully");
         }
         catch (UnauthorizedAccessException ex)
@@ -128,13 +132,14 @@ public class UsersController : BaseApiController
     }
 
     /// <summary>
-    /// Update user
+    /// Update user (Admin only - bypasses confirmation checks)
     /// </summary>
     /// <param name="id">User ID</param>
     /// <param name="updateUserRequest">User update data</param>
     /// <returns>Updated user</returns>
     [HttpPut("{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest updateUserRequest)
     {
         if (!ModelState.IsValid)
@@ -145,7 +150,8 @@ public class UsersController : BaseApiController
                 .ToList());
         }
 
-        var user = await _userService.UpdateAsync(id, updateUserRequest);
+        // Admin updates bypass confirmation checks (defaults to false, false)
+        var user = await _userService.UpdateAsync(id, updateUserRequest, emailConfirmed: false, phoneConfirmed: false);
         return Success(user, "User updated successfully");
     }
 

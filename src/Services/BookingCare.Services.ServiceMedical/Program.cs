@@ -49,6 +49,7 @@ app.UseRouting();
 app.MapControllers();
 
 // Configure gRPC services
+// Configure the HTTP request pipeline.
 app.MapGrpcService<ServiceMedicalGrpcService>();
 app.MapGet("/", () => "BookingCare Service Medical Service is running...");
 

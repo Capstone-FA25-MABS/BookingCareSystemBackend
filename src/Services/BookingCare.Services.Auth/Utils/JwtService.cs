@@ -55,8 +55,7 @@ public class JwtService : BaseService
             // Add roles to claims
             claims.AddRange(roles.SelectMany(role => new[]
             {
-                    new Claim(ClaimTypes.Role, role.Name ?? ""),
-                    new Claim("role", role.Name ?? "")
+                    new Claim(ClaimTypes.Role, role.Name ?? "")
                 }));
 
             // Add permissions to claims
@@ -66,9 +65,12 @@ public class JwtService : BaseService
             }
 
             // Add custom claims for security
-            claims.Add(new Claim("account_status", account.Status.ToString()));
-            claims.Add(new Claim("phone_number", account.PhoneNumber ?? ""));
-            claims.Add(new Claim("created_at", account.CreatedAt.ToString("O")));
+            claims.Add(new Claim("confirmEmail", account.EmailConfirmed.ToString()));
+            claims.Add(new Claim("confirmPhone", account.PhoneNumberConfirmed.ToString()));
+
+            // Check if account has external login provider
+            var hasExternalProvider = await _authRepository.HasExternalLoginAsync(account);
+            claims.Add(new Claim("hasExternalProvider", hasExternalProvider.ToString()));
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {

@@ -153,6 +153,22 @@ public class PositionsController : BaseApiController
         return Success<object?>(null, "Position deleted successfully");
     }
 
+    /// <summary>
+    /// Toggle position status (ACTIVE/INACTIVE)
+    /// </summary>
+    [HttpPatch("{id}/toggle-status")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> TogglePositionStatus(Guid id)
+    {
+        var result = await _positionService.TogglePositionStatusAsync(id);
+        if (!result)
+        {
+            return NotFound($"Position with ID {id} not found");
+        }
+
+        return Success<object?>(null, "Position status toggled successfully");
+    }
+
     #endregion
 
     #region Validation Endpoints

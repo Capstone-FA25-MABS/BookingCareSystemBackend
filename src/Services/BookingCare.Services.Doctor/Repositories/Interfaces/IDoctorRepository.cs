@@ -35,6 +35,10 @@ public interface IDoctorRepository
 
     // DoctorPrice Query operations
     Task<List<DoctorPriceEntity>> GetDoctorPricesAsync(Guid doctorId);
+
+    // Optimized methods for gRPC performance
+    Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
+    Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
     Task<bool> DeleteAllDoctorPricesAsync(Guid doctorId);
 
     // Language operations

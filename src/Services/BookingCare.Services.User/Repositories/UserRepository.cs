@@ -241,4 +241,30 @@ public class UserRepository : IUserRepository
         }
     }
 
+    public async Task<bool> EmailExistsAsync(string email)
+    {
+        try
+        {
+            return await _context.Users.AnyAsync(u => u.Email == email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{ServiceName}] Database error when checking email existence: {Email}", ServiceName, email);
+            throw new UserException($"[{ServiceName}] Failed to check email existence", innerException: ex);
+        }
+    }
+
+    public async Task<bool> PhoneExistsAsync(string phone)
+    {
+        try
+        {
+            return await _context.Users.AnyAsync(u => u.Phone == phone);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{ServiceName}] Database error when checking phone existence: {Phone}", ServiceName, phone);
+            throw new UserException($"[{ServiceName}] Failed to check phone existence", innerException: ex);
+        }
+    }
+
 }
