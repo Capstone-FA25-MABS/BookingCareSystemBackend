@@ -59,7 +59,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 request.PatientId, request.AppointmentDate, request.AppointmentTimeId);
             if (hasConflict)
             {
-                throw new AppointmentConflictException(request.PatientId, request.AppointmentDate, request.AppointmentTimeId);
+                throw new AppointmentConflictException(request.PatientId, request.AppointmentDate);
             }
 
             // Check doctor availability if doctor is specified
@@ -69,7 +69,7 @@ public class AppointmentService : BaseService, IAppointmentService
                     request.DoctorId.Value, request.AppointmentDate, request.AppointmentTimeId);
                 if (!isDoctorAvailable)
                 {
-                    throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate, request.AppointmentTimeId);
+                    throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate);
                 }
                 request.Status = AppointmentStatus.CONFIRMED;
             }
@@ -86,11 +86,11 @@ public class AppointmentService : BaseService, IAppointmentService
         }, "CreateAppointment");
     }
 
-    public async Task<AppointmentResponse?> GetAppointmentByIdAsync(Guid id)
+    public async Task<AppointmentResponse?> GetAppointmentByIdForPatientAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Getting appointment by ID: {AppointmentId}", null, id);
+            LogInfo("Getting appointment by ID for patient: {AppointmentId}", null, id);
 
             var appointment = await _appointmentRepository.GetAppointmentByIdAsync(id);
             if (appointment == null)
@@ -99,17 +99,26 @@ public class AppointmentService : BaseService, IAppointmentService
                 return null;
             }
 
-            LogInfo("Appointment found: {AppointmentId}", null, appointment.Id);
-            return _mapper.Map<AppointmentResponse>(appointment);
-        }, "GetAppointmentById");
+            var response = _mapper.Map<AppointmentResponse>(appointment);
+
+            // Enrich appointment with external data for patient view
+            await EnrichAppointmentsWithExternalDataAsync(
+                new List<AppointmentResponse> { response },
+                new List<AppointmentEntity> { appointment },
+                Role.PATIENT
+            );
+
+            LogInfo("Appointment found and enriched: {AppointmentId}", null, appointment.Id);
+            return response;
+        }, "GetAppointmentByIdForPatient");
     }
 
     public async Task<AppointmentListResponse> GetAppointmentsByPatientAsync(AppointmentQueryRequest query)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Getting appointments with query: Page={PageNumber}, Size={PageSize}",
-                null, query.PageNumber, query.PageSize);
+            LogInfo("Getting appointments with query: Page={PageNumber}, Size={PageSize}, IncludeStatusCounts={IncludeStatusCounts}",
+                null, query.PageNumber, query.PageSize, query.IncludeStatusCounts);
 
             var (appointments, totalCount) = await _appointmentRepository.GetAppointmentsAsync(query, Role.PATIENT);
             var responses = _mapper.Map<List<AppointmentResponse>>(appointments);
@@ -124,6 +133,13 @@ public class AppointmentService : BaseService, IAppointmentService
                 PageNumber = query.PageNumber,
                 PageSize = query.PageSize
             };
+
+            // Include status counts if requested
+            if (query.IncludeStatusCounts && query.PatientId.HasValue)
+            {
+                response.StatusCounts = await GetStatusCountsAsync(query.PatientId.Value, Role.PATIENT);
+                LogInfo("Included status counts for patient {PatientId}", null, query.PatientId.Value);
+            }
 
             LogInfo("Retrieved {Count} appointments out of {TotalCount}",
                 null, appointments.Count, totalCount);
@@ -496,6 +512,44 @@ public class AppointmentService : BaseService, IAppointmentService
         catch (Grpc.Core.RpcException rpcEx)
         {
             LogWarning("gRPC error batch fetching patients for {Context}: {Error}", null, context, rpcEx.Status.Detail);
+        }
+    }
+
+    /// <summary>
+    /// Get counts for all statuses for a specific user (patient or doctor/staff)
+    /// Uses optimized repository method with single DB query
+    /// </summary>
+    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(Guid userId, Role role)
+    {
+        try
+        {
+            // Determine user type based on role
+            Guid? patientId = role == Role.PATIENT ? userId : null;
+            Guid? doctorId = role == Role.DOCTOR ? userId : null;
+
+            // Get counts using optimized repository method (single query with GROUP BY)
+            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(patientId, doctorId);
+
+            var counts = new AppointmentStatusCounts
+            {
+                Pending = statusCountsDict.GetValueOrDefault(AppointmentStatus.PENDING, 0),
+                Confirmed = statusCountsDict.GetValueOrDefault(AppointmentStatus.CONFIRMED, 0),
+                Cancelled = statusCountsDict.GetValueOrDefault(AppointmentStatus.CANCELLED, 0),
+                Completed = statusCountsDict.GetValueOrDefault(AppointmentStatus.COMPLETED, 0)
+            };
+
+            counts.Total = counts.Pending + counts.Confirmed + counts.Cancelled + counts.Completed;
+
+            LogInfo("Retrieved status counts for user {UserId}: Total={Total}, Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
+                null, userId, counts.Total, counts.Pending, counts.Confirmed, counts.Cancelled, counts.Completed);
+
+            return counts;
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Failed to get status counts for user {UserId}: {Error}", null, userId, ex.Message);
+            // Return empty counts on error
+            return new AppointmentStatusCounts();
         }
     }
 
