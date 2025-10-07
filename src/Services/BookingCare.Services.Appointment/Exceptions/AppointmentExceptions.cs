@@ -35,12 +35,11 @@ public class AppointmentNotFoundException : NotFoundException
 /// </summary>
 public class AppointmentConflictException : ConflictException
 {
-    public AppointmentConflictException(Guid patientId, DateTime appointmentDate, Guid timeSlotId)
+    public AppointmentConflictException(Guid patientId, DateTime appointmentDate)
         : base($"Patient already has an appointment on {appointmentDate:yyyy-MM-dd} at the specified time slot.", "APPOINTMENT_CONFLICT")
     {
         Details["PatientId"] = patientId;
         Details["AppointmentDate"] = appointmentDate;
-        Details["TimeSlotId"] = timeSlotId;
     }
 }
 
@@ -49,12 +48,11 @@ public class AppointmentConflictException : ConflictException
 /// </summary>
 public class DoctorNotAvailableException : ConflictException
 {
-    public DoctorNotAvailableException(Guid doctorId, DateTime appointmentDate, Guid timeSlotId)
+    public DoctorNotAvailableException(Guid doctorId, DateTime appointmentDate)
         : base($"Doctor is not available on {appointmentDate:yyyy-MM-dd} at the specified time slot.", "DOCTOR_NOT_AVAILABLE")
     {
         Details["DoctorId"] = doctorId;
         Details["AppointmentDate"] = appointmentDate;
-        Details["TimeSlotId"] = timeSlotId;
     }
 }
 
