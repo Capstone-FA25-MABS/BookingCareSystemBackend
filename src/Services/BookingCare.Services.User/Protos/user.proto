@@ -20,6 +20,12 @@ service UserService {
   
   // Batch retrieval for performance optimization
   rpc GetUsersByAccountIds (GetUsersByAccountIdsRequest) returns (UserBatchResponse);
+  
+  // Get basic user info (optimized for performance)
+  rpc GetUserBasicInfo (GetUserBasicInfoRequest) returns (UserBasicInfoResponse);
+  
+  // Get multiple users basic info (batch operation for performance)
+  rpc GetUsersBasicInfo (GetUsersBasicInfoRequest) returns (UsersBasicInfoResponse);
 }
 
 // Request messages
@@ -83,4 +89,29 @@ message DeleteUserRequest {
 message DeleteUserResponse {
   bool success = 1;
   string message = 2;
+}
+
+// Request message for basic user info
+message GetUserBasicInfoRequest {
+  string id = 1;
+}
+
+// Response message for basic user info (optimized for performance)
+message UserBasicInfoResponse {
+  string id = 1;
+  string email = 2;
+  string phone = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string avatar_url = 6;
+}
+
+// Request message for getting multiple users basic info
+message GetUsersBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Response message for multiple users basic info
+message UsersBasicInfoResponse {
+  repeated UserBasicInfoResponse users = 1;
 }

@@ -74,7 +74,9 @@ builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
-
+// Add JWT Authentication and Authorization using centralized configuration
+// This includes: JWT auth, authorization, and frontend configuration
+builder.Services.AddJwtAuthAndAuthorization();
 // Add logging
 builder.Logging.AddCommonLogging();
 
@@ -90,14 +92,10 @@ var app = builder.Build();
 app.UseCommonSwaggerUI("Doctor");
 
 app.UseGlobalExceptionHandling();
-
+app.UseStandardAuthPipeline();
 // Add custom middleware in order
 app.UseMiddleware<DoctorSecurityMiddleware>();
 app.UseMiddleware<DoctorRateLimitingMiddleware>();
-
-// Configure routing
-app.UseRouting();
-
 
 // Map controllers for REST API
 app.MapControllers();
