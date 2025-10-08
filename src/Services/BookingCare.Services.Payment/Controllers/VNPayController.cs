@@ -2,6 +2,7 @@
 using FluentValidation;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.VNPay;
+using BookingCare.Services.Payment.Helpers;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 
@@ -47,13 +48,12 @@ public class VNPayController : BaseApiController
         }, "VNPay service is healthy");
     }
 
-    // Replace the GetClientIP method to use model binding for client IP
-    // Instead of accessing Request.Headers directly, use [FromHeader] in the action parameter
-
-    // 1. Remove the GetClientIP method entirely.
-
-    // 2. Update the CreatePaymentUrl action to accept client IP via model binding:
-
+    /// <summary>
+    /// Create VNPay payment URL
+    /// </summary>
+    /// <param name="request">Payment information</param>
+    /// <param name="forwardedFor">X-Forwarded-For header for client IP detection</param>
+    /// <returns>URL to redirect to VNPay</returns>
     [HttpPost("create-payment-url")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreatePaymentUrl([FromBody] VNPayPaymentRequest request, [FromHeader(Name = "X-Forwarded-For")] string? forwardedFor)
@@ -82,17 +82,13 @@ public class VNPayController : BaseApiController
                 return BadRequest("Invalid request data", errors);
             }
 
-            // Validate payment exists
-            var payment = await _paymentService.GetByIdAsync(request.PaymentId);
-            if (payment == null)
-            {
-                return NotFound($"Payment with ID {request.PaymentId} was not found");
-            }
+            // Use shared payment validation helper (VNPay doesn't require PENDING status validation)
+            var (validationError, _) = await PaymentValidationHelper.ValidatePaymentForGatewayAsync(
+                _paymentService, request.PaymentId, request.Amount, validateStatus: false);
 
-            // Validate amount matches
-            if (Math.Abs(payment.Amount - request.Amount) > 0.01m)
+            if (validationError != null)
             {
-                return BadRequest("Amount does not match the payment in the system");
+                return validationError;
             }
 
             // Create VNPay payment URL
@@ -224,8 +220,6 @@ public class VNPayController : BaseApiController
             return StatusCode(500, new { Message = "An error occurred while querying VNPay transaction" });
         }
     }
-
-
 
     /// <summary>
     /// Convert VNPay response code to human readable message

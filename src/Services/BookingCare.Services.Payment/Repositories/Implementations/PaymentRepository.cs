@@ -52,38 +52,11 @@ public class PaymentRepository : IPaymentRepository
 
     public async Task<PagedResult<PaymentEntity>> GetPagedByHospitalIdAsync(Guid hospitalId, GetPaymentsPagedRequest request)
     {
-        var query = _context.Payments
+        var baseQuery = _context.Payments
             .Include(p => p.PaymentMethod)
             .Where(p => p.HospitalId == hospitalId);
 
-        // Apply search filter if provided
-        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
-        {
-            query = query.Where(p =>
-                p.PaymentMethod.Name.Contains(request.SearchTerm) ||
-                p.Amount.ToString().Contains(request.SearchTerm) ||
-                p.Status.ToString().Contains(request.SearchTerm));
-        }
-
-        // Apply sorting
-        query = ApplySorting(query, request.SortBy, request.SortOrder);
-
-        // Get total count
-        var totalCount = await query.CountAsync();
-
-        // Apply pagination
-        var items = await query
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .ToListAsync();
-
-        return new PagedResult<PaymentEntity>
-        {
-            Items = items,
-            TotalCount = totalCount,
-            PageNumber = request.PageNumber,
-            PageSize = request.PageSize
-        };
+        return await GetPagedResultAsync(baseQuery, request);
     }
 
     public async Task<IEnumerable<PaymentEntity>> GetByPatientIdAsync(Guid patientId)
@@ -97,9 +70,19 @@ public class PaymentRepository : IPaymentRepository
 
     public async Task<PagedResult<PaymentEntity>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request)
     {
-        var query = _context.Payments
+        var baseQuery = _context.Payments
             .Include(p => p.PaymentMethod)
             .Where(p => p.PatientId == patientId);
+
+        return await GetPagedResultAsync(baseQuery, request);
+    }
+
+    /// <summary>
+    /// Common helper method for pagination, search, and sorting
+    /// </summary>
+    private async Task<PagedResult<PaymentEntity>> GetPagedResultAsync(IQueryable<PaymentEntity> baseQuery, GetPaymentsPagedRequest request)
+    {
+        var query = baseQuery;
 
         // Apply search filter if provided
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))

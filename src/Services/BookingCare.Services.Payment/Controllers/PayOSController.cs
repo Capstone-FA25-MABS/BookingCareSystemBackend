@@ -2,6 +2,7 @@
 using FluentValidation;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.PayOS;
+using BookingCare.Services.Payment.Helpers;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
@@ -69,23 +70,13 @@ public class PayOSController : BaseApiController
                 return BadRequest("Invalid request data", errors);
             }
 
-            // Validate payment exists
-            var payment = await _paymentService.GetByIdAsync(request.PaymentId);
-            if (payment == null)
-            {
-                return NotFound($"Payment with ID {request.PaymentId} was not found");
-            }
+            // Use shared payment validation helper (PayOS requires PENDING status validation)
+            var (validationError, _) = await PaymentValidationHelper.ValidatePaymentForGatewayAsync(
+                _paymentService, request.PaymentId, request.Amount, validateStatus: true);
 
-            // Validate amount matches
-            if (Math.Abs(payment.Amount - request.Amount) > 0.01m)
+            if (validationError != null)
             {
-                return BadRequest("Amount does not match the payment in the system");
-            }
-
-            // Validate payment status
-            if (payment.Status != PaymentStatus.PENDING)
-            {
-                return BadRequest($"Payment has been processed with status: {payment.Status}");
+                return validationError;
             }
 
             // Create PayOS payment link
