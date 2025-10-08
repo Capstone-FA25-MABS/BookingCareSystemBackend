@@ -2,8 +2,8 @@
 # Stage 1: Base runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
-EXPOSE 6007
-EXPOSE 6017
+EXPOSE 8080
+EXPOSE 8081
 
 # Create non-root user for security
 RUN groupadd -g 1000 appuser && \
@@ -16,23 +16,23 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 # Copy only project files first for better caching
-COPY ["src/Services/BookingCare.Services.Discount/BookingCare.Services.Discount.csproj", "src/Services/BookingCare.Services.Discount/"]
+COPY ["src/Services/BookingCare.Services.Favorites/BookingCare.Services.Favorites.csproj", "src/Services/BookingCare.Services.Favorites/"]
 COPY ["src/Shared/BookingCare.Shared.Common/BookingCare.Shared.Common.csproj", "src/Shared/BookingCare.Shared.Common/"]
 
 # Restore dependencies
-RUN dotnet restore "src/Services/BookingCare.Services.Discount/BookingCare.Services.Discount.csproj"
+RUN dotnet restore "src/Services/BookingCare.Services.Favorites/BookingCare.Services.Favorites.csproj"
 
 # Copy all source code
 COPY . .
 
 # Build the application
-WORKDIR "/src/src/Services/BookingCare.Services.Discount"
-RUN dotnet build "BookingCare.Services.Discount.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
+WORKDIR "/src/src/Services/BookingCare.Services.Favorites"
+RUN dotnet build "BookingCare.Services.Favorites.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
 
 # Stage 3: Publish
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "BookingCare.Services.Discount.csproj" \
+RUN dotnet publish "BookingCare.Services.Favorites.csproj" \
     -c $BUILD_CONFIGURATION \
     -o /app/publish \
     --no-restore \
@@ -54,12 +54,12 @@ USER appuser
 
 # Environment variables
 ENV ASPNETCORE_ENVIRONMENT=Production \
-    ASPNETCORE_URLS=http://+:6007;http://+:6017 \
+    ASPNETCORE_URLS=http://+:8080 \
     DOTNET_RUNNING_IN_CONTAINER=true \
     DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:6007/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
-ENTRYPOINT ["dotnet", "BookingCare.Services.Discount.dll"]
+ENTRYPOINT ["dotnet", "BookingCare.Services.Favorites.dll"]

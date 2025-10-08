@@ -16,23 +16,31 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 # Copy only project files first for better caching
-COPY ["src/Services/BookingCare.Services.Analytics/BookingCare.Services.Analytics.csproj", "src/Services/BookingCare.Services.Analytics/"]
+COPY ["src/Services/BookingCare.Services.Schedule/BookingCare.Services.Schedule.csproj", "src/Services/BookingCare.Services.Schedule/"]
+COPY ["src/Services/BookingCare.Services.Doctor/BookingCare.Services.Doctor.csproj", "src/Services/BookingCare.Services.Doctor/"]
+COPY ["src/Services/BookingCare.Services.ServiceMedical/BookingCare.Services.ServiceMedical.csproj", "src/Services/BookingCare.Services.ServiceMedical/"]
 COPY ["src/Shared/BookingCare.Shared.Common/BookingCare.Shared.Common.csproj", "src/Shared/BookingCare.Shared.Common/"]
+COPY ["src/Shared/BookingCare.Shared.Cache/BookingCare.Shared.Cache.csproj", "src/Shared/BookingCare.Shared.Cache/"]
+COPY ["src/Shared/BookingCare.Shared.EventBus/BookingCare.Shared.EventBus.csproj", "src/Shared/BookingCare.Shared.EventBus/"]
+
+# Copy proto files needed for gRPC
+COPY ["src/Services/BookingCare.Services.Doctor/Protos/", "src/Services/BookingCare.Services.Doctor/Protos/"]
+COPY ["src/Services/BookingCare.Services.ServiceMedical/Protos/", "src/Services/BookingCare.Services.ServiceMedical/Protos/"]
 
 # Restore dependencies
-RUN dotnet restore "src/Services/BookingCare.Services.Analytics/BookingCare.Services.Analytics.csproj"
+RUN dotnet restore "src/Services/BookingCare.Services.Schedule/BookingCare.Services.Schedule.csproj"
 
 # Copy all source code
 COPY . .
 
 # Build the application
-WORKDIR "/src/src/Services/BookingCare.Services.Analytics"
-RUN dotnet build "BookingCare.Services.Analytics.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
+WORKDIR "/src/src/Services/BookingCare.Services.Schedule"
+RUN dotnet build "BookingCare.Services.Schedule.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
 
 # Stage 3: Publish
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "BookingCare.Services.Analytics.csproj" \
+RUN dotnet publish "BookingCare.Services.Schedule.csproj" \
     -c $BUILD_CONFIGURATION \
     -o /app/publish \
     --no-restore \
@@ -62,4 +70,4 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-ENTRYPOINT ["dotnet", "BookingCare.Services.Analytics.dll"]
+ENTRYPOINT ["dotnet", "BookingCare.Services.Schedule.dll"]
