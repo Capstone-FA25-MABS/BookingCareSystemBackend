@@ -347,7 +347,11 @@ public class PayOSService : BaseService, IPayOSService
     private long GenerateOrderCode()
     {
         var timestamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-        var random = new Random().Next(1000, 9999);
+        // Generate a cryptographically secure random number
+        using var rng = RandomNumberGenerator.Create();
+        byte[] randomNumber = new byte[4];
+        rng.GetBytes(randomNumber);
+        var random = BitConverter.ToUInt32(randomNumber) % 9000 + 1000; // Get a random number between 1000 and 9999
 
         var orderCode = long.Parse($"{timestamp}{random}");
 
