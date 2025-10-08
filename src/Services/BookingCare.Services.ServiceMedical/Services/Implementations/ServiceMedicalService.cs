@@ -13,17 +13,20 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private readonly IServiceRepository _serviceRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<ServiceMedicalService> _logger;
+        private readonly IHospitalServiceClient _hospitalServiceClient;
 
         public ServiceMedicalService(
             IServiceCategoryRepository categoryRepository,
             IServiceRepository serviceRepository,
             IMapper mapper,
-            ILogger<ServiceMedicalService> logger)
+            ILogger<ServiceMedicalService> logger,
+            IHospitalServiceClient hospitalServiceClient)
         {
             _categoryRepository = categoryRepository;
             _serviceRepository = serviceRepository;
             _mapper = mapper;
             _logger = logger;
+            _hospitalServiceClient = hospitalServiceClient;
         }
 
         #region ServiceCategory Operations
@@ -401,6 +404,57 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             {
                 _logger.LogError(ex, "Error getting hospitals by service category: {CategoryId}", request.ServiceCategoryId);
                 throw new InvalidOperationException($"Failed to retrieve hospitals for service category '{request.ServiceCategoryId}'", ex);
+            }
+        }
+
+        // New method: Get services by category with hospital information
+        public async Task<ServicesByCategoryWithHospitalResponse> GetServicesByCategoryWithHospitalAsync(GetServicesByCategoryRequest request)
+        {
+            try
+            {
+                // Get category info
+                var category = await _categoryRepository.GetByIdAsync(request.ServiceCategoryId);
+                if (category == null)
+                {
+                    throw new ArgumentException($"Service category with ID {request.ServiceCategoryId} not found");
+                }
+
+                // Get services by category
+                var servicesResult = await GetServicesByCategoryAsync(request);
+                
+                // Extract unique hospital IDs from services
+                var hospitalIds = servicesResult.Services
+                    .Select(s => s.HospitalId)
+                    .Distinct()
+                    .ToList();
+
+                // Get hospital information from Hospital Service
+                var hospitals = await _hospitalServiceClient.GetHospitalsByIdsAsync(hospitalIds);
+                var hospitalDict = hospitals.ToDictionary(h => h.Id, h => h);
+
+                // Map services with hospital information
+                var servicesWithHospital = servicesResult.Services.Select(service =>
+                {
+                    var serviceWithHospital = _mapper.Map<ServiceWithHospitalResponse>(service);
+                    serviceWithHospital.Hospital = hospitalDict.TryGetValue(service.HospitalId, out var hospital) ? hospital : null;
+                    return serviceWithHospital;
+                }).ToList();
+
+                return new ServicesByCategoryWithHospitalResponse
+                {
+                    ServiceCategoryId = request.ServiceCategoryId,
+                    ServiceCategoryName = category.Name,
+                    TotalServices = servicesResult.TotalCount,
+                    Page = servicesResult.Page,
+                    PageSize = servicesResult.PageSize,
+                    TotalPages = servicesResult.TotalPages,
+                    Services = servicesWithHospital
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", request.ServiceCategoryId);
+                throw new InvalidOperationException($"Failed to retrieve services with hospital information for category '{request.ServiceCategoryId}'", ex);
             }
         }
 

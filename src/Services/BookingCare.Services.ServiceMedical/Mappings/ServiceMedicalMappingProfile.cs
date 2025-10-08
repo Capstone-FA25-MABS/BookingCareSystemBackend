@@ -30,6 +30,9 @@ namespace BookingCare.Services.ServiceMedical.Mappings
             CreateMap<ServiceEntity, ServiceResponse>()
                 .ForMember(dest => dest.ServiceCategory, opt => opt.MapFrom(src => src.ServiceCategory));
 
+            CreateMap<ServiceResponse, ServiceWithHospitalResponse>()
+                .ForMember(dest => dest.Hospital, opt => opt.Ignore());
+
             CreateMap<CreateServiceRequest, ServiceEntity>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => "INACTIVE"))

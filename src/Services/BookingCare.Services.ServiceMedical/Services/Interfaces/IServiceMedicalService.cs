@@ -40,6 +40,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
 
         // Business Operations - Theo luồng bạn yêu cầu
         Task<HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategoryAsync(GetHospitalsByServiceCategoryRequest request);
+        
+        // New method: Get services by category with hospital information
+        Task<ServicesByCategoryWithHospitalResponse> GetServicesByCategoryWithHospitalAsync(GetServicesByCategoryRequest request);
 
         #endregion
 

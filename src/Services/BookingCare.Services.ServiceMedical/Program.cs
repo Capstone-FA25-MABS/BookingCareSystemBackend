@@ -30,6 +30,13 @@ builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 
 // Add Services
 builder.Services.AddScoped<IServiceMedicalService, ServiceMedicalService>();
+builder.Services.AddScoped<IHospitalServiceClient, HospitalServiceClient>();
+
+// Add HttpClient for Hospital Service
+builder.Services.AddHttpClient<IHospitalServiceClient, HospitalServiceClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 builder.Services.AddControllers();
 builder.Services.AddGrpc();

@@ -243,6 +243,45 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             }
         }
 
+        /// <summary>
+        /// Get services by category with hospital information
+        /// </summary>
+        /// <param name="categoryId">Service category ID</param>
+        /// <param name="page">Page number</param>
+        /// <param name="pageSize">Page size</param>
+        /// <param name="includeInactive">Include inactive services</param>
+        /// <returns>List of services in the category with hospital information</returns>
+        [HttpGet("category/{categoryId}/with-hospital")]
+        public async Task<ActionResult<ServicesByCategoryWithHospitalResponse>> GetServicesByCategoryWithHospital(
+            Guid categoryId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] bool includeInactive = false)
+        {
+            try
+            {
+                var request = new GetServicesByCategoryRequest
+                {
+                    ServiceCategoryId = categoryId,
+                    Page = page,
+                    PageSize = pageSize,
+                    IncludeInactive = includeInactive
+                };
+
+                var result = await _serviceMedicalService.GetServicesByCategoryWithHospitalAsync(request);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", categoryId);
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
         #endregion
     }
 }

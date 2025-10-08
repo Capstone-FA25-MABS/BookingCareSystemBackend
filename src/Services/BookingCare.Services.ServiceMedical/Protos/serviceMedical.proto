@@ -4,50 +4,88 @@ option csharp_namespace = "BookingCare.Services.ServiceMedical.Protos";
 
 package servicemedical;
 
-// The medical service definition.
+// The service medical service definition
 service ServiceMedicalService {
-  // Get medical service by ID
-  rpc GetServiceMedical (GetServiceMedicalRequest) returns (ServiceMedicalResponse);
+  // Get service categories (parents)
+  rpc GetParentServiceCategories (GetParentServiceCategoriesRequest) returns (ServiceCategoriesResponse);
   
-  // Validate if a medical service exists and is active
-  rpc ValidateServiceMedical (ValidateServiceMedicalRequest) returns (ValidateServiceMedicalResponse);
+  // Get service category children
+  rpc GetServiceCategoryChildren (GetServiceCategoryChildrenGrpcRequest) returns (ServiceCategoriesResponse);
   
-  // Get multiple medical services by IDs
-  rpc GetServiceMedicalsByIds (GetServiceMedicalsByIdsRequest) returns (ServiceMedicalBatchResponse);
+  // Get hospitals by service category
+  rpc GetHospitalsByServiceCategory (GetHospitalsByServiceCategoryGrpcRequest) returns (HospitalsByServiceCategoryResponse);
+  
+  // Get service by ID
+  rpc GetService (GetServiceGrpcRequest) returns (ServiceResponse);
+  
+  // Get services by category
+  rpc GetServicesByCategory (GetServicesByCategoryGrpcRequest) returns (ServicesResponse);
 }
 
 // Request messages
-message GetServiceMedicalRequest {
-  string id = 1; // GUID as string
+message GetParentServiceCategoriesRequest {
+  // Empty request
 }
 
-message ValidateServiceMedicalRequest {
-  string id = 1; // GUID as string
+message GetServiceCategoryChildrenGrpcRequest {
+  string parent_id = 1;
+  bool include_inactive = 2;
 }
 
-message GetServiceMedicalsByIdsRequest {
-  repeated string ids = 1; // GUID as string
+message GetHospitalsByServiceCategoryGrpcRequest {
+  string service_category_id = 1;
+  bool include_inactive = 2;
+}
+
+message GetServiceGrpcRequest {
+  string id = 1;
+}
+
+message GetServicesByCategoryGrpcRequest {
+  string service_category_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  bool include_inactive = 4;
 }
 
 // Response messages
-message ServiceMedicalResponse {
-  string id = 1; // GUID as string
+message ServiceCategoryResponse {
+  string id = 1;
   string name = 2;
   string description = 3;
-  string category = 4;
-  double price = 5;
-  int32 duration_minutes = 6;
-  bool is_active = 7;
-  string created_at = 8; // ISO 8601
-  string updated_at = 9; // ISO 8601
+  string image_url = 4;
+  string parent_id = 5;
+  string status = 6;
 }
 
-message ValidateServiceMedicalResponse {
-  bool is_valid = 1;
-  bool is_active = 2;
-  string message = 3;
+message ServiceCategoriesResponse {
+  repeated ServiceCategoryResponse categories = 1;
 }
 
-message ServiceMedicalBatchResponse {
-  repeated ServiceMedicalResponse services = 1;
+message ServiceResponse {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string price = 4; // Using string for decimal
+  string image_url = 5;
+  string hospital_id = 6;
+  string service_category_id = 7;
+  int32 duration_time = 8;
+  string status = 9;
+  ServiceCategoryResponse service_category = 10;
+}
+
+message ServicesResponse {
+  repeated ServiceResponse services = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+message HospitalsByServiceCategoryResponse {
+  string service_category_id = 1;
+  string service_category_name = 2;
+  repeated string hospital_ids = 3;
+  int32 total_hospitals = 4;
 }
