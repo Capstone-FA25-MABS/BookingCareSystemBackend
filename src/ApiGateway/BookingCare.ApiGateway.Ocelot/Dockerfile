@@ -1,17 +1,17 @@
 # Multi-stage build for optimized Docker image
 # Stage 1: Base runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
 # Create non-root user for security
-RUN addgroup -g 1000 appuser && \
-    adduser -u 1000 -G appuser -s /bin/sh -D appuser && \
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -s /bin/sh -d /home/appuser -m appuser && \
     chown -R appuser:appuser /app
 
 # Stage 2: Build image
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
@@ -43,8 +43,11 @@ RUN dotnet publish "BookingCare.ApiGateway.Ocelot.csproj" \
 FROM base AS final
 WORKDIR /app
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install curl and ICU packages for globalization support
+RUN apt-get update && apt-get install -y \
+    curl \
+    libicu72 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy published files
 COPY --from=publish --chown=appuser:appuser /app/publish .
