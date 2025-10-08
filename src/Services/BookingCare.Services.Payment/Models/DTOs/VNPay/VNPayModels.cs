@@ -1,4 +1,7 @@
-﻿namespace BookingCare.Services.Payment.Models.DTOs.VNPay;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
+namespace BookingCare.Services.Payment.Models.DTOs.VNPay;
 
 /// <summary>
 /// Request to create VNPay payment URL
@@ -8,11 +11,15 @@ public class VNPayPaymentRequest
     /// <summary>
     /// Payment ID in the system
     /// </summary>
+    [Required]
+    [JsonRequired]
     public Guid PaymentId { get; set; }
 
     /// <summary>
     /// Payment amount (VND)
     /// </summary>
+    [Required]
+    [JsonRequired]
     public decimal Amount { get; set; }
 
     /// <summary>
@@ -125,7 +132,12 @@ public class VNPayCallbackResponse
         if (string.IsNullOrEmpty(vnp_PayDate) || vnp_PayDate.Length != 14)
             return null;
 
-        if (DateTime.TryParseExact(vnp_PayDate, "yyyyMMddHHmmss", null, System.Globalization.DateTimeStyles.None, out var result))
+        if (DateTime.TryParseExact(
+                vnp_PayDate,
+                "yyyyMMddHHmmss",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var result))
             return result;
 
         return null;

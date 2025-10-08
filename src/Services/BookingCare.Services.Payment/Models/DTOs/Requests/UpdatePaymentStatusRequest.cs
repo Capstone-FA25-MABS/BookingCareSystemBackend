@@ -1,4 +1,6 @@
-﻿using BookingCare.Shared.Common.Enums;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
@@ -10,10 +12,14 @@ public class UpdatePaymentStatusRequest
     /// <summary>
     /// ID of the payment
     /// </summary>
+    [Required]
+    [JsonRequired]
     public Guid Id { get; set; }
 
     /// <summary>
     /// New status
     /// </summary>
+    [Required]
+    [JsonRequired]
     public PaymentStatus Status { get; set; }
 }

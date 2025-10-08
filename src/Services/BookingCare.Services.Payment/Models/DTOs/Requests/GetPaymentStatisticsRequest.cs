@@ -48,7 +48,7 @@ public class GetPaymentStatisticsRequest
         if (FromDate.HasValue) return FromDate.Value.Date;
 
         var sixMonthsAgo = DateTime.Now.AddMonths(-6);
-        return new DateTime(sixMonthsAgo.Year, sixMonthsAgo.Month, 1);
+        return new DateTime(sixMonthsAgo.Year, sixMonthsAgo.Month, 1, 0, 0, 0, DateTimeKind.Local);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public class GetPaymentStatisticsRequest
         if (ToDate.HasValue) return ToDate.Value.Date;
 
         var now = DateTime.Now;
-        return new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month));
+        return new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month), 0, 0, 0, DateTimeKind.Local);
     }
 }
 

@@ -457,7 +457,7 @@ public class PaymentService : BaseService, IPaymentService
 
     private (DateTime start, DateTime end, string label) GetMonthlyPeriod(DateTime date)
     {
-        var startOfMonth = new DateTime(date.Year, date.Month, 1);
+        var startOfMonth = new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
         return (startOfMonth, endOfMonth, date.ToString("yyyy-MM"));
     }
@@ -465,15 +465,15 @@ public class PaymentService : BaseService, IPaymentService
     private (DateTime start, DateTime end, string label) GetQuarterlyPeriod(DateTime date)
     {
         var quarter = (date.Month - 1) / 3 + 1;
-        var startOfQuarter = new DateTime(date.Year, (quarter - 1) * 3 + 1, 1);
+        var startOfQuarter = new DateTime(date.Year, (quarter - 1) * 3 + 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfQuarter = startOfQuarter.AddMonths(3).AddDays(-1);
         return (startOfQuarter, endOfQuarter, $"{date.Year}-Q{quarter}");
     }
 
     private (DateTime start, DateTime end, string label) GetYearlyPeriod(DateTime date)
     {
-        var startOfYear = new DateTime(date.Year, 1, 1);
-        var endOfYear = new DateTime(date.Year, 12, 31);
+        var startOfYear = new DateTime(date.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var endOfYear = new DateTime(date.Year, 12, 31, 0, 0, 0, DateTimeKind.Utc);
         return (startOfYear, endOfYear, date.Year.ToString());
     }
 

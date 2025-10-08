@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
 namespace BookingCare.Services.Payment.Models.DTOs.PayOS;
 
 /// <summary>
@@ -8,11 +11,15 @@ public class PayOSPaymentRequest
     /// <summary>
     /// Payment ID in the system
     /// </summary>
+    [Required]
+    [JsonRequired]
     public Guid PaymentId { get; set; }
 
     /// <summary>
     /// Payment amount (VND)
     /// </summary>
+    [Required]
+    [JsonRequired]
     public decimal Amount { get; set; }
 
     /// <summary>

@@ -199,20 +199,18 @@ public class PaymentRepository : IPaymentRepository
             query = query.Where(p => p.PatientId == request.PatientId.Value);
         }
 
-        if (!string.IsNullOrEmpty(request.TransactionType))
+        // Merge nested if statements for TransactionType
+        if (!string.IsNullOrEmpty(request.TransactionType) && 
+            Enum.TryParse<TransactionType>(request.TransactionType, true, out var transactionType))
         {
-            if (Enum.TryParse<TransactionType>(request.TransactionType, true, out var transactionType))
-            {
-                query = query.Where(p => p.TransactionType == transactionType);
-            }
+            query = query.Where(p => p.TransactionType == transactionType);
         }
 
-        if (!string.IsNullOrEmpty(request.Status))
+        // Merge nested if statements for Status
+        if (!string.IsNullOrEmpty(request.Status) && 
+            Enum.TryParse<PaymentStatus>(request.Status, true, out var status))
         {
-            if (Enum.TryParse<PaymentStatus>(request.Status, true, out var status))
-            {
-                query = query.Where(p => p.Status == status);
-            }
+            query = query.Where(p => p.Status == status);
         }
 
         return await query
