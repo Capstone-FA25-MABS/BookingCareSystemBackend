@@ -76,7 +76,7 @@ public class VNPayService : BaseService, IVNPayService
                 {"vnp_ExpireDate", expireDate},
                 {"vnp_IpAddr", request.ClientIP},
                 {"vnp_Locale", _vnpayConfig.Locale},
-                {"vnp_OrderInfo", CleanOrderInfo(request.OrderDescription)},
+                {"vnp_OrderInfo", request.OrderDescription},
                 {"vnp_OrderType", "other"},
                 {"vnp_ReturnUrl", _vnpayConfig.ReturnUrl},
                 {"vnp_TmnCode", _vnpayConfig.TmnCode},
@@ -87,7 +87,7 @@ public class VNPayService : BaseService, IVNPayService
             // Add customer info if provided
             if (!string.IsNullOrEmpty(request.CustomerInfo))
             {
-                var cleanCustomerInfo = CleanCustomerInfo(request.CustomerInfo);
+                var cleanCustomerInfo = request.CustomerInfo;
                 if (!string.IsNullOrEmpty(cleanCustomerInfo))
                 {
                     vnpParams.Add("vnp_Bill_FirstName", cleanCustomerInfo);
@@ -242,39 +242,5 @@ public class VNPayService : BaseService, IVNPayService
         using var hmac = new HMACSHA512(Encoding.UTF8.GetBytes(key));
         var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(inputData));
         return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
-    }
-
-    /// <summary>
-    /// Clean OrderInfo to comply with VNPay format
-    /// </summary>
-    private string CleanOrderInfo(string orderInfo)
-    {
-        if (string.IsNullOrEmpty(orderInfo))
-            return "Order payment";
-
-        // VNPay only accepts: a-z, A-Z, 0-9, space, dot, dash, underscore
-        var cleaned = System.Text.RegularExpressions.Regex.Replace(orderInfo, @"[^a-zA-Z0-9\s\.\-_]", "");
-
-        if (cleaned.Length > 255)
-            cleaned = cleaned.Substring(0, 255);
-
-        return string.IsNullOrWhiteSpace(cleaned) ? "Order payment" : cleaned.Trim();
-    }
-
-    /// <summary>
-    /// Clean customer info to comply with VNPay format
-    /// </summary>
-    private string CleanCustomerInfo(string customerInfo)
-    {
-        if (string.IsNullOrEmpty(customerInfo))
-            return "";
-
-        // Only keep letters and numbers
-        var cleaned = System.Text.RegularExpressions.Regex.Replace(customerInfo, @"[^a-zA-Z0-9\s]", "");
-
-        if (cleaned.Length > 50)
-            cleaned = cleaned.Substring(0, 50);
-
-        return cleaned.Trim();
     }
 }

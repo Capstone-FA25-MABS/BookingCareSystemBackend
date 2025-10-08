@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using BookingCare.Services.Payment.Models.DTOs.VNPay;
+using System;
 
 namespace BookingCare.Services.Payment.Validators;
 
@@ -34,33 +35,13 @@ public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentReques
         {
             RuleFor(x => x.CustomerInfo)
                 .MaximumLength(50)
-                .WithMessage("CustomerInfo must not exceed 50 characters")
-                .Must(BeValidCustomerInfo)
-                .WithMessage("CustomerInfo contains invalid characters");
+                .WithMessage("CustomerInfo must not exceed 50 characters");
         });
     }
 
-    /// <summary>
-    /// Validate OrderDescription according to VNPay requirements
-    /// </summary>
-    private bool BeValidOrderDescription(string? orderDescription)
-    {
-        if (string.IsNullOrEmpty(orderDescription)) return false;
 
-        // VNPay allows: letters, numbers, whitespace, dot, hyphen, underscore
-        return System.Text.RegularExpressions.Regex.IsMatch(orderDescription, @"^[a-zA-Z0-9\s\.\-_]+$");
-    }
 
-    /// <summary>
-    /// Validate CustomerInfo
-    /// </summary>
-    private bool BeValidCustomerInfo(string? customerInfo)
-    {
-        if (string.IsNullOrEmpty(customerInfo)) return true;
 
-        // Only allow letters and numbers
-        return System.Text.RegularExpressions.Regex.IsMatch(customerInfo, @"^[a-zA-Z0-9\s]+$");
-    }
 
     /// <summary>
     /// Validate IP address format (supports IPv4 and development IPs)
@@ -73,8 +54,11 @@ public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentReques
         if (ip == "127.0.0.1" || ip == "::1" || ip == "localhost")
             return true;
 
+        // Use a short timeout for regex matching to avoid ReDoS
+        var timeout = TimeSpan.FromMilliseconds(200);
+
         // Check IPv4 format
-        if (System.Text.RegularExpressions.Regex.IsMatch(ip, @"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$"))
+        if (System.Text.RegularExpressions.Regex.IsMatch(ip, @"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$", System.Text.RegularExpressions.RegexOptions.None, timeout))
         {
             var parts = ip.Split('.');
             return parts.All(part => int.TryParse(part, out var num) && num >= 0 && num <= 255);
@@ -83,7 +67,7 @@ public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentReques
         // Check IPv6 basic format (simplified)
         if (ip.Contains(':'))
         {
-            return System.Text.RegularExpressions.Regex.IsMatch(ip, @"^[0-9a-fA-F:]+$");
+            return System.Text.RegularExpressions.Regex.IsMatch(ip, @"^[0-9a-fA-F:]+$", System.Text.RegularExpressions.RegexOptions.None, timeout);
         }
 
         return false;
