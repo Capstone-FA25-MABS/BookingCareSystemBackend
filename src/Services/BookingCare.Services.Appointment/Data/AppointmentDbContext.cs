@@ -27,6 +27,7 @@ public class AppointmentDbContext : DbContext
                 .IsRequired();
 
             entity.Property(e => e.AppointmentTimeId)
+                .HasConversion<int>()
                 .IsRequired();
 
             entity.Property(e => e.Status)
