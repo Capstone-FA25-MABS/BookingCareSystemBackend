@@ -14,23 +14,27 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Kestrel with security best practices
 builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "review");
 
-// Add services to the container
+// Add services to the container with custom configuration for FluentValidation
 builder.Services.AddControllers(options =>
 {
     // Suppress automatic model state validation since we use FluentValidation
     options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
 });
 
 builder.Services.AddGrpc();
-builder.Services.AddEndpointsApiExplorer();
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
 
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Review API", Version = "v1.0" });
-});
+// Add JWT Authentication & Authorization following Auth service pattern
+builder.Services.AddJwtAuthAndAuthorization(builder.Configuration, builder.Environment);
+
+// Add common Swagger configuration using ProgramExtensions
+builder.Services.AddCommonSwagger("Review");
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -67,27 +71,24 @@ builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1.0/swagger.json", "Review Service V1.0");
-        c.RoutePrefix = "swagger";
-    });
-}
+// Configure the HTTP request pipeline using ProgramExtensions
+app.UseCommonSwaggerUI("Review");
 
 // Add global exception handling early in pipeline
 app.UseGlobalExceptionHandling();
 
-app.UseRouting();
+// Use standard authentication pipeline (includes UseRouting, UseAuthentication, UseAuthorization)
+app.UseStandardAuthPipeline();
+
 app.MapControllers();
 
 // Configure gRPC services
 app.MapGrpcService<ReviewGrpcService>();
 
-// Health check endpoint
+// Add common health check endpoint using ProgramExtensions
+app.MapCommonHealthCheck("Review");
+
+// Default route (keeping existing functionality)
 app.MapGet("/", () => "BookingCare Review Service is running...");
 
 app.Run();
