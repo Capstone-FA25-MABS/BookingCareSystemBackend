@@ -1123,4 +1123,161 @@ public class DoctorService : BaseService, IDoctorService
 
     #endregion
 
+    #region Optimized Patient Search
+
+    /// <summary>
+    /// Optimized search for patients - returns only necessary fields
+    /// </summary>
+    public async Task<DoctorSearchListResponse> SearchDoctorsForPatientsAsync(DoctorQueryRequest query, Guid? patientId = null)
+    {
+        // Use optimized repository method with projection
+        var (doctors, totalCount) = await _repository.Value.GetDoctorsForPatientSearchAsync(query);
+
+        // Build hospitalId map BEFORE mapping to DTO
+        var hospitalIdMap = doctors.Where(d => d.HospitalId.HasValue)
+                                   .ToDictionary(d => d.Id, d => d.HospitalId!.Value);
+
+        // Map to optimized response DTOs
+        var mappedDoctors = _mapper.Value.Map<List<DoctorSearchForPatientResponse>>(doctors);
+
+        // Enrich with hospital info using the hospital ID map
+        await EnrichDoctorSearchWithHospitalInfoAsync(mappedDoctors, hospitalIdMap);
+
+        // Enrich with review statistics (basic)
+        await EnrichDoctorSearchWithReviewStatisticsAsync(mappedDoctors);
+
+        // Set favorite status if patientId provided
+        if (patientId.HasValue && patientId.Value != Guid.Empty)
+        {
+            await SetFavoriteStatusForSearchAsync(mappedDoctors, patientId.Value);
+        }
+
+        // Calculate pagination
+        var totalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
+
+        return new DoctorSearchListResponse
+        {
+            Doctors = mappedDoctors,
+            TotalCount = totalCount,
+            PageNumber = query.PageNumber,
+            PageSize = query.PageSize,
+            TotalPages = totalPages
+        };
+    }
+
+    /// <summary>
+    /// Enrich doctor search results with hospital basic info
+    /// </summary>
+    private async Task EnrichDoctorSearchWithHospitalInfoAsync(List<DoctorSearchForPatientResponse> doctors, Dictionary<Guid, Guid> hospitalIdMap)
+    {
+        if (!doctors.Any() || !hospitalIdMap.Any()) return;
+
+        // Get unique hospital IDs
+        var hospitalIds = hospitalIdMap.Values.Distinct().ToList();
+
+        try
+        {
+            // Call gRPC to get hospital info
+            var hospitalInfoMap = await GetHospitalBasicInfoMapAsync(hospitalIds);
+
+            // Map hospital info to doctors
+            foreach (var doctor in doctors)
+            {
+                if (hospitalIdMap.TryGetValue(doctor.Id, out var hospitalId) &&
+                    hospitalInfoMap.TryGetValue(hospitalId, out var hospitalInfo))
+                {
+                    doctor.Hospital = hospitalInfo;
+                }
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Hospital gRPC GetHospitalsList failed during patient search");
+            // Continue without hospital info on failure
+        }
+    }
+
+    /// <summary>
+    /// Enrich doctor search results with review statistics (basic - no rating distribution)
+    /// </summary>
+    private async Task EnrichDoctorSearchWithReviewStatisticsAsync(List<DoctorSearchForPatientResponse> doctors)
+    {
+        if (!doctors.Any()) return;
+
+        try
+        {
+            var request = new BatchDoctorsStatisticsRequest();
+            request.DoctorIds.AddRange(doctors.Select(d => d.Id.ToString()));
+
+            var response = await _reviewClient.Value.GetBatchDoctorsStatisticsAsync(request);
+
+            foreach (var doctor in doctors)
+            {
+                var doctorIdStr = doctor.Id.ToString();
+                if (response.DoctorStatistics.TryGetValue(doctorIdStr, out var stats))
+                {
+                    doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                    {
+                        AverageRating = stats.AverageRating,
+                        TotalReviews = stats.TotalReviews
+                    };
+                }
+                else
+                {
+                    doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                    {
+                        AverageRating = 0.0,
+                        TotalReviews = 0
+                    };
+                }
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Review gRPC GetBatchDoctorsStatistics failed during patient search");
+
+            // Set default values on failure
+            foreach (var doctor in doctors)
+            {
+                doctor.ReviewStatistics = new DoctorReviewStatisticsBasic
+                {
+                    AverageRating = 0.0,
+                    TotalReviews = 0
+                };
+            }
+        }
+    }
+
+    /// <summary>
+    /// Set favorite status for doctor search results
+    /// </summary>
+    private async Task SetFavoriteStatusForSearchAsync(List<DoctorSearchForPatientResponse> doctors, Guid patientId)
+    {
+        if (!doctors.Any()) return;
+
+        try
+        {
+            var request = new CheckMultipleFavoritesRequest
+            {
+                PatientId = patientId.ToString()
+            };
+            request.DoctorIds.AddRange(doctors.Select(d => d.Id.ToString()));
+
+            var check = await _favoritesClient.Value.CheckMultipleFavoritesAsync(request);
+            var favorited = check.FavoritedDoctorIds.Select(Guid.Parse).ToHashSet();
+
+            foreach (var doctor in doctors)
+            {
+                doctor.IsFavorited = favorited.Contains(doctor.Id);
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Favorites gRPC CheckMultipleFavorites failed for patient {PatientId}", patientId);
+            // Favorites service unavailable; proceed with IsFavorited default false
+        }
+    }
+
+    #endregion
+
 }

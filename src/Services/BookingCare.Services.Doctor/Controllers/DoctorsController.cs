@@ -221,7 +221,7 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Search active doctors by name, specialty, or location for patients
+    /// Search active doctors by name, specialty, or location for patients (Optimized response with only necessary fields)
     /// </summary>
     [HttpGet("patients/search")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -237,16 +237,9 @@ public class DoctorsController : BaseApiController
             PageSize = pageSize
         };
 
-        DoctorListResponse result;
-        if (patientId.HasValue && patientId.Value != Guid.Empty)
-        {
-            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
-        }
-        else
-        {
-            result = await _doctorService.GetDoctorsAsync(query);
-        }
-        return Success<DoctorListResponse>(result, "Active doctors search completed successfully");
+        // Use optimized search method that returns only necessary fields
+        var result = await _doctorService.SearchDoctorsForPatientsAsync(query, patientId);
+        return Success<DoctorSearchListResponse>(result, "Active doctors search completed successfully");
     }
 
     /// <summary>

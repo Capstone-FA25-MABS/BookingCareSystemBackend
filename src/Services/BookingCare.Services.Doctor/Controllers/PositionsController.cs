@@ -88,14 +88,14 @@ public class PositionsController : BaseApiController
     }
 
     /// <summary>
-    /// Get all positions (no pagination)
+    /// Get all positions (no pagination) - Optimized for performance
     /// </summary>
     [HttpGet("all")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAllPositions()
     {
-        var positions = await _positionService.GetAllPositionsAsync();
-        return Success<List<PositionResponse>>(positions, "All positions retrieved successfully");
+        var positions = await _positionService.GetActivePositionsSimpleAsync();
+        return Success<List<PositionSimpleResponse>>(positions, "All active positions retrieved successfully");
     }
 
     /// <summary>

@@ -41,6 +41,9 @@ public interface IDoctorRepository
     Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
     Task<bool> DeleteAllDoctorPricesAsync(Guid doctorId);
 
+    // Optimized method for Patient Search with minimal data
+    Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsForPatientSearchAsync(DoctorQueryRequest query);
+
     // Language operations
     Task<List<LanguageEntity>> GetLanguagesAsync();
     Task<LanguageEntity?> GetLanguageByIdAsync(Guid id);

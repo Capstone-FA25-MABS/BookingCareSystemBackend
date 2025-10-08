@@ -157,5 +157,20 @@ public class SpecialtyRepository : ISpecialtyRepository
             .ToListAsync();
     }
 
+    public async Task<List<SpecialtyEntity>> GetActiveSpecialtiesSimpleAsync()
+    {
+        return await _context.Specialties
+            .Where(s => s.Status == Status.ACTIVE)
+            .Select(s => new SpecialtyEntity
+            {
+                Id = s.Id,
+                Name = s.Name,
+                ImageUrl = s.ImageUrl,
+                Status = s.Status
+            })
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+    }
+
     #endregion
 }

@@ -88,14 +88,14 @@ public class SpecialtiesController : BaseApiController
     }
 
     /// <summary>
-    /// Get all specialties (no pagination)
+    /// Get all specialties (no pagination) - Optimized for performance
     /// </summary>
     [HttpGet("all")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAllSpecialties()
     {
-        var specialties = await _specialtyService.GetAllSpecialtiesAsync();
-        return Success<List<SpecialtyResponse>>(specialties, "All specialties retrieved successfully");
+        var specialties = await _specialtyService.GetActiveSpecialtiesSimpleAsync();
+        return Success<List<SpecialtySimpleResponse>>(specialties, "All active specialties retrieved successfully");
     }
 
     /// <summary>

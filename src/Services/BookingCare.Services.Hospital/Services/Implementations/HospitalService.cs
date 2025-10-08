@@ -209,5 +209,11 @@ public class HospitalService : IHospitalService
         return await _hospitalRepository.GetHospitalsBasicInfoByIdsAsync(ids);
     }
 
+    public async Task<List<HospitalSimpleResponse>> GetActiveHospitalsSimpleAsync()
+    {
+        var hospitals = await _hospitalRepository.GetActiveHospitalsSimpleAsync();
+        return _mapper.Map<List<HospitalSimpleResponse>>(hospitals);
+    }
+
     #endregion
 }

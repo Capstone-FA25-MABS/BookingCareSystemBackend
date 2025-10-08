@@ -90,6 +90,32 @@ public class DoctorMappingProfile : Profile
             .ForMember(dest => dest.PageSize, opt => opt.Ignore())
             .ForMember(dest => dest.TotalPages, opt => opt.Ignore());
 
+        // Optimized mappings for Patient Search
+        CreateMap<DoctorEntity, DoctorSearchForPatientResponse>()
+            .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Position))
+            .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src => src.Specialty))
+            .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices))
+            .ForMember(dest => dest.Languages, opt => opt.MapFrom(src => src.DoctorLanguages.Select(dl => dl.Language)))
+            .ForMember(dest => dest.Hospital, opt => opt.Ignore()) // Will be enriched by service
+            .ForMember(dest => dest.ReviewStatistics, opt => opt.Ignore()) // Will be enriched by service
+            .ForMember(dest => dest.IsFavorited, opt => opt.Ignore()); // Will be set by service
+
+        CreateMap<PositionEntity, PositionBasicInfo>();
+
+        CreateMap<SpecialtyEntity, SpecialtyBasicInfo>();
+
+        CreateMap<DoctorPriceEntity, DoctorPriceBasicInfo>()
+            .ForMember(dest => dest.ServiceTypeName, opt => opt.MapFrom(src => src.ServiceType.Name));
+
+        CreateMap<LanguageEntity, LanguageBasicInfo>();
+
+        CreateMap<(List<DoctorEntity> Doctors, int TotalCount), DoctorSearchListResponse>()
+            .ForMember(dest => dest.Doctors, opt => opt.MapFrom(src => src.Doctors))
+            .ForMember(dest => dest.TotalCount, opt => opt.MapFrom(src => src.TotalCount))
+            .ForMember(dest => dest.PageNumber, opt => opt.Ignore())
+            .ForMember(dest => dest.PageSize, opt => opt.Ignore())
+            .ForMember(dest => dest.TotalPages, opt => opt.Ignore());
+
         CreateMap<(List<LanguageEntity> Languages, int TotalCount), LanguageListResponse>()
             .ForMember(dest => dest.Languages, opt => opt.MapFrom(src => src.Languages))
             .ForMember(dest => dest.TotalCount, opt => opt.MapFrom(src => src.TotalCount))

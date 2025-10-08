@@ -45,7 +45,7 @@ builder.Services.AddScoped<IServiceTypeService, ServiceTypeService>();
 builder.Services.AddScoped<ILocationApiService, LocationApiService>();
 
 // AutoMapper configuration
-builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(SpecialtyMappingProfile));
+builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(SpecialtyMappingProfile), typeof(SimpleMappingProfile));
 
 // gRPC clients
 var favoritesAddress = builder.Configuration.GetSection("GrpcClients:Favorites:Address").Value ?? "http://localhost:6109";

@@ -137,6 +137,12 @@ public class SpecialtyService : BaseService, ISpecialtyService
         return _mapper.Map<List<SpecialtyResponse>>(specialties);
     }
 
+    public async Task<List<SpecialtySimpleResponse>> GetActiveSpecialtiesSimpleAsync()
+    {
+        var specialties = await _repository.GetActiveSpecialtiesSimpleAsync();
+        return _mapper.Map<List<SpecialtySimpleResponse>>(specialties);
+    }
+
     #endregion
 
     #region Validation Operations

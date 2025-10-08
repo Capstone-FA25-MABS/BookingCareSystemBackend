@@ -141,6 +141,22 @@ public class PositionService : BaseService, IPositionService
         return positionResponses;
     }
 
+    public async Task<List<PositionSimpleResponse>> GetActivePositionsSimpleAsync()
+    {
+        var positions = await _repository.GetActivePositionsSimpleAsync();
+        var doctorCounts = await _repository.GetActiveDoctorCountsByPositionAsync();
+
+        var positionResponses = _mapper.Map<List<PositionSimpleResponse>>(positions);
+
+        // Set doctor count for each position
+        foreach (var position in positionResponses)
+        {
+            position.DoctorCount = doctorCounts.GetValueOrDefault(position.Id, 0);
+        }
+
+        return positionResponses;
+    }
+
     #endregion
 
     #region Validation Operations

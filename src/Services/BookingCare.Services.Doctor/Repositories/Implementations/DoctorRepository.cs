@@ -639,4 +639,91 @@ public class DoctorRepository : IDoctorRepository
     }
 
     #endregion
+
+    #region Optimized Patient Search
+
+    /// <summary>
+    /// Optimized query for patient search - only loads necessary fields using projection
+    /// </summary>
+    public async Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsForPatientSearchAsync(DoctorQueryRequest query)
+    {
+        var queryable = GetOptimizedQueryableForPatientSearch();
+
+        queryable = ApplyFilters(queryable, query);
+        queryable = ApplySorting(queryable, query);
+
+        var totalCount = await queryable.CountAsync();
+        var doctors = await ApplyPagination(queryable, query).ToListAsync();
+
+        return (doctors, totalCount);
+    }
+
+    /// <summary>
+    /// Create optimized queryable with only necessary fields for patient search
+    /// Uses Select projection to minimize data transfer
+    /// </summary>
+    private IQueryable<DoctorEntity> GetOptimizedQueryableForPatientSearch()
+    {
+        return _context.Doctors
+            .Select(d => new DoctorEntity
+            {
+                // Basic doctor info
+                Id = d.Id,
+                AccountId = d.AccountId,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                YearsOfExperience = d.YearsOfExperience,
+                AvatarUrl = d.AvatarUrl,
+
+                // IDs for filtering
+                PositionId = d.PositionId,
+                SpecialtyId = d.SpecialtyId,
+                HospitalId = d.HospitalId,
+                Gender = d.Gender,
+                Address = d.Address,
+
+                // Navigation properties - only basic info
+                Position = d.Position != null ? new PositionEntity
+                {
+                    Id = d.Position.Id,
+                    Name = d.Position.Name
+                } : null,
+
+                Specialty = d.Specialty != null ? new SpecialtyEntity
+                {
+                    Id = d.Specialty.Id,
+                    Name = d.Specialty.Name
+                } : null,
+
+                // Prices - only id, serviceTypeName, amount
+                DoctorPrices = d.DoctorPrices.Select(dp => new DoctorPriceEntity
+                {
+                    Id = dp.Id,
+                    DoctorId = dp.DoctorId,
+                    ServiceTypeId = dp.ServiceTypeId,
+                    Amount = dp.Amount,
+                    ServiceType = new ServiceTypeEntity
+                    {
+                        Id = dp.ServiceType.Id,
+                        Name = dp.ServiceType.Name
+                    }
+                }).ToList(),
+
+                // Languages - only id, name
+                DoctorLanguages = d.DoctorLanguages.Select(dl => new DoctorLanguageEntity
+                {
+                    Id = dl.Id,
+                    DoctorId = dl.DoctorId,
+                    LanguageId = dl.LanguageId,
+                    Language = new LanguageEntity
+                    {
+                        Id = dl.Language.Id,
+                        Name = dl.Language.Name
+                    }
+                }).ToList()
+            })
+            .AsQueryable();
+    }
+
+    #endregion
 }

@@ -109,3 +109,56 @@ public class DoctorReviewStatisticsBasic : IDoctorReviewStatistics
     public double AverageRating { get; set; }
     public long TotalReviews { get; set; }
 }
+
+// Optimized DTOs for Patient Search
+public class DoctorSearchForPatientResponse
+{
+    public Guid Id { get; set; }
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public int YearsOfExperience { get; set; }
+    public string AvatarUrl { get; set; } = string.Empty;
+
+    // Navigation properties - only basic info
+    public PositionBasicInfo? Position { get; set; }
+    public SpecialtyBasicInfo? Specialty { get; set; }
+    public List<DoctorPriceBasicInfo> Prices { get; set; } = new();
+    public List<LanguageBasicInfo> Languages { get; set; } = new();
+    public HospitalBasicInfo? Hospital { get; set; }
+    public DoctorReviewStatisticsBasic? ReviewStatistics { get; set; }
+    public bool IsFavorited { get; set; }
+}
+
+public class PositionBasicInfo
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class SpecialtyBasicInfo
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class DoctorPriceBasicInfo
+{
+    public Guid Id { get; set; }
+    public string ServiceTypeName { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+}
+
+public class LanguageBasicInfo
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class DoctorSearchListResponse
+{
+    public List<DoctorSearchForPatientResponse> Doctors { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages { get; set; }
+}

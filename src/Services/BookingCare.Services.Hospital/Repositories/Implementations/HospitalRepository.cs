@@ -196,5 +196,20 @@ public class HospitalRepository : IHospitalRepository
             .ToListAsync();
     }
 
+    public async Task<List<HospitalEntity>> GetActiveHospitalsSimpleAsync()
+    {
+        return await _context.Hospitals
+            .Where(h => h.Status == Status.ACTIVE)
+            .Select(h => new HospitalEntity
+            {
+                Id = h.Id,
+                Name = h.Name,
+                AvatarUrl = h.AvatarUrl,
+                Status = h.Status
+            })
+            .OrderBy(h => h.Name)
+            .ToListAsync();
+    }
+
     #endregion
 }
