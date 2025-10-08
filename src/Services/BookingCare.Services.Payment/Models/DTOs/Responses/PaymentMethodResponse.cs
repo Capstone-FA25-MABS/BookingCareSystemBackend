@@ -3,27 +3,27 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
 /// <summary>
-/// Response DTO cho payment method
+/// Response DTO for payment method
 /// </summary>
 public class PaymentMethodResponse
 {
     /// <summary>
-    /// ID của phương thức thanh toán
+    /// ID of the payment method
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Tên phương thức thanh toán
+    /// Payment method name
     /// </summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Mô tả phương thức thanh toán
+    /// Description of the payment method
     /// </summary>
     public string? Description { get; set; }
 
     /// <summary>
-    /// Trạng thái phương thức thanh toán
+    /// Status of the payment method
 
     /// </summary>
     public PaymentMethodStatus Status { get; set; }

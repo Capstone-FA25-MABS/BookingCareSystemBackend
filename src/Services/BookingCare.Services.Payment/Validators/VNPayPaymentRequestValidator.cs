@@ -4,7 +4,7 @@ using BookingCare.Services.Payment.Models.DTOs.VNPay;
 namespace BookingCare.Services.Payment.Validators;
 
 /// <summary>
-/// Validator cho VNPayPaymentRequest
+/// Validator for VNPayPaymentRequest
 /// </summary>
 public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentRequest>
 {
@@ -12,42 +12,42 @@ public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentReques
     {
         RuleFor(x => x.PaymentId)
             .NotEqual(Guid.Empty)
-            .WithMessage("PaymentId không được để trống");
+            .WithMessage("PaymentId must not be empty");
 
         RuleFor(x => x.Amount)
             .GreaterThan(0)
-            .WithMessage("Amount phải lớn hơn 0")
+            .WithMessage("Amount must be greater than 0")
             .LessThanOrEqualTo(999999999)
-            .WithMessage("Amount không được vượt quá 999,999,999 VND");
+            .WithMessage("Amount must not exceed 999,999,999 VND");
 
 
-        // ClientIP là optional - chỉ validate khi có giá trị
+        // ClientIP is optional - validate only when provided
         When(x => !string.IsNullOrEmpty(x.ClientIP), () =>
         {
             RuleFor(x => x.ClientIP)
                 .Must(BeValidIP)
-                .WithMessage("ClientIP phải có định dạng IP address hợp lệ");
+                .WithMessage("ClientIP must be a valid IP address format");
         });
 
-        // CustomerInfo cũng là optional
+        // CustomerInfo is also optional
         When(x => !string.IsNullOrEmpty(x.CustomerInfo), () =>
         {
             RuleFor(x => x.CustomerInfo)
                 .MaximumLength(50)
-                .WithMessage("CustomerInfo không được vượt quá 50 ký tự")
+                .WithMessage("CustomerInfo must not exceed 50 characters")
                 .Must(BeValidCustomerInfo)
-                .WithMessage("CustomerInfo chứa ký tự không hợp lệ");
+                .WithMessage("CustomerInfo contains invalid characters");
         });
     }
 
     /// <summary>
-    /// Validate OrderDescription theo VNPay requirements
+    /// Validate OrderDescription according to VNPay requirements
     /// </summary>
     private bool BeValidOrderDescription(string? orderDescription)
     {
         if (string.IsNullOrEmpty(orderDescription)) return false;
 
-        // VNPay cho phép: chữ cái, số, khoảng trắng, dấu chấm, dấu gạch ngang, dấu gạch dưới
+        // VNPay allows: letters, numbers, whitespace, dot, hyphen, underscore
         return System.Text.RegularExpressions.Regex.IsMatch(orderDescription, @"^[a-zA-Z0-9\s\.\-_]+$");
     }
 
@@ -58,12 +58,12 @@ public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentReques
     {
         if (string.IsNullOrEmpty(customerInfo)) return true;
 
-        // Chỉ cho phép chữ cái và số
+        // Only allow letters and numbers
         return System.Text.RegularExpressions.Regex.IsMatch(customerInfo, @"^[a-zA-Z0-9\s]+$");
     }
 
     /// <summary>
-    /// Validate IP address format (supports IPv4 và development IPs)
+    /// Validate IP address format (supports IPv4 and development IPs)
     /// </summary>
     private bool BeValidIP(string? ip)
     {

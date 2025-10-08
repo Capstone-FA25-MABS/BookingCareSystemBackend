@@ -3,62 +3,62 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
 /// <summary>
-/// Response DTO cho payment
+/// Response DTO for payment
 /// </summary>
 public class PaymentResponse
 {
     /// <summary>
-    /// ID của payment
+    /// ID of the payment
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// ID của appointment
+    /// Appointment ID
     /// </summary>
     public Guid? AppointmentId { get; set; }
 
     /// <summary>
-    /// ID của clinic
+    /// Clinic ID
     /// </summary>
     public Guid? ClinicId { get; set; }
 
     /// <summary>
-    /// ID của patient
+    /// Patient ID
     /// </summary>
     public Guid? PatientId { get; set; }
 
     /// <summary>
-    /// ID của subscription
+    /// Subscription ID
     /// </summary>
     public Guid? SubscriptionId { get; set; }
 
     /// <summary>
-    /// Số tiền thanh toán
+    /// Payment amount
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// Loại giao dịch
+    /// Transaction type
     /// </summary>
     public TransactionType TransactionType { get; set; }
 
     /// <summary>
-    /// ID phương thức thanh toán
+    /// Payment method ID
     /// </summary>
     public Guid PaymentMethodId { get; set; }
 
     /// <summary>
-    /// Tên phương thức thanh toán
+    /// Payment method name
     /// </summary>
     public string PaymentMethodName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Trạng thái thanh toán
+    /// Payment status
     /// </summary>
     public PaymentStatus Status { get; set; }
 
     /// <summary>
-    /// Thời gian tạo
+    /// Creation time
     /// </summary>
     public DateTime CreatedAt { get; set; }
 }

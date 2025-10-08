@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace BookingCare.Services.Payment.Controllers;
 
 /// <summary>
-/// Controller qu?n lý l?ch s? refund
+/// Controller for managing refund histories
 /// </summary>
 [ApiVersion(ApiVersions.V1_0)]
 public class RefundHistoriesController : BaseApiController
@@ -36,10 +36,10 @@ public class RefundHistoriesController : BaseApiController
     }
 
     /// <summary>
-    /// L?y refund history theo ID
+    /// Get refund history by ID
     /// </summary>
-    /// <param name="id">ID c?a refund history</param>
-    /// <returns>Thông tin refund history</returns>
+    /// <param name="id">Refund history ID</param>
+    /// <returns>Refund history info</returns>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRefundHistory(Guid id)
@@ -48,29 +48,29 @@ public class RefundHistoriesController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("ID refund history không h?p l?");
+                return BadRequest("Invalid refund history ID");
             }
 
             var refundHistory = await _refundHistoryService.GetByIdAsync(id);
             if (refundHistory == null)
             {
-                return NotFound($"Refund history v?i ID {id} không tìm th?y");
+                return NotFound($"Refund history with ID {id} was not found");
             }
 
-            return Success(refundHistory, "L?y refund history thành công");
+            return Success(refundHistory, "Get refund history successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund history with ID: {RefundHistoryId}", id);
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi l?y refund history" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving refund history" });
         }
     }
 
     /// <summary>
-    /// L?y refund history theo payment ID
+    /// Get refund history by payment ID
     /// </summary>
-    /// <param name="paymentId">ID c?a payment</param>
-    /// <returns>Thông tin refund history</returns>
+    /// <param name="paymentId">Payment ID</param>
+    /// <returns>Refund history info</returns>
     [HttpGet("payment/{paymentId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRefundHistoryByPayment(Guid paymentId)
@@ -79,29 +79,29 @@ public class RefundHistoriesController : BaseApiController
         {
             if (paymentId == Guid.Empty)
             {
-                return BadRequest("Payment ID không h?p l?");
+                return BadRequest("Invalid payment ID");
             }
 
             var refundHistory = await _refundHistoryService.GetByPaymentIdAsync(paymentId);
             if (refundHistory == null)
             {
-                return NotFound($"Không tìm th?y refund history cho payment {paymentId}");
+                return NotFound($"Refund history for payment {paymentId} was not found");
             }
 
-            return Success(refundHistory, "L?y refund history thành công");
+            return Success(refundHistory, "Get refund history successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund history for payment: {PaymentId}", paymentId);
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi l?y refund history" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving refund history" });
         }
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo user ID
+    /// Get refund histories by user ID
     /// </summary>
-    /// <param name="userId">ID c?a user</param>
-    /// <returns>Danh sách refund histories</returns>
+    /// <param name="userId">User ID</param>
+    /// <returns>List of refund histories</returns>
     [HttpGet("user/{userId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRefundHistoriesByUser(Guid userId)
@@ -110,7 +110,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (userId == Guid.Empty)
             {
-                return BadRequest("User ID không h?p l?");
+                return BadRequest("Invalid user ID");
             }
 
             var refundHistories = await _refundHistoryService.GetByUserIdAsync(userId);
@@ -125,9 +125,9 @@ public class RefundHistoriesController : BaseApiController
 
             var message = count switch
             {
-                0 => "Không tìm th?y refund history nào",
-                1 => "L?y 1 refund history thành công",
-                _ => $"L?y {count} refund histories thành công"
+                0 => "No refund history found",
+                1 => "Get 1 refund history successful",
+                _ => $"Get {count} refund histories successful"
             };
 
             return Success(responseData, message);
@@ -135,15 +135,15 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund histories for user: {UserId}", userId);
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi l?y danh sách refund histories" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving refund histories list" });
         }
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo tr?ng thái
+    /// Get refund histories by status
     /// </summary>
-    /// <param name="status">Tr?ng thái refund</param>
-    /// <returns>Danh sách refund histories</returns>
+    /// <param name="status">Refund status</param>
+    /// <returns>List of refund histories</returns>
     [HttpGet("status/{status}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRefundHistoriesByStatus(RefundStatus status)
@@ -162,9 +162,9 @@ public class RefundHistoriesController : BaseApiController
 
             var message = count switch
             {
-                0 => $"Không tìm th?y refund history nào v?i status {status}",
-                1 => $"L?y 1 refund history v?i status {status} thành công",
-                _ => $"L?y {count} refund histories v?i status {status} thành công"
+                0 => $"No refund history found with status {status}",
+                1 => $"Get 1 refund history with status {status} successful",
+                _ => $"Get {count} refund histories with status {status} successful"
             };
 
             return Success(responseData, message);
@@ -172,15 +172,15 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund histories by status: {Status}", status);
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi l?y danh sách refund histories" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving refund histories list" });
         }
     }
 
     /// <summary>
-    /// L?y danh sách refund histories v?i phân trang và filter
+    /// Get paged refund histories with filters
     /// </summary>
-    /// <param name="request">Thông tin phân trang và filter</param>
-    /// <returns>Danh sách refund histories có phân trang</returns>
+    /// <param name="request">Paging and filter info</param>
+    /// <returns>Paged refund histories</returns>
     [HttpPost("search")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPagedRefundHistories([FromBody] GetRefundHistoriesRequest request)
@@ -192,24 +192,24 @@ public class RefundHistoriesController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("D? li?u không h?p l?", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var pagedResult = await _refundHistoryService.GetPagedAsync(request);
-            return Paginated(pagedResult, "L?y danh sách refund histories có phân trang thành công");
+            return Paginated(pagedResult, "Get paged refund histories successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting paged refund histories");
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi l?y danh sách refund histories" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving refund histories list" });
         }
     }
 
     /// <summary>
-    /// T?o refund history m?i
+    /// Create a new refund history
     /// </summary>
-    /// <param name="request">Thông tin refund history</param>
-    /// <returns>Refund history ???c t?o</returns>
+    /// <param name="request">Refund history info</param>
+    /// <returns>Created refund history</returns>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateRefundHistory([FromBody] CreateRefundHistoryRequest request)
@@ -221,11 +221,11 @@ public class RefundHistoriesController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("D? li?u không h?p l?", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var refundHistory = await _refundHistoryService.CreateAsync(request);
-            return Created(refundHistory, "T?o refund history thành công");
+            return Created(refundHistory, "Create refund history successful");
         }
         catch (ConflictException ex)
         {
@@ -245,16 +245,16 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating refund history");
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi t?o refund history" });
+            return StatusCode(500, new { Message = "An error occurred while creating refund history" });
         }
     }
 
     /// <summary>
-    /// C?p nh?t tr?ng thái refund history
+    /// Update refund history status
     /// </summary>
-    /// <param name="id">ID c?a refund history</param>
-    /// <param name="request">Thông tin c?p nh?t tr?ng thái</param>
-    /// <returns>Refund history ?ã c?p nh?t</returns>
+    /// <param name="id">Refund history ID</param>
+    /// <param name="request">Status update info</param>
+    /// <returns>Updated refund history</returns>
     [HttpPut("{id}/status")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateRefundHistoryStatus(Guid id, [FromBody] UpdateRefundHistoryStatusRequest request)
@@ -268,11 +268,11 @@ public class RefundHistoriesController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("D? li?u không h?p l?", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var refundHistory = await _refundHistoryService.UpdateStatusAsync(request);
-            return Success(refundHistory, "C?p nh?t tr?ng thái refund history thành công");
+            return Success(refundHistory, "Update refund history status successful");
         }
         catch (NotFoundException ex)
         {
@@ -287,15 +287,15 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating refund history status with ID: {RefundHistoryId}", id);
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi c?p nh?t tr?ng thái refund history" });
+            return StatusCode(500, new { Message = "An error occurred while updating refund history status" });
         }
     }
 
     /// <summary>
-    /// Xóa refund history
+    /// Delete refund history
     /// </summary>
-    /// <param name="id">ID c?a refund history</param>
-    /// <returns>K?t qu? xóa</returns>
+    /// <param name="id">Refund history ID</param>
+    /// <returns>Delete result</returns>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteRefundHistory(Guid id)
@@ -304,16 +304,16 @@ public class RefundHistoriesController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("ID refund history không h?p l?");
+                return BadRequest("Invalid refund history ID");
             }
 
             var result = await _refundHistoryService.DeleteAsync(id);
             if (!result)
             {
-                return NotFound($"Refund history v?i ID {id} không tìm th?y");
+                return NotFound($"Refund history with ID {id} was not found");
             }
 
-            return Success("Xóa refund history thành công");
+            return Success("Delete refund history successful");
         }
         catch (InvalidOperationException ex)
         {
@@ -323,14 +323,14 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting refund history with ID: {RefundHistoryId}", id);
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi xóa refund history" });
+            return StatusCode(500, new { Message = "An error occurred while deleting refund history" });
         }
     }
 
     /// <summary>
-    /// X? lý t? ??ng các refund history WAITING -> PENDING
+    /// Automatically process refunds from WAITING -> PENDING
     /// </summary>
-    /// <returns>S? l??ng refund histories ???c x? lý</returns>
+    /// <returns>Number of processed refund histories</returns>
     [HttpPost("process-waiting")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ProcessWaitingRefunds()
@@ -346,9 +346,9 @@ public class RefundHistoriesController : BaseApiController
 
             var message = processedCount switch
             {
-                0 => "Không có refund history nào c?n x? lý",
-                1 => "?ã x? lý 1 refund history thành công",
-                _ => $"?ã x? lý {processedCount} refund histories thành công"
+                0 => "No refund history requires processing",
+                1 => "Processed 1 refund history successfully",
+                _ => $"Processed {processedCount} refund histories successfully"
             };
 
             return Success(responseData, message);
@@ -356,14 +356,14 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing waiting refunds");
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi x? lý refund histories" });
+            return StatusCode(500, new { Message = "An error occurred while processing refund histories" });
         }
     }
 
     /// <summary>
-    /// L?y th?ng kê refund theo tr?ng thái
+    /// Get refund statistics by status
     /// </summary>
-    /// <returns>Th?ng kê refund</returns>
+    /// <returns>Refund statistics</returns>
     [HttpGet("statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetRefundStatistics()
@@ -371,20 +371,20 @@ public class RefundHistoriesController : BaseApiController
         try
         {
             var statistics = await _refundHistoryService.GetRefundStatisticsAsync();
-            return Success(statistics, "L?y th?ng kê refund thành công");
+            return Success(statistics, "Get refund statistics successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund statistics");
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi l?y th?ng kê refund" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving refund statistics" });
         }
     }
 
     /// <summary>
-    /// Ki?m tra payment có th? refund không
+    /// Check if a payment can be refunded
     /// </summary>
-    /// <param name="paymentId">ID c?a payment</param>
-    /// <returns>K?t qu? ki?m tra</returns>
+    /// <param name="paymentId">Payment ID</param>
+    /// <returns>Check result</returns>
     [HttpGet("payment/{paymentId}/can-refund")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CanRefundPayment(Guid paymentId)
@@ -393,7 +393,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (paymentId == Guid.Empty)
             {
-                return BadRequest("Payment ID không h?p l?");
+                return BadRequest("Invalid payment ID");
             }
 
             var canRefund = await _refundHistoryService.CanRefundPaymentAsync(paymentId);
@@ -404,21 +404,21 @@ public class RefundHistoriesController : BaseApiController
                 canRefund = canRefund
             };
 
-            var message = canRefund ? "Payment có th? refund" : "Payment không th? refund";
+            var message = canRefund ? "Payment can be refunded" : "Payment cannot be refunded";
             return Success(responseData, message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking if payment can refund: {PaymentId}", paymentId);
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi ki?m tra payment" });
+            return StatusCode(500, new { Message = "An error occurred while checking the payment" });
         }
     }
 
     /// <summary>
-    /// L?y danh sách refund histories theo user ID ch? v?i status PENDING và COMPLETED
+    /// Get refund histories by user ID only with status PENDING and COMPLETED
     /// </summary>
-    /// <param name="userId">ID c?a user</param>
-    /// <returns>Danh sách refund histories có th? x? lý</returns>
+    /// <param name="userId">User ID</param>
+    /// <returns>List of processable refund histories</returns>
     [HttpGet("user/{userId}/processable")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetProcessableRefundHistoriesByUser(Guid userId)
@@ -427,7 +427,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (userId == Guid.Empty)
             {
-                return BadRequest("User ID không h?p l?");
+                return BadRequest("Invalid user ID");
             }
 
             var refundHistories = await _refundHistoryService.GetProcessableRefundsByUserIdAsync(userId);
@@ -442,9 +442,9 @@ public class RefundHistoriesController : BaseApiController
 
             var message = count switch
             {
-                0 => "Không tìm th?y refund history nào ?ang x? lý ho?c ?ã hoàn thành",
-                1 => "L?y 1 refund history ?ang x? lý/hoàn thành thành công",
-                _ => $"L?y {count} refund histories ?ang x? lý/hoàn thành thành công"
+                0 => "No processable or completed refund histories found",
+                1 => "Get 1 processable/completed refund history successful",
+                _ => $"Get {count} processable/completed refund histories successful"
             };
 
             return Success(responseData, message);
@@ -452,7 +452,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting processable refund histories for user: {UserId}", userId);
-            return StatusCode(500, new { Message = "Có l?i x?y ra khi l?y danh sách refund histories có th? x? lý" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving processable refund histories" });
         }
     }
 }

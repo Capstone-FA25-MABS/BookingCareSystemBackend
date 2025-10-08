@@ -4,27 +4,27 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace BookingCare.Services.Payment.Models.Entities;
 
 /// <summary>
-/// Entity cho bảng bank_accounts - Lưu trữ thông tin tài khoản ngân hàng của user
+/// Entity for the bank_accounts table - stores user's bank account information
 /// </summary>
 [Table("bank_accounts")]
 public class BankAccountEntity
 {
     /// <summary>
-    /// ID của bank account
+    /// ID of the bank account
     /// </summary>
     [Key]
     [Column("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>
-    /// ID của user sở hữu tài khoản ngân hàng
+    /// ID of the user who owns the bank account
     /// </summary>
     [Required]
     [Column("user_id")]
     public Guid UserId { get; set; }
 
     /// <summary>
-    /// Mã ngân hàng (ví dụ: VCB, TCB, VTB)
+    /// Bank code (e.g. VCB, TCB, VTB)
     /// </summary>
     [Required]
     [MaxLength(10)]
@@ -32,7 +32,7 @@ public class BankAccountEntity
     public string BankCode { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tên ngân hàng đầy đủ
+    /// Full bank name
     /// </summary>
     [Required]
     [MaxLength(255)]
@@ -40,7 +40,7 @@ public class BankAccountEntity
     public string BankName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Số tài khoản ngân hàng
+    /// Bank account number
     /// </summary>
     [Required]
     [MaxLength(50)]
@@ -48,7 +48,7 @@ public class BankAccountEntity
     public string AccountNumber { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tên chủ tài khoản
+    /// Account holder name
     /// </summary>
     [Required]
     [MaxLength(255)]
@@ -56,26 +56,26 @@ public class BankAccountEntity
     public string AccountName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Có phải là tài khoản mặc định hay không
+    /// Indicates whether this account is the default account
     /// </summary>
     [Column("is_default")]
     public bool IsDefault { get; set; } = false;
 
     /// <summary>
-    /// Trạng thái tài khoản có đang hoạt động hay không
+    /// Indicates whether the account is active
     /// </summary>
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
 
     /// <summary>
-    /// Thời gian tạo
+    /// Creation time
     /// </summary>
     [Required]
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Thời gian cập nhật cuối cùng
+    /// Last update time
     /// </summary>
     [Required]
     [Column("updated_at")]

@@ -5,119 +5,119 @@ using BookingCare.Services.Payment.Enums;
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request ?? t?o refund history m?i
+/// Request to create a new refund history
 /// </summary>
 public class CreateRefundHistoryRequest
 {
     /// <summary>
-    /// ID c?a payment c?n refund
+    /// ID of the payment to refund
     /// </summary>
     [Required]
     [JsonRequired]
     public Guid PaymentId { get; set; }
 
     /// <summary>
-    /// ID c?a user yêu c?u refund
+    /// ID of the user requesting the refund
     /// </summary>
     [Required]
     [JsonRequired]
     public Guid UserId { get; set; }
 
     /// <summary>
-    /// ID c?a bank account ?? refund (optional - có th? ch?a có)
+    /// ID of the bank account for refund (optional - may be null)
     /// </summary>
     public Guid? BankAccountId { get; set; }
 
     /// <summary>
-    /// S? ti?n refund
+    /// Refund amount
     /// </summary>
     [Required]
     [JsonRequired]
-    [Range(0.01, double.MaxValue, ErrorMessage = "S? ti?n refund ph?i l?n h?n 0")]
+    [Range(0.01, double.MaxValue, ErrorMessage = "Refund amount must be greater than 0")]
     public decimal RefundAmount { get; set; }
 
     /// <summary>
-    /// Lý do refund
+    /// Refund reason
     /// </summary>
-    [MaxLength(500, ErrorMessage = "Lý do refund không ???c v??t quá 500 ký t?")]
+    [MaxLength(500, ErrorMessage = "Refund reason must not exceed 500 characters")]
     public string? RefundReason { get; set; }
 }
 
 /// <summary>
-/// Request ?? c?p nh?t tr?ng thái refund history
+/// Request to update refund history status
 /// </summary>
 public class UpdateRefundHistoryStatusRequest
 {
     /// <summary>
-    /// ID c?a refund history
+    /// ID of the refund history
     /// </summary>
     [Required]
     [JsonRequired]
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Tr?ng thái m?i
+    /// New status
     /// </summary>
     [Required]
     [JsonRequired]
     public RefundStatus Status { get; set; }
 
     /// <summary>
-    /// ID c?a bank account ?? refund (khi chuy?n t? WAITING sang PENDING)
+    /// ID of the bank account for refund (when transitioning from WAITING to PENDING)
     /// </summary>
     public Guid? BankAccountId { get; set; }
 
     /// <summary>
-    /// Ngày chuy?n ti?n (khi status = COMPLETED)
+    /// Transfer date (when status = COMPLETED)
     /// </summary>
     public DateTime? TransferDate { get; set; }
 
     /// <summary>
-    /// Ghi chú t? staff
+    /// Staff notes
     /// </summary>
-    [MaxLength(500, ErrorMessage = "Ghi chú không ???c v??t quá 500 ký t?")]
+    [MaxLength(500, ErrorMessage = "Staff notes must not exceed 500 characters")]
     public string? StaffNotes { get; set; }
 
     /// <summary>
-    /// ID c?a staff x? lý
+    /// ID of the staff who processed the refund
     /// </summary>
     public Guid? ProcessedByStaffId { get; set; }
 }
 
 /// <summary>
-/// Request ?? l?y danh sách refund histories v?i phân trang
+/// Request to get a paged list of refund histories
 /// </summary>
 public class GetRefundHistoriesRequest
 {
     /// <summary>
-    /// ID c?a user (optional - ?? l?y t?t c? n?u null)
+    /// User ID (optional - get all if null)
     /// </summary>
     public Guid? UserId { get; set; }
 
     /// <summary>
-    /// Tr?ng thái refund (optional - ?? l?y t?t c? n?u null)
+    /// Refund status (optional - get all if null)
     /// </summary>
     public RefundStatus? Status { get; set; }
 
     /// <summary>
-    /// T? ngày (optional)
+    /// From date (optional)
     /// </summary>
     public DateTime? FromDate { get; set; }
 
     /// <summary>
-    /// ??n ngày (optional)
+    /// To date (optional)
     /// </summary>
     public DateTime? ToDate { get; set; }
 
     /// <summary>
-    /// S? trang (b?t ??u t? 1)
+    /// Page number (starts from 1)
     /// </summary>
-    [Range(1, int.MaxValue, ErrorMessage = "Page ph?i l?n h?n 0")]
+    [Range(1, int.MaxValue, ErrorMessage = "Page must be greater than 0")]
     public int Page { get; set; } = 1;
 
     /// <summary>
-    /// S? l??ng item trên m?i trang
+    /// Page size (items per page)
     /// </summary>
-    [Range(1, 100, ErrorMessage = "PageSize ph?i t? 1 ??n 100")]
+    [Range(1, 100, ErrorMessage = "PageSize must be between 1 and 100")]
     public int PageSize { get; set; } = 20;
 }

@@ -4,126 +4,126 @@ using System.Text.Json.Serialization;
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request để tạo bank account mới
+/// Request to create a new bank account
 /// </summary>
 public class CreateBankAccountRequest
 {
     /// <summary>
-    /// ID của user sở hữu tài khoản ngân hàng
+    /// ID of the user who owns the bank account
     /// </summary>
     [Required]
     [JsonRequired]
     public Guid UserId { get; set; }
 
     /// <summary>
-    /// Mã ngân hàng (ví dụ: VCB, TCB, VTB)
+    /// Bank code (e.g. VCB, TCB, VTB)
     /// </summary>
     [Required]
-    [MaxLength(10, ErrorMessage = "Mã ngân hàng không được vượt quá 10 ký tự")]
+    [MaxLength(10, ErrorMessage = "Bank code must not exceed 10 characters")]
     public string BankCode { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tên ngân hàng đầy đủ
+    /// Full bank name
     /// </summary>
     [Required]
-    [MaxLength(255, ErrorMessage = "Tên ngân hàng không được vượt quá 255 ký tự")]
+    [MaxLength(255, ErrorMessage = "Bank name must not exceed 255 characters")]
     public string BankName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Số tài khoản ngân hàng
+    /// Bank account number
     /// </summary>
     [Required]
-    [MaxLength(50, ErrorMessage = "Số tài khoản không được vượt quá 50 ký tự")]
-    [RegularExpression(@"^\d+$", ErrorMessage = "Số tài khoản chỉ được chứa các chữ số")]
+    [MaxLength(50, ErrorMessage = "Account number must not exceed 50 characters")]
+    [RegularExpression(@"^\d+$", ErrorMessage = "Account number must contain digits only")]
     public string AccountNumber { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tên chủ tài khoản
+    /// Account holder name
     /// </summary>
     [Required]
-    [MaxLength(255, ErrorMessage = "Tên chủ tài khoản không được vượt quá 255 ký tự")]
+    [MaxLength(255, ErrorMessage = "Account holder name must not exceed 255 characters")]
     public string AccountName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Có phải là tài khoản mặc định hay không
+    /// Whether this is the default account
     /// </summary>
     public bool IsDefault { get; set; } = false;
 }
 
 /// <summary>
-/// Request để cập nhật bank account
+/// Request to update a bank account
 /// </summary>
 public class UpdateBankAccountRequest
 {
     /// <summary>
-    /// ID của bank account cần cập nhật
+    /// ID of the bank account to update
     /// </summary>
     [Required]
     [JsonRequired]
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Mã ngân hàng (ví dụ: VCB, TCB, VTB)
+    /// Bank code (e.g. VCB, TCB, VTB)
     /// </summary>
-    [MaxLength(10, ErrorMessage = "Mã ngân hàng không được vượt quá 10 ký tự")]
+    [MaxLength(10, ErrorMessage = "Bank code must not exceed 10 characters")]
     public string? BankCode { get; set; }
 
     /// <summary>
-    /// Tên ngân hàng đầy đủ
+    /// Full bank name
     /// </summary>
-    [MaxLength(255, ErrorMessage = "Tên ngân hàng không được vượt quá 255 ký tự")]
+    [MaxLength(255, ErrorMessage = "Bank name must not exceed 255 characters")]
     public string? BankName { get; set; }
 
     /// <summary>
-    /// Số tài khoản ngân hàng
+    /// Bank account number
     /// </summary>
-    [MaxLength(50, ErrorMessage = "Số tài khoản không được vượt quá 50 ký tự")]
-    [RegularExpression(@"^\d+$", ErrorMessage = "Số tài khoản chỉ được chứa các chữ số")]
+    [MaxLength(50, ErrorMessage = "Account number must not exceed 50 characters")]
+    [RegularExpression(@"^\d+$", ErrorMessage = "Account number must contain digits only")]
     public string? AccountNumber { get; set; }
 
     /// <summary>
-    /// Tên chủ tài khoản
+    /// Account holder name
     /// </summary>
-    [MaxLength(255, ErrorMessage = "Tên chủ tài khoản không được vượt quá 255 ký tự")]
+    [MaxLength(255, ErrorMessage = "Account holder name must not exceed 255 characters")]
     public string? AccountName { get; set; }
 
     /// <summary>
-    /// Có phải là tài khoản mặc định hay không
+    /// Whether this is the default account
     /// </summary>
     public bool? IsDefault { get; set; }
 
     /// <summary>
-    /// Trạng thái hoạt động
+    /// Active status
     /// </summary>
     public bool? IsActive { get; set; }
 }
 
 /// <summary>
-/// Request để lấy bank accounts của user với phân trang
+/// Request to get user's bank accounts with pagination
 /// </summary>
 public class GetBankAccountsRequest
 {
     /// <summary>
-    /// ID của user
+    /// User ID
     /// </summary>
     [Required]
     [JsonRequired]
     public Guid UserId { get; set; }
 
     /// <summary>
-    /// Số trang (bắt đầu từ 1)
+    /// Page number (starts from 1)
     /// </summary>
-    [Range(1, int.MaxValue, ErrorMessage = "Page phải lớn hơn 0")]
+    [Range(1, int.MaxValue, ErrorMessage = "Page must be greater than 0")]
     public int Page { get; set; } = 1;
 
     /// <summary>
-    /// Số lượng item trên mỗi trang
+    /// Page size (items per page)
     /// </summary>
-    [Range(1, 100, ErrorMessage = "PageSize phải từ 1 đến 100")]
+    [Range(1, 100, ErrorMessage = "PageSize must be between 1 and 100")]
     public int PageSize { get; set; } = 20;
 
     /// <summary>
-    /// Chỉ lấy tài khoản đang hoạt động
+    /// Only include active accounts
     /// </summary>
     public bool? ActiveOnly { get; set; }
 }

@@ -4,12 +4,12 @@ using BookingCare.Services.Payment.Models.Entities;
 namespace BookingCare.Services.Payment.Extensions;
 
 /// <summary>
-/// Extension methods cho RefundHistoryEntity
+/// Extension methods for RefundHistoryEntity
 /// </summary>
 public static class RefundHistoryExtensions
 {
     /// <summary>
-    /// Ki?m tra refund history có th? x? lý không
+    /// Check if the refund history can be processed
     /// </summary>
     public static bool CanProcess(this RefundHistoryEntity refundHistory)
     {
@@ -17,7 +17,7 @@ public static class RefundHistoryExtensions
     }
 
     /// <summary>
-    /// Ki?m tra refund history có th? c?p nh?t bank account không
+    /// Check if the refund history can update bank account
     /// </summary>
     public static bool CanUpdateBankAccount(this RefundHistoryEntity refundHistory)
     {
@@ -25,7 +25,7 @@ public static class RefundHistoryExtensions
     }
 
     /// <summary>
-    /// Ki?m tra refund history có th? xóa không
+    /// Check if the refund history can be deleted
     /// </summary>
     public static bool CanDelete(this RefundHistoryEntity refundHistory)
     {
@@ -33,21 +33,21 @@ public static class RefundHistoryExtensions
     }
 
     /// <summary>
-    /// L?y tên tr?ng thái ?? hi?n th?
+    /// Get human-readable status display name
     /// </summary>
     public static string GetStatusDisplayName(this RefundHistoryEntity refundHistory)
     {
         return refundHistory.Status switch
         {
-            RefundStatus.WAITING => "?ang ch?",
-            RefundStatus.PENDING => "?ang x? lý",
-            RefundStatus.COMPLETED => "Hoàn thành",
-            _ => "Không xác ??nh"
+            RefundStatus.WAITING => "Waiting",
+            RefundStatus.PENDING => "Pending",
+            RefundStatus.COMPLETED => "Completed",
+            _ => "Unknown"
         };
     }
 
     /// <summary>
-    /// L?y s? ngày t? khi t?o yêu c?u
+    /// Get number of days since creation
     /// </summary>
     public static int GetDaysFromCreated(this RefundHistoryEntity refundHistory)
     {
@@ -55,7 +55,7 @@ public static class RefundHistoryExtensions
     }
 
     /// <summary>
-    /// Ki?m tra refund history có quá h?n không (quá 30 ngày)
+    /// Check if the refund history is overdue (more than 30 days)
     /// </summary>
     public static bool IsOverdue(this RefundHistoryEntity refundHistory)
     {
@@ -63,7 +63,7 @@ public static class RefundHistoryExtensions
     }
 
     /// <summary>
-    /// Ki?m tra refund history có ph?i là priority case không (quá 7 ngày)
+    /// Check if the refund history is a priority case (more than 7 days)
     /// </summary>
     public static bool IsPriority(this RefundHistoryEntity refundHistory)
     {
@@ -71,7 +71,7 @@ public static class RefundHistoryExtensions
     }
 
     /// <summary>
-    /// Ki?m tra có th? chuy?n sang status m?i không
+    /// Check if transition to a new status is allowed
     /// </summary>
     public static bool CanTransitionTo(this RefundHistoryEntity refundHistory, RefundStatus newStatus)
     {
@@ -79,19 +79,19 @@ public static class RefundHistoryExtensions
         {
             RefundStatus.WAITING => newStatus is RefundStatus.PENDING or RefundStatus.COMPLETED,
             RefundStatus.PENDING => newStatus is RefundStatus.COMPLETED or RefundStatus.WAITING,
-            RefundStatus.COMPLETED => false, // Không th? chuy?n t? COMPLETED sang status khác
+            RefundStatus.COMPLETED => false, // Cannot transition from COMPLETED to another status
             _ => false
         };
     }
 
     /// <summary>
-    /// Validate business rules tr??c khi chuy?n status
+    /// Validate business rules before status transition
     /// </summary>
     public static void ValidateStatusTransition(this RefundHistoryEntity refundHistory, RefundStatus newStatus, Guid? bankAccountId = null)
     {
         if (!refundHistory.CanTransitionTo(newStatus))
         {
-            throw new InvalidOperationException($"Không th? chuy?n t? status {refundHistory.Status} sang {newStatus}");
+            throw new InvalidOperationException($"Cannot transition from status {refundHistory.Status} to {newStatus}");
         }
 
         switch (newStatus)
@@ -99,21 +99,21 @@ public static class RefundHistoryExtensions
             case RefundStatus.PENDING:
                 if (!bankAccountId.HasValue && !refundHistory.BankAccountId.HasValue)
                 {
-                    throw new InvalidOperationException("Ph?i có bank account ?? chuy?n sang status PENDING");
+                    throw new InvalidOperationException("A bank account is required to transition to PENDING");
                 }
                 break;
 
             case RefundStatus.COMPLETED:
                 if (!bankAccountId.HasValue && !refundHistory.BankAccountId.HasValue)
                 {
-                    throw new InvalidOperationException("Ph?i có bank account ?? hoàn thành refund");
+                    throw new InvalidOperationException("A bank account is required to complete the refund");
                 }
                 break;
         }
     }
 
     /// <summary>
-    /// C?p nh?t status v?i validation
+    /// Update status with validation
     /// </summary>
     public static void UpdateStatus(this RefundHistoryEntity refundHistory, RefundStatus newStatus, Guid? bankAccountId = null, string? staffNotes = null, Guid? processedByStaffId = null)
     {
@@ -131,7 +131,7 @@ public static class RefundHistoryExtensions
         if (processedByStaffId.HasValue)
             refundHistory.ProcessedByStaffId = processedByStaffId.Value;
 
-        // T? ??ng set transfer date khi status = COMPLETED
+        // Automatically set transfer date when status = COMPLETED
         if (newStatus == RefundStatus.COMPLETED && !refundHistory.TransferDate.HasValue)
         {
             refundHistory.TransferDate = DateTime.UtcNow;
@@ -139,7 +139,7 @@ public static class RefundHistoryExtensions
     }
 
     /// <summary>
-    /// L?y priority level cho sorting
+    /// Get priority level for sorting
     /// </summary>
     public static int GetPriorityLevel(this RefundHistoryEntity refundHistory)
     {

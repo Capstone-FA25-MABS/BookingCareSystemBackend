@@ -73,7 +73,7 @@ public class PaymentMappingProfile : Profile
         // RefundHistory mappings
         CreateMap<CreateRefundHistoryRequest, RefundHistoryEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.Status, opt => opt.Ignore()) // S? ???c set trong service
+            .ForMember(dest => dest.Status, opt => opt.Ignore())
             .ForMember(dest => dest.TransferDate, opt => opt.Ignore())
             .ForMember(dest => dest.StaffNotes, opt => opt.Ignore())
             .ForMember(dest => dest.ProcessedByStaffId, opt => opt.Ignore())
@@ -88,7 +88,7 @@ public class PaymentMappingProfile : Profile
     }
 
     /// <summary>
-    /// Mask s? tài kho?n ?? b?o m?t (ch? hi?n th? 4 s? cu?i)
+    /// Mask security account number (only last 4 digits shown)
     /// </summary>
     private static string MaskAccountNumber(string accountNumber)
     {

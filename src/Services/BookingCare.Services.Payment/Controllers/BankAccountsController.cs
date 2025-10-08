@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace BookingCare.Services.Payment.Controllers;
 
 /// <summary>
-/// Controller quản lý tài khoản ngân hàng của user
+/// Controller for managing user's bank accounts
 /// </summary>
 [ApiVersion(ApiVersions.V1_0)]
 public class BankAccountsController : BaseApiController
@@ -36,10 +36,10 @@ public class BankAccountsController : BaseApiController
     }
 
     /// <summary>
-    /// Lấy bank account theo ID
+    /// Get bank account by ID
     /// </summary>
-    /// <param name="id">ID của bank account</param>
-    /// <returns>Thông tin bank account</returns>
+    /// <param name="id">Bank account ID</param>
+    /// <returns>Bank account info</returns>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetBankAccount(Guid id)
@@ -48,29 +48,29 @@ public class BankAccountsController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("ID bank account không hợp lệ");
+                return BadRequest("Invalid bank account ID");
             }
 
             var bankAccount = await _bankAccountService.GetByIdAsync(id);
             if (bankAccount == null)
             {
-                return NotFound($"Bank account với ID {id} không tìm thấy");
+                return NotFound($"Bank account with ID {id} was not found");
             }
 
-            return Success(bankAccount, "Lấy bank account thành công");
+            return Success(bankAccount, "Get bank account successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting bank account with ID: {BankAccountId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy bank account" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the bank account" });
         }
     }
 
     /// <summary>
-    /// Lấy tất cả bank accounts của user
+    /// Get all bank accounts of a user
     /// </summary>
-    /// <param name="userId">ID của user</param>
-    /// <returns>Danh sách bank accounts</returns>
+    /// <param name="userId">User ID</param>
+    /// <returns>List of bank accounts</returns>
     [HttpGet("user/{userId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetBankAccountsByUser(Guid userId)
@@ -79,7 +79,7 @@ public class BankAccountsController : BaseApiController
         {
             if (userId == Guid.Empty)
             {
-                return BadRequest("User ID không hợp lệ");
+                return BadRequest("Invalid user ID");
             }
 
             var bankAccounts = await _bankAccountService.GetByUserIdAsync(userId);
@@ -97,15 +97,15 @@ public class BankAccountsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting bank accounts for user: {UserId}", userId);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy danh sách bank accounts" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the list of bank accounts" });
         }
     }
 
     /// <summary>
-    /// Lấy bank accounts của user với phân trang
+    /// Get user bank accounts with pagination
     /// </summary>
-    /// <param name="request">Thông tin phân trang</param>
-    /// <returns>Danh sách bank accounts có phân trang</returns>
+    /// <param name="request">Paging info</param>
+    /// <returns>Paged list of bank accounts</returns>
     [HttpPost("search")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPagedBankAccounts([FromBody] GetBankAccountsRequest request)
@@ -117,24 +117,24 @@ public class BankAccountsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var pagedResult = await _bankAccountService.GetPagedByUserIdAsync(request);
-            return Paginated(pagedResult, "Lấy danh sách bank accounts có phân trang thành công");
+            return Paginated(pagedResult, "Get paged bank accounts successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting paged bank accounts for user: {UserId}", request.UserId);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy danh sách bank accounts" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the list of bank accounts" });
         }
     }
 
     /// <summary>
-    /// Lấy bank account mặc định của user
+    /// Get default bank account of a user
     /// </summary>
-    /// <param name="userId">ID của user</param>
-    /// <returns>Bank account mặc định</returns>
+    /// <param name="userId">User ID</param>
+    /// <returns>Default bank account</returns>
     [HttpGet("user/{userId}/default")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetDefaultBankAccount(Guid userId)
@@ -143,29 +143,29 @@ public class BankAccountsController : BaseApiController
         {
             if (userId == Guid.Empty)
             {
-                return BadRequest("User ID không hợp lệ");
+                return BadRequest("Invalid user ID");
             }
 
             var defaultAccount = await _bankAccountService.GetDefaultByUserIdAsync(userId);
             if (defaultAccount == null)
             {
-                return NotFound($"User {userId} chưa có bank account mặc định");
+                return NotFound($"User {userId} does not have a default bank account");
             }
 
-            return Success(defaultAccount, "Lấy bank account mặc định thành công");
+            return Success(defaultAccount, "Get default bank account successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting default bank account for user: {UserId}", userId);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy bank account mặc định" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the default bank account" });
         }
     }
 
     /// <summary>
-    /// Tạo bank account mới
+    /// Create a new bank account
     /// </summary>
-    /// <param name="request">Thông tin bank account</param>
-    /// <returns>Bank account được tạo</returns>
+    /// <param name="request">Bank account info</param>
+    /// <returns>Created bank account</returns>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateBankAccount([FromBody] CreateBankAccountRequest request)
@@ -177,11 +177,11 @@ public class BankAccountsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var bankAccount = await _bankAccountService.CreateAsync(request);
-            return Created(bankAccount, "Tạo bank account thành công");
+            return Created(bankAccount, "Create bank account successful");
         }
         catch (ConflictException ex)
         {
@@ -196,16 +196,16 @@ public class BankAccountsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating bank account");
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi tạo bank account" });
+            return StatusCode(500, new { Message = "An error occurred while creating the bank account" });
         }
     }
 
     /// <summary>
-    /// Cập nhật bank account
+    /// Update bank account
     /// </summary>
-    /// <param name="id">ID của bank account</param>
-    /// <param name="request">Thông tin cập nhật</param>
-    /// <returns>Bank account đã cập nhật</returns>
+    /// <param name="id">Bank account ID</param>
+    /// <param name="request">Update info</param>
+    /// <returns>Updated bank account</returns>
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateBankAccount(Guid id, [FromBody] UpdateBankAccountRequest request)
@@ -219,11 +219,11 @@ public class BankAccountsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var bankAccount = await _bankAccountService.UpdateAsync(request);
-            return Success(bankAccount, "Cập nhật bank account thành công");
+            return Success(bankAccount, "Update bank account successful");
         }
         catch (NotFoundException ex)
         {
@@ -243,17 +243,17 @@ public class BankAccountsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating bank account with ID: {BankAccountId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi cập nhật bank account" });
+            return StatusCode(500, new { Message = "An error occurred while updating the bank account" });
         }
     }
 
     /// <summary>
-    /// Xóa hoặc vô hiệu hóa bank account thông minh
-    /// Nếu bank account có liên kết với RefundHistories -> chỉ vô hiệu hóa
-    /// Nếu không có liên kết -> xóa hoàn toàn
+    /// Smart delete or deactivate bank account
+    /// If the bank account is linked to RefundHistories -> deactivate only
+    /// If not linked -> delete permanently
     /// </summary>
-    /// <param name="id">ID của bank account</param>
-    /// <returns>Kết quả xóa thông minh</returns>
+    /// <param name="id">Bank account ID</param>
+    /// <returns>Smart delete result</returns>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteBankAccount(Guid id)
@@ -262,7 +262,7 @@ public class BankAccountsController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("ID bank account không hợp lệ");
+                return BadRequest("Invalid bank account ID");
             }
 
             var result = await _bankAccountService.SmartDeleteAsync(id);
@@ -286,7 +286,7 @@ public class BankAccountsController : BaseApiController
                         refundHistoriesCount = result.RefundHistoriesCount
                     }, result.Message),
 
-                _ => BadRequest("Thao tác không xác định")
+                _ => BadRequest("Unknown action")
             };
         }
         catch (InvalidOperationException ex)
@@ -297,15 +297,15 @@ public class BankAccountsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting bank account with ID: {BankAccountId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi xóa bank account" });
+            return StatusCode(500, new { Message = "An error occurred while deleting the bank account" });
         }
     }
 
     /// <summary>
-    /// Đặt bank account làm mặc định
+    /// Set bank account as default
     /// </summary>
-    /// <param name="id">ID của bank account</param>
-    /// <returns>Bank account đã được đặt làm mặc định</returns>
+    /// <param name="id">Bank account ID</param>
+    /// <returns>Bank account set as default</returns>
     [HttpPut("{id}/set-default")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> SetAsDefault(Guid id)
@@ -314,11 +314,11 @@ public class BankAccountsController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("ID bank account không hợp lệ");
+                return BadRequest("Invalid bank account ID");
             }
 
             var bankAccount = await _bankAccountService.SetAsDefaultAsync(id);
-            return Success(bankAccount, "Đặt bank account làm mặc định thành công");
+            return Success(bankAccount, "Set bank account as default successful");
         }
         catch (NotFoundException ex)
         {
@@ -333,15 +333,15 @@ public class BankAccountsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error setting bank account as default with ID: {BankAccountId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi đặt bank account làm mặc định" });
+            return StatusCode(500, new { Message = "An error occurred while setting the bank account as default" });
         }
     }
 
     /// <summary>
-    /// Kích hoạt/vô hiệu hóa bank account
+    /// Toggle bank account active status
     /// </summary>
-    /// <param name="id">ID của bank account</param>
-    /// <returns>Bank account với trạng thái mới</returns>
+    /// <param name="id">Bank account ID</param>
+    /// <returns>Bank account with new status</returns>
     [HttpPatch("{id}/toggle-status")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ToggleActiveStatus(Guid id)
@@ -350,11 +350,11 @@ public class BankAccountsController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("ID bank account không hợp lệ");
+                return BadRequest("Invalid bank account ID");
             }
 
             var bankAccount = await _bankAccountService.ToggleActiveStatusAsync(id);
-            return Success(bankAccount, "Thay đổi trạng thái bank account thành công");
+            return Success(bankAccount, "Toggle bank account status successful");
         }
         catch (NotFoundException ex)
         {
@@ -369,7 +369,7 @@ public class BankAccountsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error toggling bank account status with ID: {BankAccountId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi thay đổi trạng thái bank account" });
+            return StatusCode(500, new { Message = "An error occurred while changing the bank account status" });
         }
     }
 }

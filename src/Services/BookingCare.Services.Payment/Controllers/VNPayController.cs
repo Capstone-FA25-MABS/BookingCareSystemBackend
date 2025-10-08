@@ -8,7 +8,7 @@ using BookingCare.Shared.Common.Versioning;
 namespace BookingCare.Services.Payment.Controllers;
 
 /// <summary>
-/// Controller quản lý tích hợp VNPay
+/// Controller for VNPay integration
 /// </summary>
 [ApiVersion(ApiVersions.V1_0)]
 public class VNPayController : BaseApiController
@@ -31,9 +31,9 @@ public class VNPayController : BaseApiController
     }
 
     /// <summary>
-    /// Health check cho VNPay service
+    /// Health check for VNPay service
     /// </summary>
-    /// <returns>Status của VNPay service</returns>
+    /// <returns>Status of VNPay service</returns>
     [HttpGet("health")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult HealthCheck()
@@ -48,10 +48,10 @@ public class VNPayController : BaseApiController
     }
 
     /// <summary>
-    /// Tạo URL thanh toán VNPay
+    /// Create VNPay payment URL
     /// </summary>
-    /// <param name="request">Thông tin thanh toán</param>
-    /// <returns>URL để redirect đến VNPay</returns>
+    /// <param name="request">Payment information</param>
+    /// <returns>URL to redirect to VNPay</returns>
     [HttpPost("create-payment-url")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreatePaymentUrl([FromBody] VNPayPaymentRequest request)
@@ -69,26 +69,26 @@ public class VNPayController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             // Validate payment exists
             var payment = await _paymentService.GetByIdAsync(request.PaymentId);
             if (payment == null)
             {
-                return NotFound($"Payment với ID {request.PaymentId} không tìm thấy");
+                return NotFound($"Payment with ID {request.PaymentId} was not found");
             }
 
             // Validate amount matches
             if (Math.Abs(payment.Amount - request.Amount) > 0.01m)
             {
-                return BadRequest("Số tiền không khớp với payment trong hệ thống");
+                return BadRequest("Amount does not match the payment in the system");
             }
 
             // Create VNPay payment URL
             var response = await _vnpayService.CreatePaymentUrlAsync(request);
 
-            return Success(response, "Tạo URL thanh toán VNPay thành công");
+            return Success(response, "Create VNPay payment URL successful");
         }
         catch (ArgumentException ex)
         {
@@ -98,19 +98,18 @@ public class VNPayController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating VNPay payment URL for PaymentId: {PaymentId}", request.PaymentId);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi tạo URL thanh toán VNPay" });
+            return StatusCode(500, new { Message = "An error occurred while creating VNPay payment URL" });
         }
     }
 
     /// <summary>
-    /// Callback từ VNPay sau khi thanh toán
+    /// Callback from VNPay after payment
     /// </summary>
-    /// <returns>Kết quả xử lý callback</returns>
+    /// <returns>Callback processing result</returns>
     [HttpGet("callback")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> VNPayCallback()
     {
-        // Align with PayOS callback structure
         var requestId = Guid.NewGuid().ToString("N")[..8];
         try
         {
@@ -148,14 +147,14 @@ public class VNPayController : BaseApiController
             {
                 Success = callbackResult.IsSuccess,
                 PaymentId = paymentId,
-                OrderCode = callbackResult.vnp_TxnRef, // sử dụng TxnRef như OrderCode tương đương
+                OrderCode = callbackResult.vnp_TxnRef,
                 Code = callbackResult.vnp_ResponseCode,
                 Amount = callbackResult.GetActualAmount,
                 Message = message,
                 PaymentDate = callbackResult.GetPaymentDateTime(),
                 RequestId = requestId,
                 ProcessedAt = DateTime.UtcNow,
-                IsAlreadyProcessed = false, // VNPay flow hiện chưa đánh dấu duplicate theo cache
+                IsAlreadyProcessed = false
             };
 
             if (callbackResult.IsSuccess)
@@ -168,26 +167,26 @@ public class VNPayController : BaseApiController
                     requestId, paymentId, callbackResult.vnp_ResponseCode);
             }
 
-            return Success(unified, callbackResult.IsSuccess ? "Thanh toán VNPay thành công" : "Thanh toán VNPay thất bại");
+            return Success(unified, callbackResult.IsSuccess ? "VNPay payment successful" : "VNPay payment failed");
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogError(ex, "VNPay Callback #{RequestId} - Signature validation failed", requestId);
-            return BadRequest("Chữ ký VNPay không hợp lệ");
+            return BadRequest("Invalid VNPay signature");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "VNPay Callback #{RequestId} - Error processing callback", requestId);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi xử lý callback VNPay", RequestId = requestId });
+            return StatusCode(500, new { Message = "An error occurred while processing VNPay callback", RequestId = requestId });
         }
     }
 
     /// <summary>
-    /// Query trạng thái giao dịch VNPay
+    /// Query VNPay transaction status
     /// </summary>
-    /// <param name="transactionRef">Mã giao dịch</param>
-    /// <param name="transactionDate">Ngày giao dịch (yyyyMMdd)</param>
-    /// <returns>Thông tin giao dịch</returns>
+    /// <param name="transactionRef">Transaction reference</param>
+    /// <param name="transactionDate">Transaction date (yyyyMMdd)</param>
+    /// <returns>Transaction information</returns>
     [HttpGet("query/{transactionRef}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> QueryTransaction(string transactionRef, [FromQuery] string transactionDate)
@@ -196,28 +195,28 @@ public class VNPayController : BaseApiController
         {
             if (string.IsNullOrEmpty(transactionRef))
             {
-                return BadRequest("Transaction reference không được để trống");
+                return BadRequest("Transaction reference must not be empty");
             }
             if (string.IsNullOrEmpty(transactionDate))
             {
-                return BadRequest("Transaction date không được để trống");
+                return BadRequest("Transaction date must not be empty");
             }
             var result = await _vnpayService.QueryTransactionAsync(transactionRef, transactionDate);
-            return Success(result, "Query giao dịch VNPay thành công");
+            return Success(result, "VNPay transaction query successful");
         }
         catch (NotImplementedException)
         {
-            return BadRequest("Tính năng query giao dịch VNPay chưa được hỗ trợ");
+            return BadRequest("VNPay transaction query feature is not supported");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error querying VNPay transaction: {TxnRef}", transactionRef);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi query giao dịch VNPay" });
+            return StatusCode(500, new { Message = "An error occurred while querying VNPay transaction" });
         }
     }
 
     /// <summary>
-    /// Lấy IP của client
+    /// Get client IP address
     /// </summary>
     /// <returns>Client IP address</returns>
     private string GetClientIP()
@@ -238,25 +237,25 @@ public class VNPayController : BaseApiController
     }
 
     /// <summary>
-    /// Chuyển đổi response code thành message
+    /// Convert VNPay response code to human readable message
     /// </summary>
     /// <param name="responseCode">VNPay response code</param>
     /// <returns>Human readable message</returns>
     private string GetVNPayResponseMessage(string responseCode) => responseCode switch
     {
-        "00" => "Giao dịch thành công",
-        "07" => "Trừ tiền thành công. Giao dịch bị nghi ngờ (liên quan tới lừa đảo, giao dịch bất thường).",
-        "09" => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng chưa đăng ký dịch vụ InternetBanking tại ngân hàng.",
-        "10" => "Giao dịch không thành công do: Khách hàng xác thực thông tin thẻ/tài khoản không đúng quá 3 lần",
-        "11" => "Giao dịch không thành công do: Đã hết hạn chờ thanh toán. Xin quý khách vui lòng thực hiện lại giao dịch.",
-        "12" => "Giao dịch không thành công do: Thẻ/Tài khoản của khách hàng bị khóa.",
-        "13" => "Giao dịch không thành công do Quý khách nhập sai mật khẩu xác thực giao dịch (OTP). Xin quý khách vui lòng thực hiện lại giao dịch.",
-        "24" => "Giao dịch không thành công do: Khách hàng hủy giao dịch",
-        "51" => "Giao dịch không thành công do: Tài khoản của quý khách không đủ số dư để thực hiện giao dịch.",
-        "65" => "Giao dịch không thành công do: Tài khoản của Quý khách đã vượt quá hạn mức giao dịch trong ngày.",
-        "75" => "Ngân hàng thanh toán đang bảo trì.",
-        "79" => "Giao dịch không thành công do: KH nhập sai mật khẩu thanh toán quá số lần quy định. Xin quý khách vui lòng thực hiện lại giao dịch",
-        "99" => "Các lỗi khác (lỗi còn lại, không có trong danh sách mã lỗi đã liệt kê)",
-        _ => "Lỗi không xác định"
+        "00" => "Transaction successful",
+        "07" => "Debit successful. Transaction is suspicious (possible fraud or unusual activity).",
+        "09" => "Transaction failed: Card/account is not registered for InternetBanking at the bank.",
+        "10" => "Transaction failed: Card/account authentication failed more than 3 times.",
+        "11" => "Transaction failed: Payment waiting time expired. Please retry the transaction.",
+        "12" => "Transaction failed: Card/account is blocked.",
+        "13" => "Transaction failed: Incorrect OTP entered. Please retry.",
+        "24" => "Transaction failed: Customer canceled the transaction.",
+        "51" => "Transaction failed: Insufficient funds.",
+        "65" => "Transaction failed: Daily transaction limit exceeded.",
+        "75" => "The paying bank is under maintenance.",
+        "79" => "Transaction failed: Payment password entered incorrectly too many times. Please retry.",
+        "99" => "Other errors (not listed in known response codes)",
+        _ => "Unknown error"
     };
 }

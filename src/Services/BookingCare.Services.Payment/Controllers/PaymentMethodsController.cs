@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace BookingCare.Services.Payment.Controllers;
 
 /// <summary>
-/// Controller quản lý các phương thức thanh toán
+/// Controller for managing payment methods
 /// </summary>
 [ApiVersion(ApiVersions.V1_0)]
 public class PaymentMethodsController : BaseApiController
@@ -26,7 +26,7 @@ public class PaymentMethodsController : BaseApiController
     }
 
     /// <summary>
-    /// Lấy tất cả payment methods
+    /// Get all payment methods
     /// </summary>
     [HttpGet]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -35,20 +35,20 @@ public class PaymentMethodsController : BaseApiController
         try
         {
             var paymentMethods = await _paymentMethodService.GetAllAsync();
-            return Success(paymentMethods, "Lấy danh sách payment methods thành công");
+            return Success(paymentMethods, "Get payment methods list successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting all payment methods");
             return StatusCode(
                 500,
-                new { Message = "Có lỗi xảy ra khi lấy danh sách payment methods" }
+                new { Message = "An error occurred while retrieving the payment methods list" }
             );
         }
     }
 
     /// <summary>
-    /// Lấy chỉ payment methods đang active
+    /// Get only active payment methods
     /// </summary>
     [HttpGet("active")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -57,20 +57,20 @@ public class PaymentMethodsController : BaseApiController
         try
         {
             var paymentMethods = await _paymentMethodService.GetActiveAsync();
-            return Success(paymentMethods, "Lấy danh sách payment methods active thành công");
+            return Success(paymentMethods, "Get active payment methods successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting active payment methods");
             return StatusCode(
                 500,
-                new { Message = "Có lỗi xảy ra khi lấy danh sách payment methods active" }
+                new { Message = "An error occurred while retrieving active payment methods" }
             );
         }
     }
 
     /// <summary>
-    /// Lấy payment method theo ID
+    /// Get payment method by ID
     /// </summary>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -81,20 +81,20 @@ public class PaymentMethodsController : BaseApiController
             var paymentMethod = await _paymentMethodService.GetByIdAsync(id);
             if (paymentMethod == null)
             {
-                return NotFound($"Payment method với ID {id} không tìm thấy");
+                return NotFound($"Payment method with ID {id} was not found");
             }
 
-            return Success(paymentMethod, "Lấy payment method thành công");
+            return Success(paymentMethod, "Get payment method successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting payment method with ID: {PaymentMethodId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy payment method" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the payment method" });
         }
     }
 
     /// <summary>
-    /// Lấy payment method theo tên
+    /// Get payment method by name
     /// </summary>
     [HttpGet("by-name/{name}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -105,10 +105,10 @@ public class PaymentMethodsController : BaseApiController
             var paymentMethod = await _paymentMethodService.GetByNameAsync(name);
             if (paymentMethod == null)
             {
-                return NotFound($"Payment method với tên '{name}' không tìm thấy");
+                return NotFound($"Payment method with name '{name}' was not found");
             }
 
-            return Success(paymentMethod, "Lấy payment method thành công");
+            return Success(paymentMethod, "Get payment method successful");
         }
         catch (Exception ex)
         {
@@ -117,12 +117,12 @@ public class PaymentMethodsController : BaseApiController
                 "Error getting payment method with name: {PaymentMethodName}",
                 name
             );
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy payment method" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the payment method" });
         }
     }
 
     /// <summary>
-    /// Toggle trạng thái payment method (ACTIVE <-> INACTIVE)
+    /// Toggle payment method status (ACTIVE <-> INACTIVE)
     /// </summary>
     [HttpPut("{id}/toggle")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -131,7 +131,7 @@ public class PaymentMethodsController : BaseApiController
         try
         {
             var paymentMethod = await _paymentMethodService.ToggleStatusAsync(id);
-            return Success(paymentMethod, "Toggle trạng thái payment method thành công");
+            return Success(paymentMethod, "Toggle payment method status successful");
         }
         catch (ArgumentException ex)
         {
@@ -147,7 +147,7 @@ public class PaymentMethodsController : BaseApiController
             );
             return StatusCode(
                 500,
-                new { Message = "Có lỗi xảy ra khi toggle trạng thái payment method" }
+                new { Message = "An error occurred while toggling payment method status" }
             );
         }
     }

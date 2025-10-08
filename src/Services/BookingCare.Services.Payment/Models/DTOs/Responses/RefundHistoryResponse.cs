@@ -3,94 +3,94 @@ using BookingCare.Services.Payment.Enums;
 namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
 /// <summary>
-/// Response DTO cho RefundHistory
+/// Response DTO for RefundHistory
 /// </summary>
 public class RefundHistoryResponse
 {
     /// <summary>
-    /// ID c?a refund history
+    /// ID of the refund history
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// ID c?a bank account ?? refund
+    /// ID of the bank account for the refund
     /// </summary>
     public Guid? BankAccountId { get; set; }
 
     /// <summary>
-    /// Thông tin bank account (n?u có)
+    /// Bank account information (if any)
     /// </summary>
     public BankAccountResponse? BankAccount { get; set; }
 
     /// <summary>
-    /// ID c?a user yêu c?u refund
+    /// ID of the user who requested the refund
     /// </summary>
     public Guid UserId { get; set; }
 
     /// <summary>
-    /// Tr?ng thái refund
+    /// Refund status
     /// </summary>
     public RefundStatus Status { get; set; }
 
 
 
     /// <summary>
-    /// Ngày chuy?n ti?n
+    /// Transfer date
     /// </summary>
     public DateTime? TransferDate { get; set; }
 
     /// <summary>
-    /// ID c?a payment ???c refund
+    /// ID of the refunded payment
     /// </summary>
     public Guid PaymentId { get; set; }
 
     /// <summary>
-    /// Thông tin payment ???c refund
+    /// Payment information being refunded
     /// </summary>
     public PaymentResponse? Payment { get; set; }
 
     /// <summary>
-    /// S? ti?n refund
+    /// Refund amount
     /// </summary>
     public decimal RefundAmount { get; set; }
 
     /// <summary>
-    /// Lý do refund
+    /// Refund reason
     /// </summary>
     public string? RefundReason { get; set; }
 
     /// <summary>
-    /// Ghi chú t? staff
+    /// Notes from staff
     /// </summary>
     public string? StaffNotes { get; set; }
 
     /// <summary>
-    /// ID c?a staff x? lý refund
+    /// ID of the staff who processed the refund
     /// </summary>
     public Guid? ProcessedByStaffId { get; set; }
 
     /// <summary>
-    /// Th?i gian t?o yêu c?u refund
+    /// Time when the refund request was created
     /// </summary>
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
-    /// Th?i gian c?p nh?t cu?i cùng
+    /// Last update time
     /// </summary>
     public DateTime UpdatedAt { get; set; }
 
     /// <summary>
-    /// S? ngày t? khi t?o yêu c?u
+    /// Number of days since the refund request was created
     /// </summary>
     public int DaysFromCreated => (DateTime.UtcNow - CreatedAt).Days;
 
     /// <summary>
-    /// Có th? x? lý refund hay không (ch? khi status = PENDING)
+    /// Whether the refund can be processed (only when status = PENDING)
     /// </summary>
     public bool CanProcess => Status == RefundStatus.PENDING;
 
     /// <summary>
-    /// Có th? c?p nh?t bank account hay không (ch? khi status = WAITING)
+    /// Whether the bank account can be updated (only when status = WAITING)
     /// </summary>
     public bool CanUpdateBankAccount => Status == RefundStatus.WAITING;
 }

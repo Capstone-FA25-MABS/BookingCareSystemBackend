@@ -1,39 +1,39 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
 /// <summary>
-/// K?t qu? c?a thao tác Smart Delete bank account
+/// Result of the Smart Delete bank account operation
 /// </summary>
 public class BankAccountDeleteResult
 {
     /// <summary>
-    /// Thao tác có thành công hay không
+    /// Whether the operation succeeded
     /// </summary>
     public bool Success { get; set; }
 
     /// <summary>
-    /// Lo?i thao tác ?ã th?c hi?n
+    /// The action performed
     /// </summary>
     public BankAccountDeleteAction Action { get; set; }
 
     /// <summary>
-    /// Thông báo mô t? k?t qu?
+    /// Message describing the result
     /// </summary>
     public string Message { get; set; } = string.Empty;
 
     /// <summary>
-    /// Bank account sau khi th?c hi?n thao tác (n?u deactivate)
+    /// Bank account after the operation (if deactivated)
     /// </summary>
     public BankAccountResponse? UpdatedBankAccount { get; set; }
 
     /// <summary>
-    /// S? l??ng refund histories liên quan
+    /// Count of related refund histories
     /// </summary>
     public int RefundHistoriesCount { get; set; }
 
     /// <summary>
-    /// T?o k?t qu? cho thao tác xóa thành công
+    /// Create result for a successful delete operation
     /// </summary>
-    public static BankAccountDeleteResult Deleted(string message = "Bank account ?ã ???c xóa thành công")
+    public static BankAccountDeleteResult Deleted(string message = "Bank account has been deleted successfully")
     {
         return new BankAccountDeleteResult
         {
@@ -44,12 +44,12 @@ public class BankAccountDeleteResult
     }
 
     /// <summary>
-    /// T?o k?t qu? cho thao tác deactivate thành công
+    /// Create result for a successful deactivate operation
     /// </summary>
     public static BankAccountDeleteResult Deactivated(BankAccountResponse updatedAccount, int refundHistoriesCount, string? customMessage = null)
     {
         var message = customMessage ??
-            $"Bank account ?ã ???c vô hi?u hóa do có {refundHistoriesCount} refund history liên quan. Bank account không th? xóa hoàn toàn.";
+            $"Bank account was deactivated because there are {refundHistoriesCount} related refund histories. The account cannot be fully deleted.";
 
         return new BankAccountDeleteResult
         {
@@ -62,7 +62,7 @@ public class BankAccountDeleteResult
     }
 
     /// <summary>
-    /// T?o k?t qu? cho thao tác th?t b?i
+    /// Create result for a failed operation
     /// </summary>
     public static BankAccountDeleteResult Failed(string message)
     {
@@ -76,22 +76,22 @@ public class BankAccountDeleteResult
 }
 
 /// <summary>
-/// Lo?i thao tác ?ã th?c hi?n trong Smart Delete
+/// Actions performed during Smart Delete
 /// </summary>
 public enum BankAccountDeleteAction
 {
     /// <summary>
-    /// Không th?c hi?n thao tác nào
+    /// No action performed
     /// </summary>
     None,
 
     /// <summary>
-    /// Xóa hoàn toàn bank account
+    /// Bank account was fully deleted
     /// </summary>
     Deleted,
 
     /// <summary>
-    /// Ch? vô hi?u hóa bank account (do có refund histories)
+    /// Bank account was only deactivated (due to related refund histories)
     /// </summary>
     Deactivated
 }

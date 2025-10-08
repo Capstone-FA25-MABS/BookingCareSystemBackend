@@ -4,7 +4,7 @@ using BookingCare.Services.Payment.Models.DTOs.Requests;
 namespace BookingCare.Services.Payment.Validators;
 
 /// <summary>
-/// Validator cho UpdatePaymentMethodStatusRequest
+/// Validator for UpdatePaymentMethodStatusRequest
 /// </summary>
 public class UpdatePaymentMethodStatusRequestValidator : AbstractValidator<UpdatePaymentMethodStatusRequest>
 {
@@ -12,10 +12,10 @@ public class UpdatePaymentMethodStatusRequestValidator : AbstractValidator<Updat
     {
         RuleFor(x => x.Id)
             .NotEqual(Guid.Empty)
-            .WithMessage("ID kh?ng ???c ?? tr?ng");
+            .WithMessage("Id must not be empty");
 
         RuleFor(x => x.Status)
             .IsInEnum()
-            .WithMessage("Tr?ng thái kh?ng h?p l?");
+            .WithMessage("Status is not valid");
     }
 }

@@ -6,7 +6,7 @@ using BookingCare.Services.Payment.Enums;
 namespace BookingCare.Services.Payment.Data;
 
 /// <summary>
-/// Database context cho Payment Service
+/// Database context for the Payment Service
 /// </summary>
 public class PaymentDbContext : DbContext
 {
@@ -15,27 +15,27 @@ public class PaymentDbContext : DbContext
     }
 
     /// <summary>
-    /// DbSet cho bảng payments
+    /// DbSet for the payments table
     /// </summary>
     public DbSet<PaymentEntity> Payments { get; set; }
 
     /// <summary>
-    /// DbSet cho bảng payment_methods
+    /// DbSet for the payment_methods table
     /// </summary>
     public DbSet<PaymentMethodEntity> PaymentMethods { get; set; }
 
     /// <summary>
-    /// DbSet cho bảng payos_payment_mappings
+    /// DbSet for the payos_payment_mappings table
     /// </summary>
     public DbSet<PayOSPaymentMappingEntity> PayOSPaymentMappings { get; set; }
 
     /// <summary>
-    /// DbSet cho bảng bank_accounts
+    /// DbSet for the bank_accounts table
     /// </summary>
     public DbSet<BankAccountEntity> BankAccounts { get; set; }
 
     /// <summary>
-    /// DbSet cho bảng refund_histories
+    /// DbSet for the refund_histories table
     /// </summary>
     public DbSet<RefundHistoryEntity> RefundHistories { get; set; }
 
@@ -43,7 +43,7 @@ public class PaymentDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Cấu hình PaymentEntity
+        // Configure PaymentEntity
         modelBuilder.Entity<PaymentEntity>(entity =>
         {
             // Enum conversion
@@ -59,7 +59,7 @@ public class PaymentDbContext : DbContext
                     v => (PaymentStatus)Enum.Parse(typeof(PaymentStatus), v))
                 .HasMaxLength(10);
 
-            // Relationship với PaymentMethod
+            // Relationship with PaymentMethod
             entity.HasOne(d => d.PaymentMethod)
                 .WithMany(p => p.Payments)
                 .HasForeignKey(d => d.PaymentMethodId)
@@ -76,17 +76,17 @@ public class PaymentDbContext : DbContext
             });
         });
 
-        // Cấu hình PaymentMethodEntity
+        // Configure PaymentMethodEntity
         modelBuilder.Entity<PaymentMethodEntity>(entity =>
         {
-            // Enum conversion cho Status
+            // Enum conversion for Status
             entity.Property(e => e.Status)
                 .HasConversion(
                     v => v.ToString(),
                     v => (PaymentMethodStatus)Enum.Parse(typeof(PaymentMethodStatus), v))
                 .HasMaxLength(10);
 
-            // Check constraint cho status - Updated for EF Core 8
+            // Check constraint for status - Updated for EF Core 8
             entity.ToTable("payment_methods", t =>
             {
                 t.HasCheckConstraint("CK_payment_methods_status",
@@ -94,10 +94,10 @@ public class PaymentDbContext : DbContext
             });
         });
 
-        // Cấu hình PayOSPaymentMappingEntity
+        // Configure PayOSPaymentMappingEntity
         modelBuilder.Entity<PayOSPaymentMappingEntity>(entity =>
         {
-            // Relationship với Payment entity
+            // Relationship with Payment entity
             entity.HasOne<PaymentEntity>()
                 .WithMany()
                 .HasForeignKey(e => e.PaymentId)
@@ -105,7 +105,7 @@ public class PaymentDbContext : DbContext
                 .HasConstraintName("FK_payos_payment_mappings_payment_id");
         });
 
-        // Cấu hình BankAccountEntity
+        // Configure BankAccountEntity
         modelBuilder.Entity<BankAccountEntity>(entity =>
         {
             // Primary key
@@ -136,41 +136,41 @@ public class PaymentDbContext : DbContext
                 .HasDefaultValueSql("GETDATE()");
         });
 
-        // Cấu hình RefundHistoryEntity
+        // Configure RefundHistoryEntity
         modelBuilder.Entity<RefundHistoryEntity>(entity =>
         {
             // Primary key
             entity.HasKey(e => e.Id);
 
-            // Enum conversion cho Status
+            // Enum conversion for Status
             entity.Property(e => e.Status)
                 .HasConversion(
                     v => v.ToString(),
                     v => (RefundStatus)Enum.Parse(typeof(RefundStatus), v))
                 .HasMaxLength(20);
 
-            // Relationship với PaymentEntity (1:1 - mỗi payment chỉ có một refund history)
+            // Relationship with PaymentEntity (1:1 - each payment has only one refund history)
             entity.HasOne(r => r.Payment)
                 .WithOne()
                 .HasForeignKey<RefundHistoryEntity>(r => r.PaymentId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_refund_histories_payment_id");
 
-            // Relationship với BankAccountEntity (optional - có thể null)
+            // Relationship with BankAccountEntity (optional - can be null)
             entity.HasOne(r => r.BankAccount)
                 .WithMany()
                 .HasForeignKey(r => r.BankAccountId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("FK_refund_histories_bank_account_id");
 
-            // Check constraints và business rules
+            // Check constraints and business rules
             entity.ToTable("refund_histories", t =>
             {
                 t.HasCheckConstraint("CK_refund_histories_status",
                     "[status] IN ('WAITING', 'PENDING', 'COMPLETED')");
                 t.HasCheckConstraint("CK_refund_histories_refund_amount_positive",
                     "[refund_amount] > 0");
-                // Transfer date chỉ có khi status = COMPLETED
+                // Transfer date only exists when status = COMPLETED
                 t.HasCheckConstraint("CK_refund_histories_transfer_date_completed",
                     "([status] = 'COMPLETED' AND [transfer_date] IS NOT NULL) OR ([status] != 'COMPLETED')");
             });
@@ -184,12 +184,12 @@ public class PaymentDbContext : DbContext
 
         });
 
-        // Seed data cho payment methods
+        // Seed data for payment methods
         SeedData(modelBuilder);
     }
 
     /// <summary>
-    /// Seed data cho các phương thức thanh toán phổ biến
+    /// Seed data for common payment methods
     /// </summary>
     private static void SeedData(ModelBuilder modelBuilder)
     {

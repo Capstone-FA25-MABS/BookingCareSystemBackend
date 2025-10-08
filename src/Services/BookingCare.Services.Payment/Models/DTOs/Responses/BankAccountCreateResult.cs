@@ -1,36 +1,36 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
 /// <summary>
-/// K?t qu? c?a thao tác Smart Create bank account
+/// Result of the Smart Create bank account operation
 /// </summary>
 public class BankAccountCreateResult
 {
     /// <summary>
-    /// Thao tác có thành công hay không
+    /// Whether the operation succeeded
     /// </summary>
     public bool Success { get; set; }
 
     /// <summary>
-    /// Lo?i thao tác ?ã th?c hi?n
+    /// The action performed
     /// </summary>
     public BankAccountCreateAction Action { get; set; }
 
     /// <summary>
-    /// Thông báo mô t? k?t qu?
+    /// Message describing the result
     /// </summary>
     public string Message { get; set; } = string.Empty;
 
     /// <summary>
-    /// Bank account ???c t?o ho?c reactive
+    /// The bank account that was created or reactivated
     /// </summary>
     public BankAccountResponse? BankAccount { get; set; }
 
     /// <summary>
-    /// T?o k?t qu? cho thao tác t?o m?i thành công
+    /// Create result for a newly created bank account
     /// </summary>
     public static BankAccountCreateResult Created(BankAccountResponse bankAccount, string? customMessage = null)
     {
-        var message = customMessage ?? "Bank account ???c t?o m?i thành công";
+        var message = customMessage ?? "Bank account has been created successfully";
 
         return new BankAccountCreateResult
         {
@@ -42,12 +42,12 @@ public class BankAccountCreateResult
     }
 
     /// <summary>
-    /// T?o k?t qu? cho thao tác reactive thành công
+    /// Create result for a successfully reactivated bank account
     /// </summary>
     public static BankAccountCreateResult Reactivated(BankAccountResponse bankAccount, string? customMessage = null)
     {
         var message = customMessage ??
-            "Bank account ?ã t?n t?i nh?ng b? vô hi?u hóa tr??c ?ó. Tài kho?n ?ã ???c kích ho?t l?i thành công.";
+            "Bank account already existed but was inactive. The account has been reactivated successfully.";
 
         return new BankAccountCreateResult
         {
@@ -59,7 +59,7 @@ public class BankAccountCreateResult
     }
 
     /// <summary>
-    /// T?o k?t qu? cho thao tác th?t b?i
+    /// Create result for a failed operation
     /// </summary>
     public static BankAccountCreateResult Failed(string message)
     {
@@ -73,22 +73,22 @@ public class BankAccountCreateResult
 }
 
 /// <summary>
-/// Lo?i thao tác ?ã th?c hi?n trong Smart Create
+/// Actions performed during Smart Create
 /// </summary>
 public enum BankAccountCreateAction
 {
     /// <summary>
-    /// Không th?c hi?n thao tác nào
+    /// No action performed
     /// </summary>
     None,
 
     /// <summary>
-    /// T?o hoàn toàn m?i bank account
+    /// A brand new bank account was created
     /// </summary>
     Created,
 
     /// <summary>
-    /// Kích ho?t l?i bank account ?ã t?n t?i nh?ng b? inactive
+    /// An existing inactive bank account was reactivated
     /// </summary>
     Reactivated
 }

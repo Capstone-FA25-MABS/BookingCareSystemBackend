@@ -1,22 +1,22 @@
 namespace BookingCare.Services.Payment.Enums;
 
 /// <summary>
-/// Tr?ng thái c?a yêu c?u refund
+/// Status of a refund request
 /// </summary>
 public enum RefundStatus
 {
     /// <summary>
-    /// ?ang ch? - User ch?a có bank account ho?c không có bank account nào active
+    /// Waiting - user has no bank account or no active bank account
     /// </summary>
     WAITING,
 
     /// <summary>
-    /// ?ang x? lý - ?ang ??i staff refund ti?n cho user
+    /// Pending - waiting for staff to process the refund
     /// </summary>
     PENDING,
 
     /// <summary>
-    /// Hoàn thành - Refund ti?n thành công
+    /// Completed - refund succeeded
     /// </summary>
     COMPLETED
 }

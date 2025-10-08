@@ -3,27 +3,27 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request DTO tạo payment cho subscription (clinic đăng ký gói)
+/// Request DTO to create a subscription payment (clinic subscribes to a plan)
 /// </summary>
 public class CreateSubscriptionPaymentRequest
 {
     /// <summary>
-    /// ID của subscription (bắt buộc)
+    /// Subscription ID (required)
     /// </summary>
     public Guid SubscriptionId { get; set; }
 
     /// <summary>
-    /// ID của clinic (bắt buộc)
+    /// Clinic ID (required)
     /// </summary>
     public Guid ClinicId { get; set; }
 
     /// <summary>
-    /// Số tiền thanh toán
+    /// Payment amount
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// ID phương thức thanh toán
+    /// Payment method ID
     /// </summary>
     public Guid PaymentMethodId { get; set; }
 }

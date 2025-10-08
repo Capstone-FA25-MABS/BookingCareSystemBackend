@@ -1,62 +1,62 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Responses;
 
 /// <summary>
-/// Response cho bank account
+/// Response DTO for bank account
 /// </summary>
 public class BankAccountResponse
 {
     /// <summary>
-    /// ID c?a bank account
+    /// ID of the bank account
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// ID c?a user s? h?u tài kho?n ngân hàng
+    /// ID of the user who owns the bank account
     /// </summary>
     public Guid UserId { get; set; }
 
     /// <summary>
-    /// Mã ngân hàng
+    /// Bank code
     /// </summary>
     public string BankCode { get; set; } = string.Empty;
 
     /// <summary>
-    /// Tên ngân hàng ??y ??
+    /// Full bank name
     /// </summary>
     public string BankName { get; set; } = string.Empty;
 
     /// <summary>
-    /// S? tài kho?n ngân hàng (???c mask ?? b?o m?t)
+    /// Bank account number (masked for security)
     /// </summary>
     public string AccountNumber { get; set; } = string.Empty;
 
     /// <summary>
-    /// S? tài kho?n ??y ?? (ch? hi?n th? cho ch? tài kho?n)
+    /// Full account number (only shown for certain roles)
     /// </summary>
     public string? FullAccountNumber { get; set; }
 
     /// <summary>
-    /// Tên ch? tài kho?n
+    /// Account holder name
     /// </summary>
     public string AccountName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Có ph?i là tài kho?n m?c ??nh hay không
+    /// Whether this is the default account
     /// </summary>
     public bool IsDefault { get; set; }
 
     /// <summary>
-    /// Tr?ng thái ho?t ??ng
+    /// Active status
     /// </summary>
     public bool IsActive { get; set; }
 
     /// <summary>
-    /// Th?i gian t?o
+    /// Creation time
     /// </summary>
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
-    /// Th?i gian c?p nh?t cu?i cùng
+    /// Last update time
     /// </summary>
     public DateTime UpdatedAt { get; set; }
 }

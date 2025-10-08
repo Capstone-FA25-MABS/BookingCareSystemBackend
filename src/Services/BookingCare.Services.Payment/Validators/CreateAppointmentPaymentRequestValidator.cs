@@ -4,7 +4,7 @@ using BookingCare.Services.Payment.Models.DTOs.Requests;
 namespace BookingCare.Services.Payment.Validators;
 
 /// <summary>
-/// Validator cho CreateAppointmentPaymentRequest
+/// Validator for CreateAppointmentPaymentRequest
 /// </summary>
 public class CreateAppointmentPaymentRequestValidator : AbstractValidator<CreateAppointmentPaymentRequest>
 {
@@ -12,20 +12,20 @@ public class CreateAppointmentPaymentRequestValidator : AbstractValidator<Create
     {
         RuleFor(x => x.AppointmentId)
             .NotEqual(Guid.Empty)
-            .WithMessage("AppointmentId không ???c ?? tr?ng");
+            .WithMessage("AppointmentId must not be empty");
 
         RuleFor(x => x.PatientId)
             .NotEqual(Guid.Empty)
-            .WithMessage("PatientId không ???c ?? tr?ng");
+            .WithMessage("PatientId must not be empty");
 
         RuleFor(x => x.Amount)
             .GreaterThan(0)
-            .WithMessage("Amount ph?i l?n h?n 0")
+            .WithMessage("Amount must be greater than 0")
             .LessThanOrEqualTo(99999999.99m)
-            .WithMessage("Amount không ???c v??t quá 99,999,999.99");
+            .WithMessage("Amount must not exceed 99,999,999.99");
 
         RuleFor(x => x.PaymentMethodId)
             .NotEqual(Guid.Empty)
-            .WithMessage("PaymentMethodId không ???c ?? tr?ng");
+            .WithMessage("PaymentMethodId must not be empty");
     }
 }

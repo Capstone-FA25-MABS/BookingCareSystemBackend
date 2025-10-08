@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace BookingCare.Services.Payment.Controllers;
 
 /// <summary>
-/// Controller quản lý các thao tác thanh toán
+/// Controller for payment operations
 /// </summary>
 [ApiVersion(ApiVersions.V1_0)]
 public class PaymentsController : BaseApiController
@@ -41,7 +41,7 @@ public class PaymentsController : BaseApiController
     }
 
     /// <summary>
-    /// Lấy payment theo ID
+    /// Get payment by ID
     /// </summary>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -52,20 +52,20 @@ public class PaymentsController : BaseApiController
             var payment = await _paymentService.GetByIdAsync(id);
             if (payment == null)
             {
-                return NotFound($"Payment với ID {id} không tìm thấy");
+                return NotFound($"Payment with ID {id} was not found");
             }
 
-            return Success(payment, "Lấy payment thành công");
+            return Success(payment, "Get payment successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting payment with ID: {PaymentId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy payment" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the payment" });
         }
     }
 
     /// <summary>
-    /// Lấy payment theo appointment ID
+    /// Get payment by appointment ID
     /// </summary>
     [HttpGet("appointment/{appointmentId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -76,10 +76,10 @@ public class PaymentsController : BaseApiController
             var payment = await _paymentService.GetByAppointmentIdAsync(appointmentId);
             if (payment == null)
             {
-                return NotFound($"Payment cho appointment {appointmentId} không tìm thấy");
+                return NotFound($"Payment for appointment {appointmentId} was not found");
             }
 
-            return Success(payment, "Lấy payment thành công");
+            return Success(payment, "Get payment successful");
         }
         catch (Exception ex)
         {
@@ -88,12 +88,12 @@ public class PaymentsController : BaseApiController
                 "Error getting payment for appointment ID: {AppointmentId}",
                 appointmentId
             );
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy payment" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the payment" });
         }
     }
 
     /// <summary>
-    /// Lấy payment theo subscription ID
+    /// Get payment by subscription ID
     /// </summary>
     [HttpGet("subscription/{subscriptionId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -104,10 +104,10 @@ public class PaymentsController : BaseApiController
             var payment = await _paymentService.GetBySubscriptionIdAsync(subscriptionId);
             if (payment == null)
             {
-                return NotFound($"Payment cho subscription {subscriptionId} không tìm thấy");
+                return NotFound($"Payment for subscription {subscriptionId} was not found");
             }
 
-            return Success(payment, "Lấy payment thành công");
+            return Success(payment, "Get payment successful");
         }
         catch (Exception ex)
         {
@@ -116,12 +116,12 @@ public class PaymentsController : BaseApiController
                 "Error getting payment for subscription ID: {SubscriptionId}",
                 subscriptionId
             );
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy payment" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the payment" });
         }
     }
 
     /// <summary>
-    /// Lấy danh sách payments theo clinic ID có phân trang
+    /// Get paged payments by clinic ID
     /// </summary>
     [HttpGet("clinic/{clinicId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -137,13 +137,13 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var pagedResult = await _paymentService.GetPagedByClinicIdAsync(clinicId, request);
             return Paginated(
                 pagedResult,
-                "Lấy danh sách payments theo clinic có phân trang thành công"
+                "Get paged payments by clinic successful"
             );
         }
         catch (Exception ex)
@@ -153,12 +153,12 @@ public class PaymentsController : BaseApiController
                 "Error getting paged payments for clinic ID: {ClinicId}",
                 clinicId
             );
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy danh sách payments" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the list of payments" });
         }
     }
 
     /// <summary>
-    /// Lấy danh sách payments theo patient ID có phân trang
+    /// Get paged payments by patient ID
     /// </summary>
     [HttpGet("patient/{patientId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -174,13 +174,13 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var pagedResult = await _paymentService.GetPagedByPatientIdAsync(patientId, request);
             return Paginated(
                 pagedResult,
-                "Lấy danh sách payments theo patient có phân trang thành công"
+                "Get paged payments by patient successful"
             );
         }
         catch (Exception ex)
@@ -190,12 +190,12 @@ public class PaymentsController : BaseApiController
                 "Error getting paged payments for patient ID: {PatientId}",
                 patientId
             );
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy danh sách payments" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving the list of payments" });
         }
     }
 
     /// <summary>
-    /// Tạo payment cho appointment (patient đặt lịch)
+    /// Create appointment payment (patient books appointment)
     /// </summary>
     [HttpPost("appointment")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -210,11 +210,11 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var payment = await _paymentService.CreateAppointmentPaymentAsync(request);
-            return Created(payment, "Tạo payment cho appointment thành công");
+            return Created(payment, "Create appointment payment successful");
         }
         catch (ArgumentException ex)
         {
@@ -231,13 +231,13 @@ public class PaymentsController : BaseApiController
             _logger.LogError(ex, "Error creating appointment payment");
             return StatusCode(
                 500,
-                new { Message = "Có lỗi xảy ra khi tạo payment cho appointment" }
+                new { Message = "An error occurred while creating appointment payment" }
             );
         }
     }
 
     /// <summary>
-    /// Tạo payment cho subscription (clinic đăng ký gói)
+    /// Create subscription payment (clinic subscribes)
     /// </summary>
     [HttpPost("subscription")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -252,11 +252,11 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var payment = await _paymentService.CreateSubscriptionPaymentAsync(request);
-            return Created(payment, "Tạo payment cho subscription thành công");
+            return Created(payment, "Create subscription payment successful");
         }
         catch (ArgumentException ex)
         {
@@ -273,13 +273,13 @@ public class PaymentsController : BaseApiController
             _logger.LogError(ex, "Error creating subscription payment");
             return StatusCode(
                 500,
-                new { Message = "Có lỗi xảy ra khi tạo payment cho subscription" }
+                new { Message = "An error occurred while creating subscription payment" }
             );
         }
     }
 
     /// <summary>
-    /// Cập nhật trạng thái payment
+    /// Update payment status
     /// </summary>
     [HttpPut("{id}/status")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -297,11 +297,11 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var payment = await _paymentService.UpdateStatusAsync(request);
-            return Success(payment, "Cập nhật trạng thái payment thành công");
+            return Success(payment, "Update payment status successful");
         }
         catch (ArgumentException ex)
         {
@@ -313,13 +313,13 @@ public class PaymentsController : BaseApiController
             _logger.LogError(ex, "Error updating payment status for ID: {PaymentId}", id);
             return StatusCode(
                 500,
-                new { Message = "Có lỗi xảy ra khi cập nhật trạng thái payment" }
+                new { Message = "An error occurred while updating payment status" }
             );
         }
     }
 
     /// <summary>
-    /// Xóa payment
+    /// Delete payment
     /// </summary>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -330,21 +330,21 @@ public class PaymentsController : BaseApiController
             var result = await _paymentService.DeleteAsync(id);
             if (!result)
             {
-                return NotFound($"Payment với ID {id} không tìm thấy");
+                return NotFound($"Payment with ID {id} was not found");
             }
 
-            return Success("Xóa payment thành công");
+            return Success("Delete payment successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting payment with ID: {PaymentId}", id);
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi xóa payment" });
+            return StatusCode(500, new { Message = "An error occurred while deleting the payment" });
         }
     }
 
     /// <summary>
-    /// Lấy thống kê payments
-    /// Nếu không truyền FromDate, ToDate: mặc định lấy 6 tháng gần nhất và thống kê theo tháng
+    /// Get payment statistics
+    /// If FromDate/ToDate not provided: default to last 6 months and monthly statistics
     /// </summary>
     [HttpGet("statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -352,7 +352,7 @@ public class PaymentsController : BaseApiController
     {
         try
         {
-            // Log thông tin về default values nếu không được cung cấp
+            // Log info about default values when not provided
             var fromDate = request.GetFromDate();
             var toDate = request.GetToDate();
             var usingDefaults = !request.FromDate.HasValue || !request.ToDate.HasValue;
@@ -368,21 +368,21 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Dữ liệu không hợp lệ", errors);
+                return BadRequest("Invalid request data", errors);
             }
 
             var statistics = await _paymentService.GetPaymentStatisticsAsync(request);
 
             var message = usingDefaults
-                ? $"Lấy thống kê payments thành công (mặc định: {statistics.DateRange})"
-                : "Lấy thống kê payments thành công";
+                ? $"Get payment statistics successful (default: {statistics.DateRange})"
+                : "Get payment statistics successful";
 
             return Success(statistics, message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting payment statistics");
-            return StatusCode(500, new { Message = "Có lỗi xảy ra khi lấy thống kê payments" });
+            return StatusCode(500, new { Message = "An error occurred while retrieving payment statistics" });
         }
     }
 }

@@ -5,20 +5,20 @@ using BookingCare.Services.Payment.Enums;
 namespace BookingCare.Services.Payment.Models.Entities;
 
 /// <summary>
-/// Entity cho bảng payment_methods - Lookup table cho các phương thức thanh toán
+/// Entity for the payment_methods table - lookup table for payment methods
 /// </summary>
 [Table("payment_methods")]
 public class PaymentMethodEntity
 {
     /// <summary>
-    /// ID của phương thức thanh toán
+    /// ID of the payment method
     /// </summary>
     [Key]
     [Column("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>
-    /// Tên phương thức thanh toán (unique)
+    /// Payment method name (unique)
     /// </summary>
     [Required]
     [MaxLength(50)]
@@ -26,19 +26,19 @@ public class PaymentMethodEntity
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Mô tả phương thức thanh toán
+    /// Description of the payment method
     /// </summary>
     [Column("description")]
     public string? Description { get; set; }
 
     /// <summary>
-    /// Trạng thái phương thức thanh toán (ACTIVE, INACTIVE)
+    /// Status of the payment method (ACTIVE, INACTIVE)
     /// </summary>
     [Column("status")]
     public PaymentMethodStatus Status { get; set; } = PaymentMethodStatus.ACTIVE;
 
     /// <summary>
-    /// Navigation property - Danh sách các payment sử dụng phương thức này
+    /// Navigation property - list of payments using this method
     /// </summary>
     public virtual ICollection<PaymentEntity> Payments { get; set; } = new List<PaymentEntity>();
 }

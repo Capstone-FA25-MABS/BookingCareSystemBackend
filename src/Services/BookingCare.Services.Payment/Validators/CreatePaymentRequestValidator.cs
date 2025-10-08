@@ -4,55 +4,55 @@ using BookingCare.Services.Payment.Models.DTOs.Requests;
 namespace BookingCare.Services.Payment.Validators;
 
 /// <summary>
-/// Validator cho CreatePaymentRequest
+/// Validator for CreatePaymentRequest
 /// </summary>
 public class CreatePaymentRequestValidator : AbstractValidator<CreatePaymentRequest>
 {
     public CreatePaymentRequestValidator()
     {
-        // AppointmentId có th? null, nh?ng n?u có thì không ???c Empty
+        // AppointmentId can be null, but if present must not be Empty
         When(x => x.AppointmentId.HasValue, () =>
         {
             RuleFor(x => x.AppointmentId)
                 .NotEqual(Guid.Empty)
-                .WithMessage("AppointmentId không ???c ?? tr?ng n?u ???c cung c?p");
+                .WithMessage("AppointmentId must not be empty if provided");
         });
 
-        // SubscriptionId có th? null, nh?ng n?u có thì không ???c Empty
+        // SubscriptionId can be null, but if present must not be Empty
         When(x => x.SubscriptionId.HasValue, () =>
         {
             RuleFor(x => x.SubscriptionId)
                 .NotEqual(Guid.Empty)
-                .WithMessage("SubscriptionId không ???c ?? tr?ng n?u ???c cung c?p");
+                .WithMessage("SubscriptionId must not be empty if provided");
         });
 
         RuleFor(x => x.Amount)
             .GreaterThan(0)
-            .WithMessage("Amount ph?i l?n h?n 0")
+            .WithMessage("Amount must be greater than 0")
             .LessThanOrEqualTo(99999999.99m)
-            .WithMessage("Amount không ???c v??t quá 99,999,999.99");
+            .WithMessage("Amount must not exceed 99,999,999.99");
 
         RuleFor(x => x.TransactionType)
             .IsInEnum()
-            .WithMessage("TransactionType không h?p l?");
+            .WithMessage("TransactionType is not valid");
 
         RuleFor(x => x.PaymentMethodId)
             .NotEqual(Guid.Empty)
-            .WithMessage("PaymentMethodId không ???c ?? tr?ng");
+            .WithMessage("PaymentMethodId must not be empty");
 
-        // ClinicId và PatientId có th? null, validate n?u có giá tr?
+        // ClinicId and PatientId can be null, validate if present
         When(x => x.ClinicId.HasValue, () =>
         {
             RuleFor(x => x.ClinicId)
                 .NotEqual(Guid.Empty)
-                .WithMessage("ClinicId không ???c ?? tr?ng n?u ???c cung c?p");
+                .WithMessage("ClinicId must not be empty if provided");
         });
 
         When(x => x.PatientId.HasValue, () =>
         {
             RuleFor(x => x.PatientId)
                 .NotEqual(Guid.Empty)
-                .WithMessage("PatientId không ???c ?? tr?ng n?u ???c cung c?p");
+                .WithMessage("PatientId must not be empty if provided");
         });
     }
 }

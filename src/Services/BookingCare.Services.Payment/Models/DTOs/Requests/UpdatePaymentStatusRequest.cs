@@ -3,17 +3,17 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request DTO để cập nhật trạng thái payment
+/// Request DTO to update payment status
 /// </summary>
 public class UpdatePaymentStatusRequest
 {
     /// <summary>
-    /// ID của payment
+    /// ID of the payment
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Trạng thái mới
+    /// New status
     /// </summary>
     public PaymentStatus Status { get; set; }
 }

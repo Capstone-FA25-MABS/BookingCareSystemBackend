@@ -1,47 +1,47 @@
 ﻿namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request DTO cho thống kê payments
+/// Request DTO for payment statistics
 /// </summary>
 public class GetPaymentStatisticsRequest
 {
     /// <summary>
-    /// Ngày bắt đầu thống kê (mặc định: 6 tháng trước)
+    /// Start date for statistics (default: 6 months ago)
     /// </summary>
     public DateTime? FromDate { get; set; }
 
     /// <summary>
-    /// Ngày kết thúc thống kê (mặc định: tháng hiện tại)
+    /// End date for statistics (default: current month)
     /// </summary>
     public DateTime? ToDate { get; set; }
 
     /// <summary>
-    /// Loại thống kê (mặc định: Monthly)
+    /// Statistics period (default: Monthly)
     /// </summary>
     public StatisticsPeriod Period { get; set; } = StatisticsPeriod.Monthly;
 
     /// <summary>
-    /// Clinic ID (tùy chọn - nếu null thì lấy tất cả clinics)
+    /// Clinic ID (optional - if null get all clinics)
     /// </summary>
     public Guid? ClinicId { get; set; }
 
     /// <summary>
-    /// Patient ID (tùy chọn - nếu null thì lấy tất cả patients)
+    /// Patient ID (optional - if null get all patients)
     /// </summary>
     public Guid? PatientId { get; set; }
 
     /// <summary>
-    /// Loại giao dịch (tùy chọn - nếu null thì lấy tất cả)
+    /// Transaction type (optional - if null get all)
     /// </summary>
     public string? TransactionType { get; set; }
 
     /// <summary>
-    /// Trạng thái payment (tùy chọn - nếu null thì lấy tất cả)
+    /// Payment status (optional - if null get all)
     /// </summary>
     public string? Status { get; set; }
 
     /// <summary>
-    /// Lấy FromDate với default value (6 tháng trước từ đầu tháng)
+    /// Get FromDate with default value (6 months ago from start of month)
     /// </summary>
     public DateTime GetFromDate()
     {
@@ -52,7 +52,7 @@ public class GetPaymentStatisticsRequest
     }
 
     /// <summary>
-    /// Lấy ToDate với default value (cuối tháng hiện tại)
+    /// Get ToDate with default value (end of current month)
     /// </summary>
     public DateTime GetToDate()
     {
@@ -64,32 +64,32 @@ public class GetPaymentStatisticsRequest
 }
 
 /// <summary>
-/// Enum cho chu kỳ thống kê
+/// Enum for statistics period
 /// </summary>
 public enum StatisticsPeriod
 {
     /// <summary>
-    /// Thống kê theo ngày
+    /// Daily statistics
     /// </summary>
     Daily,
 
     /// <summary>
-    /// Thống kê theo tuần
+    /// Weekly statistics
     /// </summary>
     Weekly,
 
     /// <summary>
-    /// Thống kê theo tháng
+    /// Monthly statistics
     /// </summary>
     Monthly,
 
     /// <summary>
-    /// Thống kê theo quý
+    /// Quarterly statistics
     /// </summary>
     Quarterly,
 
     /// <summary>
-    /// Thống kê theo năm
+    /// Yearly statistics
     /// </summary>
     Yearly
 }

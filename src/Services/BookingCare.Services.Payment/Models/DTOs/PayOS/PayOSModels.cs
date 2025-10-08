@@ -1,64 +1,64 @@
 namespace BookingCare.Services.Payment.Models.DTOs.PayOS;
 
 /// <summary>
-/// Request ?? t?o payment link PayOS
+/// Request to create a PayOS payment link
 /// </summary>
 public class PayOSPaymentRequest
 {
     /// <summary>
-    /// ID payment trong h? th?ng
+    /// Payment ID in the system
     /// </summary>
     public Guid PaymentId { get; set; }
 
     /// <summary>
-    /// S? ti?n thanh toán (VND)
+    /// Payment amount (VND)
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// Mô t? ??n hàng
+    /// Order description
     /// </summary>
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
-    /// Thông tin ng??i mua (tùy ch?n)
+    /// Buyer information (optional)
     /// </summary>
     public PayOSBuyerInfo? BuyerInfo { get; set; }
 
     /// <summary>
-    /// Thông tin s?n ph?m/d?ch v? (tùy ch?n)
+    /// Product/service items information (optional)
     /// </summary>
     public List<PayOSItemInfo>? Items { get; set; }
 }
 
 /// <summary>
-/// Response ch?a payment link PayOS
+/// Response containing PayOS payment link
 /// </summary>
 public class PayOSPaymentResponse
 {
     /// <summary>
-    /// Payment link ?? redirect user ??n PayOS
+    /// Checkout URL to redirect the user to PayOS
     /// </summary>
     public string CheckoutUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// Order code t? PayOS
+    /// Order code from PayOS
     /// </summary>
     public long OrderCode { get; set; }
 
     /// <summary>
-    /// QR code ?? thanh toán
+    /// QR code for payment
     /// </summary>
     public string QrCode { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i gian h?t h?n giao d?ch
+    /// Transaction expiration time
     /// </summary>
     public DateTime ExpireAt { get; set; }
 }
 
 /// <summary>
-/// Webhook data t? PayOS
+/// Webhook data from PayOS
 /// </summary>
 public class PayOSWebhookData
 {
@@ -68,12 +68,12 @@ public class PayOSWebhookData
     public long OrderCode { get; set; }
 
     /// <summary>
-    /// S? ti?n
+    /// Amount
     /// </summary>
     public int Amount { get; set; }
 
     /// <summary>
-    /// Mô t?
+    /// Description
     /// </summary>
     public string Description { get; set; } = string.Empty;
 
@@ -108,7 +108,7 @@ public class PayOSWebhookData
     public string Code { get; set; } = string.Empty;
 
     /// <summary>
-    /// Desc
+    /// Description message
     /// </summary>
     public string Desc { get; set; } = string.Empty;
 
@@ -144,89 +144,89 @@ public class PayOSWebhookData
 }
 
 /// <summary>
-/// Thông tin ng??i mua
+/// Buyer information
 /// </summary>
 public class PayOSBuyerInfo
 {
     /// <summary>
-    /// Tên ng??i mua
+    /// Buyer name
     /// </summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Email ng??i mua
+    /// Buyer email
     /// </summary>
     public string Email { get; set; } = string.Empty;
 
     /// <summary>
-    /// S? ?i?n tho?i ng??i mua
+    /// Buyer phone number
     /// </summary>
     public string Phone { get; set; } = string.Empty;
 }
 
 /// <summary>
-/// Thông tin s?n ph?m/d?ch v?
+/// Product/service item information
 /// </summary>
 public class PayOSItemInfo
 {
     /// <summary>
-    /// Tên s?n ph?m/d?ch v?
+    /// Item name
     /// </summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// S? l??ng
+    /// Quantity
     /// </summary>
     public int Quantity { get; set; } = 1;
 
     /// <summary>
-    /// Giá
+    /// Price
     /// </summary>
     public int Price { get; set; }
 }
 
 /// <summary>
-/// Response callback t? PayOS
+/// Callback response from PayOS
 /// </summary>
 public class PayOSCallbackResponse
 {
     /// <summary>
-    /// ID payment trong h? th?ng
+    /// Payment ID in the system
     /// </summary>
     public Guid PaymentId { get; set; }
 
     /// <summary>
-    /// Giao d?ch có thành công không
+    /// Whether the transaction succeeded
     /// </summary>
     public bool Success { get; set; }
 
     /// <summary>
-    /// Order code t? PayOS
+    /// Order code from PayOS
     /// </summary>
     public long OrderCode { get; set; }
 
     /// <summary>
-    /// S? ti?n ?ã thanh toán
+    /// Amount paid
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// Mã ph?n h?i
+    /// Response code
     /// </summary>
     public string ResponseCode { get; set; } = string.Empty;
 
     /// <summary>
-    /// Thông ?i?p
+    /// Message
     /// </summary>
     public string Message { get; set; } = string.Empty;
 
     /// <summary>
-    /// Th?i gian thanh toán
+    /// Payment date time
     /// </summary>
     public DateTime? PaymentDate { get; set; }
 
     /// <summary>
-    /// Reference t? PayOS
+    /// Reference from PayOS
     /// </summary>
     public string Reference { get; set; } = string.Empty;
 }

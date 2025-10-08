@@ -1,52 +1,52 @@
 namespace BookingCare.Services.Payment.Models.Configurations;
 
 /// <summary>
-/// C?u hình PayOS
+/// PayOS configuration
 /// </summary>
 public class PayOSConfiguration
 {
     /// <summary>
-    /// Client ID t? PayOS Dashboard
+    /// Client ID from PayOS Dashboard
     /// </summary>
     public string ClientId { get; set; } = string.Empty;
 
     /// <summary>
-    /// API Key t? PayOS Dashboard
+    /// API Key from PayOS Dashboard
     /// </summary>
     public string ApiKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Checksum Key t? PayOS Dashboard
+    /// Checksum Key from PayOS Dashboard
     /// </summary>
     public string ChecksumKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// URL callback ?? nh?n k?t qu? thanh toán
+    /// Callback URL to receive payment results
     /// </summary>
     public string ReturnUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// URL cancel ?? nh?n k?t qu? khi user h?y thanh toán
+    /// Cancel URL to receive result when user cancels payment
     /// </summary>
     public string CancelUrl { get; set; } = string.Empty;
 
     /// <summary>
-    /// Môi tr??ng (sandbox ho?c production)
+    /// Environment (sandbox or production)
     /// </summary>
     public string Environment { get; set; } = "sandbox";
 
     /// <summary>
-    /// Th?i gian timeout cho giao d?ch (phút)
+    /// Transaction timeout in minutes
     /// </summary>
     public int TimeoutInMinutes { get; set; } = 15;
 
     /// <summary>
-    /// Có s? d?ng webhook không
+    /// Whether to use webhook
     /// </summary>
     public bool UseWebhook { get; set; } = true;
 
     /// <summary>
-    /// URL webhook ?? nh?n thông báo t? PayOS
+    /// Webhook URL to receive notifications from PayOS
     /// </summary>
     public string WebhookUrl { get; set; } = string.Empty;
 }

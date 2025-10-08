@@ -4,7 +4,7 @@ using BookingCare.Services.Payment.Models.DTOs.Requests;
 namespace BookingCare.Services.Payment.Validators;
 
 /// <summary>
-/// Validator cho GetPaymentsPagedRequest
+/// Validator for GetPaymentsPagedRequest
 /// </summary>
 public class GetPaymentsPagedRequestValidator : AbstractValidator<GetPaymentsPagedRequest>
 {
@@ -12,21 +12,21 @@ public class GetPaymentsPagedRequestValidator : AbstractValidator<GetPaymentsPag
     {
         RuleFor(x => x.PageNumber)
             .GreaterThan(0)
-            .WithMessage("PageNumber ph?i l?n h?n 0");
+            .WithMessage("PageNumber must be greater than 0");
 
         RuleFor(x => x.PageSize)
             .GreaterThan(0)
-            .WithMessage("PageSize ph?i l?n h?n 0")
+            .WithMessage("PageSize must be greater than 0")
             .LessThanOrEqualTo(100)
-            .WithMessage("PageSize không ???c v??t quá 100");
+            .WithMessage("PageSize must not exceed 100");
 
         RuleFor(x => x.SortBy)
             .Must(BeValidSortField)
-            .WithMessage("SortBy ph?i là m?t trong các giá tr?: CreatedAt, Amount, Status");
+            .WithMessage("SortBy must be one of: CreatedAt, Amount, Status");
 
         RuleFor(x => x.SortOrder)
             .Must(BeValidSortOrder)
-            .WithMessage("SortOrder ph?i là 'asc' ho?c 'desc'");
+            .WithMessage("SortOrder must be 'asc' or 'desc'");
     }
 
     private bool BeValidSortField(string sortBy)

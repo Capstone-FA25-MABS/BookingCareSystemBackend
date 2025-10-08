@@ -4,61 +4,61 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace BookingCare.Services.Payment.Models.Entities;
 
 /// <summary>
-/// Entity cho b?ng mapping gi?a PaymentId và OrderCode c?a PayOS
-/// B?ng t?m th?i ?? l?u thông tin trong quá trình thanh toán
-/// S? ???c xóa sau khi thanh toán hoàn t?t ?? ti?t ki?m dung l??ng
+/// Entity for mapping between PaymentId and PayOS OrderCode
+/// Temporary table to store information during the payment process
+/// Records will be deleted after the payment completes to save storage
 /// </summary>
 [Table("payos_payment_mappings")]
 public class PayOSPaymentMappingEntity
 {
     /// <summary>
-    /// ID c?a mapping (Primary key)
+    /// ID of the mapping (Primary key)
     /// </summary>
     [Key]
     [Column("id")]
     public Guid Id { get; set; }
 
     /// <summary>
-    /// ID c?a payment trong h? th?ng
+    /// ID of the payment in the system
     /// </summary>
     [Required]
     [Column("payment_id")]
     public Guid PaymentId { get; set; }
 
     /// <summary>
-    /// Order code t? PayOS (unique)
+    /// Order code from PayOS (unique)
     /// </summary>
     [Required]
     [Column("order_code")]
     public long OrderCode { get; set; }
 
     /// <summary>
-    /// Th?i gian t?o mapping
+    /// Creation time of the mapping
     /// </summary>
     [Required]
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
-    /// Th?i gian h?t h?n (?? cleanup t? ??ng)
+    /// Expiration time (used for automatic cleanup)
     /// </summary>
     [Required]
     [Column("expires_at")]
     public DateTime ExpiresAt { get; set; }
 
     /// <summary>
-    /// Constructor m?c ??nh
+    /// Default constructor
     /// </summary>
     public PayOSPaymentMappingEntity()
     {
         Id = Guid.NewGuid();
         CreatedAt = DateTime.UtcNow;
-        // M?c ??nh h?t h?n sau 24 gi? (?? th?i gian cho PayOS timeout + buffer)
+        // Default expiration after 24 hours (allow PayOS timeout + buffer)
         ExpiresAt = DateTime.UtcNow.AddHours(24);
     }
 
     /// <summary>
-    /// Constructor v?i parameters
+    /// Constructor with parameters
     /// </summary>
     public PayOSPaymentMappingEntity(Guid paymentId, long orderCode, DateTime? expiresAt = null)
         : this()

@@ -3,42 +3,42 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request DTO để tạo payment mới
+/// Request DTO to create a new payment
 /// </summary>
 public class CreatePaymentRequest
 {
     /// <summary>
-    /// ID của appointment (tùy chọn)
+    /// Appointment ID (optional)
     /// </summary>
     public Guid? AppointmentId { get; set; }
 
     /// <summary>
-    /// ID của clinic (tùy chọn)
+    /// Clinic ID (optional)
     /// </summary>
     public Guid? ClinicId { get; set; }
 
     /// <summary>
-    /// ID của patient (tùy chọn)
+    /// Patient ID (optional)
     /// </summary>
     public Guid? PatientId { get; set; }
 
     /// <summary>
-    /// ID của subscription (tùy chọn - chỉ dùng cho clinic khi đăng ký gói)
+    /// Subscription ID (optional - used for clinics subscribing to a plan)
     /// </summary>
     public Guid? SubscriptionId { get; set; }
 
     /// <summary>
-    /// Số tiền thanh toán
+    /// Payment amount
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// Loại giao dịch
+    /// Transaction type
     /// </summary>
     public TransactionType TransactionType { get; set; }
 
     /// <summary>
-    /// ID phương thức thanh toán
+    /// Payment method ID
     /// </summary>
     public Guid PaymentMethodId { get; set; }
 }

@@ -3,27 +3,27 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request DTO để tạo payment cho appointment (patient tạo lịch)
+/// Request DTO to create a payment for an appointment (created by patient)
 /// </summary>
 public class CreateAppointmentPaymentRequest
 {
     /// <summary>
-    /// ID của appointment (bắt buộc)
+    /// Appointment ID (required)
     /// </summary>
     public Guid AppointmentId { get; set; }
 
     /// <summary>
-    /// ID của patient (bắt buộc)
+    /// Patient ID (required)
     /// </summary>
     public Guid PatientId { get; set; }
 
     /// <summary>
-    /// Số tiền thanh toán
+    /// Payment amount
     /// </summary>
     public decimal Amount { get; set; }
 
     /// <summary>
-    /// ID phương thức thanh toán
+    /// Payment method ID
     /// </summary>
     public Guid PaymentMethodId { get; set; }
 }
