@@ -77,16 +77,7 @@ builder.Services.Configure<SwaggerGenOptions>(c =>
     }
 });
 
-// Add CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
+
 
 var app = builder.Build();
 
@@ -96,7 +87,7 @@ await EnsureDatabaseCreated(app);
 // Add global exception handling early in pipeline
 app.UseGlobalExceptionHandling();
 
-app.UseCors("AllowAll");
+
 
 // Use common Swagger UI configuration
 app.UseCommonSwaggerUI("Payment Service");
