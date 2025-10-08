@@ -47,21 +47,31 @@ public class VNPayController : BaseApiController
         }, "VNPay service is healthy");
     }
 
-    /// <summary>
-    /// Create VNPay payment URL
-    /// </summary>
-    /// <param name="request">Payment information</param>
-    /// <returns>URL to redirect to VNPay</returns>
+    // Replace the GetClientIP method to use model binding for client IP
+    // Instead of accessing Request.Headers directly, use [FromHeader] in the action parameter
+
+    // 1. Remove the GetClientIP method entirely.
+
+    // 2. Update the CreatePaymentUrl action to accept client IP via model binding:
+
     [HttpPost("create-payment-url")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> CreatePaymentUrl([FromBody] VNPayPaymentRequest request)
+    public async Task<IActionResult> CreatePaymentUrl([FromBody] VNPayPaymentRequest request, [FromHeader(Name = "X-Forwarded-For")] string? forwardedFor)
     {
         try
         {
             // Set client IP if not provided (before validation)
             if (string.IsNullOrEmpty(request.ClientIP))
             {
-                request.ClientIP = GetClientIP();
+                if (!string.IsNullOrEmpty(forwardedFor))
+                {
+                    var forwardedIps = forwardedFor.Split(',');
+                    request.ClientIP = forwardedIps.Length > 0 ? forwardedIps[0].Trim() : null;
+                }
+                else
+                {
+                    request.ClientIP = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+                }
             }
 
             // Validate request data (now ClientIP is populated)
@@ -215,26 +225,7 @@ public class VNPayController : BaseApiController
         }
     }
 
-    /// <summary>
-    /// Get client IP address
-    /// </summary>
-    /// <returns>Client IP address</returns>
-    private string GetClientIP()
-    {
-        var ipAddress = HttpContext.Connection.RemoteIpAddress;
 
-        // Check for forwarded IP (behind proxy/load balancer)
-        if (Request.Headers.ContainsKey("X-Forwarded-For"))
-        {
-            var forwardedIps = Request.Headers["X-Forwarded-For"].ToString().Split(',');
-            if (forwardedIps.Length > 0)
-            {
-                return forwardedIps[0].Trim();
-            }
-        }
-
-        return ipAddress?.ToString() ?? "127.0.0.1";
-    }
 
     /// <summary>
     /// Convert VNPay response code to human readable message
