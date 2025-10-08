@@ -26,6 +26,11 @@ public interface IRefundHistoryRepository
     Task<IEnumerable<RefundHistoryEntity>> GetByUserIdAsync(Guid userId);
 
     /// <summary>
+    /// Get list of refund histories by hospital ID
+    /// </summary>
+    Task<IEnumerable<RefundHistoryEntity>> GetByHospitalIdAsync(Guid hospitalId);
+
+    /// <summary>
     /// Get list of refund histories by user ID with status PENDING and COMPLETED only
     /// </summary>
     Task<IEnumerable<RefundHistoryEntity>> GetProcessableRefundsByUserIdAsync(Guid userId);

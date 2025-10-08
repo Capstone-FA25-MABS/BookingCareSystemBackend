@@ -140,6 +140,48 @@ public class RefundHistoriesController : BaseApiController
     }
 
     /// <summary>
+    /// Get refund histories by hospital ID
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <returns>List of refund histories</returns>
+    [HttpGet("hospital/{hospitalId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetRefundHistoriesByHospital(Guid hospitalId)
+    {
+        try
+        {
+            if (hospitalId == Guid.Empty)
+            {
+                return BadRequest("Invalid hospital ID");
+            }
+
+            var refundHistories = await _refundHistoryService.GetByHospitalIdAsync(hospitalId);
+            var refundHistoriesList = refundHistories.ToList();
+            var count = refundHistoriesList.Count;
+
+            var responseData = new
+            {
+                refundHistories = refundHistoriesList,
+                count = count
+            };
+
+            var message = count switch
+            {
+                0 => "No refund history found for hospital",
+                1 => "Get 1 refund history for hospital successful",
+                _ => $"Get {count} refund histories for hospital successful"
+            };
+
+            return Success(responseData, message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting refund histories for hospital: {HospitalId}", hospitalId);
+            return StatusCode(500, new { Message = "An error occurred while retrieving refund histories list" });
+        }
+    }
+
+    /// <summary>
     /// Get refund histories by status
     /// </summary>
     /// <param name="status">Refund status</param>

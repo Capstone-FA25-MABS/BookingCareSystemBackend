@@ -41,20 +41,20 @@ public class PaymentRepository : IPaymentRepository
             .FirstOrDefaultAsync(p => p.SubscriptionId == subscriptionId);
     }
 
-    public async Task<IEnumerable<PaymentEntity>> GetByClinicIdAsync(Guid clinicId)
+    public async Task<IEnumerable<PaymentEntity>> GetByHospitalIdAsync(Guid hospitalId)
     {
         return await _context.Payments
             .Include(p => p.PaymentMethod)
-            .Where(p => p.ClinicId == clinicId)
+            .Where(p => p.HospitalId == hospitalId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
     }
 
-    public async Task<PagedResult<PaymentEntity>> GetPagedByClinicIdAsync(Guid clinicId, GetPaymentsPagedRequest request)
+    public async Task<PagedResult<PaymentEntity>> GetPagedByHospitalIdAsync(Guid hospitalId, GetPaymentsPagedRequest request)
     {
         var query = _context.Payments
             .Include(p => p.PaymentMethod)
-            .Where(p => p.ClinicId == clinicId);
+            .Where(p => p.HospitalId == hospitalId);
 
         // Apply search filter if provided
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
@@ -189,9 +189,9 @@ public class PaymentRepository : IPaymentRepository
             .Where(p => p.CreatedAt >= fromDate && p.CreatedAt <= toDate);
 
         // Apply filters
-        if (request.ClinicId.HasValue)
+        if (request.HospitalId.HasValue)
         {
-            query = query.Where(p => p.ClinicId == request.ClinicId.Value);
+            query = query.Where(p => p.HospitalId == request.HospitalId.Value);
         }
 
         if (request.PatientId.HasValue)

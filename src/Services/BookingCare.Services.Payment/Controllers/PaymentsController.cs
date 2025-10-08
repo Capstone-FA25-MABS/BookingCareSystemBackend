@@ -121,12 +121,12 @@ public class PaymentsController : BaseApiController
     }
 
     /// <summary>
-    /// Get paged payments by clinic ID
+    /// Get paged payments by hospital ID
     /// </summary>
-    [HttpGet("clinic/{clinicId}")]
+    [HttpGet("hospital/{hospitalId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetPagedPaymentsByClinic(
-        Guid clinicId,
+    public async Task<IActionResult> GetPagedPaymentsByHospital(
+        Guid hospitalId,
         [FromQuery] GetPaymentsPagedRequest request
     )
     {
@@ -140,18 +140,18 @@ public class PaymentsController : BaseApiController
                 return BadRequest("Invalid request data", errors);
             }
 
-            var pagedResult = await _paymentService.GetPagedByClinicIdAsync(clinicId, request);
+            var pagedResult = await _paymentService.GetPagedByHospitalIdAsync(hospitalId, request);
             return Paginated(
                 pagedResult,
-                "Get paged payments by clinic successful"
+                "Get paged payments by hospital successful"
             );
         }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
-                "Error getting paged payments for clinic ID: {ClinicId}",
-                clinicId
+                "Error getting paged payments for hospital ID: {HospitalId}",
+                hospitalId
             );
             return StatusCode(500, new { Message = "An error occurred while retrieving the list of payments" });
         }

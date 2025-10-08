@@ -63,6 +63,15 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     }
 
     /// <summary>
+    /// Get list of refund histories by hospital ID
+    /// </summary>
+    public async Task<IEnumerable<RefundHistoryResponse>> GetByHospitalIdAsync(Guid hospitalId)
+    {
+        var refundHistories = await _refundHistoryRepository.GetByHospitalIdAsync(hospitalId);
+        return _mapper.Map<IEnumerable<RefundHistoryResponse>>(refundHistories);
+    }
+
+    /// <summary>
     /// Get list of refund histories by status
     /// </summary>
     public async Task<IEnumerable<RefundHistoryResponse>> GetByStatusAsync(RefundStatus status)
@@ -95,8 +104,8 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Creating refund history for Payment: {PaymentId}, User: {UserId}",
-                null, request.PaymentId, request.UserId);
+            LogInfo("Creating refund history for Payment: {PaymentId}, User: {UserId}, Hospital: {HospitalId}",
+                null, request.PaymentId, request.UserId, request.HospitalId);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -107,6 +116,15 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             {
                 throw new NotFoundException("Payment", request.PaymentId);
             }
+
+            // Validate that the HospitalId matches the payment's HospitalId (if payment has one)
+            if (payment.HospitalId.HasValue && payment.HospitalId.Value != request.HospitalId)
+            {
+                throw new InvalidOperationException($"Hospital ID mismatch. Payment belongs to hospital {payment.HospitalId}, but refund is for hospital {request.HospitalId}");
+            }
+
+            // If payment doesn't have HospitalId (appointment payment), we still allow the refund with the provided HospitalId
+            // This handles cases where the hospital needs to process refunds for appointments
 
             // Check if payment already has a refund history
             var existingRefund = await _refundHistoryRepository.PaymentHasRefundAsync(request.PaymentId);
@@ -134,11 +152,12 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             var entity = _mapper.Map<RefundHistoryEntity>(request);
             entity.Status = status;
             entity.BankAccountId = bankAccountId;
+            entity.HospitalId = request.HospitalId; // Ensure HospitalId is set
 
             var created = await _refundHistoryRepository.CreateAsync(entity);
 
-            LogInfo("Refund history created successfully with ID: {Id}, Status: {Status}",
-                null, created.Id, created.Status);
+            LogInfo("Refund history created successfully with ID: {Id}, Status: {Status}, Hospital: {HospitalId}",
+                null, created.Id, created.Status, created.HospitalId);
 
             return _mapper.Map<RefundHistoryResponse>(created);
         }, "CreateRefundHistory");

@@ -24,10 +24,10 @@ public class PaymentEntity
     public Guid? AppointmentId { get; set; }
 
     /// <summary>
-    /// ID of the clinic (nullable)
+    /// ID of the hospital (nullable)
     /// </summary>
-    [Column("clinic_id")]
-    public Guid? ClinicId { get; set; }
+    [Column("hospital_id")]
+    public Guid? HospitalId { get; set; }
 
     /// <summary>
     /// ID of the patient (nullable)
@@ -36,7 +36,7 @@ public class PaymentEntity
     public Guid? PatientId { get; set; }
 
     /// <summary>
-    /// ID of the subscription (nullable - used for clinics subscribing to a plan)
+    /// ID of the subscription (nullable - used for hospitals subscribing to a plan)
     /// </summary>
     [Column("subscription_id")]
     public Guid? SubscriptionId { get; set; }

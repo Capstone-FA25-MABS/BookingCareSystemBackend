@@ -1,8 +1,8 @@
 ﻿namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
-/// <summary>
-/// Request DTO for payment statistics
-/// </summary>
+// <summary>
+// Request DTO for payment statistics
+// </summary>
 public class GetPaymentStatisticsRequest
 {
     /// <summary>
@@ -21,9 +21,9 @@ public class GetPaymentStatisticsRequest
     public StatisticsPeriod Period { get; set; } = StatisticsPeriod.Monthly;
 
     /// <summary>
-    /// Clinic ID (optional - if null get all clinics)
+    /// Hospital ID (optional - if null get all hospitals)
     /// </summary>
-    public Guid? ClinicId { get; set; }
+    public Guid? HospitalId { get; set; }
 
     /// <summary>
     /// Patient ID (optional - if null get all patients)

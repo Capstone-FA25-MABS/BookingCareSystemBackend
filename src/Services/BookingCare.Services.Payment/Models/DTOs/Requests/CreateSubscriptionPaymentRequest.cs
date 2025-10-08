@@ -3,7 +3,7 @@
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 /// <summary>
-/// Request DTO to create a subscription payment (clinic subscribes to a plan)
+/// Request DTO to create a subscription payment (hospital subscribes to a plan)
 /// </summary>
 public class CreateSubscriptionPaymentRequest
 {
@@ -13,9 +13,9 @@ public class CreateSubscriptionPaymentRequest
     public Guid SubscriptionId { get; set; }
 
     /// <summary>
-    /// Clinic ID (required)
+    /// Hospital ID (required)
     /// </summary>
-    public Guid ClinicId { get; set; }
+    public Guid HospitalId { get; set; }
 
     /// <summary>
     /// Payment amount

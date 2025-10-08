@@ -28,6 +28,11 @@ public class RefundHistoryResponse
     public Guid UserId { get; set; }
 
     /// <summary>
+    /// ID of the hospital that needs to process the refund
+    /// </summary>
+    public Guid HospitalId { get; set; }
+
+    /// <summary>
     /// Refund status
     /// </summary>
     public RefundStatus Status { get; set; }

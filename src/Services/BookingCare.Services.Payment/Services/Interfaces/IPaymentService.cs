@@ -25,14 +25,14 @@ public interface IPaymentService
     Task<PaymentResponse?> GetBySubscriptionIdAsync(Guid subscriptionId);
 
     /// <summary>
-    /// Get list of payments by clinic ID
+    /// Get list of payments by hospital ID
     /// </summary>
-    Task<IEnumerable<PaymentResponse>> GetByClinicIdAsync(Guid clinicId);
+    Task<IEnumerable<PaymentResponse>> GetByHospitalIdAsync(Guid hospitalId);
 
     /// <summary>
-    /// Get list of payments by clinic ID with pagination
+    /// Get list of payments by hospital ID with pagination
     /// </summary>
-    Task<PagedResult<PaymentResponse>> GetPagedByClinicIdAsync(Guid clinicId, GetPaymentsPagedRequest request);
+    Task<PagedResult<PaymentResponse>> GetPagedByHospitalIdAsync(Guid hospitalId, GetPaymentsPagedRequest request);
 
     /// <summary>
     /// Get list of payments by patient ID
@@ -60,7 +60,7 @@ public interface IPaymentService
     Task<PaymentResponse> CreateAppointmentPaymentAsync(CreateAppointmentPaymentRequest request);
 
     /// <summary>
-    /// Create payment for subscription (clinic subscribes to package)
+    /// Create payment for subscription (hospital subscribes to package)
     /// </summary>
     Task<PaymentResponse> CreateSubscriptionPaymentAsync(CreateSubscriptionPaymentRequest request);
 

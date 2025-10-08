@@ -25,14 +25,14 @@ public interface IPaymentRepository
     Task<PaymentEntity?> GetBySubscriptionIdAsync(Guid subscriptionId);
 
     /// <summary>
-    /// Get list of payments by clinic ID
+    /// Get list of payments by hospital ID
     /// </summary>
-    Task<IEnumerable<PaymentEntity>> GetByClinicIdAsync(Guid clinicId);
+    Task<IEnumerable<PaymentEntity>> GetByHospitalIdAsync(Guid hospitalId);
 
     /// <summary>
-    /// Get paged list of payments by clinic ID
+    /// Get paged list of payments by hospital ID
     /// </summary>
-    Task<PagedResult<PaymentEntity>> GetPagedByClinicIdAsync(Guid clinicId, GetPaymentsPagedRequest request);
+    Task<PagedResult<PaymentEntity>> GetPagedByHospitalIdAsync(Guid hospitalId, GetPaymentsPagedRequest request);
 
     /// <summary>
     /// Get list of payments by patient ID

@@ -59,6 +59,20 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
+    /// Get list of refund histories by hospital ID
+    /// </summary>
+    public async Task<IEnumerable<RefundHistoryEntity>> GetByHospitalIdAsync(Guid hospitalId)
+    {
+        return await _context.RefundHistories
+            .Include(r => r.Payment)
+                .ThenInclude(p => p.PaymentMethod)
+            .Include(r => r.BankAccount)
+            .Where(r => r.HospitalId == hospitalId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Get list of refund histories by user ID with status PENDING and COMPLETED only
     /// </summary>
     public async Task<IEnumerable<RefundHistoryEntity>> GetProcessableRefundsByUserIdAsync(Guid userId)
@@ -102,6 +116,11 @@ public class RefundHistoryRepository : IRefundHistoryRepository
         if (request.UserId.HasValue)
         {
             query = query.Where(r => r.UserId == request.UserId.Value);
+        }
+
+        if (request.HospitalId.HasValue)
+        {
+            query = query.Where(r => r.HospitalId == request.HospitalId.Value);
         }
 
         if (request.Status.HasValue)

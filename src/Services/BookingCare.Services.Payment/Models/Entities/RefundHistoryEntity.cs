@@ -31,6 +31,13 @@ public class RefundHistoryEntity
     public Guid UserId { get; set; }
 
     /// <summary>
+    /// ID of the hospital that needs to process the refund (required)
+    /// </summary>
+    [Required]
+    [Column("hospital_id")]
+    public Guid HospitalId { get; set; }
+
+    /// <summary>
     /// Refund status
     /// </summary>
     [Required]

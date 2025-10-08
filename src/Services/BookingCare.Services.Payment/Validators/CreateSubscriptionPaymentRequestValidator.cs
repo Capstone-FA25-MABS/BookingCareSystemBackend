@@ -14,9 +14,9 @@ public class CreateSubscriptionPaymentRequestValidator : AbstractValidator<Creat
             .NotEqual(Guid.Empty)
             .WithMessage("SubscriptionId must not be empty");
 
-        RuleFor(x => x.ClinicId)
+        RuleFor(x => x.HospitalId)
             .NotEqual(Guid.Empty)
-            .WithMessage("ClinicId must not be empty");
+            .WithMessage("HospitalId must not be empty");
 
         RuleFor(x => x.Amount)
             .GreaterThan(0)

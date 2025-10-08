@@ -24,6 +24,13 @@ public class CreateRefundHistoryRequest
     public Guid UserId { get; set; }
 
     /// <summary>
+    /// ID of the hospital that needs to process the refund
+    /// </summary>
+    [Required]
+    [JsonRequired]
+    public Guid HospitalId { get; set; }
+
+    /// <summary>
     /// ID of the bank account for refund (optional - may be null)
     /// </summary>
     public Guid? BankAccountId { get; set; }
@@ -93,6 +100,11 @@ public class GetRefundHistoriesRequest
     /// User ID (optional - get all if null)
     /// </summary>
     public Guid? UserId { get; set; }
+
+    /// <summary>
+    /// Hospital ID (optional - get all if null)
+    /// </summary>
+    public Guid? HospitalId { get; set; }
 
     /// <summary>
     /// Refund status (optional - get all if null)

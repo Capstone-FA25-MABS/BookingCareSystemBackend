@@ -274,7 +274,7 @@ Content-Type: application/json
 
 ## 7. Set Bank Account as Default
 ```http
-PATCH /api/v1.0/bankaccounts/550e8400-e29b-41d4-a716-446655440001/set-default
+PUT /api/v1.0/bankaccounts/550e8400-e29b-41d4-a716-446655440001/set-default
 ```
 
 ## 8. Toggle Bank Account Status
@@ -282,9 +282,54 @@ PATCH /api/v1.0/bankaccounts/550e8400-e29b-41d4-a716-446655440001/set-default
 PATCH /api/v1.0/bankaccounts/550e8400-e29b-41d4-a716-446655440001/toggle-status
 ```
 
-## 9. Delete Bank Account
+## 9. Smart Delete Bank Account (Delete or Deactivate)
+
+Description: If the bank account is referenced by RefundHistories it will be **deactivated** and the API returns the updated bank account and a count of related refunds. If not referenced it will be **deleted**.
+
+### 9.1 Delete (Permanent) Response Example
+```http
+DELETE /api/v1.0/bankaccounts/550e8400-e29b-41d4-a716-446655440004
+```
+
+Response (deleted):
+```json
+{
+    "success": true,
+    "message": "Bank account has been deleted successfully",
+    "data": null,
+    "timestamp": "2024-01-06T13:00:00Z"
+}
+```
+
+### 9.2 Deactivate (Referenced by RefundHistories) Response Example
 ```http
 DELETE /api/v1.0/bankaccounts/550e8400-e29b-41d4-a716-446655440001
+```
+
+Response (deactivated):
+```json
+{
+    "success": true,
+    "message": "Bank account has linked refunds and was deactivated",
+    "data": {
+        "action": "deactivated",
+        "bankAccount": {
+            "id": "550e8400-e29b-41d4-a716-446655440001",
+            "userId": "550e8400-e29b-41d4-a716-446655440000",
+            "bankCode": "VCB",
+            "bankName": "Vietcombank",
+            "accountNumber": "******7890",
+            "fullAccountNumber": null,
+            "accountName": "NGUYEN VAN A",
+            "isDefault": false,
+            "isActive": false,
+            "createdAt": "2024-01-06T10:00:00Z",
+            "updatedAt": "2024-01-06T13:00:00Z"
+        },
+        "refundHistoriesCount": 2
+    },
+    "timestamp": "2024-01-06T13:00:00Z"
+}
 ```
 
 ## Expected Response Format
@@ -357,25 +402,18 @@ DELETE /api/v1.0/bankaccounts/550e8400-e29b-41d4-a716-446655440001
 6. **Cross-field Validation**: When updating account number, uniqueness is checked against the current or new bank code
 
 ### API Response Enhancements
-1. **Structured Data**: Response includes both `accounts` array and `count` field
+1. **Structured Data**: Response includes both `accounts` array and `count` field for list endpoints
 2. **Frontend-Friendly**: Direct access to count without array length calculation
 3. **Dynamic Messages**: 
-   - `"Lấy 3 bank accounts thành công"` for multiple accounts
-   - `"Lấy 1 bank account thành công"` for single account
-   - `"Không tìm thấy bank account nào"` for no accounts
+   - "Lấy 3 bank accounts thành công" for multiple accounts
+   - "Lấy 1 bank account thành công" for single account
+   - "Không tìm thấy bank account nào" for no accounts
 4. **Consistent Data Structure**: Always returns same structure regardless of count
 5. **Easy Integration**: Simple to use in frontend frameworks (React, Vue, Angular)
 
-### Frontend Benefits
-1. **Direct Count Access**: `result.data.count` instead of `result.data.length`
-2. **Conditional Logic**: Easy to implement different UI states based on count
-3. **Performance**: No need to calculate array length on frontend
-4. **Type Safety**: Clear data structure for TypeScript projects
-5. **Consistent API**: Same response format for empty, single, and multiple results
-
 ### Security Features
 1. **Account Number Masking**: Only show last 4 digits in public responses
-2. **Full Number Access**: Only available to account owner
+2. **Full Number Access**: Only available to account owner or authorized staff
 3. **Input Validation**: Comprehensive validation on all inputs
 4. **SQL Injection Protection**: Parameterized queries and EF Core protection
 5. **Uniqueness Validation**: Prevents duplicate account numbers within the same bank

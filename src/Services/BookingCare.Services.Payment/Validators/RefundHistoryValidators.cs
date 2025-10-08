@@ -23,6 +23,12 @@ public class CreateRefundHistoryRequestValidator : AbstractValidator<CreateRefun
             .NotEqual(Guid.Empty)
             .WithMessage("User ID is not valid");
 
+        RuleFor(x => x.HospitalId)
+            .NotEmpty()
+            .WithMessage("Hospital ID must not be empty")
+            .NotEqual(Guid.Empty)
+            .WithMessage("Hospital ID is not valid");
+
         RuleFor(x => x.RefundAmount)
             .GreaterThan(0)
             .WithMessage("Refund amount must be greater than 0")
@@ -96,6 +102,11 @@ public class GetRefundHistoriesRequestValidator : AbstractValidator<GetRefundHis
             .NotEqual(Guid.Empty)
             .WithMessage("User ID is not valid")
             .When(x => x.UserId.HasValue);
+
+        RuleFor(x => x.HospitalId)
+            .NotEqual(Guid.Empty)
+            .WithMessage("Hospital ID is not valid")
+            .When(x => x.HospitalId.HasValue);
 
         RuleFor(x => x.Status)
             .IsInEnum()

@@ -58,11 +58,11 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Get list of payments by clinic ID - Simple read operation
+    /// Get list of payments by hospital ID - Simple read operation
     /// </summary>
-    public async Task<IEnumerable<PaymentResponse>> GetByClinicIdAsync(Guid clinicId)
+    public async Task<IEnumerable<PaymentResponse>> GetByHospitalIdAsync(Guid hospitalId)
     {
-        var payments = await _paymentRepository.GetByClinicIdAsync(clinicId);
+        var payments = await _paymentRepository.GetByHospitalIdAsync(hospitalId);
         return _mapper.Map<IEnumerable<PaymentResponse>>(payments);
     }
 
@@ -76,11 +76,11 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Get list of payments by clinic ID with pagination - Simple read operation
+    /// Get list of payments by hospital ID with pagination - Simple read operation
     /// </summary>
-    public async Task<PagedResult<PaymentResponse>> GetPagedByClinicIdAsync(Guid clinicId, GetPaymentsPagedRequest request)
+    public async Task<PagedResult<PaymentResponse>> GetPagedByHospitalIdAsync(Guid hospitalId, GetPaymentsPagedRequest request)
     {
-        var pagedResult = await _paymentRepository.GetPagedByClinicIdAsync(clinicId, request);
+        var pagedResult = await _paymentRepository.GetPagedByHospitalIdAsync(hospitalId, request);
 
         return new PagedResult<PaymentResponse>
         {
@@ -202,7 +202,7 @@ public class PaymentService : BaseService, IPaymentService
             {
                 AppointmentId = request.AppointmentId,
                 PatientId = request.PatientId,
-                ClinicId = null,
+                HospitalId = null,
                 SubscriptionId = null,
                 Amount = request.Amount,
                 TransactionType = TransactionType.APPOINTMENT,
@@ -219,7 +219,7 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Create payment for subscription (clinic subscribes to package) - Business operation MUST use ExecuteWithErrorHandling
+    /// Create payment for subscription (hospital subscribes to package) - Business operation MUST use ExecuteWithErrorHandling
     /// </summary>
     public async Task<PaymentResponse> CreateSubscriptionPaymentAsync(CreateSubscriptionPaymentRequest request)
     {
@@ -230,7 +230,7 @@ public class PaymentService : BaseService, IPaymentService
             // Validation
             ValidateRequired(request, nameof(request));
             ValidateGuid(request.SubscriptionId, nameof(request.SubscriptionId));
-            ValidateGuid(request.ClinicId, nameof(request.ClinicId));
+            ValidateGuid(request.HospitalId, nameof(request.HospitalId));
             ValidateGuid(request.PaymentMethodId, nameof(request.PaymentMethodId));
 
             // Validate payment method exists
@@ -249,7 +249,7 @@ public class PaymentService : BaseService, IPaymentService
             {
                 AppointmentId = null,
                 PatientId = null,
-                ClinicId = request.ClinicId,
+                HospitalId = request.HospitalId,
                 SubscriptionId = request.SubscriptionId,
                 Amount = request.Amount,
                 TransactionType = TransactionType.SUBSCRIPTION,
@@ -357,7 +357,7 @@ public class PaymentService : BaseService, IPaymentService
                 FromDate = fromDate,
                 ToDate = toDate,
                 Period = request.Period,
-                ClinicId = request.ClinicId,
+                HospitalId = request.HospitalId,
                 PatientId = request.PatientId,
                 TransactionType = request.TransactionType,
                 Status = request.Status

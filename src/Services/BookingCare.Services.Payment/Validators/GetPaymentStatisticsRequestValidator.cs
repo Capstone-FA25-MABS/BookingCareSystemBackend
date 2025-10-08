@@ -38,12 +38,12 @@ public class GetPaymentStatisticsRequestValidator : AbstractValidator<GetPayment
             .IsInEnum()
             .WithMessage("Period is not valid");
 
-        // Validate ClinicId if provided
-        When(x => x.ClinicId.HasValue, () =>
+        // Validate HospitalId if provided
+        When(x => x.HospitalId.HasValue, () =>
         {
-            RuleFor(x => x.ClinicId)
+            RuleFor(x => x.HospitalId)
                 .NotEqual(Guid.Empty)
-                .WithMessage("ClinicId must not be empty if provided");
+                .WithMessage("HospitalId must not be empty if provided");
         });
 
         // Validate PatientId if provided
