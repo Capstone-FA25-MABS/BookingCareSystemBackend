@@ -22,7 +22,12 @@ public interface IAppointmentRepository
 
     // Statistics operations
     /// <summary>
-    /// Get counts for all appointment statuses for a specific user
+    /// Get counts for all appointment statuses for a specific user or organization
+    /// Supports filtering by PatientId, DoctorId, HospitalId, or all (for ADMIN)
     /// </summary>
-    Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(Guid? patientId, Guid? doctorId);
+    Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
+        Guid? patientId = null,
+        Guid? doctorId = null,
+        Guid? hospitalId = null,
+        bool countAll = false);
 }

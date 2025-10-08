@@ -264,25 +264,47 @@ public class AppointmentRepository : IAppointmentRepository
     #region Statistics Operations
 
     /// <summary>
-    /// Get counts for all appointment statuses for a specific user using a single optimized query
+    /// Get counts for all appointment statuses for a specific user or organization using a single optimized query
+    /// Supports filtering by PatientId, DoctorId, HospitalId, or all (for ADMIN)
     /// </summary>
-    public async Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(Guid? patientId, Guid? doctorId)
+    public async Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
+        Guid? patientId = null,
+        Guid? doctorId = null,
+        Guid? hospitalId = null,
+        bool countAll = false)
     {
         try
         {
             var query = _context.Appointments.AsQueryable();
 
-            // Apply user filter
-            if (patientId.HasValue)
+            // Apply appropriate filter based on role
+            if (countAll)
             {
+                // ADMIN role: Count all appointments (no filter)
+                _logger.LogInformation("Counting all appointments for ADMIN role");
+            }
+            else if (patientId.HasValue)
+            {
+                // PATIENT role: Filter by patient
                 query = query.Where(a => a.PatientId == patientId.Value);
+                _logger.LogInformation("Counting appointments for PatientId: {PatientId}", patientId.Value);
             }
             else if (doctorId.HasValue)
             {
+                // DOCTOR role: Filter by doctor
                 query = query.Where(a => a.DoctorId == doctorId.Value);
+                _logger.LogInformation("Counting appointments for DoctorId: {DoctorId}", doctorId.Value);
+            }
+            else if (hospitalId.HasValue)
+            {
+                // STAFF role: Filter by hospital
+                query = query.Where(a => a.HospitalId == hospitalId.Value);
+                _logger.LogInformation("Counting appointments for HospitalId: {HospitalId}", hospitalId.Value);
             }
             else
             {
+                // No valid filter provided
+                _logger.LogWarning("No valid filter provided for status counts query");
                 return new Dictionary<AppointmentStatus, int>();
             }
 
@@ -307,8 +329,8 @@ public class AppointmentRepository : IAppointmentRepository
             }
 
             _logger.LogInformation(
-                "Retrieved status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId}): Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
-                patientId, doctorId, result[AppointmentStatus.PENDING], result[AppointmentStatus.CONFIRMED],
+                "Retrieved status counts (PatientId: {PatientId}, DoctorId: {DoctorId}, HospitalId: {HospitalId}, CountAll: {CountAll}): Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
+                patientId, doctorId, hospitalId, countAll, result[AppointmentStatus.PENDING], result[AppointmentStatus.CONFIRMED],
                 result[AppointmentStatus.CANCELLED], result[AppointmentStatus.COMPLETED]);
 
             return result;

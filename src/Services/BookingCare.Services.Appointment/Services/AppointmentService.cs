@@ -137,7 +137,7 @@ public class AppointmentService : BaseService, IAppointmentService
             // Include status counts if requested
             if (query.IncludeStatusCounts && query.PatientId.HasValue)
             {
-                response.StatusCounts = await GetStatusCountsAsync(query.PatientId.Value, Role.PATIENT);
+                response.StatusCounts = await GetStatusCountsAsync(query.PatientId.Value, Role.PATIENT, null);
                 LogInfo("Included status counts for patient {PatientId}", null, query.PatientId.Value);
             }
 
@@ -174,6 +174,13 @@ public class AppointmentService : BaseService, IAppointmentService
                 PageNumber = query.PageNumber,
                 PageSize = query.PageSize
             };
+
+            // Include status counts if requested - use role-based logic
+            if (query.IncludeStatusCounts)
+            {
+                response.StatusCounts = await GetRoleBasedStatusCountsAsync(query, managementRole);
+                LogInfo("Included status counts for management role {Role}", null, managementRole);
+            }
 
             LogInfo("Retrieved {Count} appointments out of {TotalCount} for management role {Role}",
                 null, appointments.Count, totalCount, managementRole);
@@ -516,19 +523,86 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// Get counts for all statuses for a specific user (patient or doctor/staff)
-    /// Uses optimized repository method with single DB query
+    /// Get role-based status counts from query parameters
+    /// Determines the appropriate userId and hospitalId based on management role
     /// </summary>
-    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(Guid userId, Role role)
+    private async Task<AppointmentStatusCounts> GetRoleBasedStatusCountsAsync(AppointmentQueryRequest query, Role managementRole)
+    {
+        switch (managementRole)
+        {
+            case Role.DOCTOR:
+                // Doctor: count by DoctorId from query
+                if (query.DoctorId.HasValue)
+                {
+                    return await GetStatusCountsAsync(query.DoctorId.Value, Role.DOCTOR, null);
+                }
+                LogWarning("Doctor role but no DoctorId provided in query for status counts", null);
+                return new AppointmentStatusCounts();
+
+            case Role.STAFF:
+                // Staff: count by HospitalId from query
+                if (query.HospitalId.HasValue)
+                {
+                    return await GetStatusCountsAsync(null, Role.STAFF, query.HospitalId.Value);
+                }
+                LogWarning("Staff role but no HospitalId provided in query for status counts", null);
+                return new AppointmentStatusCounts();
+
+            case Role.ADMIN:
+                // Admin: count all appointments
+                return await GetStatusCountsAsync(null, Role.ADMIN, null);
+
+            default:
+                LogWarning("Unknown management role {Role} for status counts", null, managementRole);
+                return new AppointmentStatusCounts();
+        }
+    }
+
+    /// <summary>
+    /// Get counts for all statuses for a specific user or organization
+    /// Uses optimized repository method with single DB query
+    /// Supports Patient, Doctor, Staff (by Hospital), and Admin (all) roles
+    /// </summary>
+    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(Guid? userId, Role role, Guid? hospitalId = null)
     {
         try
         {
-            // Determine user type based on role
-            Guid? patientId = role == Role.PATIENT ? userId : null;
-            Guid? doctorId = role == Role.DOCTOR ? userId : null;
+            // Determine parameters based on role
+            Guid? patientId = null;
+            Guid? doctorId = null;
+            Guid? staffHospitalId = null;
+            bool countAll = false;
+
+            switch (role)
+            {
+                case Role.PATIENT:
+                    patientId = userId;
+                    LogInfo("Getting status counts for Patient {PatientId}", null, patientId);
+                    break;
+
+                case Role.DOCTOR:
+                    doctorId = userId;
+                    LogInfo("Getting status counts for Doctor {DoctorId}", null, doctorId);
+                    break;
+
+                case Role.STAFF:
+                    staffHospitalId = hospitalId;
+                    LogInfo("Getting status counts for Staff in Hospital {HospitalId}", null, staffHospitalId);
+                    break;
+
+                case Role.ADMIN:
+                    countAll = true;
+                    LogInfo("Getting status counts for Admin (all appointments)", null);
+                    break;
+
+                default:
+                    LogWarning("Unknown role {Role} for status counts", null, role);
+                    return new AppointmentStatusCounts();
+            }
 
             // Get counts using optimized repository method (single query with GROUP BY)
-            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(patientId, doctorId);
+            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(
+                patientId, doctorId, staffHospitalId, countAll);
 
             var counts = new AppointmentStatusCounts
             {
@@ -540,14 +614,14 @@ public class AppointmentService : BaseService, IAppointmentService
 
             counts.Total = counts.Pending + counts.Confirmed + counts.Cancelled + counts.Completed;
 
-            LogInfo("Retrieved status counts for user {UserId}: Total={Total}, Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
-                null, userId, counts.Total, counts.Pending, counts.Confirmed, counts.Cancelled, counts.Completed);
+            LogInfo("Retrieved status counts for role {Role}: Total={Total}, Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
+                null, role, counts.Total, counts.Pending, counts.Confirmed, counts.Cancelled, counts.Completed);
 
             return counts;
         }
         catch (Exception ex)
         {
-            LogError(ex, "Failed to get status counts for user {UserId}: {Error}", null, userId, ex.Message);
+            LogError(ex, "Failed to get status counts for role {Role}: {Error}", null, role, ex.Message);
             // Return empty counts on error
             return new AppointmentStatusCounts();
         }
