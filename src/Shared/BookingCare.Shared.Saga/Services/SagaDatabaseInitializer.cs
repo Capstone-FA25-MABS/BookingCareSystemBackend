@@ -20,108 +20,102 @@ public class SagaDatabaseInitializer
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    /// <summary>
-    /// Initialize the database schema if it doesn't exist
-    /// </summary>
-    public async Task InitializeDatabaseAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            _logger.LogInformation("Starting Saga database initialization...");
+	/// <summary>
+	/// Initialize the database schema if it doesn't exist
+	/// </summary>
+	public async Task InitializeDatabaseAsync(CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogInformation("Starting Saga database initialization");
 
-            // First, ensure database exists
-            await EnsureDatabaseExistsAsync(cancellationToken);
+			// First, ensure database exists
+			await EnsureDatabaseExistsAsync(cancellationToken);
 
-            // Check if tables already exist
-            if (await IsDatabaseInitializedAsync(cancellationToken))
-            {
-                _logger.LogInformation("Saga database tables already initialized. Skipping schema initialization.");
-                return;
-            }
+			// Check if tables already exist
+			if (await IsDatabaseInitializedAsync(cancellationToken))
+			{
+				_logger.LogDebug("Saga database tables already exist, skipping schema initialization");
+				return;
+			}
 
-            _logger.LogInformation("Saga database exists but tables not found. Creating schema...");
+			// Read and execute SQL script to create schema
+			var sqlScript = ReadEmbeddedSqlScript();
 
-            // Read embedded SQL script
-            var sqlScript = ReadEmbeddedSqlScript();
+			if (string.IsNullOrWhiteSpace(sqlScript))
+			{
+				throw new InvalidOperationException("SQL schema script is empty or not found.");
+			}
 
-            if (string.IsNullOrWhiteSpace(sqlScript))
-            {
-                throw new InvalidOperationException("SQL schema script is empty or not found.");
-            }
+			await ExecuteSqlScriptAsync(sqlScript, cancellationToken);
 
-            // Execute SQL script
-            await ExecuteSqlScriptAsync(sqlScript, cancellationToken);
+			_logger.LogInformation("Saga database initialization completed successfully");
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error initializing Saga database");
+			throw new InvalidOperationException("Failed to initialize Saga database. See inner exception for details.", ex);
+		}
+	}
 
-            _logger.LogInformation("Saga database initialization completed successfully.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error initializing Saga database");
-            throw new InvalidOperationException("Failed to initialize Saga database. See inner exception for details.", ex);
-        }
-    }
+	/// <summary>
+	/// Ensure the database exists (creates if not exists)
+	/// </summary>
+	private async Task EnsureDatabaseExistsAsync(CancellationToken cancellationToken)
+	{
+		try
+		{
+			// Parse connection string to get database name
+			var builder = new SqlConnectionStringBuilder(_connectionString);
+			var databaseName = builder.InitialCatalog;
 
-    /// <summary>
-    /// Ensure the database exists (creates if not exists)
-    /// </summary>
-    private async Task EnsureDatabaseExistsAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            // Parse connection string to get database name
-            var builder = new SqlConnectionStringBuilder(_connectionString);
-            var databaseName = builder.InitialCatalog;
+			if (string.IsNullOrWhiteSpace(databaseName))
+			{
+				throw new InvalidOperationException("Database name not found in connection string.");
+			}
 
-            if (string.IsNullOrWhiteSpace(databaseName))
-            {
-                throw new InvalidOperationException("Database name not found in connection string.");
-            }
+			// Create connection to master database to check/create database
+			builder.InitialCatalog = "master";
+			var masterConnectionString = builder.ConnectionString;
 
-            _logger.LogInformation("Checking if database '{DatabaseName}' exists...", databaseName);
+			using var connection = new SqlConnection(masterConnectionString);
+			await connection.OpenAsync(cancellationToken);
 
-            // Create connection to master database to check/create database
-            builder.InitialCatalog = "master";
-            var masterConnectionString = builder.ConnectionString;
-
-            using var connection = new SqlConnection(masterConnectionString);
-            await connection.OpenAsync(cancellationToken);
-
-            // Check if database exists
-            var checkDbQuery = $@"
+			// Check if database exists
+			var checkDbQuery = $@"
 				SELECT COUNT(*) 
 				FROM sys.databases 
 				WHERE name = @DatabaseName";
 
-            using (var checkCommand = new SqlCommand(checkDbQuery, connection))
-            {
-                checkCommand.Parameters.AddWithValue("@DatabaseName", databaseName);
-                var count = (int)await checkCommand.ExecuteScalarAsync(cancellationToken);
+			using (var checkCommand = new SqlCommand(checkDbQuery, connection))
+			{
+				checkCommand.Parameters.AddWithValue("@DatabaseName", databaseName);
+				var count = (int)await checkCommand.ExecuteScalarAsync(cancellationToken);
 
-                if (count > 0)
-                {
-                    _logger.LogInformation("Database '{DatabaseName}' already exists.", databaseName);
-                    return;
-                }
-            }
+				if (count > 0)
+				{
+					_logger.LogDebug("Database '{DatabaseName}' already exists", databaseName);
+					return;
+				}
+			}
 
-            // Create database
-            _logger.LogInformation("Creating database '{DatabaseName}'...", databaseName);
+			// Create database
+			_logger.LogInformation("Creating database '{DatabaseName}'", databaseName);
+			
+			var createDbQuery = $@"CREATE DATABASE [{databaseName}]";
+			
+			using (var createCommand = new SqlCommand(createDbQuery, connection))
+			{
+				await createCommand.ExecuteNonQueryAsync(cancellationToken);
+			}
 
-            var createDbQuery = $@"CREATE DATABASE [{databaseName}]";
-
-            using (var createCommand = new SqlCommand(createDbQuery, connection))
-            {
-                await createCommand.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            _logger.LogInformation("Database '{DatabaseName}' created successfully.", databaseName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error ensuring database exists");
-            throw;
-        }
-    }
+			_logger.LogInformation("Database '{DatabaseName}' created successfully", databaseName);
+		}
+		catch (Exception ex)
+		{
+			throw new InvalidOperationException($"Failed to ensure database exists: {ex.Message}", ex);
+		}
+	}
 
     /// <summary>
     /// Check if the database is already initialized by checking for the SagaStates table
@@ -152,36 +146,35 @@ public class SagaDatabaseInitializer
         }
     }
 
-    /// <summary>
-    /// Read the embedded SQL script from assembly resources
-    /// </summary>
-    private string ReadEmbeddedSqlScript()
-    {
-        try
-        {
-            var assembly = Assembly.GetExecutingAssembly();
-            var resourceNames = assembly.GetManifestResourceNames();
+	/// <summary>
+	/// Read the embedded SQL script from assembly resources
+	/// </summary>
+	private string ReadEmbeddedSqlScript()
+	{
+		try
+		{
+			var assembly = Assembly.GetExecutingAssembly();
+			var resourceNames = assembly.GetManifestResourceNames();
 
-            _logger.LogDebug("Available embedded resources: {Resources}", string.Join(", ", resourceNames));
+			_logger.LogDebug("Available embedded resources: {Resources}", string.Join(", ", resourceNames));
 
-            using var stream = assembly.GetManifestResourceStream(SchemaResourceName);
+			using var stream = assembly.GetManifestResourceStream(SchemaResourceName);
+			
+			if (stream == null)
+			{
+				throw new InvalidOperationException(
+					$"Embedded resource '{SchemaResourceName}' not found. " +
+					$"Available resources: {string.Join(", ", resourceNames)}");
+			}
 
-            if (stream == null)
-            {
-                throw new InvalidOperationException(
-                    $"Embedded resource '{SchemaResourceName}' not found. " +
-                    $"Available resources: {string.Join(", ", resourceNames)}");
-            }
-
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            return reader.ReadToEnd();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error reading embedded SQL script");
-            throw;
-        }
-    }
+			using var reader = new StreamReader(stream, Encoding.UTF8);
+			return reader.ReadToEnd();
+		}
+		catch (Exception ex) when (!(ex is InvalidOperationException))
+		{
+			throw new InvalidOperationException($"Failed to read embedded SQL script: {ex.Message}", ex);
+		}
+	}
 
     /// <summary>
     /// Execute SQL script by splitting into batches (separated by GO statements)
@@ -238,45 +231,45 @@ public class SagaDatabaseInitializer
         }
     }
 
-    /// <summary>
-    /// Split SQL script into batches by GO statements
-    /// </summary>
-    private List<string> SplitSqlScript(string sqlScript)
-    {
-        var batches = new List<string>();
-        var currentBatch = new StringBuilder();
+	/// <summary>
+	/// Split SQL script into batches by GO statements
+	/// </summary>
+	private static List<string> SplitSqlScript(string sqlScript)
+	{
+		var batches = new List<string>();
+		var currentBatch = new StringBuilder();
 
-        using var reader = new StringReader(sqlScript);
-        string? line;
+		using var reader = new StringReader(sqlScript);
+		string? line;
 
-        while ((line = reader.ReadLine()) != null)
-        {
-            // Check if line is a GO statement (case-insensitive, standalone)
-            var trimmedLine = line.Trim();
+		while ((line = reader.ReadLine()) != null)
+		{
+			// Check if line is a GO statement (case-insensitive, standalone)
+			var trimmedLine = line.Trim();
+			
+			if (trimmedLine.Equals("GO", StringComparison.OrdinalIgnoreCase))
+			{
+				// Add current batch and start a new one
+				if (currentBatch.Length > 0)
+				{
+					batches.Add(currentBatch.ToString());
+					currentBatch.Clear();
+				}
+			}
+			else
+			{
+				currentBatch.AppendLine(line);
+			}
+		}
 
-            if (trimmedLine.Equals("GO", StringComparison.OrdinalIgnoreCase))
-            {
-                // Add current batch and start a new one
-                if (currentBatch.Length > 0)
-                {
-                    batches.Add(currentBatch.ToString());
-                    currentBatch.Clear();
-                }
-            }
-            else
-            {
-                currentBatch.AppendLine(line);
-            }
-        }
+		// Add the last batch if not empty
+		if (currentBatch.Length > 0)
+		{
+			batches.Add(currentBatch.ToString());
+		}
 
-        // Add the last batch if not empty
-        if (currentBatch.Length > 0)
-        {
-            batches.Add(currentBatch.ToString());
-        }
-
-        return batches;
-    }
+		return batches;
+	}
 
     /// <summary>
     /// Force re-initialize the database (drops and recreates all objects)
