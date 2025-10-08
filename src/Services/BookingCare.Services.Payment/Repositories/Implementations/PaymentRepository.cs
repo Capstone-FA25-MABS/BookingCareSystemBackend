@@ -200,14 +200,14 @@ public class PaymentRepository : IPaymentRepository
         }
 
         // Merge nested if statements for TransactionType
-        if (!string.IsNullOrEmpty(request.TransactionType) && 
+        if (!string.IsNullOrEmpty(request.TransactionType) &&
             Enum.TryParse<TransactionType>(request.TransactionType, true, out var transactionType))
         {
             query = query.Where(p => p.TransactionType == transactionType);
         }
 
         // Merge nested if statements for Status
-        if (!string.IsNullOrEmpty(request.Status) && 
+        if (!string.IsNullOrEmpty(request.Status) &&
             Enum.TryParse<PaymentStatus>(request.Status, true, out var status))
         {
             query = query.Where(p => p.Status == status);
