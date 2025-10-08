@@ -147,133 +147,172 @@ public class PayOSService : BaseService, IPayOSService
             LogInfo("Processing PayOS callback - OrderCode: {OrderCode}, Code: {Code}, Cancel: {Cancel}",
                 null, orderCode, code, cancel);
 
-            // Get PaymentId from mapping (mapping is kept even if webhook processed so callback can still resolve PaymentId)
+            // Get PaymentId from mapping
             var paymentId = await _mappingRepository.GetPaymentIdByOrderCodeAsync(orderCode);
 
+            // Handle case when mapping is not found
             if (!paymentId.HasValue)
             {
-                LogWarning("PayOS Callback - Cannot find PaymentId for OrderCode: {OrderCode} (mapping absent, possibly cleaned or race)",
-                    null, orderCode);
-
-                // Try to get payment info from PayOS to create response (cannot resolve PaymentId anymore)
-                try
-                {
-                    var paymentInfo = await _payOS.getPaymentLinkInformation(orderCode);
-
-                    bool callbackSuccess = !cancel && (code == "00" || paymentInfo.status == "PAID");
-
-                    LogInfo("PayOS Callback - Retrieved info from PayOS API - OrderCode: {OrderCode}, Status: {Status}, Amount: {Amount}",
-                        null, orderCode, paymentInfo.status, paymentInfo.amount);
-
-                    var response = new PayOSCallbackResponse
-                    {
-                        PaymentId = Guid.Empty,
-                        Success = callbackSuccess,
-                        OrderCode = orderCode,
-                        Amount = paymentInfo.amount,
-                        ResponseCode = code ?? "00",
-                        Message = callbackSuccess ? "Payment processed successfully (mapping missing)" : "Payment processed but failed",
-                        PaymentDate = callbackSuccess ? DateTime.UtcNow : null,
-                        Reference = orderCode.ToString()
-                    };
-
-                    return response;
-                }
-                catch (Exception ex)
-                {
-                    LogWarning("PayOS Callback - Cannot retrieve payment info from PayOS API for OrderCode: {OrderCode}, Error: {Error}",
-                        null, orderCode, ex.Message);
-
-                    var fallbackResponse = new PayOSCallbackResponse
-                    {
-                        PaymentId = Guid.Empty,
-                        Success = false,
-                        OrderCode = orderCode,
-                        Amount = 0,
-                        ResponseCode = code ?? "UNKNOWN",
-                        Message = "Transaction was processed previously (mapping missing)",
-                        PaymentDate = null,
-                        Reference = orderCode.ToString()
-                    };
-
-                    return fallbackResponse;
-                }
+                return await HandleMissingMappingAsync(orderCode, code, cancel);
             }
 
             // Get payment info from system
-            var payment = await _paymentService.GetByIdAsync(paymentId.Value);
-            if (payment == null)
-            {
-                LogWarning("PayOS Callback - Payment not found in system for PaymentId: {PaymentId}", null, paymentId.Value);
-                throw new ArgumentException($"Payment with ID {paymentId.Value} not found");
-            }
+            var payment = await GetPaymentByIdAsync(paymentId.Value);
 
-            // If payment was already processed by webhook (not PENDING) -> still return PaymentId (do not delete mapping immediately)
+            // Handle case when payment was already processed
             if (payment.Status != PaymentStatus.PENDING)
             {
-                LogInfo("PayOS Callback - Payment already processed - PaymentId: {PaymentId}, Status: {Status}",
-                    null, paymentId.Value, payment.Status);
-
-                var alreadyProcessedResponse = new PayOSCallbackResponse
-                {
-                    PaymentId = paymentId.Value,
-                    Success = payment.Status == PaymentStatus.COMPLETED,
-                    OrderCode = orderCode,
-                    Amount = payment.Amount,
-                    ResponseCode = payment.Status == PaymentStatus.COMPLETED ? "00" : "01",
-                    Message = payment.Status == PaymentStatus.COMPLETED ? "Payment completed" : "Payment failed",
-                    PaymentDate = payment.Status == PaymentStatus.COMPLETED ? DateTime.UtcNow : null,
-                    Reference = orderCode.ToString()
-                };
-
-                return alreadyProcessedResponse;
+                return CreateAlreadyProcessedResponse(paymentId.Value, payment, orderCode);
             }
 
             // Process new payment
-            PaymentStatus newStatus;
-            bool isSuccess;
-            string message;
-
-            if (cancel)
-            {
-                newStatus = PaymentStatus.FAILED;
-                isSuccess = false;
-                message = "Payment was cancelled by user";
-            }
-            else
-            {
-                isSuccess = code == "00";
-                newStatus = isSuccess ? PaymentStatus.COMPLETED : PaymentStatus.FAILED;
-                message = isSuccess ? "Payment successful" : $"Payment failed - Error code: {code}";
-            }
-
-            await _paymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
-            {
-                Id = paymentId.Value,
-                Status = newStatus
-            });
-
-            // DO NOT delete mapping here so webhook/callback can resolve any order.
-            // Mapping will be cleaned up by scheduled job based on expiresAt.
-
-            LogInfo("PayOS Callback - Successfully processed - PaymentId: {PaymentId}, Status: {Status}",
-                null, paymentId.Value, newStatus);
-
-            var finalResponse = new PayOSCallbackResponse
-            {
-                PaymentId = paymentId.Value,
-                Success = isSuccess,
-                OrderCode = orderCode,
-                Amount = payment.Amount,
-                ResponseCode = code,
-                Message = message,
-                PaymentDate = isSuccess ? DateTime.UtcNow : null,
-                Reference = orderCode.ToString()
-            };
-
-            return finalResponse;
+            return await ProcessNewPaymentAsync(paymentId.Value, payment, orderCode, code, cancel);
 
         }, "ProcessCallbackAsync");
+    }
+
+    /// <summary>
+    /// Handle callback when mapping is missing
+    /// </summary>
+    private async Task<PayOSCallbackResponse> HandleMissingMappingAsync(long orderCode, string code, bool cancel)
+    {
+        LogWarning("PayOS Callback - Cannot find PaymentId for OrderCode: {OrderCode} (mapping absent)", null, orderCode);
+
+        try
+        {
+            var paymentInfo = await _payOS.getPaymentLinkInformation(orderCode);
+            return CreateFallbackResponse(orderCode, code, cancel, paymentInfo);
+        }
+        catch (Exception ex)
+        {
+            LogWarning("PayOS Callback - Cannot retrieve payment info from PayOS API for OrderCode: {OrderCode}, Error: {Error}",
+                null, orderCode, ex.Message);
+            return CreateErrorFallbackResponse(orderCode, code);
+        }
+    }
+
+    /// <summary>
+    /// Create fallback response when PayOS API is accessible but mapping is missing
+    /// </summary>
+    private PayOSCallbackResponse CreateFallbackResponse(long orderCode, string code, bool cancel, dynamic paymentInfo)
+    {
+        bool callbackSuccess = !cancel && (code == "00" || paymentInfo.status == "PAID");
+
+        LogInfo("PayOS Callback - Retrieved info from PayOS API - OrderCode: {OrderCode}, Status: {Status}, Amount: {Amount}",
+            null, orderCode, paymentInfo.status, paymentInfo.amount);
+
+        return new PayOSCallbackResponse
+        {
+            PaymentId = Guid.Empty,
+            Success = callbackSuccess,
+            OrderCode = orderCode,
+            Amount = paymentInfo.amount,
+            ResponseCode = code ?? "00",
+            Message = callbackSuccess ? "Payment processed successfully (mapping missing)" : "Payment processed but failed",
+            PaymentDate = callbackSuccess ? DateTime.UtcNow : null,
+            Reference = orderCode.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Create error fallback response when both mapping and PayOS API are unavailable
+    /// </summary>
+    private PayOSCallbackResponse CreateErrorFallbackResponse(long orderCode, string code)
+    {
+        return new PayOSCallbackResponse
+        {
+            PaymentId = Guid.Empty,
+            Success = false,
+            OrderCode = orderCode,
+            Amount = 0,
+            ResponseCode = code ?? "UNKNOWN",
+            Message = "Transaction was processed previously (mapping missing)",
+            PaymentDate = null,
+            Reference = orderCode.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Get payment by ID with validation
+    /// </summary>
+    private async Task<Models.DTOs.Responses.PaymentResponse> GetPaymentByIdAsync(Guid paymentId)
+    {
+        var payment = await _paymentService.GetByIdAsync(paymentId);
+        if (payment == null)
+        {
+            LogWarning("PayOS Callback - Payment not found in system for PaymentId: {PaymentId}", null, paymentId);
+            throw new ArgumentException($"Payment with ID {paymentId} not found");
+        }
+        return payment;
+    }
+
+    /// <summary>
+    /// Create response for already processed payments
+    /// </summary>
+    private PayOSCallbackResponse CreateAlreadyProcessedResponse(Guid paymentId, Models.DTOs.Responses.PaymentResponse payment, long orderCode)
+    {
+        LogInfo("PayOS Callback - Payment already processed - PaymentId: {PaymentId}, Status: {Status}",
+            null, paymentId, payment.Status);
+
+        return new PayOSCallbackResponse
+        {
+            PaymentId = paymentId,
+            Success = payment.Status == PaymentStatus.COMPLETED,
+            OrderCode = orderCode,
+            Amount = payment.Amount,
+            ResponseCode = payment.Status == PaymentStatus.COMPLETED ? "00" : "01",
+            Message = payment.Status == PaymentStatus.COMPLETED ? "Payment completed" : "Payment failed",
+            PaymentDate = payment.Status == PaymentStatus.COMPLETED ? DateTime.UtcNow : null,
+            Reference = orderCode.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Process new payment callback
+    /// </summary>
+    private async Task<PayOSCallbackResponse> ProcessNewPaymentAsync(Guid paymentId, Models.DTOs.Responses.PaymentResponse payment, long orderCode, string code, bool cancel)
+    {
+        // Determine payment status and success
+        var (newStatus, isSuccess, message) = DeterminePaymentOutcome(code, cancel);
+
+        // Update payment status
+        await _paymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
+        {
+            Id = paymentId,
+            Status = newStatus
+        });
+
+        LogInfo("PayOS Callback - Successfully processed - PaymentId: {PaymentId}, Status: {Status}",
+            null, paymentId, newStatus);
+
+        return new PayOSCallbackResponse
+        {
+            PaymentId = paymentId,
+            Success = isSuccess,
+            OrderCode = orderCode,
+            Amount = payment.Amount,
+            ResponseCode = code,
+            Message = message,
+            PaymentDate = isSuccess ? DateTime.UtcNow : null,
+            Reference = orderCode.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Determine payment outcome based on code and cancel flag
+    /// </summary>
+    private (PaymentStatus Status, bool IsSuccess, string Message) DeterminePaymentOutcome(string code, bool cancel)
+    {
+        if (cancel)
+        {
+            return (PaymentStatus.FAILED, false, "Payment was cancelled by user");
+        }
+
+        bool isSuccess = code == "00";
+        var status = isSuccess ? PaymentStatus.COMPLETED : PaymentStatus.FAILED;
+        var message = isSuccess ? "Payment successful" : $"Payment failed - Error code: {code}";
+
+        return (status, isSuccess, message);
     }
 
     /// <summary>

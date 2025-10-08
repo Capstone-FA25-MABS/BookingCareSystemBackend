@@ -154,11 +154,11 @@ public class VNPayService : BaseService, IVNPayService
     /// <summary>
     /// Validate signature from VNPay
     /// </summary>
-    public bool ValidateSignature(Dictionary<string, string> queryParams, string inputHash)
+    public bool ValidateSignature(Dictionary<string, string> queryParams, string secureHash)
     {
         try
         {
-            if (string.IsNullOrEmpty(inputHash))
+            if (string.IsNullOrEmpty(secureHash))
             {
                 LogWarning("VNPay signature validation failed: inputHash is null or empty", null);
                 return false;
@@ -179,12 +179,12 @@ public class VNPayService : BaseService, IVNPayService
             var computedHash = HmacSHA512(_vnpayConfig.HashSecret, rawData);
 
             // Compare hashes (case-insensitive)
-            var isValid = inputHash.Equals(computedHash, StringComparison.OrdinalIgnoreCase);
+            var isValid = secureHash.Equals(computedHash, StringComparison.OrdinalIgnoreCase);
 
             if (!isValid)
             {
                 LogWarning("VNPay signature mismatch - Expected: {Expected}, Got: {Actual}",
-                    null, computedHash, inputHash);
+                    null, computedHash, secureHash);
             }
 
             return isValid;
