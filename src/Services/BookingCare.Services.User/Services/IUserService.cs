@@ -12,6 +12,10 @@ public interface IUserService
     Task<UserResponse> UpdateByAccountIdAsync(Guid accountId, UpdateUserRequest updateUserRequest, bool emailConfirmed = false, bool phoneConfirmed = false);
     Task<bool> DeleteAsync(Guid id);
 
+    // Performance-optimized operations
+    Task<UserBasicInfoDto?> GetBasicInfoByIdAsync(Guid id);
+    Task<List<UserBasicInfoDto>> GetUsersBasicInfoByIdsAsync(List<Guid> ids);
+
     // Query operations
     Task<UserListResponse> GetUsersAsync(UserQueryRequest query);
     Task<UserSearchResponse> SearchUsersAsync(string searchTerm, int limit = 10);

@@ -7,7 +7,6 @@ using BookingCare.Services.Notification.Utils.SMS;
 using BookingCare.Services.Notification.Utils.OTP;
 using BookingCare.Services.Notification.Setting;
 using BookingCare.Services.Auth.Protos;
-using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Services.Notification.Repositories.Implementations;
 using BookingCare.Services.Notification.Repositories.Interfaces;
@@ -21,22 +20,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Kestrel with security best practices
 builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "notification");
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+// Add controllers and Swagger
+builder.Services.AddCommonControllers();
+builder.Services.AddCommonSwagger("Notification");
+
 builder.Services.AddGrpc();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1.0", new Microsoft.OpenApi.Models.OpenApiInfo
-    {
-        Title = "BookingCare Notification API",
-        Version = "v1.0",
-        Description = "API for notification services including OTP, email, SMS, and push notifications"
-    });
-});
 
 // Email settings and service
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
@@ -68,9 +56,7 @@ builder.Services.AddGlobalExceptionHandling();
 builder.Services.AddApiVersioningSupport();
 
 // Add logging
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
+builder.Logging.AddCommonLogging();
 
 // EventBus
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "notification-service-queue");
@@ -85,27 +71,18 @@ builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    var provider = app.Services.GetRequiredService<Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider>();
-    app.UseSwaggerUI(c =>
-    {
-        provider.ApiVersionDescriptions.ToList().ForEach(description =>
-            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"BookingCare Notification API {description.GroupName.ToUpperInvariant()}"));
-        c.RoutePrefix = "swagger";
-        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-    });
-}
+// Configure the HTTP request pipeline
+app.UseCommonSwaggerUI("Notification");
 app.UseGlobalExceptionHandling(); // Assuming this is already added via AddGlobalExceptionHandling
 app.UseStandardAuthPipeline();
 
 app.MapControllers();
 
-// Configure the HTTP request pipeline.
+// Map gRPC services
 app.MapGrpcService<OtpGrpcService>();
-app.MapGet("/", () => "BookingCare Notification Service is running...");
+
+// Map health check endpoint
+app.MapCommonHealthCheck("Notification");
 
 // Subscribe to email notifications
 app.UseEventBus(eventBus =>

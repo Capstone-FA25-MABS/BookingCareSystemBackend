@@ -8,7 +8,6 @@ using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,30 +44,21 @@ builder.Services.AddJwtAuthAndAuthorization();
 builder.Services.AddGlobalExceptionHandling();
 
 // Add logging
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
+builder.Logging.AddCommonLogging();
 
-builder.Services.AddControllers();
+// Add controllers and Swagger
+builder.Services.AddCommonControllers();
+builder.Services.AddCommonSwagger("User");
+
 builder.Services.AddGrpc();
-builder.Services.AddEndpointsApiExplorer();
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
 
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1.0", new() { Title = "BookingCare User API", Version = "v1.0" });
-});
-
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Configure the HTTP request pipeline
+app.UseCommonSwaggerUI("User");
 
 // Ensure database is created
 using (var scope = app.Services.CreateScope())
@@ -82,7 +72,9 @@ app.MapControllers();
 
 // Configure gRPC services
 app.MapGrpcService<UserGrpcService>();
-app.MapGet("/", () => "BookingCare User Service is running...");
+
+// Map health check endpoint
+app.MapCommonHealthCheck("User");
 
 // Configure EventBus subscriptions
 app.UseEventBus(eventBus =>

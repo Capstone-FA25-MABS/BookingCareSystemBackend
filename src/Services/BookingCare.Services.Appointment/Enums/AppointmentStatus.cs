@@ -1,4 +1,4 @@
-namespace BookingCare.Shared.Common.Enums;
+namespace BookingCare.Services.Appointment.Enums;
 
 /// <summary>
 /// Represents the status of an appointment.

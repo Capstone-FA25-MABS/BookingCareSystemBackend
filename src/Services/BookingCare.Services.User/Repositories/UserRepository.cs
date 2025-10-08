@@ -47,6 +47,54 @@ public class UserRepository : IUserRepository
         }
     }
 
+    public async Task<UserBasicInfoDto?> GetBasicInfoByIdAsync(Guid id)
+    {
+        try
+        {
+            return await _context.Users
+                .Where(u => u.Id == id)
+                .Select(u => new UserBasicInfoDto
+                {
+                    Id = u.Id,
+                    Email = u.Email,
+                    Phone = u.Phone ?? string.Empty,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName,
+                    AvatarUrl = u.AvatarUrl ?? string.Empty
+                })
+                .FirstOrDefaultAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{ServiceName}] Database error when getting basic user info by ID: {UserId}", ServiceName, id);
+            throw new UserException($"[{ServiceName}] Failed to retrieve basic user info by ID: {id}", innerException: ex);
+        }
+    }
+
+    public async Task<List<UserBasicInfoDto>> GetUsersBasicInfoByIdsAsync(List<Guid> ids)
+    {
+        try
+        {
+            return await _context.Users
+                .Where(u => ids.Contains(u.Id))
+                .Select(u => new UserBasicInfoDto
+                {
+                    Id = u.Id,
+                    Email = u.Email,
+                    Phone = u.Phone ?? string.Empty,
+                    FirstName = u.FirstName,
+                    LastName = u.LastName,
+                    AvatarUrl = u.AvatarUrl ?? string.Empty
+                })
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[{ServiceName}] Database error when getting basic user info by IDs batch", ServiceName);
+            throw new UserException($"[{ServiceName}] Failed to retrieve basic user info by IDs batch", innerException: ex);
+        }
+    }
+
     public async Task<UserEntity> CreateAsync(UserEntity user)
     {
         try

@@ -45,3 +45,14 @@ public class UserBasicInfoResponse
     public string FullName { get; set; } = string.Empty;
     public string AvatarUrl { get; set; } = string.Empty;
 }
+
+// DTO for gRPC basic user info (optimized for performance)
+public class UserBasicInfoDto
+{
+    public Guid Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string AvatarUrl { get; set; } = string.Empty;
+}

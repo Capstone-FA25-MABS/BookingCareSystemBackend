@@ -37,7 +37,9 @@ builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionSer
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
-
+// Add JWT Authentication and Authorization using centralized configuration
+// This includes: JWT auth, authorization, and frontend configuration
+builder.Services.AddJwtAuthAndAuthorization();
 // Add logging
 builder.Logging.AddCommonLogging();
 
@@ -53,9 +55,7 @@ var app = builder.Build();
 app.UseCommonSwaggerUI("Hospital");
 
 app.UseGlobalExceptionHandling();
-
-// Configure routing
-app.UseRouting();
+app.UseStandardAuthPipeline();
 
 // Map controllers for REST API
 app.MapControllers();

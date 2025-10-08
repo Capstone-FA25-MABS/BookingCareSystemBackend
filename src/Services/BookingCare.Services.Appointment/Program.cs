@@ -1,30 +1,102 @@
+using BookingCare.Services.Appointment.Data;
 using BookingCare.Services.Appointment.Services;
+using BookingCare.Services.Appointment.Repositories;
+using BookingCare.Services.Appointment.Mappings;
+using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
 builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "appointment");
 
-builder.Services.AddControllers();
+// Add services to the container using common extensions
+builder.Services.AddCommonControllers();
+builder.Services.AddCommonSwagger("Appointment");
+
+// Add DbContext
+builder.Services.AddDbContext<AppointmentDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add HttpContextAccessor
+builder.Services.AddHttpContextAccessor();
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(AppointmentMappingProfile));
+
+// Add Repository
+builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+
+// Add Services
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+builder.Services.AddScoped<DataInitializationService>();
+
+// Add gRPC client for Doctor service  
+builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6108";
+    o.Address = new Uri(endpoint);
+});
+
+// Add gRPC client for Hospital service  
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Hospital").GetValue<string>("GrpcUrl") ?? "http://localhost:6104";
+    o.Address = new Uri(endpoint);
+});
+
+// Add gRPC client for User service  
+builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.UserServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
+    o.Address = new Uri(endpoint);
+});
+
+// Add global exception handling
+builder.Services.AddGlobalExceptionHandling();
+
+// Add logging
+builder.Logging.AddCommonLogging();
+
+// Add JWT Authentication and Authorization using centralized configuration
+// This includes: JWT auth, authorization, and frontend configuration
+builder.Services.AddJwtAuthAndAuthorization();
+
+// Add gRPC
 builder.Services.AddGrpc();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// Add API versioning support
+builder.Services.AddApiVersioningSupport();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Configure the HTTP request pipeline
+app.UseCommonSwaggerUI("Appointment");
 
-app.UseRouting();
+app.UseGlobalExceptionHandling();
+app.UseStandardAuthPipeline();
+
 app.MapControllers();
 
-// Configure the HTTP request pipeline.
-app.MapGrpcService<GreeterService>();
-app.MapGet("/", () => "BookingCare Appointment Service is running...");
+// Map health check endpoint
+app.MapCommonHealthCheck("Appointment");
+
+// Initialize default data
+if (app.Environment.IsDevelopment())
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var dataInitializationService = scope.ServiceProvider.GetRequiredService<DataInitializationService>();
+        await dataInitializationService.InitializeDefaultDataAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = app.Services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error initializing default data");
+    }
+}
 
 app.Run();
