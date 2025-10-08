@@ -2,8 +2,10 @@ using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Core;
 using BookingCare.Shared.Saga.Manager;
 using BookingCare.Shared.Saga.StateStore;
+using BookingCare.Shared.Saga.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Shared.Saga.Extensions;
 
@@ -151,6 +153,59 @@ public static class ServiceCollectionExtensions
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Initialize the Saga database schema (creates database and tables if they don't exist)
+    /// This should be called after services are built (in Program.cs)
+    /// </summary>
+    public static async Task InitializeSagaDatabaseAsync(
+        this IServiceProvider serviceProvider,
+        CancellationToken cancellationToken = default)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<SagaDatabaseInitializer>>();
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+
+        // Get connection string from configuration (try multiple locations)
+        var connectionString = configuration.GetConnectionString("SagaDatabase")
+            ?? configuration.GetValue<string>("Saga:ConnectionString")
+            ?? configuration.GetSection("Saga").GetValue<string>("ConnectionString");
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Saga database connection string not found or is empty. " +
+                "Please configure either 'ConnectionStrings:SagaDatabase' or 'Saga:ConnectionString'");
+        }
+
+        logger.LogInformation("Initializing Saga database with connection string: {ConnectionString}",
+            MaskConnectionString(connectionString));
+
+        var initializer = new SagaDatabaseInitializer(connectionString, logger);
+        await initializer.InitializeDatabaseAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Mask sensitive information in connection string for logging
+    /// </summary>
+    private static string MaskConnectionString(string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return connectionString;
+        }
+
+        // Simple masking for password
+        var parts = connectionString.Split(';');
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (parts[i].Trim().StartsWith("Password", StringComparison.OrdinalIgnoreCase) ||
+                parts[i].Trim().StartsWith("Pwd", StringComparison.OrdinalIgnoreCase))
+            {
+                parts[i] = "Password=***";
+            }
+        }
+        return string.Join(";", parts);
     }
 }
 

@@ -170,6 +170,47 @@ builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(Fro
 
 var app = builder.Build();
 
+// Initialize database and default data
+try
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+
+    // 1. Initialize Saga Database (runs in all environments)
+    logger.LogInformation("Initializing Saga database...");
+    try
+    {
+        await app.Services.InitializeSagaDatabaseAsync();
+        logger.LogInformation("Saga database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error initializing Saga database");
+        // Don't throw - Auth service can still work without Saga in some scenarios
+    }
+
+    // 2. Initialize default data (development only)
+    if (app.Environment.IsDevelopment())
+    {
+        logger.LogInformation("Initializing default data...");
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var dataInitializationService = scope.ServiceProvider.GetRequiredService<DataInitializationService>();
+            await dataInitializationService.InitializeDefaultDataAsync();
+            logger.LogInformation("Default data initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error initializing default data");
+        }
+    }
+}
+catch (Exception ex)
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "Critical error during initialization");
+}
+
 // Configure the HTTP request pipeline
 app.UseCommonSwaggerUI("Auth");
 
@@ -190,22 +231,6 @@ app.UseEventBus(eventBus =>
     // Subscribe to User Service sync requests
     eventBus.Subscribe<UserEmailPhoneSyncRequestedEvent, UserEmailPhoneSyncEventHandler>();
 });
-
-// Initialize default data
-if (app.Environment.IsDevelopment())
-{
-    try
-    {
-        using var scope = app.Services.CreateScope();
-        var dataInitializationService = scope.ServiceProvider.GetRequiredService<DataInitializationService>();
-        await dataInitializationService.InitializeDefaultDataAsync();
-    }
-    catch (Exception ex)
-    {
-        var logger = app.Services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Error initializing default data");
-    }
-}
 
 app.Run();
 
