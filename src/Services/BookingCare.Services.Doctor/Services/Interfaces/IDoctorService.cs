@@ -8,7 +8,7 @@ public interface IDoctorService
 {
     // Doctor CRUD operations
     Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request);
-    Task<DoctorDetailResponse?> GetDoctorByIdAsync(Guid id);
+    Task<DoctorByIdResponse?> GetDoctorByIdAsync(Guid id);
     Task<DoctorResponse?> GetDoctorByEmailAsync(string email);
     Task<DoctorResponse?> GetDoctorByAccountIdAsync(Guid accountId);
     Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request);

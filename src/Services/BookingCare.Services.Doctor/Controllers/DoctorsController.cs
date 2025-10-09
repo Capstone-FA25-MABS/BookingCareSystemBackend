@@ -59,7 +59,7 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Get doctor by ID with detailed hospital info
+    /// Get doctor by ID with optimized response (only essential fields)
     /// </summary>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -71,7 +71,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Doctor with ID {id} not found");
         }
 
-        return Success<DoctorDetailResponse>(doctor, "Doctor retrieved successfully");
+        return Success<DoctorByIdResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>

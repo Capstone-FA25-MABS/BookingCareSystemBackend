@@ -82,6 +82,12 @@ public class DoctorService : BaseService, IDoctorService
         {
             throw PositionNotFoundException.WithId(request.PositionId.Value);
         }
+
+        // Validate SpecialtyId if provided
+        if (request.SpecialtyId.HasValue && !await _specialtyRepository.Value.SpecialtyExistsAsync(request.SpecialtyId.Value))
+        {
+            throw new ArgumentException($"Specialty with ID {request.SpecialtyId.Value} not found");
+        }
     }
 
     private DoctorEntity CreateDoctorEntity(CreateDoctorRequest request)
@@ -103,10 +109,18 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task ValidateAndCreateDoctorPrice(Guid doctorId, DoctorPriceRequest priceRequest)
     {
+        // Validate service type exists
         var serviceType = await _repository.Value.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
         if (serviceType == null)
         {
             throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
+        }
+
+        // Check if doctor already has a price for this service type
+        var existingPrices = await _repository.Value.GetDoctorPricesAsync(doctorId);
+        if (existingPrices.Any(p => p.ServiceTypeId == priceRequest.ServiceTypeId))
+        {
+            throw new ArgumentException($"Doctor already has a price for service type {serviceType.Name}");
         }
 
         var doctorPrice = new DoctorPriceEntity
@@ -131,10 +145,18 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task ValidateAndCreateDoctorLanguage(Guid doctorId, Guid languageId)
     {
+        // Validate language exists
         var language = await _repository.Value.GetLanguageByIdAsync(languageId);
         if (language == null)
         {
             throw new ArgumentException($"Language with ID {languageId} not found");
+        }
+
+        // Check if doctor already has this language
+        var existingLanguages = await _repository.Value.GetDoctorLanguagesAsync(doctorId);
+        if (existingLanguages.Any(l => l.LanguageId == languageId))
+        {
+            throw new ArgumentException($"Doctor already has language {language.Name}");
         }
 
         var doctorLanguage = new DoctorLanguageEntity
@@ -146,7 +168,7 @@ public class DoctorService : BaseService, IDoctorService
         await _repository.Value.CreateDoctorLanguageAsync(doctorLanguage);
     }
 
-    public async Task<DoctorDetailResponse?> GetDoctorByIdAsync(Guid id)
+    public async Task<DoctorByIdResponse?> GetDoctorByIdAsync(Guid id)
     {
         var doctor = await _repository.Value.GetDoctorByIdAsync(id);
         if (doctor == null) return null;
@@ -154,21 +176,17 @@ public class DoctorService : BaseService, IDoctorService
         // Include Position và Specialty
         await IncludePositionAndSpecialtyAsync(doctor);
 
-        var response = _mapper.Value.Map<DoctorDetailResponse>(doctor);
+        var response = _mapper.Value.Map<DoctorByIdResponse>(doctor);
 
         // Create parallel tasks for enrichment
         var enrichmentTasks = new List<Task>();
 
-        // Task 1: Enrich with account status
-        var statusTask = EnrichDoctorsWithStatusAsync(new List<DoctorResponse> { response });
-        enrichmentTasks.Add(statusTask);
-
-        // Task 2: Enrich with detailed hospital info
-        var hospitalTask = EnrichDoctorWithHospitalDetailInfoAsync(response);
+        // Task 1: Enrich with hospital basic info
+        var hospitalTask = EnrichDoctorByIdWithHospitalInfoAsync(response, doctor.HospitalId);
         enrichmentTasks.Add(hospitalTask);
 
-        // Task 3: Enrich with review statistics
-        var reviewTask = EnrichDoctorWithReviewStatisticsAsync(response);
+        // Task 2: Enrich with review statistics
+        var reviewTask = EnrichDoctorByIdWithReviewStatisticsAsync(response);
         enrichmentTasks.Add(reviewTask);
 
         // Execute all enrichment tasks in parallel
@@ -246,6 +264,12 @@ public class DoctorService : BaseService, IDoctorService
         {
             throw PositionNotFoundException.WithId(request.PositionId.Value);
         }
+
+        // Validate SpecialtyId if provided
+        if (request.SpecialtyId.HasValue && !await _specialtyRepository.Value.SpecialtyExistsAsync(request.SpecialtyId.Value))
+        {
+            throw new ArgumentException($"Specialty with ID {request.SpecialtyId.Value} not found");
+        }
     }
 
     private void UpdateDoctorEntity(DoctorEntity existingDoctor, UpdateDoctorRequest request)
@@ -256,26 +280,64 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task UpdateDoctorPricesAsync(Guid doctorId, IEnumerable<DoctorPriceRequest>? prices)
     {
-        if (prices == null || !prices.Any()) return;
+        if (prices == null || !prices.Any())
+        {
+            // If no prices provided, delete all existing prices
+            await _repository.Value.DeleteAllDoctorPricesAsync(doctorId);
+            return;
+        }
 
-        await _repository.Value.DeleteAllDoctorPricesAsync(doctorId);
+        // Get existing prices
+        var existingPrices = await _repository.Value.GetDoctorPricesAsync(doctorId);
+        var existingPriceMap = existingPrices.ToDictionary(p => p.ServiceTypeId, p => p);
 
+        var newPriceMap = prices.ToDictionary(p => p.ServiceTypeId, p => p);
+
+        // Delete prices that are no longer in the request
+        var pricesToDelete = existingPriceMap.Keys.Except(newPriceMap.Keys).ToList();
+        foreach (var serviceTypeId in pricesToDelete)
+        {
+            var priceToDelete = existingPriceMap[serviceTypeId];
+            await _repository.Value.DeleteDoctorPriceAsync(doctorId, priceToDelete.Id);
+        }
+
+        // Update existing prices or create new ones
         foreach (var priceRequest in prices)
         {
-            await ValidateAndCreateDoctorPrice(doctorId, priceRequest);
+            if (existingPriceMap.TryGetValue(priceRequest.ServiceTypeId, out var existingPrice))
+            {
+                // Update existing price
+                existingPrice.Amount = priceRequest.Amount;
+                await _repository.Value.UpdateDoctorPriceAsync(existingPrice);
+            }
+            else
+            {
+                // Create new price
+                await ValidateAndCreateDoctorPrice(doctorId, priceRequest);
+            }
         }
     }
 
     private async Task UpdateDoctorLanguagesAsync(Guid doctorId, IEnumerable<Guid>? languageIds)
     {
-        await _repository.Value.DeleteAllDoctorLanguagesAsync(doctorId);
+        // Get existing languages
+        var existingLanguages = await _repository.Value.GetDoctorLanguagesAsync(doctorId);
+        var existingLanguageIds = existingLanguages.Select(l => l.LanguageId).ToHashSet();
 
-        if (languageIds != null && languageIds.Any())
+        var newLanguageIds = languageIds?.ToHashSet() ?? new HashSet<Guid>();
+
+        // Delete languages that are no longer in the request
+        var languagesToDelete = existingLanguageIds.Except(newLanguageIds).ToList();
+        foreach (var languageId in languagesToDelete)
         {
-            foreach (var languageId in languageIds)
-            {
-                await ValidateAndCreateDoctorLanguage(doctorId, languageId);
-            }
+            await _repository.Value.DeleteDoctorLanguageAsync(doctorId, languageId);
+        }
+
+        // Add new languages that are not in existing
+        var languagesToAdd = newLanguageIds.Except(existingLanguageIds).ToList();
+        foreach (var languageId in languagesToAdd)
+        {
+            await ValidateAndCreateDoctorLanguage(doctorId, languageId);
         }
     }
 
@@ -1546,6 +1608,95 @@ public class DoctorService : BaseService, IDoctorService
             Logger.LogWarning(ex, "Favorites gRPC CheckMultipleFavorites failed for patient {PatientId}", patientId);
             // Favorites service unavailable; proceed with IsFavorited default false
         }
+    }
+
+    /// <summary>
+    /// Enrich DoctorByIdResponse with hospital basic info
+    /// </summary>
+    private async Task EnrichDoctorByIdWithHospitalInfoAsync(DoctorByIdResponse doctor, Guid? hospitalId)
+    {
+        if (!hospitalId.HasValue) return;
+
+        try
+        {
+            var request = new GetHospitalsBasicInfoRequest();
+            request.Ids.Add(hospitalId.Value.ToString());
+
+            var response = await _hospitalClient.Value.GetHospitalsBasicInfoAsync(request);
+
+            if (response.Hospitals.Any())
+            {
+                var hospital = response.Hospitals.First();
+                doctor.Hospital = new DoctorHospitalInfo
+                {
+                    Id = Guid.Parse(hospital.Id),
+                    Name = hospital.Name,
+                    Address = hospital.Address,
+                    AvatarUrl = hospital.AvatarUrl
+                };
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Hospital gRPC GetHospitalsBasicInfo failed for doctor {DoctorId}", doctor.Id);
+            // Continue without hospital info on failure
+        }
+    }
+
+    /// <summary>
+    /// Enrich DoctorByIdResponse with review statistics
+    /// </summary>
+    private async Task EnrichDoctorByIdWithReviewStatisticsAsync(DoctorByIdResponse doctor)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); // 5 second timeout
+
+            var request = new BatchDoctorsStatisticsRequest();
+            request.DoctorIds.Add(doctor.Id.ToString());
+
+            var response = await _reviewClient.Value.GetBatchDoctorsStatisticsAsync(request, cancellationToken: cts.Token);
+
+            var doctorIdStr = doctor.Id.ToString();
+            if (response.DoctorStatistics.TryGetValue(doctorIdStr, out var stats))
+            {
+                doctor.ReviewStatistics = new DoctorReviewInfo
+                {
+                    AverageRating = stats.AverageRating,
+                    TotalReviews = stats.TotalReviews
+                };
+            }
+            else
+            {
+                doctor.ReviewStatistics = new DoctorReviewInfo
+                {
+                    AverageRating = 0.0,
+                    TotalReviews = 0
+                };
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogWarning("Review gRPC GetBatchDoctorsStatistics timed out for doctor {DoctorId}", doctor.Id);
+            SetDefaultReviewStatisticsForDoctorById(doctor);
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            Logger.LogWarning(ex, "Review gRPC GetBatchDoctorsStatistics failed for doctor {DoctorId}", doctor.Id);
+            SetDefaultReviewStatisticsForDoctorById(doctor);
+        }
+    }
+
+    /// <summary>
+    /// Set default review statistics for DoctorByIdResponse
+    /// </summary>
+    private void SetDefaultReviewStatisticsForDoctorById(DoctorByIdResponse doctor)
+    {
+        doctor.ReviewStatistics = new DoctorReviewInfo
+        {
+            AverageRating = 0.0,
+            TotalReviews = 0
+        };
     }
 
     #endregion

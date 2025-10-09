@@ -33,8 +33,6 @@ public class DoctorResponse
     public HospitalBasicInfo? Hospital { get; set; }
     // Review statistics - can be detailed (with rating distribution) or basic (without)
     public IDoctorReviewStatistics? ReviewStatistics { get; set; }
-    // Distance from user's selected location (in kilometers)
-    public double? DistanceFromUser { get; set; }
 }
 
 public class DoctorPriceResponse
@@ -81,6 +79,80 @@ public class DoctorDetailResponse : DoctorResponse
 {
     // Override Hospital with detailed info for detail view
     public new HospitalDetailInfo? Hospital { get; set; }
+}
+
+// Optimized DTO for GetDoctorById - only essential fields
+public class DoctorByIdResponse
+{
+    public Guid Id { get; set; }
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public Gender? Gender { get; set; }
+    public string? Bio { get; set; }
+    public string? Address { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public int YearsOfExperience { get; set; }
+    public string AvatarUrl { get; set; } = string.Empty;
+
+    // Hospital with essential fields only
+    public DoctorHospitalInfo? Hospital { get; set; }
+
+    // Position with essential fields only
+    public DoctorPositionInfo? Position { get; set; }
+
+    // Specialty with essential fields only
+    public DoctorSpecialtyInfo? Specialty { get; set; }
+
+    // Prices with essential fields only
+    public List<DoctorPriceInfo> Prices { get; set; } = new();
+
+    // Languages with essential fields only
+    public List<DoctorLanguageInfo> Languages { get; set; } = new();
+
+    public bool IsFavorited { get; set; }
+
+    // Review statistics with essential fields only
+    public DoctorReviewInfo? ReviewStatistics { get; set; }
+}
+
+// Supporting DTOs for DoctorByIdResponse
+public class DoctorHospitalInfo
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+}
+
+public class DoctorPositionInfo
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class DoctorSpecialtyInfo
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class DoctorPriceInfo
+{
+    public Guid Id { get; set; }
+    public string ServiceTypeName { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+}
+
+public class DoctorLanguageInfo
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class DoctorReviewInfo
+{
+    public double AverageRating { get; set; }
+    public long TotalReviews { get; set; }
 }
 
 public class DoctorBasicInfoResponse
