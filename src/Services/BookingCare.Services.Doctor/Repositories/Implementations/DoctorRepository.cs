@@ -669,6 +669,75 @@ public class DoctorRepository : IDoctorRepository
 
     #endregion
 
+    #region Common Helper Methods
+
+    /// <summary>
+    /// Creates optimized projection for DoctorEntity with only necessary fields
+    /// Used to eliminate code duplication in patient search methods
+    /// </summary>
+    private IQueryable<DoctorEntity> GetOptimizedDoctorProjection(IQueryable<DoctorEntity> baseQuery)
+    {
+        return baseQuery.Select(d => new DoctorEntity
+        {
+            // Basic doctor info
+            Id = d.Id,
+            AccountId = d.AccountId,
+            FirstName = d.FirstName,
+            LastName = d.LastName,
+            YearsOfExperience = d.YearsOfExperience,
+            AvatarUrl = d.AvatarUrl,
+
+            // IDs for filtering
+            PositionId = d.PositionId,
+            SpecialtyId = d.SpecialtyId,
+            HospitalId = d.HospitalId,
+            Gender = d.Gender,
+            Address = d.Address,
+
+            // Navigation properties - only basic info
+            Position = d.Position != null ? new PositionEntity
+            {
+                Id = d.Position.Id,
+                Name = d.Position.Name
+            } : null,
+
+            Specialty = d.Specialty != null ? new SpecialtyEntity
+            {
+                Id = d.Specialty.Id,
+                Name = d.Specialty.Name
+            } : null,
+
+            // Prices - only id, serviceTypeName, amount
+            DoctorPrices = d.DoctorPrices.Select(dp => new DoctorPriceEntity
+            {
+                Id = dp.Id,
+                DoctorId = dp.DoctorId,
+                ServiceTypeId = dp.ServiceTypeId,
+                Amount = dp.Amount,
+                ServiceType = new ServiceTypeEntity
+                {
+                    Id = dp.ServiceType.Id,
+                    Name = dp.ServiceType.Name
+                }
+            }).ToList(),
+
+            // Languages - only id, name
+            DoctorLanguages = d.DoctorLanguages.Select(dl => new DoctorLanguageEntity
+            {
+                Id = dl.Id,
+                DoctorId = dl.DoctorId,
+                LanguageId = dl.LanguageId,
+                Language = new LanguageEntity
+                {
+                    Id = dl.Language.Id,
+                    Name = dl.Language.Name
+                }
+            }).ToList()
+        });
+    }
+
+    #endregion
+
     #region Optimized Patient Search
 
     /// <summary>
@@ -693,66 +762,7 @@ public class DoctorRepository : IDoctorRepository
     /// </summary>
     private IQueryable<DoctorEntity> GetOptimizedQueryableForPatientSearch()
     {
-        return _context.Doctors
-            .AsNoTracking()
-            .Select(d => new DoctorEntity
-            {
-                // Basic doctor info
-                Id = d.Id,
-                AccountId = d.AccountId,
-                FirstName = d.FirstName,
-                LastName = d.LastName,
-                YearsOfExperience = d.YearsOfExperience,
-                AvatarUrl = d.AvatarUrl,
-
-                // IDs for filtering
-                PositionId = d.PositionId,
-                SpecialtyId = d.SpecialtyId,
-                HospitalId = d.HospitalId,
-                Gender = d.Gender,
-                Address = d.Address,
-
-                // Navigation properties - only basic info
-                Position = d.Position != null ? new PositionEntity
-                {
-                    Id = d.Position.Id,
-                    Name = d.Position.Name
-                } : null,
-
-                Specialty = d.Specialty != null ? new SpecialtyEntity
-                {
-                    Id = d.Specialty.Id,
-                    Name = d.Specialty.Name
-                } : null,
-
-                // Prices - only id, serviceTypeName, amount
-                DoctorPrices = d.DoctorPrices.Select(dp => new DoctorPriceEntity
-                {
-                    Id = dp.Id,
-                    DoctorId = dp.DoctorId,
-                    ServiceTypeId = dp.ServiceTypeId,
-                    Amount = dp.Amount,
-                    ServiceType = new ServiceTypeEntity
-                    {
-                        Id = dp.ServiceType.Id,
-                        Name = dp.ServiceType.Name
-                    }
-                }).ToList(),
-
-                // Languages - only id, name
-                DoctorLanguages = d.DoctorLanguages.Select(dl => new DoctorLanguageEntity
-                {
-                    Id = dl.Id,
-                    DoctorId = dl.DoctorId,
-                    LanguageId = dl.LanguageId,
-                    Language = new LanguageEntity
-                    {
-                        Id = dl.Language.Id,
-                        Name = dl.Language.Name
-                    }
-                }).ToList()
-            })
-            .AsQueryable();
+        return GetOptimizedDoctorProjection(_context.Doctors.AsNoTracking());
     }
 
     /// <summary>
@@ -798,66 +808,10 @@ public class DoctorRepository : IDoctorRepository
         }
 
         // Step 3: OPTIMIZED - Use projection to load only necessary fields
-        var finalQuery = _context.Doctors
-            .AsNoTracking()
-            .Where(d => doctorIds.Contains(d.Id))
-            .Select(d => new DoctorEntity
-            {
-                // Basic doctor info
-                Id = d.Id,
-                AccountId = d.AccountId,
-                FirstName = d.FirstName,
-                LastName = d.LastName,
-                YearsOfExperience = d.YearsOfExperience,
-                AvatarUrl = d.AvatarUrl,
-
-                // IDs for filtering
-                PositionId = d.PositionId,
-                SpecialtyId = d.SpecialtyId,
-                HospitalId = d.HospitalId,
-                Gender = d.Gender,
-                Address = d.Address,
-
-                // Navigation properties - only basic info
-                Position = d.Position != null ? new PositionEntity
-                {
-                    Id = d.Position.Id,
-                    Name = d.Position.Name
-                } : null,
-
-                Specialty = d.Specialty != null ? new SpecialtyEntity
-                {
-                    Id = d.Specialty.Id,
-                    Name = d.Specialty.Name
-                } : null,
-
-                // Prices - only id, serviceTypeName, amount
-                DoctorPrices = d.DoctorPrices.Select(dp => new DoctorPriceEntity
-                {
-                    Id = dp.Id,
-                    DoctorId = dp.DoctorId,
-                    ServiceTypeId = dp.ServiceTypeId,
-                    Amount = dp.Amount,
-                    ServiceType = new ServiceTypeEntity
-                    {
-                        Id = dp.ServiceType.Id,
-                        Name = dp.ServiceType.Name
-                    }
-                }).ToList(),
-
-                // Languages - only id, name
-                DoctorLanguages = d.DoctorLanguages.Select(dl => new DoctorLanguageEntity
-                {
-                    Id = dl.Id,
-                    DoctorId = dl.DoctorId,
-                    LanguageId = dl.LanguageId,
-                    Language = new LanguageEntity
-                    {
-                        Id = dl.Language.Id,
-                        Name = dl.Language.Name
-                    }
-                }).ToList()
-            });
+        var finalQuery = GetOptimizedDoctorProjection(
+            _context.Doctors
+                .AsNoTracking()
+                .Where(d => doctorIds.Contains(d.Id)));
 
         // Apply sorting
         finalQuery = ApplySorting(finalQuery, query);

@@ -445,35 +445,7 @@ public class DoctorService : BaseService, IDoctorService
             }
 
             // Convert advanced filter to basic query
-            var query = new DoctorQueryRequest
-            {
-                SpecialtyId = filter.SpecialtyId,
-                SpecialtyIds = filter.SpecialtyIds, // Add multiple specialty support
-                PositionId = filter.PositionId,
-                PositionIds = filter.PositionIds,
-                Gender = filter.Gender,
-                Genders = filter.Genders,
-                MinYearsOfExperience = filter.MinYearsOfExperience,
-                MaxYearsOfExperience = filter.MaxYearsOfExperience,
-                ExperienceRanges = filter.ExperienceRanges,
-                MinPrice = filter.MinPrice,
-                MaxPrice = filter.MaxPrice,
-                HospitalId = filter.HospitalId,
-                HospitalIds = filter.HospitalIds, // Add multiple hospital support
-                ProvinceId = filter.ProvinceId, // Add location filtering
-                DistrictId = filter.DistrictId, // Add location filtering
-                ServiceType = filter.ServiceType,
-                ServiceTypes = filter.ServiceTypes,
-                Language = filter.Language,
-                Languages = filter.Languages,
-                MinRating = filter.MinRating,
-                MinRatings = filter.MinRatings,
-                Address = filter.Address,
-                SortBy = filter.SortBy,
-                SortOrder = filter.SortOrder,
-                PageNumber = filter.PageNumber,
-                PageSize = filter.PageSize
-            };
+            var query = ConvertAdvancedFilterToQuery(filter);
 
             return await GetDoctorsAsync(query);
         }
@@ -503,35 +475,7 @@ public class DoctorService : BaseService, IDoctorService
             Console.WriteLine($"- Address: {filter.Address}");
 
             // Convert advanced filter to basic query
-            var query = new DoctorQueryRequest
-            {
-                SpecialtyId = filter.SpecialtyId,
-                SpecialtyIds = filter.SpecialtyIds,
-                PositionId = filter.PositionId,
-                PositionIds = filter.PositionIds,
-                Gender = filter.Gender,
-                Genders = filter.Genders,
-                MinYearsOfExperience = filter.MinYearsOfExperience,
-                MaxYearsOfExperience = filter.MaxYearsOfExperience,
-                ExperienceRanges = filter.ExperienceRanges,
-                MinPrice = filter.MinPrice,
-                MaxPrice = filter.MaxPrice,
-                HospitalId = filter.HospitalId,
-                HospitalIds = filter.HospitalIds,
-                ProvinceId = filter.ProvinceId,
-                DistrictId = filter.DistrictId,
-                ServiceType = filter.ServiceType,
-                ServiceTypes = filter.ServiceTypes,
-                Language = filter.Language,
-                Languages = filter.Languages,
-                MinRating = filter.MinRating,
-                MinRatings = filter.MinRatings,
-                Address = filter.Address,
-                SortBy = filter.SortBy,
-                SortOrder = filter.SortOrder,
-                PageNumber = filter.PageNumber,
-                PageSize = filter.PageSize
-            };
+            var query = ConvertAdvancedFilterToQuery(filter);
 
             // Use optimized repository method for complex filtering
             var (doctors, totalCount) = await _repository.Value.GetDoctorsForComplexFilterAsync(query);
@@ -1362,50 +1306,83 @@ public class DoctorService : BaseService, IDoctorService
         double? minRating,
         List<double>? minRatings)
     {
-        if (minRating.HasValue)
-        {
-            // Filter doctors with rating >= minRating and < minRating + 1
-            // Example: minRating = 3.0 means rating >= 3.0 and < 4.0
-            return doctors.Where(d => d.ReviewStatistics != null &&
-                                     d.ReviewStatistics.AverageRating >= minRating.Value &&
-                                     d.ReviewStatistics.AverageRating < minRating.Value + 1.0).ToList();
-        }
-
-        if (minRatings != null && minRatings.Any())
-        {
-            // Filter doctors with rating in any of the specified ranges
-            return doctors.Where(d => d.ReviewStatistics != null &&
-                minRatings.Any(rating => d.ReviewStatistics.AverageRating >= rating &&
-                                       d.ReviewStatistics.AverageRating < rating + 1.0)).ToList();
-        }
-
-        return doctors;
+        return FilterDoctorsByRatingGeneric(doctors, minRating, minRatings, d =>
+            d.ReviewStatistics?.AverageRating);
     }
 
     #endregion
 
     #region Private Helper Methods
 
-    private List<DoctorResponse> FilterDoctorsByRating(List<DoctorResponse> doctors, double? minRating, List<double>? minRatings)
+    /// <summary>
+    /// Converts DoctorAdvancedFilterRequest to DoctorQueryRequest to eliminate code duplication
+    /// </summary>
+    private DoctorQueryRequest ConvertAdvancedFilterToQuery(DoctorAdvancedFilterRequest filter)
+    {
+        return new DoctorQueryRequest
+        {
+            SpecialtyId = filter.SpecialtyId,
+            SpecialtyIds = filter.SpecialtyIds,
+            PositionId = filter.PositionId,
+            PositionIds = filter.PositionIds,
+            Gender = filter.Gender,
+            Genders = filter.Genders,
+            MinYearsOfExperience = filter.MinYearsOfExperience,
+            MaxYearsOfExperience = filter.MaxYearsOfExperience,
+            ExperienceRanges = filter.ExperienceRanges,
+            MinPrice = filter.MinPrice,
+            MaxPrice = filter.MaxPrice,
+            HospitalId = filter.HospitalId,
+            HospitalIds = filter.HospitalIds,
+            ProvinceId = filter.ProvinceId,
+            DistrictId = filter.DistrictId,
+            ServiceType = filter.ServiceType,
+            ServiceTypes = filter.ServiceTypes,
+            Language = filter.Language,
+            Languages = filter.Languages,
+            MinRating = filter.MinRating,
+            MinRatings = filter.MinRatings,
+            Address = filter.Address,
+            SortBy = filter.SortBy,
+            SortOrder = filter.SortOrder,
+            PageNumber = filter.PageNumber,
+            PageSize = filter.PageSize
+        };
+    }
+
+    /// <summary>
+    /// Generic method to filter doctors by rating to eliminate code duplication
+    /// </summary>
+    private List<T> FilterDoctorsByRatingGeneric<T>(List<T> doctors, double? minRating, List<double>? minRatings, Func<T, double?> getRating)
     {
         if (minRating.HasValue)
         {
             // Filter doctors with rating >= minRating and < minRating + 1
             // Example: minRating = 3.0 means rating >= 3.0 and < 4.0
-            return doctors.Where(d => d.ReviewStatistics != null &&
-                                     d.ReviewStatistics.AverageRating >= minRating.Value &&
-                                     d.ReviewStatistics.AverageRating < minRating.Value + 1.0).ToList();
+            return doctors.Where(d =>
+            {
+                var rating = getRating(d);
+                return rating.HasValue && rating.Value >= minRating.Value && rating.Value < minRating.Value + 1.0;
+            }).ToList();
         }
 
         if (minRatings != null && minRatings.Any())
         {
             // Filter doctors with rating in any of the specified ranges
-            return doctors.Where(d => d.ReviewStatistics != null &&
-                minRatings.Any(rating => d.ReviewStatistics.AverageRating >= rating &&
-                                       d.ReviewStatistics.AverageRating < rating + 1.0)).ToList();
+            return doctors.Where(d =>
+            {
+                var rating = getRating(d);
+                return rating.HasValue && minRatings.Any(r => rating.Value >= r && rating.Value < r + 1.0);
+            }).ToList();
         }
 
         return doctors;
+    }
+
+    private List<DoctorResponse> FilterDoctorsByRating(List<DoctorResponse> doctors, double? minRating, List<double>? minRatings)
+    {
+        return FilterDoctorsByRatingGeneric(doctors, minRating, minRatings, d =>
+            d.ReviewStatistics?.AverageRating);
     }
 
     #endregion
