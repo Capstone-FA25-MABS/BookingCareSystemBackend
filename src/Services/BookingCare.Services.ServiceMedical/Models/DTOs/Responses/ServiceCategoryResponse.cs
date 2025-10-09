@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BookingCare.Services.ServiceMedical.Models.DTOs.Responses
 {
     public class ServiceCategoryResponse
@@ -10,6 +12,7 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Responses
         public string Status { get; set; } = "INACTIVE";
         
         // Navigation properties
+        [JsonIgnore]
         public ServiceCategoryResponse? Parent { get; set; }
         public List<ServiceCategoryResponse> Children { get; set; } = new();
     }

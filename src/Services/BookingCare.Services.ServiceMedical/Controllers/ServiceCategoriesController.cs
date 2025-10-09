@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace BookingCare.Services.ServiceMedical.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v{version:apiVersion}/[controller]")]
+    [ApiVersion("1.0")]
     [Produces("application/json")]
     public class ServiceCategoriesController : ControllerBase
     {
@@ -27,6 +28,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// </summary>
         /// <returns>Health status</returns>
         [HttpGet("health")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         public IActionResult Health()
         {
             return Ok(new

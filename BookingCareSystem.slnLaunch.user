@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "src\\Services\\BookingCare.Services.ServiceMedical\\BookingCare.Services.ServiceMedical.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\ApiGateway\\BookingCare.ApiGateway.Ocelot\\BookingCare.ApiGateway.Ocelot.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

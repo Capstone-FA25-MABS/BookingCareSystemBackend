@@ -8,6 +8,9 @@ using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.Mvc.Versioning;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -38,10 +41,44 @@ builder.Services.AddHttpClient<IHospitalServiceClient, HospitalServiceClient>(cl
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+// Add API Versioning
+builder.Services.AddApiVersioning(opt =>
+{
+    opt.DefaultApiVersion = new ApiVersion(1, 0);
+    opt.AssumeDefaultVersionWhenUnspecified = true;
+    opt.ApiVersionReader = ApiVersionReader.Combine(
+        new HeaderApiVersionReader("X-Version"),
+        new QueryStringApiVersionReader("version"),
+        new UrlSegmentApiVersionReader()
+    );
+});
+
+builder.Services.AddVersionedApiExplorer(setup =>
+{
+    setup.GroupNameFormat = "'v'VVV";
+    setup.SubstituteApiVersionInUrl = true;
+});
+
 builder.Services.AddControllers();
 builder.Services.AddGrpc();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "BookingCare Medical Service API",
+        Version = "v1",
+        Description = "API for managing medical services and service categories"
+    });
+    
+    // Include XML comments if available
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = System.IO.Path.Combine(System.AppContext.BaseDirectory, xmlFile);
+    if (System.IO.File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+});
 
 var app = builder.Build();
 
@@ -49,7 +86,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BookingCare Medical Service API v1");
+        c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+    });
 }
 
 app.UseRouting();
@@ -60,4 +101,4 @@ app.MapControllers();
 app.MapGrpcService<ServiceMedicalGrpcService>();
 app.MapGet("/", () => "BookingCare Service Medical Service is running...");
 
-app.Run();
+await app.RunAsync();
