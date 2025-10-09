@@ -67,8 +67,7 @@ public class HospitalRepository : IHospitalRepository
         if (!string.IsNullOrEmpty(filter.Email))
             query = query.Where(h => h.Email.Contains(filter.Email));
 
-        if (filter.Status.HasValue)
-            query = query.Where(h => h.Status == filter.Status.Value);
+        // Note: Status filtering is now handled by Auth service, not in database query
 
         if (filter.SpecialtyIds != null && filter.SpecialtyIds.Any())
             query = query.Where(h => h.HospitalSpecialties.Any(hs => filter.SpecialtyIds.Contains(hs.SpecialtyId)));
@@ -198,14 +197,14 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<List<HospitalEntity>> GetActiveHospitalsSimpleAsync()
     {
+        // Note: Status filtering is now handled by Auth service
+        // This method returns all hospitals, status will be enriched later
         return await _context.Hospitals
-            .Where(h => h.Status == Status.ACTIVE)
             .Select(h => new HospitalEntity
             {
                 Id = h.Id,
                 Name = h.Name,
-                AvatarUrl = h.AvatarUrl,
-                Status = h.Status
+                AvatarUrl = h.AvatarUrl
             })
             .OrderBy(h => h.Name)
             .ToListAsync();

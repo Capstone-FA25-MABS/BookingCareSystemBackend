@@ -13,7 +13,6 @@ public class HospitalResponse
     public string Description { get; set; } = string.Empty;
     public string? BackgroundUrl { get; set; }
     public string? AvatarUrl { get; set; }
-    public Status Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public List<HospitalSpecialtyResponse>? Specialties { get; set; }

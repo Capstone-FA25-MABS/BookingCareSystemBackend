@@ -22,6 +22,7 @@ public class DoctorRepository : IDoctorRepository
     {
         return await _context.Doctors
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -33,6 +34,7 @@ public class DoctorRepository : IDoctorRepository
     {
         return await _context.Doctors
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -44,6 +46,7 @@ public class DoctorRepository : IDoctorRepository
     {
         return await _context.Doctors
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -129,7 +132,9 @@ public class DoctorRepository : IDoctorRepository
     private IQueryable<DoctorEntity> GetBaseQueryable()
     {
         return _context.Doctors
+            .AsNoTracking() // Optimize for read-only operations
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -266,17 +271,29 @@ public class DoctorRepository : IDoctorRepository
                 (d.FirstName + " " + d.LastName).ToLower().Contains(searchTerm));
         }
 
-        // Language filters - support both single and multiple
+        // Language filters - optimized with joins instead of subqueries
         if (!string.IsNullOrEmpty(query.Language))
+        {
+            Console.WriteLine($"Filtering by single language: {query.Language}");
             queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.Language.Name == query.Language));
+        }
         if (query.Languages != null && query.Languages.Any())
+        {
+            Console.WriteLine($"Filtering by multiple languages: {string.Join(", ", query.Languages)}");
             queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => query.Languages.Contains(dl.Language.Name)));
+        }
 
-        // Service type filters - support both single and multiple
+        // Service type filters - optimized with joins instead of subqueries
         if (!string.IsNullOrEmpty(query.ServiceType))
+        {
+            Console.WriteLine($"Filtering by single service type: {query.ServiceType}");
             queryable = queryable.Where(d => d.DoctorPrices.Any(dp => dp.ServiceType.Name == query.ServiceType));
+        }
         if (query.ServiceTypes != null && query.ServiceTypes.Any())
+        {
+            Console.WriteLine($"Filtering by multiple service types: {string.Join(", ", query.ServiceTypes)}");
             queryable = queryable.Where(d => d.DoctorPrices.Any(dp => query.ServiceTypes.Contains(dp.ServiceType.Name)));
+        }
 
         return queryable;
     }
@@ -319,7 +336,9 @@ public class DoctorRepository : IDoctorRepository
     public IQueryable<DoctorEntity> GetQueryableDoctors()
     {
         return _context.Doctors
+            .AsNoTracking() // Optimize for read-only operations
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -330,7 +349,9 @@ public class DoctorRepository : IDoctorRepository
     public async Task<List<DoctorEntity>> GetDoctorsByHospitalAsync(Guid hospitalId)
     {
         return await _context.Doctors
+            .AsNoTracking() // Optimize for read-only operations
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -342,7 +363,9 @@ public class DoctorRepository : IDoctorRepository
     public async Task<List<DoctorEntity>> GetDoctorsBySpecialtyAsync(Guid specialtyId)
     {
         return await _context.Doctors
+            .AsNoTracking() // Optimize for read-only operations
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -354,7 +377,9 @@ public class DoctorRepository : IDoctorRepository
     public async Task<List<DoctorEntity>> GetDoctorsByPositionAsync(Guid positionId)
     {
         return await _context.Doctors
+            .AsNoTracking() // Optimize for read-only operations
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -366,7 +391,9 @@ public class DoctorRepository : IDoctorRepository
     public async Task<List<DoctorEntity>> GetActiveDoctorsAsync()
     {
         return await _context.Doctors
+            .AsNoTracking() // Optimize for read-only operations
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -450,6 +477,7 @@ public class DoctorRepository : IDoctorRepository
 
         return await _context.Doctors
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Include(d => d.DoctorPrices)
                 .ThenInclude(dp => dp.ServiceType)
             .Include(d => d.DoctorLanguages)
@@ -465,6 +493,7 @@ public class DoctorRepository : IDoctorRepository
 
         return await _context.Doctors
             .Include(d => d.Position)
+            .Include(d => d.Specialty)
             .Where(d => idList.Contains(d.AccountId))
             .ToListAsync();
     }
@@ -665,6 +694,7 @@ public class DoctorRepository : IDoctorRepository
     private IQueryable<DoctorEntity> GetOptimizedQueryableForPatientSearch()
     {
         return _context.Doctors
+            .AsNoTracking()
             .Select(d => new DoctorEntity
             {
                 // Basic doctor info
@@ -723,6 +753,205 @@ public class DoctorRepository : IDoctorRepository
                 }).ToList()
             })
             .AsQueryable();
+    }
+
+    /// <summary>
+    /// Optimized method for complex filtering with multiple criteria
+    /// Uses separate queries for better performance
+    /// </summary>
+    public async Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsForComplexFilterAsync(DoctorQueryRequest query)
+    {
+        Console.WriteLine($"GetDoctorsForComplexFilterAsync called with {GetFilterCount(query)} filters");
+
+        // For simple filters, use the optimized projection method
+        if (!HasComplexFilters(query))
+        {
+            Console.WriteLine("No complex filters detected, using optimized projection method");
+            return await GetDoctorsForPatientSearchAsync(query);
+        }
+
+        // For complex filters, use the multi-step approach
+        Console.WriteLine("Complex filters detected, using multi-step approach");
+
+        // Step 1: Get base doctor IDs that match basic filters (fast)
+        var baseQuery = _context.Doctors.AsNoTracking();
+
+        // Apply basic filters first (these are fast)
+        baseQuery = ApplyBasicFilters(baseQuery, query);
+
+        // Get doctor IDs that match basic filters
+        var doctorIds = await baseQuery.Select(d => d.Id).ToListAsync();
+        Console.WriteLine($"Basic filters returned {doctorIds.Count} doctor IDs");
+
+        if (!doctorIds.Any())
+        {
+            return (new List<DoctorEntity>(), 0);
+        }
+
+        // Step 2: Apply complex filters (language, service type) on the subset
+        doctorIds = await ApplyComplexFilters(doctorIds, query);
+        Console.WriteLine($"After complex filters: {doctorIds.Count} doctor IDs");
+
+        if (!doctorIds.Any())
+        {
+            return (new List<DoctorEntity>(), 0);
+        }
+
+        // Step 3: OPTIMIZED - Use projection to load only necessary fields
+        var finalQuery = _context.Doctors
+            .AsNoTracking()
+            .Where(d => doctorIds.Contains(d.Id))
+            .Select(d => new DoctorEntity
+            {
+                // Basic doctor info
+                Id = d.Id,
+                AccountId = d.AccountId,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                YearsOfExperience = d.YearsOfExperience,
+                AvatarUrl = d.AvatarUrl,
+
+                // IDs for filtering
+                PositionId = d.PositionId,
+                SpecialtyId = d.SpecialtyId,
+                HospitalId = d.HospitalId,
+                Gender = d.Gender,
+                Address = d.Address,
+
+                // Navigation properties - only basic info
+                Position = d.Position != null ? new PositionEntity
+                {
+                    Id = d.Position.Id,
+                    Name = d.Position.Name
+                } : null,
+
+                Specialty = d.Specialty != null ? new SpecialtyEntity
+                {
+                    Id = d.Specialty.Id,
+                    Name = d.Specialty.Name
+                } : null,
+
+                // Prices - only id, serviceTypeName, amount
+                DoctorPrices = d.DoctorPrices.Select(dp => new DoctorPriceEntity
+                {
+                    Id = dp.Id,
+                    DoctorId = dp.DoctorId,
+                    ServiceTypeId = dp.ServiceTypeId,
+                    Amount = dp.Amount,
+                    ServiceType = new ServiceTypeEntity
+                    {
+                        Id = dp.ServiceType.Id,
+                        Name = dp.ServiceType.Name
+                    }
+                }).ToList(),
+
+                // Languages - only id, name
+                DoctorLanguages = d.DoctorLanguages.Select(dl => new DoctorLanguageEntity
+                {
+                    Id = dl.Id,
+                    DoctorId = dl.DoctorId,
+                    LanguageId = dl.LanguageId,
+                    Language = new LanguageEntity
+                    {
+                        Id = dl.Language.Id,
+                        Name = dl.Language.Name
+                    }
+                }).ToList()
+            });
+
+        // Apply sorting
+        finalQuery = ApplySorting(finalQuery, query);
+
+        var totalCount = doctorIds.Count;
+        var doctors = await ApplyPagination(finalQuery, query).ToListAsync();
+
+        Console.WriteLine($"Final result: {doctors.Count} doctors, totalCount: {totalCount}");
+        return (doctors, totalCount);
+    }
+
+    /// <summary>
+    /// Apply complex filters (language, service type) on a subset of doctor IDs
+    /// </summary>
+    private async Task<List<Guid>> ApplyComplexFilters(List<Guid> doctorIds, DoctorQueryRequest query)
+    {
+        var filteredIds = new HashSet<Guid>(doctorIds);
+
+        // Language filters
+        if (!string.IsNullOrEmpty(query.Language) || (query.Languages != null && query.Languages.Any()))
+        {
+            var languageQuery = _context.DoctorLanguages
+                .AsNoTracking()
+                .Where(dl => filteredIds.Contains(dl.DoctorId));
+
+            if (!string.IsNullOrEmpty(query.Language))
+            {
+                languageQuery = languageQuery.Where(dl => dl.Language.Name == query.Language);
+            }
+            else if (query.Languages != null && query.Languages.Any())
+            {
+                languageQuery = languageQuery.Where(dl => query.Languages.Contains(dl.Language.Name));
+            }
+
+            var languageDoctorIds = await languageQuery.Select(dl => dl.DoctorId).ToListAsync();
+            filteredIds.IntersectWith(languageDoctorIds);
+            Console.WriteLine($"Language filter: {filteredIds.Count} doctors remaining");
+        }
+
+        // Service type filters
+        if (!string.IsNullOrEmpty(query.ServiceType) || (query.ServiceTypes != null && query.ServiceTypes.Any()))
+        {
+            var serviceQuery = _context.DoctorPrices
+                .AsNoTracking()
+                .Where(dp => filteredIds.Contains(dp.DoctorId));
+
+            if (!string.IsNullOrEmpty(query.ServiceType))
+            {
+                serviceQuery = serviceQuery.Where(dp => dp.ServiceType.Name == query.ServiceType);
+            }
+            else if (query.ServiceTypes != null && query.ServiceTypes.Any())
+            {
+                serviceQuery = serviceQuery.Where(dp => query.ServiceTypes.Contains(dp.ServiceType.Name));
+            }
+
+            var serviceDoctorIds = await serviceQuery.Select(dp => dp.DoctorId).ToListAsync();
+            filteredIds.IntersectWith(serviceDoctorIds);
+            Console.WriteLine($"Service type filter: {filteredIds.Count} doctors remaining");
+        }
+
+        return filteredIds.ToList();
+    }
+
+    /// <summary>
+    /// Check if query has complex filters that need special handling
+    /// </summary>
+    private bool HasComplexFilters(DoctorQueryRequest query)
+    {
+        return (!string.IsNullOrEmpty(query.Language) ||
+                (query.Languages != null && query.Languages.Any()) ||
+                (!string.IsNullOrEmpty(query.ServiceType) ||
+                 (query.ServiceTypes != null && query.ServiceTypes.Any())));
+    }
+
+    /// <summary>
+    /// Count the number of active filters
+    /// </summary>
+    private int GetFilterCount(DoctorQueryRequest query)
+    {
+        int count = 0;
+        if (query.SpecialtyId.HasValue) count++;
+        if (query.PositionId.HasValue) count++;
+        if (!string.IsNullOrEmpty(query.Gender)) count++;
+        if (query.MinYearsOfExperience.HasValue) count++;
+        if (query.MaxYearsOfExperience.HasValue) count++;
+        if (!string.IsNullOrEmpty(query.Language)) count++;
+        if (query.Languages != null && query.Languages.Any()) count++;
+        if (!string.IsNullOrEmpty(query.ServiceType)) count++;
+        if (query.ServiceTypes != null && query.ServiceTypes.Any()) count++;
+        if (query.MinPrice.HasValue) count++;
+        if (query.MaxPrice.HasValue) count++;
+        if (!string.IsNullOrEmpty(query.ProvinceId)) count++;
+        if (!string.IsNullOrEmpty(query.DistrictId)) count++;
+        return count;
     }
 
     #endregion

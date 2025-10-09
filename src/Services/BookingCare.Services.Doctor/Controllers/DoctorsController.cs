@@ -47,14 +47,15 @@ public class DoctorsController : BaseApiController
     #region Doctor Endpoints
 
     /// <summary>
-    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ)
+    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ) - Optimized response
     /// </summary>
     [HttpPost("filter")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> FilterDoctors([FromBody] DoctorAdvancedFilterRequest filter)
     {
-        var result = await _doctorService.FilterDoctorsAsync(filter);
-        return Success<DoctorListResponse>(result, "Doctors filtered successfully");
+        // Use optimized filter method that returns only necessary fields
+        var result = await _doctorService.FilterDoctorsOptimizedAsync(filter);
+        return Success<DoctorSearchListResponse>(result, "Doctors filtered successfully");
     }
 
     /// <summary>
