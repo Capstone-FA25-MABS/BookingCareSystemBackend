@@ -878,7 +878,7 @@ public class DoctorRepository : IDoctorRepository
     /// <summary>
     /// Check if query has complex filters that need special handling
     /// </summary>
-    private bool HasComplexFilters(DoctorQueryRequest query)
+    private static bool HasComplexFilters(DoctorQueryRequest query)
     {
         return (!string.IsNullOrEmpty(query.Language) ||
                 (query.Languages != null && query.Languages.Any()) ||
@@ -889,7 +889,7 @@ public class DoctorRepository : IDoctorRepository
     /// <summary>
     /// Count the number of active filters
     /// </summary>
-    private int GetFilterCount(DoctorQueryRequest query)
+    private static int GetFilterCount(DoctorQueryRequest query)
     {
         int count = 0;
         if (query.SpecialtyId.HasValue) count++;

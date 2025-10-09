@@ -289,11 +289,9 @@ public class HospitalService : IHospitalService
     {
         if (!hospitals.Any()) return;
 
-        var accountIds = hospitals.Select(h => h.AccountId).Distinct();
-        var statusMap = await GetAccountStatusesAsync(accountIds);
-
         // Note: Status is now managed by Auth service, not stored in HospitalEntity
         // Status enrichment is handled at the response level, not entity level
+        await Task.CompletedTask; // Placeholder to avoid compiler warning
     }
 
     /// <summary>
@@ -301,10 +299,9 @@ public class HospitalService : IHospitalService
     /// </summary>
     private async Task EnrichHospitalDetailWithStatusAsync(HospitalDetailResponse hospital)
     {
-        var statusMap = await GetAccountStatusesAsync(new[] { hospital.AccountId });
-
         // Note: Status is now managed by Auth service, not stored in HospitalEntity
         // Status enrichment is handled at the response level, not entity level
+        await Task.CompletedTask; // Placeholder to avoid compiler warning
     }
 
     #endregion

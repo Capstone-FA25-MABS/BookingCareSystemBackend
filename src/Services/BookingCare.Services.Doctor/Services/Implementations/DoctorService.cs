@@ -451,8 +451,7 @@ public class DoctorService : BaseService, IDoctorService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in FilterDoctorsAsync: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            Logger.LogError(ex, "Error in FilterDoctorsAsync: {Message}", ex.Message);
             throw;
         }
     }
@@ -536,8 +535,7 @@ public class DoctorService : BaseService, IDoctorService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error in FilterDoctorsOptimizedAsync: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            Logger.LogError(ex, "Error in FilterDoctorsOptimizedAsync: {Message}", ex.Message);
             throw;
         }
     }
@@ -1264,7 +1262,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Check if doctor is in specified location for search results
     /// </summary>
-    private bool IsDoctorInLocationForSearch(DoctorSearchForPatientResponse doctor, LocationInfo locationInfo)
+    private static bool IsDoctorInLocationForSearch(DoctorSearchForPatientResponse doctor, LocationInfo locationInfo)
     {
         // Simple location filtering based on hospital address
         if (doctor.Hospital?.Address == null)
@@ -1353,7 +1351,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Generic method to filter doctors by rating to eliminate code duplication
     /// </summary>
-    private List<T> FilterDoctorsByRatingGeneric<T>(List<T> doctors, double? minRating, List<double>? minRatings, Func<T, double?> getRating)
+    private static List<T> FilterDoctorsByRatingGeneric<T>(List<T> doctors, double? minRating, List<double>? minRatings, Func<T, double?> getRating)
     {
         if (minRating.HasValue)
         {
