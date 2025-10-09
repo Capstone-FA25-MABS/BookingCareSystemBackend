@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using BookingCare.Services.Appointment.Enums;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Appointment.Models.DTOs;
 
@@ -18,8 +19,8 @@ public class CreateAppointmentRequest
     [Required(ErrorMessage = "Appointment date is required")]
     public required DateTime AppointmentDate { get; set; }
 
-    [Required(ErrorMessage = "Appointment time ID is required")]
-    public required Guid AppointmentTimeId { get; set; }
+    [Required(ErrorMessage = "Appointment time is required")]
+    public required AppointmentTime AppointmentTimeId { get; set; }
 
     public Guid? HospitalId { get; set; }
 
@@ -57,6 +58,12 @@ public class AppointmentQueryRequest
     public AppointmentStatus? Status { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
+
+    /// <summary>
+    /// Search term for filtering appointments
+    /// Note: Currently handled client-side in frontend for better UX
+    /// (allows searching doctor/hospital/service names from gRPC data)
+    /// </summary>
     public string? SearchTerm { get; set; }
 
     // Pagination
@@ -66,6 +73,12 @@ public class AppointmentQueryRequest
     // Sorting
     public string? SortBy { get; set; } = "CreatedAt";
     public bool SortDescending { get; set; } = true;
+
+    // Additional options
+    /// <summary>
+    /// Include counts for all statuses in the response
+    /// </summary>
+    public bool IncludeStatusCounts { get; set; } = false;
 }
 
 

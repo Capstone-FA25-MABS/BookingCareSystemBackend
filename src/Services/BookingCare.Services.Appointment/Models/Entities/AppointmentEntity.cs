@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using BookingCare.Services.Appointment.Enums;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Appointment.Models.Entities;
 
@@ -21,7 +22,7 @@ public class AppointmentEntity
     public DateTime AppointmentDate { get; set; }
 
     [Required]
-    public Guid AppointmentTimeId { get; set; }
+    public AppointmentTime AppointmentTimeId { get; set; }
 
     public Guid? HospitalId { get; set; }
 
