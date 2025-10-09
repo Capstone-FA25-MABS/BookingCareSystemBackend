@@ -8,24 +8,18 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure Kestrel with security best practices
 builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "favorites");
 
-// Add services to the container
-builder.Services.AddControllers();
+// Add common services using ProgramExtensions
+builder.Services.AddCommonControllers();
 builder.Services.AddGrpc();
-builder.Services.AddEndpointsApiExplorer();
 
 // BẮT BUỘC: Add API versioning support
 builder.Services.AddApiVersioningSupport();
 
-// Swagger configuration with versioning
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1.0", new Microsoft.OpenApi.Models.OpenApiInfo
-    {
-        Title = "BookingCare Favorites API",
-        Version = "v1.0",
-        Description = "API for managing user favorites for doctors"
-    });
-});
+// Add JWT Authentication & Authorization following Auth service pattern
+builder.Services.AddJwtAuthAndAuthorization(builder.Configuration, builder.Environment);
+
+// Add common Swagger configuration using ProgramExtensions
+builder.Services.AddCommonSwagger("Favorites");
 
 // Add MongoDB services - using configured MongoDbSettings
 builder.Services.AddMongoDb(builder.Configuration);
@@ -44,27 +38,24 @@ builder.Services.AddGlobalExceptionHandling();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1.0/swagger.json", "BookingCare Favorites Service V1.0");
-        c.RoutePrefix = string.Empty; // Set Swagger UI at app root
-    });
-}
+// Configure the HTTP request pipeline using ProgramExtensions
+app.UseCommonSwaggerUI("Favorites");
 
 // Use global exception handling early in pipeline
 app.UseGlobalExceptionHandling();
 
-app.UseRouting();
+// Use standard authentication pipeline (includes UseRouting, UseAuthentication, UseAuthorization)
+app.UseStandardAuthPipeline();
+
 app.MapControllers();
 
 // Map gRPC services
 app.MapGrpcService<FavoritesGrpcService>();
 
-// Default route
+// Add common health check endpoint using ProgramExtensions
+app.MapCommonHealthCheck("Favorites");
+
+// Default route (keeping existing functionality)
 app.MapGet("/", () => "BookingCare Favorites Service is running...");
 
 // Initialize database

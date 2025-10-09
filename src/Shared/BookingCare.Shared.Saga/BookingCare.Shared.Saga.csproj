@@ -33,4 +33,9 @@
     <ProjectReference Include="..\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Embed SQL schema file as resource -->
+    <EmbeddedResource Include="Database\saga_schema.sql" />
+  </ItemGroup>
+
 </Project>

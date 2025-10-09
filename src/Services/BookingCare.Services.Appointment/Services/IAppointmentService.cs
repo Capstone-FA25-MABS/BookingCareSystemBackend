@@ -9,7 +9,10 @@ public interface IAppointmentService
 {
     // Appointment operations
     Task<bool> CreateAppointmentAsync(CreateAppointmentRequest request);
-    Task<AppointmentResponse?> GetAppointmentByIdAsync(Guid id);
+    /// <summary>
+    /// Get appointment by ID with enriched data for patient view
+    /// </summary>
+    Task<AppointmentResponse?> GetAppointmentByIdForPatientAsync(Guid id);
     Task<AppointmentListResponse> GetAppointmentsByPatientAsync(AppointmentQueryRequest query);
     Task<AppointmentListResponse> GetAppointmentsForManagementAsync(AppointmentQueryRequest query);
 
