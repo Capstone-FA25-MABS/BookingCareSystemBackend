@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BookingCare.Services.Appointment.Services;
 using BookingCare.Services.Appointment.Models.DTOs;
 using BookingCare.Shared.Common.Controllers;
@@ -93,6 +94,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Paginated list of appointments with enriched data based on user role</returns>
     [HttpPost("management")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Admin,Staff,Doctor")]
     public async Task<IActionResult> GetAppointmentsForManagement([FromBody] AppointmentQueryRequest query)
     {
         var appointments = await _appointmentService.GetAppointmentsForManagementAsync(query);
