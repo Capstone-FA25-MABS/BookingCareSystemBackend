@@ -230,7 +230,7 @@ public class BankAccountService : BaseService, IBankAccountService
     /// <summary>
     /// Validate create request
     /// </summary>
-    private void ValidateCreateRequest(CreateBankAccountRequest request)
+    private static void ValidateCreateRequest(CreateBankAccountRequest request)
     {
         ValidateRequired(request, nameof(request));
         ValidateRequiredString(request.BankCode, nameof(request.BankCode));

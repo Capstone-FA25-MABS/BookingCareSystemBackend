@@ -15,6 +15,8 @@ namespace BookingCare.Services.Payment.Controllers;
 [ApiVersion(ApiVersions.V1_0)]
 public class BankAccountsController : BaseApiController
 {
+    private const string InvalidBankAccountIdMessage = "Invalid bank account ID";
+
     private readonly IBankAccountService _bankAccountService;
     private readonly IValidator<CreateBankAccountRequest> _createValidator;
     private readonly IValidator<UpdateBankAccountRequest> _updateValidator;
@@ -48,7 +50,7 @@ public class BankAccountsController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("Invalid bank account ID");
+                return BadRequest(InvalidBankAccountIdMessage);
             }
 
             var bankAccount = await _bankAccountService.GetByIdAsync(id);
@@ -262,7 +264,7 @@ public class BankAccountsController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("Invalid bank account ID");
+                return BadRequest(InvalidBankAccountIdMessage);
             }
 
             var result = await _bankAccountService.SmartDeleteAsync(id);
@@ -314,7 +316,7 @@ public class BankAccountsController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("Invalid bank account ID");
+                return BadRequest(InvalidBankAccountIdMessage);
             }
 
             var bankAccount = await _bankAccountService.SetAsDefaultAsync(id);
@@ -350,7 +352,7 @@ public class BankAccountsController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("Invalid bank account ID");
+                return BadRequest(InvalidBankAccountIdMessage);
             }
 
             var bankAccount = await _bankAccountService.ToggleActiveStatusAsync(id);

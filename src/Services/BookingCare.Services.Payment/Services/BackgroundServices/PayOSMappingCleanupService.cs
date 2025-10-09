@@ -36,9 +36,10 @@ public class PayOSMappingCleanupService : BackgroundService
                 await PerformCleanupAsync();
                 await Task.Delay(_cleanupInterval, stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
-                _logger.LogInformation("PayOS Mapping Cleanup Service is stopping");
+                // Pass the caught exception to the logger per Sonar recommendation
+                _logger.Log(LogLevel.Information, ex, "PayOS Mapping Cleanup Service is stopping");
                 break;
             }
             catch (Exception ex)

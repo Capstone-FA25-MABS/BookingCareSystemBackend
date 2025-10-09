@@ -31,9 +31,9 @@ public class RefundHistoryProcessingService : BackgroundService
                 await ProcessWaitingRefundsAsync();
                 await Task.Delay(_interval, stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
-                _logger.LogInformation("RefundHistoryProcessingService stopping due to cancellation");
+                _logger.Log(LogLevel.Information, ex, "RefundHistoryProcessingService stopping due to cancellation");
                 break;
             }
             catch (Exception ex)

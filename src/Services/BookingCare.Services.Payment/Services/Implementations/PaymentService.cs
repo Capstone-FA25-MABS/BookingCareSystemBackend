@@ -477,7 +477,7 @@ public class PaymentService : BaseService, IPaymentService
         return (startOfYear, endOfYear, date.Year.ToString());
     }
 
-    private DateTime GetNextPeriod(DateTime current, StatisticsPeriod period)
+    private static DateTime GetNextPeriod(DateTime current, StatisticsPeriod period)
     {
         return period switch
         {
@@ -490,7 +490,7 @@ public class PaymentService : BaseService, IPaymentService
         };
     }
 
-    private int GetWeekOfYear(DateTime date)
+    private static int GetWeekOfYear(DateTime date)
     {
         var culture = System.Globalization.CultureInfo.CurrentCulture;
         return culture.Calendar.GetWeekOfYear(date, culture.DateTimeFormat.CalendarWeekRule, culture.DateTimeFormat.FirstDayOfWeek);
@@ -499,7 +499,6 @@ public class PaymentService : BaseService, IPaymentService
     private List<PaymentMethodStatistics> GeneratePaymentMethodStatistics(List<PaymentEntity> payments)
     {
         var total = payments.Count;
-        var totalAmount = payments.Sum(p => p.Amount);
 
         return payments
             .GroupBy(p => new { p.PaymentMethodId, p.PaymentMethod.Name })
@@ -519,7 +518,6 @@ public class PaymentService : BaseService, IPaymentService
     private List<PaymentStatusStatistics> GenerateStatusStatistics(List<PaymentEntity> payments)
     {
         var total = payments.Count;
-        var totalAmount = payments.Sum(p => p.Amount);
 
         return payments
             .GroupBy(p => p.Status)
@@ -537,7 +535,6 @@ public class PaymentService : BaseService, IPaymentService
     private List<TransactionTypeStatistics> GenerateTransactionTypeStatistics(List<PaymentEntity> payments)
     {
         var total = payments.Count;
-        var totalAmount = payments.Sum(p => p.Amount);
 
         return payments
             .GroupBy(p => p.TransactionType)

@@ -10,6 +10,8 @@ namespace BookingCare.Services.Payment.Data;
 /// </summary>
 public class PaymentDbContext : DbContext
 {
+    private const string SqlGetDate = "GETDATE()";
+
     public PaymentDbContext(DbContextOptions<PaymentDbContext> options) : base(options)
     {
     }
@@ -130,10 +132,10 @@ public class PaymentDbContext : DbContext
                 .HasDefaultValue(true);
 
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETDATE()");
+                .HasDefaultValueSql(SqlGetDate);
 
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("GETDATE()");
+                .HasDefaultValueSql(SqlGetDate);
         });
 
         // Configure RefundHistoryEntity
@@ -177,10 +179,10 @@ public class PaymentDbContext : DbContext
 
             // Default values
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETDATE()");
+                .HasDefaultValueSql(SqlGetDate);
 
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("GETDATE()");
+                .HasDefaultValueSql(SqlGetDate);
 
         });
 

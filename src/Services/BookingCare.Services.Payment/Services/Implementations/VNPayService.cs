@@ -164,13 +164,11 @@ public class VNPayService : BaseService, IVNPayService
                 return false;
             }
 
-            // Create sorted parameters
-            var sortedParams = new SortedList<string, string>();
-            foreach (var kv in queryParams)
-            {
-                if (!string.IsNullOrEmpty(kv.Value))
-                    sortedParams[kv.Key] = kv.Value;
-            }
+            // Create sorted parameters using LINQ Where to filter out null/empty values
+            var sortedParams = new SortedList<string, string>(
+                queryParams.Where(kv => !string.IsNullOrEmpty(kv.Value))
+                          .ToDictionary(kv => kv.Key, kv => kv.Value)
+            );
 
             // Create raw data string
             var rawData = string.Join("&", sortedParams.Select(kv => $"{kv.Key}={kv.Value}"));
@@ -205,7 +203,7 @@ public class VNPayService : BaseService, IVNPayService
         {
             LogInfo("Querying VNPay transaction: {TxnRef} for date {Date}", null, transactionRef, transactionDate);
 
-            // TODO: Implement VNPay Query API call
+
             await Task.Delay(1); // Placeholder
 
             return new
@@ -220,7 +218,7 @@ public class VNPayService : BaseService, IVNPayService
     /// <summary>
     /// Create request URL with signature
     /// </summary>
-    private string CreateRequestUrl(string baseUrl, SortedList<string, string> requestData, string hashSecret)
+    private static string CreateRequestUrl(string baseUrl, SortedList<string, string> requestData, string hashSecret)
     {
         var query = new StringBuilder();
         foreach (var kv in requestData)
@@ -237,7 +235,7 @@ public class VNPayService : BaseService, IVNPayService
     /// <summary>
     /// HMAC-SHA512 hash computation
     /// </summary>
-    private string HmacSHA512(string key, string inputData)
+    private static string HmacSHA512(string key, string inputData)
     {
         using var hmac = new HMACSHA512(Encoding.UTF8.GetBytes(key));
         var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(inputData));

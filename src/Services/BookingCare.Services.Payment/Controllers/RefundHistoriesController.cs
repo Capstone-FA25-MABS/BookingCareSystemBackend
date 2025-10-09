@@ -15,6 +15,8 @@ namespace BookingCare.Services.Payment.Controllers;
 [ApiVersion(ApiVersions.V1_0)]
 public class RefundHistoriesController : BaseApiController
 {
+    private const string RefundHistoriesListError = "An error occurred while retrieving refund histories list";
+
     private readonly IRefundHistoryService _refundHistoryService;
     private readonly IValidator<CreateRefundHistoryRequest> _createValidator;
     private readonly IValidator<UpdateRefundHistoryStatusRequest> _updateValidator;
@@ -135,7 +137,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund histories for user: {UserId}", userId);
-            return StatusCode(500, new { Message = "An error occurred while retrieving refund histories list" });
+            return StatusCode(500, new { Message = RefundHistoriesListError });
         }
     }
 
@@ -177,7 +179,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund histories for hospital: {HospitalId}", hospitalId);
-            return StatusCode(500, new { Message = "An error occurred while retrieving refund histories list" });
+            return StatusCode(500, new { Message = RefundHistoriesListError });
         }
     }
 
@@ -214,7 +216,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund histories by status: {Status}", status);
-            return StatusCode(500, new { Message = "An error occurred while retrieving refund histories list" });
+            return StatusCode(500, new { Message = RefundHistoriesListError });
         }
     }
 
@@ -243,7 +245,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting paged refund histories");
-            return StatusCode(500, new { Message = "An error occurred while retrieving refund histories list" });
+            return StatusCode(500, new { Message = RefundHistoriesListError });
         }
     }
 

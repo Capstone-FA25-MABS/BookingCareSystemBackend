@@ -301,7 +301,7 @@ public class PayOSService : BaseService, IPayOSService
     /// <summary>
     /// Determine payment outcome based on code and cancel flag
     /// </summary>
-    private (PaymentStatus Status, bool IsSuccess, string Message) DeterminePaymentOutcome(string code, bool cancel)
+    private static (PaymentStatus Status, bool IsSuccess, string Message) DeterminePaymentOutcome(string code, bool cancel)
     {
         if (cancel)
         {
@@ -383,7 +383,7 @@ public class PayOSService : BaseService, IPayOSService
     /// <summary>
     /// Generate unique order code for PayOS
     /// </summary>
-    private long GenerateOrderCode()
+    private static long GenerateOrderCode()
     {
         var timestamp = DateTimeOffset.Now.ToUnixTimeSeconds();
         // Generate a cryptographically secure random number

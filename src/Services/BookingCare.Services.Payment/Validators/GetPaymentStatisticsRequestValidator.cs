@@ -76,21 +76,22 @@ public class GetPaymentStatisticsRequestValidator : AbstractValidator<GetPayment
             .WithMessage("Statistics date range must not exceed 5 years");
     }
 
-    private bool BeValidTransactionType(string? transactionType)
+    private static bool BeValidTransactionType(string? transactionType)
     {
         if (string.IsNullOrEmpty(transactionType)) return true;
         var validTypes = new[] { "APPOINTMENT", "SUBSCRIPTION" };
         return validTypes.Contains(transactionType, StringComparer.OrdinalIgnoreCase);
     }
 
-    private bool BeValidStatus(string? status)
+    private static bool BeValidStatus(string? status)
     {
         if (string.IsNullOrEmpty(status)) return true;
         var validStatuses = new[] { "PENDING", "COMPLETED", "FAILED", "REFUNDED" };
         return validStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
     }
 
-    private bool HaveReasonableDateRange(GetPaymentStatisticsRequest request)
+
+    private static bool HaveReasonableDateRange(GetPaymentStatisticsRequest request)
     {
         var fromDate = request.GetFromDate();
         var toDate = request.GetToDate();

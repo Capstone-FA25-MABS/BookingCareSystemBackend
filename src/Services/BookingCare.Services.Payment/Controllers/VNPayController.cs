@@ -226,7 +226,7 @@ public class VNPayController : BaseApiController
     /// </summary>
     /// <param name="responseCode">VNPay response code</param>
     /// <returns>Human readable message</returns>
-    private string GetVNPayResponseMessage(string responseCode) => responseCode switch
+    private static string GetVNPayResponseMessage(string responseCode) => responseCode switch
     {
         "00" => "Transaction successful",
         "07" => "Debit successful. Transaction is suspicious (possible fraud or unusual activity).",

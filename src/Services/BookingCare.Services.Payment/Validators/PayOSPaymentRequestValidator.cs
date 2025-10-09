@@ -65,7 +65,7 @@ public class PayOSPaymentRequestValidator : AbstractValidator<PayOSPaymentReques
     /// <summary>
     /// Check if description contains valid characters
     /// </summary>
-    private bool BeValidDescription(string description)
+    private static bool BeValidDescription(string description)
     {
         if (string.IsNullOrEmpty(description))
             return false;

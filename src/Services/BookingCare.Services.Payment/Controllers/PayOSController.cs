@@ -89,7 +89,7 @@ public class PayOSController : BaseApiController
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning("PayOS payment creation failed - Invalid argument: {Error}", ex.Message);
+            _logger.LogWarning(ex, "PayOS payment creation failed - Invalid argument");
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
@@ -129,8 +129,6 @@ public class PayOSController : BaseApiController
             }
 
             // Process callback via PayOSService with tracking
-            _logger.LogInformation("PayOS Callback #{RequestId} - Processing callback for OrderCode: {OrderCode}", requestId, orderCodeLong);
-
             var result = await _payOSService.ProcessCallbackAsync(orderCodeLong, code ?? string.Empty, cancel);
 
             // Enhanced logging with request tracking
@@ -156,7 +154,7 @@ public class PayOSController : BaseApiController
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning("PayOS Callback #{RequestId} - Processing failed - Invalid argument: {Error}", requestId, ex.Message);
+            _logger.LogWarning(ex, "PayOS Callback #{RequestId} - Processing failed - Invalid argument", requestId);
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
@@ -256,7 +254,7 @@ public class PayOSController : BaseApiController
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning("PayOS cancel callback processing failed - Invalid argument: {Error}", ex.Message);
+            _logger.LogWarning(ex, "PayOS cancel callback processing failed - Invalid argument: {Error}", ex.Message);
             return BadRequest(ex.Message);
         }
         catch (Exception ex)

@@ -46,7 +46,7 @@ public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentReques
     /// <summary>
     /// Validate IP address format (supports IPv4 and development IPs)
     /// </summary>
-    private bool BeValidIP(string? ip)
+    private static bool BeValidIP(string? ip)
     {
         if (string.IsNullOrEmpty(ip)) return false;
 

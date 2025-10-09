@@ -29,13 +29,13 @@ public class GetPaymentsPagedRequestValidator : AbstractValidator<GetPaymentsPag
             .WithMessage("SortOrder must be 'asc' or 'desc'");
     }
 
-    private bool BeValidSortField(string sortBy)
+    private static bool BeValidSortField(string sortBy)
     {
         var validSortFields = new[] { "CreatedAt", "Amount", "Status" };
         return validSortFields.Contains(sortBy, StringComparer.OrdinalIgnoreCase);
     }
 
-    private bool BeValidSortOrder(string sortOrder)
+    private static bool BeValidSortOrder(string sortOrder)
     {
         var validSortOrders = new[] { "asc", "desc" };
         return validSortOrders.Contains(sortOrder, StringComparer.OrdinalIgnoreCase);

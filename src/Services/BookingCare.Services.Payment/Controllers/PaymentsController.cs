@@ -13,6 +13,8 @@ namespace BookingCare.Services.Payment.Controllers;
 [ApiVersion(ApiVersions.V1_0)]
 public class PaymentsController : BaseApiController
 {
+    private const string InvalidRequestDataMessage = "Invalid request data";
+
     private readonly IPaymentService _paymentService;
     private readonly IValidator<CreateAppointmentPaymentRequest> _createAppointmentValidator;
     private readonly IValidator<CreateSubscriptionPaymentRequest> _createSubscriptionValidator;
@@ -137,7 +139,7 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(InvalidRequestDataMessage, errors);
             }
 
             var pagedResult = await _paymentService.GetPagedByHospitalIdAsync(hospitalId, request);
@@ -174,7 +176,7 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(InvalidRequestDataMessage, errors);
             }
 
             var pagedResult = await _paymentService.GetPagedByPatientIdAsync(patientId, request);
@@ -210,7 +212,7 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(InvalidRequestDataMessage, errors);
             }
 
             var payment = await _paymentService.CreateAppointmentPaymentAsync(request);
@@ -252,7 +254,7 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(InvalidRequestDataMessage, errors);
             }
 
             var payment = await _paymentService.CreateSubscriptionPaymentAsync(request);
@@ -297,7 +299,7 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(InvalidRequestDataMessage, errors);
             }
 
             var payment = await _paymentService.UpdateStatusAsync(request);
@@ -368,7 +370,7 @@ public class PaymentsController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(InvalidRequestDataMessage, errors);
             }
 
             var statistics = await _paymentService.GetPaymentStatisticsAsync(request);
