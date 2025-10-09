@@ -435,7 +435,7 @@ public class PaymentService : BaseService, IPaymentService
         };
     }
 
-    private (DateTime start, DateTime end, string label) GetPeriodBounds(DateTime date, StatisticsPeriod period)
+    private static (DateTime start, DateTime end, string label) GetPeriodBounds(DateTime date, StatisticsPeriod period)
     {
         return period switch
         {
@@ -448,21 +448,21 @@ public class PaymentService : BaseService, IPaymentService
         };
     }
 
-    private (DateTime start, DateTime end, string label) GetWeeklyPeriod(DateTime date)
+    private static (DateTime start, DateTime end, string label) GetWeeklyPeriod(DateTime date)
     {
         var startOfWeek = date.AddDays(-(int)date.DayOfWeek);
         var endOfWeek = startOfWeek.AddDays(6);
         return (startOfWeek, endOfWeek, $"W{GetWeekOfYear(startOfWeek)}-{startOfWeek.Year}");
     }
 
-    private (DateTime start, DateTime end, string label) GetMonthlyPeriod(DateTime date)
+    private static (DateTime start, DateTime end, string label) GetMonthlyPeriod(DateTime date)
     {
         var startOfMonth = new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
         return (startOfMonth, endOfMonth, date.ToString("yyyy-MM"));
     }
 
-    private (DateTime start, DateTime end, string label) GetQuarterlyPeriod(DateTime date)
+    private static (DateTime start, DateTime end, string label) GetQuarterlyPeriod(DateTime date)
     {
         var quarter = (date.Month - 1) / 3 + 1;
         var startOfQuarter = new DateTime(date.Year, (quarter - 1) * 3 + 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -470,7 +470,7 @@ public class PaymentService : BaseService, IPaymentService
         return (startOfQuarter, endOfQuarter, $"{date.Year}-Q{quarter}");
     }
 
-    private (DateTime start, DateTime end, string label) GetYearlyPeriod(DateTime date)
+    private static (DateTime start, DateTime end, string label) GetYearlyPeriod(DateTime date)
     {
         var startOfYear = new DateTime(date.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var endOfYear = new DateTime(date.Year, 12, 31, 0, 0, 0, DateTimeKind.Utc);
