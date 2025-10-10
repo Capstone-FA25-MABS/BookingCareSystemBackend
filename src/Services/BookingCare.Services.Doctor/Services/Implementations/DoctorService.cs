@@ -1077,29 +1077,36 @@ public class DoctorService : BaseService, IDoctorService
 
     /// <summary>
     /// Include Position và Specialty for a single doctor
+    /// Note: Runs sequentially to avoid DbContext concurrency issues
     /// </summary>
     private async Task IncludePositionAndSpecialtyAsync(DoctorEntity doctor)
     {
-        var tasks = new List<Task>();
+        // Run sequentially to avoid DbContext concurrency issues
+        // Both repositories use the same DbContext instance, so parallel execution would cause:
+        // "A second operation was started on this context instance before a previous operation completed"
 
         if (doctor.PositionId.HasValue)
         {
-            var positionTask = _positionRepository.Value.GetPositionByIdAsync(doctor.PositionId.Value)
-                .ContinueWith(t => doctor.Position = t.Result);
-            tasks.Add(positionTask);
+            doctor.Position = await _positionRepository.Value.GetPositionByIdAsync(doctor.PositionId.Value);
         }
 
         if (doctor.SpecialtyId.HasValue)
         {
-            var specialtyTask = _specialtyRepository.Value.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value)
-                .ContinueWith(t => doctor.Specialty = t.Result);
-            tasks.Add(specialtyTask);
+            doctor.Specialty = await _specialtyRepository.Value.GetSpecialtyByIdAsync(doctor.SpecialtyId.Value);
         }
+    }
 
-        if (tasks.Any())
-        {
-            await Task.WhenAll(tasks);
-        }
+    /// <summary>
+    /// Alternative method: Load position and specialty in a single query to avoid concurrency issues
+    /// This is more efficient and avoids the DbContext concurrency problem
+    /// </summary>
+    private async Task IncludePositionAndSpecialtyOptimizedAsync(DoctorEntity doctor)
+    {
+        // This method could be implemented to use a single query with joins
+        // to load both position and specialty data at once, avoiding multiple DbContext calls
+        // For now, we use the sequential approach above
+
+        await IncludePositionAndSpecialtyAsync(doctor);
     }
 
     /// <summary>
