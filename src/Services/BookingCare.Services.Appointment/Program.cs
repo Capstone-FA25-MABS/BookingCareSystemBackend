@@ -5,6 +5,7 @@ using BookingCare.Services.Appointment.Mappings;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.EventBus.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -53,6 +54,9 @@ builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.User
     var endpoint = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
     o.Address = new Uri(endpoint);
 });
+
+// Add EventBus for publishing appointment events
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "appointment-service-queue");
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
