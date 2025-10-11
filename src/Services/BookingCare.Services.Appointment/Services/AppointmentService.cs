@@ -6,6 +6,8 @@ using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital;
 using BookingCare.Services.User.Protos;
@@ -20,6 +22,7 @@ public class AppointmentService : BaseService, IAppointmentService
 {
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
+    private readonly IEventBus _eventBus;
     private readonly DoctorService.DoctorServiceClient _doctorGrpcClient;
     private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
     private readonly UserService.UserServiceClient _userGrpcClient;
@@ -28,6 +31,7 @@ public class AppointmentService : BaseService, IAppointmentService
     public AppointmentService(
         IAppointmentRepository appointmentRepository,
         IMapper mapper,
+        IEventBus eventBus,
         DoctorService.DoctorServiceClient doctorGrpcClient,
         HospitalService.HospitalServiceClient hospitalGrpcClient,
         UserService.UserServiceClient userGrpcClient,
@@ -36,6 +40,7 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         _appointmentRepository = appointmentRepository;
         _mapper = mapper;
+        _eventBus = eventBus;
         _doctorGrpcClient = doctorGrpcClient;
         _hospitalGrpcClient = hospitalGrpcClient;
         _userGrpcClient = userGrpcClient;
@@ -302,6 +307,78 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         await FetchAndMapPatientInfoAsync(responses, entities, "staff view");
         await FetchAndMapDoctorInfoAsync(responses, entities, "staff view");
+    }
+
+    #endregion
+
+    #region Cancel Operations
+
+    public async Task<bool> CancelAppointmentAsync(CancelAppointmentRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Cancelling appointment {AppointmentId}", null, request.AppointmentId);
+
+            // Get existing appointment - Single DB query
+            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
+            if (appointment == null)
+            {
+                throw new AppointmentNotFoundException(request.AppointmentId);
+            }
+
+            // Validate current status - can only cancel PENDING or CONFIRMED appointments
+            if (appointment.Status != AppointmentStatus.PENDING &&
+                appointment.Status != AppointmentStatus.CONFIRMED)
+            {
+                throw new AppointmentException(
+                    $"Cannot cancel appointment with status {appointment.Status}. Only PENDING or CONFIRMED appointments can be cancelled.");
+            }
+
+            // Validate 24-hour rule - appointment must be at least 24 hours away
+            var appointmentDateTime = appointment.AppointmentDate;
+            var now = DateTime.UtcNow;
+            var hoursUntilAppointment = (appointmentDateTime - now).TotalHours;
+
+            if (hoursUntilAppointment < 24)
+            {
+                throw new AppointmentException(
+                    $"Cannot cancel appointment less than 24 hours before the appointment time. " +
+                    $"Appointment is scheduled for {appointmentDateTime:yyyy-MM-dd HH:mm} UTC " +
+                    $"({hoursUntilAppointment:F1} hours from now).");
+            }
+
+            // Cancel appointment - Pass entity directly to avoid second DB query
+            // Repository will handle status update, reason storage, and UpdatedAt timestamp
+            var cancelled = await _appointmentRepository.CancelAppointmentAsync(
+                appointment,
+                request.CancellationReason);
+
+            if (!cancelled)
+            {
+                throw new AppointmentException("Failed to cancel appointment");
+            }
+
+            // Publish integration event for downstream services (Payment & Notification)
+            var cancelledEvent = new AppointmentCancelledIntegrationEvent
+            {
+                AppointmentId = appointment.Id,
+                PatientId = appointment.PatientId,
+                DoctorId = appointment.DoctorId,
+                HospitalId = appointment.HospitalId,
+                AppointmentDate = appointment.AppointmentDate,
+                AppointmentType = (int)appointment.AppointmentType, // Convert enum to int to avoid coupling
+                CancellationReason = request.CancellationReason,
+                CancelledByStaffId = request.CancelledByStaffId,
+                CancelledAt = DateTime.UtcNow
+            };
+
+            await _eventBus.PublishAsync(cancelledEvent);
+
+            LogInfo("Successfully cancelled appointment {AppointmentId} and published event",
+                null, request.AppointmentId);
+
+            return true;
+        }, "CancelAppointment");
     }
 
     #endregion
@@ -577,17 +654,17 @@ public class AppointmentService : BaseService, IAppointmentService
             {
                 case Role.PATIENT:
                     patientId = userId;
-                    LogInfo("Getting status counts for Patient {PatientId}", null, patientId);
+                    LogInfo("Getting status counts for Patient {PatientId}", null, patientId!);
                     break;
 
                 case Role.DOCTOR:
                     doctorId = userId;
-                    LogInfo("Getting status counts for Doctor {DoctorId}", null, doctorId);
+                    LogInfo("Getting status counts for Doctor {DoctorId}", null, doctorId!);
                     break;
 
                 case Role.STAFF:
                     staffHospitalId = hospitalId;
-                    LogInfo("Getting status counts for Staff in Hospital {HospitalId}", null, staffHospitalId);
+                    LogInfo("Getting status counts for Staff in Hospital {HospitalId}", null, staffHospitalId!);
                     break;
 
                 case Role.ADMIN:
