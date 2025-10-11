@@ -18,5 +18,10 @@ public enum RefundStatus
     /// <summary>
     /// Completed - refund succeeded
     /// </summary>
-    COMPLETED
+    COMPLETED,
+
+    /// <summary>
+    /// Rejected - refund request was rejected by staff
+    /// </summary>
+    REJECTED
 }

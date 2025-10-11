@@ -143,7 +143,7 @@ public class VNPayController : BaseApiController
             await _paymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
             {
                 Id = paymentId,
-                Status = Enum.Parse<Shared.Common.Enums.PaymentStatus>(newStatus)
+                Status = Enum.Parse<BookingCare.Services.Payment.Enums.PaymentStatus>(newStatus)
             });
 
             var message = GetVNPayResponseMessage(callbackResult.vnp_ResponseCode);
