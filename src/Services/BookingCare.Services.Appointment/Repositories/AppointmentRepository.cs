@@ -259,6 +259,32 @@ public class AppointmentRepository : IAppointmentRepository
         }
     }
 
+    /// <summary>
+    /// Cancel an appointment with cancellation reason
+    /// Optimized method that takes the full entity to avoid additional DB query
+    /// </summary>
+    public async Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason)
+    {
+        try
+        {
+            appointment.Status = AppointmentStatus.CANCELLED;
+            appointment.Reason = cancellationReason;
+
+            _context.Appointments.Update(appointment);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Successfully cancelled appointment {AppointmentId} with reason: {Reason}",
+                appointment.Id, cancellationReason);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling appointment: {AppointmentId}", appointment.Id);
+            throw new AppointmentException("Failed to cancel appointment", innerException: ex);
+        }
+    }
+
     #endregion
 
     #region Statistics Operations

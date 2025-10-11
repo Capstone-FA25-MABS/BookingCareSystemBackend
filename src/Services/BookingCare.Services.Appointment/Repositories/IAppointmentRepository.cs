@@ -20,6 +20,12 @@ public interface IAppointmentRepository
     // Status operations
     Task<bool> UpdateAppointmentStatusAsync(Guid appointmentId, AppointmentStatus status, string? result = null);
 
+    /// <summary>
+    /// Cancel an appointment with cancellation reason
+    /// Optimized method specifically for cancellation that takes the full entity
+    /// </summary>
+    Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason);
+
     // Statistics operations
     /// <summary>
     /// Get counts for all appointment statuses for a specific user or organization
