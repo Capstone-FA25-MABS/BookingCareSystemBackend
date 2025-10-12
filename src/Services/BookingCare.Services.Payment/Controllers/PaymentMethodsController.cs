@@ -10,6 +10,9 @@ namespace BookingCare.Services.Payment.Controllers;
 /// <summary>
 /// Controller for managing payment methods
 /// </summary>
+
+[ApiController]
+[Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
 public class PaymentMethodsController : BaseApiController
 {
