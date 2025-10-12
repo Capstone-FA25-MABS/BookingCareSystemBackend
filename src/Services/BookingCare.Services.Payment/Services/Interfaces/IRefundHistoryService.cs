@@ -41,9 +41,9 @@ public interface IRefundHistoryService
     Task<IEnumerable<RefundHistoryResponse>> GetByStatusAsync(RefundStatus status);
 
     /// <summary>
-    /// Get list of refund histories with pagination
+    /// Get list of refund histories with pagination and optional status counts
     /// </summary>
-    Task<PagedResult<RefundHistoryResponse>> GetPagedAsync(GetRefundHistoriesRequest request);
+    Task<RefundHistoryListResponse> GetPagedAsync(GetRefundHistoriesRequest request);
 
     /// <summary>
     /// Create new refund history
@@ -74,4 +74,17 @@ public interface IRefundHistoryService
     /// Check if payment can be refunded
     /// </summary>
     Task<bool> CanRefundPaymentAsync(Guid paymentId);
+
+    /// <summary>
+    /// Mark refund as transferred (completed)
+    /// Updates refund status to COMPLETED, updates payment status to REFUNDED,
+    /// and sends notification to patient
+    /// </summary>
+    Task<RefundHistoryResponse> MarkAsTransferredAsync(Guid refundHistoryId, string? staffNotes = null);
+
+    /// <summary>
+    /// Report bank account issue
+    /// Sends notification to patient about incorrect bank account information
+    /// </summary>
+    Task ReportBankIssueAsync(Guid refundHistoryId, string issueDescription);
 }
