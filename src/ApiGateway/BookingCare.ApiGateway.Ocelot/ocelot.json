@@ -67,6 +67,22 @@
       "FileCacheOptions": { "TtlSeconds": 0 }
     },
     {
+      "DownstreamPathTemplate": "/api/v1/hospitals/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6004
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v1/hospitals/{everything}",
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/hospitals/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
