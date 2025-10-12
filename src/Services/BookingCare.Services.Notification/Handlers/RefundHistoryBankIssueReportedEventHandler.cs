@@ -10,7 +10,7 @@ namespace BookingCare.Services.Notification.Handlers;
 /// Sends email and SMS notifications to patient about bank account issues preventing refund
 /// </summary>
 public class RefundHistoryBankIssueReportedEventHandler
-    : BaseRefundNotificationHandler<RefundHistoryBankIssueReportedIntegrationEvent>,
+    : BaseRefundNotificationHandler,
       IIntegrationEventHandler<RefundHistoryBankIssueReportedIntegrationEvent>
 {
     public RefundHistoryBankIssueReportedEventHandler(

@@ -43,7 +43,7 @@ public class BankAccountCreatedEventHandler : IIntegrationEventHandler<BankAccou
                 return;
             }
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Found {Count} WAITING refund histories for UserId: {UserId}. Updating to PENDING status...",
                 waitingRefunds.Count(), @event.UserId);
 
@@ -56,7 +56,7 @@ public class BankAccountCreatedEventHandler : IIntegrationEventHandler<BankAccou
 
                 await _refundHistoryRepository.UpdateAsync(refund);
 
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Updated RefundHistory {RefundId} status from WAITING to PENDING and linked to BankAccount {BankAccountId}",
                     refund.Id, @event.BankAccountId);
             }

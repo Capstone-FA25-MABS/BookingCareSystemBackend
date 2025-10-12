@@ -10,7 +10,7 @@ namespace BookingCare.Services.Notification.Handlers;
 /// Sends email and SMS notifications to patient about successful refund transfer
 /// </summary>
 public class RefundHistoryCompletedEventHandler
-    : BaseRefundNotificationHandler<RefundHistoryCompletedIntegrationEvent>,
+    : BaseRefundNotificationHandler,
       IIntegrationEventHandler<RefundHistoryCompletedIntegrationEvent>
 {
     public RefundHistoryCompletedEventHandler(

@@ -100,7 +100,7 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
 
             var refundHistory = await _refundHistoryService.CreateAsync(createRefundRequest);
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Created refund history {RefundHistoryId} with status {Status} for payment {PaymentId}",
                 refundHistory.Id, initialStatus, payment.Id);
 
@@ -118,15 +118,15 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                 patientPhone = userResponse.Phone;
                 patientFullName = $"{userResponse.FirstName} {userResponse.LastName}".Trim();
 
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Fetched patient info for {PatientId}: Email={Email}, Phone={Phone}",
                     @event.PatientId, patientEmail, patientPhone);
             }
             catch (Grpc.Core.RpcException ex)
             {
-                _logger.LogWarning(
-                    "Failed to fetch patient info via gRPC: {Error}. Proceeding without patient details.",
-                    ex.Status.Detail);
+                _logger.LogWarning(ex,
+                    "Failed to fetch patient info via gRPC for patient {PatientId}. Proceeding without patient details.",
+                    @event.PatientId);
             }
 
             // Step 5: Publish event to Notification Service
@@ -145,7 +145,7 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                 PatientEmail = patientEmail,
                 PatientPhone = patientPhone,
                 PatientFullName = patientFullName,
-                HospitalName = null, // TODO: Fetch from Hospital service if needed
+                HospitalName = null, // Hospital name not required for notification
                 AppointmentDate = @event.AppointmentDate
             };
 
@@ -158,9 +158,11 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Error processing appointment cancellation for AppointmentId {AppointmentId}: {Error}",
-                @event.AppointmentId, ex.Message);
-            throw; // Re-throw to allow message queue retry mechanism
+                "Error processing appointment cancellation for AppointmentId {AppointmentId}",
+                @event.AppointmentId);
+            throw new InvalidOperationException(
+                $"Failed to process appointment cancellation for AppointmentId {@event.AppointmentId}. See inner exception for details.",
+                ex);
         }
     }
 }

@@ -431,7 +431,7 @@ public class PaymentService : BaseService, IPaymentService
             MaxPaymentAmount = payments.Any() ? payments.Max(p => p.Amount) : 0,
             MinPaymentAmount = payments.Any() ? payments.Min(p => p.Amount) : 0,
             AveragePaymentsPerDay = totalDays > 0 ? payments.Count / (decimal)totalDays : 0,
-            GrowthRate = 0 // TODO: Calculate growth rate compared to previous period
+            GrowthRate = 0 // Growth rate calculation not implemented - future enhancement
         };
     }
 

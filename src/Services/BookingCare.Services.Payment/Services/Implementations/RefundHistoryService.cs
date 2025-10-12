@@ -461,7 +461,6 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             }
 
             // Update refund history status
-            var oldStatus = refundHistory.Status;
             refundHistory.Status = RefundStatus.COMPLETED;
             refundHistory.TransferDate = DateTime.UtcNow;
             refundHistory.StaffNotes = staffNotes;

@@ -10,7 +10,7 @@ namespace BookingCare.Services.Notification.Handlers;
 /// Sends email and SMS notifications to patient about refund
 /// </summary>
 public class AppointmentRefundRequestedEventHandler
-    : BaseRefundNotificationHandler<AppointmentRefundRequestedIntegrationEvent>,
+    : BaseRefundNotificationHandler,
       IIntegrationEventHandler<AppointmentRefundRequestedIntegrationEvent>
 {
     public AppointmentRefundRequestedEventHandler(

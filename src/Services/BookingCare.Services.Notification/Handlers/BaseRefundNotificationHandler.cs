@@ -7,8 +7,7 @@ namespace BookingCare.Services.Notification.Handlers;
 /// Base class for refund notification handlers
 /// Contains shared logic for sending email and SMS notifications
 /// </summary>
-/// <typeparam name="TEvent">The integration event type</typeparam>
-public abstract class BaseRefundNotificationHandler<TEvent> where TEvent : class
+public abstract class BaseRefundNotificationHandler
 {
     protected readonly EmailService EmailService;
     protected readonly FcmV1Service FcmService;
