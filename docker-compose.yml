@@ -186,6 +186,20 @@ services:
     networks:
       - bookingcare-network
 
+  sqlserver-hospital-service:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_hospital_service
+    ports:
+      - "1448:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Hospital@1234!
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_hospital_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+
   sqlserver-schedule-service:
     image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: bookingcare_sqlserver_schedule_service
@@ -436,6 +450,7 @@ volumes:
   sqlserver_saga_data:
   sqlserver_user_data:
   sqlserver_doctor_data:
+  sqlserver_hospital_data:
   sqlserver_user_data_v2:
   sqlserver_schedule_data:
   mongodb_data:
