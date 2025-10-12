@@ -99,3 +99,34 @@ public class RefundHistoryResponse
     /// </summary>
     public bool CanUpdateBankAccount => Status == RefundStatus.WAITING;
 }
+
+/// <summary>
+/// Refund status counts for all statuses
+/// </summary>
+public class RefundStatusCounts
+{
+    public int Waiting { get; set; }
+    public int Pending { get; set; }
+    public int Completed { get; set; }
+    public int Rejected { get; set; }
+    public int Total { get; set; }
+}
+
+/// <summary>
+/// Response for refund history list with pagination
+/// </summary>
+public class RefundHistoryListResponse
+{
+    public List<RefundHistoryResponse> RefundHistories { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    public bool HasPreviousPage => PageNumber > 1;
+    public bool HasNextPage => PageNumber < TotalPages;
+
+    /// <summary>
+    /// Counts for each status - only populated when IncludeStatusCounts = true
+    /// </summary>
+    public RefundStatusCounts? StatusCounts { get; set; }
+}
