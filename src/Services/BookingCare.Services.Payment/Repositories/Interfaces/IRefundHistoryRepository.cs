@@ -41,6 +41,11 @@ public interface IRefundHistoryRepository
     Task<IEnumerable<RefundHistoryEntity>> GetByStatusAsync(RefundStatus status);
 
     /// <summary>
+    /// Get list of refund histories by user ID and specific status (optimized for update - no includes)
+    /// </summary>
+    Task<IEnumerable<RefundHistoryEntity>> GetByUserIdAndStatusForUpdateAsync(Guid userId, RefundStatus status);
+
+    /// <summary>
     /// Get list of refund histories with pagination and filters
     /// </summary>
     Task<PagedResult<RefundHistoryEntity>> GetPagedAsync(GetRefundHistoriesRequest request);
@@ -79,4 +84,9 @@ public interface IRefundHistoryRepository
     /// Get list of refund histories that need processing (WAITING -> PENDING when user has a bank account)
     /// </summary>
     Task<IEnumerable<RefundHistoryEntity>> GetPendingProcessAsync();
+
+    /// <summary>
+    /// Get status counts for a hospital (GROUP BY status)
+    /// </summary>
+    Task<Dictionary<RefundStatus, int>> GetStatusCountsByHospitalAsync(Guid? hospitalId);
 }
