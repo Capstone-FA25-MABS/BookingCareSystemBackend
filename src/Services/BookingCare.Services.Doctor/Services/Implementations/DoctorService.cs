@@ -1280,25 +1280,52 @@ public class DoctorService : BaseService, IDoctorService
             return false;
         }
 
-        var hospitalAddress = doctor.Hospital.Address.ToLower();
-        var provinceName = locationInfo.ProvinceName.ToLower();
-        var districtName = locationInfo.DistrictName?.ToLower() ?? "";
+        // Use UTF8-safe string operations
+        var hospitalAddress = doctor.Hospital.Address;
+        var provinceName = locationInfo.ProvinceName;
+        var districtName = locationInfo.DistrictName ?? "";
 
-        // Clean up province name - remove "thành phố" prefix
-        var cleanProvinceName = provinceName.Replace("thành phố", "").Replace("tỉnh", "").Trim();
+        // Clean up province name - remove "thành phố" prefix (UTF8-safe)
+        var cleanProvinceName = provinceName
+            .Replace("thành phố", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("tỉnh", "", StringComparison.OrdinalIgnoreCase)
+            .Trim();
 
-        Console.WriteLine($"Checking doctor {doctor.Id} with hospital address: '{hospitalAddress}' against location: Province='{locationInfo.ProvinceName}', District='{locationInfo.DistrictName}'");
+        // Clean up district name - remove "quận", "huyện", "thị xã" prefix (UTF8-safe)
+        var cleanDistrictName = districtName
+            .Replace("quận", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("huyện", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("thị xã", "", StringComparison.OrdinalIgnoreCase)
+            .Trim();
+
+        Console.WriteLine($"Checking doctor {doctor.Id} with hospital: '{doctor.Hospital?.Name}' address: '{hospitalAddress}' against location: Province='{locationInfo.ProvinceName}', District='{locationInfo.DistrictName}'");
 
         bool result;
+
+        // Always prioritize province/city matching first (UTF8-safe)
+        var hasProvince = hospitalAddress.Contains(cleanProvinceName, StringComparison.OrdinalIgnoreCase) ||
+                         hospitalAddress.Contains(provinceName, StringComparison.OrdinalIgnoreCase);
+
         if (locationInfo.HasDistrict && !string.IsNullOrEmpty(districtName))
         {
-            // Filter by both province and district
-            result = hospitalAddress.Contains(cleanProvinceName) && hospitalAddress.Contains(districtName);
+            // If district is specified, check district matching with clean district name (UTF8-safe)
+            var hasDistrict = hospitalAddress.Contains(cleanDistrictName, StringComparison.OrdinalIgnoreCase) ||
+                             hospitalAddress.Contains(districtName, StringComparison.OrdinalIgnoreCase);
+
+            // If district is specified, BOTH province AND district must match
+            result = hasProvince && hasDistrict;
+
+            Console.WriteLine($"Doctor {doctor.Id} - Province match: {hasProvince}, District match: {hasDistrict}, Final result: {result}");
+            Console.WriteLine($"Doctor {doctor.Id} - Clean province: '{cleanProvinceName}', Clean district: '{cleanDistrictName}'");
+            Console.WriteLine($"Doctor {doctor.Id} - Hospital address: '{hospitalAddress}'");
         }
         else
         {
-            // Filter by province only
-            result = hospitalAddress.Contains(cleanProvinceName);
+            // Filter by province only - show all doctors in this province
+            result = hasProvince;
+            Console.WriteLine($"Doctor {doctor.Id} - Province match: {result}");
+            Console.WriteLine($"Doctor {doctor.Id} - Clean province: '{cleanProvinceName}'");
+            Console.WriteLine($"Doctor {doctor.Id} - Hospital address: '{hospitalAddress}'");
         }
 
         Console.WriteLine($"Doctor {doctor.Id} location match result: {result}");
