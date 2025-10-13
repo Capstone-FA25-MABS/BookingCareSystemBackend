@@ -332,7 +332,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     ServiceCategoryId = request.ServiceCategoryId,
                     Status = request.IncludeInactive ? null : "ACTIVE"
                 };
-                
+
                 var (services, totalCount) = await _serviceRepository.GetPagedAsync(serviceQuery);
 
                 var response = new ServiceListResponse
