@@ -134,3 +134,32 @@ public class GetRefundHistoriesRequestValidator : AbstractValidator<GetRefundHis
             .When(x => x.FromDate.HasValue && x.ToDate.HasValue);
     }
 }
+
+/// <summary>
+/// Validator for MarkAsTransferredRequest
+/// </summary>
+public class MarkAsTransferredRequestValidator : AbstractValidator<MarkAsTransferredRequest>
+{
+    public MarkAsTransferredRequestValidator()
+    {
+        RuleFor(x => x.StaffNotes)
+            .MaximumLength(500)
+            .WithMessage("Staff notes must not exceed 500 characters")
+            .When(x => !string.IsNullOrEmpty(x.StaffNotes));
+    }
+}
+
+/// <summary>
+/// Validator for ReportBankIssueRequest
+/// </summary>
+public class ReportBankIssueRequestValidator : AbstractValidator<ReportBankIssueRequest>
+{
+    public ReportBankIssueRequestValidator()
+    {
+        RuleFor(x => x.IssueDescription)
+            .NotEmpty()
+            .WithMessage("Issue description is required")
+            .MaximumLength(1000)
+            .WithMessage("Issue description must not exceed 1000 characters");
+    }
+}

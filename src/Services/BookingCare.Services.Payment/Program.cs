@@ -8,10 +8,12 @@ using BookingCare.Services.Payment.Repositories.Implementations;
 using BookingCare.Services.Payment.Mappings;
 using BookingCare.Services.Payment.Validators;
 using BookingCare.Services.Payment.Models.Configurations;
+using BookingCare.Services.Payment.Handlers;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.EventBus.Extensions;
+using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using FluentValidation;
 
@@ -53,6 +55,19 @@ builder.Services.AddAutoMapper(typeof(PaymentMappingProfile));
 
 // Add validators
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePaymentRequestValidator>();
+
+// Add EventBus for message queue integration
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "payment-service-queue");
+builder.Services.AddIntegrationEventHandler<AppointmentCancelledEventHandler>();
+builder.Services.AddIntegrationEventHandler<BankAccountCreatedEventHandler>();
+
+// Add gRPC client for User Service (to fetch patient info)
+// Using UserService from Appointment Service project reference
+builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.UserServiceClient>(o =>
+{
+    var userServiceUrl = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
+    o.Address = new Uri(userServiceUrl);
+});
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
@@ -97,6 +112,13 @@ app.MapGrpcService<GreeterService>();
 
 // Map common health check
 app.MapCommonHealthCheck("Payment Service");
+
+// Subscribe to appointment cancellation events
+app.UseEventBus(eventBus =>
+{
+    eventBus.Subscribe<AppointmentCancelledIntegrationEvent, AppointmentCancelledEventHandler>();
+    eventBus.Subscribe<BankAccountCreatedIntegrationEvent, BankAccountCreatedEventHandler>();
+});
 
 app.Run();
 

@@ -20,9 +20,20 @@ public interface IAppointmentRepository
     // Status operations
     Task<bool> UpdateAppointmentStatusAsync(Guid appointmentId, AppointmentStatus status, string? result = null);
 
+    /// <summary>
+    /// Cancel an appointment with cancellation reason
+    /// Optimized method specifically for cancellation that takes the full entity
+    /// </summary>
+    Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason);
+
     // Statistics operations
     /// <summary>
-    /// Get counts for all appointment statuses for a specific user
+    /// Get counts for all appointment statuses for a specific user or organization
+    /// Supports filtering by PatientId, DoctorId, HospitalId, or all (for ADMIN)
     /// </summary>
-    Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(Guid? patientId, Guid? doctorId);
+    Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
+        Guid? patientId = null,
+        Guid? doctorId = null,
+        Guid? hospitalId = null,
+        bool countAll = false);
 }

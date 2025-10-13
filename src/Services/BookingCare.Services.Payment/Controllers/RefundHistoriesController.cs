@@ -1,6 +1,7 @@
 using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Enums;
+using BookingCare.Services.Payment.Constants;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.Common.Exceptions;
@@ -15,14 +16,15 @@ namespace BookingCare.Services.Payment.Controllers;
 [ApiController]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
+[Produces("application/json")]
 public class RefundHistoriesController : BaseApiController
 {
-    private const string RefundHistoriesListError = "An error occurred while retrieving refund histories list";
-
     private readonly IRefundHistoryService _refundHistoryService;
     private readonly IValidator<CreateRefundHistoryRequest> _createValidator;
     private readonly IValidator<UpdateRefundHistoryStatusRequest> _updateValidator;
     private readonly IValidator<GetRefundHistoriesRequest> _getValidator;
+    private readonly IValidator<MarkAsTransferredRequest> _markTransferredValidator;
+    private readonly IValidator<ReportBankIssueRequest> _reportIssueValidator;
     private readonly ILogger<RefundHistoriesController> _logger;
 
     public RefundHistoriesController(
@@ -30,12 +32,16 @@ public class RefundHistoriesController : BaseApiController
         IValidator<CreateRefundHistoryRequest> createValidator,
         IValidator<UpdateRefundHistoryStatusRequest> updateValidator,
         IValidator<GetRefundHistoriesRequest> getValidator,
+        IValidator<MarkAsTransferredRequest> markTransferredValidator,
+        IValidator<ReportBankIssueRequest> reportIssueValidator,
         ILogger<RefundHistoriesController> logger)
     {
         _refundHistoryService = refundHistoryService;
         _createValidator = createValidator;
         _updateValidator = updateValidator;
         _getValidator = getValidator;
+        _markTransferredValidator = markTransferredValidator;
+        _reportIssueValidator = reportIssueValidator;
         _logger = logger;
     }
 
@@ -52,7 +58,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("Invalid refund history ID");
+                return BadRequest(ErrorMessages.InvalidRefundHistoryId);
             }
 
             var refundHistory = await _refundHistoryService.GetByIdAsync(id);
@@ -66,7 +72,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund history with ID: {RefundHistoryId}", id);
-            return StatusCode(500, new { Message = "An error occurred while retrieving refund history" });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoryRetrievalError });
         }
     }
 
@@ -83,7 +89,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (paymentId == Guid.Empty)
             {
-                return BadRequest("Invalid payment ID");
+                return BadRequest(ErrorMessages.InvalidPaymentId);
             }
 
             var refundHistory = await _refundHistoryService.GetByPaymentIdAsync(paymentId);
@@ -97,7 +103,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund history for payment: {PaymentId}", paymentId);
-            return StatusCode(500, new { Message = "An error occurred while retrieving refund history" });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoryRetrievalError });
         }
     }
 
@@ -114,7 +120,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (userId == Guid.Empty)
             {
-                return BadRequest("Invalid user ID");
+                return BadRequest(ErrorMessages.InvalidUserId);
             }
 
             var refundHistories = await _refundHistoryService.GetByUserIdAsync(userId);
@@ -139,7 +145,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund histories for user: {UserId}", userId);
-            return StatusCode(500, new { Message = RefundHistoriesListError });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoriesListError });
         }
     }
 
@@ -156,7 +162,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (hospitalId == Guid.Empty)
             {
-                return BadRequest("Invalid hospital ID");
+                return BadRequest(ErrorMessages.InvalidHospitalId);
             }
 
             var refundHistories = await _refundHistoryService.GetByHospitalIdAsync(hospitalId);
@@ -181,7 +187,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund histories for hospital: {HospitalId}", hospitalId);
-            return StatusCode(500, new { Message = RefundHistoriesListError });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoriesListError });
         }
     }
 
@@ -218,15 +224,15 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund histories by status: {Status}", status);
-            return StatusCode(500, new { Message = RefundHistoriesListError });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoriesListError });
         }
     }
 
     /// <summary>
-    /// Get paged refund histories with filters
+    /// Get paged refund histories with filters and optional status counts
     /// </summary>
     /// <param name="request">Paging and filter info</param>
-    /// <returns>Paged refund histories</returns>
+    /// <returns>Paged refund histories with optional status counts</returns>
     [HttpPost("search")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetPagedRefundHistories([FromBody] GetRefundHistoriesRequest request)
@@ -238,16 +244,16 @@ public class RefundHistoriesController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(ErrorMessages.InvalidRequestData, errors);
             }
 
-            var pagedResult = await _refundHistoryService.GetPagedAsync(request);
-            return Paginated(pagedResult, "Get paged refund histories successful");
+            var listResponse = await _refundHistoryService.GetPagedAsync(request);
+            return Success(listResponse, "Get paged refund histories successful");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting paged refund histories");
-            return StatusCode(500, new { Message = RefundHistoriesListError });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoriesListError });
         }
     }
 
@@ -267,7 +273,7 @@ public class RefundHistoriesController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(ErrorMessages.InvalidRequestData, errors);
             }
 
             var refundHistory = await _refundHistoryService.CreateAsync(request);
@@ -291,7 +297,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating refund history");
-            return StatusCode(500, new { Message = "An error occurred while creating refund history" });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoryCreationError });
         }
     }
 
@@ -314,7 +320,7 @@ public class RefundHistoriesController : BaseApiController
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest("Invalid request data", errors);
+                return BadRequest(ErrorMessages.InvalidRequestData, errors);
             }
 
             var refundHistory = await _refundHistoryService.UpdateStatusAsync(request);
@@ -333,7 +339,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating refund history status with ID: {RefundHistoryId}", id);
-            return StatusCode(500, new { Message = "An error occurred while updating refund history status" });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoryStatusUpdateError });
         }
     }
 
@@ -350,7 +356,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (id == Guid.Empty)
             {
-                return BadRequest("Invalid refund history ID");
+                return BadRequest(ErrorMessages.InvalidRefundHistoryId);
             }
 
             var result = await _refundHistoryService.DeleteAsync(id);
@@ -369,7 +375,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting refund history with ID: {RefundHistoryId}", id);
-            return StatusCode(500, new { Message = "An error occurred while deleting refund history" });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoryDeletionError });
         }
     }
 
@@ -402,7 +408,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing waiting refunds");
-            return StatusCode(500, new { Message = "An error occurred while processing refund histories" });
+            return StatusCode(500, new { Message = ErrorMessages.RefundHistoryProcessingError });
         }
     }
 
@@ -422,7 +428,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting refund statistics");
-            return StatusCode(500, new { Message = "An error occurred while retrieving refund statistics" });
+            return StatusCode(500, new { Message = ErrorMessages.RefundStatisticsRetrievalError });
         }
     }
 
@@ -439,7 +445,7 @@ public class RefundHistoriesController : BaseApiController
         {
             if (paymentId == Guid.Empty)
             {
-                return BadRequest("Invalid payment ID");
+                return BadRequest(ErrorMessages.InvalidPaymentId);
             }
 
             var canRefund = await _refundHistoryService.CanRefundPaymentAsync(paymentId);
@@ -456,7 +462,7 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking if payment can refund: {PaymentId}", paymentId);
-            return StatusCode(500, new { Message = "An error occurred while checking the payment" });
+            return StatusCode(500, new { Message = ErrorMessages.PaymentRefundCheckError });
         }
     }
 
@@ -473,9 +479,8 @@ public class RefundHistoriesController : BaseApiController
         {
             if (userId == Guid.Empty)
             {
-                return BadRequest("Invalid user ID");
+                return BadRequest(ErrorMessages.InvalidUserId);
             }
-
             var refundHistories = await _refundHistoryService.GetProcessableRefundsByUserIdAsync(userId);
             var refundHistoriesList = refundHistories.ToList();
             var count = refundHistoriesList.Count;
@@ -498,7 +503,100 @@ public class RefundHistoriesController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting processable refund histories for user: {UserId}", userId);
-            return StatusCode(500, new { Message = "An error occurred while retrieving processable refund histories" });
+            return StatusCode(500, new { Message = ErrorMessages.ProcessableRefundHistoriesRetrievalError });
+        }
+    }
+
+    /// <summary>
+    /// Mark refund as transferred (completed)
+    /// Updates refund status to COMPLETED, updates payment status to REFUNDED,
+    /// and sends notification to patient
+    /// </summary>
+    /// <param name="id">Refund history ID</param>
+    /// <param name="request">Transfer notes</param>
+    /// <returns>Updated refund history</returns>
+    [HttpPost("{id}/mark-transferred")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> MarkAsTransferred(Guid id, [FromBody] MarkAsTransferredRequest request)
+    {
+        try
+        {
+            if (id == Guid.Empty)
+            {
+                return BadRequest(ErrorMessages.InvalidRefundHistoryId);
+            }
+
+            // Validate request
+            var validationResult = await _markTransferredValidator.ValidateAsync(request);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                return BadRequest(ErrorMessages.InvalidRequestData, errors);
+            }
+
+            var refundHistory = await _refundHistoryService.MarkAsTransferredAsync(id, request.StaffNotes);
+            return Success(refundHistory, "Refund marked as transferred successfully");
+        }
+        catch (NotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Refund history not found when marking as transferred");
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid operation when marking refund as transferred");
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking refund as transferred: {RefundHistoryId}", id);
+            return StatusCode(500, new { Message = ErrorMessages.RefundMarkTransferredError });
+        }
+    }
+
+    /// <summary>
+    /// Report bank account issue
+    /// Sends notification to patient about incorrect bank account information
+    /// </summary>
+    /// <param name="id">Refund history ID</param>
+    /// <param name="request">Issue description</param>
+    /// <returns>Success result</returns>
+    [HttpPost("{id}/report-issue")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ReportBankIssue(Guid id, [FromBody] ReportBankIssueRequest request)
+    {
+        try
+        {
+            if (id == Guid.Empty)
+            {
+                return BadRequest(ErrorMessages.InvalidRefundHistoryId);
+            }
+
+            // Validate request
+            var validationResult = await _reportIssueValidator.ValidateAsync(request);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                return BadRequest(ErrorMessages.InvalidRequestData, errors);
+            }
+
+            await _refundHistoryService.ReportBankIssueAsync(id, request.IssueDescription);
+            return Success("Bank account issue reported successfully. Patient will be notified.");
+        }
+        catch (NotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Refund history not found when reporting bank issue");
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid operation when reporting bank issue");
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reporting bank issue for refund: {RefundHistoryId}", id);
+            return StatusCode(500, new { Message = ErrorMessages.BankIssueReportError });
         }
     }
 }

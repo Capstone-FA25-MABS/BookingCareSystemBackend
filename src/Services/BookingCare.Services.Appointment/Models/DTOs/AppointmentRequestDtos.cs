@@ -46,6 +46,24 @@ public class UpdateAppointmentStatusRequest
 }
 
 /// <summary>
+/// Request to cancel an appointment
+/// </summary>
+public class CancelAppointmentRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "Cancellation reason is required")]
+    [MaxLength(500, ErrorMessage = "Cancellation reason cannot exceed 500 characters")]
+    public required string CancellationReason { get; set; }
+
+    /// <summary>
+    /// Optional: ID of the staff who cancelled the appointment
+    /// </summary>
+    public Guid? CancelledByStaffId { get; set; }
+}
+
+/// <summary>
 /// Request to query appointments with filtering and pagination
 /// </summary>
 public class AppointmentQueryRequest

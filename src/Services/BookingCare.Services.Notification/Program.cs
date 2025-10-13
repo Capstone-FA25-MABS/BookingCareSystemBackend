@@ -61,6 +61,9 @@ builder.Logging.AddCommonLogging();
 // EventBus
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "notification-service-queue");
 builder.Services.AddIntegrationEventHandler<NotificationSendEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentRefundRequestedEventHandler>();
+builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
+builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -84,10 +87,13 @@ app.MapGrpcService<OtpGrpcService>();
 // Map health check endpoint
 app.MapCommonHealthCheck("Notification");
 
-// Subscribe to email notifications
+// Subscribe to events
 app.UseEventBus(eventBus =>
 {
     eventBus.Subscribe<NotificationSendEvent, NotificationSendEventHandler>();
+    eventBus.Subscribe<AppointmentRefundRequestedIntegrationEvent, AppointmentRefundRequestedEventHandler>();
+    eventBus.Subscribe<RefundHistoryCompletedIntegrationEvent, RefundHistoryCompletedEventHandler>();
+    eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
 });
 
 app.Run();

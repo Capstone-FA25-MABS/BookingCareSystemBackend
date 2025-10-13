@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
-using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Payment.Enums;
 
 namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 

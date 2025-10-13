@@ -7,6 +7,8 @@ using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.Common.Exceptions;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Services.Payment.Services.Implementations;
 
@@ -17,14 +19,17 @@ public class BankAccountService : BaseService, IBankAccountService
 {
     private readonly IBankAccountRepository _bankAccountRepository;
     private readonly IMapper _mapper;
+    private readonly IEventBus _eventBus;
 
     public BankAccountService(
         IBankAccountRepository bankAccountRepository,
         IMapper mapper,
+        IEventBus eventBus,
         ILogger<BankAccountService> logger) : base(logger)
     {
         _bankAccountRepository = bankAccountRepository;
         _mapper = mapper;
+        _eventBus = eventBus;
     }
 
     /// <summary>
@@ -90,13 +95,24 @@ public class BankAccountService : BaseService, IBankAccountService
             var existingAccount = await _bankAccountRepository.FindByAccountNumberAndUserAsync(
                 request.AccountNumber, request.BankCode, request.UserId);
 
+            BankAccountResponse result;
+            bool isNewAccount;
+
             if (existingAccount != null)
             {
-                return await HandleExistingAccount(existingAccount, request);
+                result = await HandleExistingAccount(existingAccount, request);
+                isNewAccount = false; // Reactivated account
+            }
+            else
+            {
+                result = await CreateNewBankAccount(request);
+                isNewAccount = true; // Brand new account
             }
 
-            // Create completely new bank account
-            return await CreateNewBankAccount(request);
+            // Publish event to notify Payment Service about new/updated bank account
+            await PublishBankAccountCreatedEvent(result, isNewAccount);
+
+            return result;
         }, "CreateBankAccount");
     }
 
@@ -460,6 +476,38 @@ public class BankAccountService : BaseService, IBankAccountService
         {
             LogWarning("Unable to delete bank account {Id}", null, id);
             return BankAccountDeleteResult.Failed("Unable to delete bank account");
+        }
+    }
+
+    /// <summary>
+    /// Publish BankAccountCreatedIntegrationEvent to notify other services
+    /// </summary>
+    private async Task PublishBankAccountCreatedEvent(BankAccountResponse bankAccount, bool isNewAccount)
+    {
+        try
+        {
+            var @event = new BankAccountCreatedIntegrationEvent
+            {
+                BankAccountId = bankAccount.Id,
+                UserId = bankAccount.UserId,
+                BankCode = bankAccount.BankCode,
+                BankName = bankAccount.BankName,
+                AccountNumber = bankAccount.AccountNumber,
+                AccountName = bankAccount.AccountName,
+                IsDefault = bankAccount.IsDefault,
+                IsNewAccount = isNewAccount
+            };
+
+            await _eventBus.PublishAsync(@event);
+
+            LogInfo("Published BankAccountCreatedIntegrationEvent for UserId: {UserId}, BankAccountId: {BankAccountId}",
+                null, bankAccount.UserId, bankAccount.Id);
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't throw - event publishing failure shouldn't fail the operation
+            LogError(ex, "Failed to publish BankAccountCreatedIntegrationEvent for UserId: {UserId}",
+                null, bankAccount.UserId);
         }
     }
 

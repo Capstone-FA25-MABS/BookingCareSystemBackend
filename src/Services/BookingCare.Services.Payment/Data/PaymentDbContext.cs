@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Payment.Models.Entities;
-using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Payment.Enums;
 
 namespace BookingCare.Services.Payment.Data;

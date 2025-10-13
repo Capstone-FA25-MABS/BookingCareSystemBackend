@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BookingCare.Services.Appointment.Services;
 using BookingCare.Services.Appointment.Models.DTOs;
 using BookingCare.Shared.Common.Controllers;
@@ -93,6 +94,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Paginated list of appointments with enriched data based on user role</returns>
     [HttpPost("management")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Admin,Staff,Doctor")]
     public async Task<IActionResult> GetAppointmentsForManagement([FromBody] AppointmentQueryRequest query)
     {
         var appointments = await _appointmentService.GetAppointmentsForManagementAsync(query);
@@ -120,6 +122,31 @@ public class AppointmentsController : BaseApiController
             return BadRequest("Failed to update appointment status");
 
         return Success("Appointment status updated successfully");
+    }
+
+    /// <summary>
+    /// Cancel an appointment (must be at least 24 hours before appointment)
+    /// Triggers refund process and sends notifications
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Cancellation request with reason</param>
+    /// <returns>Success status</returns>
+    [HttpPost("cancel/{id:guid}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Staff")]
+    public async Task<IActionResult> StaffCancelAppointment(
+        Guid id,
+        [FromBody] CancelAppointmentRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest("ID in URL does not match ID in request body");
+
+        var success = await _appointmentService.CancelAppointmentAsync(request);
+
+        if (!success)
+            return BadRequest("Failed to cancel appointment");
+
+        return Success("Appointment cancelled successfully. Refund process has been initiated.");
     }
 
 }
