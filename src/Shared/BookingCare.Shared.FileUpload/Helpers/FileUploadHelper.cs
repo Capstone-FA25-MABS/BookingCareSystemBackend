@@ -20,7 +20,7 @@ public static class FileUploadHelper
 
             // If URL contains bucket name in path, remove it
             var segments = path.Split('/');
-            
+
             // Check if first segment is not the expected folder
             if (segments.Length > 2 && !string.IsNullOrEmpty(expectedFolder) && segments[0] != expectedFolder)
             {
@@ -47,7 +47,7 @@ public static class FileUploadHelper
         var nameWithoutExtension = Path.GetFileNameWithoutExtension(originalFileName);
         var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
         var uniqueId = Guid.NewGuid().ToString("N")[..8]; // First 8 characters of GUID
-        
+
         return $"{nameWithoutExtension}_{timestamp}_{uniqueId}{extension}";
     }
 
