@@ -57,8 +57,6 @@ public class UpdateHospitalRequest
 
     public string? AvatarUrl { get; set; }
 
-    public Status? Status { get; set; }
-
     public List<Guid>? SpecialtyIds { get; set; }
 }
 
@@ -66,7 +64,6 @@ public class HospitalFilterRequest
 {
     public string? Name { get; set; }
     public string? Email { get; set; }
-    public Status? Status { get; set; }
     public List<Guid>? SpecialtyIds { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
+using BookingCare.Services.Hospital.Models.DTOs.Responses;
 using BookingCare.Services.Hospital.Exceptions;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Controllers;
@@ -35,6 +36,24 @@ public class HospitalsController : BaseApiController
         {
             var result = await _hospitalService.GetFilteredAsync(filter);
             return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving hospitals");
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
+    /// <summary>
+    /// Get all hospitals (no pagination) - Optimized for performance
+    /// </summary>
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAllHospitalsSimple()
+    {
+        try
+        {
+            var hospitals = await _hospitalService.GetActiveHospitalsSimpleAsync();
+            return Success<List<HospitalSimpleResponse>>(hospitals, "All active hospitals retrieved successfully");
         }
         catch (Exception ex)
         {

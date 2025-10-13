@@ -19,4 +19,7 @@ public interface ISpecialtyRepository
     Task<List<SpecialtyEntity>> GetAllSpecialtiesAsync();
     Task<List<SpecialtyEntity>> GetActiveSpecialtiesAsync();
     Task<List<SpecialtyEntity>> GetSpecialtiesByIdsAsync(List<Guid> ids);
+
+    // Optimized methods for simple responses
+    Task<List<SpecialtyEntity>> GetActiveSpecialtiesSimpleAsync();
 }

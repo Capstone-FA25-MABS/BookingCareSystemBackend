@@ -17,6 +17,9 @@ public interface IServiceTypeService
     Task<ServiceTypeListResponse> GetServiceTypesAsync(ServiceTypeQueryRequest query);
     Task<List<ServiceTypeResponse>> GetAllServiceTypesAsync();
 
+    // Optimized methods for simple responses
+    Task<List<ServiceTypeSimpleResponse>> GetActiveServiceTypesSimpleAsync();
+
     // Validation operations
     Task<bool> ServiceTypeExistsAsync(Guid id);
     Task<bool> ServiceTypeNameExistsAsync(string name, Guid? excludeId = null);

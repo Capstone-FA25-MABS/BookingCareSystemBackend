@@ -27,6 +27,16 @@ public class DoctorMappingProfile : Profile
             .ForMember(dest => dest.IsFavorited, opt => opt.Ignore()) // IsFavorited sẽ được set bởi logic khác
             .ForMember(dest => dest.Hospital, opt => opt.Ignore()); // Hospital sẽ được set bởi EnrichDoctorWithHospitalDetailInfoAsync
 
+        // Optimized mapping for GetDoctorById - only essential fields
+        CreateMap<DoctorEntity, DoctorByIdResponse>()
+            .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Position))
+            .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src => src.Specialty))
+            .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices))
+            .ForMember(dest => dest.Languages, opt => opt.MapFrom(src => src.DoctorLanguages.Select(dl => dl.Language)))
+            .ForMember(dest => dest.Hospital, opt => opt.Ignore()) // Will be enriched by service
+            .ForMember(dest => dest.ReviewStatistics, opt => opt.Ignore()) // Will be enriched by service
+            .ForMember(dest => dest.IsFavorited, opt => opt.Ignore()); // Will be set by service
+
         // Doctor Request to Entity mappings
         CreateMap<CreateDoctorRequest, DoctorEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -84,6 +94,41 @@ public class DoctorMappingProfile : Profile
 
         // Collection mappings
         CreateMap<(List<DoctorEntity> Doctors, int TotalCount), DoctorListResponse>()
+            .ForMember(dest => dest.Doctors, opt => opt.MapFrom(src => src.Doctors))
+            .ForMember(dest => dest.TotalCount, opt => opt.MapFrom(src => src.TotalCount))
+            .ForMember(dest => dest.PageNumber, opt => opt.Ignore())
+            .ForMember(dest => dest.PageSize, opt => opt.Ignore())
+            .ForMember(dest => dest.TotalPages, opt => opt.Ignore());
+
+        // Optimized mappings for Patient Search
+        CreateMap<DoctorEntity, DoctorSearchForPatientResponse>()
+            .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Position))
+            .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src => src.Specialty))
+            .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices))
+            .ForMember(dest => dest.Languages, opt => opt.MapFrom(src => src.DoctorLanguages.Select(dl => dl.Language)))
+            .ForMember(dest => dest.Hospital, opt => opt.Ignore()) // Will be enriched by service
+            .ForMember(dest => dest.ReviewStatistics, opt => opt.Ignore()) // Will be enriched by service
+            .ForMember(dest => dest.IsFavorited, opt => opt.Ignore()); // Will be set by service
+
+        CreateMap<PositionEntity, PositionBasicInfo>();
+
+        CreateMap<SpecialtyEntity, SpecialtyBasicInfo>();
+
+        CreateMap<DoctorPriceEntity, DoctorPriceBasicInfo>()
+            .ForMember(dest => dest.ServiceTypeName, opt => opt.MapFrom(src => src.ServiceType.Name));
+
+        CreateMap<LanguageEntity, LanguageBasicInfo>();
+
+        // Mappings for DoctorByIdResponse supporting DTOs
+        CreateMap<HospitalBasicInfo, DoctorHospitalInfo>();
+        CreateMap<PositionEntity, DoctorPositionInfo>();
+        CreateMap<SpecialtyEntity, DoctorSpecialtyInfo>();
+        CreateMap<DoctorPriceEntity, DoctorPriceInfo>()
+            .ForMember(dest => dest.ServiceTypeName, opt => opt.MapFrom(src => src.ServiceType.Name));
+        CreateMap<LanguageEntity, DoctorLanguageInfo>();
+        CreateMap<DoctorReviewStatisticsBasic, DoctorReviewInfo>();
+
+        CreateMap<(List<DoctorEntity> Doctors, int TotalCount), DoctorSearchListResponse>()
             .ForMember(dest => dest.Doctors, opt => opt.MapFrom(src => src.Doctors))
             .ForMember(dest => dest.TotalCount, opt => opt.MapFrom(src => src.TotalCount))
             .ForMember(dest => dest.PageNumber, opt => opt.Ignore())

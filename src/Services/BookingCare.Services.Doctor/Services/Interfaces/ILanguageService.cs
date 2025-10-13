@@ -17,6 +17,9 @@ public interface ILanguageService
     Task<LanguageListResponse> GetLanguagesAsync(LanguageQueryRequest query);
     Task<List<LanguageResponse>> GetAllLanguagesAsync();
 
+    // Optimized methods for simple responses
+    Task<List<LanguageSimpleResponse>> GetActiveLanguagesSimpleAsync();
+
     // Validation operations
     Task<bool> LanguageExistsAsync(Guid id);
     Task<bool> LanguageNameExistsAsync(string name, Guid? excludeId = null);
