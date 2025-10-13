@@ -2,7 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
 {
-    public class CreateServiceRequest
+    /// <summary>
+    /// Base class containing common service properties to avoid code duplication
+    /// </summary>
+    public abstract class BaseServiceRequest
     {
         [Required]
         [MaxLength(255)]
@@ -26,31 +29,15 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
         public int DurationTime { get; set; }
     }
 
-    public class UpdateServiceRequest
+    public class CreateServiceRequest : BaseServiceRequest
+    {
+        // Inherits all properties from BaseServiceRequest
+    }
+
+    public class UpdateServiceRequest : BaseServiceRequest
     {
         [Required]
         public Guid Id { get; set; }
-
-        [Required]
-        [MaxLength(255)]
-        public string Name { get; set; } = string.Empty;
-
-        public string? Description { get; set; }
-
-        [Required]
-        [Range(0, double.MaxValue, ErrorMessage = "Price must be greater than or equal to 0")]
-        public decimal Price { get; set; }
-
-        public string? ImageUrl { get; set; }
-
-        [Required]
-        public Guid HospitalId { get; set; }
-
-        public Guid? ServiceCategoryId { get; set; }
-
-        [Required]
-        [Range(1, int.MaxValue, ErrorMessage = "Duration time must be greater than 0")]
-        public int DurationTime { get; set; }
         
         public string Status { get; set; } = "INACTIVE";
     }
