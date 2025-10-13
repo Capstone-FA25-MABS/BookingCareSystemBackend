@@ -1,8 +1,6 @@
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
-using BookingCare.Shared.FileUpload.Helpers;
-using BookingCare.Shared.FileUpload.Models;
 using BookingCare.Shared.FileUpload.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,14 +14,14 @@ namespace BookingCare.Services.Appointment.Controllers;
 [Authorize]
 public class AttachmentController : BaseApiController
 {
-    private readonly IFileUploadService _fileUploadService;
+    private readonly FileUploadOrchestrator _uploadOrchestrator;
     private readonly ILogger<AttachmentController> _logger;
 
     public AttachmentController(
-        IFileUploadService fileUploadService,
+        FileUploadOrchestrator uploadOrchestrator,
         ILogger<AttachmentController> logger)
     {
-        _fileUploadService = fileUploadService;
+        _uploadOrchestrator = uploadOrchestrator;
         _logger = logger;
     }
 
@@ -38,49 +36,29 @@ public class AttachmentController : BaseApiController
     {
         try
         {
-            // Get current user account ID
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            // Validate file using FileValidationHelper
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx" };
-            const int maxSizeInMB = 10;
-
-            if (!FileValidationHelper.ValidateFile(file, allowedExtensions, maxSizeInMB, out var errorMessage))
+            var config = new FileUploadConfig
             {
-                return BadRequest(errorMessage);
-            }
-
-            // Upload to S3
-            var request = new FileUploadRequest
-            {
-                FileStream = file.OpenReadStream(),
-                FileName = file.FileName,
-                ContentType = file.ContentType,
+                AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx" },
+                MaxSizeInMB = 10,
                 Folder = "appointments/attachments",
-                GenerateUniqueFileName = true
+                SuccessMessage = "Attachment uploaded successfully",
+                EntityType = "attachment"
             };
 
-            var result = await _fileUploadService.UploadFileAsync(request, cancellationToken);
+            var result = await _uploadOrchestrator.UploadFileAsync(file, config, accountId, _logger, cancellationToken);
 
             if (!result.Success)
             {
-                _logger.LogError("Failed to upload attachment for account {AccountId}: {Error}",
-                    accountId, result.ErrorMessage);
-                return BadRequest(result);
+                return BadRequest(result.ErrorMessage!);
             }
 
-            _logger.LogInformation("Attachment uploaded successfully for account {AccountId}", accountId);
-
-            return Success(result, "Attachment uploaded successfully");
+            return Success(result.UploadResult, config.SuccessMessage);
         }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error uploading attachment");
-            return StatusCode(500, "An internal server error occurred");
         }
     }
 
@@ -95,41 +73,28 @@ public class AttachmentController : BaseApiController
     {
         try
         {
-            // Get current user account ID
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            if (string.IsNullOrEmpty(fileUrl))
+            var config = new FileDeletionConfig
             {
-                return BadRequest("File URL is required");
+                FileUrl = fileUrl,
+                ExpectedFolder = "appointments",
+                SuccessMessage = "Attachment deleted successfully",
+                EntityType = "attachment"
+            };
+
+            var result = await _uploadOrchestrator.DeleteFileAsync(config, accountId, _logger, cancellationToken);
+
+            if (!result.Success)
+            {
+                return BadRequest(result.ErrorMessage!);
             }
 
-            // Extract S3 key from URL using FileUploadHelper
-            var s3Key = FileUploadHelper.ExtractS3KeyFromUrl(fileUrl, "appointments");
-            if (string.IsNullOrEmpty(s3Key))
-            {
-                return BadRequest("Invalid file URL");
-            }
-
-            // Delete from S3
-            var deleted = await _fileUploadService.DeleteFileAsync(s3Key, cancellationToken);
-            if (!deleted)
-            {
-                _logger.LogWarning("Failed to delete attachment from S3: {S3Key}", s3Key);
-                return BadRequest("Failed to delete attachment from storage");
-            }
-
-            _logger.LogInformation("Attachment deleted successfully for account {AccountId}", accountId);
-
-            return Success(new { message = "Attachment deleted successfully" }, "Attachment deleted successfully");
+            return Success(new { message = result.Message }, result.Message ?? "Attachment deleted successfully");
         }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting attachment");
-            return StatusCode(500, "An internal server error occurred");
         }
     }
 }

@@ -2,8 +2,6 @@ using BookingCare.Services.User.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
-using BookingCare.Shared.FileUpload.Helpers;
-using BookingCare.Shared.FileUpload.Models;
 using BookingCare.Shared.FileUpload.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,16 +15,16 @@ namespace BookingCare.Services.User.Controllers;
 [Authorize]
 public class AvatarController : BaseApiController
 {
-    private readonly IFileUploadService _fileUploadService;
+    private readonly FileUploadOrchestrator _uploadOrchestrator;
     private readonly IUserService _userService;
     private readonly ILogger<AvatarController> _logger;
 
     public AvatarController(
-        IFileUploadService fileUploadService,
+        FileUploadOrchestrator uploadOrchestrator,
         IUserService userService,
         ILogger<AvatarController> logger)
     {
-        _fileUploadService = fileUploadService;
+        _uploadOrchestrator = uploadOrchestrator;
         _userService = userService;
         _logger = logger;
     }
@@ -42,50 +40,29 @@ public class AvatarController : BaseApiController
     {
         try
         {
-            // Get current user account ID
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            // Validate file using FileValidationHelper
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-            const int maxSizeInMB = 5;
-
-            if (!FileValidationHelper.ValidateFile(file, allowedExtensions, maxSizeInMB, out var errorMessage))
+            var config = new FileUploadConfig
             {
-                return BadRequest(errorMessage);
-            }
-
-            // Upload to S3
-            var request = new FileUploadRequest
-            {
-                FileStream = file.OpenReadStream(),
-                FileName = file.FileName,
-                ContentType = file.ContentType,
+                AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+                MaxSizeInMB = 5,
                 Folder = "avatars/patients",
-                GenerateUniqueFileName = true
+                SuccessMessage = "Avatar uploaded successfully",
+                EntityType = "avatar"
             };
 
-            var result = await _fileUploadService.UploadFileAsync(request, cancellationToken);
+            var result = await _uploadOrchestrator.UploadFileAsync(file, config, accountId, _logger, cancellationToken);
 
             if (!result.Success)
             {
-                _logger.LogError("Failed to upload avatar for account {AccountId}: {Error}",
-                    accountId, result.ErrorMessage);
-                return BadRequest(result);
+                return BadRequest(result.ErrorMessage!);
             }
 
-            _logger.LogInformation("Avatar uploaded successfully for account {AccountId}", accountId);
-
-            // Return upload result (URL will be saved when user clicks "Save Changes")
-            return Success(result, "Avatar uploaded successfully");
+            return Success(result.UploadResult, config.SuccessMessage);
         }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error uploading avatar");
-            return StatusCode(500, "An internal server error occurred");
         }
     }
 
@@ -98,7 +75,6 @@ public class AvatarController : BaseApiController
     {
         try
         {
-            // Get current user account ID
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
             var user = await _userService.GetByAccountIdAsync(accountId);
@@ -112,34 +88,26 @@ public class AvatarController : BaseApiController
                 return BadRequest("User has no avatar to delete");
             }
 
-            // Extract S3 key from URL using FileUploadHelper
-            var s3Key = FileUploadHelper.ExtractS3KeyFromUrl(user.AvatarUrl, "avatars");
-            if (string.IsNullOrEmpty(s3Key))
+            var config = new FileDeletionConfig
             {
-                return BadRequest("Invalid avatar URL");
+                FileUrl = user.AvatarUrl,
+                ExpectedFolder = "avatars",
+                SuccessMessage = "Avatar deleted successfully",
+                EntityType = "avatar"
+            };
+
+            var result = await _uploadOrchestrator.DeleteFileAsync(config, accountId, _logger, cancellationToken);
+
+            if (!result.Success)
+            {
+                return BadRequest(result.ErrorMessage!);
             }
 
-            // Delete from S3
-            var deleted = await _fileUploadService.DeleteFileAsync(s3Key, cancellationToken);
-            if (!deleted)
-            {
-                _logger.LogWarning("Failed to delete avatar from S3: {S3Key}", s3Key);
-                return BadRequest("Failed to delete avatar from storage");
-            }
-
-            _logger.LogInformation("Avatar deleted successfully for account {AccountId}", accountId);
-
-            // Return success (URL will be removed when user clicks "Save Changes")
-            return Success(new { message = "Avatar deleted successfully" }, "Avatar deleted successfully");
+            return Success(new { message = result.Message }, result.Message ?? "Avatar deleted successfully");
         }
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting avatar");
-            return StatusCode(500, "An internal server error occurred");
         }
     }
 }
