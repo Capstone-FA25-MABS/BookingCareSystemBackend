@@ -39,6 +39,12 @@ public class AppointmentEntity
     [MaxLength(4000)]
     public string? Result { get; set; }
 
+    [MaxLength(4000)]
+    public string? Symptoms { get; set; }
+
+    [MaxLength(2000)]
+    public string? AttachmentUrls { get; set; }
+
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

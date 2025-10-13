@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
+using BookingCare.Shared.FileUpload.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,6 +34,9 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 // Add Services
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<DataInitializationService>();
+
+// Add S3 File Upload Service
+builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add gRPC client for Doctor service  
 builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(o =>
