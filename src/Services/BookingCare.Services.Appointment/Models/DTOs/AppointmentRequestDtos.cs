@@ -28,6 +28,12 @@ public class CreateAppointmentRequest
     public required AppointmentType AppointmentType { get; set; } = AppointmentType.IN_PERSON;
 
     public AppointmentStatus? Status { get; set; }
+
+    [MaxLength(4000, ErrorMessage = "Symptoms cannot exceed 4000 characters")]
+    public string? Symptoms { get; set; }
+
+    [MaxLength(2000, ErrorMessage = "Attachment URLs cannot exceed 2000 characters")]
+    public string? AttachmentUrls { get; set; }
 }
 
 /// <summary>

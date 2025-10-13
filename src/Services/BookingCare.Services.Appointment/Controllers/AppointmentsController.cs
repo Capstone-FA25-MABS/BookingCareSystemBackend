@@ -44,17 +44,17 @@ public class AppointmentsController : BaseApiController
     /// Create a new appointment
     /// </summary>
     /// <param name="request">Appointment creation request</param>
-    /// <returns>Success status</returns>
+    /// <returns>Created appointment ID</returns>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateAppointment([FromBody] CreateAppointmentRequest request)
     {
-        var success = await _appointmentService.CreateAppointmentAsync(request);
+        var appointmentId = await _appointmentService.CreateAppointmentAsync(request);
 
-        if (!success)
+        if (appointmentId == Guid.Empty)
             return BadRequest("Failed to create appointment");
 
-        return Success("Appointment created successfully");
+        return Success(new { appointmentId }, "Appointment created successfully");
     }
 
     /// <summary>

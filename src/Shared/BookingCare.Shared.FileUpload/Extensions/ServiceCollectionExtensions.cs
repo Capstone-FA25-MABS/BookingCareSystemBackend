@@ -88,6 +88,9 @@ public static class ServiceCollectionExtensions
 
         // Add file upload service
         services.AddScoped<IFileUploadService, S3FileUploadService>();
+
+        // Add file upload orchestrator
+        services.AddScoped<FileUploadOrchestrator>();
     }
 }
 
