@@ -15,6 +15,8 @@ public class AppointmentResponse
     public AppointmentStatus Status { get; set; }
     public string? Reason { get; set; }
     public string? Result { get; set; }
+    public string? Symptoms { get; set; }
+    public string? AttachmentUrls { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
