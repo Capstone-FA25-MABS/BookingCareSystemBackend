@@ -301,9 +301,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                var (services, totalCount) = await _serviceRepository.GetPagedAsync(
-                    query.Page, query.PageSize, query.SearchTerm, query.Status,
-                    query.HospitalId, query.ServiceCategoryId, query.MinPrice, query.MaxPrice);
+                var (services, totalCount) = await _serviceRepository.GetPagedAsync(query);
 
                 var response = new ServiceListResponse
                 {
@@ -327,9 +325,15 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                var (services, totalCount) = await _serviceRepository.GetPagedAsync(
-                    request.Page, request.PageSize, null, request.IncludeInactive ? null : "ACTIVE",
-                    null, request.ServiceCategoryId);
+                var serviceQuery = new ServiceQueryRequest
+                {
+                    Page = request.Page,
+                    PageSize = request.PageSize,
+                    ServiceCategoryId = request.ServiceCategoryId,
+                    Status = request.IncludeInactive ? null : "ACTIVE"
+                };
+                
+                var (services, totalCount) = await _serviceRepository.GetPagedAsync(serviceQuery);
 
                 var response = new ServiceListResponse
                 {

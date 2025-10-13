@@ -1,6 +1,7 @@
 using BookingCare.Services.ServiceMedical.Constants;
 using BookingCare.Services.ServiceMedical.Data;
 using BookingCare.Services.ServiceMedical.Models.Entities;
+using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -81,50 +82,48 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
                 .ToListAsync();
         }
 
-        public async Task<(List<ServiceEntity> Services, int TotalCount)> GetPagedAsync(
-            int page, int pageSize, string? searchTerm = null, string? status = null,
-            Guid? hospitalId = null, Guid? categoryId = null, decimal? minPrice = null, decimal? maxPrice = null)
+        public async Task<(List<ServiceEntity> Services, int TotalCount)> GetPagedAsync(ServiceQueryRequest request)
         {
             var query = _context.Services
                 .Include(s => s.ServiceCategory)
                 .AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(searchTerm))
+            if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
-                query = query.Where(s => s.Name.Contains(searchTerm) ||
-                                        (s.Description != null && s.Description.Contains(searchTerm)));
+                query = query.Where(s => s.Name.Contains(request.SearchTerm) ||
+                                        (s.Description != null && s.Description.Contains(request.SearchTerm)));
             }
 
-            if (!string.IsNullOrWhiteSpace(status))
+            if (!string.IsNullOrWhiteSpace(request.Status))
             {
-                query = query.Where(s => s.Status == status);
+                query = query.Where(s => s.Status == request.Status);
             }
 
-            if (hospitalId.HasValue)
+            if (request.HospitalId.HasValue)
             {
-                query = query.Where(s => s.HospitalId == hospitalId.Value);
+                query = query.Where(s => s.HospitalId == request.HospitalId.Value);
             }
 
-            if (categoryId.HasValue)
+            if (request.ServiceCategoryId.HasValue)
             {
-                query = query.Where(s => s.ServiceCategoryId == categoryId.Value);
+                query = query.Where(s => s.ServiceCategoryId == request.ServiceCategoryId.Value);
             }
 
-            if (minPrice.HasValue)
+            if (request.MinPrice.HasValue)
             {
-                query = query.Where(s => s.Price >= minPrice.Value);
+                query = query.Where(s => s.Price >= request.MinPrice.Value);
             }
 
-            if (maxPrice.HasValue)
+            if (request.MaxPrice.HasValue)
             {
-                query = query.Where(s => s.Price <= maxPrice.Value);
+                query = query.Where(s => s.Price <= request.MaxPrice.Value);
             }
 
             var totalCount = await query.CountAsync();
             var services = await query
                 .OrderBy(s => s.Name)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
                 .ToListAsync();
 
             return (services, totalCount);
