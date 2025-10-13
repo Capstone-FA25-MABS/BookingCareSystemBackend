@@ -2,6 +2,7 @@ using BookingCare.Services.User.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Helpers;
 using BookingCare.Shared.FileUpload.Models;
 using BookingCare.Shared.FileUpload.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -44,24 +45,13 @@ public class AvatarController : BaseApiController
             // Get current user account ID
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            // Validate file
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("No file provided");
-            }
-
-            // Validate file type (only images)
+            // Validate file using FileValidationHelper
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(fileExtension))
-            {
-                return BadRequest("Only image files (jpg, jpeg, png, gif) are allowed");
-            }
+            const int maxSizeInMB = 5;
 
-            // Validate file size (max 5MB)
-            if (file.Length > 5 * 1024 * 1024)
+            if (!FileValidationHelper.ValidateFile(file, allowedExtensions, maxSizeInMB, out var errorMessage))
             {
-                return BadRequest("File size must not exceed 5MB");
+                return BadRequest(errorMessage);
             }
 
             // Upload to S3
@@ -70,7 +60,7 @@ public class AvatarController : BaseApiController
                 FileStream = file.OpenReadStream(),
                 FileName = file.FileName,
                 ContentType = file.ContentType,
-                Folder = $"avatars/patients",
+                Folder = "avatars/patients",
                 GenerateUniqueFileName = true
             };
 
@@ -122,10 +112,8 @@ public class AvatarController : BaseApiController
                 return BadRequest("User has no avatar to delete");
             }
 
-            // Extract S3 key from URL
-            // Assuming URL format: https://cloudfront-domain.com/avatars/{accountId}/{filename}
-            // or https://s3.region.amazonaws.com/bucket/avatars/{accountId}/{filename}
-            var s3Key = ExtractS3KeyFromUrl(user.AvatarUrl);
+            // Extract S3 key from URL using FileUploadHelper
+            var s3Key = FileUploadHelper.ExtractS3KeyFromUrl(user.AvatarUrl, "avatars");
             if (string.IsNullOrEmpty(s3Key))
             {
                 return BadRequest("Invalid avatar URL");
@@ -152,35 +140,6 @@ public class AvatarController : BaseApiController
         {
             _logger.LogError(ex, "Error deleting avatar");
             return StatusCode(500, "An internal server error occurred");
-        }
-    }
-
-    /// <summary>
-    /// Extract S3 key from full URL
-    /// </summary>
-    private static string? ExtractS3KeyFromUrl(string url)
-    {
-        try
-        {
-            var uri = new Uri(url);
-            // For CloudFront URL: https://cloudfront-domain.com/avatars/{accountId}/{filename}
-            // For S3 URL: https://s3.region.amazonaws.com/bucket/avatars/{accountId}/{filename}
-
-            var path = uri.AbsolutePath.TrimStart('/');
-
-            // If URL contains bucket name in path, remove it
-            var segments = path.Split('/');
-            if (segments.Length > 2 && segments[0] != "avatars")
-            {
-                // Assuming first segment is bucket name, remove it
-                path = string.Join("/", segments.Skip(1));
-            }
-
-            return path;
-        }
-        catch
-        {
-            return null;
         }
     }
 }

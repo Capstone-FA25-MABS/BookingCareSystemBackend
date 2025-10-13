@@ -1,6 +1,7 @@
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Helpers;
 using BookingCare.Shared.FileUpload.Models;
 using BookingCare.Shared.FileUpload.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -40,24 +41,13 @@ public class AttachmentController : BaseApiController
             // Get current user account ID
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            // Validate file
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("No file provided");
-            }
-
-            // Validate file type (images, PDFs, Word documents)
+            // Validate file using FileValidationHelper
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx" };
-            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(fileExtension))
-            {
-                return BadRequest("Only image, PDF, and Word document files are allowed");
-            }
+            const int maxSizeInMB = 10;
 
-            // Validate file size (max 10MB)
-            if (file.Length > 10 * 1024 * 1024)
+            if (!FileValidationHelper.ValidateFile(file, allowedExtensions, maxSizeInMB, out var errorMessage))
             {
-                return BadRequest("File size must not exceed 10MB");
+                return BadRequest(errorMessage);
             }
 
             // Upload to S3
@@ -66,7 +56,7 @@ public class AttachmentController : BaseApiController
                 FileStream = file.OpenReadStream(),
                 FileName = file.FileName,
                 ContentType = file.ContentType,
-                Folder = $"appointments/attachments",
+                Folder = "appointments/attachments",
                 GenerateUniqueFileName = true
             };
 
@@ -113,8 +103,8 @@ public class AttachmentController : BaseApiController
                 return BadRequest("File URL is required");
             }
 
-            // Extract S3 key from URL
-            var s3Key = ExtractS3KeyFromUrl(fileUrl);
+            // Extract S3 key from URL using FileUploadHelper
+            var s3Key = FileUploadHelper.ExtractS3KeyFromUrl(fileUrl, "appointments");
             if (string.IsNullOrEmpty(s3Key))
             {
                 return BadRequest("Invalid file URL");
@@ -140,32 +130,6 @@ public class AttachmentController : BaseApiController
         {
             _logger.LogError(ex, "Error deleting attachment");
             return StatusCode(500, "An internal server error occurred");
-        }
-    }
-
-    /// <summary>
-    /// Extract S3 key from full URL
-    /// </summary>
-    private static string? ExtractS3KeyFromUrl(string url)
-    {
-        try
-        {
-            var uri = new Uri(url);
-            var path = uri.AbsolutePath.TrimStart('/');
-
-            // If URL contains bucket name in path, remove it
-            var segments = path.Split('/');
-            if (segments.Length > 2 && segments[0] != "appointments")
-            {
-                // Assuming first segment is bucket name, remove it
-                path = string.Join("/", segments.Skip(1));
-            }
-
-            return path;
-        }
-        catch
-        {
-            return null;
         }
     }
 }
