@@ -13,8 +13,9 @@ namespace BookingCare.Services.Payment.Controllers;
 /// <summary>
 /// Controller for PayOS integration
 /// </summary>
+[ApiController]
+[Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
-[Route("api/[controller]")]
 public class PayOSController : BaseApiController
 {
     private readonly IPayOSService _payOSService;

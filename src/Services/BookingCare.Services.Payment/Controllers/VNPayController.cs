@@ -11,6 +11,8 @@ namespace BookingCare.Services.Payment.Controllers;
 /// <summary>
 /// Controller for VNPay integration
 /// </summary>
+[ApiController]
+[Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
 public class VNPayController : BaseApiController
 {
