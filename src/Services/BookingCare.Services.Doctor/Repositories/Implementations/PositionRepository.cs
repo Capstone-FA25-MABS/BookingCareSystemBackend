@@ -128,5 +128,27 @@ public class PositionRepository : IPositionRepository
             .ToDictionaryAsync(g => g.Key, g => g.Count());
     }
 
+    public async Task<List<PositionEntity>> GetActivePositionsSimpleAsync()
+    {
+        return await _context.Positions
+            .Where(p => p.Status == Status.ACTIVE)
+            .Select(p => new PositionEntity
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Status = p.Status
+            })
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+    }
+
+    public async Task<Dictionary<Guid, int>> GetActiveDoctorCountsByPositionAsync()
+    {
+        return await _context.Doctors
+            .Where(d => d.PositionId.HasValue && d.PositionId.Value != Guid.Empty)
+            .GroupBy(d => d.PositionId!.Value)
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
+    }
+
     #endregion
 }

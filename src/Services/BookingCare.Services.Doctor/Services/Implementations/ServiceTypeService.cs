@@ -142,6 +142,12 @@ public class ServiceTypeService : BaseService, IServiceTypeService
         return _mapper.Map<List<ServiceTypeResponse>>(serviceTypes);
     }
 
+    public async Task<List<ServiceTypeSimpleResponse>> GetActiveServiceTypesSimpleAsync()
+    {
+        var serviceTypes = await _repository.GetActiveServiceTypesSimpleAsync();
+        return _mapper.Map<List<ServiceTypeSimpleResponse>>(serviceTypes);
+    }
+
     #endregion
 
     #region Validation Operations

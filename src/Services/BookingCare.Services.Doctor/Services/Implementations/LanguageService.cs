@@ -139,6 +139,12 @@ public class LanguageService : BaseService, ILanguageService
         return _mapper.Map<List<LanguageResponse>>(languages);
     }
 
+    public async Task<List<LanguageSimpleResponse>> GetActiveLanguagesSimpleAsync()
+    {
+        var languages = await _repository.GetActiveLanguagesSimpleAsync();
+        return _mapper.Map<List<LanguageSimpleResponse>>(languages);
+    }
+
     #endregion
 
     #region Validation Operations

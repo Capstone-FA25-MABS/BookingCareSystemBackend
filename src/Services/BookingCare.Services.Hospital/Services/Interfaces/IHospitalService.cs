@@ -20,4 +20,7 @@ public interface IHospitalService
     // Optimized methods for gRPC performance
     Task<Models.Entities.HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id);
     Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
+
+    // Optimized methods for simple responses
+    Task<List<HospitalSimpleResponse>> GetActiveHospitalsSimpleAsync();
 }

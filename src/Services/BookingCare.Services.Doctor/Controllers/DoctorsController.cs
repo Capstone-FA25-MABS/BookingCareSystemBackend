@@ -47,18 +47,19 @@ public class DoctorsController : BaseApiController
     #region Doctor Endpoints
 
     /// <summary>
-    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ)
+    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ) - Optimized response
     /// </summary>
     [HttpPost("filter")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> FilterDoctors([FromBody] DoctorAdvancedFilterRequest filter)
     {
-        var result = await _doctorService.FilterDoctorsAsync(filter);
-        return Success<DoctorListResponse>(result, "Doctors filtered successfully");
+        // Use optimized filter method that returns only necessary fields
+        var result = await _doctorService.FilterDoctorsOptimizedAsync(filter);
+        return Success<DoctorSearchListResponse>(result, "Doctors filtered successfully");
     }
 
     /// <summary>
-    /// Get doctor by ID with detailed hospital info
+    /// Get doctor by ID with optimized response (only essential fields)
     /// </summary>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -70,7 +71,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Doctor with ID {id} not found");
         }
 
-        return Success<DoctorDetailResponse>(doctor, "Doctor retrieved successfully");
+        return Success<DoctorByIdResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
@@ -221,7 +222,7 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Search active doctors by name, specialty, or location for patients
+    /// Search active doctors by name, specialty, or location for patients (Optimized response with only necessary fields)
     /// </summary>
     [HttpGet("patients/search")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -237,16 +238,9 @@ public class DoctorsController : BaseApiController
             PageSize = pageSize
         };
 
-        DoctorListResponse result;
-        if (patientId.HasValue && patientId.Value != Guid.Empty)
-        {
-            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
-        }
-        else
-        {
-            result = await _doctorService.GetDoctorsAsync(query);
-        }
-        return Success<DoctorListResponse>(result, "Active doctors search completed successfully");
+        // Use optimized search method that returns only necessary fields
+        var result = await _doctorService.SearchDoctorsForPatientsAsync(query, patientId);
+        return Success<DoctorSearchListResponse>(result, "Active doctors search completed successfully");
     }
 
     /// <summary>

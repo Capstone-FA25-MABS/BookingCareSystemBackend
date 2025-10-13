@@ -88,14 +88,14 @@ public class ServiceTypesController : BaseApiController
     }
 
     /// <summary>
-    /// Get all service types (no pagination)
+    /// Get all service types (no pagination) - Optimized for performance
     /// </summary>
     [HttpGet("all")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAllServiceTypes()
     {
-        var serviceTypes = await _serviceTypeService.GetAllServiceTypesAsync();
-        return Success<List<ServiceTypeResponse>>(serviceTypes, "All service types retrieved successfully");
+        var serviceTypes = await _serviceTypeService.GetActiveServiceTypesSimpleAsync();
+        return Success<List<ServiceTypeSimpleResponse>>(serviceTypes, "All active service types retrieved successfully");
     }
 
     /// <summary>

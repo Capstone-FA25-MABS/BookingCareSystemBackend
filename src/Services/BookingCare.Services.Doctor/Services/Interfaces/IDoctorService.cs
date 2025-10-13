@@ -8,7 +8,7 @@ public interface IDoctorService
 {
     // Doctor CRUD operations
     Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request);
-    Task<DoctorDetailResponse?> GetDoctorByIdAsync(Guid id);
+    Task<DoctorByIdResponse?> GetDoctorByIdAsync(Guid id);
     Task<DoctorResponse?> GetDoctorByEmailAsync(string email);
     Task<DoctorResponse?> GetDoctorByAccountIdAsync(Guid accountId);
     Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request);
@@ -18,6 +18,7 @@ public interface IDoctorService
     // Doctor Query operations
     Task<DoctorListResponse> GetDoctorsAsync(DoctorQueryRequest query);
     Task<DoctorListResponse> FilterDoctorsAsync(DoctorAdvancedFilterRequest filter);
+    Task<DoctorSearchListResponse> FilterDoctorsOptimizedAsync(DoctorAdvancedFilterRequest filter);
     Task<List<DoctorResponse>> GetDoctorsByHospitalAsync(Guid hospitalId);
     Task<List<DoctorResponse>> GetDoctorsBySpecialtyAsync(Guid specialtyId);
     Task<List<DoctorResponse>> GetDoctorsByPositionAsync(Guid positionId);
@@ -38,6 +39,9 @@ public interface IDoctorService
 
     // Helper methods
     IQueryable<DoctorEntity> GetQueryableDoctors();
+
+    // Optimized methods for Patient Search
+    Task<DoctorSearchListResponse> SearchDoctorsForPatientsAsync(DoctorQueryRequest query, Guid? patientId = null);
     Task<DoctorListResponse> GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId);
 
     // Optimized methods for gRPC performance

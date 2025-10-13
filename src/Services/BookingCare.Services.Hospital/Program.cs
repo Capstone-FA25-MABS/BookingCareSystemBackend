@@ -8,6 +8,7 @@ using BookingCare.Services.Hospital.Mappings;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Services.Auth.Protos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +49,13 @@ builder.Services.AddApiVersioningSupport();
 
 // Add gRPC
 builder.Services.AddGrpc();
+
+// gRPC clients
+var authAddress = builder.Configuration.GetSection("GrpcClients:Auth:Address").Value ?? "http://localhost:6103";
+builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
+{
+    options.Address = new Uri(authAddress);
+});
 
 var app = builder.Build();
 

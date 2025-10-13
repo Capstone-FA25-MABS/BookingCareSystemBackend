@@ -16,7 +16,6 @@ public class HospitalMappingDto
     public string? Description { get; set; }
     public string? BackgroundUrl { get; set; }
     public string? AvatarUrl { get; set; }
-    public Status Status { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

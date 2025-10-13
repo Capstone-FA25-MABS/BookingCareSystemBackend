@@ -135,5 +135,19 @@ public class ServiceTypeRepository : IServiceTypeRepository
         return _context.ServiceTypes.AsQueryable();
     }
 
+    public async Task<List<ServiceTypeEntity>> GetActiveServiceTypesSimpleAsync()
+    {
+        return await _context.ServiceTypes
+            .Where(st => st.Status == Status.ACTIVE)
+            .Select(st => new ServiceTypeEntity
+            {
+                Id = st.Id,
+                Name = st.Name,
+                Status = st.Status
+            })
+            .OrderBy(st => st.Name)
+            .ToListAsync();
+    }
+
     #endregion
 }

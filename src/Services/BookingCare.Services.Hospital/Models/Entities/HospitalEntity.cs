@@ -43,9 +43,6 @@ public class HospitalEntity
     [Column("avatar_url")]
     public string? AvatarUrl { get; set; }
 
-    [Required]
-    [Column("status")]
-    public Status Status { get; set; } = Status.ACTIVE;
 
     [Required]
     [Column("created_at")]

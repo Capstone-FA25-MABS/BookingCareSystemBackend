@@ -6,6 +6,7 @@ using BookingCare.Services.Hospital.Models.Entities;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Auth.Protos;
 
 namespace BookingCare.Services.Hospital.Services.Implementations;
 
@@ -13,29 +14,48 @@ public class HospitalService : IHospitalService
 {
     private readonly IHospitalRepository _hospitalRepository;
     private readonly IMapper _mapper;
+    private readonly AuthService.AuthServiceClient _authClient;
+    private readonly ILogger<HospitalService> _logger;
 
-    public HospitalService(IHospitalRepository hospitalRepository, IMapper mapper)
+    public HospitalService(
+        IHospitalRepository hospitalRepository,
+        IMapper mapper,
+        AuthService.AuthServiceClient authClient,
+        ILogger<HospitalService> logger)
     {
         _hospitalRepository = hospitalRepository;
         _mapper = mapper;
+        _authClient = authClient;
+        _logger = logger;
     }
 
     public async Task<HospitalDetailResponse?> GetByIdAsync(Guid id)
     {
         var hospital = await _hospitalRepository.GetByIdAsync(id);
-        return hospital != null ? _mapper.Map<HospitalDetailResponse>(hospital) : null;
+        if (hospital == null) return null;
+
+        var response = _mapper.Map<HospitalDetailResponse>(hospital);
+        await EnrichHospitalDetailWithStatusAsync(response);
+        return response;
     }
 
     public async Task<HospitalResponse?> GetByEmailAsync(string email)
     {
         var hospital = await _hospitalRepository.GetByEmailAsync(email);
-        return hospital != null ? _mapper.Map<HospitalResponse>(hospital) : null;
+        if (hospital == null) return null;
+
+        var response = _mapper.Map<HospitalResponse>(hospital);
+        await EnrichHospitalsWithStatusAsync(new List<HospitalResponse> { response });
+        return response;
     }
 
     public async Task<HospitalListResponse> GetAllAsync()
     {
         var hospitals = await _hospitalRepository.GetAllAsync();
         var hospitalResponses = _mapper.Map<List<HospitalResponse>>(hospitals);
+
+        // Enrich with status from auth service
+        await EnrichHospitalsWithStatusAsync(hospitalResponses);
 
         return new HospitalListResponse
         {
@@ -51,6 +71,9 @@ public class HospitalService : IHospitalService
     {
         var (hospitals, totalCount) = await _hospitalRepository.GetFilteredAsync(filter);
         var hospitalResponses = _mapper.Map<List<HospitalResponse>>(hospitals);
+
+        // Enrich with status from auth service
+        await EnrichHospitalsWithStatusAsync(hospitalResponses);
 
         return new HospitalListResponse
         {
@@ -71,7 +94,6 @@ public class HospitalService : IHospitalService
         }
 
         var hospital = _mapper.Map<HospitalEntity>(request);
-        hospital.Status = Status.ACTIVE;
 
         try
         {
@@ -88,7 +110,9 @@ public class HospitalService : IHospitalService
 
             // Reload hospital with relationships
             var hospitalWithRelations = await _hospitalRepository.GetByIdAsync(createdHospital.Id);
-            return _mapper.Map<HospitalDetailResponse>(hospitalWithRelations);
+            var response = _mapper.Map<HospitalDetailResponse>(hospitalWithRelations);
+            await EnrichHospitalDetailWithStatusAsync(response);
+            return response;
         }
         catch (Exception ex)
         {
@@ -130,7 +154,9 @@ public class HospitalService : IHospitalService
                 }
             }
 
-            return _mapper.Map<HospitalResponse>(updatedHospital);
+            var response = _mapper.Map<HospitalResponse>(updatedHospital);
+            await EnrichHospitalsWithStatusAsync(new List<HospitalResponse> { response });
+            return response;
         }
         catch (Exception ex)
         {
@@ -158,13 +184,17 @@ public class HospitalService : IHospitalService
     public async Task<List<HospitalResponse>> GetBySpecialtyAsync(Guid specialtyId)
     {
         var hospitals = await _hospitalRepository.GetBySpecialtyAsync(specialtyId);
-        return _mapper.Map<List<HospitalResponse>>(hospitals);
+        var hospitalResponses = _mapper.Map<List<HospitalResponse>>(hospitals);
+        await EnrichHospitalsWithStatusAsync(hospitalResponses);
+        return hospitalResponses;
     }
 
     public async Task<List<HospitalResponse>> GetByAccountIdAsync(Guid accountId)
     {
         var hospitals = await _hospitalRepository.GetByAccountIdAsync(accountId);
-        return _mapper.Map<List<HospitalResponse>>(hospitals);
+        var hospitalResponses = _mapper.Map<List<HospitalResponse>>(hospitals);
+        await EnrichHospitalsWithStatusAsync(hospitalResponses);
+        return hospitalResponses;
     }
 
     public Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId)
@@ -207,6 +237,74 @@ public class HospitalService : IHospitalService
     public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
     {
         return await _hospitalRepository.GetHospitalsBasicInfoByIdsAsync(ids);
+    }
+
+    public async Task<List<HospitalSimpleResponse>> GetActiveHospitalsSimpleAsync()
+    {
+        var hospitals = await _hospitalRepository.GetActiveHospitalsSimpleAsync();
+        return _mapper.Map<List<HospitalSimpleResponse>>(hospitals);
+    }
+
+    #endregion
+
+    #region Auth Service Integration
+
+    /// <summary>
+    /// Get account statuses for a list of account IDs
+    /// </summary>
+    private async Task<Dictionary<Guid, Status>> GetAccountStatusesAsync(IEnumerable<Guid> accountIds)
+    {
+        var statusMap = new Dictionary<Guid, Status>();
+
+        try
+        {
+            var request = new GetAccountStatusByIdsRequest();
+            request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
+
+            var response = await _authClient.GetAccountStatusByIdsAsync(request);
+
+            foreach (var accountStatus in response.AccountStatuses)
+            {
+                if (Guid.TryParse(accountStatus.AccountId, out var accountId) && accountStatus.Found)
+                {
+                    // Chuyển đổi từ int sang enum Status
+                    var status = (Status)accountStatus.Status;
+                    statusMap[accountId] = status;
+                }
+            }
+        }
+        catch (global::Grpc.Core.RpcException ex)
+        {
+            _logger.LogWarning(ex, "Auth gRPC GetAccountStatusByIds failed");
+            // Return empty dictionary on failure
+        }
+
+        return statusMap;
+    }
+
+    /// <summary>
+    /// Enrich hospital responses with account status
+    /// </summary>
+    private async Task EnrichHospitalsWithStatusAsync(List<HospitalResponse> hospitals)
+    {
+        if (!hospitals.Any()) return;
+
+        var accountIds = hospitals.Select(h => h.AccountId).Distinct();
+        var statusMap = await GetAccountStatusesAsync(accountIds);
+
+        // Note: Status is now managed by Auth service, not stored in HospitalEntity
+        // Status enrichment is handled at the response level, not entity level
+    }
+
+    /// <summary>
+    /// Enrich hospital detail response with account status
+    /// </summary>
+    private async Task EnrichHospitalDetailWithStatusAsync(HospitalDetailResponse hospital)
+    {
+        var statusMap = await GetAccountStatusesAsync(new[] { hospital.AccountId });
+
+        // Note: Status is now managed by Auth service, not stored in HospitalEntity
+        // Status enrichment is handled at the response level, not entity level
     }
 
     #endregion

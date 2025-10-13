@@ -39,7 +39,6 @@ message GetHospitalsBySpecialtyRequest {
 message GetHospitalsListRequest {
   int32 page = 1;
   int32 page_size = 2;
-  string status = 3; // Optional filter by status
 }
 
 // The request message for creating a hospital
