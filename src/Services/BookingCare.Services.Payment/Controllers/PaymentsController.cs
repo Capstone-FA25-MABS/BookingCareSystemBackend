@@ -1,4 +1,5 @@
 ﻿using BookingCare.Services.Payment.Models.DTOs.Requests;
+using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
@@ -19,6 +20,8 @@ public class PaymentsController : BaseApiController
     private const string InvalidRequestDataMessage = "Invalid request data";
 
     private readonly IPaymentService _paymentService;
+    private readonly IPayOSService _payOSService;
+    private readonly IVNPayService _vnPayService;
     private readonly IValidator<CreateAppointmentPaymentRequest> _createAppointmentValidator;
     private readonly IValidator<CreateSubscriptionPaymentRequest> _createSubscriptionValidator;
     private readonly IValidator<UpdatePaymentStatusRequest> _updateValidator;
@@ -28,6 +31,8 @@ public class PaymentsController : BaseApiController
 
     public PaymentsController(
         IPaymentService paymentService,
+        IPayOSService payOSService,
+        IVNPayService vnPayService,
         IValidator<CreateAppointmentPaymentRequest> createAppointmentValidator,
         IValidator<CreateSubscriptionPaymentRequest> createSubscriptionValidator,
         IValidator<UpdatePaymentStatusRequest> updateValidator,
@@ -37,6 +42,8 @@ public class PaymentsController : BaseApiController
     )
     {
         _paymentService = paymentService;
+        _payOSService = payOSService;
+        _vnPayService = vnPayService;
         _createAppointmentValidator = createAppointmentValidator;
         _createSubscriptionValidator = createSubscriptionValidator;
         _updateValidator = updateValidator;
@@ -200,7 +207,7 @@ public class PaymentsController : BaseApiController
     }
 
     /// <summary>
-    /// Create appointment payment (patient books appointment)
+    /// Create appointment payment (patient books appointment) and generate payment URL
     /// </summary>
     [HttpPost("appointment")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -218,8 +225,35 @@ public class PaymentsController : BaseApiController
                 return BadRequest(InvalidRequestDataMessage, errors);
             }
 
+            // Create payment first
             var payment = await _paymentService.CreateAppointmentPaymentAsync(request);
-            return Created(payment, "Create appointment payment successful");
+
+            // Get payment method to determine which gateway to use
+            var paymentWithMethod = await _paymentService.GetByIdAsync(payment.Id);
+            if (paymentWithMethod == null)
+            {
+                _logger.LogError("Payment was created but could not be retrieved: {PaymentId}", payment.Id);
+                return StatusCode(500, new { Message = "Payment created but could not retrieve payment method information" });
+            }
+
+            // Generate payment URL based on payment method
+            var paymentMethodName = paymentWithMethod.PaymentMethodName.ToUpper();
+            CreateAppointmentPaymentResponse response;
+
+            switch (paymentMethodName)
+            {
+                case "PAYOS":
+                    response = await CreatePayOSPaymentUrl(payment, request);
+                    break;
+                case "VNPAY":
+                    response = await CreateVNPayPaymentUrl(payment, request);
+                    break;
+                default:
+                    _logger.LogWarning("Unsupported payment method: {PaymentMethod}", paymentMethodName);
+                    return BadRequest($"Payment method '{paymentMethodName}' is not supported for online payment");
+            }
+
+            return Created(response, "Create appointment payment with payment URL successful");
         }
         catch (ArgumentException ex)
         {
@@ -239,6 +273,74 @@ public class PaymentsController : BaseApiController
                 new { Message = "An error occurred while creating appointment payment" }
             );
         }
+    }
+
+    /// <summary>
+    /// Create PayOS payment URL for appointment payment
+    /// </summary>
+    private async Task<CreateAppointmentPaymentResponse> CreatePayOSPaymentUrl(
+        PaymentResponse payment,
+        CreateAppointmentPaymentRequest request)
+    {
+        var payOSRequest = new Models.DTOs.PayOS.PayOSPaymentRequest
+        {
+            PaymentId = payment.Id,
+            Amount = payment.Amount,
+            Description = $"Thanh toán cuộc hẹn - Appointment ID: {request.AppointmentId}",
+            BuyerInfo = new Models.DTOs.PayOS.PayOSBuyerInfo
+            {
+                // Note: We don't have buyer info in the request, so we'll leave these empty
+                // In a real scenario, you might want to fetch patient info from another service
+            },
+            Items = new List<Models.DTOs.PayOS.PayOSItemInfo>
+            {
+                new Models.DTOs.PayOS.PayOSItemInfo
+                {
+                    Name = "Phí khám bệnh",
+                    Quantity = 1,
+                    Price = (int)payment.Amount
+                }
+            }
+        };
+
+        var payOSResponse = await _payOSService.CreatePaymentLinkAsync(payOSRequest);
+
+        return new CreateAppointmentPaymentResponse
+        {
+            Payment = payment,
+            PaymentUrl = payOSResponse.CheckoutUrl,
+            PaymentGateway = "PayOS",
+            ExpireAt = payOSResponse.ExpireAt,
+            PaymentReference = payOSResponse.OrderCode.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Create VNPay payment URL for appointment payment
+    /// </summary>
+    private async Task<CreateAppointmentPaymentResponse> CreateVNPayPaymentUrl(
+        PaymentResponse payment,
+        CreateAppointmentPaymentRequest request)
+    {
+        var vnPayRequest = new Models.DTOs.VNPay.VNPayPaymentRequest
+        {
+            PaymentId = payment.Id,
+            Amount = payment.Amount,
+            OrderDescription = $"Thanh toán cuộc hẹn - Appointment ID: {request.AppointmentId}",
+            ClientIP = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            CustomerInfo = $"Patient ID: {request.PatientId}" // Basic customer info
+        };
+
+        var vnPayResponse = await _vnPayService.CreatePaymentUrlAsync(vnPayRequest);
+
+        return new CreateAppointmentPaymentResponse
+        {
+            Payment = payment,
+            PaymentUrl = vnPayResponse.PaymentUrl,
+            PaymentGateway = "VNPay",
+            ExpireAt = vnPayResponse.ExpireTime,
+            PaymentReference = vnPayResponse.TransactionRef
+        };
     }
 
     /// <summary>

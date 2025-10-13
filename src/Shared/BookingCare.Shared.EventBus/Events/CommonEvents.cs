@@ -495,3 +495,102 @@ public class UserActivityEvent : IntegrationEvent
     public Dictionary<string, object> Properties { get; set; } = new();
     public DateTime Timestamp { get; set; }
 }
+
+/// <summary>
+/// Event published when a payment is completed successfully
+/// This event is consumed by Appointment Service to update appointment status to CONFIRMED
+/// </summary>
+public class PaymentCompletedIntegrationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the completed payment
+    /// </summary>
+    public Guid PaymentId { get; set; }
+
+    /// <summary>
+    /// ID of the associated appointment (if payment is for appointment)
+    /// </summary>
+    public Guid? AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who made the payment
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Payment amount
+    /// </summary>
+    public decimal Amount { get; set; }
+
+    /// <summary>
+    /// Payment method used (PayOS, VNPay, etc.)
+    /// </summary>
+    public string PaymentMethod { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Payment gateway transaction reference
+    /// </summary>
+    public string? TransactionReference { get; set; }
+
+    /// <summary>
+    /// When the payment was completed
+    /// </summary>
+    public DateTime CompletedAt { get; set; }
+
+    /// <summary>
+    /// Transaction type (APPOINTMENT, SUBSCRIPTION)
+    /// </summary>
+    public string TransactionType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Event published when appointment status is updated successfully
+/// This can be consumed by other services that need to know about appointment status changes
+/// </summary>
+public class AppointmentStatusUpdatedIntegrationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the appointment that was updated
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Previous appointment status
+    /// </summary>
+    public string PreviousStatus { get; set; } = string.Empty;
+
+    /// <summary>
+    /// New appointment status
+    /// </summary>
+    public string NewStatus { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the status was updated
+    /// </summary>
+    public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// ID of the payment that triggered this update (if applicable)
+    /// </summary>
+    public Guid? PaymentId { get; set; }
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Additional notes or reason for status update
+    /// </summary>
+    public string? Notes { get; set; }
+}

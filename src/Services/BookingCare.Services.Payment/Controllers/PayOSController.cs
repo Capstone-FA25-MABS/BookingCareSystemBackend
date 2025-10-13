@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using FluentValidation;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.PayOS;
@@ -6,6 +7,7 @@ using BookingCare.Services.Payment.Helpers;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.AppRouting;
 using System.Text.Json;
 
 namespace BookingCare.Services.Payment.Controllers;
@@ -20,17 +22,20 @@ public class PayOSController : BaseApiController
 {
     private readonly IPayOSService _payOSService;
     private readonly IPaymentService _paymentService;
+    private readonly FrontendOptions _frontendOptions;
     private readonly IValidator<PayOSPaymentRequest> _validator;
     private readonly ILogger<PayOSController> _logger;
 
     public PayOSController(
         IPayOSService payOSService,
         IPaymentService paymentService,
+        IOptions<FrontendOptions> frontendOptions,
         IValidator<PayOSPaymentRequest> validator,
         ILogger<PayOSController> logger)
     {
         _payOSService = payOSService;
         _paymentService = paymentService;
+        _frontendOptions = frontendOptions.Value;
         _validator = validator;
         _logger = logger;
     }
@@ -136,7 +141,36 @@ public class PayOSController : BaseApiController
             _logger.LogInformation("PayOS Callback #{RequestId} - Processed successfully - PaymentId: {PaymentId}, Success: {Success}, IsEmptyGuid: {IsEmptyGuid}",
                 requestId, result.PaymentId, result.Success, result.PaymentId == Guid.Empty);
 
-            // Create response with details
+            // If payment was successful and has a valid PaymentId, check for appointment redirect
+            if (result.Success && result.PaymentId != Guid.Empty)
+            {
+                // Get payment details to check if it's for an appointment
+                var payment = await _paymentService.GetByIdAsync(result.PaymentId);
+                if (PaymentFrontendHelper.ShouldRedirectToFrontend(payment?.AppointmentId))
+                {
+                    var mockAppointmentId = Guid.Parse("dcd1fb51-2b3c-4e67-b739-012787af6b5b");
+                    var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, mockAppointmentId, true);
+                    _logger.LogInformation("PayOS Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
+                        requestId, payment.AppointmentId.Value, frontendUrl);
+
+                    return Redirect(frontendUrl);
+                }
+            }
+            else if (!result.Success && result.PaymentId != Guid.Empty)
+            {
+                // Payment failed - check if it's an appointment and redirect to error page
+                var payment = await _paymentService.GetByIdAsync(result.PaymentId);
+                if (PaymentFrontendHelper.ShouldRedirectToFrontend(payment?.AppointmentId))
+                {
+                    var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, payment!.AppointmentId!.Value, false);
+                    _logger.LogWarning("PayOS Callback #{RequestId} - Payment failed, redirecting to frontend error page for appointment: {AppointmentId}",
+                        requestId, payment.AppointmentId.Value);
+
+                    return Redirect(frontendUrl);
+                }
+            }
+
+            // Create response with details for non-appointment payments or API calls
             var response = new
             {
                 Success = result.Success,

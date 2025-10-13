@@ -11,6 +11,7 @@ using BookingCare.Services.Payment.Models.Configurations;
 using BookingCare.Services.Payment.Handlers;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.AppRouting;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,9 @@ builder.Services.AddDbContext<PaymentDbContext>(options =>
 // Add Payment-specific configurations
 builder.Services.Configure<VNPayConfiguration>(builder.Configuration.GetSection("VNPayConfiguration"));
 builder.Services.Configure<PayOSConfiguration>(builder.Configuration.GetSection("PayOSConfiguration"));
+
+// Bind Frontend options for base URL resolution
+builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
 
 // Add repositories
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();

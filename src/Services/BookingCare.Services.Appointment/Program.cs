@@ -2,10 +2,12 @@ using BookingCare.Services.Appointment.Data;
 using BookingCare.Services.Appointment.Services;
 using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Mappings;
+using BookingCare.Services.Appointment.Handlers;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
+using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.FileUpload.Extensions;
 
 
@@ -59,8 +61,11 @@ builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.User
     o.Address = new Uri(endpoint);
 });
 
-// Add EventBus for publishing appointment events
+// Add EventBus for publishing appointment events and consuming payment events
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "appointment-service-queue");
+
+// Register Event Handlers
+builder.Services.AddIntegrationEventHandler<PaymentCompletedEventHandler>();
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -90,6 +95,13 @@ app.MapControllers();
 
 // Map health check endpoint
 app.MapCommonHealthCheck("Appointment");
+
+// Configure EventBus subscriptions
+app.UseEventBus(eventBus =>
+{
+    // Subscribe to payment completion events to auto-confirm appointments
+    eventBus.Subscribe<PaymentCompletedIntegrationEvent, PaymentCompletedEventHandler>();
+});
 
 // Initialize default data
 if (app.Environment.IsDevelopment())
