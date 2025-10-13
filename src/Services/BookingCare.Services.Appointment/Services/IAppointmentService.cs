@@ -19,6 +19,12 @@ public interface IAppointmentService
     // Status operations
     Task<bool> UpdateAppointmentStatusAsync(UpdateAppointmentStatusRequest request);
 
+    /// <summary>
+    /// Cancel an appointment with validation (must be 24 hours before appointment)
+    /// Publishes event to trigger refund and notification
+    /// </summary>
+    Task<bool> CancelAppointmentAsync(CancelAppointmentRequest request);
+
     // Validation operations
     Task<bool> ValidateAppointmentAsync(CreateAppointmentRequest request);
 }

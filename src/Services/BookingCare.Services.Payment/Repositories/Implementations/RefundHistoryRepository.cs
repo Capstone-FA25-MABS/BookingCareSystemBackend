@@ -102,6 +102,18 @@ public class RefundHistoryRepository : IRefundHistoryRepository
     }
 
     /// <summary>
+    /// Get list of refund histories by user ID and specific status (optimized for update - no includes)
+    /// Only loads RefundHistory entities without related data for performance
+    /// </summary>
+    public async Task<IEnumerable<RefundHistoryEntity>> GetByUserIdAndStatusForUpdateAsync(Guid userId, RefundStatus status)
+    {
+        return await _context.RefundHistories
+            .Where(r => r.UserId == userId && r.Status == status)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Get list of refund histories with pagination and filter
     /// </summary>
     public async Task<PagedResult<RefundHistoryEntity>> GetPagedAsync(GetRefundHistoriesRequest request)
@@ -237,5 +249,25 @@ public class RefundHistoryRepository : IRefundHistoryRepository
             .Where(r => _context.BankAccounts.Any(b => b.UserId == r.UserId && b.IsActive))
             .OrderBy(r => r.CreatedAt)
             .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get status counts for a hospital using GROUP BY for efficiency
+    /// </summary>
+    public async Task<Dictionary<RefundStatus, int>> GetStatusCountsByHospitalAsync(Guid? hospitalId)
+    {
+        var query = _context.RefundHistories.AsQueryable();
+
+        if (hospitalId.HasValue)
+        {
+            query = query.Where(r => r.HospitalId == hospitalId.Value);
+        }
+
+        var statusCounts = await query
+            .GroupBy(r => r.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Status, x => x.Count);
+
+        return statusCounts;
     }
 }

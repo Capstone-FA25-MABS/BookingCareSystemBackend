@@ -3,7 +3,6 @@ using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Enums;
-using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Payment.Mappings;
 

@@ -4,7 +4,7 @@ using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Repositories.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Shared.Common.Models;
-using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Payment.Enums;
 
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 

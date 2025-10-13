@@ -6,6 +6,8 @@ using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital;
 using BookingCare.Services.User.Protos;
@@ -20,6 +22,7 @@ public class AppointmentService : BaseService, IAppointmentService
 {
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
+    private readonly IEventBus _eventBus;
     private readonly DoctorService.DoctorServiceClient _doctorGrpcClient;
     private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
     private readonly UserService.UserServiceClient _userGrpcClient;
@@ -28,6 +31,7 @@ public class AppointmentService : BaseService, IAppointmentService
     public AppointmentService(
         IAppointmentRepository appointmentRepository,
         IMapper mapper,
+        IEventBus eventBus,
         DoctorService.DoctorServiceClient doctorGrpcClient,
         HospitalService.HospitalServiceClient hospitalGrpcClient,
         UserService.UserServiceClient userGrpcClient,
@@ -36,6 +40,7 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         _appointmentRepository = appointmentRepository;
         _mapper = mapper;
+        _eventBus = eventBus;
         _doctorGrpcClient = doctorGrpcClient;
         _hospitalGrpcClient = hospitalGrpcClient;
         _userGrpcClient = userGrpcClient;
@@ -137,7 +142,7 @@ public class AppointmentService : BaseService, IAppointmentService
             // Include status counts if requested
             if (query.IncludeStatusCounts && query.PatientId.HasValue)
             {
-                response.StatusCounts = await GetStatusCountsAsync(query.PatientId.Value, Role.PATIENT);
+                response.StatusCounts = await GetStatusCountsAsync(query.PatientId.Value, Role.PATIENT, null);
                 LogInfo("Included status counts for patient {PatientId}", null, query.PatientId.Value);
             }
 
@@ -174,6 +179,13 @@ public class AppointmentService : BaseService, IAppointmentService
                 PageNumber = query.PageNumber,
                 PageSize = query.PageSize
             };
+
+            // Include status counts if requested - use role-based logic
+            if (query.IncludeStatusCounts)
+            {
+                response.StatusCounts = await GetRoleBasedStatusCountsAsync(query, managementRole);
+                LogInfo("Included status counts for management role {Role}", null, managementRole);
+            }
 
             LogInfo("Retrieved {Count} appointments out of {TotalCount} for management role {Role}",
                 null, appointments.Count, totalCount, managementRole);
@@ -295,6 +307,78 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         await FetchAndMapPatientInfoAsync(responses, entities, "staff view");
         await FetchAndMapDoctorInfoAsync(responses, entities, "staff view");
+    }
+
+    #endregion
+
+    #region Cancel Operations
+
+    public async Task<bool> CancelAppointmentAsync(CancelAppointmentRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Cancelling appointment {AppointmentId}", null, request.AppointmentId);
+
+            // Get existing appointment - Single DB query
+            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
+            if (appointment == null)
+            {
+                throw new AppointmentNotFoundException(request.AppointmentId);
+            }
+
+            // Validate current status - can only cancel PENDING or CONFIRMED appointments
+            if (appointment.Status != AppointmentStatus.PENDING &&
+                appointment.Status != AppointmentStatus.CONFIRMED)
+            {
+                throw new AppointmentException(
+                    $"Cannot cancel appointment with status {appointment.Status}. Only PENDING or CONFIRMED appointments can be cancelled.");
+            }
+
+            // Validate 24-hour rule - appointment must be at least 24 hours away
+            var appointmentDateTime = appointment.AppointmentDate;
+            var now = DateTime.UtcNow;
+            var hoursUntilAppointment = (appointmentDateTime - now).TotalHours;
+
+            if (hoursUntilAppointment < 24)
+            {
+                throw new AppointmentException(
+                    $"Cannot cancel appointment less than 24 hours before the appointment time. " +
+                    $"Appointment is scheduled for {appointmentDateTime:yyyy-MM-dd HH:mm} UTC " +
+                    $"({hoursUntilAppointment:F1} hours from now).");
+            }
+
+            // Cancel appointment - Pass entity directly to avoid second DB query
+            // Repository will handle status update, reason storage, and UpdatedAt timestamp
+            var cancelled = await _appointmentRepository.CancelAppointmentAsync(
+                appointment,
+                request.CancellationReason);
+
+            if (!cancelled)
+            {
+                throw new AppointmentException("Failed to cancel appointment");
+            }
+
+            // Publish integration event for downstream services (Payment & Notification)
+            var cancelledEvent = new AppointmentCancelledIntegrationEvent
+            {
+                AppointmentId = appointment.Id,
+                PatientId = appointment.PatientId,
+                DoctorId = appointment.DoctorId,
+                HospitalId = appointment.HospitalId,
+                AppointmentDate = appointment.AppointmentDate,
+                AppointmentType = (int)appointment.AppointmentType, // Convert enum to int to avoid coupling
+                CancellationReason = request.CancellationReason,
+                CancelledByStaffId = request.CancelledByStaffId,
+                CancelledAt = DateTime.UtcNow
+            };
+
+            await _eventBus.PublishAsync(cancelledEvent);
+
+            LogInfo("Successfully cancelled appointment {AppointmentId} and published event",
+                null, request.AppointmentId);
+
+            return true;
+        }, "CancelAppointment");
     }
 
     #endregion
@@ -516,19 +600,86 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// Get counts for all statuses for a specific user (patient or doctor/staff)
-    /// Uses optimized repository method with single DB query
+    /// Get role-based status counts from query parameters
+    /// Determines the appropriate userId and hospitalId based on management role
     /// </summary>
-    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(Guid userId, Role role)
+    private async Task<AppointmentStatusCounts> GetRoleBasedStatusCountsAsync(AppointmentQueryRequest query, Role managementRole)
+    {
+        switch (managementRole)
+        {
+            case Role.DOCTOR:
+                // Doctor: count by DoctorId from query
+                if (query.DoctorId.HasValue)
+                {
+                    return await GetStatusCountsAsync(query.DoctorId.Value, Role.DOCTOR, null);
+                }
+                LogWarning("Doctor role but no DoctorId provided in query for status counts", null);
+                return new AppointmentStatusCounts();
+
+            case Role.STAFF:
+                // Staff: count by HospitalId from query
+                if (query.HospitalId.HasValue)
+                {
+                    return await GetStatusCountsAsync(null, Role.STAFF, query.HospitalId.Value);
+                }
+                LogWarning("Staff role but no HospitalId provided in query for status counts", null);
+                return new AppointmentStatusCounts();
+
+            case Role.ADMIN:
+                // Admin: count all appointments
+                return await GetStatusCountsAsync(null, Role.ADMIN, null);
+
+            default:
+                LogWarning("Unknown management role {Role} for status counts", null, managementRole);
+                return new AppointmentStatusCounts();
+        }
+    }
+
+    /// <summary>
+    /// Get counts for all statuses for a specific user or organization
+    /// Uses optimized repository method with single DB query
+    /// Supports Patient, Doctor, Staff (by Hospital), and Admin (all) roles
+    /// </summary>
+    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(Guid? userId, Role role, Guid? hospitalId = null)
     {
         try
         {
-            // Determine user type based on role
-            Guid? patientId = role == Role.PATIENT ? userId : null;
-            Guid? doctorId = role == Role.DOCTOR ? userId : null;
+            // Determine parameters based on role
+            Guid? patientId = null;
+            Guid? doctorId = null;
+            Guid? staffHospitalId = null;
+            bool countAll = false;
+
+            switch (role)
+            {
+                case Role.PATIENT:
+                    patientId = userId;
+                    LogInfo("Getting status counts for Patient {PatientId}", null, patientId!);
+                    break;
+
+                case Role.DOCTOR:
+                    doctorId = userId;
+                    LogInfo("Getting status counts for Doctor {DoctorId}", null, doctorId!);
+                    break;
+
+                case Role.STAFF:
+                    staffHospitalId = hospitalId;
+                    LogInfo("Getting status counts for Staff in Hospital {HospitalId}", null, staffHospitalId!);
+                    break;
+
+                case Role.ADMIN:
+                    countAll = true;
+                    LogInfo("Getting status counts for Admin (all appointments)", null);
+                    break;
+
+                default:
+                    LogWarning("Unknown role {Role} for status counts", null, role);
+                    return new AppointmentStatusCounts();
+            }
 
             // Get counts using optimized repository method (single query with GROUP BY)
-            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(patientId, doctorId);
+            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(
+                patientId, doctorId, staffHospitalId, countAll);
 
             var counts = new AppointmentStatusCounts
             {
@@ -540,14 +691,14 @@ public class AppointmentService : BaseService, IAppointmentService
 
             counts.Total = counts.Pending + counts.Confirmed + counts.Cancelled + counts.Completed;
 
-            LogInfo("Retrieved status counts for user {UserId}: Total={Total}, Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
-                null, userId, counts.Total, counts.Pending, counts.Confirmed, counts.Cancelled, counts.Completed);
+            LogInfo("Retrieved status counts for role {Role}: Total={Total}, Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
+                null, role, counts.Total, counts.Pending, counts.Confirmed, counts.Cancelled, counts.Completed);
 
             return counts;
         }
         catch (Exception ex)
         {
-            LogError(ex, "Failed to get status counts for user {UserId}: {Error}", null, userId, ex.Message);
+            LogError(ex, "Failed to get status counts for role {Role}: {Error}", null, role, ex.Message);
             // Return empty counts on error
             return new AppointmentStatusCounts();
         }

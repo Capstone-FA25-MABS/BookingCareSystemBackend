@@ -32,6 +32,15 @@ public class DeviceStore
         await _repository.UpdateLastUsedAsync(id);
     }
 
+    /// <summary>
+    /// Get first active device for SMS sending
+    /// </summary>
+    public async Task<Device?> GetFirstActiveDeviceAsync()
+    {
+        var devices = await GetAllAsync();
+        return devices.FirstOrDefault();
+    }
+
     // Legacy sync methods for backward compatibility
     public IReadOnlyList<Device> All => GetAllAsync().Result.ToList().AsReadOnly();
 

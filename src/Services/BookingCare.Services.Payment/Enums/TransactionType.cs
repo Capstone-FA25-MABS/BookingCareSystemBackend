@@ -1,4 +1,4 @@
-namespace BookingCare.Shared.Common.Enums;
+namespace BookingCare.Services.Payment.Enums;
 
 /// <summary>
 /// Represents the type of transaction in the BookingCare system.

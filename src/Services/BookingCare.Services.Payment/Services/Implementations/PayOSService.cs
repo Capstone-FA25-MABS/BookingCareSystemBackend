@@ -1,5 +1,4 @@
 ﻿using System.Security.Cryptography;
-using System.Text;
 using Microsoft.Extensions.Options;
 using Net.payOS;
 using Net.payOS.Types;
@@ -7,7 +6,7 @@ using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.PayOS;
 using BookingCare.Services.Payment.Models.Configurations;
 using BookingCare.Services.Payment.Repositories.Interfaces;
-using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Payment.Enums;
 using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Payment.Services.Implementations;

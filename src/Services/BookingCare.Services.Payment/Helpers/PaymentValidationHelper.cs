@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
-using BookingCare.Shared.Common.Enums;
-using BookingCare.Shared.Common.Controllers;
+using BookingCare.Services.Payment.Enums;
 
 namespace BookingCare.Services.Payment.Helpers;
 

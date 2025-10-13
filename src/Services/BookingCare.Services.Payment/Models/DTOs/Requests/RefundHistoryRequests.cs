@@ -132,4 +132,34 @@ public class GetRefundHistoriesRequest
     /// </summary>
     [Range(1, 100, ErrorMessage = "PageSize must be between 1 and 100")]
     public int PageSize { get; set; } = 20;
+
+    /// <summary>
+    /// Include status counts in response (for all statuses)
+    /// </summary>
+    public bool IncludeStatusCounts { get; set; } = false;
+}
+
+/// <summary>
+/// Request to mark refund as transferred (completed)
+/// </summary>
+public class MarkAsTransferredRequest
+{
+    /// <summary>
+    /// Staff notes about the transfer
+    /// </summary>
+    [MaxLength(500, ErrorMessage = "Staff notes must not exceed 500 characters")]
+    public string? StaffNotes { get; set; }
+}
+
+/// <summary>
+/// Request to report bank account issue
+/// </summary>
+public class ReportBankIssueRequest
+{
+    /// <summary>
+    /// Description of the bank account issue
+    /// </summary>
+    [Required(ErrorMessage = "Issue description is required")]
+    [MaxLength(1000, ErrorMessage = "Issue description must not exceed 1000 characters")]
+    public required string IssueDescription { get; set; }
 }
