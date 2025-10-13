@@ -32,15 +32,10 @@ public class HospitalDbContext : DbContext
             entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
             entity.HasIndex(e => e.Email).IsUnique();
             entity.Property(e => e.Description).IsRequired();
-            entity.Property(e => e.Status)
-                  .IsRequired()
-                  .HasConversion<string>()
-                  .HasDefaultValue(Status.ACTIVE);
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
 
-            // Check constraints
-            entity.ToTable(t => t.HasCheckConstraint("CK_hospitals_status", "status IN ('ACTIVE', 'INACTIVE')"));
+            // Note: Status is now managed by Auth service, not stored in hospital table
         });
 
         // Configure SubscriptionPlan entity
@@ -54,16 +49,12 @@ public class HospitalDbContext : DbContext
             entity.Property(e => e.BillingCycle).HasMaxLength(20).HasDefaultValue("MONTHLY");
             entity.Property(e => e.MaxDoctors).HasDefaultValue(0);
             entity.Property(e => e.MaxSpecialties).HasDefaultValue(0);
-            entity.Property(e => e.Status)
-                  .IsRequired()
-                  .HasConversion<string>()
-                  .HasDefaultValue(Status.ACTIVE);
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
 
             // Check constraints
             entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_billing_cycle", "billing_cycle IN ('MONTHLY', 'QUARTERLY', 'YEARLY')"));
-            entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_status", "status IN ('ACTIVE', 'INACTIVE')"));
+            // Note: Status is now managed by Auth service, not stored in subscription plan table
         });
 
         // Configure HospitalSubscription entity
@@ -73,10 +64,6 @@ public class HospitalDbContext : DbContext
             entity.Property(e => e.HospitalSubscriptionId).ValueGeneratedOnAdd();
             entity.Property(e => e.StartDate).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.EndDate).IsRequired().HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.Status)
-                  .IsRequired()
-                  .HasConversion<string>()
-                  .HasDefaultValue(SubscriptionStatus.ACTIVE);
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
 

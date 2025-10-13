@@ -133,5 +133,19 @@ public class LanguageRepository : ILanguageRepository
         return _context.Languages.AsQueryable();
     }
 
+    public async Task<List<LanguageEntity>> GetActiveLanguagesSimpleAsync()
+    {
+        return await _context.Languages
+            .Where(l => l.Status == Status.ACTIVE)
+            .Select(l => new LanguageEntity
+            {
+                Id = l.Id,
+                Name = l.Name,
+                Status = l.Status
+            })
+            .OrderBy(l => l.Name)
+            .ToListAsync();
+    }
+
     #endregion
 }

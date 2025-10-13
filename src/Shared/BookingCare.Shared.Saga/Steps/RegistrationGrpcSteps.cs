@@ -262,7 +262,7 @@ public class CreateDoctorProfileGrpcStep : BaseGrpcStep
             var avatarUrl = context.GetData<string>("AvatarUrl");
             var specialtyId = context.GetData<string>("SpecialtyId");
             var positionId = context.GetData<string>("PositionId");
-            var hospitalId = context.GetData<string>("ClinicId"); // ClinicId from context maps to HospitalId in proto
+            var hospitalId = context.GetData<string>("HospitalId"); // HospitalId from context maps to HospitalId in proto
 
             // Parse full name into first and last name
             var nameParts = fullName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];

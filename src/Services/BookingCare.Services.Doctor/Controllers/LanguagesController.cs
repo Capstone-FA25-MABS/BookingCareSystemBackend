@@ -88,14 +88,14 @@ public class LanguagesController : BaseApiController
     }
 
     /// <summary>
-    /// Get all languages (no pagination)
+    /// Get all languages (no pagination) - Optimized for performance
     /// </summary>
     [HttpGet("all")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAllLanguages()
     {
-        var languages = await _languageService.GetAllLanguagesAsync();
-        return Success<List<LanguageResponse>>(languages, "All languages retrieved successfully");
+        var languages = await _languageService.GetActiveLanguagesSimpleAsync();
+        return Success<List<LanguageSimpleResponse>>(languages, "All active languages retrieved successfully");
     }
 
     /// <summary>

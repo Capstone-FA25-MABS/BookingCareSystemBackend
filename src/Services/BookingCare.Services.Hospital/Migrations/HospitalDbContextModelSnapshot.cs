@@ -57,6 +57,11 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
+                    b.Property<string>("DistrictId")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("district_id");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -74,12 +79,10 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("phone");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("ACTIVE")
-                        .HasColumnName("status");
+                    b.Property<string>("ProvinceId")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("province_id");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -92,10 +95,7 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("hospitals", t =>
-                        {
-                            t.HasCheckConstraint("CK_hospitals_status", "status IN ('ACTIVE', 'INACTIVE')");
-                        });
+                    b.ToTable("hospitals");
                 });
 
             modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.HospitalImageEntity", b =>

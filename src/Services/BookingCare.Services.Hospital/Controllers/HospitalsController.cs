@@ -1,14 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
+using BookingCare.Services.Hospital.Models.DTOs.Responses;
 using BookingCare.Services.Hospital.Exceptions;
+using BookingCare.Shared.Common.Helpers;
+using BookingCare.Shared.Common.Controllers;
 
 namespace BookingCare.Services.Hospital.Controllers;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Route("api/[controller]")]
-public class HospitalsController : ControllerBase
+public class HospitalsController : BaseApiController
 {
     private readonly IHospitalService _hospitalService;
     private readonly ILogger<HospitalsController> _logger;
@@ -33,6 +36,24 @@ public class HospitalsController : ControllerBase
         {
             var result = await _hospitalService.GetFilteredAsync(filter);
             return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving hospitals");
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
+    /// <summary>
+    /// Get all hospitals (no pagination) - Optimized for performance
+    /// </summary>
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAllHospitalsSimple()
+    {
+        try
+        {
+            var hospitals = await _hospitalService.GetActiveHospitalsSimpleAsync();
+            return Success<List<HospitalSimpleResponse>>(hospitals, "All active hospitals retrieved successfully");
         }
         catch (Exception ex)
         {
@@ -79,19 +100,24 @@ public class HospitalsController : ControllerBase
         }
     }
 
-    [HttpGet("account/{accountId}")]
-    public async Task<IActionResult> GetHospitalsByAccountId(Guid accountId)
+    [HttpGet("account")]
+    public async Task<IActionResult> GetHospitalsByAccountId()
     {
         try
         {
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
             var hospitals = await _hospitalService.GetByAccountIdAsync(accountId);
-            return Ok(hospitals);
+            if (hospitals == null)
+            {
+                return NotFound("Hospital profile not found");
+            }
+            return Success(hospitals, "Hospital retrieved successfully");
         }
-        catch (Exception ex)
+        catch (UnauthorizedAccessException ex)
         {
-            _logger.LogError(ex, "Error retrieving hospitals for account {AccountId}", accountId);
-            return StatusCode(500, new { Message = "Internal server error" });
+            return Unauthorized(ex.Message);
         }
+
     }
 
     [HttpGet("specialty/{specialtyId}")]

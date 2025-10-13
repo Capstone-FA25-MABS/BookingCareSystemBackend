@@ -34,7 +34,6 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             Description = hospital.Description,
             BackgroundUrl = hospital.BackgroundUrl,
             AvatarUrl = hospital.AvatarUrl,
-            Status = hospital.Status,
             CreatedAt = hospital.CreatedAt,
             UpdatedAt = hospital.UpdatedAt
         };
@@ -55,7 +54,6 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             Description = hospital.Description,
             BackgroundUrl = hospital.BackgroundUrl,
             AvatarUrl = hospital.AvatarUrl,
-            Status = hospital.Status,
             CreatedAt = hospital.CreatedAt,
             UpdatedAt = hospital.UpdatedAt
         };
@@ -76,7 +74,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             Description = dto.Description,
             BackgroundUrl = dto.BackgroundUrl ?? "",
             AvatarUrl = dto.AvatarUrl ?? "",
-            Status = dto.Status.ToString(),
+            Status = "ACTIVE", // Status is now managed by Auth service
             CreatedAt = dto.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
             UpdatedAt = dto.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         };
@@ -95,7 +93,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             Description = hospital.Description,
             BackgroundUrl = hospital.BackgroundUrl ?? "",
             AvatarUrl = hospital.AvatarUrl ?? "",
-            Status = hospital.Status.ToString(),
+            Status = "ACTIVE", // Status is now managed by Auth service
             CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
             UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         };
@@ -169,11 +167,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
                 PageSize = request.PageSize > 0 ? request.PageSize : 50
             };
 
-            // Apply status filter if provided
-            if (!string.IsNullOrEmpty(request.Status) && Enum.TryParse<CommonStatus>(request.Status, true, out var status))
-            {
-                filter.Status = status;
-            }
+            // Note: Status filtering is now handled by Auth service, not in database query
 
             var hospitalsResponse = await _hospitalService.GetFilteredAsync(filter);
             var reply = new HospitalBasicListReply

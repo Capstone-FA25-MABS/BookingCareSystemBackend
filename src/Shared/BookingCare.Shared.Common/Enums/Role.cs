@@ -16,9 +16,14 @@ public enum Role
     DOCTOR,
 
     /// <summary>
-    /// Clinic role
+    /// Hospital staff role
     /// </summary>
-    CLINIC
+    STAFF,
+
+    /// <summary>
+    /// Admin role
+    /// </summary>
+    ADMIN
 }
 
 

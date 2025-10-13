@@ -183,7 +183,7 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     private async Task<RoleEntity> GetAndValidateRoleAsync(Role role)
     {
-        var targetRoleName = role switch { Role.DOCTOR => "Doctor", Role.CLINIC => "Clinic", _ => "Patient" };
+        var targetRoleName = role switch { Role.DOCTOR => "Doctor", Role.STAFF => "Staff", _ => "Patient" };
         var targetRole = await _authRepository.GetRoleByNameAsync(targetRoleName);
         if (targetRole == null)
         {

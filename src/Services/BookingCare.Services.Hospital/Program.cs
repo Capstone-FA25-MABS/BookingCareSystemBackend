@@ -8,6 +8,7 @@ using BookingCare.Services.Hospital.Mappings;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Services.Auth.Protos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,7 +38,9 @@ builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionSer
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
-
+// Add JWT Authentication and Authorization using centralized configuration
+// This includes: JWT auth, authorization, and frontend configuration
+builder.Services.AddJwtAuthAndAuthorization();
 // Add logging
 builder.Logging.AddCommonLogging();
 
@@ -47,15 +50,20 @@ builder.Services.AddApiVersioningSupport();
 // Add gRPC
 builder.Services.AddGrpc();
 
+// gRPC clients
+var authAddress = builder.Configuration.GetSection("GrpcClients:Auth:Address").Value ?? "http://localhost:6103";
+builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
+{
+    options.Address = new Uri(authAddress);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 app.UseCommonSwaggerUI("Hospital");
 
 app.UseGlobalExceptionHandling();
-
-// Configure routing
-app.UseRouting();
+app.UseStandardAuthPipeline();
 
 // Map controllers for REST API
 app.MapControllers();

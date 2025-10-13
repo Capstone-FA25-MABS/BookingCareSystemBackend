@@ -173,6 +173,7 @@ public class DataInitializationService
         {
             new() { Name = "Patient", Description = "Regular patient with basic permissions" },
             new() { Name = "Doctor", Description = "Doctor with medical management permissions" },
+            new() { Name = "Staff", Description = "Hospital/clinic staff with administrative support permissions" },
             new() { Name = "Admin", Description = "Administrator with full system permissions" }
         };
 
@@ -215,31 +216,40 @@ public class DataInitializationService
             // Get roles
             var patientRole = await _authRepository.GetRoleByNameAsync("Patient");
             var doctorRole = await _authRepository.GetRoleByNameAsync("Doctor");
+            var staffRole = await _authRepository.GetRoleByNameAsync("Staff");
             var adminRole = await _authRepository.GetRoleByNameAsync("Admin");
 
-            if (patientRole == null || doctorRole == null || adminRole == null)
+            if (patientRole == null || doctorRole == null || staffRole == null || adminRole == null)
             {
                 _logger.LogWarning("One or more default roles not found. Skipping permission assignment.");
                 return;
             }
 
             // Patient role permissions: Basic read permissions
-            var patientPermissions = new[] { "Patient.Read", "Content.Read" };
+            var patientPermissions = new[] { PermissionConstants.PatientRead, PermissionConstants.ContentRead };
             await AssignPermissionsToRoleAsync(patientRole.Id, patientPermissions, "Patient");
 
             // Doctor role permissions: Medical management + patient read
             var doctorPermissions = new[] {
-                "Patient.Read", "Content.Read", "Content.Create", "Content.Update",
-                "Content.Delete", "Content.Moderate"
+                PermissionConstants.PatientRead, PermissionConstants.ContentRead, PermissionConstants.ContentCreate,
+                PermissionConstants.ContentUpdate, PermissionConstants.ContentDelete, PermissionConstants.ContentModerate
             };
             await AssignPermissionsToRoleAsync(doctorRole.Id, doctorPermissions, "Doctor");
 
+            // Staff role permissions: Administrative support (create/update but not delete)
+            var staffPermissions = new[] {
+                PermissionConstants.PatientRead, PermissionConstants.PatientCreate, PermissionConstants.PatientUpdate,
+                PermissionConstants.ContentRead, PermissionConstants.ContentCreate, PermissionConstants.ContentUpdate,
+                PermissionConstants.RoleRead
+            };
+            await AssignPermissionsToRoleAsync(staffRole.Id, staffPermissions, "Staff");
+
             // Admin role permissions: Everything
             var adminPermissions = new[] {
-                "Patient.Read", "Patient.Create", "Patient.Update", "Patient.Delete",
-                "Role.Read", "Role.Create", "Role.Update", "Role.Delete", "Role.Assign",
-                "Permission.Read", "Permission.Create", "Permission.Update", "Permission.Delete", "Permission.Assign",
-                "Content.Read", "Content.Create", "Content.Update", "Content.Delete", "Content.Moderate"
+                PermissionConstants.PatientRead, PermissionConstants.PatientCreate, PermissionConstants.PatientUpdate, PermissionConstants.PatientDelete,
+                PermissionConstants.RoleRead, PermissionConstants.RoleCreate, PermissionConstants.RoleUpdate, PermissionConstants.RoleDelete, PermissionConstants.RoleAssign,
+                PermissionConstants.PermissionRead, PermissionConstants.PermissionCreate, PermissionConstants.PermissionUpdate, PermissionConstants.PermissionDelete, PermissionConstants.PermissionAssign,
+                PermissionConstants.ContentRead, PermissionConstants.ContentCreate, PermissionConstants.ContentUpdate, PermissionConstants.ContentDelete, PermissionConstants.ContentModerate
             };
             await AssignPermissionsToRoleAsync(adminRole.Id, adminPermissions, "Admin");
         }

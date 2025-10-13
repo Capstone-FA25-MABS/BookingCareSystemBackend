@@ -18,4 +18,7 @@ public interface IServiceTypeRepository
     Task<(List<ServiceTypeEntity> ServiceTypes, int TotalCount)> GetServiceTypesAsync(ServiceTypeQueryRequest query);
     Task<List<ServiceTypeEntity>> GetAllServiceTypesAsync();
     IQueryable<ServiceTypeEntity> GetQueryableServiceTypes();
+
+    // Optimized methods for simple responses
+    Task<List<ServiceTypeEntity>> GetActiveServiceTypesSimpleAsync();
 }

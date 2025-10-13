@@ -30,7 +30,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
                 throw new RpcException(new Status(StatusCode.NotFound, $"Doctor with ID {id} not found"));
             }
 
-            return MapToGrpcDoctorResponse(doctor);
+            return MapToGrpcDoctorResponseFromById(doctor);
         }
         catch (RpcException)
         {
@@ -304,6 +304,30 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             CreatedAt = d.CreatedAt.ToString("O"),
             UpdatedAt = d.UpdatedAt.ToString("O"),
             Status = d.Status.ToString()
+        };
+    }
+
+    private static Protos.DoctorResponse MapToGrpcDoctorResponseFromById(DoctorByIdResponse d)
+    {
+        return new Protos.DoctorResponse
+        {
+            Id = d.Id.ToString(),
+            AccountId = string.Empty, // Not available in DoctorByIdResponse
+            Email = d.Email,
+            FirstName = d.FirstName,
+            LastName = d.LastName,
+            FullName = $"{d.FirstName} {d.LastName}".Trim(),
+            Gender = d.Gender?.ToString() ?? string.Empty,
+            Address = d.Address ?? string.Empty,
+            SpecialtyId = d.Specialty?.Id.ToString() ?? string.Empty,
+            PositionId = d.Position?.Id.ToString() ?? string.Empty,
+            HospitalId = d.Hospital?.Id.ToString() ?? string.Empty,
+            Bio = d.Bio ?? string.Empty,
+            YearsOfExperience = d.YearsOfExperience,
+            AvatarUrl = d.AvatarUrl,
+            CreatedAt = string.Empty, // Not available in DoctorByIdResponse
+            UpdatedAt = string.Empty, // Not available in DoctorByIdResponse
+            Status = string.Empty // Not available in DoctorByIdResponse
         };
     }
 }

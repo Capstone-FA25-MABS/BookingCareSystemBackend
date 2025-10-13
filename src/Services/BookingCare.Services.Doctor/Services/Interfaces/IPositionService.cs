@@ -17,6 +17,9 @@ public interface IPositionService
     Task<PositionListResponse> GetPositionsAsync(PositionQueryRequest query);
     Task<List<PositionResponse>> GetAllPositionsAsync();
 
+    // Optimized methods for simple responses
+    Task<List<PositionSimpleResponse>> GetActivePositionsSimpleAsync();
+
     // Validation operations
     Task<bool> PositionExistsAsync(Guid id);
     Task<bool> PositionNameExistsAsync(string name, Guid? excludeId = null);

@@ -16,6 +16,12 @@ public class HospitalMappingProfile : Profile
             .ForMember(dest => dest.CurrentSubscription, opt => opt.MapFrom(src =>
                 src.HospitalSubscriptions.FirstOrDefault(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)));
 
+        // Hospital Simple Response mapping for performance optimization
+        CreateMap<HospitalEntity, HospitalSimpleResponse>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+            .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.AvatarUrl));
+
         CreateMap<HospitalEntity, HospitalDetailResponse>()
             .ForMember(dest => dest.Specialties, opt => opt.MapFrom(src => src.HospitalSpecialties))
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
