@@ -182,7 +182,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <returns>List of child service categories</returns>
         [HttpGet("{parentId}/children")]
         public async Task<ActionResult<List<ServiceCategoryResponse>>> GetServiceCategoryChildren(
-            Guid parentId, 
+            Guid parentId,
             [FromQuery] bool includeInactive = false)
         {
             try

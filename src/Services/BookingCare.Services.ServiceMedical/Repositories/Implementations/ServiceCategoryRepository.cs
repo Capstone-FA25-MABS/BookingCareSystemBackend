@@ -92,7 +92,7 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                query = query.Where(sc => sc.Name.Contains(searchTerm) || 
+                query = query.Where(sc => sc.Name.Contains(searchTerm) ||
                                          (sc.Description != null && sc.Description.Contains(searchTerm)));
             }
 

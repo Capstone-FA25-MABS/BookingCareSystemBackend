@@ -13,7 +13,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
         /// <param name="hospitalId">Hospital ID</param>
         /// <returns>Hospital information</returns>
         Task<HospitalInfoResponse?> GetHospitalByIdAsync(Guid hospitalId);
-        
+
         /// <summary>
         /// Get multiple hospitals by IDs
         /// </summary>

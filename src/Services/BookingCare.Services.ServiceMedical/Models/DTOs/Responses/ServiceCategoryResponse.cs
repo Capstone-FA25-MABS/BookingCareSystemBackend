@@ -10,7 +10,7 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Responses
         public string? ImageUrl { get; set; }
         public Guid? ParentId { get; set; }
         public string Status { get; set; } = "INACTIVE";
-        
+
         // Navigation properties
         [JsonIgnore]
         public ServiceCategoryResponse? Parent { get; set; }

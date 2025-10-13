@@ -24,13 +24,13 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                var hospitalServiceUrl = _configuration["HospitalService:BaseUrl"] ?? "http://localhost:6002";
+                var hospitalServiceUrl = _configuration["HospitalService:BaseUrl"] ?? "**********";
                 var endpoint = $"{hospitalServiceUrl}/api/Hospitals/{hospitalId}";
-                
+
                 _logger.LogInformation("Calling Hospital Service: {Endpoint}", endpoint);
-                
+
                 var response = await _httpClient.GetAsync(endpoint);
-                
+
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
@@ -38,7 +38,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     {
                         PropertyNameCaseInsensitive = true
                     });
-                    
+
                     _logger.LogInformation("Successfully retrieved hospital {HospitalId}", hospitalId);
                     return hospital;
                 }
@@ -59,17 +59,17 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                var hospitalServiceUrl = _configuration["HospitalService:BaseUrl"] ?? "http://localhost:6002";
+                var hospitalServiceUrl = _configuration["HospitalService:BaseUrl"] ?? "***********";
                 var endpoint = $"{hospitalServiceUrl}/api/Hospitals/batch";
-                
+
                 _logger.LogInformation("Calling Hospital Service batch endpoint: {Endpoint}", endpoint);
-                
+
                 var requestBody = new { ids = hospitalIds };
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-                
+
                 var response = await _httpClient.PostAsync(endpoint, content);
-                
+
                 if (response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
@@ -77,7 +77,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     {
                         PropertyNameCaseInsensitive = true
                     });
-                    
+
                     _logger.LogInformation("Successfully retrieved {Count} hospitals", hospitals?.Count ?? 0);
                     return hospitals ?? new List<HospitalInfoResponse>();
                 }

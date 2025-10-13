@@ -25,7 +25,7 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Interfaces
 
         // Business Operations
         Task<List<ServiceCategoryEntity>> GetCategoryHierarchyAsync(Guid categoryId);
-        
+
         // Queryable for complex queries
         IQueryable<ServiceCategoryEntity> GetQueryable();
     }

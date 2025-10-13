@@ -11,7 +11,7 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Responses
         public Guid? ServiceCategoryId { get; set; }
         public int DurationTime { get; set; }
         public string Status { get; set; } = "INACTIVE";
-        
+
         // Navigation properties
         public ServiceCategoryResponse? ServiceCategory { get; set; }
     }

@@ -1,4 +1,5 @@
 using BookingCare.Services.ServiceMedical.Models.Entities;
+using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 
 namespace BookingCare.Services.ServiceMedical.Repositories.Interfaces
 {
@@ -15,14 +16,12 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Interfaces
         Task<List<ServiceEntity>> GetActiveServicesAsync();
         Task<List<ServiceEntity>> GetServicesByCategoryAsync(Guid categoryId);
         Task<List<ServiceEntity>> GetServicesByHospitalAsync(Guid hospitalId);
-        Task<(List<ServiceEntity> Services, int TotalCount)> GetPagedAsync(
-            int page, int pageSize, string? searchTerm = null, string? status = null, 
-            Guid? hospitalId = null, Guid? categoryId = null, decimal? minPrice = null, decimal? maxPrice = null);
+        Task<(List<ServiceEntity> Services, int TotalCount)> GetPagedAsync(ServiceQueryRequest request);
 
         // Business Operations
         Task<List<Guid>> GetHospitalIdsByCategoryAsync(Guid categoryId);
         Task<List<ServiceEntity>> GetServicesWithCategoryAsync();
-        
+
         // Validation Operations
         Task<bool> ExistsAsync(Guid id);
         Task<bool> ServiceExistsForHospitalAsync(Guid serviceId, Guid hospitalId);

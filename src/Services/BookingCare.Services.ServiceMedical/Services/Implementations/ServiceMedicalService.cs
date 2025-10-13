@@ -47,7 +47,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
                 var entity = _mapper.Map<ServiceCategoryEntity>(request);
                 var createdEntity = await _categoryRepository.CreateAsync(entity);
-                
+
                 return _mapper.Map<ServiceCategoryResponse>(createdEntity);
             }
             catch (Exception ex)
@@ -93,7 +93,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
                 _mapper.Map(request, existingEntity);
                 var updatedEntity = await _categoryRepository.UpdateAsync(existingEntity);
-                
+
                 return _mapper.Map<ServiceCategoryResponse>(updatedEntity);
             }
             catch (Exception ex)
@@ -224,7 +224,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
                 var entity = _mapper.Map<ServiceEntity>(request);
                 var createdEntity = await _serviceRepository.CreateAsync(entity);
-                
+
                 // Load related data for response
                 var fullEntity = await _serviceRepository.GetByIdAsync(createdEntity.Id);
                 return _mapper.Map<ServiceResponse>(fullEntity);
@@ -272,7 +272,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
                 _mapper.Map(request, existingEntity);
                 var updatedEntity = await _serviceRepository.UpdateAsync(existingEntity);
-                
+
                 // Load related data for response
                 var fullEntity = await _serviceRepository.GetByIdAsync(updatedEntity.Id);
                 return _mapper.Map<ServiceResponse>(fullEntity);
@@ -302,7 +302,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             try
             {
                 var (services, totalCount) = await _serviceRepository.GetPagedAsync(
-                    query.Page, query.PageSize, query.SearchTerm, query.Status, 
+                    query.Page, query.PageSize, query.SearchTerm, query.Status,
                     query.HospitalId, query.ServiceCategoryId, query.MinPrice, query.MaxPrice);
 
                 var response = new ServiceListResponse
@@ -328,7 +328,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             try
             {
                 var (services, totalCount) = await _serviceRepository.GetPagedAsync(
-                    request.Page, request.PageSize, null, request.IncludeInactive ? null : "ACTIVE", 
+                    request.Page, request.PageSize, null, request.IncludeInactive ? null : "ACTIVE",
                     null, request.ServiceCategoryId);
 
                 var response = new ServiceListResponse
@@ -421,7 +421,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
                 // Get services by category
                 var servicesResult = await GetServicesByCategoryAsync(request);
-                
+
                 // Extract unique hospital IDs from services
                 var hospitalIds = servicesResult.Services
                     .Select(s => s.HospitalId)

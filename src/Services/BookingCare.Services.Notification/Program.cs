@@ -96,4 +96,4 @@ app.UseEventBus(eventBus =>
     eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
 });
 
-app.Run();
+await app.RunAsync();

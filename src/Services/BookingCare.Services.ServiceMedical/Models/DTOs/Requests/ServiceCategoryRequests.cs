@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
 {
@@ -16,6 +17,7 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
     public class UpdateServiceCategoryRequest
     {
         [Required]
+        [JsonRequired]
         public Guid Id { get; set; }
 
         [Required]

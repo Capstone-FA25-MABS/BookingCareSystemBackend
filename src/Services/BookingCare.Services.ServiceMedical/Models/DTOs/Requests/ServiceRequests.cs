@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
 {
@@ -20,6 +21,7 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
         public string? ImageUrl { get; set; }
 
         [Required]
+        [JsonRequired]
         public Guid HospitalId { get; set; }
 
         public Guid? ServiceCategoryId { get; set; }
@@ -37,8 +39,9 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
     public class UpdateServiceRequest : BaseServiceRequest
     {
         [Required]
+        [JsonRequired]
         public Guid Id { get; set; }
-        
+
         public string Status { get; set; } = "INACTIVE";
     }
 

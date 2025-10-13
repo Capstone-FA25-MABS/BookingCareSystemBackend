@@ -16,10 +16,10 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Responses
         public Guid? ServiceCategoryId { get; set; }
         public int DurationTime { get; set; }
         public string Status { get; set; } = string.Empty;
-        
+
         // Service Category Information
         public ServiceCategoryResponse? ServiceCategory { get; set; }
-        
+
         // Hospital Information
         public HospitalInfoResponse? Hospital { get; set; }
     }

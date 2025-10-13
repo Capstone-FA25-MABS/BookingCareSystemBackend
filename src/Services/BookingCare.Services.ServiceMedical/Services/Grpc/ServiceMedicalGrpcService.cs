@@ -23,7 +23,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
             try
             {
                 var categories = await _serviceMedicalService.GetParentServiceCategoriesAsync();
-                
+
                 var response = new ServiceCategoriesResponse();
                 foreach (var category in categories)
                 {
@@ -64,7 +64,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 };
 
                 var categories = await _serviceMedicalService.GetServiceCategoryChildrenAsync(requestDto);
-                
+
                 var response = new ServiceCategoriesResponse();
                 foreach (var category in categories)
                 {
@@ -109,7 +109,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 };
 
                 var result = await _serviceMedicalService.GetHospitalsByServiceCategoryAsync(requestDto);
-                
+
                 var response = new HospitalsByServiceCategoryResponse
                 {
                     ServiceCategoryId = result.ServiceCategoryId.ToString(),
@@ -213,7 +213,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 };
 
                 var result = await _serviceMedicalService.GetServicesByCategoryAsync(requestDto);
-                
+
                 var response = new ServicesResponse
                 {
                     TotalCount = result.TotalCount,

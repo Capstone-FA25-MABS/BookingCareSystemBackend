@@ -70,7 +70,7 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "API for managing medical services and service categories"
     });
-    
+
     // Include XML comments if available
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = System.IO.Path.Combine(System.AppContext.BaseDirectory, xmlFile);
