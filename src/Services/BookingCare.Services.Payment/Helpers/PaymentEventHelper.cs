@@ -125,44 +125,4 @@ public static class PaymentEventHelper
         }
     }
 
-    /// <summary>
-    /// Backward compatibility method with original signature
-    /// </summary>
-    /// <param name="payment">Payment that failed</param>
-    /// <param name="responseCode">Payment gateway response code</param>
-    /// <param name="paymentMethod">Payment method (VNPay, PayOS, etc.)</param>
-    /// <param name="requestId">Request ID for tracking</param>
-    /// <param name="appointmentClient">gRPC client for appointment service</param>
-    /// <param name="eventBus">Event bus for publishing events</param>
-    /// <param name="logger">Logger instance</param>
-    /// <param name="responseMessageFunc">Function to convert response code to human readable message</param>
-    [Obsolete("Use PublishAppointmentDeleteEventAsync(AppointmentDeleteEventParams, PaymentEventDependencies) instead. This method will be removed in future versions.")]
-    public static async Task PublishAppointmentDeleteEventAsync(
-        PaymentResponse payment,
-        string responseCode,
-        string paymentMethod,
-        string requestId,
-        AppointmentService.AppointmentServiceClient appointmentClient,
-        IEventBus eventBus,
-        ILogger logger,
-        Func<string, string> responseMessageFunc)
-    {
-        var eventParams = new AppointmentDeleteEventParams
-        {
-            Payment = payment,
-            ResponseCode = responseCode,
-            PaymentMethod = paymentMethod,
-            RequestId = requestId,
-            ResponseMessageFunc = responseMessageFunc
-        };
-
-        var dependencies = new PaymentEventDependencies
-        {
-            AppointmentClient = appointmentClient,
-            EventBus = eventBus,
-            Logger = logger
-        };
-
-        await PublishAppointmentDeleteEventAsync(eventParams, dependencies);
-    }
 }
