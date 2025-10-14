@@ -497,100 +497,68 @@ public class UserActivityEvent : IntegrationEvent
 }
 
 /// <summary>
-/// Event published when a payment is completed successfully
-/// This event is consumed by Appointment Service to update appointment status to CONFIRMED
+/// Event published when an appointment should be deleted due to payment failure
+/// This event is consumed by Appointment Service to remove the appointment
 /// </summary>
-public class PaymentCompletedIntegrationEvent : IntegrationEvent
+public class AppointmentDeleteRequestedIntegrationEvent : IntegrationEvent
 {
     /// <summary>
-    /// ID of the completed payment
-    /// </summary>
-    public Guid PaymentId { get; set; }
-
-    /// <summary>
-    /// ID of the associated appointment (if payment is for appointment)
-    /// </summary>
-    public Guid? AppointmentId { get; set; }
-
-    /// <summary>
-    /// ID of the patient who made the payment
-    /// </summary>
-    public Guid PatientId { get; set; }
-
-    /// <summary>
-    /// Payment amount
-    /// </summary>
-    public decimal Amount { get; set; }
-
-    /// <summary>
-    /// Payment method used (PayOS, VNPay, etc.)
-    /// </summary>
-    public string PaymentMethod { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Payment gateway transaction reference
-    /// </summary>
-    public string? TransactionReference { get; set; }
-
-    /// <summary>
-    /// When the payment was completed
-    /// </summary>
-    public DateTime CompletedAt { get; set; }
-
-    /// <summary>
-    /// Transaction type (APPOINTMENT, SUBSCRIPTION)
-    /// </summary>
-    public string TransactionType { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Correlation ID for tracking
-    /// </summary>
-    public string CorrelationId { get; set; } = string.Empty;
-}
-
-/// <summary>
-/// Event published when appointment status is updated successfully
-/// This can be consumed by other services that need to know about appointment status changes
-/// </summary>
-public class AppointmentStatusUpdatedIntegrationEvent : IntegrationEvent
-{
-    /// <summary>
-    /// ID of the appointment that was updated
+    /// ID of the appointment to be deleted
     /// </summary>
     public Guid AppointmentId { get; set; }
 
     /// <summary>
-    /// ID of the patient
+    /// ID of the patient who created the appointment
     /// </summary>
     public Guid PatientId { get; set; }
 
     /// <summary>
-    /// Previous appointment status
+    /// ID of the doctor (if assigned)
     /// </summary>
-    public string PreviousStatus { get; set; } = string.Empty;
+    public Guid? DoctorId { get; set; }
 
     /// <summary>
-    /// New appointment status
+    /// ID of the hospital where appointment was scheduled
     /// </summary>
-    public string NewStatus { get; set; } = string.Empty;
+    public Guid? HospitalId { get; set; }
 
     /// <summary>
-    /// When the status was updated
+    /// Appointment date and time
     /// </summary>
-    public DateTime UpdatedAt { get; set; }
+    public DateTime AppointmentDate { get; set; }
 
     /// <summary>
-    /// ID of the payment that triggered this update (if applicable)
+    /// Appointment type (enum value as int to avoid coupling)
+    /// </summary>
+    public int AppointmentType { get; set; }
+
+    /// <summary>
+    /// Reason for deletion (payment failure reason)
+    /// </summary>
+    public string DeletionReason { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID of the failed payment that triggered this deletion
     /// </summary>
     public Guid? PaymentId { get; set; }
+
+    /// <summary>
+    /// Payment method that failed (VNPay, PayOS, etc.)
+    /// </summary>
+    public string? PaymentMethod { get; set; }
+
+    /// <summary>
+    /// Payment failure code/message
+    /// </summary>
+    public string? PaymentFailureReason { get; set; }
+
+    /// <summary>
+    /// When the deletion was requested
+    /// </summary>
+    public DateTime RequestedAt { get; set; }
 
     /// <summary>
     /// Correlation ID for tracking
     /// </summary>
     public string CorrelationId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Additional notes or reason for status update
-    /// </summary>
-    public string? Notes { get; set; }
 }

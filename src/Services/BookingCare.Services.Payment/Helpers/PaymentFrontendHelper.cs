@@ -1,4 +1,5 @@
 using BookingCare.Shared.Common.AppRouting;
+using BookingCare.Services.Appointment.Protos; // Add this import
 
 namespace BookingCare.Services.Payment.Helpers;
 
@@ -27,6 +28,66 @@ public static class PaymentFrontendHelper
         {
             // Failed: redirect to booking page with error parameter
             return $"{baseUrl}/booking/confirmation/{appointmentId}?error=payment_failed";
+        }
+    }
+
+    /// <summary>
+    /// Build frontend redirect URL to doctor booking page when payment fails
+    /// </summary>
+    /// <param name="frontendOptions">Frontend configuration options</param>
+    /// <param name="doctorId">Doctor ID to redirect to</param>
+    /// <returns>Frontend URL to redirect to doctor's booking page</returns>
+    public static string BuildDoctorBookingRedirectUrl(FrontendOptions frontendOptions, Guid doctorId)
+    {
+        var baseUrl = frontendOptions.Client.BaseUrl.TrimEnd('/');
+        return $"{baseUrl}/booking/{doctorId}";
+    }
+
+    /// <summary>
+    /// Get doctor ID from appointment using gRPC call
+    /// </summary>
+    /// <param name="appointmentClient">Appointment gRPC client</param>
+    /// <param name="appointmentId">Appointment ID</param>
+    /// <returns>Doctor ID if found, null otherwise</returns>
+    public static async Task<Guid?> GetDoctorIdFromAppointmentAsync(
+        AppointmentService.AppointmentServiceClient appointmentClient,
+        Guid appointmentId)
+    {
+        try
+        {
+            var request = new GetDoctorIdByAppointmentIdRequest
+            {
+                AppointmentId = appointmentId.ToString()
+            };
+
+            var response = await appointmentClient.GetDoctorIdByAppointmentIdAsync(request);
+
+            if (response.Success && !string.IsNullOrEmpty(response.DoctorId))
+            {
+                if (Guid.TryParse(response.DoctorId, out var doctorId))
+                {
+                    return doctorId;
+                }
+            }
+
+            return null;
+        }
+        catch (Grpc.Core.RpcException rpcEx)
+        {
+            // Log specific gRPC errors for troubleshooting
+            var status = rpcEx.StatusCode;
+            var detail = rpcEx.Status.Detail;
+
+            // Don't throw - this is a helper method that should fail gracefully
+            // The calling method will handle fallback to original error page
+            System.Diagnostics.Debug.WriteLine($"[PaymentFrontendHelper] gRPC call failed - Status: {status}, Detail: {detail}, AppointmentId: {appointmentId}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            // Log any other unexpected errors
+            System.Diagnostics.Debug.WriteLine($"[PaymentFrontendHelper] Unexpected error in gRPC call: {ex.Message}, AppointmentId: {appointmentId}");
+            return null;
         }
     }
 

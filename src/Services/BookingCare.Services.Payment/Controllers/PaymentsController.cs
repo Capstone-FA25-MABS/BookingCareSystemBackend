@@ -286,7 +286,7 @@ public class PaymentsController : BaseApiController
         {
             PaymentId = payment.Id,
             Amount = payment.Amount,
-            Description = $"Thanh toán cuộc hẹn - Appointment ID: {request.AppointmentId}",
+            Description = $"",
             BuyerInfo = new Models.DTOs.PayOS.PayOSBuyerInfo
             {
                 // Note: We don't have buyer info in the request, so we'll leave these empty

@@ -17,6 +17,8 @@ using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using FluentValidation;
+using Grpc.Core;
+using Grpc.Net.ClientFactory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,6 +73,13 @@ builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.User
 {
     var userServiceUrl = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
     o.Address = new Uri(userServiceUrl);
+});
+
+// Add gRPC client for Appointment Service (to get doctorId from appointmentId for payment failure redirect)
+builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient>(o =>
+{
+    var appointmentServiceUrl = builder.Configuration.GetSection("Services:Appointment").GetValue<string>("GrpcUrl") ?? "http://localhost:6102";
+    o.Address = new Uri(appointmentServiceUrl);
 });
 
 // Add API versioning support

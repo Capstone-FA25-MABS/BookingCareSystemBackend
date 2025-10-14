@@ -289,12 +289,6 @@ public class PayOSService : BaseService, IPayOSService
         LogInfo("PayOS Callback - Successfully processed - PaymentId: {PaymentId}, Status: {Status}",
             null, paymentId, newStatus);
 
-        // If payment is successful and it's for an appointment, publish event
-        if (isSuccess && payment.AppointmentId.HasValue)
-        {
-            await PublishPaymentCompletedEventAsync(payment, "PayOS", orderCode.ToString());
-        }
-
         return new PayOSCallbackResponse
         {
             PaymentId = paymentId,
@@ -306,40 +300,6 @@ public class PayOSService : BaseService, IPayOSService
             PaymentDate = isSuccess ? DateTime.UtcNow : null,
             Reference = orderCode.ToString()
         };
-    }
-
-    /// <summary>
-    /// Publish PaymentCompletedIntegrationEvent when payment is successful
-    /// </summary>
-    private async Task PublishPaymentCompletedEventAsync(Models.DTOs.Responses.PaymentResponse payment, string paymentMethod, string transactionReference)
-    {
-        try
-        {
-            var correlationId = Guid.NewGuid().ToString("N")[..8];
-
-            var paymentCompletedEvent = new PaymentCompletedIntegrationEvent
-            {
-                PaymentId = payment.Id,
-                AppointmentId = payment.AppointmentId,
-                PatientId = payment.PatientId ?? Guid.Empty, // We'll need to get this from payment
-                Amount = payment.Amount,
-                PaymentMethod = paymentMethod,
-                TransactionReference = transactionReference,
-                CompletedAt = DateTime.UtcNow,
-                TransactionType = payment.AppointmentId.HasValue ? "APPOINTMENT" : "SUBSCRIPTION",
-                CorrelationId = correlationId
-            };
-
-            await _eventBus.PublishAsync(paymentCompletedEvent);
-
-            LogInfo("Published PaymentCompletedIntegrationEvent - PaymentId: {PaymentId}, AppointmentId: {AppointmentId}, CorrelationId: {CorrelationId}",
-                null, payment.Id, payment.AppointmentId, correlationId);
-        }
-        catch (Exception ex)
-        {
-            LogError(ex, "Failed to publish PaymentCompletedIntegrationEvent for PaymentId: {PaymentId}", null, payment.Id);
-            // Don't throw - payment processing should continue even if event publishing fails
-        }
     }
 
     /// <summary>
