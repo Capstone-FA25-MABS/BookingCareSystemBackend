@@ -51,6 +51,7 @@ builder.Services.AddScoped<IVNPayService, VNPayService>();
 builder.Services.AddScoped<IPayOSService, PayOSService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
+builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
 
 // Add background services
 builder.Services.AddHostedService<PayOSMappingCleanupService>();

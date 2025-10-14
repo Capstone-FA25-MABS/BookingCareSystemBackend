@@ -123,7 +123,6 @@ public class PayOSController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> PayOSCallback([FromQuery] string code, [FromQuery] string id, [FromQuery] bool cancel, [FromQuery] string orderCode)
     {
-        // Generate request ID for tracking duplicate calls
         var requestId = Guid.NewGuid().ToString("N")[..8];
 
         try
@@ -131,118 +130,29 @@ public class PayOSController : BaseApiController
             _logger.LogInformation("PayOS Callback #{RequestId} - Code: {Code}, Id: {Id}, Cancel: {Cancel}, OrderCode: {OrderCode}",
                 requestId, code, id, cancel, orderCode);
 
-            // Validate orderCode parameter
-            if (string.IsNullOrEmpty(orderCode))
-            {
-                _logger.LogWarning("PayOS Callback #{RequestId} - OrderCode is missing", requestId);
-                return BadRequest("OrderCode parameter is required");
-            }
+            // Validate input parameters
+            var validationResult = ValidateCallbackParameters(orderCode, requestId);
+            if (validationResult != null) return validationResult;
 
-            if (!long.TryParse(orderCode, out var orderCodeLong))
-            {
-                _logger.LogWarning("PayOS Callback #{RequestId} - Invalid OrderCode format: {OrderCode}", requestId, orderCode);
-                return BadRequest("Invalid OrderCode format");
-            }
-
-            // Process callback via PayOSService with tracking
+            // Process callback via PayOSService
+            var orderCodeLong = long.Parse(orderCode);
             var result = await _payOSService.ProcessCallbackAsync(orderCodeLong, code ?? string.Empty, cancel);
 
-            // Enhanced logging with request tracking
             _logger.LogInformation("PayOS Callback #{RequestId} - Processed successfully - PaymentId: {PaymentId}, Success: {Success}, IsEmptyGuid: {IsEmptyGuid}",
                 requestId, result.PaymentId, result.Success, result.PaymentId == Guid.Empty);
 
-            // If payment was successful and has a valid PaymentId, check for appointment redirect
-            if (result.Success && result.PaymentId != Guid.Empty)
+            // Handle different payment outcomes
+            if (result.PaymentId == Guid.Empty)
             {
-                // Get payment details to check if it's for an appointment
-                var payment = await _paymentService.GetByIdAsync(result.PaymentId);
-                if (payment == null)
-                {
-                    _logger.LogWarning("PayOS Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}", requestId, result.PaymentId);
-                    return BadRequest("Payment not found");
-                }
-
-                var appointmentId = payment.AppointmentId;
-                if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
-                {
-                    var apptId = appointmentId!.Value;
-                    var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, apptId, true);
-                    _logger.LogInformation("PayOS Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
-                        requestId, apptId, frontendUrl);
-
-                    return Redirect(frontendUrl);
-                }
-            }
-            else if (!result.Success && result.PaymentId != Guid.Empty)
-            {
-                // Payment failed - try to get doctorId and redirect to doctor booking page
-                var payment = await _paymentService.GetByIdAsync(result.PaymentId);
-                if (payment == null)
-                {
-                    _logger.LogWarning("PayOS Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}", requestId, result.PaymentId);
-                    return BadRequest("Payment not found");
-                }
-
-                var appointmentId = payment.AppointmentId;
-                if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
-                {
-                    var apptId = appointmentId!.Value;
-                    // Try to get doctorId using gRPC
-                    var doctorId = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(
-                        _appointmentClient, apptId);
-
-                    // Publish appointment deletion event for failed payment
-                    await PaymentEventHelper.PublishAppointmentDeleteEventAsync(
-                        payment,
-                        result.ResponseCode,
-                        "PayOS",
-                        requestId,
-                        _appointmentClient,
-                        _eventBus,
-                        _logger,
-                        GetPayOSResponseMessage);
-
-                    if (doctorId.HasValue)
-                    {
-                        // Redirect to doctor's booking page
-                        var doctorBookingUrl = PaymentFrontendHelper.BuildDoctorBookingRedirectUrl(
-                            _frontendOptions, doctorId.Value);
-
-                        _logger.LogInformation("PayOS Callback #{RequestId} - Payment failed, redirecting to doctor booking page: {DoctorId}, URL: {RedirectUrl}",
-                            requestId, doctorId.Value, doctorBookingUrl);
-
-                        return Redirect(doctorBookingUrl);
-                    }
-                    else
-                    {
-                        // Fallback to original error page if can't get doctorId
-                        var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
-                            _frontendOptions, apptId, false);
-
-                        _logger.LogWarning("PayOS Callback #{RequestId} - Payment failed, could not get doctorId, redirecting to original error page for appointment: {AppointmentId}",
-                            requestId, apptId);
-
-                        return Redirect(frontendUrl);
-                    }
-                }
+                return CreateAlreadyProcessedResponse(result, requestId);
             }
 
-            // Create response with details for non-appointment payments or API calls
-            var response = new
+            if (result.Success)
             {
-                Success = result.Success,
-                PaymentId = result.PaymentId,
-                OrderCode = result.OrderCode,
-                Code = result.ResponseCode,
-                Amount = result.Amount,
-                Message = result.Message,
-                PaymentDate = result.PaymentDate,
-                RequestId = requestId, // For tracking
-                ProcessedAt = DateTime.UtcNow,
-                IsAlreadyProcessed = result.PaymentId == Guid.Empty // enough, no need for IsDuplicateCall and OriginalPaymentId
-            };
+                return await HandleSuccessfulPayment(result, requestId);
+            }
 
-            return Success(response, result.Success ? "PayOS payment successful" : "PayOS payment failed");
+            return await HandleFailedPayment(result, requestId);
         }
         catch (ArgumentException ex)
         {
@@ -259,6 +169,161 @@ public class PayOSController : BaseApiController
                 RequestId = requestId
             });
         }
+    }
+
+    /// <summary>
+    /// Validate callback parameters
+    /// </summary>
+    private IActionResult? ValidateCallbackParameters(string orderCode, string requestId)
+    {
+        if (string.IsNullOrEmpty(orderCode))
+        {
+            _logger.LogWarning("PayOS Callback #{RequestId} - OrderCode is missing", requestId);
+            return BadRequest("OrderCode parameter is required");
+        }
+
+        if (!long.TryParse(orderCode, out _))
+        {
+            _logger.LogWarning("PayOS Callback #{RequestId} - Invalid OrderCode format: {OrderCode}", requestId, orderCode);
+            return BadRequest("Invalid OrderCode format");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Create response for already processed payments
+    /// </summary>
+    private IActionResult CreateAlreadyProcessedResponse(PayOSCallbackResponse result, string requestId)
+    {
+        var response = new
+        {
+            Success = result.Success,
+            PaymentId = result.PaymentId,
+            OrderCode = result.OrderCode,
+            Code = result.ResponseCode,
+            Amount = result.Amount,
+            Message = result.Message,
+            PaymentDate = result.PaymentDate,
+            RequestId = requestId,
+            ProcessedAt = DateTime.UtcNow,
+            IsAlreadyProcessed = true
+        };
+
+        return Success(response, result.Success ? "PayOS payment successful" : "PayOS payment failed");
+    }
+
+    /// <summary>
+    /// Handle successful payment scenario
+    /// </summary>
+    private async Task<IActionResult> HandleSuccessfulPayment(PayOSCallbackResponse result, string requestId)
+    {
+        var payment = await _paymentService.GetByIdAsync(result.PaymentId);
+        if (payment == null)
+        {
+            _logger.LogWarning("PayOS Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}", requestId, result.PaymentId);
+            return BadRequest("Payment not found");
+        }
+
+        var appointmentId = payment.AppointmentId;
+        if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
+        {
+            var apptId = appointmentId!.Value;
+            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, apptId, true);
+            _logger.LogInformation("PayOS Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
+                requestId, apptId, frontendUrl);
+
+            return Redirect(frontendUrl);
+        }
+
+        return CreateStandardResponse(result, requestId);
+    }
+
+    /// <summary>
+    /// Handle failed payment scenario
+    /// </summary>
+    private async Task<IActionResult> HandleFailedPayment(PayOSCallbackResponse result, string requestId)
+    {
+        var payment = await _paymentService.GetByIdAsync(result.PaymentId);
+        if (payment == null)
+        {
+            _logger.LogWarning("PayOS Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}", requestId, result.PaymentId);
+            return BadRequest("Payment not found");
+        }
+
+        var appointmentId = payment.AppointmentId;
+        if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
+        {
+            return await ProcessFailedAppointmentPayment(payment, result, requestId, appointmentId!.Value);
+        }
+
+        return CreateStandardResponse(result, requestId);
+    }
+
+    /// <summary>
+    /// Process failed appointment payment with cleanup and redirection
+    /// </summary>
+    private async Task<IActionResult> ProcessFailedAppointmentPayment(PaymentResponse payment, PayOSCallbackResponse result, string requestId, Guid appointmentId)
+    {
+        // Try to get doctorId using gRPC
+        var doctorId = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(_appointmentClient, appointmentId);
+
+        // Publish appointment deletion event using new parameter object approach
+        var eventParams = new AppointmentDeleteEventParams
+        {
+            Payment = payment,
+            ResponseCode = result.ResponseCode,
+            PaymentMethod = "PayOS",
+            RequestId = requestId,
+            ResponseMessageFunc = GetPayOSResponseMessage
+        };
+
+        var dependencies = new PaymentEventDependencies
+        {
+            AppointmentClient = _appointmentClient,
+            EventBus = _eventBus,
+            Logger = _logger
+        };
+
+        await PaymentEventHelper.PublishAppointmentDeleteEventAsync(eventParams, dependencies);
+
+        if (doctorId.HasValue)
+        {
+            var doctorBookingUrl = PaymentFrontendHelper.BuildDoctorBookingRedirectUrl(_frontendOptions, doctorId.Value);
+            _logger.LogInformation("PayOS Callback #{RequestId} - Payment failed, redirecting to doctor booking page: {DoctorId}, URL: {RedirectUrl}",
+                requestId, doctorId.Value, doctorBookingUrl);
+
+            return Redirect(doctorBookingUrl);
+        }
+
+        // Fallback to appointment error page
+        var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, appointmentId, false);
+        _logger.LogWarning("PayOS Callback #{RequestId} - Payment failed, could not get doctorId, redirecting to original error page for appointment: {AppointmentId}",
+            requestId, appointmentId);
+
+        return Redirect(frontendUrl);
+    }
+
+    /// <summary>
+    /// Create standard response for non-redirect scenarios
+    /// </summary>
+    private IActionResult CreateStandardResponse(PayOSCallbackResponse result, string requestId)
+    {
+        var response = new
+        {
+            Success = result.Success,
+            PaymentId = result.PaymentId,
+            OrderCode = result.OrderCode,
+            Code = result.ResponseCode,
+            Amount = result.Amount,
+            Message = result.Message,
+            PaymentDate = result.PaymentDate,
+            RequestId = requestId,
+            ProcessedAt = DateTime.UtcNow,
+            IsAlreadyProcessed = false
+        };
+
+        return Success(response, result.Success ? "PayOS payment successful" : "PayOS payment failed");
     }
 
     /// <summary>
@@ -354,16 +419,24 @@ public class PayOSController : BaseApiController
                     var doctorId = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(
                         _appointmentClient, apptId);
 
-                    // Publish appointment deletion event for cancelled payment
-                    await PaymentEventHelper.PublishAppointmentDeleteEventAsync(
-                        payment,
-                        "CANCELLED",
-                        "PayOS",
-                        $"CANCEL-{Guid.NewGuid().ToString("N")[..8]}",
-                        _appointmentClient,
-                        _eventBus,
-                        _logger,
-                        GetPayOSResponseMessage);
+                    // Publish appointment deletion event for cancelled payment using new parameter object approach
+                    var eventParams = new AppointmentDeleteEventParams
+                    {
+                        Payment = payment,
+                        ResponseCode = "CANCELLED",
+                        PaymentMethod = "PayOS",
+                        RequestId = $"CANCEL-{Guid.NewGuid().ToString("N")[..8]}",
+                        ResponseMessageFunc = GetPayOSResponseMessage
+                    };
+
+                    var dependencies = new PaymentEventDependencies
+                    {
+                        AppointmentClient = _appointmentClient,
+                        EventBus = _eventBus,
+                        Logger = _logger
+                    };
+
+                    await PaymentEventHelper.PublishAppointmentDeleteEventAsync(eventParams, dependencies);
 
                     if (doctorId.HasValue)
                     {

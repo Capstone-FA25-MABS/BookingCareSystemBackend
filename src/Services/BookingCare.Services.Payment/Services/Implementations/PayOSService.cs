@@ -22,7 +22,7 @@ public class PayOSService : BaseService, IPayOSService
     private readonly PayOS _payOS;
     private readonly IPaymentService _paymentService;
     private readonly IPayOSPaymentMappingRepository _mappingRepository;
-    private readonly IEventBus _eventBus;
+
 
     public PayOSService(
         IOptions<PayOSConfiguration> payOSConfig,
@@ -34,7 +34,7 @@ public class PayOSService : BaseService, IPayOSService
         _payOSConfig = payOSConfig.Value;
         _paymentService = paymentService;
         _mappingRepository = mappingRepository;
-        _eventBus = eventBus;
+
 
         ValidateConfiguration();
 

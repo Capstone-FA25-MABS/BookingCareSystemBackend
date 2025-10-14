@@ -3,7 +3,6 @@ using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
-using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Payment.Controllers;
@@ -11,46 +10,23 @@ namespace BookingCare.Services.Payment.Controllers;
 /// <summary>
 /// Controller for payment operations
 /// </summary>
-
 [ApiController]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
-public class PaymentsController : BaseApiController
+public class PaymentsController(
+    IPaymentService paymentService,
+    IPayOSService payOSService,
+    IVNPayService vnPayService,
+    IPaymentValidationService validationService,
+    ILogger<PaymentsController> logger) : BaseApiController
 {
     private const string InvalidRequestDataMessage = "Invalid request data";
 
-    private readonly IPaymentService _paymentService;
-    private readonly IPayOSService _payOSService;
-    private readonly IVNPayService _vnPayService;
-    private readonly IValidator<CreateAppointmentPaymentRequest> _createAppointmentValidator;
-    private readonly IValidator<CreateSubscriptionPaymentRequest> _createSubscriptionValidator;
-    private readonly IValidator<UpdatePaymentStatusRequest> _updateValidator;
-    private readonly IValidator<GetPaymentsPagedRequest> _pagedValidator;
-    private readonly IValidator<GetPaymentStatisticsRequest> _statisticsValidator;
-    private readonly ILogger<PaymentsController> _logger;
-
-    public PaymentsController(
-        IPaymentService paymentService,
-        IPayOSService payOSService,
-        IVNPayService vnPayService,
-        IValidator<CreateAppointmentPaymentRequest> createAppointmentValidator,
-        IValidator<CreateSubscriptionPaymentRequest> createSubscriptionValidator,
-        IValidator<UpdatePaymentStatusRequest> updateValidator,
-        IValidator<GetPaymentsPagedRequest> pagedValidator,
-        IValidator<GetPaymentStatisticsRequest> statisticsValidator,
-        ILogger<PaymentsController> logger
-    )
-    {
-        _paymentService = paymentService;
-        _payOSService = payOSService;
-        _vnPayService = vnPayService;
-        _createAppointmentValidator = createAppointmentValidator;
-        _createSubscriptionValidator = createSubscriptionValidator;
-        _updateValidator = updateValidator;
-        _pagedValidator = pagedValidator;
-        _statisticsValidator = statisticsValidator;
-        _logger = logger;
-    }
+    private readonly IPaymentService _paymentService = paymentService;
+    private readonly IPayOSService _payOSService = payOSService;
+    private readonly IVNPayService _vnPayService = vnPayService;
+    private readonly IPaymentValidationService _validationService = validationService;
+    private readonly ILogger<PaymentsController> _logger = logger;
 
     /// <summary>
     /// Get payment by ID
@@ -145,7 +121,7 @@ public class PaymentsController : BaseApiController
         try
         {
             // Validate request
-            var validationResult = await _pagedValidator.ValidateAsync(request);
+            var validationResult = await _validationService.ValidateGetPaymentsPagedAsync(request);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
@@ -182,7 +158,7 @@ public class PaymentsController : BaseApiController
         try
         {
             // Validate request
-            var validationResult = await _pagedValidator.ValidateAsync(request);
+            var validationResult = await _validationService.ValidateGetPaymentsPagedAsync(request);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
@@ -218,7 +194,7 @@ public class PaymentsController : BaseApiController
         try
         {
             // Validate request
-            var validationResult = await _createAppointmentValidator.ValidateAsync(request);
+            var validationResult = await _validationService.ValidateCreateAppointmentPaymentAsync(request);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
@@ -355,7 +331,7 @@ public class PaymentsController : BaseApiController
         try
         {
             // Validate request
-            var validationResult = await _createSubscriptionValidator.ValidateAsync(request);
+            var validationResult = await _validationService.ValidateCreateSubscriptionPaymentAsync(request);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
@@ -400,7 +376,7 @@ public class PaymentsController : BaseApiController
             request.Id = id; // Ensure ID matches route parameter
 
             // Validate request
-            var validationResult = await _updateValidator.ValidateAsync(request);
+            var validationResult = await _validationService.ValidateUpdatePaymentStatusAsync(request);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
@@ -471,7 +447,7 @@ public class PaymentsController : BaseApiController
             }
 
             // Validate request
-            var validationResult = await _statisticsValidator.ValidateAsync(request);
+            var validationResult = await _validationService.ValidateGetPaymentStatisticsAsync(request);
             if (!validationResult.IsValid)
             {
                 var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();

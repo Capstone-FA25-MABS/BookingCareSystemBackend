@@ -50,8 +50,8 @@ public static class PaymentFrontendHelper
     /// <param name="appointmentId">Appointment ID</param>
     /// <returns>Doctor ID if found, null otherwise</returns>
     public static async Task<Guid?> GetDoctorIdFromAppointmentAsync(
-        AppointmentService.AppointmentServiceClient appointmentClient,
-        Guid appointmentId)
+    AppointmentService.AppointmentServiceClient appointmentClient,
+    Guid appointmentId)
     {
         try
         {
@@ -62,12 +62,12 @@ public static class PaymentFrontendHelper
 
             var response = await appointmentClient.GetDoctorIdByAppointmentIdAsync(request);
 
-            if (response.Success && !string.IsNullOrEmpty(response.DoctorId))
+
+
+
+            if (response.Success && !string.IsNullOrEmpty(response.DoctorId) && Guid.TryParse(response.DoctorId, out var doctorId))
             {
-                if (Guid.TryParse(response.DoctorId, out var doctorId))
-                {
-                    return doctorId;
-                }
+                return doctorId;
             }
 
             return null;
