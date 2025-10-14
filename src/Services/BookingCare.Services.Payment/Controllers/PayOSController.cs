@@ -140,7 +140,7 @@ public class PayOSController : BasePaymentGatewayController
 
             if (result.Success)
             {
-                return await HandleSuccessfulPaymentAsync(payment, result, requestId, GatewayName,
+                return HandleSuccessfulPayment(payment, result, requestId, GatewayName,
                     (p, r, reqId) => CreateStandardResponse(r, reqId));
             }
 

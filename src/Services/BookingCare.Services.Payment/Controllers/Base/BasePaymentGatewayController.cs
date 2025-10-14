@@ -70,7 +70,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Handle successful payment scenario - common logic
     /// </summary>
-    protected async Task<IActionResult> HandleSuccessfulPaymentAsync<TResponse>(
+    protected IActionResult HandleSuccessfulPayment<TResponse>(
         PaymentResponse payment,
         TResponse callbackResult,
         string requestId,
