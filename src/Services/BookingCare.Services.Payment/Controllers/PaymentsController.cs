@@ -243,7 +243,7 @@ public class PaymentsController : BaseApiController
             switch (paymentMethodName)
             {
                 case "PAYOS":
-                    response = await CreatePayOSPaymentUrl(payment, request);
+                    response = await CreatePayOSPaymentUrl(payment);
                     break;
                 case "VNPAY":
                     response = await CreateVNPayPaymentUrl(payment, request);
@@ -279,8 +279,7 @@ public class PaymentsController : BaseApiController
     /// Create PayOS payment URL for appointment payment
     /// </summary>
     private async Task<CreateAppointmentPaymentResponse> CreatePayOSPaymentUrl(
-        PaymentResponse payment,
-        CreateAppointmentPaymentRequest request)
+        PaymentResponse payment)
     {
         var payOSRequest = new Models.DTOs.PayOS.PayOSPaymentRequest
         {
@@ -289,6 +288,7 @@ public class PaymentsController : BaseApiController
             Description = $"",
             BuyerInfo = new Models.DTOs.PayOS.PayOSBuyerInfo
             {
+
                 // Note: We don't have buyer info in the request, so we'll leave these empty
                 // In a real scenario, you might want to fetch patient info from another service
             },

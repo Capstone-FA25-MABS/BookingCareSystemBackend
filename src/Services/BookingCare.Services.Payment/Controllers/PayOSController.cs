@@ -156,12 +156,19 @@ public class PayOSController : BaseApiController
             {
                 // Get payment details to check if it's for an appointment
                 var payment = await _paymentService.GetByIdAsync(result.PaymentId);
-                if (PaymentFrontendHelper.ShouldRedirectToFrontend(payment?.AppointmentId))
+                if (payment == null)
                 {
+                    _logger.LogWarning("PayOS Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}", requestId, result.PaymentId);
+                    return BadRequest("Payment not found");
+                }
 
-                    var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, payment.AppointmentId.Value, true);
+                var appointmentId = payment.AppointmentId;
+                if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
+                {
+                    var apptId = appointmentId!.Value;
+                    var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, apptId, true);
                     _logger.LogInformation("PayOS Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
-                        requestId, payment.AppointmentId.Value, frontendUrl);
+                        requestId, apptId, frontendUrl);
 
                     return Redirect(frontendUrl);
                 }
@@ -170,11 +177,19 @@ public class PayOSController : BaseApiController
             {
                 // Payment failed - try to get doctorId and redirect to doctor booking page
                 var payment = await _paymentService.GetByIdAsync(result.PaymentId);
-                if (PaymentFrontendHelper.ShouldRedirectToFrontend(payment?.AppointmentId))
+                if (payment == null)
                 {
+                    _logger.LogWarning("PayOS Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}", requestId, result.PaymentId);
+                    return BadRequest("Payment not found");
+                }
+
+                var appointmentId = payment.AppointmentId;
+                if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
+                {
+                    var apptId = appointmentId!.Value;
                     // Try to get doctorId using gRPC
                     var doctorId = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(
-                        _appointmentClient, payment.AppointmentId.Value);
+                        _appointmentClient, apptId);
 
                     // Publish appointment deletion event for failed payment
                     await PaymentEventHelper.PublishAppointmentDeleteEventAsync(
@@ -202,10 +217,10 @@ public class PayOSController : BaseApiController
                     {
                         // Fallback to original error page if can't get doctorId
                         var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
-                            _frontendOptions, payment.AppointmentId.Value, false);
+                            _frontendOptions, apptId, false);
 
                         _logger.LogWarning("PayOS Callback #{RequestId} - Payment failed, could not get doctorId, redirecting to original error page for appointment: {AppointmentId}",
-                            requestId, payment.AppointmentId.Value);
+                            requestId, apptId);
 
                         return Redirect(frontendUrl);
                     }
@@ -305,30 +320,39 @@ public class PayOSController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> PayOSCancelCallback([FromQuery] string orderCode)
     {
+        var requestId = Guid.NewGuid().ToString("N")[..8];
         try
         {
-            _logger.LogInformation("Received PayOS cancel callback - OrderCode: {OrderCode}", orderCode);
+            _logger.LogInformation("PayOS Cancel Callback #{RequestId} - OrderCode: {OrderCode}", requestId, orderCode);
 
             if (!long.TryParse(orderCode, out var orderCodeLong))
             {
+                _logger.LogWarning("PayOS Cancel Callback #{RequestId} - Invalid OrderCode format: {OrderCode}", requestId, orderCode);
                 return BadRequest("Invalid order code format");
             }
 
             // Process cancel callback
             var result = await _payOSService.ProcessCallbackAsync(orderCodeLong, "CANCELLED", true);
 
-            _logger.LogInformation("PayOS cancel callback processed successfully - PaymentId: {PaymentId}",
-                result.PaymentId);
+            _logger.LogInformation("PayOS Cancel Callback #{RequestId} - Processed - PaymentId: {PaymentId}", requestId, result.PaymentId);
 
             // Check if payment is for appointment and try to redirect to doctor booking page
             if (result.PaymentId != Guid.Empty)
             {
                 var payment = await _paymentService.GetByIdAsync(result.PaymentId);
-                if (PaymentFrontendHelper.ShouldRedirectToFrontend(payment?.AppointmentId))
+                if (payment == null)
                 {
+                    _logger.LogWarning("PayOS Cancel Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}", requestId, result.PaymentId);
+                    return BadRequest("Payment not found");
+                }
+
+                var appointmentId = payment.AppointmentId;
+                if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
+                {
+                    var apptId = appointmentId!.Value;
                     // Try to get doctorId using gRPC
                     var doctorId = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(
-                        _appointmentClient, payment.AppointmentId.Value);
+                        _appointmentClient, apptId);
 
                     // Publish appointment deletion event for cancelled payment
                     await PaymentEventHelper.PublishAppointmentDeleteEventAsync(
@@ -347,8 +371,8 @@ public class PayOSController : BaseApiController
                         var doctorBookingUrl = PaymentFrontendHelper.BuildDoctorBookingRedirectUrl(
                             _frontendOptions, doctorId.Value);
 
-                        _logger.LogInformation("PayOS Cancel Callback - Redirecting to doctor booking page: {DoctorId}, URL: {RedirectUrl}",
-                            doctorId.Value, doctorBookingUrl);
+                        _logger.LogInformation("PayOS Cancel Callback #{RequestId} - Redirecting to doctor booking page: {DoctorId}, URL: {RedirectUrl}",
+                            requestId, doctorId.Value, doctorBookingUrl);
 
                         return Redirect(doctorBookingUrl);
                     }
@@ -356,10 +380,10 @@ public class PayOSController : BaseApiController
                     {
                         // Fallback to original error page if can't get doctorId
                         var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
-                            _frontendOptions, payment.AppointmentId.Value, false);
+                            _frontendOptions, apptId, false);
 
-                        _logger.LogWarning("PayOS Cancel Callback - Could not get doctorId, redirecting to original error page for appointment: {AppointmentId}",
-                            payment.AppointmentId.Value);
+                        _logger.LogWarning("PayOS Cancel Callback #{RequestId} - Could not get doctorId, redirecting to original error page for appointment: {AppointmentId}",
+                            requestId, apptId);
 
                         return Redirect(frontendUrl);
                     }
@@ -377,12 +401,12 @@ public class PayOSController : BaseApiController
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex, "PayOS cancel callback processing failed - Invalid argument: {Error}", ex.Message);
+            _logger.LogWarning(ex, "PayOS Cancel Callback #{RequestId} - Invalid argument: {Error}", requestId, ex.Message);
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "PayOS cancel callback processing failed - OrderCode: {OrderCode}", orderCode);
+            _logger.LogError(ex, "PayOS Cancel Callback #{RequestId} - Error processing cancel callback for OrderCode: {OrderCode}", requestId, orderCode);
             return StatusCode(500, new { Message = "An error occurred while processing PayOS cancel callback" });
         }
     }

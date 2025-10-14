@@ -83,7 +83,7 @@ public class VNPayController : BaseApiController
                 if (!string.IsNullOrEmpty(forwardedFor))
                 {
                     var forwardedIps = forwardedFor.Split(',');
-                    request.ClientIP = forwardedIps.Length > 0 ? forwardedIps[0].Trim() : null;
+                    request.ClientIP = forwardedIps.Length > 0 ? forwardedIps[0].Trim() : string.Empty;
                 }
                 else
                 {
@@ -165,16 +165,24 @@ public class VNPayController : BaseApiController
 
             // Get payment details to check if it's for an appointment
             var payment = await _paymentService.GetByIdAsync(paymentId);
+            if (payment == null)
+            {
+                _logger.LogWarning("VNPay Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}", requestId, paymentId);
+                return BadRequest("Payment not found");
+            }
+
+            var appointmentId = payment.AppointmentId;
 
             // If payment is successful, check for appointment redirect
             if (callbackResult.IsSuccess)
             {
                 // Check if this is an appointment payment and redirect to frontend
-                if (PaymentFrontendHelper.ShouldRedirectToFrontend(payment?.AppointmentId))
+                if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
                 {
-                    var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, payment.AppointmentId.Value, true);
+                    var apptId = appointmentId!.Value;
+                    var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(_frontendOptions, apptId, true);
                     _logger.LogInformation("VNPay Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
-                        requestId, payment.AppointmentId.Value, frontendUrl);
+                        requestId, apptId, frontendUrl);
 
                     return Redirect(frontendUrl);
                 }
@@ -182,11 +190,12 @@ public class VNPayController : BaseApiController
             else
             {
                 // Payment failed - try to get doctorId and redirect to doctor booking page
-                if (PaymentFrontendHelper.ShouldRedirectToFrontend(payment?.AppointmentId))
+                if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
                 {
+                    var apptId = appointmentId!.Value;
                     // Try to get doctorId using gRPC
                     var doctorId = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(
-                        _appointmentClient, payment.AppointmentId.Value);
+                        _appointmentClient, apptId);
 
                     // Publish appointment deletion event for failed payment
                     await PaymentEventHelper.PublishAppointmentDeleteEventAsync(
@@ -214,10 +223,10 @@ public class VNPayController : BaseApiController
                     {
                         // Fallback to original error page if can't get doctorId
                         var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
-                            _frontendOptions, payment.AppointmentId.Value, false);
+                            _frontendOptions, apptId, false);
 
                         _logger.LogWarning("VNPay Callback #{RequestId} - Payment failed, could not get doctorId, redirecting to original error page for appointment: {AppointmentId}",
-                            requestId, payment.AppointmentId.Value);
+                            requestId, apptId);
 
                         return Redirect(frontendUrl);
                     }
