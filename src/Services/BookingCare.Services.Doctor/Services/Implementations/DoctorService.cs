@@ -487,7 +487,7 @@ public class DoctorService : BaseService, IDoctorService
                                        .ToDictionary(d => d.Id, d => d.HospitalId!.Value);
 
             // Map to optimized response DTOs
-            var mappedDoctors = _mapper.Value.Map<List<DoctorSearchForPatientResponse>>(doctors);
+            var mappedDoctors = _mapper.Value.Map<List<DoctorOptimizedResponse>>(doctors);
 
             // Create parallel tasks for enrichment
             var enrichmentTasks = new List<Task>();
@@ -551,6 +551,59 @@ public class DoctorService : BaseService, IDoctorService
         await EnrichDoctorListAsync(response);
 
         return response;
+    }
+
+    /// <summary>
+    /// Get doctors by hospital with optimized response for hospital staff (only essential fields)
+    /// </summary>
+    public async Task<DoctorSearchListResponse> GetDoctorsByHospitalOptimizedAsync(Guid hospitalId, int pageNumber = 1, int pageSize = 10)
+    {
+        // Create query for hospital filtering
+        var query = new DoctorQueryRequest
+        {
+            HospitalId = hospitalId,
+            // Note: No status filter - includes both ACTIVE and INACTIVE doctors
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+
+        // Use optimized repository method for complex filtering
+        var (doctors, totalCount) = await _repository.Value.GetDoctorsForComplexFilterAsync(query);
+
+        // Build hospitalId map BEFORE mapping to DTO
+        var hospitalIdMap = doctors.Where(d => d.HospitalId.HasValue)
+                                   .ToDictionary(d => d.Id, d => d.HospitalId!.Value);
+
+        // Map to optimized response DTOs
+        var mappedDoctors = _mapper.Value.Map<List<DoctorOptimizedResponse>>(doctors);
+
+        // Create parallel tasks for enrichment
+        var enrichmentTasks = new List<Task>();
+
+        // Task 1: Enrich with hospital info
+        var hospitalTask = EnrichDoctorSearchWithHospitalInfoAsync(mappedDoctors, hospitalIdMap);
+        enrichmentTasks.Add(hospitalTask);
+
+        // Task 2: Enrich with review statistics
+        var reviewTask = EnrichDoctorSearchWithReviewStatisticsAsync(mappedDoctors);
+        enrichmentTasks.Add(reviewTask);
+
+        // Note: No favorite status needed for hospital staff
+
+        // Execute all enrichment tasks in parallel
+        await Task.WhenAll(enrichmentTasks);
+
+        // Calculate pagination
+        var totalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
+
+        return new DoctorSearchListResponse
+        {
+            Doctors = mappedDoctors,
+            TotalCount = totalCount,
+            PageNumber = query.PageNumber,
+            PageSize = query.PageSize,
+            TotalPages = totalPages
+        };
     }
 
     public async Task<List<DoctorResponse>> GetDoctorsBySpecialtyAsync(Guid specialtyId)
@@ -1239,8 +1292,8 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Apply location filtering to doctor search results
     /// </summary>
-    private async Task<List<DoctorSearchForPatientResponse>> ApplyLocationFilteringForSearchAsync(
-        List<DoctorSearchForPatientResponse> doctors,
+    private async Task<List<DoctorOptimizedResponse>> ApplyLocationFilteringForSearchAsync(
+        List<DoctorOptimizedResponse> doctors,
         string? provinceId,
         string? districtId)
     {
@@ -1271,7 +1324,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Check if doctor is in specified location for search results
     /// </summary>
-    private bool IsDoctorInLocationForSearch(DoctorSearchForPatientResponse doctor, LocationInfo locationInfo)
+    private bool IsDoctorInLocationForSearch(DoctorOptimizedResponse doctor, LocationInfo locationInfo)
     {
         // Simple location filtering based on hospital address
         if (doctor.Hospital?.Address == null)
@@ -1335,8 +1388,8 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Filter doctors by rating for search results
     /// </summary>
-    private List<DoctorSearchForPatientResponse> FilterDoctorsByRatingForSearch(
-        List<DoctorSearchForPatientResponse> doctors,
+    private List<DoctorOptimizedResponse> FilterDoctorsByRatingForSearch(
+        List<DoctorOptimizedResponse> doctors,
         double? minRating,
         List<double>? minRatings)
     {
@@ -1450,7 +1503,7 @@ public class DoctorService : BaseService, IDoctorService
                                    .ToDictionary(d => d.Id, d => d.HospitalId!.Value);
 
         // Map to optimized response DTOs
-        var mappedDoctors = _mapper.Value.Map<List<DoctorSearchForPatientResponse>>(doctors);
+        var mappedDoctors = _mapper.Value.Map<List<DoctorOptimizedResponse>>(doctors);
 
         // Create parallel tasks for enrichment
         var enrichmentTasks = new List<Task>();
@@ -1489,7 +1542,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Enrich doctor search results with hospital basic info - OPTIMIZED with caching
     /// </summary>
-    private async Task EnrichDoctorSearchWithHospitalInfoAsync(List<DoctorSearchForPatientResponse> doctors, Dictionary<Guid, Guid> hospitalIdMap)
+    private async Task EnrichDoctorSearchWithHospitalInfoAsync(List<DoctorOptimizedResponse> doctors, Dictionary<Guid, Guid> hospitalIdMap)
     {
         if (!doctors.Any() || !hospitalIdMap.Any()) return;
 
@@ -1529,7 +1582,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Enrich doctor search results with review statistics (basic - no rating distribution) - OPTIMIZED
     /// </summary>
-    private async Task EnrichDoctorSearchWithReviewStatisticsAsync(List<DoctorSearchForPatientResponse> doctors)
+    private async Task EnrichDoctorSearchWithReviewStatisticsAsync(List<DoctorOptimizedResponse> doctors)
     {
         if (!doctors.Any()) return;
 
@@ -1579,7 +1632,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Set default review statistics for doctors
     /// </summary>
-    private void SetDefaultReviewStatistics(List<DoctorSearchForPatientResponse> doctors)
+    private void SetDefaultReviewStatistics(List<DoctorOptimizedResponse> doctors)
     {
         foreach (var doctor in doctors)
         {
@@ -1594,7 +1647,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Set favorite status for doctor search results
     /// </summary>
-    private async Task SetFavoriteStatusForSearchAsync(List<DoctorSearchForPatientResponse> doctors, Guid patientId)
+    private async Task SetFavoriteStatusForSearchAsync(List<DoctorOptimizedResponse> doctors, Guid patientId)
     {
         if (!doctors.Any()) return;
 

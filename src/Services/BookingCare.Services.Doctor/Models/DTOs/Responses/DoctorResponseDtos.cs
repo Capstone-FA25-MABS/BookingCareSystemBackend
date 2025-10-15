@@ -182,8 +182,8 @@ public class DoctorReviewStatisticsBasic : IDoctorReviewStatistics
     public long TotalReviews { get; set; }
 }
 
-// Optimized DTOs for Patient Search
-public class DoctorSearchForPatientResponse
+// Optimized DTOs for Search and List operations
+public class DoctorOptimizedResponse
 {
     public Guid Id { get; set; }
     public string FirstName { get; set; } = string.Empty;
@@ -228,7 +228,7 @@ public class LanguageBasicInfo
 
 public class DoctorSearchListResponse
 {
-    public List<DoctorSearchForPatientResponse> Doctors { get; set; } = new();
+    public List<DoctorOptimizedResponse> Doctors { get; set; } = new();
     public int TotalCount { get; set; }
     public int PageNumber { get; set; }
     public int PageSize { get; set; }
