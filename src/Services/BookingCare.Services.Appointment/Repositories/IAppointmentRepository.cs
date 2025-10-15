@@ -24,7 +24,7 @@ public interface IAppointmentRepository
     /// Cancel an appointment with cancellation reason
     /// Optimized method specifically for cancellation that takes the full entity
     /// </summary>
-    Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason);
+    Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason, string cancelledBy);
 
     // Statistics operations
     /// <summary>

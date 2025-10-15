@@ -263,19 +263,21 @@ public class AppointmentRepository : IAppointmentRepository
     /// Cancel an appointment with cancellation reason
     /// Optimized method that takes the full entity to avoid additional DB query
     /// </summary>
-    public async Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason)
+    public async Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason, string cancelledBy)
     {
         try
         {
             appointment.Status = AppointmentStatus.CANCELLED;
             appointment.Reason = cancellationReason;
+            appointment.CancelledBy = cancelledBy;
+            appointment.CancelledAt = DateTime.UtcNow;
 
             _context.Appointments.Update(appointment);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation(
-                "Successfully cancelled appointment {AppointmentId} with reason: {Reason}",
-                appointment.Id, cancellationReason);
+                "Successfully cancelled appointment {AppointmentId} with reason: {Reason}, CancelledBy: {CancelledBy}",
+                appointment.Id, cancellationReason, cancelledBy);
             return true;
         }
         catch (Exception ex)
