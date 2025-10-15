@@ -23,8 +23,12 @@ public class PaymentMethodResponse
     public string? Description { get; set; }
 
     /// <summary>
-    /// Status of the payment method
+    /// URL of the payment method image/logo
+    /// </summary>
+    public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// Status of the payment method
     /// </summary>
     public PaymentMethodStatus Status { get; set; }
 }

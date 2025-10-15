@@ -114,8 +114,7 @@ public class PaymentService : BaseService, IPaymentService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Starting to create payment - Type: {TransactionType}, AppointmentId: {AppointmentId}, SubscriptionId: {SubscriptionId}",
-                null, request.TransactionType, request.AppointmentId, request.SubscriptionId);
+
 
             // Validation
             ValidateRequired(request, nameof(request));

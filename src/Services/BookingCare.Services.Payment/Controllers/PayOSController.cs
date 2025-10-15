@@ -1,11 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using FluentValidation;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.PayOS;
+using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Helpers;
+using BookingCare.Services.Payment.Controllers.Base;
 using BookingCare.Shared.Common.Enums;
-using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.AppRouting;
+using BookingCare.Services.Appointment.Protos;
+using BookingCare.Shared.EventBus.Abstractions;
 using System.Text.Json;
 
 namespace BookingCare.Services.Payment.Controllers;
@@ -16,23 +21,24 @@ namespace BookingCare.Services.Payment.Controllers;
 [ApiController]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
-public class PayOSController : BaseApiController
+public class PayOSController : BasePaymentGatewayController
 {
+    private const string GatewayName = "PayOS";
     private readonly IPayOSService _payOSService;
-    private readonly IPaymentService _paymentService;
     private readonly IValidator<PayOSPaymentRequest> _validator;
-    private readonly ILogger<PayOSController> _logger;
 
     public PayOSController(
         IPayOSService payOSService,
         IPaymentService paymentService,
+        IEventBus eventBus,
+        IOptions<FrontendOptions> frontendOptions,
         IValidator<PayOSPaymentRequest> validator,
-        ILogger<PayOSController> logger)
+        ILogger<PayOSController> logger,
+        AppointmentService.AppointmentServiceClient appointmentClient)
+        : base(paymentService, eventBus, frontendOptions, logger, appointmentClient)
     {
         _payOSService = payOSService;
-        _paymentService = paymentService;
         _validator = validator;
-        _logger = logger;
     }
 
     /// <summary>
@@ -43,13 +49,7 @@ public class PayOSController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult HealthCheck()
     {
-        return Success(new
-        {
-            Service = "PayOS Integration",
-            Status = "Healthy",
-            Timestamp = DateTime.UtcNow,
-            Version = ApiVersions.V1_0
-        }, "PayOS service is healthy");
+        return CreateHealthCheckResponse(GatewayName);
     }
 
     /// <summary>
@@ -73,7 +73,7 @@ public class PayOSController : BaseApiController
 
             // Use shared payment validation helper (PayOS requires PENDING status validation)
             var (validationError, _) = await PaymentValidationHelper.ValidatePaymentForGatewayAsync(
-                _paymentService, request.PaymentId, request.Amount, validateStatus: true);
+                PaymentService, request.PaymentId, request.Amount, validateStatus: true);
 
             if (validationError != null)
             {
@@ -83,19 +83,19 @@ public class PayOSController : BaseApiController
             // Create PayOS payment link
             var payOSResponse = await _payOSService.CreatePaymentLinkAsync(request);
 
-            _logger.LogInformation("PayOS payment link created successfully for PaymentId: {PaymentId}, OrderCode: {OrderCode}",
+            Logger.LogInformation("PayOS payment link created successfully for PaymentId: {PaymentId}, OrderCode: {OrderCode}",
                 request.PaymentId, payOSResponse.OrderCode);
 
             return Success(payOSResponse, "Create PayOS payment link successful");
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex, "PayOS payment creation failed - Invalid argument");
+            Logger.LogWarning(ex, "PayOS payment creation failed - Invalid argument");
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "PayOS payment creation failed for PaymentId: {PaymentId}", request.PaymentId);
+            Logger.LogError(ex, "PayOS payment creation failed for PaymentId: {PaymentId}", request.PaymentId);
             return StatusCode(500, new { Message = "An error occurred while creating PayOS payment link" });
         }
     }
@@ -108,65 +108,54 @@ public class PayOSController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> PayOSCallback([FromQuery] string code, [FromQuery] string id, [FromQuery] bool cancel, [FromQuery] string orderCode)
     {
-        // Generate request ID for tracking duplicate calls
-        var requestId = Guid.NewGuid().ToString("N")[..8];
+        var requestId = GenerateRequestId();
 
         try
         {
-            _logger.LogInformation("PayOS Callback #{RequestId} - Code: {Code}, Id: {Id}, Cancel: {Cancel}, OrderCode: {OrderCode}",
+            Logger.LogInformation("PayOS Callback #{RequestId} - Code: {Code}, Id: {Id}, Cancel: {Cancel}, OrderCode: {OrderCode}",
                 requestId, code, id, cancel, orderCode);
 
-            // Validate orderCode parameter
-            if (string.IsNullOrEmpty(orderCode))
-            {
-                _logger.LogWarning("PayOS Callback #{RequestId} - OrderCode is missing", requestId);
-                return BadRequest("OrderCode parameter is required");
-            }
+            // Validate input parameters
+            var validationResult = ValidateCallbackParameters(orderCode, requestId);
+            if (validationResult != null) return validationResult;
 
-            if (!long.TryParse(orderCode, out var orderCodeLong))
-            {
-                _logger.LogWarning("PayOS Callback #{RequestId} - Invalid OrderCode format: {OrderCode}", requestId, orderCode);
-                return BadRequest("Invalid OrderCode format");
-            }
-
-            // Process callback via PayOSService with tracking
+            // Process callback via PayOSService
+            var orderCodeLong = long.Parse(orderCode);
             var result = await _payOSService.ProcessCallbackAsync(orderCodeLong, code ?? string.Empty, cancel);
 
-            // Enhanced logging with request tracking
-            _logger.LogInformation("PayOS Callback #{RequestId} - Processed successfully - PaymentId: {PaymentId}, Success: {Success}, IsEmptyGuid: {IsEmptyGuid}",
+            Logger.LogInformation("PayOS Callback #{RequestId} - Processed successfully - PaymentId: {PaymentId}, Success: {Success}, IsEmptyGuid: {IsEmptyGuid}",
                 requestId, result.PaymentId, result.Success, result.PaymentId == Guid.Empty);
 
-            // Create response with details
-            var response = new
+            // Handle different payment outcomes
+            if (result.PaymentId == Guid.Empty)
             {
-                Success = result.Success,
-                PaymentId = result.PaymentId,
-                OrderCode = result.OrderCode,
-                Code = result.ResponseCode,
-                Amount = result.Amount,
-                Message = result.Message,
-                PaymentDate = result.PaymentDate,
-                RequestId = requestId, // For tracking
-                ProcessedAt = DateTime.UtcNow,
-                IsAlreadyProcessed = result.PaymentId == Guid.Empty // enough, no need for IsDuplicateCall and OriginalPaymentId
-            };
+                return CreateAlreadyProcessedResponse(result, requestId);
+            }
 
-            return Success(response, result.Success ? "PayOS payment successful" : "PayOS payment failed");
+            var payment = await GetPaymentWithValidation(result.PaymentId, requestId, GatewayName);
+            if (payment == null)
+            {
+                return BadRequest("Payment not found");
+            }
+
+            if (result.Success)
+            {
+                return HandleSuccessfulPayment(payment, result, requestId, GatewayName,
+                    (p, r, reqId) => CreateStandardResponse(r, reqId));
+            }
+
+            return await HandleFailedPaymentAsync(payment, result, requestId, GatewayName,
+                payment.AppointmentId!.Value, GetPayOSResponseMessage,
+                (p, r, reqId) => CreateStandardResponse(r, reqId));
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex, "PayOS Callback #{RequestId} - Processing failed - Invalid argument", requestId);
+            Logger.LogWarning(ex, "PayOS Callback #{RequestId} - Processing failed - Invalid argument", requestId);
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "PayOS Callback #{RequestId} - Processing failed - Code: {Code}, OrderCode: {OrderCode}",
-                requestId, code, orderCode);
-            return StatusCode(500, new
-            {
-                Message = "An error occurred while processing PayOS callback",
-                RequestId = requestId
-            });
+            return CreateProcessingErrorResponse(ex, requestId, GatewayName, code, orderCode);
         }
     }
 
@@ -186,7 +175,7 @@ public class PayOSController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get PayOS payment info for OrderCode: {OrderCode}", orderCode);
+            Logger.LogError(ex, "Failed to get PayOS payment info for OrderCode: {OrderCode}", orderCode);
             return StatusCode(500, new { Message = "An error occurred while retrieving PayOS payment info" });
         }
     }
@@ -201,11 +190,11 @@ public class PayOSController : BaseApiController
     {
         try
         {
-            _logger.LogInformation("Manual PayOS mapping cleanup requested");
+            Logger.LogInformation("Manual PayOS mapping cleanup requested");
 
             var deletedCount = await _payOSService.CleanupExpiredMappingsAsync();
 
-            _logger.LogInformation("Manual PayOS mapping cleanup completed - Deleted {DeletedCount} mappings", deletedCount);
+            Logger.LogInformation("Manual PayOS mapping cleanup completed - Deleted {DeletedCount} mappings", deletedCount);
 
             return Success(new
             {
@@ -216,7 +205,7 @@ public class PayOSController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to cleanup PayOS mappings");
+            Logger.LogError(ex, "Failed to cleanup PayOS mappings");
             return StatusCode(500, new { Message = "An error occurred while cleaning up PayOS mappings" });
         }
     }
@@ -229,20 +218,37 @@ public class PayOSController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> PayOSCancelCallback([FromQuery] string orderCode)
     {
+        var requestId = GenerateRequestId();
         try
         {
-            _logger.LogInformation("Received PayOS cancel callback - OrderCode: {OrderCode}", orderCode);
+            Logger.LogInformation("PayOS Cancel Callback #{RequestId} - OrderCode: {OrderCode}", requestId, orderCode);
 
             if (!long.TryParse(orderCode, out var orderCodeLong))
             {
-                return BadRequest("Invalid order code format");
+                return CreateParameterValidationError("OrderCode", requestId, GatewayName);
             }
 
             // Process cancel callback
             var result = await _payOSService.ProcessCallbackAsync(orderCodeLong, "CANCELLED", true);
 
-            _logger.LogInformation("PayOS cancel callback processed successfully - PaymentId: {PaymentId}",
-                result.PaymentId);
+            Logger.LogInformation("PayOS Cancel Callback #{RequestId} - Processed - PaymentId: {PaymentId}", requestId, result.PaymentId);
+
+            // Check if payment is for appointment and try to redirect to doctor booking page
+            if (result.PaymentId != Guid.Empty)
+            {
+                var payment = await GetPaymentWithValidation(result.PaymentId, requestId, GatewayName);
+                if (payment == null)
+                {
+                    return BadRequest("Payment not found");
+                }
+
+                var appointmentId = payment.AppointmentId;
+                if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
+                {
+                    return await ProcessFailedAppointmentPaymentAsync(payment, result, requestId, GatewayName,
+                        appointmentId!.Value, GetPayOSResponseMessage);
+                }
+            }
 
             return Success(new
             {
@@ -255,13 +261,108 @@ public class PayOSController : BaseApiController
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex, "PayOS cancel callback processing failed - Invalid argument: {Error}", ex.Message);
+            Logger.LogWarning(ex, "PayOS Cancel Callback #{RequestId} - Invalid argument: {Error}", requestId, ex.Message);
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "PayOS cancel callback processing failed - OrderCode: {OrderCode}", orderCode);
-            return StatusCode(500, new { Message = "An error occurred while processing PayOS cancel callback" });
+            return CreateProcessingErrorResponse(ex, requestId, GatewayName, orderCode);
         }
     }
+
+    #region Override Abstract Methods
+
+    /// <summary>
+    /// Extract response code from PayOS callback result
+    /// </summary>
+    protected override string GetResponseCodeFromCallback<TResponse>(TResponse callbackResult)
+    {
+        if (callbackResult is PayOSCallbackResponse payosResult)
+        {
+            return payosResult.ResponseCode;
+        }
+        return "UNKNOWN";
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Validate callback parameters
+    /// </summary>
+    private IActionResult? ValidateCallbackParameters(string orderCode, string requestId)
+    {
+        if (string.IsNullOrEmpty(orderCode))
+        {
+            return CreateParameterValidationError("OrderCode", requestId, GatewayName);
+        }
+
+        if (!long.TryParse(orderCode, out _))
+        {
+            Logger.LogWarning("PayOS Callback #{RequestId} - Invalid OrderCode format: {OrderCode}", requestId, orderCode);
+            return BadRequest("Invalid OrderCode format");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Create response for already processed payments
+    /// </summary>
+    private IActionResult CreateAlreadyProcessedResponse(PayOSCallbackResponse result, string requestId)
+    {
+        var response = new
+        {
+            Success = result.Success,
+            PaymentId = result.PaymentId,
+            OrderCode = result.OrderCode,
+            Code = result.ResponseCode,
+            Amount = result.Amount,
+            Message = result.Message,
+            PaymentDate = result.PaymentDate,
+            RequestId = requestId,
+            ProcessedAt = DateTime.UtcNow,
+            IsAlreadyProcessed = true
+        };
+
+        return Success(response, result.Success ? "PayOS payment successful" : "PayOS payment failed");
+    }
+
+    /// <summary>
+    /// Create standard response for non-redirect scenarios
+    /// </summary>
+    private IActionResult CreateStandardResponse(PayOSCallbackResponse result, string requestId)
+    {
+        var response = new
+        {
+            Success = result.Success,
+            PaymentId = result.PaymentId,
+            OrderCode = result.OrderCode,
+            Code = result.ResponseCode,
+            Amount = result.Amount,
+            Message = result.Message,
+            PaymentDate = result.PaymentDate,
+            RequestId = requestId,
+            ProcessedAt = DateTime.UtcNow,
+            IsAlreadyProcessed = false
+        };
+
+        return Success(response, result.Success ? "PayOS payment successful" : "PayOS payment failed");
+    }
+
+    /// <summary>
+    /// Convert PayOS response code to human readable message
+    /// </summary>
+    private static string GetPayOSResponseMessage(string responseCode) => responseCode switch
+    {
+        "00" => "Transaction successful",
+        "CANCELLED" => "Transaction cancelled by user",
+        "FAILED" => "Transaction failed",
+        "EXPIRED" => "Transaction expired",
+        "PENDING" => "Transaction pending",
+        _ => $"Unknown response code: {responseCode}"
+    };
+
+    #endregion
 }

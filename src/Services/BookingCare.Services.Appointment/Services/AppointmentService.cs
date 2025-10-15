@@ -12,6 +12,7 @@ using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital;
 using BookingCare.Services.User.Protos;
 using BookingCare.Shared.Common.Helpers;
+using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
 
 namespace BookingCare.Services.Appointment.Services;
 
@@ -285,7 +286,7 @@ public class AppointmentService : BaseService, IAppointmentService
                     }
                 }
             }
-            catch (Grpc.Core.RpcException rpcEx)
+            catch (GrpcCore.RpcException rpcEx)
             {
                 LogWarning("gRPC error batch fetching hospitals: {Error}", null, rpcEx.Status.Detail);
             }
@@ -541,7 +542,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 }
             }
         }
-        catch (Grpc.Core.RpcException rpcEx)
+        catch (GrpcCore.RpcException rpcEx)
         {
             LogWarning("gRPC error batch fetching doctors for {Context}: {Error}", null, context, rpcEx.Status.Detail);
         }
@@ -593,7 +594,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 }
             }
         }
-        catch (Grpc.Core.RpcException rpcEx)
+        catch (GrpcCore.RpcException rpcEx)
         {
             LogWarning("gRPC error batch fetching patients for {Context}: {Error}", null, context, rpcEx.Status.Detail);
         }

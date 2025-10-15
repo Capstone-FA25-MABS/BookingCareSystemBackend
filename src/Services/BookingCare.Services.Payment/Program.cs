@@ -11,11 +11,14 @@ using BookingCare.Services.Payment.Models.Configurations;
 using BookingCare.Services.Payment.Handlers;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.AppRouting;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using FluentValidation;
+using Grpc.Core;
+using Grpc.Net.ClientFactory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +34,9 @@ builder.Services.AddDbContext<PaymentDbContext>(options =>
 builder.Services.Configure<VNPayConfiguration>(builder.Configuration.GetSection("VNPayConfiguration"));
 builder.Services.Configure<PayOSConfiguration>(builder.Configuration.GetSection("PayOSConfiguration"));
 
+// Bind Frontend options for base URL resolution
+builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
+
 // Add repositories
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
@@ -45,6 +51,7 @@ builder.Services.AddScoped<IVNPayService, VNPayService>();
 builder.Services.AddScoped<IPayOSService, PayOSService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
+builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
 
 // Add background services
 builder.Services.AddHostedService<PayOSMappingCleanupService>();
@@ -67,6 +74,13 @@ builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.User
 {
     var userServiceUrl = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
     o.Address = new Uri(userServiceUrl);
+});
+
+// Add gRPC client for Appointment Service (to get doctorId from appointmentId for payment failure redirect)
+builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient>(o =>
+{
+    var appointmentServiceUrl = builder.Configuration.GetSection("Services:Appointment").GetValue<string>("GrpcUrl") ?? "http://localhost:6102";
+    o.Address = new Uri(appointmentServiceUrl);
 });
 
 // Add API versioning support
