@@ -36,4 +36,13 @@ public interface IAppointmentRepository
         Guid? doctorId = null,
         Guid? hospitalId = null,
         bool countAll = false);
+
+    // Background service operations
+    /// <summary>
+    /// Get overdue appointments by status
+    /// Returns appointments where AppointmentDate is before the reference date
+    /// </summary>
+    Task<List<AppointmentEntity>> GetOverdueAppointmentsByStatusAsync(
+        AppointmentStatus status,
+        DateTime referenceDate);
 }

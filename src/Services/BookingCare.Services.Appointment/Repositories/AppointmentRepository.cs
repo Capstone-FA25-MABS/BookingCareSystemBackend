@@ -371,4 +371,37 @@ public class AppointmentRepository : IAppointmentRepository
     }
 
     #endregion
+
+    #region Background Service Operations
+
+    /// <summary>
+    /// Get overdue appointments by status
+    /// Returns appointments where AppointmentDate is before the reference date
+    /// </summary>
+    public async Task<List<AppointmentEntity>> GetOverdueAppointmentsByStatusAsync(
+        AppointmentStatus status,
+        DateTime referenceDate)
+    {
+        try
+        {
+            var overdueAppointments = await _context.Appointments
+                .Where(a => a.Status == status && a.AppointmentDate.Date < referenceDate.Date)
+                .ToListAsync();
+
+            _logger.LogInformation(
+                "Found {Count} overdue appointments with status {Status} before {ReferenceDate}",
+                overdueAppointments.Count, status, referenceDate.Date);
+
+            return overdueAppointments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting overdue appointments by status: {Status}, ReferenceDate: {ReferenceDate}",
+                status, referenceDate.Date);
+            throw new AppointmentException("Failed to get overdue appointments", innerException: ex);
+        }
+    }
+
+    #endregion
 }
