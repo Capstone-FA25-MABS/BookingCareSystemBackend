@@ -1,4 +1,5 @@
 using BookingCare.Services.Appointment.Enums;
+using BookingCare.Services.Appointment.Models.Entities;
 using BookingCare.Services.Appointment.Repositories;
 
 namespace BookingCare.Services.Appointment.BackgroundServices;
@@ -64,103 +65,129 @@ public class AppointmentStatusUpdateService : BackgroundService
         _logger.LogInformation("AppointmentStatusUpdateService is stopping");
     }
 
-    private async Task ProcessOverdueAppointmentsAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Starting to process overdue appointments...");
+	private async Task ProcessOverdueAppointmentsAsync(CancellationToken cancellationToken)
+	{
+		_logger.LogInformation("Starting to process overdue appointments...");
 
-        using var scope = _serviceProvider.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<IAppointmentRepository>();
+		using var scope = _serviceProvider.CreateScope();
+		var repository = scope.ServiceProvider.GetRequiredService<IAppointmentRepository>();
 
-        try
-        {
-            var today = DateTime.UtcNow.Date;
+		var today = DateTime.UtcNow.Date;
 
-            // Get and process overdue PENDING appointments
-            var overduePendingAppointments = await repository
-                .GetOverdueAppointmentsByStatusAsync(AppointmentStatus.PENDING, today);
+		// Process overdue PENDING appointments
+		await ProcessPendingAppointmentsAsync(repository, today, cancellationToken);
 
-            if (overduePendingAppointments.Any())
-            {
-                _logger.LogInformation(
-                    "Found {Count} overdue PENDING appointments to cancel",
-                    overduePendingAppointments.Count);
+		// Process overdue CONFIRMED appointments
+		await ProcessConfirmedAppointmentsAsync(repository, today, cancellationToken);
 
-                foreach (var appointment in overduePendingAppointments)
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                        break;
+		_logger.LogInformation("Completed processing overdue appointments");
+	}
 
-                    var success = await repository.CancelAppointmentAsync(
-                        appointment,
-                        OVERDUE_CANCELLATION_REASON,
-                        SYSTEM_USER);
+	private async Task ProcessPendingAppointmentsAsync(
+		IAppointmentRepository repository,
+		DateTime referenceDate,
+		CancellationToken cancellationToken)
+	{
+		var overduePendingAppointments = await repository
+			.GetOverdueAppointmentsByStatusAsync(AppointmentStatus.PENDING, referenceDate);
 
-                    if (success)
-                    {
-                        _logger.LogInformation(
-                            "Successfully cancelled overdue appointment {AppointmentId} for patient {PatientId}",
-                            appointment.Id,
-                            appointment.PatientId);
-                    }
-                    else
-                    {
-                        _logger.LogWarning(
-                            "Failed to cancel overdue appointment {AppointmentId}",
-                            appointment.Id);
-                    }
-                }
-            }
+		if (!overduePendingAppointments.Any())
+		{
+			return;
+		}
 
-            // Get and process overdue CONFIRMED appointments
-            var overdueConfirmedAppointments = await repository
-                .GetOverdueAppointmentsByStatusAsync(AppointmentStatus.CONFIRMED, today);
+		_logger.LogInformation(
+			"Found {Count} overdue PENDING appointments to cancel",
+			overduePendingAppointments.Count);
 
-            if (overdueConfirmedAppointments.Any())
-            {
-                _logger.LogInformation(
-                    "Found {Count} overdue CONFIRMED appointments to complete",
-                    overdueConfirmedAppointments.Count);
+		await CancelOverdueAppointmentsAsync(
+			repository,
+			overduePendingAppointments,
+			cancellationToken);
+	}
 
-                foreach (var appointment in overdueConfirmedAppointments)
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                        break;
+	private async Task ProcessConfirmedAppointmentsAsync(
+		IAppointmentRepository repository,
+		DateTime referenceDate,
+		CancellationToken cancellationToken)
+	{
+		var overdueConfirmedAppointments = await repository
+			.GetOverdueAppointmentsByStatusAsync(AppointmentStatus.CONFIRMED, referenceDate);
 
-                    var success = await repository.UpdateAppointmentStatusAsync(
-                        appointment.Id,
-                        AppointmentStatus.COMPLETED,
-                        "Tự động hoàn thành - Đã qua ngày hẹn");
+		if (!overdueConfirmedAppointments.Any())
+		{
+			return;
+		}
 
-                    if (success)
-                    {
-                        _logger.LogInformation(
-                            "Successfully completed overdue appointment {AppointmentId} for patient {PatientId}",
-                            appointment.Id,
-                            appointment.PatientId);
-                    }
-                    else
-                    {
-                        _logger.LogWarning(
-                            "Failed to complete overdue appointment {AppointmentId}",
-                            appointment.Id);
-                    }
-                }
-            }
+		_logger.LogInformation(
+			"Found {Count} overdue CONFIRMED appointments to complete",
+			overdueConfirmedAppointments.Count);
 
-            if (!overduePendingAppointments.Any() && !overdueConfirmedAppointments.Any())
-            {
-                _logger.LogInformation("No overdue appointments found to process");
-            }
+		await CompleteOverdueAppointmentsAsync(
+			repository,
+			overdueConfirmedAppointments,
+			cancellationToken);
+	}
 
-            _logger.LogInformation("Completed processing overdue appointments");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "Error occurred while processing overdue appointments in repository operations");
-            throw;
-        }
-    }
+	private async Task CancelOverdueAppointmentsAsync(
+		IAppointmentRepository repository,
+		List<AppointmentEntity> appointments,
+		CancellationToken cancellationToken)
+	{
+		foreach (var appointment in appointments)
+		{
+			if (cancellationToken.IsCancellationRequested)
+			{
+				break;
+			}
+
+			var success = await repository.CancelAppointmentAsync(
+				appointment,
+				OVERDUE_CANCELLATION_REASON,
+				SYSTEM_USER);
+
+			LogAppointmentUpdateResult(success, appointment.Id, appointment.PatientId, "cancelled");
+		}
+	}
+
+	private async Task CompleteOverdueAppointmentsAsync(
+		IAppointmentRepository repository,
+		List<AppointmentEntity> appointments,
+		CancellationToken cancellationToken)
+	{
+		foreach (var appointment in appointments)
+		{
+			if (cancellationToken.IsCancellationRequested)
+			{
+				break;
+			}
+
+			var success = await repository.UpdateAppointmentStatusAsync(
+				appointment.Id,
+				AppointmentStatus.COMPLETED,
+				"Tự động hoàn thành - Đã qua ngày hẹn");
+
+			LogAppointmentUpdateResult(success, appointment.Id, appointment.PatientId, "completed");
+		}
+	}
+
+	private void LogAppointmentUpdateResult(bool success, Guid appointmentId, Guid patientId, string action)
+	{
+		if (success)
+		{
+			_logger.LogInformation(
+				"Successfully {Action} overdue appointment {AppointmentId} for patient {PatientId}",
+				action,
+				appointmentId,
+				patientId);
+		}
+		else
+		{
+			_logger.LogWarning(
+				"Failed to {Action} overdue appointment {AppointmentId}",
+				action,
+				appointmentId);
+		}
+	}
 }
 
