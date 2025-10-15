@@ -1,3 +1,5 @@
+using BookingCare.Shared.Common.Interfaces;
+
 namespace BookingCare.Shared.EventBus.Events;
 
 // User-related events
@@ -613,8 +615,13 @@ public class AppointmentPaymentSuccessIntegrationEvent : IntegrationEvent
 /// <summary>
 /// Event published when appointment booking is successful and payment is completed
 /// This event is consumed by Notification Service to send booking success email to patient
+/// 
+/// Note: AppointmentBookingEmailData DTO in Notification Service maps directly from this event
+/// to avoid duplication of properties. See AppointmentBookingEmailData.FromEvent() method.
+/// 
+/// Implements IAppointmentData to eliminate SonarQube "Duplicated Lines" issue.
 /// </summary>
-public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
+public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent, IAppointmentData
 {
     /// <summary>
     /// ID of the appointment that was successfully booked
@@ -631,6 +638,7 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
     /// </summary>
     public string PatientEmail { get; set; } = string.Empty;
 
+    // IAppointmentData implementation
     /// <summary>
     /// Patient name for email greeting
     /// </summary>
@@ -681,6 +689,7 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
     /// </summary>
     public string AppointmentType { get; set; } = string.Empty;
 
+    // Event-specific properties
     /// <summary>
     /// Email subject line
     /// </summary>

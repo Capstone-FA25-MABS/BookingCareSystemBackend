@@ -39,34 +39,14 @@ public class AppointmentBookingSuccessNotificationEventHandler : IIntegrationEve
                 return;
             }
 
-            var patientName = @event.PatientName;
-            if (string.IsNullOrEmpty(patientName))
+            // Handle empty patient name with fallback
+            if (string.IsNullOrEmpty(@event.PatientName))
             {
-                patientName = "Quý khách"; // Fixed Unicode fallback
+                @event.PatientName = "Quý khách"; // Fixed Unicode fallback
             }
 
-            // Create a copy of the event with the validated patient name
-            var eventWithValidatedName = new AppointmentBookingSuccessNotificationEvent
-            {
-                AppointmentId = @event.AppointmentId,
-                PatientId = @event.PatientId,
-                PatientEmail = @event.PatientEmail,
-                PatientName = patientName,
-                AppointmentDate = @event.AppointmentDate,
-                AppointmentTime = @event.AppointmentTime,
-                DoctorName = @event.DoctorName,
-                DoctorSpecialty = @event.DoctorSpecialty,
-                HospitalName = @event.HospitalName,
-                HospitalAddress = @event.HospitalAddress,
-                ServiceName = @event.ServiceName,
-                Amount = @event.Amount,
-                AppointmentType = @event.AppointmentType,
-                EmailSubject = @event.EmailSubject,
-                CorrelationId = @event.CorrelationId
-            };
-
-            // Create email data using the new mapping method (eliminates duplication)
-            var emailData = AppointmentBookingEmailData.FromEvent(eventWithValidatedName);
+            // Create email data using extension method (eliminates duplication)
+            var emailData = AppointmentBookingEmailData.FromEvent(@event);
 
             // Generate HTML email content using the template with DTO
             var emailContent = EmailTemplate.BuildAppointmentBookedSuccessEmailHtml(emailData);

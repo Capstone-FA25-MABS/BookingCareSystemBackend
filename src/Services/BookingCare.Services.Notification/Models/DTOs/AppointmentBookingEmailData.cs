@@ -1,4 +1,6 @@
 using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.Common.Interfaces;
+using BookingCare.Shared.Common.Extensions;
 
 namespace BookingCare.Services.Notification.Models.DTOs;
 
@@ -7,12 +9,19 @@ namespace BookingCare.Services.Notification.Models.DTOs;
 /// Used to resolve SonarQube issue: Method has too many parameters
 /// Refactored to eliminate duplication with AppointmentBookingSuccessNotificationEvent
 /// 
+/// Implements IAppointmentData to eliminate SonarQube "Duplicated Lines" issue.
+/// Both this DTO and AppointmentBookingSuccessNotificationEvent implement the same interface,
+/// which defines the common appointment data structure, eliminating code duplication.
+/// 
 /// Usage Examples:
 /// 
 /// 1. From Event (Recommended):
 ///    var emailData = AppointmentBookingEmailData.FromEvent(appointmentEvent);
 /// 
-/// 2. Using Builder Pattern:
+/// 2. From any IAppointmentData source:
+///    var emailData = AppointmentBookingEmailData.FromAppointmentData(appointmentDataSource);
+/// 
+/// 3. Using Builder Pattern:
 ///    var emailData = AppointmentBookingEmailData
 ///        .CreateBuilder("John Doe", DateTime.Now, "08:00 - 09:00")
 ///        .WithDoctor("Dr. Smith", "Cardiology")
@@ -22,14 +31,15 @@ namespace BookingCare.Services.Notification.Models.DTOs;
 ///        .WithAppointmentType("CONSULTATION")
 ///        .Build();
 /// 
-/// 3. Minimal Builder Usage:
+/// 4. Minimal Builder Usage:
 ///    var emailData = AppointmentBookingEmailData
 ///        .CreateBuilder("Jane Doe", DateTime.Now, "10:00 - 11:00")
 ///        .WithAmount(300000)
 ///        .Build();
 /// </summary>
-public class AppointmentBookingEmailData
+public class AppointmentBookingEmailData : IAppointmentData
 {
+    // IAppointmentData implementation - eliminates duplicate properties
     /// <summary>
     /// Patient name
     /// </summary>
@@ -81,26 +91,27 @@ public class AppointmentBookingEmailData
     public string AppointmentType { get; set; } = string.Empty;
 
     /// <summary>
+    /// Creates AppointmentBookingEmailData from any IAppointmentData source
+    /// Uses extension method to eliminate code duplication
+    /// </summary>
+    /// <param name="appointmentData">The appointment data source (Event, DTO, etc.)</param>
+    /// <returns>Mapped AppointmentBookingEmailData</returns>
+    public static AppointmentBookingEmailData FromAppointmentData(IAppointmentData appointmentData)
+    {
+        var emailData = new AppointmentBookingEmailData();
+        emailData.CopyFrom(appointmentData); // Uses extension method
+        return emailData;
+    }
+
+    /// <summary>
     /// Creates AppointmentBookingEmailData from AppointmentBookingSuccessNotificationEvent
-    /// This eliminates duplication between the Event and DTO
+    /// This method is kept for backward compatibility and explicit typing
     /// </summary>
     /// <param name="eventData">The appointment booking success notification event</param>
     /// <returns>Mapped AppointmentBookingEmailData</returns>
     public static AppointmentBookingEmailData FromEvent(AppointmentBookingSuccessNotificationEvent eventData)
     {
-        return new AppointmentBookingEmailData
-        {
-            PatientName = eventData.PatientName,
-            AppointmentDate = eventData.AppointmentDate,
-            AppointmentTime = eventData.AppointmentTime,
-            DoctorName = eventData.DoctorName,
-            DoctorSpecialty = eventData.DoctorSpecialty,
-            HospitalName = eventData.HospitalName,
-            HospitalAddress = eventData.HospitalAddress,
-            ServiceName = eventData.ServiceName,
-            Amount = eventData.Amount,
-            AppointmentType = eventData.AppointmentType
-        };
+        return FromAppointmentData(eventData);
     }
 
     /// <summary>
