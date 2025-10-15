@@ -1,4 +1,5 @@
 using BookingCare.Shared.Common.Enums;
+using System.Globalization;
 
 namespace BookingCare.Shared.Common.Extensions;
 
@@ -95,6 +96,7 @@ public static class AppointmentTimeExtensions
 
     /// <summary>
     /// Gets the duration in minutes for the appointment time slot
+    /// Fixed SonarQube issue: Added CultureInfo.InvariantCulture format provider for TimeOnly.TryParse
     /// </summary>
     /// <param name="appointmentTime">The appointment time enum</param>
     /// <returns>Duration in minutes (30 or 60)</returns>
@@ -103,7 +105,9 @@ public static class AppointmentTimeExtensions
         var startTime = appointmentTime.GetStartTime();
         var endTime = appointmentTime.GetEndTime();
 
-        if (TimeOnly.TryParse(startTime, out var start) && TimeOnly.TryParse(endTime, out var end))
+        // Fixed SonarQube: Use format provider when parsing date and time
+        if (TimeOnly.TryParse(startTime, CultureInfo.InvariantCulture, out var start) &&
+            TimeOnly.TryParse(endTime, CultureInfo.InvariantCulture, out var end))
         {
             return (int)(end - start).TotalMinutes;
         }

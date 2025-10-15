@@ -1,4 +1,6 @@
-﻿namespace BookingCare.Services.Notification.Utils.Email;
+﻿using BookingCare.Services.Notification.Models.DTOs;
+
+namespace BookingCare.Services.Notification.Utils.Email;
 
 public static class EmailTemplate
 {
@@ -398,48 +400,39 @@ public static class EmailTemplate
 
     /// <summary>
     /// Build email content for successful appointment booking
+    /// Fixed SonarQube issue: Reduced from 10 parameters to 1 parameter object
     /// </summary>
-    public static string BuildAppointmentBookedSuccessEmailHtml(
-        string patientName,
-        DateTime appointmentDate,
-        string appointmentTime,
-        string? doctorName,
-        string? doctorSpecialty,
-        string? hospitalName,
-        string? hospitalAddress,
-        string? serviceName,
-        decimal amount,
-        string appointmentType)
+    public static string BuildAppointmentBookedSuccessEmailHtml(AppointmentBookingEmailData emailData)
     {
         var doctorInfoHtml = "";
-        if (!string.IsNullOrEmpty(doctorName))
+        if (!string.IsNullOrEmpty(emailData.DoctorName))
         {
             doctorInfoHtml = $@"
-        <div class=""info-item""><strong>Bác sĩ:</strong> {doctorName}</div>";
-            if (!string.IsNullOrEmpty(doctorSpecialty))
+        <div class=""info-item""><strong>Bác sĩ:</strong> {emailData.DoctorName}</div>";
+            if (!string.IsNullOrEmpty(emailData.DoctorSpecialty))
             {
                 doctorInfoHtml += $@"
-        <div class=""info-item""><strong>Chuyên khoa:</strong> {doctorSpecialty}</div>";
+        <div class=""info-item""><strong>Chuyên khoa:</strong> {emailData.DoctorSpecialty}</div>";
             }
         }
 
         var hospitalInfoHtml = "";
-        if (!string.IsNullOrEmpty(hospitalName))
+        if (!string.IsNullOrEmpty(emailData.HospitalName))
         {
             hospitalInfoHtml = $@"
-        <div class=""info-item""><strong>Bệnh viện:</strong> {hospitalName}</div>";
-            if (!string.IsNullOrEmpty(hospitalAddress))
+        <div class=""info-item""><strong>Bệnh viện:</strong> {emailData.HospitalName}</div>";
+            if (!string.IsNullOrEmpty(emailData.HospitalAddress))
             {
                 hospitalInfoHtml += $@"
-        <div class=""info-item""><strong>Địa chỉ:</strong> {hospitalAddress}</div>";
+        <div class=""info-item""><strong>Địa chỉ:</strong> {emailData.HospitalAddress}</div>";
             }
         }
 
         var serviceInfoHtml = "";
-        if (!string.IsNullOrEmpty(serviceName))
+        if (!string.IsNullOrEmpty(emailData.ServiceName))
         {
             serviceInfoHtml = $@"
-        <div class=""info-item""><strong>Dịch vụ:</strong> {serviceName}</div>";
+        <div class=""info-item""><strong>Dịch vụ:</strong> {emailData.ServiceName}</div>";
         }
 
         return $@"<!DOCTYPE html>
@@ -477,15 +470,15 @@ public static class EmailTemplate
     </div>
     <div class=""content"">
       <div class=""check-icon"">✅</div>
-      <p class=""greeting"">Kính gửi {patientName},</p>
+      <p class=""greeting"">Kính gửi {emailData.PatientName},</p>
       <p class=""lead"">Chúc mừng! Lịch hẹn của quý khách đã được đặt thành công và thanh toán hoàn tất.</p>
       
       <div class=""success-box"">
         <p><strong>🎉 Thông tin lịch hẹn:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy}</div>
-        <div class=""info-item""><strong>Thời gian:</strong> {appointmentTime}</div>
-        <div class=""info-item""><strong>Loại hẹn:</strong> {appointmentType}</div>{doctorInfoHtml}{serviceInfoHtml}
-        <div class=""info-item""><strong>Số tiền đã thanh toán:</strong> <span class=""amount"">{amount:N0} VNĐ</span></div>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {emailData.AppointmentDate:dd/MM/yyyy}</div>
+        <div class=""info-item""><strong>Thời gian:</strong> {emailData.AppointmentTime}</div>
+        <div class=""info-item""><strong>Loại hẹn:</strong> {emailData.AppointmentType}</div>{doctorInfoHtml}{serviceInfoHtml}
+        <div class=""info-item""><strong>Số tiền đã thanh toán:</strong> <span class=""amount"">{emailData.Amount:N0} VNĐ</span></div>
       </div>
       
       <div class=""info-box"">

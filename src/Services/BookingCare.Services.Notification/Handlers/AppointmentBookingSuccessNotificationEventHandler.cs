@@ -1,6 +1,7 @@
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Utils.Email;
+using BookingCare.Services.Notification.Models.DTOs;
 
 namespace BookingCare.Services.Notification.Handlers;
 
@@ -38,24 +39,29 @@ public class AppointmentBookingSuccessNotificationEventHandler : IIntegrationEve
                 return;
             }
 
-            if (string.IsNullOrEmpty(@event.PatientName))
+            var patientName = @event.PatientName;
+            if (string.IsNullOrEmpty(patientName))
             {
-                @event.PatientName = "Quý khách"; // Default fallback
+                patientName = "Quý khách"; // Fixed Unicode fallback
             }
 
-            // Generate HTML email content using the template
-            var emailContent = EmailTemplate.BuildAppointmentBookedSuccessEmailHtml(
-                patientName: @event.PatientName,
-                appointmentDate: @event.AppointmentDate,
-                appointmentTime: @event.AppointmentTime,
-                doctorName: @event.DoctorName,
-                doctorSpecialty: @event.DoctorSpecialty,
-                hospitalName: @event.HospitalName,
-                hospitalAddress: @event.HospitalAddress,
-                serviceName: @event.ServiceName,
-                amount: @event.Amount,
-                appointmentType: @event.AppointmentType
-            );
+            // Create email data object (fixes SonarQube parameter count issue)
+            var emailData = new AppointmentBookingEmailData
+            {
+                PatientName = patientName,
+                AppointmentDate = @event.AppointmentDate,
+                AppointmentTime = @event.AppointmentTime,
+                DoctorName = @event.DoctorName,
+                DoctorSpecialty = @event.DoctorSpecialty,
+                HospitalName = @event.HospitalName,
+                HospitalAddress = @event.HospitalAddress,
+                ServiceName = @event.ServiceName,
+                Amount = @event.Amount,
+                AppointmentType = @event.AppointmentType
+            };
+
+            // Generate HTML email content using the template with DTO
+            var emailContent = EmailTemplate.BuildAppointmentBookedSuccessEmailHtml(emailData);
 
             // Send the email
             await _emailService.SendEmailAsync(
