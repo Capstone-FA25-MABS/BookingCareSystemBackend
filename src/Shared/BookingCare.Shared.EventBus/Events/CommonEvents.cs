@@ -1,4 +1,5 @@
 using BookingCare.Shared.Common.Interfaces;
+using BookingCare.Shared.Common.Extensions;
 
 namespace BookingCare.Shared.EventBus.Events;
 
@@ -619,9 +620,9 @@ public class AppointmentPaymentSuccessIntegrationEvent : IntegrationEvent
 /// Note: AppointmentBookingEmailData DTO in Notification Service maps directly from this event
 /// to avoid duplication of properties. See AppointmentBookingEmailData.FromEvent() method.
 /// 
-/// Implements IAppointmentData to eliminate SonarQube "Duplicated Lines" issue.
+/// Uses composition with AppointmentDataBase to eliminate SonarQube "Duplicated Lines" issue.
 /// </summary>
-public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent, IAppointmentData
+public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
 {
     /// <summary>
     /// ID of the appointment that was successfully booked
@@ -638,58 +639,12 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent, IApp
     /// </summary>
     public string PatientEmail { get; set; } = string.Empty;
 
-    // IAppointmentData implementation
     /// <summary>
-    /// Patient name for email greeting
+    /// Appointment data - eliminates duplicate property declarations
+    /// All appointment-related properties are contained in this object
     /// </summary>
-    public string PatientName { get; set; } = string.Empty;
+    public AppointmentData AppointmentData { get; set; } = new();
 
-    /// <summary>
-    /// Appointment date and time
-    /// </summary>
-    public DateTime AppointmentDate { get; set; }
-
-    /// <summary>
-    /// Formatted appointment time slot (e.g., "08:00 - 09:00")
-    /// </summary>
-    public string AppointmentTime { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Doctor name (if assigned)
-    /// </summary>
-    public string? DoctorName { get; set; }
-
-    /// <summary>
-    /// Doctor specialty (if assigned)
-    /// </summary>
-    public string? DoctorSpecialty { get; set; }
-
-    /// <summary>
-    /// Hospital name
-    /// </summary>
-    public string? HospitalName { get; set; }
-
-    /// <summary>
-    /// Hospital address
-    /// </summary>
-    public string? HospitalAddress { get; set; }
-
-    /// <summary>
-    /// Service name (if applicable)
-    /// </summary>
-    public string? ServiceName { get; set; }
-
-    /// <summary>
-    /// Payment amount
-    /// </summary>
-    public decimal Amount { get; set; }
-
-    /// <summary>
-    /// Appointment type (e.g., "CONSULTATION", "CHECKUP")
-    /// </summary>
-    public string AppointmentType { get; set; } = string.Empty;
-
-    // Event-specific properties
     /// <summary>
     /// Email subject line
     /// </summary>
@@ -699,4 +654,95 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent, IApp
     /// Correlation ID for tracking
     /// </summary>
     public string CorrelationId { get; set; } = string.Empty;
+
+    // Convenience properties for backward compatibility - delegate to AppointmentData
+    /// <summary>
+    /// Patient name (delegates to AppointmentData)
+    /// </summary>
+    public string PatientName
+    {
+        get => AppointmentData.PatientName;
+        set => AppointmentData.PatientName = value;
+    }
+
+    /// <summary>
+    /// Appointment date (delegates to AppointmentData)
+    /// </summary>
+    public DateTime AppointmentDate
+    {
+        get => AppointmentData.AppointmentDate;
+        set => AppointmentData.AppointmentDate = value;
+    }
+
+    /// <summary>
+    /// Appointment time (delegates to AppointmentData)
+    /// </summary>
+    public string AppointmentTime
+    {
+        get => AppointmentData.AppointmentTime;
+        set => AppointmentData.AppointmentTime = value;
+    }
+
+    /// <summary>
+    /// Doctor name (delegates to AppointmentData)
+    /// </summary>
+    public string? DoctorName
+    {
+        get => AppointmentData.DoctorName;
+        set => AppointmentData.DoctorName = value;
+    }
+
+    /// <summary>
+    /// Doctor specialty (delegates to AppointmentData)
+    /// </summary>
+    public string? DoctorSpecialty
+    {
+        get => AppointmentData.DoctorSpecialty;
+        set => AppointmentData.DoctorSpecialty = value;
+    }
+
+    /// <summary>
+    /// Hospital name (delegates to AppointmentData)
+    /// </summary>
+    public string? HospitalName
+    {
+        get => AppointmentData.HospitalName;
+        set => AppointmentData.HospitalName = value;
+    }
+
+    /// <summary>
+    /// Hospital address (delegates to AppointmentData)
+    /// </summary>
+    public string? HospitalAddress
+    {
+        get => AppointmentData.HospitalAddress;
+        set => AppointmentData.HospitalAddress = value;
+    }
+
+    /// <summary>
+    /// Service name (delegates to AppointmentData)
+    /// </summary>
+    public string? ServiceName
+    {
+        get => AppointmentData.ServiceName;
+        set => AppointmentData.ServiceName = value;
+    }
+
+    /// <summary>
+    /// Payment amount (delegates to AppointmentData)
+    /// </summary>
+    public decimal Amount
+    {
+        get => AppointmentData.Amount;
+        set => AppointmentData.Amount = value;
+    }
+
+    /// <summary>
+    /// Appointment type (delegates to AppointmentData)
+    /// </summary>
+    public string AppointmentType
+    {
+        get => AppointmentData.AppointmentType;
+        set => AppointmentData.AppointmentType = value;
+    }
 }

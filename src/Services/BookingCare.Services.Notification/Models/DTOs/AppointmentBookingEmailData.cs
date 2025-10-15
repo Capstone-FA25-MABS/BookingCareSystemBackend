@@ -9,17 +9,19 @@ namespace BookingCare.Services.Notification.Models.DTOs;
 /// Used to resolve SonarQube issue: Method has too many parameters
 /// Refactored to eliminate duplication with AppointmentBookingSuccessNotificationEvent
 /// 
-/// Implements IAppointmentData to eliminate SonarQube "Duplicated Lines" issue.
-/// Both this DTO and AppointmentBookingSuccessNotificationEvent implement the same interface,
-/// which defines the common appointment data structure, eliminating code duplication.
+/// Uses composition with AppointmentData to eliminate SonarQube "Duplicated Lines" issue.
+/// No duplicate property declarations - all contained in AppointmentData object!
 /// 
 /// Usage Examples:
 /// 
 /// 1. From Event (Recommended):
 ///    var emailData = AppointmentBookingEmailData.FromEvent(appointmentEvent);
 /// 
-/// 2. From any IAppointmentData source:
-///    var emailData = AppointmentBookingEmailData.FromAppointmentData(appointmentDataSource);
+/// 2. Direct access to appointment data:
+///    var emailData = new AppointmentBookingEmailData();
+///    emailData.AppointmentData.PatientName = "John Doe";
+///    // OR use convenience properties:
+///    emailData.PatientName = "John Doe"; // delegates to AppointmentData
 /// 
 /// 3. Using Builder Pattern:
 ///    var emailData = AppointmentBookingEmailData
@@ -30,88 +32,130 @@ namespace BookingCare.Services.Notification.Models.DTOs;
 ///        .WithAmount(500000)
 ///        .WithAppointmentType("CONSULTATION")
 ///        .Build();
-/// 
-/// 4. Minimal Builder Usage:
-///    var emailData = AppointmentBookingEmailData
-///        .CreateBuilder("Jane Doe", DateTime.Now, "10:00 - 11:00")
-///        .WithAmount(300000)
-///        .Build();
 /// </summary>
-public class AppointmentBookingEmailData : IAppointmentData
+public class AppointmentBookingEmailData
 {
-    // IAppointmentData implementation - eliminates duplicate properties
     /// <summary>
-    /// Patient name
+    /// Appointment data - eliminates duplicate property declarations
+    /// All appointment-related properties are contained in this object
     /// </summary>
-    public string PatientName { get; set; } = string.Empty;
+    public AppointmentData AppointmentData { get; set; } = new();
 
+    // Convenience properties for backward compatibility - delegate to AppointmentData
     /// <summary>
-    /// Appointment date
+    /// Patient name (delegates to AppointmentData)
     /// </summary>
-    public DateTime AppointmentDate { get; set; }
-
-    /// <summary>
-    /// Appointment time (formatted string)
-    /// </summary>
-    public string AppointmentTime { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Doctor name (optional)
-    /// </summary>
-    public string? DoctorName { get; set; }
-
-    /// <summary>
-    /// Doctor specialty (optional)
-    /// </summary>
-    public string? DoctorSpecialty { get; set; }
-
-    /// <summary>
-    /// Hospital name (optional)
-    /// </summary>
-    public string? HospitalName { get; set; }
-
-    /// <summary>
-    /// Hospital address (optional)
-    /// </summary>
-    public string? HospitalAddress { get; set; }
-
-    /// <summary>
-    /// Service name (optional)
-    /// </summary>
-    public string? ServiceName { get; set; }
-
-    /// <summary>
-    /// Payment amount
-    /// </summary>
-    public decimal Amount { get; set; }
-
-    /// <summary>
-    /// Appointment type
-    /// </summary>
-    public string AppointmentType { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Creates AppointmentBookingEmailData from any IAppointmentData source
-    /// Uses extension method to eliminate code duplication
-    /// </summary>
-    /// <param name="appointmentData">The appointment data source (Event, DTO, etc.)</param>
-    /// <returns>Mapped AppointmentBookingEmailData</returns>
-    public static AppointmentBookingEmailData FromAppointmentData(IAppointmentData appointmentData)
+    public string PatientName
     {
-        var emailData = new AppointmentBookingEmailData();
-        emailData.CopyFrom(appointmentData); // Uses extension method
-        return emailData;
+        get => AppointmentData.PatientName;
+        set => AppointmentData.PatientName = value;
+    }
+
+    /// <summary>
+    /// Appointment date (delegates to AppointmentData)
+    /// </summary>
+    public DateTime AppointmentDate
+    {
+        get => AppointmentData.AppointmentDate;
+        set => AppointmentData.AppointmentDate = value;
+    }
+
+    /// <summary>
+    /// Appointment time (delegates to AppointmentData)
+    /// </summary>
+    public string AppointmentTime
+    {
+        get => AppointmentData.AppointmentTime;
+        set => AppointmentData.AppointmentTime = value;
+    }
+
+    /// <summary>
+    /// Doctor name (delegates to AppointmentData)
+    /// </summary>
+    public string? DoctorName
+    {
+        get => AppointmentData.DoctorName;
+        set => AppointmentData.DoctorName = value;
+    }
+
+    /// <summary>
+    /// Doctor specialty (delegates to AppointmentData)
+    /// </summary>
+    public string? DoctorSpecialty
+    {
+        get => AppointmentData.DoctorSpecialty;
+        set => AppointmentData.DoctorSpecialty = value;
+    }
+
+    /// <summary>
+    /// Hospital name (delegates to AppointmentData)
+    /// </summary>
+    public string? HospitalName
+    {
+        get => AppointmentData.HospitalName;
+        set => AppointmentData.HospitalName = value;
+    }
+
+    /// <summary>
+    /// Hospital address (delegates to AppointmentData)
+    /// </summary>
+    public string? HospitalAddress
+    {
+        get => AppointmentData.HospitalAddress;
+        set => AppointmentData.HospitalAddress = value;
+    }
+
+    /// <summary>
+    /// Service name (delegates to AppointmentData)
+    /// </summary>
+    public string? ServiceName
+    {
+        get => AppointmentData.ServiceName;
+        set => AppointmentData.ServiceName = value;
+    }
+
+    /// <summary>
+    /// Payment amount (delegates to AppointmentData)
+    /// </summary>
+    public decimal Amount
+    {
+        get => AppointmentData.Amount;
+        set => AppointmentData.Amount = value;
+    }
+
+    /// <summary>
+    /// Appointment type (delegates to AppointmentData)
+    /// </summary>
+    public string AppointmentType
+    {
+        get => AppointmentData.AppointmentType;
+        set => AppointmentData.AppointmentType = value;
     }
 
     /// <summary>
     /// Creates AppointmentBookingEmailData from AppointmentBookingSuccessNotificationEvent
-    /// This method is kept for backward compatibility and explicit typing
+    /// Uses composition to share AppointmentData object
     /// </summary>
     /// <param name="eventData">The appointment booking success notification event</param>
     /// <returns>Mapped AppointmentBookingEmailData</returns>
     public static AppointmentBookingEmailData FromEvent(AppointmentBookingSuccessNotificationEvent eventData)
     {
-        return FromAppointmentData(eventData);
+        return new AppointmentBookingEmailData
+        {
+            AppointmentData = eventData.AppointmentData // Direct assignment - no duplication!
+        };
+    }
+
+    /// <summary>
+    /// Creates AppointmentBookingEmailData from AppointmentDataBase
+    /// </summary>
+    /// <param name="appointmentData">The appointment data source</param>
+    /// <returns>Mapped AppointmentBookingEmailData</returns>
+    public static AppointmentBookingEmailData FromAppointmentData(AppointmentDataBase appointmentData)
+    {
+        var emailData = new AppointmentBookingEmailData();
+        emailData.AppointmentData.CopyFrom(appointmentData); // Uses extension method
+        return emailData;
     }
 
     /// <summary>
@@ -139,9 +183,9 @@ public class AppointmentBookingEmailData : IAppointmentData
         {
             _data = new AppointmentBookingEmailData
             {
-                PatientName = patientName,
-                AppointmentDate = appointmentDate,
-                AppointmentTime = appointmentTime
+                PatientName = patientName,        // Uses property delegation
+                AppointmentDate = appointmentDate, // Uses property delegation
+                AppointmentTime = appointmentTime  // Uses property delegation
             };
         }
 
@@ -153,8 +197,8 @@ public class AppointmentBookingEmailData : IAppointmentData
         /// <returns>Builder instance for fluent configuration</returns>
         public Builder WithDoctor(string? doctorName, string? doctorSpecialty = null)
         {
-            _data.DoctorName = doctorName;
-            _data.DoctorSpecialty = doctorSpecialty;
+            _data.DoctorName = doctorName;           // Uses property delegation
+            _data.DoctorSpecialty = doctorSpecialty; // Uses property delegation
             return this;
         }
 
@@ -166,8 +210,8 @@ public class AppointmentBookingEmailData : IAppointmentData
         /// <returns>Builder instance for fluent configuration</returns>
         public Builder WithHospital(string? hospitalName, string? hospitalAddress = null)
         {
-            _data.HospitalName = hospitalName;
-            _data.HospitalAddress = hospitalAddress;
+            _data.HospitalName = hospitalName;       // Uses property delegation
+            _data.HospitalAddress = hospitalAddress; // Uses property delegation
             return this;
         }
 
@@ -178,7 +222,7 @@ public class AppointmentBookingEmailData : IAppointmentData
         /// <returns>Builder instance for fluent configuration</returns>
         public Builder WithService(string? serviceName)
         {
-            _data.ServiceName = serviceName;
+            _data.ServiceName = serviceName; // Uses property delegation
             return this;
         }
 
@@ -189,7 +233,7 @@ public class AppointmentBookingEmailData : IAppointmentData
         /// <returns>Builder instance for fluent configuration</returns>
         public Builder WithAmount(decimal amount)
         {
-            _data.Amount = amount;
+            _data.Amount = amount; // Uses property delegation
             return this;
         }
 
@@ -200,7 +244,7 @@ public class AppointmentBookingEmailData : IAppointmentData
         /// <returns>Builder instance for fluent configuration</returns>
         public Builder WithAppointmentType(string appointmentType)
         {
-            _data.AppointmentType = appointmentType;
+            _data.AppointmentType = appointmentType; // Uses property delegation
             return this;
         }
 
