@@ -17,10 +17,10 @@ public static class AppointmentTimeExtensions
     {
         // Parse enum name to derive start/end time
         var name = appointmentTime.ToString();
-        
+
         // Expected format: AT_HH_MM_HH_MM
         var parts = name.Split('_');
-        
+
         try
         {
             if (parts.Length >= 5)
@@ -30,7 +30,7 @@ public static class AppointmentTimeExtensions
                 var startMinute = parts[2];
                 var endHour = parts[3];
                 var endMinute = parts[4];
-                
+
                 return $"{startHour}:{startMinute} - {endHour}:{endMinute}";
             }
         }
@@ -52,7 +52,7 @@ public static class AppointmentTimeExtensions
     {
         var name = appointmentTime.ToString();
         var parts = name.Split('_');
-        
+
         try
         {
             if (parts.Length >= 3)
@@ -77,7 +77,7 @@ public static class AppointmentTimeExtensions
     {
         var name = appointmentTime.ToString();
         var parts = name.Split('_');
-        
+
         try
         {
             if (parts.Length >= 5)
@@ -102,12 +102,12 @@ public static class AppointmentTimeExtensions
     {
         var startTime = appointmentTime.GetStartTime();
         var endTime = appointmentTime.GetEndTime();
-        
+
         if (TimeOnly.TryParse(startTime, out var start) && TimeOnly.TryParse(endTime, out var end))
         {
             return (int)(end - start).TotalMinutes;
         }
-        
+
         // Default to 30 minutes if parsing fails
         return 30;
     }
