@@ -2,6 +2,7 @@ using AutoMapper;
 using BookingCare.Services.Appointment.Exceptions;
 using BookingCare.Services.Appointment.Models.DTOs;
 using BookingCare.Services.Appointment.Models.Entities;
+using BookingCare.Services.Appointment.Models.Internal;
 using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Services.Appointment.Helpers;
@@ -25,30 +26,21 @@ public class AppointmentService : BaseService, IAppointmentService
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
     private readonly IEventBus _eventBus;
-    private readonly DoctorService.DoctorServiceClient _doctorGrpcClient;
-    private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
-    private readonly UserService.UserServiceClient _userGrpcClient;
-    private readonly PaymentService.PaymentServiceClient _paymentGrpcClient;
+    private readonly GrpcClientWrapper _grpcClients;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AppointmentService(
         IAppointmentRepository appointmentRepository,
         IMapper mapper,
         IEventBus eventBus,
-        DoctorService.DoctorServiceClient doctorGrpcClient,
-        HospitalService.HospitalServiceClient hospitalGrpcClient,
-        UserService.UserServiceClient userGrpcClient,
-        PaymentService.PaymentServiceClient paymentGrpcClient,
+        GrpcClientWrapper grpcClients,
         IHttpContextAccessor httpContextAccessor,
         ILogger<AppointmentService> logger) : base(logger)
     {
         _appointmentRepository = appointmentRepository;
         _mapper = mapper;
         _eventBus = eventBus;
-        _doctorGrpcClient = doctorGrpcClient;
-        _hospitalGrpcClient = hospitalGrpcClient;
-        _userGrpcClient = userGrpcClient;
-        _paymentGrpcClient = paymentGrpcClient;
+        _grpcClients = grpcClients;
         _httpContextAccessor = httpContextAccessor;
     }
 
@@ -68,7 +60,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 AppointmentId = appointmentId.ToString()
             };
 
-            var response = await _paymentGrpcClient.GetPaymentByAppointmentIdAsync(request);
+            var response = await _grpcClients.PaymentClient.GetPaymentByAppointmentIdAsync(request);
 
             if (response.Success && response.Payment != null)
             {
@@ -305,7 +297,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 var hospitalRequest = new GetHospitalsBasicInfoRequest();
                 hospitalRequest.Ids.AddRange(hospitalIds.Select(id => id.ToString()));
 
-                var hospitalsResponse = await _hospitalGrpcClient.GetHospitalsBasicInfoAsync(hospitalRequest);
+                var hospitalsResponse = await _grpcClients.HospitalClient.GetHospitalsBasicInfoAsync(hospitalRequest);
                 var hospitalDict = hospitalsResponse.Hospitals.ToDictionary(
                     h => Guid.Parse(h.Id),
                     h => h
@@ -365,123 +357,179 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogInfo("Cancelling appointment {AppointmentId}", null, request.AppointmentId);
 
-            // Get existing appointment - Single DB query
-            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
-            if (appointment == null)
-            {
-                throw new AppointmentNotFoundException(request.AppointmentId);
-            }
+            // Get and validate appointment
+            var appointment = await GetAndValidateAppointmentForCancellationAsync(request.AppointmentId);
 
-            // Validate current status - can only cancel PENDING or CONFIRMED appointments
-            if (appointment.Status != AppointmentStatus.PENDING &&
-                appointment.Status != AppointmentStatus.CONFIRMED)
-            {
-                throw new AppointmentException(
-                    $"Cannot cancel appointment with status {appointment.Status}. Only PENDING or CONFIRMED appointments can be cancelled.");
-            }
+            // Calculate cancellation details
+            var cancellationDetails = CalculateCancellationDetails(request, appointment);
 
-            // Validate appointment is in the future
-            var appointmentDateTime = appointment.AppointmentDate;
-            var now = DateTime.UtcNow;
-
-            if (!RefundPolicyHelper.IsCancellationAllowed(appointmentDateTime, now))
-            {
-                throw new AppointmentException(
-                    $"Cannot cancel appointment that has already passed. " +
-                    $"Appointment was scheduled for {appointmentDateTime:yyyy-MM-dd HH:mm} UTC.");
-            }
-
-            // Determine if this is a staff cancellation (has CancelledByStaffId)
-            var isStaffCancellation = request.CancelledByStaffId.HasValue;
-            var cancelledBy = isStaffCancellation ? "Staff" : "Patient";
-
-            // Calculate refund percentage based on cancellation policy
-            var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(appointmentDateTime, now, isStaffCancellation);
-            var hoursUntilAppointment = (appointmentDateTime - now).TotalHours;
-
-            LogInfo("Appointment {AppointmentId} cancellation: {Hours} hours before appointment, {Refund}% refund, IsStaffCancellation: {IsStaff}",
-                null, request.AppointmentId, hoursUntilAppointment, refundPercentage, isStaffCancellation);
-
-            // Cancel appointment - Pass entity directly to avoid second DB query
-            // Repository will handle status update, reason storage, and UpdatedAt timestamp
+            // Cancel appointment in repository
             var cancelled = await _appointmentRepository.CancelAppointmentAsync(
                 appointment,
                 request.CancellationReason,
-                cancelledBy);
+                cancellationDetails.CancelledBy);
 
             if (!cancelled)
             {
                 throw new AppointmentException("Failed to cancel appointment");
             }
 
-            // Determine which event to publish based on refund percentage
-            if (refundPercentage > 0)
-            {
-                // Refund required - publish event for Payment Service to handle refund process
-                var cancelledEvent = new AppointmentCancelledIntegrationEvent
-                {
-                    AppointmentId = appointment.Id,
-                    PatientId = appointment.PatientId,
-                    DoctorId = appointment.DoctorId,
-                    HospitalId = appointment.HospitalId,
-                    AppointmentDate = appointment.AppointmentDate,
-                    AppointmentType = (int)appointment.AppointmentType,
-                    CancellationReason = request.CancellationReason,
-                    CancelledByStaffId = request.CancelledByStaffId,
-                    CancelledByPatientId = request.CancelledByPatientId,
-                    CancelledAt = DateTime.UtcNow,
-                    RefundPercentage = refundPercentage
-                };
-
-                await _eventBus.PublishAsync(cancelledEvent);
-                LogInfo("Published refund event for appointment {AppointmentId} with {Refund}% refund",
-                    null, request.AppointmentId, refundPercentage);
-            }
-            else
-            {
-                // No refund - get patient info and publish notification event directly to Notification Service
-                string? patientEmail = null;
-                string? patientPhone = null;
-                string? patientFullName = null;
-
-                try
-                {
-                    var patientRequest = new GetUserBasicInfoRequest { Id = appointment.PatientId.ToString() };
-                    var patientResponse = await _userGrpcClient.GetUserBasicInfoAsync(patientRequest);
-
-                    patientEmail = patientResponse.Email;
-                    patientPhone = patientResponse.Phone;
-                    patientFullName = $"{patientResponse.FirstName} {patientResponse.LastName}".Trim();
-                    if (string.IsNullOrEmpty(patientFullName))
-                    {
-                        patientFullName = "Quý khách";
-                    }
-
-                }
-                catch (Grpc.Core.RpcException ex)
-                {
-                    LogWarning("Failed to get patient info for no-refund notification: {Error}", null, ex.Message);
-                }
-
-                var noRefundEvent = new AppointmentNoRefundNotificationEvent
-                {
-                    AppointmentId = appointment.Id,
-                    PatientId = appointment.PatientId,
-                    AppointmentDate = appointment.AppointmentDate,
-                    CancellationReason = request.CancellationReason,
-                    CancelledAt = DateTime.UtcNow,
-                    PatientEmail = patientEmail,
-                    PatientPhone = patientPhone,
-                    PatientFullName = patientFullName
-                };
-
-                await _eventBus.PublishAsync(noRefundEvent);
-                LogInfo("Published no-refund notification event for appointment {AppointmentId} - no refund due to late cancellation",
-                    null, request.AppointmentId);
-            }
+            // Publish appropriate event based on refund percentage
+            await PublishCancellationEventAsync(appointment, request, cancellationDetails);
 
             return true;
         }, "CancelAppointment");
+    }
+
+    /// <summary>
+    /// Get appointment and validate it can be cancelled
+    /// </summary>
+    private async Task<AppointmentEntity> GetAndValidateAppointmentForCancellationAsync(Guid appointmentId)
+    {
+        var appointment = await _appointmentRepository.GetAppointmentByIdAsync(appointmentId);
+        if (appointment == null)
+        {
+            throw new AppointmentNotFoundException(appointmentId);
+        }
+
+        // Validate current status
+        if (appointment.Status != AppointmentStatus.PENDING &&
+            appointment.Status != AppointmentStatus.CONFIRMED)
+        {
+            throw new AppointmentException(
+                $"Cannot cancel appointment with status {appointment.Status}. Only PENDING or CONFIRMED appointments can be cancelled.");
+        }
+
+        // Validate appointment is in the future
+        if (!RefundPolicyHelper.IsCancellationAllowed(appointment.AppointmentDate, DateTime.UtcNow))
+        {
+            throw new AppointmentException(
+                $"Cannot cancel appointment that has already passed. " +
+                $"Appointment was scheduled for {appointment.AppointmentDate:yyyy-MM-dd HH:mm} UTC.");
+        }
+
+        return appointment;
+    }
+
+    /// <summary>
+    /// Calculate cancellation details including refund percentage
+    /// </summary>
+    private CancellationDetails CalculateCancellationDetails(CancelAppointmentRequest request, AppointmentEntity appointment)
+    {
+        var now = DateTime.UtcNow;
+        var isStaffCancellation = request.CancelledByStaffId.HasValue;
+        var cancelledBy = isStaffCancellation ? "Staff" : "Patient";
+        var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(appointment.AppointmentDate, now, isStaffCancellation);
+        var hoursUntilAppointment = (appointment.AppointmentDate - now).TotalHours;
+
+        LogInfo("Appointment {AppointmentId} cancellation: {Hours} hours before appointment, {Refund}% refund, IsStaffCancellation: {IsStaff}",
+            null, appointment.Id, hoursUntilAppointment, refundPercentage, isStaffCancellation);
+
+        return new CancellationDetails
+        {
+            IsStaffCancellation = isStaffCancellation,
+            CancelledBy = cancelledBy,
+            RefundPercentage = refundPercentage
+        };
+    }
+
+    /// <summary>
+    /// Publish appropriate cancellation event based on refund percentage
+    /// </summary>
+    private async Task PublishCancellationEventAsync(AppointmentEntity appointment, CancelAppointmentRequest request, CancellationDetails details)
+    {
+        if (details.RefundPercentage > 0)
+        {
+            await PublishRefundEventAsync(appointment, request, details);
+        }
+        else
+        {
+            await PublishNoRefundEventAsync(appointment, request);
+        }
+    }
+
+    /// <summary>
+    /// Publish refund event for Payment Service
+    /// </summary>
+    private async Task PublishRefundEventAsync(AppointmentEntity appointment, CancelAppointmentRequest request, CancellationDetails details)
+    {
+        var cancelledEvent = new AppointmentCancelledIntegrationEvent
+        {
+            AppointmentId = appointment.Id,
+            PatientId = appointment.PatientId,
+            DoctorId = appointment.DoctorId,
+            HospitalId = appointment.HospitalId,
+            AppointmentDate = appointment.AppointmentDate,
+            AppointmentType = (int)appointment.AppointmentType,
+            CancellationReason = request.CancellationReason,
+            CancelledByStaffId = request.CancelledByStaffId,
+            CancelledByPatientId = request.CancelledByPatientId,
+            CancelledAt = DateTime.UtcNow,
+            RefundPercentage = details.RefundPercentage
+        };
+
+        await _eventBus.PublishAsync(cancelledEvent);
+        LogInfo("Published refund event for appointment {AppointmentId} with {Refund}% refund",
+            null, appointment.Id, details.RefundPercentage);
+    }
+
+    /// <summary>
+    /// Publish no-refund notification event directly to Notification Service
+    /// </summary>
+    private async Task PublishNoRefundEventAsync(AppointmentEntity appointment, CancelAppointmentRequest request)
+    {
+        var patientInfo = await GetPatientInfoForNotificationAsync(appointment.PatientId);
+
+        var noRefundEvent = new AppointmentNoRefundNotificationEvent
+        {
+            AppointmentId = appointment.Id,
+            PatientId = appointment.PatientId,
+            AppointmentDate = appointment.AppointmentDate,
+            CancellationReason = request.CancellationReason,
+            CancelledAt = DateTime.UtcNow,
+            PatientEmail = patientInfo.Email,
+            PatientPhone = patientInfo.Phone,
+            PatientFullName = patientInfo.FullName
+        };
+
+        await _eventBus.PublishAsync(noRefundEvent);
+        LogInfo("Published no-refund notification event for appointment {AppointmentId} - no refund due to late cancellation",
+            null, appointment.Id);
+    }
+
+    /// <summary>
+    /// Get patient information for notification
+    /// </summary>
+    private async Task<PatientNotificationInfo> GetPatientInfoForNotificationAsync(Guid patientId)
+    {
+        try
+        {
+            var patientRequest = new GetUserBasicInfoRequest { Id = patientId.ToString() };
+            var patientResponse = await _grpcClients.UserClient.GetUserBasicInfoAsync(patientRequest);
+
+            var fullName = $"{patientResponse.FirstName} {patientResponse.LastName}".Trim();
+            if (string.IsNullOrEmpty(fullName))
+            {
+                fullName = "Quý khách";
+            }
+
+            return new PatientNotificationInfo
+            {
+                Email = patientResponse.Email,
+                Phone = patientResponse.Phone,
+                FullName = fullName
+            };
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            LogWarning("Failed to get patient info for no-refund notification: {Error}", null, ex.Message);
+            return new PatientNotificationInfo
+            {
+                Email = null,
+                Phone = null,
+                FullName = "Quý khách"
+            };
+        }
     }
 
     #endregion
@@ -613,7 +661,7 @@ public class AppointmentService : BaseService, IAppointmentService
             var doctorRequest = new GetDoctorsBasicInfoRequest();
             doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
 
-            var doctorsResponse = await _doctorGrpcClient.GetDoctorsBasicInfoAsync(doctorRequest);
+            var doctorsResponse = await _grpcClients.DoctorClient.GetDoctorsBasicInfoAsync(doctorRequest);
             var doctorDict = doctorsResponse.Doctors.ToDictionary(
                 d => Guid.Parse(d.Id),
                 d => d
@@ -670,7 +718,7 @@ public class AppointmentService : BaseService, IAppointmentService
             var patientRequest = new GetUsersBasicInfoRequest();
             patientRequest.Ids.AddRange(patientIds.Select(id => id.ToString()));
 
-            var patientsResponse = await _userGrpcClient.GetUsersBasicInfoAsync(patientRequest);
+            var patientsResponse = await _grpcClients.UserClient.GetUsersBasicInfoAsync(patientRequest);
             var patientDict = patientsResponse.Users.ToDictionary(
                 p => Guid.Parse(p.Id),
                 p => p

@@ -90,10 +90,6 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
             // Step 3: Calculate refund amount based on percentage from event
             var refundAmount = payment.Amount * (@event.RefundPercentage / 100m);
 
-            _logger.LogInformation(
-                "Calculating refund for payment {PaymentId}: Original={Original}, Percentage={Percentage}%, Refund={Refund}",
-                payment.Id, payment.Amount, @event.RefundPercentage, refundAmount);
-
             // Step 4: Create refund history record
             var createRefundRequest = new CreateRefundHistoryRequest
             {
@@ -161,8 +157,8 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
             await _eventBus.PublishAsync(refundRequestedEvent, cancellationToken: cancellationToken);
 
             _logger.LogInformation(
-                "Published AppointmentRefundRequestedIntegrationEvent for refund {RefundHistoryId} with {Percentage}% refund",
-                refundHistory.Id, @event.RefundPercentage);
+                "Completed refund processing for payment {PaymentId}: Original={Original}, Percentage={Percentage}%, Refund={Refund}, RefundHistoryId={RefundHistoryId}",
+                payment.Id, payment.Amount, @event.RefundPercentage, refundAmount, refundHistory.Id);
         }
         catch (Exception ex)
         {
