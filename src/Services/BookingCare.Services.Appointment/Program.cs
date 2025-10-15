@@ -59,6 +59,13 @@ builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.User
     o.Address = new Uri(endpoint);
 });
 
+// Add gRPC client for Payment service  
+builder.Services.AddGrpcClient<BookingCare.Services.Payment.Protos.PaymentService.PaymentServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Payment").GetValue<string>("GrpcUrl") ?? "http://localhost:6111";
+    o.Address = new Uri(endpoint);
+});
+
 // Add EventBus for publishing appointment events
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "appointment-service-queue");
 

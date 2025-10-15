@@ -108,7 +108,7 @@ app.UseGlobalExceptionHandling();
 app.UseCommonSwaggerUI("Payment Service");
 
 app.MapControllers();
-app.MapGrpcService<GreeterService>();
+app.MapGrpcService<PaymentGrpcService>();
 
 // Map common health check
 app.MapCommonHealthCheck("Payment Service");

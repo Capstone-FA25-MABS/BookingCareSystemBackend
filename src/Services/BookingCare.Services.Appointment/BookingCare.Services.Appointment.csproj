@@ -10,6 +10,7 @@
 	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" Link="Protos/doctor.proto" ProtoRoot="$(SolutionDir)" />
 	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Hospital/Protos/hospital.proto" GrpcServices="Client" Link="Protos/hospital.proto" ProtoRoot="$(SolutionDir)" />
 	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" Link="Protos/user.proto" ProtoRoot="$(SolutionDir)" />
+	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Payment/Protos/payment.proto" GrpcServices="Client" Link="Protos/payment.proto" ProtoRoot="$(SolutionDir)" />
   </ItemGroup>
 
   <ItemGroup>
