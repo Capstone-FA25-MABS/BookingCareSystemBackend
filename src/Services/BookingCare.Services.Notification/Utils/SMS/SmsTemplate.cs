@@ -60,5 +60,15 @@ public static class SmsTemplate
         }
         return message;
     }
+
+    /// <summary>
+    /// Build SMS content for no refund case (0% refund due to late cancellation)
+    /// </summary>
+    public static string BuildNoRefundSms(DateTime appointmentDate)
+    {
+        var appointmentDateStr = appointmentDate.ToString("dd/MM/yyyy HH:mm");
+
+        return $"BookingCare: Lich hen {appointmentDateStr} da huy. Do huy qua sat gio, khong duoc hoan tien theo chinh sach. Xin loi vi bat tien.";
+    }
 }
 
