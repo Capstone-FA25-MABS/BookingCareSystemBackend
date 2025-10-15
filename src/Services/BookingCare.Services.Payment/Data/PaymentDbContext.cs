@@ -235,6 +235,7 @@ public class PaymentDbContext : DbContext
                 Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
                 Name = "VNPAY",
                 Description = "Thanh toán qua VNPay",
+                ImageUrl = "https://vnpay.vn/s1/statics.vnpay.vn/2023/6/0oxhzjmxbksr1686814746087.png",
                 Status = PaymentMethodStatus.ACTIVE
             },
             new PaymentMethodEntity
@@ -242,6 +243,7 @@ public class PaymentDbContext : DbContext
                 Id = Guid.Parse("77777777-7777-7777-7777-777777777777"),
                 Name = "PAYOS",
                 Description = "Thanh toán qua PayOS",
+                ImageUrl = "https://payos.vn/docs/img/logo.svg",
                 Status = PaymentMethodStatus.ACTIVE
             }
         );
