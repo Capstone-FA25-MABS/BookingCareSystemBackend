@@ -45,9 +45,12 @@ public class AppointmentBookingSuccessNotificationEventHandler : IIntegrationEve
                 patientName = "Quý khách"; // Fixed Unicode fallback
             }
 
-            // Create email data object (fixes SonarQube parameter count issue)
-            var emailData = new AppointmentBookingEmailData
+            // Create a copy of the event with the validated patient name
+            var eventWithValidatedName = new AppointmentBookingSuccessNotificationEvent
             {
+                AppointmentId = @event.AppointmentId,
+                PatientId = @event.PatientId,
+                PatientEmail = @event.PatientEmail,
                 PatientName = patientName,
                 AppointmentDate = @event.AppointmentDate,
                 AppointmentTime = @event.AppointmentTime,
@@ -57,8 +60,13 @@ public class AppointmentBookingSuccessNotificationEventHandler : IIntegrationEve
                 HospitalAddress = @event.HospitalAddress,
                 ServiceName = @event.ServiceName,
                 Amount = @event.Amount,
-                AppointmentType = @event.AppointmentType
+                AppointmentType = @event.AppointmentType,
+                EmailSubject = @event.EmailSubject,
+                CorrelationId = @event.CorrelationId
             };
+
+            // Create email data using the new mapping method (eliminates duplication)
+            var emailData = AppointmentBookingEmailData.FromEvent(eventWithValidatedName);
 
             // Generate HTML email content using the template with DTO
             var emailContent = EmailTemplate.BuildAppointmentBookedSuccessEmailHtml(emailData);
