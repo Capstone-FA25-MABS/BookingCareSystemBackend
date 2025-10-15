@@ -562,3 +562,132 @@ public class AppointmentDeleteRequestedIntegrationEvent : IntegrationEvent
     /// </summary>
     public string CorrelationId { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Event published when an appointment payment is successful
+/// This event is consumed by Appointment Service to send booking success notifications to the patient
+/// </summary>
+public class AppointmentPaymentSuccessIntegrationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the appointment that was successfully paid for
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who made the payment
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// ID of the successful payment
+    /// </summary>
+    public Guid PaymentId { get; set; }
+
+    /// <summary>
+    /// Amount that was paid
+    /// </summary>
+    public decimal Amount { get; set; }
+
+    /// <summary>
+    /// Payment method used (VNPay, PayOS, etc.)
+    /// </summary>
+    public string PaymentMethod { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Transaction ID from payment gateway
+    /// </summary>
+    public string? TransactionId { get; set; }
+
+    /// <summary>
+    /// When the payment was completed
+    /// </summary>
+    public DateTime PaymentCompletedAt { get; set; }
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Event published when appointment booking is successful and payment is completed
+/// This event is consumed by Notification Service to send booking success email to patient
+/// </summary>
+public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the appointment that was successfully booked
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who booked the appointment
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Patient email address
+    /// </summary>
+    public string PatientEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Patient name for email greeting
+    /// </summary>
+    public string PatientName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Appointment date and time
+    /// </summary>
+    public DateTime AppointmentDate { get; set; }
+
+    /// <summary>
+    /// Formatted appointment time slot (e.g., "08:00 - 09:00")
+    /// </summary>
+    public string AppointmentTime { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Doctor name (if assigned)
+    /// </summary>
+    public string? DoctorName { get; set; }
+
+    /// <summary>
+    /// Doctor specialty (if assigned)
+    /// </summary>
+    public string? DoctorSpecialty { get; set; }
+
+    /// <summary>
+    /// Hospital name
+    /// </summary>
+    public string? HospitalName { get; set; }
+
+    /// <summary>
+    /// Hospital address
+    /// </summary>
+    public string? HospitalAddress { get; set; }
+
+    /// <summary>
+    /// Service name (if applicable)
+    /// </summary>
+    public string? ServiceName { get; set; }
+
+    /// <summary>
+    /// Payment amount
+    /// </summary>
+    public decimal Amount { get; set; }
+
+    /// <summary>
+    /// Appointment type (e.g., "CONSULTATION", "CHECKUP")
+    /// </summary>
+    public string AppointmentType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Email subject line
+    /// </summary>
+    public string EmailSubject { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+}

@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.Appointment.Exceptions;
 using BookingCare.Services.Appointment.Models.DTOs;
 using BookingCare.Services.Appointment.Models.Entities;
@@ -12,6 +12,7 @@ using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital;
 using BookingCare.Services.User.Protos;
 using BookingCare.Shared.Common.Helpers;
+using BookingCare.Shared.Common.Extensions;
 using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
 
 namespace BookingCare.Services.Appointment.Services;
@@ -450,6 +451,123 @@ public class AppointmentService : BaseService, IAppointmentService
             LogInfo("Appointment validation successful for patient {PatientId}", null, request.PatientId);
             return true;
         }, "ValidateAppointment");
+    }
+
+    #endregion
+
+    #region Email Notification Operations
+
+    public async Task<bool> SendAppointmentBookingSuccessEmailAsync(Guid appointmentId, Guid patientId, decimal amount = 0)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Sending appointment booking success email for AppointmentId: {AppointmentId}, PatientId: {PatientId}, Amount: {Amount}",
+                null, appointmentId, patientId, amount);
+
+            // 1. Get appointment details using existing method (already includes patient info)
+            var appointment = await GetAppointmentByIdForPatientAsync(appointmentId);
+            if (appointment == null)
+            {
+                LogWarning("Appointment not found for email notification: {AppointmentId}", null, appointmentId);
+                return false;
+            }
+
+            // 2. Get patient information from enriched appointment or fallback to gRPC
+            PatientInfo? patientInfo = appointment.PatientInfo;
+            if (patientInfo == null || string.IsNullOrEmpty(patientInfo.Email))
+            {
+                LogWarning("Patient info not available in appointment, fetching from User Service: {PatientId}", null, patientId);
+                var userResponse = await GetUserBasicInfoAsync(patientId);
+                if (userResponse == null || string.IsNullOrEmpty(userResponse.Email))
+                {
+                    LogWarning("Patient info or email not found: {PatientId}", null, patientId);
+                    return false;
+                }
+
+                // Map gRPC response to PatientInfo
+                patientInfo = new PatientInfo
+                {
+                    Id = Guid.Parse(userResponse.Id),
+                    Email = userResponse.Email,
+                    Phone = userResponse.Phone,
+                    FirstName = userResponse.FirstName,
+                    LastName = userResponse.LastName,
+                    AvatarUrl = userResponse.AvatarUrl
+                };
+            }
+
+            // 3. Prepare email data
+            var patientName = $"{patientInfo.FirstName} {patientInfo.LastName}".Trim();
+            if (string.IsNullOrEmpty(patientName))
+            {
+                patientName = "Quý khách";
+            }
+
+            // Use extension method to format appointment time
+            var appointmentTimeText = appointment.AppointmentTimeId.ToDisplayString();
+
+            // Get doctor name and specialty from appointment
+            var doctorName = appointment.DoctorInfo?.FullName;
+            var doctorSpecialty = appointment.DoctorInfo?.SpecialtyName;
+
+            // Get hospital info from appointment
+            var hospitalName = appointment.HospitalInfo?.Name;
+            var hospitalAddress = appointment.HospitalInfo?.Address;
+
+            // Get service name (if available)
+            var serviceName = appointment.ServiceInfo?.Name;
+
+            // Determine appointment type display name
+            var appointmentTypeText = appointment.AppointmentType.ToString();
+
+            // 4. Publish event for Notification Service to send email
+            var emailEvent = new AppointmentBookingSuccessNotificationEvent
+            {
+                AppointmentId = appointmentId,
+                PatientId = patientId,
+                PatientEmail = patientInfo.Email,
+                PatientName = patientName,
+                AppointmentDate = appointment.AppointmentDate,
+                AppointmentTime = appointmentTimeText,
+                DoctorName = doctorName,
+                DoctorSpecialty = doctorSpecialty,
+                HospitalName = hospitalName,
+                HospitalAddress = hospitalAddress,
+                ServiceName = serviceName,
+                Amount = amount, // Use the actual payment amount from the event
+                AppointmentType = appointmentTypeText,
+                EmailSubject = "Đặt lịch hẹn thành công - BookingCare",
+                CorrelationId = Guid.NewGuid().ToString()
+            };
+
+            await _eventBus.PublishAsync(emailEvent);
+
+            LogInfo("Successfully published appointment booking success email event for AppointmentId: {AppointmentId} with Amount: {Amount}",
+                null, appointmentId, amount);
+            return true;
+        }, "SendAppointmentBookingSuccessEmail");
+    }
+
+    /// <summary>
+    /// Get user basic information using User Service gRPC
+    /// </summary>
+    private async Task<BookingCare.Services.User.Protos.UserBasicInfoResponse?> GetUserBasicInfoAsync(Guid userId)
+    {
+        try
+        {
+            var request = new GetUserBasicInfoRequest
+            {
+                Id = userId.ToString()
+            };
+
+            var response = await _userGrpcClient.GetUserBasicInfoAsync(request);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Failed to get user basic info for UserId: {UserId}", null, userId);
+            return null;
+        }
     }
 
     #endregion

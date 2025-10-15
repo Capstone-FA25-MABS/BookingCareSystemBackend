@@ -66,6 +66,7 @@ builder.Services.AddRabbitMQEventBus(builder.Configuration, "appointment-service
 
 // Register Event Handlers
 builder.Services.AddIntegrationEventHandler<AppointmentDeleteRequestedEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentPaymentSuccessEventHandler>();
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -104,6 +105,9 @@ app.UseEventBus(eventBus =>
 {
     // Subscribe to appointment deletion requests when payment fails
     eventBus.Subscribe<AppointmentDeleteRequestedIntegrationEvent, AppointmentDeleteRequestedEventHandler>();
+
+    // Subscribe to payment success events to send booking confirmation emails
+    eventBus.Subscribe<AppointmentPaymentSuccessIntegrationEvent, AppointmentPaymentSuccessEventHandler>();
 });
 
 // Initialize default data
