@@ -4,6 +4,7 @@ using BookingCare.Services.Appointment.Models.DTOs;
 using BookingCare.Services.Appointment.Models.Entities;
 using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Enums;
+using BookingCare.Services.Appointment.Helpers;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.EventBus.Abstractions;
@@ -11,6 +12,7 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital;
 using BookingCare.Services.User.Protos;
+using BookingCare.Services.Payment.Protos;
 using BookingCare.Shared.Common.Helpers;
 
 namespace BookingCare.Services.Appointment.Services;
@@ -26,6 +28,7 @@ public class AppointmentService : BaseService, IAppointmentService
     private readonly DoctorService.DoctorServiceClient _doctorGrpcClient;
     private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
     private readonly UserService.UserServiceClient _userGrpcClient;
+    private readonly PaymentService.PaymentServiceClient _paymentGrpcClient;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AppointmentService(
@@ -35,6 +38,7 @@ public class AppointmentService : BaseService, IAppointmentService
         DoctorService.DoctorServiceClient doctorGrpcClient,
         HospitalService.HospitalServiceClient hospitalGrpcClient,
         UserService.UserServiceClient userGrpcClient,
+        PaymentService.PaymentServiceClient paymentGrpcClient,
         IHttpContextAccessor httpContextAccessor,
         ILogger<AppointmentService> logger) : base(logger)
     {
@@ -44,8 +48,47 @@ public class AppointmentService : BaseService, IAppointmentService
         _doctorGrpcClient = doctorGrpcClient;
         _hospitalGrpcClient = hospitalGrpcClient;
         _userGrpcClient = userGrpcClient;
+        _paymentGrpcClient = paymentGrpcClient;
         _httpContextAccessor = httpContextAccessor;
     }
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Get payment information for an appointment via gRPC
+    /// </summary>
+    private async Task<decimal?> GetPaymentAmountAsync(Guid appointmentId)
+    {
+        try
+        {
+            LogInfo("Fetching payment info for appointment {AppointmentId}", null, appointmentId);
+
+            var request = new GetPaymentByAppointmentIdRequest
+            {
+                AppointmentId = appointmentId.ToString()
+            };
+
+            var response = await _paymentGrpcClient.GetPaymentByAppointmentIdAsync(request);
+
+            if (response.Success && response.Payment != null)
+            {
+                LogInfo("Successfully retrieved payment amount {Amount} for appointment {AppointmentId}",
+                    null, response.Payment.Amount, appointmentId);
+                return (decimal)response.Payment.Amount;
+            }
+
+            LogWarning("No payment found for appointment {AppointmentId}: {Message}",
+                null, appointmentId, response.Message);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error fetching payment info for appointment {AppointmentId}", null, appointmentId);
+            return null;
+        }
+    }
+
+    #endregion
 
     #region Appointment Operations
 
@@ -105,6 +148,9 @@ public class AppointmentService : BaseService, IAppointmentService
             }
 
             var response = _mapper.Map<AppointmentResponse>(appointment);
+
+            // Get payment information via gRPC
+            response.ConsultationFees = await GetPaymentAmountAsync(appointment.Id);
 
             // Enrich appointment with external data for patient view
             await EnrichAppointmentsWithExternalDataAsync(
@@ -334,48 +380,105 @@ public class AppointmentService : BaseService, IAppointmentService
                     $"Cannot cancel appointment with status {appointment.Status}. Only PENDING or CONFIRMED appointments can be cancelled.");
             }
 
-            // Validate 24-hour rule - appointment must be at least 24 hours away
+            // Validate appointment is in the future
             var appointmentDateTime = appointment.AppointmentDate;
             var now = DateTime.UtcNow;
-            var hoursUntilAppointment = (appointmentDateTime - now).TotalHours;
 
-            if (hoursUntilAppointment < 24)
+            if (!RefundPolicyHelper.IsCancellationAllowed(appointmentDateTime, now))
             {
                 throw new AppointmentException(
-                    $"Cannot cancel appointment less than 24 hours before the appointment time. " +
-                    $"Appointment is scheduled for {appointmentDateTime:yyyy-MM-dd HH:mm} UTC " +
-                    $"({hoursUntilAppointment:F1} hours from now).");
+                    $"Cannot cancel appointment that has already passed. " +
+                    $"Appointment was scheduled for {appointmentDateTime:yyyy-MM-dd HH:mm} UTC.");
             }
+
+            // Determine if this is a staff cancellation (has CancelledByStaffId)
+            var isStaffCancellation = request.CancelledByStaffId.HasValue;
+            var cancelledBy = isStaffCancellation ? "Staff" : "Patient";
+
+            // Calculate refund percentage based on cancellation policy
+            var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(appointmentDateTime, now, isStaffCancellation);
+            var hoursUntilAppointment = (appointmentDateTime - now).TotalHours;
+
+            LogInfo("Appointment {AppointmentId} cancellation: {Hours} hours before appointment, {Refund}% refund, IsStaffCancellation: {IsStaff}",
+                null, request.AppointmentId, hoursUntilAppointment, refundPercentage, isStaffCancellation);
 
             // Cancel appointment - Pass entity directly to avoid second DB query
             // Repository will handle status update, reason storage, and UpdatedAt timestamp
             var cancelled = await _appointmentRepository.CancelAppointmentAsync(
                 appointment,
-                request.CancellationReason);
+                request.CancellationReason,
+                cancelledBy);
 
             if (!cancelled)
             {
                 throw new AppointmentException("Failed to cancel appointment");
             }
 
-            // Publish integration event for downstream services (Payment & Notification)
-            var cancelledEvent = new AppointmentCancelledIntegrationEvent
+            // Determine which event to publish based on refund percentage
+            if (refundPercentage > 0)
             {
-                AppointmentId = appointment.Id,
-                PatientId = appointment.PatientId,
-                DoctorId = appointment.DoctorId,
-                HospitalId = appointment.HospitalId,
-                AppointmentDate = appointment.AppointmentDate,
-                AppointmentType = (int)appointment.AppointmentType, // Convert enum to int to avoid coupling
-                CancellationReason = request.CancellationReason,
-                CancelledByStaffId = request.CancelledByStaffId,
-                CancelledAt = DateTime.UtcNow
-            };
+                // Refund required - publish event for Payment Service to handle refund process
+                var cancelledEvent = new AppointmentCancelledIntegrationEvent
+                {
+                    AppointmentId = appointment.Id,
+                    PatientId = appointment.PatientId,
+                    DoctorId = appointment.DoctorId,
+                    HospitalId = appointment.HospitalId,
+                    AppointmentDate = appointment.AppointmentDate,
+                    AppointmentType = (int)appointment.AppointmentType,
+                    CancellationReason = request.CancellationReason,
+                    CancelledByStaffId = request.CancelledByStaffId,
+                    CancelledByPatientId = request.CancelledByPatientId,
+                    CancelledAt = DateTime.UtcNow,
+                    RefundPercentage = refundPercentage
+                };
 
-            await _eventBus.PublishAsync(cancelledEvent);
+                await _eventBus.PublishAsync(cancelledEvent);
+                LogInfo("Published refund event for appointment {AppointmentId} with {Refund}% refund",
+                    null, request.AppointmentId, refundPercentage);
+            }
+            else
+            {
+                // No refund - get patient info and publish notification event directly to Notification Service
+                string? patientEmail = null;
+                string? patientPhone = null;
+                string? patientFullName = null;
 
-            LogInfo("Successfully cancelled appointment {AppointmentId} and published event",
-                null, request.AppointmentId);
+                try
+                {
+                    var patientRequest = new GetUserBasicInfoRequest { Id = appointment.PatientId.ToString() };
+                    var patientResponse = await _userGrpcClient.GetUserBasicInfoAsync(patientRequest);
+
+                    patientEmail = patientResponse.Email;
+                    patientPhone = patientResponse.Phone;
+                    patientFullName = $"{patientResponse.FirstName} {patientResponse.LastName}".Trim();
+                    if (string.IsNullOrEmpty(patientFullName))
+                    {
+                        patientFullName = "Quý khách";
+                    }
+
+                }
+                catch (Grpc.Core.RpcException ex)
+                {
+                    LogWarning("Failed to get patient info for no-refund notification: {Error}", null, ex.Message);
+                }
+
+                var noRefundEvent = new AppointmentNoRefundNotificationEvent
+                {
+                    AppointmentId = appointment.Id,
+                    PatientId = appointment.PatientId,
+                    AppointmentDate = appointment.AppointmentDate,
+                    CancellationReason = request.CancellationReason,
+                    CancelledAt = DateTime.UtcNow,
+                    PatientEmail = patientEmail,
+                    PatientPhone = patientPhone,
+                    PatientFullName = patientFullName
+                };
+
+                await _eventBus.PublishAsync(noRefundEvent);
+                LogInfo("Published no-refund notification event for appointment {AppointmentId} - no refund due to late cancellation",
+                    null, request.AppointmentId);
+            }
 
             return true;
         }, "CancelAppointment");
