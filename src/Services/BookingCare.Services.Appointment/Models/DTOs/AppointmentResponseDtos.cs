@@ -20,6 +20,13 @@ public class AppointmentResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    // Payment information from gRPC call
+    public decimal? ConsultationFees { get; set; }
+
+    // Cancellation information
+    public string? CancelledBy { get; set; }
+    public DateTime? CancelledAt { get; set; }
+
     // Related entities information populated via gRPC calls based on user role
     public PatientInfo? PatientInfo { get; set; }
     public DoctorInfo? DoctorInfo { get; set; }
