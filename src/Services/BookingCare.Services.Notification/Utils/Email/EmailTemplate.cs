@@ -401,38 +401,41 @@ public static class EmailTemplate
     /// <summary>
     /// Build email content for successful appointment booking
     /// Fixed SonarQube issue: Reduced from 10 parameters to 1 parameter object
+    /// Updated to use pure composition pattern with AppointmentData
     /// </summary>
     public static string BuildAppointmentBookedSuccessEmailHtml(AppointmentBookingEmailData emailData)
     {
+        var appointmentData = emailData.AppointmentData; // Direct access to avoid repetition
+
         var doctorInfoHtml = "";
-        if (!string.IsNullOrEmpty(emailData.DoctorName))
+        if (!string.IsNullOrEmpty(appointmentData.DoctorName))
         {
             doctorInfoHtml = $@"
-        <div class=""info-item""><strong>Bác sĩ:</strong> {emailData.DoctorName}</div>";
-            if (!string.IsNullOrEmpty(emailData.DoctorSpecialty))
+        <div class=""info-item""><strong>Bác sĩ:</strong> {appointmentData.DoctorName}</div>";
+            if (!string.IsNullOrEmpty(appointmentData.DoctorSpecialty))
             {
                 doctorInfoHtml += $@"
-        <div class=""info-item""><strong>Chuyên khoa:</strong> {emailData.DoctorSpecialty}</div>";
+        <div class=""info-item""><strong>Chuyên khoa:</strong> {appointmentData.DoctorSpecialty}</div>";
             }
         }
 
         var hospitalInfoHtml = "";
-        if (!string.IsNullOrEmpty(emailData.HospitalName))
+        if (!string.IsNullOrEmpty(appointmentData.HospitalName))
         {
             hospitalInfoHtml = $@"
-        <div class=""info-item""><strong>Bệnh viện:</strong> {emailData.HospitalName}</div>";
-            if (!string.IsNullOrEmpty(emailData.HospitalAddress))
+        <div class=""info-item""><strong>Bệnh viện:</strong> {appointmentData.HospitalName}</div>";
+            if (!string.IsNullOrEmpty(appointmentData.HospitalAddress))
             {
                 hospitalInfoHtml += $@"
-        <div class=""info-item""><strong>Địa chỉ:</strong> {emailData.HospitalAddress}</div>";
+        <div class=""info-item""><strong>Địa chỉ:</strong> {appointmentData.HospitalAddress}</div>";
             }
         }
 
         var serviceInfoHtml = "";
-        if (!string.IsNullOrEmpty(emailData.ServiceName))
+        if (!string.IsNullOrEmpty(appointmentData.ServiceName))
         {
             serviceInfoHtml = $@"
-        <div class=""info-item""><strong>Dịch vụ:</strong> {emailData.ServiceName}</div>";
+        <div class=""info-item""><strong>Dịch vụ:</strong> {appointmentData.ServiceName}</div>";
         }
 
         return $@"<!DOCTYPE html>
@@ -470,15 +473,15 @@ public static class EmailTemplate
     </div>
     <div class=""content"">
       <div class=""check-icon"">✅</div>
-      <p class=""greeting"">Kính gửi {emailData.PatientName},</p>
+      <p class=""greeting"">Kính gửi {appointmentData.PatientName},</p>
       <p class=""lead"">Chúc mừng! Lịch hẹn của quý khách đã được đặt thành công và thanh toán hoàn tất.</p>
       
       <div class=""success-box"">
         <p><strong>🎉 Thông tin lịch hẹn:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {emailData.AppointmentDate:dd/MM/yyyy}</div>
-        <div class=""info-item""><strong>Thời gian:</strong> {emailData.AppointmentTime}</div>
-        <div class=""info-item""><strong>Loại hẹn:</strong> {emailData.AppointmentType}</div>{doctorInfoHtml}{serviceInfoHtml}
-        <div class=""info-item""><strong>Số tiền đã thanh toán:</strong> <span class=""amount"">{emailData.Amount:N0} VNĐ</span></div>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentData.AppointmentDate:dd/MM/yyyy}</div>
+        <div class=""info-item""><strong>Thời gian:</strong> {appointmentData.AppointmentTime}</div>
+        <div class=""info-item""><strong>Loại hẹn:</strong> {appointmentData.AppointmentType}</div>{doctorInfoHtml}{serviceInfoHtml}
+        <div class=""info-item""><strong>Số tiền đã thanh toán:</strong> <span class=""amount"">{appointmentData.Amount:N0} VNĐ</span></div>
       </div>
       
       <div class=""info-box"">

@@ -40,12 +40,12 @@ public class AppointmentBookingSuccessNotificationEventHandler : IIntegrationEve
             }
 
             // Handle empty patient name with fallback
-            if (string.IsNullOrEmpty(@event.PatientName))
+            if (string.IsNullOrEmpty(@event.AppointmentData.PatientName))
             {
-                @event.PatientName = "Quý khách"; // Fixed Unicode fallback
+                @event.AppointmentData.PatientName = "Quý khách"; // Fixed Unicode fallback
             }
 
-            // Create email data using extension method (eliminates duplication)
+            // Create email data using direct AppointmentData assignment (eliminates duplication)
             var emailData = AppointmentBookingEmailData.FromEvent(@event);
 
             // Generate HTML email content using the template with DTO

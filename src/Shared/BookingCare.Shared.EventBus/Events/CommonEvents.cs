@@ -1,5 +1,6 @@
 using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Shared.EventBus.Events;
 
@@ -620,7 +621,7 @@ public class AppointmentPaymentSuccessIntegrationEvent : IntegrationEvent
 /// Note: AppointmentBookingEmailData DTO in Notification Service maps directly from this event
 /// to avoid duplication of properties. See AppointmentBookingEmailData.FromEvent() method.
 /// 
-/// Uses composition with AppointmentDataBase to eliminate SonarQube "Duplicated Lines" issue.
+/// Uses pure composition pattern - NO delegation properties to eliminate SonarQube "Duplicated Lines" issue.
 /// </summary>
 public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
 {
@@ -640,8 +641,9 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
     public string PatientEmail { get; set; } = string.Empty;
 
     /// <summary>
-    /// Appointment data - eliminates duplicate property declarations
-    /// All appointment-related properties are contained in this object
+    /// Appointment data - contains all appointment-related information
+    /// Access properties via: AppointmentData.PatientName, AppointmentData.AppointmentDate, etc.
+    /// NO delegation properties to eliminate code duplication!
     /// </summary>
     public AppointmentData AppointmentData { get; set; } = new();
 
@@ -655,94 +657,6 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
     /// </summary>
     public string CorrelationId { get; set; } = string.Empty;
 
-    // Convenience properties for backward compatibility - delegate to AppointmentData
-    /// <summary>
-    /// Patient name (delegates to AppointmentData)
-    /// </summary>
-    public string PatientName
-    {
-        get => AppointmentData.PatientName;
-        set => AppointmentData.PatientName = value;
-    }
-
-    /// <summary>
-    /// Appointment date (delegates to AppointmentData)
-    /// </summary>
-    public DateTime AppointmentDate
-    {
-        get => AppointmentData.AppointmentDate;
-        set => AppointmentData.AppointmentDate = value;
-    }
-
-    /// <summary>
-    /// Appointment time (delegates to AppointmentData)
-    /// </summary>
-    public string AppointmentTime
-    {
-        get => AppointmentData.AppointmentTime;
-        set => AppointmentData.AppointmentTime = value;
-    }
-
-    /// <summary>
-    /// Doctor name (delegates to AppointmentData)
-    /// </summary>
-    public string? DoctorName
-    {
-        get => AppointmentData.DoctorName;
-        set => AppointmentData.DoctorName = value;
-    }
-
-    /// <summary>
-    /// Doctor specialty (delegates to AppointmentData)
-    /// </summary>
-    public string? DoctorSpecialty
-    {
-        get => AppointmentData.DoctorSpecialty;
-        set => AppointmentData.DoctorSpecialty = value;
-    }
-
-    /// <summary>
-    /// Hospital name (delegates to AppointmentData)
-    /// </summary>
-    public string? HospitalName
-    {
-        get => AppointmentData.HospitalName;
-        set => AppointmentData.HospitalName = value;
-    }
-
-    /// <summary>
-    /// Hospital address (delegates to AppointmentData)
-    /// </summary>
-    public string? HospitalAddress
-    {
-        get => AppointmentData.HospitalAddress;
-        set => AppointmentData.HospitalAddress = value;
-    }
-
-    /// <summary>
-    /// Service name (delegates to AppointmentData)
-    /// </summary>
-    public string? ServiceName
-    {
-        get => AppointmentData.ServiceName;
-        set => AppointmentData.ServiceName = value;
-    }
-
-    /// <summary>
-    /// Payment amount (delegates to AppointmentData)
-    /// </summary>
-    public decimal Amount
-    {
-        get => AppointmentData.Amount;
-        set => AppointmentData.Amount = value;
-    }
-
-    /// <summary>
-    /// Appointment type (delegates to AppointmentData)
-    /// </summary>
-    public string AppointmentType
-    {
-        get => AppointmentData.AppointmentType;
-        set => AppointmentData.AppointmentType = value;
-    }
+    // NO delegation properties here - completely eliminates duplicate code!
+    // Access appointment data via: event.AppointmentData.PatientName, etc.
 }

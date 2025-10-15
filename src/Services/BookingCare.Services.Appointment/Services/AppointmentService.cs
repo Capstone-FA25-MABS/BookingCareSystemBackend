@@ -14,6 +14,7 @@ using BookingCare.Services.User.Protos;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Extensions;
 using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
+using BookingCare.Services.Appointment.Models; // Add using for AppointmentData
 
 namespace BookingCare.Services.Appointment.Services;
 
@@ -526,16 +527,19 @@ public class AppointmentService : BaseService, IAppointmentService
                 AppointmentId = appointmentId,
                 PatientId = patientId,
                 PatientEmail = patientInfo.Email,
-                PatientName = patientName,
-                AppointmentDate = appointment.AppointmentDate,
-                AppointmentTime = appointmentTimeText,
-                DoctorName = doctorName,
-                DoctorSpecialty = doctorSpecialty,
-                HospitalName = hospitalName,
-                HospitalAddress = hospitalAddress,
-                ServiceName = serviceName,
-                Amount = amount, // Use the actual payment amount from the event
-                AppointmentType = appointmentTypeText,
+                AppointmentData = new AppointmentData
+                {
+                    PatientName = patientName,
+                    AppointmentDate = appointment.AppointmentDate,
+                    AppointmentTime = appointmentTimeText,
+                    DoctorName = doctorName,
+                    DoctorSpecialty = doctorSpecialty,
+                    HospitalName = hospitalName,
+                    HospitalAddress = hospitalAddress,
+                    ServiceName = serviceName,
+                    Amount = amount, // Use the actual payment amount from the event
+                    AppointmentType = appointmentTypeText
+                },
                 EmailSubject = "Đặt lịch hẹn thành công - BookingCare",
                 CorrelationId = Guid.NewGuid().ToString()
             };
