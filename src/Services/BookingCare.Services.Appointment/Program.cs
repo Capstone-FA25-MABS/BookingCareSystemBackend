@@ -9,7 +9,7 @@ using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Services.Appointment.Helpers;
-
+using BookingCare.Services.Appointment.Services.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -105,6 +105,9 @@ app.UseGlobalExceptionHandling();
 app.UseStandardAuthPipeline();
 
 app.MapControllers();
+
+// Map gRPC service
+app.MapGrpcService<AppointmentGrpcService>();
 
 // Map health check endpoint
 app.MapCommonHealthCheck("Appointment");

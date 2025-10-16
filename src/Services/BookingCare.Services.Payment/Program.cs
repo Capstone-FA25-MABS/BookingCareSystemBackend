@@ -16,7 +16,7 @@ using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using FluentValidation;
-using BookingCare.Services.Payment.Services;
+using BookingCare.Services.Payment.Services.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
 

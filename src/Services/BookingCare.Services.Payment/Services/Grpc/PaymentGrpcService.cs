@@ -2,7 +2,7 @@ using Grpc.Core;
 using BookingCare.Services.Payment.Protos;
 using BookingCare.Services.Payment.Services.Interfaces;
 
-namespace BookingCare.Services.Payment.Services;
+namespace BookingCare.Services.Payment.Services.Grpc;
 
 /// <summary>
 /// gRPC service for Payment operations
