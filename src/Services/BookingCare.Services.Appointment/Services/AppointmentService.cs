@@ -521,7 +521,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 FullName = fullName
             };
         }
-        catch (Grpc.Core.RpcException ex)
+        catch (GrpcCore.RpcException ex)
         {
             LogWarning("Failed to get patient info for no-refund notification: {Error}", null, ex.Message);
             return new PatientNotificationInfo
