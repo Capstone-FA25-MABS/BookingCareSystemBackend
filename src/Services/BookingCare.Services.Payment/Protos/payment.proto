@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Payment.Protos";
+
+package payment;
+
+// Payment service definition
+service PaymentService {
+  // Get payment info by appointment ID
+  rpc GetPaymentByAppointmentId (GetPaymentByAppointmentIdRequest) returns (GetPaymentByAppointmentIdResponse);
+}
+
+// Request message for getting payment by appointment ID
+message GetPaymentByAppointmentIdRequest {
+  string appointment_id = 1;
+}
+
+// Response message containing payment information
+message GetPaymentByAppointmentIdResponse {
+  bool success = 1;
+  string message = 2;
+  PaymentInfo payment = 3;
+}
+
+// Payment information
+message PaymentInfo {
+  string id = 1;
+  string appointment_id = 2;
+  double amount = 3;
+}
+

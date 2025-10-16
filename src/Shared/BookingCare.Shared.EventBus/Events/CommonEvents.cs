@@ -168,6 +168,8 @@ public class AppointmentCancelledIntegrationEvent : IntegrationEvent
     /// </summary>
     public Guid? CancelledByStaffId { get; set; }
 
+    public Guid? CancelledByPatientId { get; set; } // New field for patient cancellation
+
     /// <summary>
     /// Cancellation timestamp
     /// </summary>
@@ -178,6 +180,12 @@ public class AppointmentCancelledIntegrationEvent : IntegrationEvent
     /// Will be populated from Payment Service
     /// </summary>
     public Guid? PaymentId { get; set; }
+
+    /// <summary>
+    /// Refund percentage based on cancellation policy (0-100)
+    /// 100 = full refund, 50 = half refund, 0 = no refund
+    /// </summary>
+    public decimal RefundPercentage { get; set; } = 100m;
 }
 
 
@@ -212,6 +220,9 @@ public class AppointmentRefundRequestedIntegrationEvent : IntegrationEvent
     /// Amount to be refunded
     /// </summary>
     public decimal RefundAmount { get; set; }
+
+    public decimal OriginalAmount { get; set; } // New field - original payment amount
+    public decimal RefundPercentage { get; set; } // New field - refund percentage (0-100)
 
     /// <summary>
     /// Reason for cancellation/refund
@@ -257,6 +268,7 @@ public class AppointmentRefundRequestedIntegrationEvent : IntegrationEvent
     /// Appointment date (for reference in notification)
     /// </summary>
     public DateTime AppointmentDate { get; set; }
+    public bool IsPartialRefund => RefundPercentage > 0 && RefundPercentage < 100; // Helper property
 }
 
 // Payment-related events
@@ -454,6 +466,24 @@ public class RefundHistoryBankIssueReportedIntegrationEvent : IntegrationEvent
     /// Reported time
     /// </summary>
     public DateTime ReportedAt { get; set; }
+}
+
+/// <summary>
+/// Integration event for appointment cancellation with no refund (0% refund due to late cancellation)
+/// This event is published directly to Notification Service to send notification only
+/// </summary>
+public class AppointmentNoRefundNotificationEvent : IntegrationEvent
+{
+    public Guid AppointmentId { get; set; }
+    public Guid PatientId { get; set; }
+    public DateTime AppointmentDate { get; set; }
+    public string CancellationReason { get; set; } = string.Empty;
+    public DateTime CancelledAt { get; set; }
+
+    // Patient information for notification
+    public string? PatientEmail { get; set; }
+    public string? PatientPhone { get; set; }
+    public string? PatientFullName { get; set; }
 }
 
 /// <summary>
