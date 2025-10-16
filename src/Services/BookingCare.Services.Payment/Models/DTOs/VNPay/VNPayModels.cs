@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using BookingCare.Services.Payment.Models.Interfaces;
 
 namespace BookingCare.Services.Payment.Models.DTOs.VNPay;
 
@@ -62,7 +63,7 @@ public class VNPayPaymentResponse
 /// <summary>
 /// Callback response from VNPay after payment
 /// </summary>
-public class VNPayCallbackResponse
+public class VNPayCallbackResponse : IPaymentCallbackResponse
 {
     /// <summary>
     /// VNPay transaction reference
@@ -113,6 +114,17 @@ public class VNPayCallbackResponse
     /// TMN Code
     /// </summary>
     public string vnp_TmnCode { get; set; } = string.Empty;
+
+    // IPaymentCallbackResponse implementation
+    /// <summary>
+    /// Response code from VNPay gateway
+    /// </summary>
+    public string ResponseCode => vnp_ResponseCode;
+
+    /// <summary>
+    /// Transaction ID from VNPay
+    /// </summary>
+    public string? TransactionId => vnp_TransactionNo;
 
     /// <summary>
     /// Checks whether the transaction is successful

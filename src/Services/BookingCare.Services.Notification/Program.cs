@@ -65,6 +65,7 @@ builder.Services.AddIntegrationEventHandler<AppointmentRefundRequestedEventHandl
 builder.Services.AddIntegrationEventHandler<AppointmentNoRefundNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -96,6 +97,9 @@ app.UseEventBus(eventBus =>
     eventBus.Subscribe<AppointmentNoRefundNotificationEvent, AppointmentNoRefundNotificationEventHandler>();
     eventBus.Subscribe<RefundHistoryCompletedIntegrationEvent, RefundHistoryCompletedEventHandler>();
     eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
+
+    // Subscribe to appointment booking success notifications for email sending
+    eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
 });
 
 app.Run();

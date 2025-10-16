@@ -10,6 +10,8 @@ using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Services.Appointment.Helpers;
 using BookingCare.Services.Appointment.Services.Grpc;
+using BookingCare.Shared.EventBus.Events;
+using BookingCare.Services.Appointment.Handlers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,6 +82,10 @@ builder.Services.AddScoped<GrpcClientWrapper>();
 // Add EventBus for publishing appointment events
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "appointment-service-queue");
 
+// Register Event Handlers
+builder.Services.AddIntegrationEventHandler<AppointmentDeleteRequestedEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentPaymentSuccessEventHandler>();
+
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
@@ -111,6 +117,16 @@ app.MapGrpcService<AppointmentGrpcService>();
 
 // Map health check endpoint
 app.MapCommonHealthCheck("Appointment");
+
+// Configure EventBus subscriptions
+app.UseEventBus(eventBus =>
+{
+    // Subscribe to appointment deletion requests when payment fails
+    eventBus.Subscribe<AppointmentDeleteRequestedIntegrationEvent, AppointmentDeleteRequestedEventHandler>();
+
+    // Subscribe to payment success events to send booking confirmation emails
+    eventBus.Subscribe<AppointmentPaymentSuccessIntegrationEvent, AppointmentPaymentSuccessEventHandler>();
+});
 
 // Initialize default data
 if (app.Environment.IsDevelopment())

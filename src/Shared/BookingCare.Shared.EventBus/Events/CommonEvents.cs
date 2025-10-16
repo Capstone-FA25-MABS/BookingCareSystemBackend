@@ -1,3 +1,7 @@
+using BookingCare.Shared.Common.Interfaces;
+using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.EventBus.Events;
+
 namespace BookingCare.Shared.EventBus.Events;
 
 // User-related events
@@ -591,4 +595,98 @@ public class AppointmentDeleteRequestedIntegrationEvent : IntegrationEvent
     /// Correlation ID for tracking
     /// </summary>
     public string CorrelationId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Event published when an appointment payment is successful
+/// This event is consumed by Appointment Service to send booking success notifications to the patient
+/// </summary>
+public class AppointmentPaymentSuccessIntegrationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the appointment that was successfully paid for
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who made the payment
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// ID of the successful payment
+    /// </summary>
+    public Guid PaymentId { get; set; }
+
+    /// <summary>
+    /// Amount that was paid
+    /// </summary>
+    public decimal Amount { get; set; }
+
+    /// <summary>
+    /// Payment method used (VNPay, PayOS, etc.)
+    /// </summary>
+    public string PaymentMethod { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Transaction ID from payment gateway
+    /// </summary>
+    public string? TransactionId { get; set; }
+
+    /// <summary>
+    /// When the payment was completed
+    /// </summary>
+    public DateTime PaymentCompletedAt { get; set; }
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Event published when appointment booking is successful and payment is completed
+/// This event is consumed by Notification Service to send booking success email to patient
+/// 
+/// Note: AppointmentBookingEmailData DTO in Notification Service maps directly from this event
+/// to avoid duplication of properties. See AppointmentBookingEmailData.FromEvent() method.
+/// 
+/// Uses pure composition pattern - NO delegation properties to eliminate SonarQube "Duplicated Lines" issue.
+/// </summary>
+public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the appointment that was successfully booked
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who booked the appointment
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Patient email address
+    /// </summary>
+    public string PatientEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Appointment data - contains all appointment-related information
+    /// Access properties via: AppointmentData.PatientName, AppointmentData.AppointmentDate, etc.
+    /// NO delegation properties to eliminate code duplication!
+    /// </summary>
+    public AppointmentData AppointmentData { get; set; } = new();
+
+    /// <summary>
+    /// Email subject line
+    /// </summary>
+    public string EmailSubject { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+
+    // NO delegation properties here - completely eliminates duplicate code!
+    // Access appointment data via: event.AppointmentData.PatientName, etc.
 }
