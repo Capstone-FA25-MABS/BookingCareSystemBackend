@@ -525,3 +525,70 @@ public class UserActivityEvent : IntegrationEvent
     public Dictionary<string, object> Properties { get; set; } = new();
     public DateTime Timestamp { get; set; }
 }
+
+/// <summary>
+/// Event published when an appointment should be deleted due to payment failure
+/// This event is consumed by Appointment Service to remove the appointment
+/// </summary>
+public class AppointmentDeleteRequestedIntegrationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the appointment to be deleted
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who created the appointment
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// ID of the doctor (if assigned)
+    /// </summary>
+    public Guid? DoctorId { get; set; }
+
+    /// <summary>
+    /// ID of the hospital where appointment was scheduled
+    /// </summary>
+    public Guid? HospitalId { get; set; }
+
+    /// <summary>
+    /// Appointment date and time
+    /// </summary>
+    public DateTime AppointmentDate { get; set; }
+
+    /// <summary>
+    /// Appointment type (enum value as int to avoid coupling)
+    /// </summary>
+    public int AppointmentType { get; set; }
+
+    /// <summary>
+    /// Reason for deletion (payment failure reason)
+    /// </summary>
+    public string DeletionReason { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID of the failed payment that triggered this deletion
+    /// </summary>
+    public Guid? PaymentId { get; set; }
+
+    /// <summary>
+    /// Payment method that failed (VNPay, PayOS, etc.)
+    /// </summary>
+    public string? PaymentMethod { get; set; }
+
+    /// <summary>
+    /// Payment failure code/message
+    /// </summary>
+    public string? PaymentFailureReason { get; set; }
+
+    /// <summary>
+    /// When the deletion was requested
+    /// </summary>
+    public DateTime RequestedAt { get; set; }
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+}

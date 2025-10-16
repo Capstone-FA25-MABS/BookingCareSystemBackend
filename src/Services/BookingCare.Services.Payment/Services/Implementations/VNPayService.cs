@@ -87,11 +87,7 @@ public class VNPayService : BaseService, IVNPayService
             // Add customer info if provided
             if (!string.IsNullOrEmpty(request.CustomerInfo))
             {
-                var cleanCustomerInfo = request.CustomerInfo;
-                if (!string.IsNullOrEmpty(cleanCustomerInfo))
-                {
-                    vnpParams.Add("vnp_Bill_FirstName", cleanCustomerInfo);
-                }
+                vnpParams.Add("vnp_Bill_FirstName", request.CustomerInfo);
             }
 
             // Create payment URL
@@ -106,7 +102,7 @@ public class VNPayService : BaseService, IVNPayService
 
             LogInfo("VNPay payment URL created successfully for PaymentId: {PaymentId}",
                 null, request.PaymentId);
-
+            await Task.Delay(1);
             return response;
         }, "CreateVNPayPaymentUrl");
     }
@@ -146,6 +142,9 @@ public class VNPayService : BaseService, IVNPayService
 
             LogInfo("VNPay callback processed successfully - TxnRef: {TxnRef}, Status: {Status}",
                 null, response.vnp_TxnRef, response.vnp_ResponseCode);
+
+            // Add a small delay to make the method truly async and allow for potential future processing
+            await Task.Delay(1);
 
             return response;
         }, "ProcessVNPayCallback");

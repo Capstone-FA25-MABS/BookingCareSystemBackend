@@ -20,6 +20,7 @@ public interface IDoctorService
     Task<DoctorListResponse> FilterDoctorsAsync(DoctorAdvancedFilterRequest filter);
     Task<DoctorSearchListResponse> FilterDoctorsOptimizedAsync(DoctorAdvancedFilterRequest filter);
     Task<List<DoctorResponse>> GetDoctorsByHospitalAsync(Guid hospitalId);
+    Task<DoctorSearchListResponse> GetDoctorsByHospitalOptimizedAsync(Guid hospitalId, int pageNumber = 1, int pageSize = 10);
     Task<List<DoctorResponse>> GetDoctorsBySpecialtyAsync(Guid specialtyId);
     Task<List<DoctorResponse>> GetDoctorsByPositionAsync(Guid positionId);
     Task<List<DoctorResponse>> GetActiveDoctorsAsync();
