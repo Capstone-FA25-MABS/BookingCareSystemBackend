@@ -263,19 +263,21 @@ public class AppointmentRepository : IAppointmentRepository
     /// Cancel an appointment with cancellation reason
     /// Optimized method that takes the full entity to avoid additional DB query
     /// </summary>
-    public async Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason)
+    public async Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason, string cancelledBy)
     {
         try
         {
             appointment.Status = AppointmentStatus.CANCELLED;
             appointment.Reason = cancellationReason;
+            appointment.CancelledBy = cancelledBy;
+            appointment.CancelledAt = DateTime.UtcNow;
 
             _context.Appointments.Update(appointment);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation(
-                "Successfully cancelled appointment {AppointmentId} with reason: {Reason}",
-                appointment.Id, cancellationReason);
+                "Successfully cancelled appointment {AppointmentId} with reason: {Reason}, CancelledBy: {CancelledBy}",
+                appointment.Id, cancellationReason, cancelledBy);
             return true;
         }
         catch (Exception ex)
@@ -388,6 +390,39 @@ public class AppointmentRepository : IAppointmentRepository
         {
             _logger.LogError(ex, "Error getting status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId})", patientId, doctorId);
             throw new AppointmentException("Failed to get status counts", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Background Service Operations
+
+    /// <summary>
+    /// Get overdue appointments by status
+    /// Returns appointments where AppointmentDate is before the reference date
+    /// </summary>
+    public async Task<List<AppointmentEntity>> GetOverdueAppointmentsByStatusAsync(
+        AppointmentStatus status,
+        DateTime referenceDate)
+    {
+        try
+        {
+            var overdueAppointments = await _context.Appointments
+                .Where(a => a.Status == status && a.AppointmentDate.Date < referenceDate.Date)
+                .ToListAsync();
+
+            _logger.LogInformation(
+                "Found {Count} overdue appointments with status {Status} before {ReferenceDate}",
+                overdueAppointments.Count, status, referenceDate.Date);
+
+            return overdueAppointments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting overdue appointments by status: {Status}, ReferenceDate: {ReferenceDate}",
+                status, referenceDate.Date);
+            throw new AppointmentException("Failed to get overdue appointments", innerException: ex);
         }
     }
 

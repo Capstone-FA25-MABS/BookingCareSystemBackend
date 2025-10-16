@@ -87,14 +87,17 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                     @event.PatientId);
             }
 
-            // Step 3: Create refund history record
+            // Step 3: Calculate refund amount based on percentage from event
+            var refundAmount = payment.Amount * (@event.RefundPercentage / 100m);
+
+            // Step 4: Create refund history record
             var createRefundRequest = new CreateRefundHistoryRequest
             {
                 PaymentId = payment.Id,
                 UserId = @event.PatientId,
                 HospitalId = @event.HospitalId ?? Guid.Empty, // Default to Empty if null
                 BankAccountId = bankAccountId,
-                RefundAmount = payment.Amount,
+                RefundAmount = refundAmount, // Use calculated refund amount
                 RefundReason = @event.CancellationReason
             };
 
@@ -104,7 +107,7 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                 "Created refund history {RefundHistoryId} with status {Status} for payment {PaymentId}",
                 refundHistory.Id, initialStatus, payment.Id);
 
-            // Step 4: Fetch patient information for notification
+            // Step 5: Fetch patient information for notification
             string? patientEmail = null;
             string? patientPhone = null;
             string? patientFullName = null;
@@ -129,7 +132,7 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                     @event.PatientId);
             }
 
-            // Step 5: Publish event to Notification Service
+            // Step 6: Publish event to Notification Service
             var refundRequestedEvent = new AppointmentRefundRequestedIntegrationEvent
             {
                 RefundHistoryId = refundHistory.Id,
@@ -137,7 +140,9 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                 PatientId = @event.PatientId,
                 HospitalId = @event.HospitalId ?? Guid.Empty,
                 PaymentId = payment.Id,
-                RefundAmount = payment.Amount,
+                RefundAmount = refundAmount, // Actual refund amount after percentage
+                OriginalAmount = payment.Amount, // Original payment amount
+                RefundPercentage = @event.RefundPercentage,
                 CancellationReason = @event.CancellationReason,
                 HasBankAccount = hasBankAccount,
                 BankAccountId = bankAccountId,
@@ -152,8 +157,8 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
             await _eventBus.PublishAsync(refundRequestedEvent, cancellationToken: cancellationToken);
 
             _logger.LogInformation(
-                "Published AppointmentRefundRequestedIntegrationEvent for refund {RefundHistoryId}",
-                refundHistory.Id);
+                "Completed refund processing for payment {PaymentId}: Original={Original}, Percentage={Percentage}%, Refund={Refund}, RefundHistoryId={RefundHistoryId}",
+                payment.Id, payment.Amount, @event.RefundPercentage, refundAmount, refundHistory.Id);
         }
         catch (Exception ex)
         {

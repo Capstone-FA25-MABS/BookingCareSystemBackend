@@ -1,18 +1,20 @@
 using BookingCare.Services.Appointment.Data;
 using BookingCare.Services.Appointment.Services;
-using BookingCare.Services.Appointment.Services.Grpc;
 using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Mappings;
-using BookingCare.Services.Appointment.Handlers;
+using BookingCare.Services.Appointment.BackgroundServices;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
-using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.FileUpload.Extensions;
-
+using BookingCare.Services.Appointment.Helpers;
+using BookingCare.Services.Appointment.Services.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Constants
+const string GrpcUrlConfigKey = "GrpcUrl";
 
 // Configure Kestrel with security best practices
 builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "appointment");
@@ -25,6 +27,7 @@ builder.Services.AddCommonSwagger("Appointment");
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
 
 // Add AutoMapper
@@ -37,35 +40,45 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<DataInitializationService>();
 
+// Add Background Services
+builder.Services.AddHostedService<AppointmentStatusUpdateService>();
+
 // Add S3 File Upload Service
 builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add gRPC client for Doctor service  
 builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(o =>
 {
-    var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6108";
+    var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>(GrpcUrlConfigKey) ?? "http://localhost:6108";
     o.Address = new Uri(endpoint);
 });
 
 // Add gRPC client for Hospital service  
 builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(o =>
 {
-    var endpoint = builder.Configuration.GetSection("Services:Hospital").GetValue<string>("GrpcUrl") ?? "http://localhost:6104";
+    var endpoint = builder.Configuration.GetSection("Services:Hospital").GetValue<string>(GrpcUrlConfigKey) ?? "http://localhost:6104";
     o.Address = new Uri(endpoint);
 });
 
 // Add gRPC client for User service  
 builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.UserServiceClient>(o =>
 {
-    var endpoint = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
+    var endpoint = builder.Configuration.GetSection("Services:User").GetValue<string>(GrpcUrlConfigKey) ?? "http://localhost:6116";
     o.Address = new Uri(endpoint);
 });
 
-// Add EventBus for publishing appointment events and consuming payment events
-builder.Services.AddRabbitMQEventBus(builder.Configuration, "appointment-service-queue");
+// Add gRPC client for Payment service  
+builder.Services.AddGrpcClient<BookingCare.Services.Payment.Protos.PaymentService.PaymentServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Payment").GetValue<string>(GrpcUrlConfigKey) ?? "http://localhost:6111";
+    o.Address = new Uri(endpoint);
+});
 
-// Register Event Handlers
-builder.Services.AddIntegrationEventHandler<AppointmentDeleteRequestedEventHandler>();
+// Register gRPC client wrapper to reduce constructor parameters
+builder.Services.AddScoped<GrpcClientWrapper>();
+
+// Add EventBus for publishing appointment events
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "appointment-service-queue");
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -98,13 +111,6 @@ app.MapGrpcService<AppointmentGrpcService>();
 
 // Map health check endpoint
 app.MapCommonHealthCheck("Appointment");
-
-// Configure EventBus subscriptions
-app.UseEventBus(eventBus =>
-{
-    // Subscribe to appointment deletion requests when payment fails
-    eventBus.Subscribe<AppointmentDeleteRequestedIntegrationEvent, AppointmentDeleteRequestedEventHandler>();
-});
 
 // Initialize default data
 if (app.Environment.IsDevelopment())
