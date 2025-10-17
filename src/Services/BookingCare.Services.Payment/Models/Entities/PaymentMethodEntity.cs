@@ -32,6 +32,12 @@ public class PaymentMethodEntity
     public string? Description { get; set; }
 
     /// <summary>
+    /// URL of the payment method image/logo
+    /// </summary>
+    [Column("image_url")]
+    public string? ImageUrl { get; set; }
+
+    /// <summary>
     /// Status of the payment method (ACTIVE, INACTIVE)
     /// </summary>
     [Column("status")]

@@ -1,11 +1,14 @@
 using BookingCare.Services.Appointment.Data;
 using BookingCare.Services.Appointment.Services;
+using BookingCare.Services.Appointment.Services.Grpc;
 using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Mappings;
+using BookingCare.Services.Appointment.Handlers;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
+using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.FileUpload.Extensions;
 
 
@@ -22,7 +25,6 @@ builder.Services.AddCommonSwagger("Appointment");
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
 
 // Add AutoMapper
@@ -59,8 +61,11 @@ builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.User
     o.Address = new Uri(endpoint);
 });
 
-// Add EventBus for publishing appointment events
+// Add EventBus for publishing appointment events and consuming payment events
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "appointment-service-queue");
+
+// Register Event Handlers
+builder.Services.AddIntegrationEventHandler<AppointmentDeleteRequestedEventHandler>();
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -88,8 +93,18 @@ app.UseStandardAuthPipeline();
 
 app.MapControllers();
 
+// Map gRPC service
+app.MapGrpcService<AppointmentGrpcService>();
+
 // Map health check endpoint
 app.MapCommonHealthCheck("Appointment");
+
+// Configure EventBus subscriptions
+app.UseEventBus(eventBus =>
+{
+    // Subscribe to appointment deletion requests when payment fails
+    eventBus.Subscribe<AppointmentDeleteRequestedIntegrationEvent, AppointmentDeleteRequestedEventHandler>();
+});
 
 // Initialize default data
 if (app.Environment.IsDevelopment())

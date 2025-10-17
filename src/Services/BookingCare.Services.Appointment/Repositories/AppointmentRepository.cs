@@ -285,6 +285,29 @@ public class AppointmentRepository : IAppointmentRepository
         }
     }
 
+    /// <summary>
+    /// Delete an appointment completely from the database
+    /// Used when payment fails to free up the time slot completely
+    /// </summary>
+    public async Task<bool> DeleteAppointmentAsync(AppointmentEntity appointment)
+    {
+        try
+        {
+            _context.Appointments.Remove(appointment);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Successfully deleted appointment {AppointmentId} from database - PatientId: {PatientId}, DoctorId: {DoctorId}, Date: {Date}",
+                appointment.Id, appointment.PatientId, appointment.DoctorId, appointment.AppointmentDate);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting appointment: {AppointmentId}", appointment.Id);
+            throw new AppointmentException("Failed to delete appointment", innerException: ex);
+        }
+    }
+
     #endregion
 
     #region Statistics Operations

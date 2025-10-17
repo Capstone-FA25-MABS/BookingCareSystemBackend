@@ -26,6 +26,12 @@ public interface IAppointmentRepository
     /// </summary>
     Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason);
 
+    /// <summary>
+    /// Delete an appointment completely from the database
+    /// Used when payment fails to free up the time slot completely
+    /// </summary>
+    Task<bool> DeleteAppointmentAsync(AppointmentEntity appointment);
+
     // Statistics operations
     /// <summary>
     /// Get counts for all appointment statuses for a specific user or organization

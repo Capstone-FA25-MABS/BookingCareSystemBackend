@@ -1,10 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using FluentValidation;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.VNPay;
+using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Helpers;
-using BookingCare.Shared.Common.Controllers;
+using BookingCare.Services.Payment.Controllers.Base;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.AppRouting;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Services.Appointment.Protos;
 
 namespace BookingCare.Services.Payment.Controllers;
 
@@ -14,23 +19,24 @@ namespace BookingCare.Services.Payment.Controllers;
 [ApiController]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
-public class VNPayController : BaseApiController
+public class VNPayController : BasePaymentGatewayController
 {
+    private const string GatewayName = "VNPay";
     private readonly IVNPayService _vnpayService;
-    private readonly IPaymentService _paymentService;
     private readonly IValidator<VNPayPaymentRequest> _validator;
-    private readonly ILogger<VNPayController> _logger;
 
     public VNPayController(
         IVNPayService vnpayService,
         IPaymentService paymentService,
+        IEventBus eventBus,
+        IOptions<FrontendOptions> frontendOptions,
         IValidator<VNPayPaymentRequest> validator,
-        ILogger<VNPayController> logger)
+        ILogger<VNPayController> logger,
+        AppointmentService.AppointmentServiceClient appointmentClient)
+        : base(paymentService, eventBus, frontendOptions, logger, appointmentClient)
     {
         _vnpayService = vnpayService;
-        _paymentService = paymentService;
         _validator = validator;
-        _logger = logger;
     }
 
     /// <summary>
@@ -41,13 +47,7 @@ public class VNPayController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult HealthCheck()
     {
-        return Success(new
-        {
-            Service = "VNPay Integration",
-            Status = "Healthy",
-            Timestamp = DateTime.UtcNow,
-            Version = ApiVersions.V1_0
-        }, "VNPay service is healthy");
+        return CreateHealthCheckResponse(GatewayName);
     }
 
     /// <summary>
@@ -68,7 +68,7 @@ public class VNPayController : BaseApiController
                 if (!string.IsNullOrEmpty(forwardedFor))
                 {
                     var forwardedIps = forwardedFor.Split(',');
-                    request.ClientIP = forwardedIps.Length > 0 ? forwardedIps[0].Trim() : null;
+                    request.ClientIP = forwardedIps.Length > 0 ? forwardedIps[0].Trim() : string.Empty;
                 }
                 else
                 {
@@ -86,7 +86,7 @@ public class VNPayController : BaseApiController
 
             // Use shared payment validation helper (VNPay doesn't require PENDING status validation)
             var (validationError, _) = await PaymentValidationHelper.ValidatePaymentForGatewayAsync(
-                _paymentService, request.PaymentId, request.Amount, validateStatus: false);
+                PaymentService, request.PaymentId, request.Amount, validateStatus: false);
 
             if (validationError != null)
             {
@@ -100,12 +100,12 @@ public class VNPayController : BaseApiController
         }
         catch (ArgumentException ex)
         {
-            _logger.LogWarning(ex, "Invalid argument when creating VNPay payment URL");
+            Logger.LogWarning(ex, "Invalid argument when creating VNPay payment URL");
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating VNPay payment URL for PaymentId: {PaymentId}", request.PaymentId);
+            Logger.LogError(ex, "Error creating VNPay payment URL for PaymentId: {PaymentId}", request.PaymentId);
             return StatusCode(500, new { Message = "An error occurred while creating VNPay payment URL" });
         }
     }
@@ -118,74 +118,51 @@ public class VNPayController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> VNPayCallback()
     {
-        var requestId = Guid.NewGuid().ToString("N")[..8];
+        var requestId = GenerateRequestId();
         try
         {
-            // Get all query parameters
-            var rawQueryParams = Request.Query.ToDictionary(
-                kv => kv.Key,
-                kv => kv.Value.ToString()
-            );
+            // Get and validate query parameters
+            var rawQueryParams = Request.Query.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
+            Logger.LogInformation("VNPay Callback #{RequestId} received with {ParamCount} parameters", requestId, rawQueryParams.Count);
 
-            _logger.LogInformation("VNPay Callback #{RequestId} received with {ParamCount} parameters", requestId, rawQueryParams.Count);
-
-            // Process callback
+            // Process callback and extract payment info
             var callbackResult = await _vnpayService.ProcessCallbackAsync(rawQueryParams);
+            var paymentId = ExtractPaymentIdFromCallback(callbackResult, requestId);
 
-            // Extract PaymentId from TxnRef (format: PaymentId_Timestamp)
-            var paymentIdStr = callbackResult.vnp_TxnRef.Split('_')[0];
-            if (!Guid.TryParse(paymentIdStr, out var paymentId))
+            if (paymentId == null)
             {
-                _logger.LogError("VNPay Callback #{RequestId} - Invalid PaymentId format in TxnRef: {TxnRef}", requestId, callbackResult.vnp_TxnRef);
                 return BadRequest("Invalid transaction reference format");
             }
 
-            // Update payment status based on VNPay result
-            var newStatus = callbackResult.IsSuccess ? "COMPLETED" : "FAILED";
-            await _paymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
+            // Update payment status
+            await UpdatePaymentStatusAsync(paymentId.Value, callbackResult);
+
+            // Get payment details
+            var payment = await GetPaymentWithValidation(paymentId.Value, requestId, GatewayName);
+            if (payment == null)
             {
-                Id = paymentId,
-                Status = Enum.Parse<BookingCare.Services.Payment.Enums.PaymentStatus>(newStatus)
-            });
+                return BadRequest("Payment not found");
+            }
 
-            var message = GetVNPayResponseMessage(callbackResult.vnp_ResponseCode);
-
-            // Unified response object similar to PayOS callback
-            var unified = new
-            {
-                Success = callbackResult.IsSuccess,
-                PaymentId = paymentId,
-                OrderCode = callbackResult.vnp_TxnRef,
-                Code = callbackResult.vnp_ResponseCode,
-                Amount = callbackResult.GetActualAmount,
-                Message = message,
-                PaymentDate = callbackResult.GetPaymentDateTime(),
-                RequestId = requestId,
-                ProcessedAt = DateTime.UtcNow,
-                IsAlreadyProcessed = false
-            };
-
+            // Handle success or failure scenarios
             if (callbackResult.IsSuccess)
             {
-                _logger.LogInformation("VNPay Callback #{RequestId} - Payment completed successfully for PaymentId: {PaymentId}", requestId, paymentId);
-            }
-            else
-            {
-                _logger.LogWarning("VNPay Callback #{RequestId} - Payment failed for PaymentId: {PaymentId}, ResponseCode: {ResponseCode}",
-                    requestId, paymentId, callbackResult.vnp_ResponseCode);
+                return HandleSuccessfulPayment(payment, callbackResult, requestId, GatewayName,
+                    (p, r, reqId) => CreateVNPayResponse(p.Id, r, reqId, true));
             }
 
-            return Success(unified, callbackResult.IsSuccess ? "VNPay payment successful" : "VNPay payment failed");
+            return await HandleFailedPaymentAsync(payment, callbackResult, requestId, GatewayName,
+                payment.AppointmentId!.Value, GetVNPayResponseMessage,
+                (p, r, reqId) => CreateVNPayResponse(p.Id, r, reqId, false));
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogError(ex, "VNPay Callback #{RequestId} - Signature validation failed", requestId);
+            Logger.LogError(ex, "VNPay Callback #{RequestId} - Signature validation failed", requestId);
             return BadRequest("Invalid VNPay signature");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "VNPay Callback #{RequestId} - Error processing callback", requestId);
-            return StatusCode(500, new { Message = "An error occurred while processing VNPay callback", RequestId = requestId });
+            return CreateProcessingErrorResponse(ex, requestId, GatewayName);
         }
     }
 
@@ -218,16 +195,93 @@ public class VNPayController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error querying VNPay transaction: {TxnRef}", transactionRef);
+            Logger.LogError(ex, "Error querying VNPay transaction: {TxnRef}", transactionRef);
             return StatusCode(500, new { Message = "An error occurred while querying VNPay transaction" });
         }
+    }
+
+    #region Override Abstract Methods
+
+    /// <summary>
+    /// Extract response code from VNPay callback result
+    /// </summary>
+    protected override string GetResponseCodeFromCallback<TResponse>(TResponse callbackResult)
+    {
+        if (callbackResult is VNPayCallbackResponse vnpayResult)
+        {
+            return vnpayResult.vnp_ResponseCode;
+        }
+        return "UNKNOWN";
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Extract and validate PaymentId from VNPay callback
+    /// </summary>
+    private Guid? ExtractPaymentIdFromCallback(VNPayCallbackResponse callbackResult, string requestId)
+    {
+        var paymentIdStr = callbackResult.vnp_TxnRef.Split('_')[0];
+        if (!Guid.TryParse(paymentIdStr, out var paymentId))
+        {
+            Logger.LogError("VNPay Callback #{RequestId} - Invalid PaymentId format in TxnRef: {TxnRef}", requestId, callbackResult.vnp_TxnRef);
+            return null;
+        }
+        return paymentId;
+    }
+
+    /// <summary>
+    /// Update payment status based on VNPay callback result
+    /// </summary>
+    private async Task UpdatePaymentStatusAsync(Guid paymentId, VNPayCallbackResponse callbackResult)
+    {
+        var newStatus = callbackResult.IsSuccess ? "COMPLETED" : "FAILED";
+        await PaymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
+        {
+            Id = paymentId,
+            Status = Enum.Parse<BookingCare.Services.Payment.Enums.PaymentStatus>(newStatus)
+        });
+    }
+
+    /// <summary>
+    /// Create standard VNPay response for non-redirect scenarios
+    /// </summary>
+    private IActionResult CreateVNPayResponse(Guid paymentId, VNPayCallbackResponse callbackResult, string requestId, bool isSuccess)
+    {
+        var message = GetVNPayResponseMessage(callbackResult.vnp_ResponseCode);
+
+        var unified = new
+        {
+            Success = callbackResult.IsSuccess,
+            PaymentId = paymentId,
+            OrderCode = callbackResult.vnp_TxnRef,
+            Code = callbackResult.vnp_ResponseCode,
+            Amount = callbackResult.GetActualAmount,
+            Message = message,
+            PaymentDate = callbackResult.GetPaymentDateTime(),
+            RequestId = requestId,
+            ProcessedAt = DateTime.UtcNow,
+            IsAlreadyProcessed = false
+        };
+
+        if (isSuccess)
+        {
+            Logger.LogInformation("VNPay Callback #{RequestId} - Payment completed successfully for PaymentId: {PaymentId}", requestId, paymentId);
+        }
+        else
+        {
+            Logger.LogWarning("VNPay Callback #{RequestId} - Payment failed for PaymentId: {PaymentId}, ResponseCode: {ResponseCode}",
+                requestId, paymentId, callbackResult.vnp_ResponseCode);
+        }
+
+        return Success(unified, callbackResult.IsSuccess ? "VNPay payment successful" : "VNPay payment failed");
     }
 
     /// <summary>
     /// Convert VNPay response code to human readable message
     /// </summary>
-    /// <param name="responseCode">VNPay response code</param>
-    /// <returns>Human readable message</returns>
     private static string GetVNPayResponseMessage(string responseCode) => responseCode switch
     {
         "00" => "Transaction successful",
@@ -245,4 +299,6 @@ public class VNPayController : BaseApiController
         "99" => "Other errors (not listed in known response codes)",
         _ => "Unknown error"
     };
+
+    #endregion
 }
