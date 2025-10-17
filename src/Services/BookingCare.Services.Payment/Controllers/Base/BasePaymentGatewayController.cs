@@ -2,12 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
+using BookingCare.Services.Payment.Models.Interfaces;
 using BookingCare.Services.Payment.Helpers;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.Common.AppRouting;
 using BookingCare.Services.Appointment.Protos;
 using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Services.Payment.Controllers.Base;
 
@@ -79,6 +81,38 @@ public abstract class BasePaymentGatewayController : BaseApiController
         where TResponse : class
     {
         var appointmentId = payment.AppointmentId;
+
+        // Publish payment success event for appointment booking notification
+        if (appointmentId.HasValue && payment.PatientId.HasValue)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var paymentSuccessEvent = new AppointmentPaymentSuccessIntegrationEvent
+                    {
+                        AppointmentId = appointmentId.Value,
+                        PatientId = payment.PatientId.Value,
+                        PaymentId = payment.Id,
+                        Amount = payment.Amount,
+                        PaymentMethod = gatewayName,
+                        TransactionId = GetTransactionIdFromCallback(callbackResult),
+                        PaymentCompletedAt = DateTime.UtcNow,
+                        CorrelationId = requestId
+                    };
+
+                    await EventBus.PublishAsync(paymentSuccessEvent);
+
+                    Logger.LogInformation("{Gateway} Callback #{RequestId} - Published appointment payment success event for AppointmentId: {AppointmentId}",
+                        gatewayName, requestId, appointmentId.Value);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "{Gateway} Callback #{RequestId} - Failed to publish payment success event for AppointmentId: {AppointmentId}",
+                        gatewayName, requestId, appointmentId);
+                }
+            });
+        }
 
         if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
         {
@@ -184,7 +218,48 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Abstract method to extract response code from callback - must be implemented by derived classes
     /// </summary>
-    protected abstract string GetResponseCodeFromCallback<TResponse>(TResponse callbackResult) where TResponse : class;
+    protected virtual string GetResponseCodeFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    {
+        // Use interface if available, otherwise fallback to abstract implementation
+        if (callbackResult is IPaymentCallbackResponse standardCallback)
+        {
+            return standardCallback.ResponseCode;
+        }
+
+        // Fallback for custom implementations
+        return GetCustomResponseCodeFromCallback(callbackResult);
+    }
+
+    /// <summary>
+    /// Abstract method to extract transaction ID from callback - must be implemented by derived classes
+    /// </summary>
+    protected virtual string? GetTransactionIdFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    {
+        // Use interface if available, otherwise fallback to abstract implementation
+        if (callbackResult is IPaymentCallbackResponse standardCallback)
+        {
+            return standardCallback.TransactionId;
+        }
+
+        // Fallback for custom implementations
+        return GetCustomTransactionIdFromCallback(callbackResult);
+    }
+
+    /// <summary>
+    /// Fallback method for custom response code extraction - can be overridden by derived classes
+    /// </summary>
+    protected virtual string GetCustomResponseCodeFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    {
+        return "UNKNOWN";
+    }
+
+    /// <summary>
+    /// Fallback method for custom transaction ID extraction - can be overridden by derived classes
+    /// </summary>
+    protected virtual string? GetCustomTransactionIdFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    {
+        return null;
+    }
 
     /// <summary>
     /// Common error response for invalid parameters

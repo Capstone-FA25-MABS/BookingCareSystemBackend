@@ -1,4 +1,3 @@
-using BookingCare.Services.Payment.Services;
 using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Payment.Services.Implementations;
@@ -17,8 +16,7 @@ using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using FluentValidation;
-using Grpc.Core;
-using Grpc.Net.ClientFactory;
+using BookingCare.Services.Payment.Services.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -122,7 +120,7 @@ app.UseGlobalExceptionHandling();
 app.UseCommonSwaggerUI("Payment Service");
 
 app.MapControllers();
-app.MapGrpcService<GreeterService>();
+app.MapGrpcService<PaymentGrpcService>();
 
 // Map common health check
 app.MapCommonHealthCheck("Payment Service");

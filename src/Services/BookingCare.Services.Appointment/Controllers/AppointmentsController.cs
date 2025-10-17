@@ -125,15 +125,19 @@ public class AppointmentsController : BaseApiController
     }
 
     /// <summary>
-    /// Cancel an appointment (must be at least 24 hours before appointment)
+    /// Cancel an appointment (any time before appointment)
     /// Triggers refund process and sends notifications
+    /// Refund percentage depends on cancellation time:
+    /// - >= 24 hours before: 100% refund
+    /// - 12-24 hours before: 50% refund
+    /// - < 12 hours before: 0% refund
     /// </summary>
     /// <param name="id">Appointment ID</param>
     /// <param name="request">Cancellation request with reason</param>
     /// <returns>Success status</returns>
     [HttpPost("cancel/{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff")]
+    [Authorize(Roles = "Staff, Patient")]
     public async Task<IActionResult> StaffCancelAppointment(
         Guid id,
         [FromBody] CancelAppointmentRequest request)

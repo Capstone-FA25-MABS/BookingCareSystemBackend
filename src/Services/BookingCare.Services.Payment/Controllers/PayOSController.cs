@@ -270,22 +270,6 @@ public class PayOSController : BasePaymentGatewayController
         }
     }
 
-    #region Override Abstract Methods
-
-    /// <summary>
-    /// Extract response code from PayOS callback result
-    /// </summary>
-    protected override string GetResponseCodeFromCallback<TResponse>(TResponse callbackResult)
-    {
-        if (callbackResult is PayOSCallbackResponse payosResult)
-        {
-            return payosResult.ResponseCode;
-        }
-        return "UNKNOWN";
-    }
-
-    #endregion
-
     #region Private Helper Methods
 
     /// <summary>

@@ -200,22 +200,6 @@ public class VNPayController : BasePaymentGatewayController
         }
     }
 
-    #region Override Abstract Methods
-
-    /// <summary>
-    /// Extract response code from VNPay callback result
-    /// </summary>
-    protected override string GetResponseCodeFromCallback<TResponse>(TResponse callbackResult)
-    {
-        if (callbackResult is VNPayCallbackResponse vnpayResult)
-        {
-            return vnpayResult.vnp_ResponseCode;
-        }
-        return "UNKNOWN";
-    }
-
-    #endregion
-
     #region Private Helper Methods
 
     /// <summary>
