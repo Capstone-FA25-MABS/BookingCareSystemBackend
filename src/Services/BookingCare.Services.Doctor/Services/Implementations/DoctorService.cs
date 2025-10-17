@@ -374,6 +374,12 @@ public class DoctorService : BaseService, IDoctorService
 
     public async Task<DoctorListResponse> GetDoctorsAsync(DoctorQueryRequest query)
     {
+        // FIXED: Apply location filtering BEFORE pagination to ensure all doctors are considered
+        if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
+        {
+            return await GetDoctorsWithLocationFilteringAsync(query);
+        }
+
         var (doctors, totalCount) = await _repository.Value.GetDoctorsAsync(query);
 
         // Enrich with Position và Specialty
@@ -388,21 +394,6 @@ public class DoctorService : BaseService, IDoctorService
 
         // Enrich with status and review statistics
         await EnrichDoctorListAsync(response.Doctors);
-
-        // Apply location filtering if needed
-        if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
-        {
-            response.Doctors = await _locationApiService.Value.ApplyLocationFilteringAsync(response.Doctors, query.ProvinceId, query.DistrictId);
-            // Update total count and pages after location filtering
-            response.TotalCount = response.Doctors.Count;
-            response.TotalPages = (int)Math.Ceiling((double)response.TotalCount / query.PageSize);
-
-            // Ensure page number is valid after filtering
-            if (response.PageNumber > response.TotalPages && response.TotalPages > 0)
-            {
-                response.PageNumber = response.TotalPages;
-            }
-        }
 
         // Apply rating filtering after getting review statistics
         if (query.MinRating.HasValue || (query.MinRatings != null && query.MinRatings.Any()))
@@ -428,6 +419,84 @@ public class DoctorService : BaseService, IDoctorService
         // If needed, implement it in the repository query instead of here
 
         return response;
+    }
+
+    /// <summary>
+    /// Get doctors with location filtering applied BEFORE pagination
+    /// This ensures all doctors are considered for location filtering, not just the current page
+    /// </summary>
+    private async Task<DoctorListResponse> GetDoctorsWithLocationFilteringAsync(DoctorQueryRequest query)
+    {
+        // Step 1: Get ALL doctors without pagination for location filtering
+        var queryWithoutPagination = new DoctorQueryRequest
+        {
+            AccountId = query.AccountId,
+            PositionId = query.PositionId,
+            PositionIds = query.PositionIds,
+            SpecialtyId = query.SpecialtyId,
+            SpecialtyIds = query.SpecialtyIds,
+            HospitalId = query.HospitalId,
+            HospitalIds = query.HospitalIds,
+            Gender = query.Gender,
+            Genders = query.Genders,
+            MinYearsOfExperience = query.MinYearsOfExperience,
+            MaxYearsOfExperience = query.MaxYearsOfExperience,
+            ExperienceRanges = query.ExperienceRanges,
+            MinPrice = query.MinPrice,
+            MaxPrice = query.MaxPrice,
+            ServiceType = query.ServiceType,
+            ServiceTypes = query.ServiceTypes,
+            Language = query.Language,
+            Languages = query.Languages,
+            Address = query.Address,
+            SearchTerm = query.SearchTerm,
+            SortBy = query.SortBy,
+            SortOrder = query.SortOrder,
+            // NO pagination - get all matching doctors
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        };
+
+        var (allDoctors, _) = await _repository.Value.GetDoctorsAsync(queryWithoutPagination);
+
+        // Step 2: Enrich with Position và Specialty
+        await EnrichDoctorsWithPositionAndSpecialtyAsync(allDoctors);
+
+        // Step 3: Apply location filtering to ALL doctors
+        var locationFilteredDoctors = await _locationApiService.Value.ApplyLocationFilteringAsync(
+            _mapper.Value.Map<List<DoctorResponse>>(allDoctors),
+            query.ProvinceId,
+            query.DistrictId);
+
+        // Step 4: Enrich with status and review statistics
+        await EnrichDoctorListAsync(locationFilteredDoctors);
+
+        // Step 5: Apply rating filtering if needed
+        if (query.MinRating.HasValue || (query.MinRatings != null && query.MinRatings.Any()))
+        {
+            locationFilteredDoctors = FilterDoctorsByRating(locationFilteredDoctors, query.MinRating, query.MinRatings);
+        }
+
+        // Step 6: Apply pagination to the filtered results
+        var totalCount = locationFilteredDoctors.Count;
+        var totalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
+
+        // Ensure page number is valid
+        var validPageNumber = Math.Max(1, Math.Min(query.PageNumber, totalPages > 0 ? totalPages : 1));
+
+        var paginatedDoctors = locationFilteredDoctors
+            .Skip((validPageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToList();
+
+        return new DoctorListResponse
+        {
+            Doctors = paginatedDoctors,
+            TotalCount = totalCount,
+            PageNumber = validPageNumber,
+            PageSize = query.PageSize,
+            TotalPages = totalPages
+        };
     }
 
     public async Task<DoctorListResponse> FilterDoctorsAsync(DoctorAdvancedFilterRequest filter)
@@ -477,6 +546,12 @@ public class DoctorService : BaseService, IDoctorService
             // Convert advanced filter to basic query
             var query = ConvertAdvancedFilterToQuery(filter);
 
+            // FIXED: Apply location filtering BEFORE pagination to ensure all doctors are considered
+            if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
+            {
+                return await FilterDoctorsOptimizedWithLocationFilteringAsync(query);
+            }
+
             // Use optimized repository method for complex filtering
             var (doctors, totalCount) = await _repository.Value.GetDoctorsForComplexFilterAsync(query);
 
@@ -502,16 +577,6 @@ public class DoctorService : BaseService, IDoctorService
 
             // Execute enrichment tasks in parallel
             await Task.WhenAll(enrichmentTasks);
-
-            // Apply location filtering if needed
-            if (!string.IsNullOrEmpty(query.ProvinceId) || !string.IsNullOrEmpty(query.DistrictId))
-            {
-                Console.WriteLine($"Applying location filtering - ProvinceId: {query.ProvinceId}, DistrictId: {query.DistrictId}");
-                var filteredDoctors = await ApplyLocationFilteringForSearchAsync(mappedDoctors, query.ProvinceId, query.DistrictId);
-                mappedDoctors = filteredDoctors;
-                totalCount = mappedDoctors.Count;
-                Console.WriteLine($"After location filtering: {mappedDoctors.Count} doctors");
-            }
 
             // Apply rating filtering after getting review statistics
             if (query.MinRating.HasValue || (query.MinRatings != null && query.MinRatings.Any()))
@@ -540,6 +605,103 @@ public class DoctorService : BaseService, IDoctorService
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Filter doctors optimized with location filtering applied BEFORE pagination
+    /// This ensures all doctors are considered for location filtering, not just the current page
+    /// </summary>
+    private async Task<DoctorSearchListResponse> FilterDoctorsOptimizedWithLocationFilteringAsync(DoctorQueryRequest query)
+    {
+        // Step 1: Get ALL doctors without pagination for location filtering
+        var queryWithoutPagination = new DoctorQueryRequest
+        {
+            AccountId = query.AccountId,
+            PositionId = query.PositionId,
+            PositionIds = query.PositionIds,
+            SpecialtyId = query.SpecialtyId,
+            SpecialtyIds = query.SpecialtyIds,
+            HospitalId = query.HospitalId,
+            HospitalIds = query.HospitalIds,
+            Gender = query.Gender,
+            Genders = query.Genders,
+            MinYearsOfExperience = query.MinYearsOfExperience,
+            MaxYearsOfExperience = query.MaxYearsOfExperience,
+            ExperienceRanges = query.ExperienceRanges,
+            MinPrice = query.MinPrice,
+            MaxPrice = query.MaxPrice,
+            ServiceType = query.ServiceType,
+            ServiceTypes = query.ServiceTypes,
+            Language = query.Language,
+            Languages = query.Languages,
+            Address = query.Address,
+            SearchTerm = query.SearchTerm,
+            SortBy = query.SortBy,
+            SortOrder = query.SortOrder,
+            // NO pagination - get all matching doctors
+            PageNumber = 1,
+            PageSize = int.MaxValue
+        };
+
+        // Use optimized repository method for complex filtering
+        var (allDoctors, _) = await _repository.Value.GetDoctorsForComplexFilterAsync(queryWithoutPagination);
+
+        Console.WriteLine($"Repository returned {allDoctors.Count} doctors for location filtering");
+
+        // Step 2: Build hospitalId map BEFORE mapping to DTO
+        var hospitalIdMap = allDoctors.Where(d => d.HospitalId.HasValue)
+                                     .ToDictionary(d => d.Id, d => d.HospitalId!.Value);
+
+        // Step 3: Map to optimized response DTOs
+        var mappedDoctors = _mapper.Value.Map<List<DoctorOptimizedResponse>>(allDoctors);
+
+        // Step 4: Create parallel tasks for enrichment
+        var enrichmentTasks = new List<Task>();
+
+        // Task 1: Enrich with hospital info
+        var hospitalTask = EnrichDoctorSearchWithHospitalInfoAsync(mappedDoctors, hospitalIdMap);
+        enrichmentTasks.Add(hospitalTask);
+
+        // Task 2: Enrich with review statistics
+        var reviewTask = EnrichDoctorSearchWithReviewStatisticsAsync(mappedDoctors);
+        enrichmentTasks.Add(reviewTask);
+
+        // Execute enrichment tasks in parallel
+        await Task.WhenAll(enrichmentTasks);
+
+        // Step 5: Apply location filtering to ALL doctors
+        Console.WriteLine($"Applying location filtering - ProvinceId: {query.ProvinceId}, DistrictId: {query.DistrictId}");
+        var locationFilteredDoctors = await ApplyLocationFilteringForSearchAsync(mappedDoctors, query.ProvinceId, query.DistrictId);
+        Console.WriteLine($"After location filtering: {locationFilteredDoctors.Count} doctors");
+
+        // Step 6: Apply rating filtering if needed
+        if (query.MinRating.HasValue || (query.MinRatings != null && query.MinRatings.Any()))
+        {
+            Console.WriteLine($"Before rating filtering: {locationFilteredDoctors.Count} doctors");
+            locationFilteredDoctors = FilterDoctorsByRatingForSearch(locationFilteredDoctors, query.MinRating, query.MinRatings);
+            Console.WriteLine($"After rating filtering: {locationFilteredDoctors.Count} doctors");
+        }
+
+        // Step 7: Apply pagination to the filtered results
+        var totalCount = locationFilteredDoctors.Count;
+        var totalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
+
+        // Ensure page number is valid
+        var validPageNumber = Math.Max(1, Math.Min(query.PageNumber, totalPages > 0 ? totalPages : 1));
+
+        var paginatedDoctors = locationFilteredDoctors
+            .Skip((validPageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToList();
+
+        return new DoctorSearchListResponse
+        {
+            Doctors = paginatedDoctors,
+            TotalCount = totalCount,
+            PageNumber = validPageNumber,
+            PageSize = query.PageSize,
+            TotalPages = totalPages
+        };
     }
 
     public async Task<List<DoctorResponse>> GetDoctorsByHospitalAsync(Guid hospitalId)

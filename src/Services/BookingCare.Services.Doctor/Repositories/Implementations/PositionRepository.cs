@@ -159,7 +159,7 @@ public class PositionRepository : IPositionRepository
 
     private IQueryable<PositionEntity> ApplySorting(IQueryable<PositionEntity> queryable, PositionQueryRequest query)
     {
-        if (string.IsNullOrEmpty(query.SortBy)) 
+        if (string.IsNullOrEmpty(query.SortBy))
         {
             // Default sort by CreatedAt descending (newest first)
             return queryable.OrderByDescending(p => p.CreatedAt);
