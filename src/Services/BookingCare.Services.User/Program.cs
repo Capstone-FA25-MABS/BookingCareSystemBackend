@@ -47,7 +47,6 @@ builder.Services.AddGlobalExceptionHandling();
 builder.Logging.AddCommonLogging();
 
 // Add controllers and Swagger
-builder.Services.AddCommonControllers();
 builder.Services.AddCommonSwagger("User");
 
 builder.Services.AddGrpc();

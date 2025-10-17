@@ -49,7 +49,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
     #region Appointment Operations
 
-    public async Task<bool> CreateAppointmentAsync(CreateAppointmentRequest request)
+    public async Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
@@ -87,7 +87,7 @@ public class AppointmentService : BaseService, IAppointmentService
             await _appointmentRepository.CreateAppointmentAsync(appointmentEntity);
 
             LogInfo("Successfully created appointment {AppointmentId}", null, appointmentEntity.Id);
-            return true;
+            return appointmentEntity.Id;
         }, "CreateAppointment");
     }
 

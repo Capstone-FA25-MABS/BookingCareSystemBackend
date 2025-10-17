@@ -1,4 +1,3 @@
-using BookingCare.Services.User.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
@@ -6,35 +5,32 @@ using BookingCare.Shared.FileUpload.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookingCare.Services.User.Controllers;
+namespace BookingCare.Services.Appointment.Controllers;
 
 [ApiController]
 [Produces("application/json")]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
 [Authorize]
-public class AvatarController : BaseApiController
+public class AttachmentController : BaseApiController
 {
     private readonly FileUploadOrchestrator _uploadOrchestrator;
-    private readonly IUserService _userService;
-    private readonly ILogger<AvatarController> _logger;
+    private readonly ILogger<AttachmentController> _logger;
 
-    public AvatarController(
+    public AttachmentController(
         FileUploadOrchestrator uploadOrchestrator,
-        IUserService userService,
-        ILogger<AvatarController> logger)
+        ILogger<AttachmentController> logger)
     {
         _uploadOrchestrator = uploadOrchestrator;
-        _userService = userService;
         _logger = logger;
     }
 
     /// <summary>
-    /// Upload user avatar
+    /// Upload appointment attachment (medical records, images, etc.)
     /// </summary>
     [HttpPost("upload")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> UploadAvatar(
+    public async Task<IActionResult> UploadAttachment(
         IFormFile file,
         CancellationToken cancellationToken = default)
     {
@@ -44,11 +40,11 @@ public class AvatarController : BaseApiController
 
             var config = new FileUploadConfig
             {
-                AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                MaxSizeInMB = 5,
-                Folder = "avatars/patients",
-                SuccessMessage = "Avatar uploaded successfully",
-                EntityType = "avatar"
+                AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx" },
+                MaxSizeInMB = 10,
+                Folder = "appointments/attachments",
+                SuccessMessage = "Attachment uploaded successfully",
+                EntityType = "attachment"
             };
 
             var result = await _uploadOrchestrator.UploadFileAsync(file, config, accountId, _logger, cancellationToken);
@@ -67,33 +63,24 @@ public class AvatarController : BaseApiController
     }
 
     /// <summary>
-    /// Delete user avatar
+    /// Delete appointment attachment
     /// </summary>
     [HttpDelete]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> DeleteAvatar(CancellationToken cancellationToken = default)
+    public async Task<IActionResult> DeleteAttachment(
+        [FromQuery] string fileUrl,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            var user = await _userService.GetByAccountIdAsync(accountId);
-            if (user == null)
-            {
-                return NotFound("User not found");
-            }
-
-            if (string.IsNullOrEmpty(user.AvatarUrl))
-            {
-                return BadRequest("User has no avatar to delete");
-            }
-
             var config = new FileDeletionConfig
             {
-                FileUrl = user.AvatarUrl,
-                ExpectedFolder = "avatars",
-                SuccessMessage = "Avatar deleted successfully",
-                EntityType = "avatar"
+                FileUrl = fileUrl,
+                ExpectedFolder = "appointments",
+                SuccessMessage = "Attachment deleted successfully",
+                EntityType = "attachment"
             };
 
             var result = await _uploadOrchestrator.DeleteFileAsync(config, accountId, _logger, cancellationToken);
@@ -103,7 +90,7 @@ public class AvatarController : BaseApiController
                 return BadRequest(result.ErrorMessage!);
             }
 
-            return Success(new { message = result.Message }, result.Message ?? "Avatar deleted successfully");
+            return Success(new { message = result.Message }, result.Message ?? "Attachment deleted successfully");
         }
         catch (UnauthorizedAccessException ex)
         {
