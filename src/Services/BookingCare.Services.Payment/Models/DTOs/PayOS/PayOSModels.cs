@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using BookingCare.Services.Payment.Models.Interfaces;
 
 namespace BookingCare.Services.Payment.Models.DTOs.PayOS;
 
@@ -195,7 +196,7 @@ public class PayOSItemInfo
 /// <summary>
 /// Callback response from PayOS
 /// </summary>
-public class PayOSCallbackResponse
+public class PayOSCallbackResponse : IPaymentCallbackResponse
 {
     /// <summary>
     /// Payment ID in the system
@@ -236,4 +237,15 @@ public class PayOSCallbackResponse
     /// Reference from PayOS
     /// </summary>
     public string Reference { get; set; } = string.Empty;
+
+    // IPaymentCallbackResponse implementation
+    /// <summary>
+    /// Transaction ID from PayOS (OrderCode as string)
+    /// </summary>
+    public string? TransactionId => OrderCode.ToString();
+
+    /// <summary>
+    /// Whether the payment was successful
+    /// </summary>
+    public bool IsSuccess => Success;
 }

@@ -101,7 +101,7 @@ public class DoctorMappingProfile : Profile
             .ForMember(dest => dest.TotalPages, opt => opt.Ignore());
 
         // Optimized mappings for Patient Search
-        CreateMap<DoctorEntity, DoctorSearchForPatientResponse>()
+        CreateMap<DoctorEntity, DoctorOptimizedResponse>()
             .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.Position))
             .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src => src.Specialty))
             .ForMember(dest => dest.Prices, opt => opt.MapFrom(src => src.DoctorPrices))
