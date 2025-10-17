@@ -1,0 +1,298 @@
+@startuml
+!theme plain
+title ServiceType Class Diagram - BookingCare.Services.Doctor
+
+' ===== SKIN PARAMETERS =====
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+    ArrowThickness 2
+}
+
+skinparam arrow {
+    Thickness 2
+    Color Black
+}
+
+skinparam linetype ortho
+
+' ===== VISIBILITY MODIFIERS =====
+skinparam classAttribute {
+    IconSize 0
+    FontSize 10
+}
+
+skinparam classMethod {
+    IconSize 0
+    FontSize 10
+}
+
+' ===== ENTITIES =====
+class BaseEntity {
+    + public Guid Id
+    + public string Name
+    + public Status Status
+    + public DateTime CreatedAt
+    + public DateTime UpdatedAt
+}
+
+class ServiceTypeEntity {
+    + public string Name
+    + public string? Description
+    --
+    [Table("doctor_service_types")]
+    [MaxLength(100)]
+    [Column("name")]
+    [MaxLength(255)]
+    [Column("description")]
+}
+
+' ===== REQUEST DTOs =====
+class CreateServiceTypeRequest {
+    + public string Name
+    + public string? Description
+    + public Status Status
+    --
+    [Required]
+    [StringLength(100, MinimumLength = 2)]
+    [StringLength(255)]
+}
+
+class UpdateServiceTypeRequest {
+    + public Guid Id
+    + public string Name
+    + public string? Description
+    + public Status Status
+    --
+    [Required]
+    [JsonRequired]
+    [StringLength(100, MinimumLength = 2)]
+    [StringLength(255)]
+}
+
+class ServiceTypeQueryRequest {
+    + public string? SearchTerm
+    + public Status? Status
+    + public int PageNumber
+    + public int PageSize
+    + public string? SortBy
+    + public string? SortOrder
+    --
+    [JsonRequired]
+}
+
+' ===== RESPONSE DTOs =====
+class ServiceTypeResponse {
+    + public Guid Id
+    + public string Name
+    + public string? Description
+    + public Status Status
+    + public int DoctorCount
+    + public DateTime CreatedAt
+    + public DateTime UpdatedAt
+}
+
+class ServiceTypeListResponse {
+    + public List<ServiceTypeResponse> ServiceTypes
+    + public int TotalCount
+    + public int PageNumber
+    + public int PageSize
+    + public int TotalPages
+}
+
+class ServiceTypeSimpleResponse {
+    + public Guid Id
+    + public string Name
+    + public int DoctorCount
+    --
+    Simple response DTO for performance optimization
+}
+
+' ===== REPOSITORY INTERFACE =====
+interface IServiceTypeRepository {
+    + public GetServiceTypeByIdAsync(Guid id) : Task<ServiceTypeEntity?>
+    + public GetServiceTypeByNameAsync(string name) : Task<ServiceTypeEntity?>
+    + public CreateServiceTypeAsync(ServiceTypeEntity serviceType) : Task<ServiceTypeEntity>
+    + public UpdateServiceTypeAsync(ServiceTypeEntity serviceType) : Task<ServiceTypeEntity>
+    + public DeleteServiceTypeAsync(Guid id) : Task<bool>
+    + public ServiceTypeExistsAsync(Guid id) : Task<bool>
+    + public ServiceTypeNameExistsAsync(string name, Guid? excludeId) : Task<bool>
+    + public GetServiceTypesAsync(ServiceTypeQueryRequest query) : Task<(List<ServiceTypeEntity>, int)>
+    + public GetAllServiceTypesAsync() : Task<List<ServiceTypeEntity>>
+    + public GetServiceTypesByIdsAsync(List<Guid> ids) : Task<List<ServiceTypeEntity>>
+    + public GetDoctorCountsByServiceTypeAsync() : Task<Dictionary<Guid, int>>
+    + public GetActiveServiceTypesSimpleAsync() : Task<List<ServiceTypeEntity>>
+    + public GetActiveDoctorCountsByServiceTypeAsync() : Task<Dictionary<Guid, int>>
+}
+
+' ===== REPOSITORY IMPLEMENTATION =====
+class ServiceTypeRepository {
+    - private DoctorDbContext _context
+    --
+    + public ServiceTypeRepository(DoctorDbContext context)
+    + public GetServiceTypeByIdAsync(Guid id) : Task<ServiceTypeEntity?>
+    + public GetServiceTypeByNameAsync(string name) : Task<ServiceTypeEntity?>
+    + public CreateServiceTypeAsync(ServiceTypeEntity serviceType) : Task<ServiceTypeEntity>
+    + public UpdateServiceTypeAsync(ServiceTypeEntity serviceType) : Task<ServiceTypeEntity>
+    + public DeleteServiceTypeAsync(Guid id) : Task<bool>
+    + public ServiceTypeExistsAsync(Guid id) : Task<bool>
+    + public ServiceTypeNameExistsAsync(string name, Guid? excludeId) : Task<bool>
+    + public GetServiceTypesAsync(ServiceTypeQueryRequest query) : Task<(List<ServiceTypeEntity>, int)>
+    + public GetAllServiceTypesAsync() : Task<List<ServiceTypeEntity>>
+    + public GetServiceTypesByIdsAsync(List<Guid> ids) : Task<List<ServiceTypeEntity>>
+    + public GetDoctorCountsByServiceTypeAsync() : Task<Dictionary<Guid, int>>
+    + public GetActiveServiceTypesSimpleAsync() : Task<List<ServiceTypeEntity>>
+    + public GetActiveDoctorCountsByServiceTypeAsync() : Task<Dictionary<Guid, int>>
+    - private ApplySorting(IQueryable<ServiceTypeEntity> queryable, ServiceTypeQueryRequest query) : IQueryable<ServiceTypeEntity>
+}
+
+' ===== SERVICE INTERFACE =====
+interface IServiceTypeService {
+    + public CreateServiceTypeAsync(CreateServiceTypeRequest request) : Task<ServiceTypeResponse>
+    + public GetServiceTypeByIdAsync(Guid id) : Task<ServiceTypeResponse?>
+    + public GetServiceTypeByNameAsync(string name) : Task<ServiceTypeResponse?>
+    + public UpdateServiceTypeAsync(UpdateServiceTypeRequest request) : Task<ServiceTypeResponse>
+    + public DeleteServiceTypeAsync(Guid id) : Task<bool>
+    + public ToggleServiceTypeStatusAsync(Guid id) : Task<bool>
+    + public GetServiceTypesAsync(ServiceTypeQueryRequest query) : Task<ServiceTypeListResponse>
+    + public GetAllServiceTypesAsync() : Task<List<ServiceTypeResponse>>
+    + public GetActiveServiceTypesSimpleAsync() : Task<List<ServiceTypeSimpleResponse>>
+    + public ServiceTypeExistsAsync(Guid id) : Task<bool>
+    + public ServiceTypeNameExistsAsync(string name, Guid? excludeId) : Task<bool>
+}
+
+' ===== SERVICE IMPLEMENTATION =====
+class ServiceTypeService {
+    - private IServiceTypeRepository _repository
+    - private IMapper _mapper
+    - private ILogger _logger
+    --
+    + public ServiceTypeService(IServiceTypeRepository repository, IMapper mapper, ILogger logger)
+    + public CreateServiceTypeAsync(CreateServiceTypeRequest request) : Task<ServiceTypeResponse>
+    + public GetServiceTypeByIdAsync(Guid id) : Task<ServiceTypeResponse?>
+    + public GetServiceTypeByNameAsync(string name) : Task<ServiceTypeResponse?>
+    + public UpdateServiceTypeAsync(UpdateServiceTypeRequest request) : Task<ServiceTypeResponse>
+    + public DeleteServiceTypeAsync(Guid id) : Task<bool>
+    + public ToggleServiceTypeStatusAsync(Guid id) : Task<bool>
+    + public GetServiceTypesAsync(ServiceTypeQueryRequest query) : Task<ServiceTypeListResponse>
+    + public GetAllServiceTypesAsync() : Task<List<ServiceTypeResponse>>
+    + public GetActiveServiceTypesSimpleAsync() : Task<List<ServiceTypeSimpleResponse>>
+    + public ServiceTypeExistsAsync(Guid id) : Task<bool>
+    + public ServiceTypeNameExistsAsync(string name, Guid? excludeId) : Task<bool>
+}
+
+' ===== CONTROLLER =====
+class ServiceTypesController {
+    - private IServiceTypeService _serviceTypeService
+    --
+    + public ServiceTypesController(IServiceTypeService serviceTypeService)
+    + public Health() : IActionResult
+    + public GetServiceType(Guid id) : Task<IActionResult>
+    + public GetServiceTypeByName(string name) : Task<IActionResult>
+    + public GetServiceTypes(ServiceTypeQueryRequest query) : Task<IActionResult>
+    + public GetAllServiceTypes() : Task<IActionResult>
+    + public CreateServiceType(CreateServiceTypeRequest request) : Task<IActionResult>
+    + public UpdateServiceType(Guid id, UpdateServiceTypeRequest request) : Task<IActionResult>
+    + public DeleteServiceType(Guid id) : Task<IActionResult>
+    + public ToggleServiceTypeStatus(Guid id) : Task<IActionResult>
+    + public ValidateServiceTypeName(string name, Guid? excludeId) : Task<IActionResult>
+}
+
+' ===== MAPPING PROFILE =====
+class ServiceTypeMappingProfile {
+    + public ServiceTypeMappingProfile()
+    --
+    AutoMapper profile for ServiceType mappings
+}
+
+' ===== EXTERNAL DEPENDENCIES =====
+class DoctorDbContext {
+    + public DbSet<ServiceTypeEntity> ServiceTypes
+    --
+    Entity Framework DbContext
+}
+
+class AutoMapper.IMapper {
+    + public Map<TSource, TDestination>(TSource source) : TDestination
+    --
+    AutoMapper interface
+}
+
+class ILogger {
+    + public LogInformation(string message)
+    + public LogError(Exception ex, string message)
+    --
+    .NET Core logging interface
+}
+
+' ===== ENUMS =====
+enum Status {
+    ACTIVE
+    INACTIVE
+}
+
+' ===== LAYOUT POSITIONING =====
+' Entities
+BaseEntity -[hidden]- ServiceTypeEntity
+ServiceTypeEntity -[hidden]- Status
+
+' Request DTOs
+CreateServiceTypeRequest -[hidden]- UpdateServiceTypeRequest
+UpdateServiceTypeRequest -[hidden]- ServiceTypeQueryRequest
+
+' Response DTOs
+ServiceTypeResponse -[hidden]- ServiceTypeListResponse
+ServiceTypeListResponse -[hidden]- ServiceTypeSimpleResponse
+
+' Repository Layer
+IServiceTypeRepository -[hidden]- ServiceTypeRepository
+ServiceTypeRepository -[hidden]- DoctorDbContext
+
+' Service Layer
+IServiceTypeService -[hidden]- ServiceTypeService
+ServiceTypeService -[hidden]- IMapper
+IMapper -[hidden]- ILogger
+
+' Controller
+ServiceTypesController -[hidden]- ServiceTypeMappingProfile
+
+' ===== RELATIONSHIPS =====
+BaseEntity <|-- ServiceTypeEntity
+IServiceTypeRepository <|.. ServiceTypeRepository
+IServiceTypeService <|.. ServiceTypeService
+
+ServiceTypeRepository --> DoctorDbContext
+ServiceTypeRepository --> ServiceTypeEntity
+ServiceTypeRepository --> ServiceTypeQueryRequest
+
+ServiceTypeService --> IServiceTypeRepository
+ServiceTypeService --> IMapper
+ServiceTypeService --> ILogger
+ServiceTypeService --> CreateServiceTypeRequest
+ServiceTypeService --> UpdateServiceTypeRequest
+ServiceTypeService --> ServiceTypeQueryRequest
+ServiceTypeService --> ServiceTypeResponse
+ServiceTypeService --> ServiceTypeListResponse
+ServiceTypeService --> ServiceTypeSimpleResponse
+
+ServiceTypesController --> IServiceTypeService
+ServiceTypesController --> CreateServiceTypeRequest
+ServiceTypesController --> UpdateServiceTypeRequest
+ServiceTypesController --> ServiceTypeQueryRequest
+ServiceTypesController --> ServiceTypeResponse
+ServiceTypesController --> ServiceTypeListResponse
+ServiceTypesController --> ServiceTypeSimpleResponse
+
+ServiceTypeMappingProfile --> ServiceTypeEntity
+ServiceTypeMappingProfile --> CreateServiceTypeRequest
+ServiceTypeMappingProfile --> UpdateServiceTypeRequest
+ServiceTypeMappingProfile --> ServiceTypeResponse
+ServiceTypeMappingProfile --> ServiceTypeListResponse
+
+ServiceTypeEntity --> Status
+CreateServiceTypeRequest --> Status
+UpdateServiceTypeRequest --> Status
+ServiceTypeResponse --> Status
+
+@enduml

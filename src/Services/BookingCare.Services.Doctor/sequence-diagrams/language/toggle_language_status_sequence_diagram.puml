@@ -1,0 +1,81 @@
+@startuml
+title Toggle Language Status
+
+actor Admin
+participant UI
+participant LanguagesController
+participant LanguageService
+participant LanguageRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Click "Toggle Status" button on language
+activate UI
+UI -> LanguagesController : 2. HTTP PATCH /api/languages/{id}/toggle-status
+activate LanguagesController
+
+== Service Call ==
+LanguagesController -> LanguageService : 3. ToggleLanguageStatusAsync(Guid id)
+activate LanguageService
+
+== Validate Language Exists ==
+LanguageService -> LanguageRepository : 4. GetLanguageByIdAsync(languageId)
+activate LanguageRepository
+LanguageRepository -> Database : 5. SELECT * FROM Languages WHERE Id = @id
+activate Database
+Database --> LanguageRepository : 6. LanguageEntity
+deactivate Database
+LanguageRepository --> LanguageService : 7. LanguageEntity
+deactivate LanguageRepository
+
+alt Language not found
+    LanguageService --> LanguagesController : 8. ArgumentException("Language with ID not found")
+    deactivate LanguageService
+    LanguagesController --> UI : 9. HTTP 400 Bad Request
+    deactivate LanguagesController
+    UI --> Admin : 10. Show "Language not found"
+    deactivate UI
+else Language found
+
+    == Toggle Language Status ==
+    LanguageService -> LanguageService : 8. Toggle status logic
+    activate LanguageService
+    alt Current status is ACTIVE
+        LanguageService -> LanguageService : 9. Set Status = INACTIVE
+    else Current status is INACTIVE
+        LanguageService -> LanguageService : 9. Set Status = ACTIVE
+    end
+    LanguageService -> LanguageService : 10. Set UpdatedAt = DateTime.UtcNow
+    deactivate LanguageService
+
+    == Save Updated Language ==
+    LanguageService -> LanguageRepository : 11. UpdateLanguageAsync(updatedLanguage)
+    activate LanguageRepository
+    LanguageRepository -> Database : 12. UPDATE Languages SET Status = @newStatus, UpdatedAt = @now WHERE Id = @id
+    activate Database
+    Database --> LanguageRepository : 13. Updated count
+    deactivate Database
+    LanguageRepository --> LanguageService : 14. LanguageEntity
+    deactivate LanguageRepository
+
+    alt Status update failed
+        LanguageService --> LanguagesController : 15. Exception("Failed to toggle language status")
+        deactivate LanguageService
+        LanguagesController --> UI : 16. HTTP 500 Internal Server Error
+        deactivate LanguagesController
+        UI --> Admin : 17. Show "Failed to toggle status"
+        deactivate UI
+    else Status update successful
+        LanguageService --> LanguagesController : 15. true
+        deactivate LanguageService
+
+        LanguagesController --> UI : 16. HTTP 200 OK
+        deactivate LanguagesController
+
+        UI --> Admin : 17. Show "Language status toggled successfully"
+        deactivate UI
+    end
+end
+
+@enduml

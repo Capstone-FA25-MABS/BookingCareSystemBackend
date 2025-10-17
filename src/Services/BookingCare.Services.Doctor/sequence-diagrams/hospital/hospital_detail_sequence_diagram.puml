@@ -1,0 +1,117 @@
+@startuml
+title Hospital Detail
+
+actor User
+participant UI
+participant HospitalsController
+participant HospitalService
+participant HospitalRepository
+participant DoctorService
+participant AuthService
+participant AutoMapper
+database Database
+
+== UI Request ==
+User -> UI : 1. Click "View Hospital Details" or navigate to hospital detail page
+activate UI
+UI -> HospitalsController : 2. HTTP GET /api/hospitals/{id}
+activate HospitalsController
+
+== Service Call ==
+HospitalsController -> HospitalService : 3. GetByIdAsync(Guid id)
+activate HospitalService
+
+== Get Hospital Basic Info ==
+HospitalService -> HospitalRepository : 4. GetByIdAsync(hospitalId)
+activate HospitalRepository
+HospitalRepository -> Database : 5. SELECT * FROM Hospitals h\nLEFT JOIN HospitalSpecialties hs ON h.Id = hs.HospitalId\nLEFT JOIN Specialties s ON hs.SpecialtyId = s.Id\nWHERE h.Id = @id
+activate Database
+Database --> HospitalRepository : 6. HospitalEntity with specialties
+deactivate Database
+HospitalRepository --> HospitalService : 7. HospitalEntity
+deactivate HospitalRepository
+
+alt Hospital not found
+    HospitalService --> HospitalsController : 8. null
+    deactivate HospitalService
+    HospitalsController --> UI : 9. HTTP 404 Not Found
+    deactivate HospitalsController
+    UI --> User : 10. Show "Hospital not found"
+    deactivate UI
+else Hospital found
+
+    == Map to Response DTO ==
+    HospitalService -> AutoMapper : 8. Map(HospitalEntity → HospitalDetailResponse)
+    activate AutoMapper
+    AutoMapper --> HospitalService : 9. HospitalDetailResponse
+    deactivate AutoMapper
+
+    == Get Hospital Specialties from Doctor Service ==
+    HospitalService -> DoctorService : 10. GetSpecialtiesByHospitalIdAsync(hospitalId)
+    activate DoctorService
+    DoctorService -> Database : 11. SELECT DISTINCT s.* FROM Specialties s\nINNER JOIN Doctors d ON s.Id = d.SpecialtyId\nWHERE d.HospitalId = @hospitalId AND d.Status = 'ACTIVE'
+    activate Database
+    Database --> DoctorService : 12. List<SpecialtyEntity>
+    deactivate Database
+    DoctorService --> HospitalService : 13. List<SpecialtyResponse>
+    deactivate DoctorService
+
+    == Get Hospital Positions from Doctor Service ==
+    HospitalService -> DoctorService : 14. GetPositionsByHospitalIdAsync(hospitalId)
+    activate DoctorService
+    DoctorService -> Database : 15. SELECT DISTINCT p.* FROM Positions p\nINNER JOIN Doctors d ON p.Id = d.PositionId\nWHERE d.HospitalId = @hospitalId AND d.Status = 'ACTIVE'
+    activate Database
+    Database --> DoctorService : 16. List<PositionEntity>
+    deactivate Database
+    DoctorService --> HospitalService : 17. List<PositionResponse>
+    deactivate DoctorService
+
+    == Get Hospital Service Types from Doctor Service ==
+    HospitalService -> DoctorService : 18. GetServiceTypesByHospitalIdAsync(hospitalId)
+    activate DoctorService
+    DoctorService -> Database : 19. SELECT DISTINCT st.* FROM ServiceTypes st\nINNER JOIN DoctorPrices dp ON st.Id = dp.ServiceTypeId\nINNER JOIN Doctors d ON dp.DoctorId = d.Id\nWHERE d.HospitalId = @hospitalId AND d.Status = 'ACTIVE'
+    activate Database
+    Database --> DoctorService : 20. List<ServiceTypeEntity>
+    deactivate Database
+    DoctorService --> HospitalService : 21. List<ServiceTypeResponse>
+    deactivate DoctorService
+
+    == Get Doctor Count by Specialty ==
+    HospitalService -> DoctorService : 22. GetDoctorCountsBySpecialtyAsync(hospitalId)
+    activate DoctorService
+    DoctorService -> Database : 23. SELECT s.Id, COUNT(d.Id) as DoctorCount\nFROM Specialties s\nINNER JOIN Doctors d ON s.Id = d.SpecialtyId\nWHERE d.HospitalId = @hospitalId AND d.Status = 'ACTIVE'\nGROUP BY s.Id, s.Name
+    activate Database
+    Database --> DoctorService : 24. Dictionary<Guid, int>
+    deactivate Database
+    DoctorService --> HospitalService : 25. Dictionary<Guid, int>
+    deactivate DoctorService
+
+    == Enrich Hospital Response with Doctor Service Data ==
+    HospitalService -> HospitalService : 26. Set specialties from Doctor service
+    activate HospitalService
+    HospitalService -> HospitalService : 27. Set positions from Doctor service
+    HospitalService -> HospitalService : 28. Set service types from Doctor service
+    HospitalService -> HospitalService : 29. Set doctor counts by specialty
+    deactivate HospitalService
+
+    == Enrich with Account Status ==
+    HospitalService -> AuthService : 30. GetAccountStatusByIdsAsync([accountId])
+    activate AuthService
+    AuthService --> HospitalService : 31. Dictionary<Guid, Status>
+    deactivate AuthService
+
+    HospitalService -> HospitalService : 32. EnrichHospitalDetailWithStatusAsync(response)
+    activate HospitalService
+    deactivate HospitalService
+
+    HospitalService --> HospitalsController : 33. HospitalDetailResponse
+    deactivate HospitalService
+
+    HospitalsController --> UI : 34. HTTP 200 OK (HospitalDetailResponse)
+    deactivate HospitalsController
+
+    UI --> User : 35. Render hospital detail page with specialties, positions, service types
+    deactivate UI
+end
+
+@enduml

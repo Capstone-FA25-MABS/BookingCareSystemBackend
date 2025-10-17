@@ -1,0 +1,228 @@
+@startuml
+title Update Doctor
+
+actor User
+participant UI
+participant DoctorsController
+participant DoctorService
+participant DoctorRepository
+participant PositionRepository
+participant SpecialtyRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+User -> UI : 1. Edit doctor form and click "Update Doctor"
+activate UI
+UI -> DoctorsController : 2. HTTP PUT /api/doctors/{id} (UpdateDoctorRequest)
+activate DoctorsController
+
+== Service Call ==
+DoctorsController -> DoctorService : 3. UpdateDoctorAsync(UpdateDoctorRequest)
+activate DoctorService
+
+== Validate and Get Existing Doctor ==
+DoctorService -> DoctorService : 4. ValidateAndGetExistingDoctor(request.Id)
+activate DoctorService
+DoctorService -> DoctorRepository : 5. GetDoctorByIdAsync(doctorId)
+activate DoctorRepository
+DoctorRepository -> Database : 6. SELECT d.*, p.*, s.*, dp.*, dl.*\nFROM Doctors d\nLEFT JOIN Positions p ON d.PositionId = p.Id\nLEFT JOIN Specialties s ON d.SpecialtyId = s.Id\nLEFT JOIN DoctorPrices dp ON d.Id = dp.DoctorId\nLEFT JOIN DoctorLanguages dl ON d.Id = dl.DoctorId\nWHERE d.Id = @id
+activate Database
+Database --> DoctorRepository : 7. DoctorEntity (with includes)
+deactivate Database
+DoctorRepository --> DoctorService : 8. DoctorEntity
+deactivate DoctorRepository
+
+alt Doctor not found
+    DoctorService --> DoctorsController : 9. DoctorNotFoundException.WithId(doctorId)
+    deactivate DoctorService
+    DoctorsController --> UI : 10. HTTP 404 Not Found
+    deactivate DoctorsController
+    UI --> User : 11. Show "Doctor not found"
+    deactivate UI
+else Doctor found
+
+    == Validate Update Request ==
+    DoctorService -> DoctorService : 9. ValidateUpdateDoctorRequest(request)
+    activate DoctorService
+
+    == Position Validation ==
+    alt PositionId provided
+        DoctorService -> PositionRepository : 10. PositionExistsAsync(positionId)
+        activate PositionRepository
+        PositionRepository -> Database : 11. SELECT COUNT(*) FROM Positions WHERE Id = @positionId
+        activate Database
+        Database --> PositionRepository : 12. boolean exists
+        deactivate Database
+        PositionRepository --> DoctorService : 13. boolean exists
+        deactivate PositionRepository
+
+        alt Position not found
+            DoctorService --> DoctorsController : 14. PositionNotFoundException.WithId(positionId)
+            deactivate DoctorService
+            DoctorsController --> UI : 15. HTTP 404 Not Found
+            deactivate DoctorsController
+            UI --> User : 16. Show "Position not found"
+            deactivate UI
+        else Position exists
+            note right: Continue to specialty validation
+        end
+    end
+
+    == Specialty Validation ==
+    alt SpecialtyId provided
+        DoctorService -> SpecialtyRepository : 14. SpecialtyExistsAsync(specialtyId)
+        activate SpecialtyRepository
+        SpecialtyRepository -> Database : 15. SELECT COUNT(*) FROM Specialties WHERE Id = @specialtyId
+        activate Database
+        Database --> SpecialtyRepository : 16. boolean exists
+        deactivate Database
+        SpecialtyRepository --> DoctorService : 17. boolean exists
+        deactivate SpecialtyRepository
+
+        alt Specialty not found
+            DoctorService --> DoctorsController : 18. ArgumentException("Specialty not found")
+            deactivate DoctorService
+            DoctorsController --> UI : 19. HTTP 400 Bad Request
+            deactivate DoctorsController
+            UI --> User : 20. Show "Specialty not found"
+            deactivate UI
+        else Specialty exists
+            note right: Continue to update doctor
+        end
+    end
+    deactivate DoctorService
+
+    == Update Doctor Entity ==
+    DoctorService -> DoctorService : 18. UpdateDoctorEntity(existingDoctor, request)
+    activate DoctorService
+    DoctorService -> AutoMapper : 19. Map(request, existingDoctor)
+    activate AutoMapper
+    AutoMapper --> DoctorService : 20. Updated DoctorEntity
+    deactivate AutoMapper
+    DoctorService -> DoctorService : 21. Set UpdatedAt = DateTime.UtcNow
+    deactivate DoctorService
+
+    == Update Doctor Prices ==
+    DoctorService -> DoctorService : 22. UpdateDoctorPricesAsync(doctorId, prices)
+    activate DoctorService
+
+    alt No prices provided
+        DoctorService -> DoctorRepository : 23. DeleteAllDoctorPricesAsync(doctorId)
+        activate DoctorRepository
+        DoctorRepository -> Database : 24. DELETE FROM DoctorPrices WHERE DoctorId = @doctorId
+        activate Database
+        Database --> DoctorRepository : 25. Deleted count
+        deactivate Database
+        DoctorRepository --> DoctorService : 26. Success
+        deactivate DoctorRepository
+    else Prices provided
+        DoctorService -> DoctorRepository : 23. GetDoctorPricesAsync(doctorId)
+        activate DoctorRepository
+        DoctorRepository -> Database : 24. SELECT * FROM DoctorPrices WHERE DoctorId = @doctorId
+        activate Database
+        Database --> DoctorRepository : 25. List<DoctorPriceEntity>
+        deactivate Database
+        DoctorRepository --> DoctorService : 26. List<DoctorPriceEntity>
+        deactivate DoctorRepository
+
+        loop For each price operation
+            alt Price to delete
+                DoctorService -> DoctorRepository : 27. DeleteDoctorPriceAsync(doctorId, priceId)
+                activate DoctorRepository
+                DoctorRepository -> Database : 28. DELETE FROM DoctorPrices WHERE DoctorId = @doctorId AND Id = @priceId
+                activate Database
+                Database --> DoctorRepository : 29. Deleted count
+                deactivate Database
+                DoctorRepository --> DoctorService : 30. Success
+                deactivate DoctorRepository
+            else Price to update
+                DoctorService -> DoctorRepository : 27. UpdateDoctorPriceAsync(existingPrice)
+                activate DoctorRepository
+                DoctorRepository -> Database : 28. UPDATE DoctorPrices SET Amount = @amount WHERE Id = @priceId
+                activate Database
+                Database --> DoctorRepository : 29. Updated count
+                deactivate Database
+                DoctorRepository --> DoctorService : 30. Success
+                deactivate DoctorRepository
+            else Price to create
+                DoctorService -> DoctorRepository : 27. CreateDoctorPriceAsync(newPrice)
+                activate DoctorRepository
+                DoctorRepository -> Database : 28. INSERT INTO DoctorPrices (Id, DoctorId, ServiceTypeId, Amount)
+                activate Database
+                Database --> DoctorRepository : 29. DoctorPriceEntity
+                deactivate Database
+                DoctorRepository --> DoctorService : 30. DoctorPriceEntity
+                deactivate DoctorRepository
+            end
+        end
+    end
+    deactivate DoctorService
+
+    == Update Doctor Languages ==
+    DoctorService -> DoctorService : 31. UpdateDoctorLanguagesAsync(doctorId, languageIds)
+    activate DoctorService
+
+    DoctorService -> DoctorRepository : 32. GetDoctorLanguagesAsync(doctorId)
+    activate DoctorRepository
+    DoctorRepository -> Database : 33. SELECT * FROM DoctorLanguages WHERE DoctorId = @doctorId
+    activate Database
+    Database --> DoctorRepository : 34. List<DoctorLanguageEntity>
+    deactivate Database
+    DoctorRepository --> DoctorService : 35. List<DoctorLanguageEntity>
+    deactivate DoctorRepository
+
+    loop For each language operation
+        alt Language to delete
+            DoctorService -> DoctorRepository : 36. DeleteDoctorLanguageAsync(doctorId, languageId)
+            activate DoctorRepository
+            DoctorRepository -> Database : 37. DELETE FROM DoctorLanguages WHERE DoctorId = @doctorId AND LanguageId = @languageId
+            activate Database
+            Database --> DoctorRepository : 38. Deleted count
+            deactivate Database
+            DoctorRepository --> DoctorService : 39. Success
+            deactivate DoctorRepository
+        else Language to add
+            DoctorService -> DoctorRepository : 36. CreateDoctorLanguageAsync(newLanguage)
+            activate DoctorRepository
+            DoctorRepository -> Database : 37. INSERT INTO DoctorLanguages (Id, DoctorId, LanguageId)
+            activate Database
+            Database --> DoctorRepository : 38. DoctorLanguageEntity
+            deactivate Database
+            DoctorRepository --> DoctorService : 39. DoctorLanguageEntity
+            deactivate DoctorRepository
+        end
+    end
+    deactivate DoctorService
+
+    == Save Updated Doctor ==
+    DoctorService -> DoctorRepository : 40. UpdateDoctorAsync(updatedDoctor)
+    activate DoctorRepository
+    DoctorRepository -> Database : 41. UPDATE Doctors SET FirstName = @firstName, LastName = @lastName, ... WHERE Id = @id
+    activate Database
+    Database --> DoctorRepository : 42. Updated count
+    deactivate Database
+    DoctorRepository -> Database : 43. SELECT d.*, p.*, s.*, dp.*, dl.* FROM Doctors d LEFT JOIN... WHERE d.Id = @id
+    activate Database
+    Database --> DoctorRepository : 44. DoctorEntity (with includes)
+    deactivate Database
+    DoctorRepository --> DoctorService : 45. DoctorEntity (with includes)
+    deactivate DoctorRepository
+
+    == Map to Response DTO ==
+    DoctorService -> AutoMapper : 46. Map(DoctorEntity → DoctorResponse)
+    activate AutoMapper
+    AutoMapper --> DoctorService : 47. DoctorResponse
+    deactivate AutoMapper
+
+    DoctorService --> DoctorsController : 48. DoctorResponse
+    deactivate DoctorService
+
+    DoctorsController --> UI : 49. HTTP 200 OK (DoctorResponse)
+    deactivate DoctorsController
+
+    UI --> User : 50. Show "Doctor updated successfully"
+    deactivate UI
+end
+
+@enduml

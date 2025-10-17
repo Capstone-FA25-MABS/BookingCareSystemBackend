@@ -1,0 +1,107 @@
+@startuml
+title Create Hospital
+
+actor Admin
+participant UI
+participant HospitalsController
+participant HospitalService
+participant HospitalRepository
+participant AuthService
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Fill hospital form and click "Create Hospital"
+activate UI
+UI -> HospitalsController : 2. HTTP POST /api/hospitals (CreateHospitalRequest)
+activate HospitalsController
+
+== Service Call ==
+HospitalsController -> HospitalService : 3. CreateAsync(CreateHospitalRequest)
+activate HospitalService
+
+== Validate Hospital Email ==
+HospitalService -> HospitalRepository : 4. EmailExistsAsync(email)
+activate HospitalRepository
+HospitalRepository -> Database : 5. SELECT COUNT(*) FROM Hospitals WHERE Email = @email
+activate Database
+Database --> HospitalRepository : 6. boolean exists
+deactivate Database
+HospitalRepository --> HospitalService : 7. boolean exists
+deactivate HospitalRepository
+
+alt Hospital email already exists
+    HospitalService --> HospitalsController : 8. HospitalAlreadyExistsException(email)
+    deactivate HospitalService
+    HospitalsController --> UI : 9. HTTP 409 Conflict
+    deactivate HospitalsController
+    UI --> Admin : 10. Show "Hospital email already exists"
+    deactivate UI
+else Hospital email is unique
+
+    == Create Hospital Entity ==
+    HospitalService -> AutoMapper : 8. Map(CreateHospitalRequest → HospitalEntity)
+    activate AutoMapper
+    AutoMapper --> HospitalService : 9. HospitalEntity
+    deactivate AutoMapper
+
+    == Save Hospital to Database ==
+    HospitalService -> HospitalRepository : 10. CreateAsync(hospital)
+    activate HospitalRepository
+    HospitalRepository -> Database : 11. INSERT INTO Hospitals (Id, Name, Email, Address, Phone, Description, AccountId, CreatedAt, UpdatedAt)
+    activate Database
+    Database --> HospitalRepository : 12. HospitalEntity created
+    deactivate Database
+    HospitalRepository --> HospitalService : 13. HospitalEntity
+    deactivate HospitalRepository
+
+    == Add Specialties (if provided) ==
+    alt SpecialtyIds provided
+        loop For each specialtyId
+            HospitalService -> HospitalService : 14. AddSpecialtyAsync(hospitalId, specialtyId)
+            activate HospitalService
+            HospitalService -> Database : 15. INSERT INTO HospitalSpecialties (HospitalId, SpecialtyId)
+            activate Database
+            Database --> HospitalService : 16. Success
+            deactivate Database
+            deactivate HospitalService
+        end
+    end
+
+    == Reload Hospital with Relationships ==
+    HospitalService -> HospitalRepository : 17. GetByIdAsync(hospitalId)
+    activate HospitalRepository
+    HospitalRepository -> Database : 18. SELECT * FROM Hospitals h\nLEFT JOIN HospitalSpecialties hs ON h.Id = hs.HospitalId\nLEFT JOIN Specialties s ON hs.SpecialtyId = s.Id\nWHERE h.Id = @id
+    activate Database
+    Database --> HospitalRepository : 19. HospitalEntity with specialties
+    deactivate Database
+    HospitalRepository --> HospitalService : 20. HospitalEntity
+    deactivate HospitalRepository
+
+    == Map to Response DTO ==
+    HospitalService -> AutoMapper : 21. Map(HospitalEntity → HospitalDetailResponse)
+    activate AutoMapper
+    AutoMapper --> HospitalService : 22. HospitalDetailResponse
+    deactivate AutoMapper
+
+    == Enrich with Account Status ==
+    HospitalService -> AuthService : 23. GetAccountStatusByIdsAsync([accountId])
+    activate AuthService
+    AuthService --> HospitalService : 24. Dictionary<Guid, Status>
+    deactivate AuthService
+
+    HospitalService -> HospitalService : 25. EnrichHospitalDetailWithStatusAsync(response)
+    activate HospitalService
+    deactivate HospitalService
+
+    HospitalService --> HospitalsController : 26. HospitalDetailResponse
+    deactivate HospitalService
+
+    HospitalsController --> UI : 27. HTTP 201 Created (HospitalDetailResponse)
+    deactivate HospitalsController
+
+    UI --> Admin : 28. Show "Hospital created successfully"
+    deactivate UI
+end
+
+@enduml

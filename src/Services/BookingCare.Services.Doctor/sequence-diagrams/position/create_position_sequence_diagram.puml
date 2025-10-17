@@ -1,0 +1,77 @@
+@startuml
+title Create Position
+
+actor Admin
+participant UI
+participant PositionsController
+participant PositionService
+participant PositionRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Fill position form and click "Create Position"
+activate UI
+UI -> PositionsController : 2. HTTP POST /api/positions (CreatePositionRequest)
+activate PositionsController
+
+== Service Call ==
+PositionsController -> PositionService : 3. CreatePositionAsync(CreatePositionRequest)
+activate PositionService
+
+== Validate Position Name ==
+PositionService -> PositionRepository : 4. PositionNameExistsAsync(name)
+activate PositionRepository
+PositionRepository -> Database : 5. SELECT COUNT(*) FROM Positions WHERE Name = @name
+activate Database
+Database --> PositionRepository : 6. boolean exists
+deactivate Database
+PositionRepository --> PositionService : 7. boolean exists
+deactivate PositionRepository
+
+alt Position name already exists
+    PositionService --> PositionsController : 8. PositionConflictException.WithName(name)
+    deactivate PositionService
+    PositionsController --> UI : 9. HTTP 409 Conflict
+    deactivate PositionsController
+    UI --> Admin : 10. Show "Position name already exists"
+    deactivate UI
+else Position name is unique
+
+    == Create Position Entity ==
+    PositionService -> AutoMapper : 8. Map(CreatePositionRequest → PositionEntity)
+    activate AutoMapper
+    AutoMapper --> PositionService : 9. PositionEntity (with new Guid)
+    deactivate AutoMapper
+
+    PositionService -> PositionService : 10. Set Id = Guid.NewGuid()
+    activate PositionService
+    deactivate PositionService
+
+    == Save Position to Database ==
+    PositionService -> PositionRepository : 11. CreatePositionAsync(position)
+    activate PositionRepository
+    PositionRepository -> Database : 12. INSERT INTO Positions (Id, Name, Status, CreatedAt, UpdatedAt)
+    activate Database
+    Database --> PositionRepository : 13. PositionEntity created
+    deactivate Database
+    PositionRepository --> PositionService : 14. PositionEntity
+    deactivate PositionRepository
+
+    == Map to Response DTO ==
+    PositionService -> AutoMapper : 15. Map(PositionEntity → PositionResponse)
+    activate AutoMapper
+    AutoMapper --> PositionService : 16. PositionResponse
+    deactivate AutoMapper
+
+    PositionService --> PositionsController : 17. PositionResponse
+    deactivate PositionService
+
+    PositionsController --> UI : 18. HTTP 201 Created (PositionResponse)
+    deactivate PositionsController
+
+    UI --> Admin : 19. Show "Position created successfully"
+    deactivate UI
+end
+
+@enduml

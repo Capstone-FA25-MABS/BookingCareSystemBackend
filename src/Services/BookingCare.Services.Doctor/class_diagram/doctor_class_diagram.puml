@@ -1,0 +1,706 @@
+@startuml
+!theme plain
+title Doctor Class Diagram - BookingCare.Services.Doctor
+
+' ===== SKIN PARAMETERS =====
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor Black
+    ArrowThickness 2
+}
+
+skinparam arrow {
+    Thickness 2
+    Color Black
+}
+
+skinparam linetype ortho
+
+' ===== VISIBILITY MODIFIERS =====
+skinparam classAttribute {
+    IconSize 0
+    FontSize 10
+}
+
+skinparam classMethod {
+    IconSize 0
+    FontSize 10
+}
+
+' ===== ENTITIES =====
+class DoctorEntity {
+    + public Guid Id
+    + public Guid AccountId
+    + public string Email
+    + public string? Address
+    + public string FirstName
+    + public string LastName
+    + public Gender? Gender
+    + public Guid? PositionId
+    + public Guid? SpecialtyId
+    + public Guid? HospitalId
+    + public string? Bio
+    + public int YearsOfExperience
+    + public string AvatarUrl
+    + public DateTime CreatedAt
+    + public DateTime UpdatedAt
+    --
+    [Table("doctors")]
+    [MaxLength(100)]
+    [Column("email")]
+    [MaxLength(50)]
+    [Column("first_name")]
+    [MaxLength(50)]
+    [Column("last_name")]
+    [MaxLength(20)]
+    [Column("gender")]
+}
+
+class DoctorPriceEntity {
+    + public Guid Id
+    + public Guid DoctorId
+    + public Guid ServiceTypeId
+    + public decimal Amount
+    + public DateTime CreatedAt
+    + public DateTime UpdatedAt
+    --
+    [Table("doctor_prices")]
+    [Column("amount", TypeName = "decimal(10,2)")]
+}
+
+class DoctorLanguageEntity {
+    + public Guid Id
+    + public Guid DoctorId
+    + public Guid LanguageId
+    --
+    [Table("doctor_languages")]
+}
+
+' ===== REQUEST DTOs =====
+class CreateDoctorRequest {
+    + public Guid AccountId
+    + public string Email
+    + public string? Address
+    + public string FirstName
+    + public string LastName
+    + public Gender? Gender
+    + public Guid? PositionId
+    + public Guid? SpecialtyId
+    + public Guid? HospitalId
+    + public string? Bio
+    + public int YearsOfExperience
+    + public string AvatarUrl
+    + public List<CreateDoctorPriceRequest> Prices
+    + public List<Guid> LanguageIds
+    --
+    [Required]
+    [EmailAddress]
+    [StringLength(100)]
+    [Required]
+    [StringLength(50, MinimumLength = 2)]
+    [Required]
+    [StringLength(50, MinimumLength = 2)]
+    [StringLength(20)]
+    [Range(0, 50)]
+    [Url]
+}
+
+class UpdateDoctorRequest {
+    + public Guid Id
+    + public string Email
+    + public string? Address
+    + public string FirstName
+    + public string LastName
+    + public Gender? Gender
+    + public Guid? PositionId
+    + public Guid? SpecialtyId
+    + public Guid? HospitalId
+    + public string? Bio
+    + public int YearsOfExperience
+    + public string AvatarUrl
+    + public List<UpdateDoctorPriceRequest> Prices
+    + public List<Guid> LanguageIds
+    --
+    [Required]
+    [JsonRequired]
+    [EmailAddress]
+    [StringLength(100)]
+    [Required]
+    [StringLength(50, MinimumLength = 2)]
+    [Required]
+    [StringLength(50, MinimumLength = 2)]
+    [StringLength(20)]
+    [Range(0, 50)]
+    [Url]
+}
+
+class DoctorQueryRequest {
+    + public string? SearchTerm
+    + public Guid? HospitalId
+    + public Guid? SpecialtyId
+    + public Guid? PositionId
+    + public Gender? Gender
+    + public int? MinYearsOfExperience
+    + public int? MaxYearsOfExperience
+    + public decimal? MinPrice
+    + public decimal? MaxPrice
+    + public List<Guid>? LanguageIds
+    + public int PageNumber
+    + public int PageSize
+    + public string? SortBy
+    + public string? SortOrder
+    --
+    [JsonRequired]
+}
+
+class DoctorAdvancedFilterRequest {
+    + public string? SearchTerm
+    + public Guid? HospitalId
+    + public Guid? SpecialtyId
+    + public Guid? PositionId
+    + public Gender? Gender
+    + public int? MinYearsOfExperience
+    + public int? MaxYearsOfExperience
+    + public decimal? MinPrice
+    + public decimal? MaxPrice
+    + public List<Guid>? LanguageIds
+    + public double? MinRating
+    + public double? MaxRating
+    + public int PageNumber
+    + public int PageSize
+    + public string? SortBy
+    + public string? SortOrder
+    --
+    Advanced filtering for patient search
+}
+
+class CreateDoctorPriceRequest {
+    + public Guid ServiceTypeId
+    + public decimal Amount
+    --
+    [Required]
+    [Range(0.01, 999999.99)]
+}
+
+class UpdateDoctorPriceRequest {
+    + public Guid Id
+    + public Guid ServiceTypeId
+    + public decimal Amount
+    --
+    [Required]
+    [JsonRequired]
+    [Range(0.01, 999999.99)]
+}
+
+class AssignPriceToDoctorRequest {
+    + public Guid DoctorId
+    + public Guid ServiceTypeId
+    + public decimal Amount
+    --
+    [Required]
+    [JsonRequired]
+    [Range(0.01, 999999.99)]
+}
+
+' ===== RESPONSE DTOs =====
+class DoctorResponse {
+    + public Guid Id
+    + public Guid AccountId
+    + public string Email
+    + public string? Address
+    + public string FirstName
+    + public string LastName
+    + public string FullName
+    + public Gender? Gender
+    + public Guid? PositionId
+    + public string? PositionName
+    + public Guid? SpecialtyId
+    + public string? SpecialtyName
+    + public string? SpecialtyImageUrl
+    + public Guid? HospitalId
+    + public string? HospitalName
+    + public string? Bio
+    + public int YearsOfExperience
+    + public string AvatarUrl
+    + public List<DoctorPriceResponse> Prices
+    + public List<LanguageResponse> Languages
+    + public DateTime CreatedAt
+    + public DateTime UpdatedAt
+}
+
+class DoctorByIdResponse {
+    + public Guid Id
+    + public Guid AccountId
+    + public string Email
+    + public string? Address
+    + public string FirstName
+    + public string LastName
+    + public string FullName
+    + public Gender? Gender
+    + public Guid? PositionId
+    + public string? PositionName
+    + public Guid? SpecialtyId
+    + public string? SpecialtyName
+    + public string? SpecialtyImageUrl
+    + public Guid? HospitalId
+    + public string? HospitalName
+    + public string? HospitalAddress
+    + public string? HospitalPhone
+    + public string? HospitalEmail
+    + public string? Bio
+    + public int YearsOfExperience
+    + public string AvatarUrl
+    + public List<DoctorPriceResponse> Prices
+    + public List<LanguageResponse> Languages
+    + public double AverageRating
+    + public int TotalReviews
+    + public bool IsFavorite
+    + public DateTime CreatedAt
+    + public DateTime UpdatedAt
+}
+
+class DoctorListResponse {
+    + public List<DoctorResponse> Doctors
+    + public int TotalCount
+    + public int PageNumber
+    + public int PageSize
+    + public int TotalPages
+}
+
+class DoctorSearchListResponse {
+    + public List<DoctorSearchResponse> Doctors
+    + public int TotalCount
+    + public int PageNumber
+    + public int PageSize
+    + public int TotalPages
+}
+
+class DoctorSearchResponse {
+    + public Guid Id
+    + public string FirstName
+    + public string LastName
+    + public string FullName
+    + public string? PositionName
+    + public string? SpecialtyName
+    + public string? HospitalName
+    + public int YearsOfExperience
+    + public string AvatarUrl
+    + public decimal MinPrice
+    + public decimal MaxPrice
+    + public double AverageRating
+    + public int TotalReviews
+    + public bool IsFavorite
+}
+
+class DoctorBasicInfoResponse {
+    + public Guid Id
+    + public Guid AccountId
+    + public string FirstName
+    + public string LastName
+    + public string FullName
+    + public string? PositionName
+    + public string? SpecialtyName
+    + public string? HospitalName
+    + public string AvatarUrl
+}
+
+class DoctorPriceResponse {
+    + public Guid Id
+    + public Guid DoctorId
+    + public Guid ServiceTypeId
+    + public string ServiceTypeName
+    + public decimal Amount
+    + public DateTime CreatedAt
+    + public DateTime UpdatedAt
+}
+
+class LanguageResponse {
+    + public Guid Id
+    + public string Name
+}
+
+' ===== REPOSITORY INTERFACE =====
+interface IDoctorRepository {
+    + public GetDoctorByIdAsync(Guid id) : Task<DoctorEntity?>
+    + public GetDoctorByEmailAsync(string email) : Task<DoctorEntity?>
+    + public GetDoctorByAccountIdAsync(Guid accountId) : Task<DoctorEntity?>
+    + public CreateDoctorAsync(DoctorEntity doctor) : Task<DoctorEntity>
+    + public UpdateDoctorAsync(DoctorEntity doctor) : Task<DoctorEntity>
+    + public DeleteDoctorAsync(Guid id) : Task<bool>
+    + public DoctorExistsAsync(Guid id) : Task<bool>
+    + public DoctorEmailExistsAsync(string email, Guid? excludeId) : Task<bool>
+    + public DoctorAccountExistsAsync(Guid accountId, Guid? excludeId) : Task<bool>
+    + public GetDoctorsAsync(DoctorQueryRequest query) : Task<(List<DoctorEntity>, int)>
+    + public GetDoctorsByHospitalAsync(Guid hospitalId) : Task<List<DoctorEntity>>
+    + public GetDoctorsBySpecialtyAsync(Guid specialtyId) : Task<List<DoctorEntity>>
+    + public GetDoctorsByPositionAsync(Guid positionId) : Task<List<DoctorEntity>>
+    + public GetActiveDoctorsAsync() : Task<List<DoctorEntity>>
+    + public GetQueryableDoctors() : IQueryable<DoctorEntity>
+    + public GetDoctorsByIdsAsync(IEnumerable<Guid> ids) : Task<List<DoctorEntity>>
+    + public GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds) : Task<List<DoctorEntity>>
+    + public GetDoctorPriceAsync(Guid doctorId, Guid priceId) : Task<DoctorPriceEntity?>
+    + public CreateDoctorPriceAsync(DoctorPriceEntity doctorPrice) : Task<DoctorPriceEntity>
+    + public UpdateDoctorPriceAsync(DoctorPriceEntity doctorPrice) : Task<DoctorPriceEntity>
+    + public DeleteDoctorPriceAsync(Guid doctorId, Guid priceId) : Task<bool>
+    + public DoctorPriceExistsAsync(Guid doctorId, Guid priceId) : Task<bool>
+    + public GetDoctorPricesAsync(Guid doctorId) : Task<List<DoctorPriceEntity>>
+    + public GetDoctorBasicInfoByIdAsync(Guid id) : Task<DoctorEntity?>
+    + public GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids) : Task<List<DoctorEntity>>
+    + public DeleteAllDoctorPricesAsync(Guid doctorId) : Task<bool>
+    + public GetDoctorsForPatientSearchAsync(DoctorQueryRequest query) : Task<(List<DoctorEntity>, int)>
+    + public GetDoctorsForComplexFilterAsync(DoctorQueryRequest query) : Task<(List<DoctorEntity>, int)>
+    + public GetLanguagesAsync() : Task<List<LanguageEntity>>
+    + public GetLanguageByIdAsync(Guid id) : Task<LanguageEntity?>
+    + public CreateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
+    + public UpdateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
+    + public DeleteLanguageAsync(Guid id) : Task<bool>
+    + public GetDoctorLanguagesAsync(Guid doctorId) : Task<List<DoctorLanguageEntity>>
+    + public CreateDoctorLanguageAsync(DoctorLanguageEntity doctorLanguage) : Task<DoctorLanguageEntity>
+    + public DeleteDoctorLanguageAsync(Guid doctorId, Guid languageId) : Task<bool>
+    + public DeleteAllDoctorLanguagesAsync(Guid doctorId) : Task<bool>
+    + public GetServiceTypesAsync() : Task<List<ServiceTypeEntity>>
+    + public GetServiceTypeByIdAsync(Guid id) : Task<ServiceTypeEntity?>
+    + public CreateServiceTypeAsync(ServiceTypeEntity serviceType) : Task<ServiceTypeEntity>
+    + public UpdateServiceTypeAsync(ServiceTypeEntity serviceType) : Task<ServiceTypeEntity>
+    + public DeleteServiceTypeAsync(Guid id) : Task<bool>
+}
+
+' ===== REPOSITORY IMPLEMENTATION =====
+class DoctorRepository {
+    - private DoctorDbContext _context
+    --
+    + public DoctorRepository(DoctorDbContext context)
+    + public GetDoctorByIdAsync(Guid id) : Task<DoctorEntity?>
+    + public GetDoctorByEmailAsync(string email) : Task<DoctorEntity?>
+    + public GetDoctorByAccountIdAsync(Guid accountId) : Task<DoctorEntity?>
+    + public CreateDoctorAsync(DoctorEntity doctor) : Task<DoctorEntity>
+    + public UpdateDoctorAsync(DoctorEntity doctor) : Task<DoctorEntity>
+    + public DeleteDoctorAsync(Guid id) : Task<bool>
+    + public DoctorExistsAsync(Guid id) : Task<bool>
+    + public DoctorEmailExistsAsync(string email, Guid? excludeId) : Task<bool>
+    + public DoctorAccountExistsAsync(Guid accountId, Guid? excludeId) : Task<bool>
+    + public GetDoctorsAsync(DoctorQueryRequest query) : Task<(List<DoctorEntity>, int)>
+    + public GetDoctorsByHospitalAsync(Guid hospitalId) : Task<List<DoctorEntity>>
+    + public GetDoctorsBySpecialtyAsync(Guid specialtyId) : Task<List<DoctorEntity>>
+    + public GetDoctorsByPositionAsync(Guid positionId) : Task<List<DoctorEntity>>
+    + public GetActiveDoctorsAsync() : Task<List<DoctorEntity>>
+    + public GetQueryableDoctors() : IQueryable<DoctorEntity>
+    + public GetDoctorsByIdsAsync(IEnumerable<Guid> ids) : Task<List<DoctorEntity>>
+    + public GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds) : Task<List<DoctorEntity>>
+    + public GetDoctorPriceAsync(Guid doctorId, Guid priceId) : Task<DoctorPriceEntity?>
+    + public CreateDoctorPriceAsync(DoctorPriceEntity doctorPrice) : Task<DoctorPriceEntity>
+    + public UpdateDoctorPriceAsync(DoctorPriceEntity doctorPrice) : Task<DoctorPriceEntity>
+    + public DeleteDoctorPriceAsync(Guid doctorId, Guid priceId) : Task<bool>
+    + public DoctorPriceExistsAsync(Guid doctorId, Guid priceId) : Task<bool>
+    + public GetDoctorPricesAsync(Guid doctorId) : Task<List<DoctorPriceEntity>>
+    + public GetDoctorBasicInfoByIdAsync(Guid id) : Task<DoctorEntity?>
+    + public GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids) : Task<List<DoctorEntity>>
+    + public DeleteAllDoctorPricesAsync(Guid doctorId) : Task<bool>
+    + public GetDoctorsForPatientSearchAsync(DoctorQueryRequest query) : Task<(List<DoctorEntity>, int)>
+    + public GetDoctorsForComplexFilterAsync(DoctorQueryRequest query) : Task<(List<DoctorEntity>, int)>
+    + public GetLanguagesAsync() : Task<List<LanguageEntity>>
+    + public GetLanguageByIdAsync(Guid id) : Task<LanguageEntity?>
+    + public CreateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
+    + public UpdateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
+    + public DeleteLanguageAsync(Guid id) : Task<bool>
+    + public GetDoctorLanguagesAsync(Guid doctorId) : Task<List<DoctorLanguageEntity>>
+    + public CreateDoctorLanguageAsync(DoctorLanguageEntity doctorLanguage) : Task<DoctorLanguageEntity>
+    + public DeleteDoctorLanguageAsync(Guid doctorId, Guid languageId) : Task<bool>
+    + public DeleteAllDoctorLanguagesAsync(Guid doctorId) : Task<bool>
+    + public GetServiceTypesAsync() : Task<List<ServiceTypeEntity>>
+    + public GetServiceTypeByIdAsync(Guid id) : Task<ServiceTypeEntity?>
+    + public CreateServiceTypeAsync(ServiceTypeEntity serviceType) : Task<ServiceTypeEntity>
+    + public UpdateServiceTypeAsync(ServiceTypeEntity serviceType) : Task<ServiceTypeEntity>
+    + public DeleteServiceTypeAsync(Guid id) : Task<bool>
+    - private ApplySorting(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query) : IQueryable<DoctorEntity>
+    - private ApplyComplexFiltering(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query) : IQueryable<DoctorEntity>
+}
+
+' ===== SERVICE INTERFACE =====
+interface IDoctorService {
+    + public CreateDoctorAsync(CreateDoctorRequest request) : Task<DoctorResponse>
+    + public GetDoctorByIdAsync(Guid id) : Task<DoctorByIdResponse?>
+    + public GetDoctorByEmailAsync(string email) : Task<DoctorResponse?>
+    + public GetDoctorByAccountIdAsync(Guid accountId) : Task<DoctorResponse?>
+    + public UpdateDoctorAsync(UpdateDoctorRequest request) : Task<DoctorResponse>
+    + public DeleteDoctorAsync(Guid id) : Task<bool>
+    + public ToggleDoctorStatusAsync(Guid id) : Task<bool>
+    + public GetDoctorsAsync(DoctorQueryRequest query) : Task<DoctorListResponse>
+    + public FilterDoctorsAsync(DoctorAdvancedFilterRequest filter) : Task<DoctorListResponse>
+    + public FilterDoctorsOptimizedAsync(DoctorAdvancedFilterRequest filter) : Task<DoctorSearchListResponse>
+    + public GetDoctorsByHospitalAsync(Guid hospitalId) : Task<List<DoctorResponse>>
+    + public GetDoctorsByHospitalOptimizedAsync(Guid hospitalId, int pageNumber, int pageSize) : Task<DoctorSearchListResponse>
+    + public GetDoctorsBySpecialtyAsync(Guid specialtyId) : Task<List<DoctorResponse>>
+    + public GetDoctorsByPositionAsync(Guid positionId) : Task<List<DoctorResponse>>
+    + public GetActiveDoctorsAsync() : Task<List<DoctorResponse>>
+    + public GetPatientFavoriteDoctorsAsync(Guid patientId, int page, int pageSize, string? searchTerm) : Task<DoctorListResponse>
+    + public GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds) : Task<List<DoctorBasicInfoResponse>>
+    + public GetDoctorPricesAsync(Guid doctorId) : Task<List<DoctorPriceResponse>>
+    + public AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request) : Task<DoctorPriceResponse>
+    + public RemovePriceFromDoctorAsync(Guid doctorId, Guid priceId) : Task<bool>
+    + public DoctorExistsAsync(Guid id) : Task<bool>
+    + public DoctorEmailExistsAsync(string email, Guid? excludeId) : Task<bool>
+    + public DoctorAccountExistsAsync(Guid accountId, Guid? excludeId) : Task<bool>
+    + public DoctorPriceExistsAsync(Guid doctorId, Guid priceId) : Task<bool>
+    + public GetQueryableDoctors() : IQueryable<DoctorEntity>
+    + public SearchDoctorsForPatientsAsync(DoctorQueryRequest query, Guid? patientId) : Task<DoctorSearchListResponse>
+    + public GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId) : Task<DoctorListResponse>
+    + public GetDoctorBasicInfoByIdAsync(Guid id) : Task<DoctorEntity?>
+    + public GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids) : Task<List<DoctorEntity>>
+}
+
+' ===== SERVICE IMPLEMENTATION =====
+class DoctorService {
+    - private IDoctorRepository _repository
+    - private IMapper _mapper
+    - private ILogger _logger
+    - private IAuthService _authService
+    - private IHospitalService _hospitalService
+    - private IReviewService _reviewService
+    - private IFavoritesService _favoritesService
+    --
+    + public DoctorService(IDoctorRepository repository, IMapper mapper, ILogger logger, IAuthService authService, IHospitalService hospitalService, IReviewService reviewService, IFavoritesService favoritesService)
+    + public CreateDoctorAsync(CreateDoctorRequest request) : Task<DoctorResponse>
+    + public GetDoctorByIdAsync(Guid id) : Task<DoctorByIdResponse?>
+    + public GetDoctorByEmailAsync(string email) : Task<DoctorResponse?>
+    + public GetDoctorByAccountIdAsync(Guid accountId) : Task<DoctorResponse?>
+    + public UpdateDoctorAsync(UpdateDoctorRequest request) : Task<DoctorResponse>
+    + public DeleteDoctorAsync(Guid id) : Task<bool>
+    + public ToggleDoctorStatusAsync(Guid id) : Task<bool>
+    + public GetDoctorsAsync(DoctorQueryRequest query) : Task<DoctorListResponse>
+    + public FilterDoctorsAsync(DoctorAdvancedFilterRequest filter) : Task<DoctorListResponse>
+    + public FilterDoctorsOptimizedAsync(DoctorAdvancedFilterRequest filter) : Task<DoctorSearchListResponse>
+    + public GetDoctorsByHospitalAsync(Guid hospitalId) : Task<List<DoctorResponse>>
+    + public GetDoctorsByHospitalOptimizedAsync(Guid hospitalId, int pageNumber, int pageSize) : Task<DoctorSearchListResponse>
+    + public GetDoctorsBySpecialtyAsync(Guid specialtyId) : Task<List<DoctorResponse>>
+    + public GetDoctorsByPositionAsync(Guid positionId) : Task<List<DoctorResponse>>
+    + public GetActiveDoctorsAsync() : Task<List<DoctorResponse>>
+    + public GetPatientFavoriteDoctorsAsync(Guid patientId, int page, int pageSize, string? searchTerm) : Task<DoctorListResponse>
+    + public GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds) : Task<List<DoctorBasicInfoResponse>>
+    + public GetDoctorPricesAsync(Guid doctorId) : Task<List<DoctorPriceResponse>>
+    + public AssignPriceToDoctorAsync(AssignPriceToDoctorRequest request) : Task<DoctorPriceResponse>
+    + public RemovePriceFromDoctorAsync(Guid doctorId, Guid priceId) : Task<bool>
+    + public DoctorExistsAsync(Guid id) : Task<bool>
+    + public DoctorEmailExistsAsync(string email, Guid? excludeId) : Task<bool>
+    + public DoctorAccountExistsAsync(Guid accountId, Guid? excludeId) : Task<bool>
+    + public DoctorPriceExistsAsync(Guid doctorId, Guid priceId) : Task<bool>
+    + public GetQueryableDoctors() : IQueryable<DoctorEntity>
+    + public SearchDoctorsForPatientsAsync(DoctorQueryRequest query, Guid? patientId) : Task<DoctorSearchListResponse>
+    + public GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId) : Task<DoctorListResponse>
+    + public GetDoctorBasicInfoByIdAsync(Guid id) : Task<DoctorEntity?>
+    + public GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids) : Task<List<DoctorEntity>>
+    - private ValidateCreateDoctorRequest(CreateDoctorRequest request) : Task
+    - private ValidateUpdateDoctorRequest(UpdateDoctorRequest request) : Task
+    - private CreateDoctorEntity(CreateDoctorRequest request) : DoctorEntity
+    - private UpdateDoctorEntity(DoctorEntity existingDoctor, UpdateDoctorRequest request) : DoctorEntity
+    - private CreateDoctorPricesAsync(Guid doctorId, List<CreateDoctorPriceRequest> prices) : Task
+    - private UpdateDoctorPricesAsync(Guid doctorId, List<UpdateDoctorPriceRequest> prices) : Task
+    - private CreateDoctorLanguagesAsync(Guid doctorId, List<Guid> languageIds) : Task
+    - private UpdateDoctorLanguagesAsync(Guid doctorId, List<Guid> languageIds) : Task
+    - private EnrichDoctorsWithPositionAndSpecialtyAsync(List<DoctorEntity> doctors) : Task
+    - private EnrichDoctorByIdWithHospitalInfoAsync(DoctorEntity doctor) : Task
+    - private EnrichDoctorByIdWithReviewStatisticsAsync(DoctorEntity doctor) : Task
+    - private EnrichDoctorsWithFavoriteStatusAsync(List<DoctorEntity> doctors, Guid patientId) : Task
+    - private ApplyLocationFilteringAsync(List<DoctorEntity> doctors, DoctorQueryRequest query) : Task<List<DoctorEntity>>
+    - private FilterDoctorsByRating(List<DoctorEntity> doctors, double? minRating, double? maxRating) : List<DoctorEntity>
+}
+
+' ===== CONTROLLER =====
+class DoctorsController {
+    - private IDoctorService _doctorService
+    --
+    + public DoctorsController(IDoctorService doctorService)
+    + public Health() : IActionResult
+    + public GetDoctor(Guid id) : Task<IActionResult>
+    + public GetDoctorByEmail(string email) : Task<IActionResult>
+    + public GetDoctorByAccountId(Guid accountId) : Task<IActionResult>
+    + public GetDoctors(DoctorQueryRequest query) : Task<IActionResult>
+    + public FilterDoctors(DoctorAdvancedFilterRequest filter) : Task<IActionResult>
+    + public FilterDoctorsOptimized(DoctorAdvancedFilterRequest filter) : Task<IActionResult>
+    + public GetDoctorsByHospital(Guid hospitalId) : Task<IActionResult>
+    + public GetDoctorsByHospitalOptimized(Guid hospitalId, int pageNumber, int pageSize) : Task<IActionResult>
+    + public GetDoctorsBySpecialty(Guid specialtyId) : Task<IActionResult>
+    + public GetDoctorsByPosition(Guid positionId) : Task<IActionResult>
+    + public GetActiveDoctors() : Task<IActionResult>
+    + public GetPatientFavoriteDoctors(Guid patientId, int page, int pageSize, string? searchTerm) : Task<IActionResult>
+    + public CreateDoctor(CreateDoctorRequest request) : Task<IActionResult>
+    + public UpdateDoctor(Guid id, UpdateDoctorRequest request) : Task<IActionResult>
+    + public DeleteDoctor(Guid id) : Task<IActionResult>
+    + public ToggleDoctorStatus(Guid id) : Task<IActionResult>
+    + public GetDoctorPrices(Guid doctorId) : Task<IActionResult>
+    + public AssignPriceToDoctor(AssignPriceToDoctorRequest request) : Task<IActionResult>
+    + public RemovePriceFromDoctor(Guid doctorId, Guid priceId) : Task<IActionResult>
+    + public ValidateDoctorEmail(string email, Guid? excludeId) : Task<IActionResult>
+    + public ValidateDoctorAccount(Guid accountId, Guid? excludeId) : Task<IActionResult>
+    + public SearchDoctorsForPatients(DoctorQueryRequest query, Guid? patientId) : Task<IActionResult>
+    + public GetDoctorsWithFavoriteStatus(DoctorQueryRequest query, Guid patientId) : Task<IActionResult>
+}
+
+' ===== MAPPING PROFILE =====
+class DoctorMappingProfile {
+    + public DoctorMappingProfile()
+    --
+    AutoMapper profile for Doctor mappings
+}
+
+' ===== EXTERNAL DEPENDENCIES =====
+class DoctorDbContext {
+    + public DbSet<DoctorEntity> Doctors
+    + public DbSet<DoctorPriceEntity> DoctorPrices
+    + public DbSet<DoctorLanguageEntity> DoctorLanguages
+    + public DbSet<PositionEntity> Positions
+    + public DbSet<SpecialtyEntity> Specialties
+    + public DbSet<ServiceTypeEntity> ServiceTypes
+    + public DbSet<LanguageEntity> Languages
+    --
+    Entity Framework DbContext
+}
+
+class AutoMapper.IMapper {
+    + public Map<TSource, TDestination>(TSource source) : TDestination
+    --
+    AutoMapper interface
+}
+
+class ILogger {
+    + public LogInformation(string message)
+    + public LogError(Exception ex, string message)
+    --
+    .NET Core logging interface
+}
+
+class IAuthService {
+    + public GetAccountStatusByIdsAsync(List<Guid> accountIds) : Task<Dictionary<Guid, AccountStatus>>
+    + public UpdateAccountStatusAsync(Guid accountId, AccountStatus status) : Task<bool>
+    --
+    gRPC service for account management
+}
+
+class IHospitalService {
+    + public GetHospitalsBasicInfoAsync(List<Guid> hospitalIds) : Task<Dictionary<Guid, HospitalBasicInfo>>
+    --
+    gRPC service for hospital information
+}
+
+class IReviewService {
+    + public GetBatchDoctorsStatisticsAsync(List<Guid> doctorIds) : Task<Dictionary<Guid, DoctorReviewStatistics>>
+    --
+    gRPC service for review statistics
+}
+
+class IFavoritesService {
+    + public CheckMultipleFavoritesAsync(Guid patientId, List<Guid> doctorIds) : Task<Dictionary<Guid, bool>>
+    --
+    gRPC service for favorites management
+}
+
+' ===== ENUMS =====
+enum Gender {
+    MALE
+    FEMALE
+    OTHER
+}
+
+' ===== LAYOUT POSITIONING =====
+' Entities
+DoctorEntity -[hidden]- DoctorPriceEntity
+DoctorPriceEntity -[hidden]- DoctorLanguageEntity
+DoctorLanguageEntity -[hidden]- Gender
+
+' Request DTOs
+CreateDoctorRequest -[hidden]- UpdateDoctorRequest
+UpdateDoctorRequest -[hidden]- DoctorQueryRequest
+DoctorQueryRequest -[hidden]- DoctorAdvancedFilterRequest
+CreateDoctorPriceRequest -[hidden]- UpdateDoctorPriceRequest
+UpdateDoctorPriceRequest -[hidden]- AssignPriceToDoctorRequest
+
+' Response DTOs
+DoctorResponse -[hidden]- DoctorByIdResponse
+DoctorByIdResponse -[hidden]- DoctorListResponse
+DoctorListResponse -[hidden]- DoctorSearchListResponse
+DoctorSearchResponse -[hidden]- DoctorBasicInfoResponse
+DoctorPriceResponse -[hidden]- LanguageResponse
+
+' Repository Layer
+IDoctorRepository -[hidden]- DoctorRepository
+DoctorRepository -[hidden]- DoctorDbContext
+
+' Service Layer
+IDoctorService -[hidden]- DoctorService
+DoctorService -[hidden]- IMapper
+IMapper -[hidden]- ILogger
+IAuthService -[hidden]- IHospitalService
+IHospitalService -[hidden]- IReviewService
+IReviewService -[hidden]- IFavoritesService
+
+' Controller
+DoctorsController -[hidden]- DoctorMappingProfile
+
+' ===== RELATIONSHIPS =====
+IDoctorRepository <|.. DoctorRepository
+IDoctorService <|.. DoctorService
+
+DoctorRepository --> DoctorDbContext
+DoctorRepository --> DoctorEntity
+DoctorRepository --> DoctorPriceEntity
+DoctorRepository --> DoctorLanguageEntity
+DoctorRepository --> DoctorQueryRequest
+
+DoctorService --> IDoctorRepository
+DoctorService --> IMapper
+DoctorService --> ILogger
+DoctorService --> IAuthService
+DoctorService --> IHospitalService
+DoctorService --> IReviewService
+DoctorService --> IFavoritesService
+DoctorService --> CreateDoctorRequest
+DoctorService --> UpdateDoctorRequest
+DoctorService --> DoctorQueryRequest
+DoctorService --> DoctorAdvancedFilterRequest
+DoctorService --> AssignPriceToDoctorRequest
+DoctorService --> DoctorResponse
+DoctorService --> DoctorByIdResponse
+DoctorService --> DoctorListResponse
+DoctorService --> DoctorSearchListResponse
+DoctorService --> DoctorBasicInfoResponse
+DoctorService --> DoctorPriceResponse
+
+DoctorsController --> IDoctorService
+DoctorsController --> CreateDoctorRequest
+DoctorsController --> UpdateDoctorRequest
+DoctorsController --> DoctorQueryRequest
+DoctorsController --> DoctorAdvancedFilterRequest
+DoctorsController --> AssignPriceToDoctorRequest
+DoctorsController --> DoctorResponse
+DoctorsController --> DoctorByIdResponse
+DoctorsController --> DoctorListResponse
+DoctorsController --> DoctorSearchListResponse
+DoctorsController --> DoctorBasicInfoResponse
+DoctorsController --> DoctorPriceResponse
+
+DoctorMappingProfile --> DoctorEntity
+DoctorMappingProfile --> CreateDoctorRequest
+DoctorMappingProfile --> UpdateDoctorRequest
+DoctorMappingProfile --> DoctorResponse
+DoctorMappingProfile --> DoctorByIdResponse
+DoctorMappingProfile --> DoctorListResponse
+DoctorMappingProfile --> DoctorSearchResponse
+DoctorMappingProfile --> DoctorBasicInfoResponse
+DoctorMappingProfile --> DoctorPriceResponse
+
+DoctorEntity --> Gender
+DoctorEntity --> PositionEntity
+DoctorEntity --> SpecialtyEntity
+DoctorEntity --> DoctorPriceEntity
+DoctorEntity --> DoctorLanguageEntity
+CreateDoctorRequest --> Gender
+UpdateDoctorRequest --> Gender
+DoctorQueryRequest --> Gender
+DoctorAdvancedFilterRequest --> Gender
+DoctorResponse --> Gender
+DoctorByIdResponse --> Gender
+DoctorSearchResponse --> Gender
+DoctorBasicInfoResponse --> Gender
+
+@enduml

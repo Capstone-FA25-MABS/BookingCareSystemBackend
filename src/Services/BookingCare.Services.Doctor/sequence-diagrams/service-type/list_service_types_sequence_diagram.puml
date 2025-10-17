@@ -1,0 +1,57 @@
+@startuml
+title List Doctor Service Types
+
+actor Admin
+participant UI
+participant ServiceTypesController
+participant ServiceTypeService
+participant ServiceTypeRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Click "View Doctor Service Types" or load Doctor Service Types page
+activate UI
+UI -> ServiceTypesController : 2. HTTP GET /api/service-types (ServiceTypeQueryRequest)
+activate ServiceTypesController
+
+== Service Call ==
+ServiceTypesController -> ServiceTypeService : 3. GetServiceTypesAsync(ServiceTypeQueryRequest)
+activate ServiceTypeService
+
+== Query Doctor Service Types ==
+ServiceTypeService -> ServiceTypeRepository : 4. GetServiceTypesAsync(ServiceTypeQueryRequest)
+activate ServiceTypeRepository
+ServiceTypeRepository -> Database : 5. SELECT * FROM ServiceTypes\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)\nORDER BY @sortBy @sortOrder\nOFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+activate Database
+Database --> ServiceTypeRepository : 6. List<ServiceTypeEntity>
+deactivate Database
+
+ServiceTypeRepository -> Database : 7. SELECT COUNT(*) FROM ServiceTypes\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)
+activate Database
+Database --> ServiceTypeRepository : 8. TotalCount
+deactivate Database
+ServiceTypeRepository --> ServiceTypeService : 9. (List<ServiceTypeEntity>, TotalCount)
+deactivate ServiceTypeRepository
+
+== Map to DTOs ==
+ServiceTypeService -> AutoMapper : 10. Map((List<ServiceTypeEntity>, TotalCount) → ServiceTypeListResponse)
+activate AutoMapper
+AutoMapper --> ServiceTypeService : 11. ServiceTypeListResponse
+deactivate AutoMapper
+
+== Set Pagination Info ==
+ServiceTypeService -> ServiceTypeService : 12. Set pagination info (PageNumber, PageSize, TotalPages)
+activate ServiceTypeService
+deactivate ServiceTypeService
+
+ServiceTypeService --> ServiceTypesController : 13. ServiceTypeListResponse
+deactivate ServiceTypeService
+
+ServiceTypesController --> UI : 14. HTTP 200 OK (ServiceTypeListResponse)
+deactivate ServiceTypesController
+
+UI --> Admin : 15. Render Doctor Service Types list on screen
+deactivate UI
+
+@enduml

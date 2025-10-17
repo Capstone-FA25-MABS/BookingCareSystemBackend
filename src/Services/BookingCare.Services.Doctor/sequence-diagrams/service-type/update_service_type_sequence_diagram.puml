@@ -1,0 +1,98 @@
+@startuml
+title Update Doctor Service Type
+
+actor Admin
+participant UI
+participant ServiceTypesController
+participant ServiceTypeService
+participant ServiceTypeRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Edit Doctor Service Type form and click "Update Doctor Service Type"
+activate UI
+UI -> ServiceTypesController : 2. HTTP PUT /api/service-types/{id} (UpdateServiceTypeRequest)
+activate ServiceTypesController
+
+== Service Call ==
+ServiceTypesController -> ServiceTypeService : 3. UpdateServiceTypeAsync(UpdateServiceTypeRequest)
+activate ServiceTypeService
+
+== Validate Doctor Service Type Exists ==
+ServiceTypeService -> ServiceTypeRepository : 4. GetServiceTypeByIdAsync(serviceTypeId)
+activate ServiceTypeRepository
+ServiceTypeRepository -> Database : 5. SELECT * FROM ServiceTypes WHERE Id = @id
+activate Database
+Database --> ServiceTypeRepository : 6. ServiceTypeEntity
+deactivate Database
+ServiceTypeRepository --> ServiceTypeService : 7. ServiceTypeEntity
+deactivate ServiceTypeRepository
+
+alt Doctor Service Type not found
+    ServiceTypeService --> ServiceTypesController : 8. ArgumentException("Doctor Service Type with ID not found")
+    deactivate ServiceTypeService
+    ServiceTypesController --> UI : 9. HTTP 400 Bad Request
+    deactivate ServiceTypesController
+    UI --> Admin : 10. Show "Doctor Service Type not found"
+    deactivate UI
+else Doctor Service Type found
+
+    == Validate Doctor Service Type Name (if changed) ==
+    ServiceTypeService -> ServiceTypeRepository : 8. ServiceTypeNameExistsAsync(name, excludeId)
+    activate ServiceTypeRepository
+    ServiceTypeRepository -> Database : 9. SELECT COUNT(*) FROM ServiceTypes WHERE Name = @name AND Id != @excludeId
+    activate Database
+    Database --> ServiceTypeRepository : 10. boolean exists
+    deactivate Database
+    ServiceTypeRepository --> ServiceTypeService : 11. boolean exists
+    deactivate ServiceTypeRepository
+
+    alt Doctor Service Type name already exists
+        ServiceTypeService --> ServiceTypesController : 12. ArgumentException("Doctor Service Type with name already exists")
+        deactivate ServiceTypeService
+        ServiceTypesController --> UI : 13. HTTP 400 Bad Request
+        deactivate ServiceTypesController
+        UI --> Admin : 14. Show "Doctor Service Type name already exists"
+        deactivate UI
+    else Doctor Service Type name is unique
+        note right: Continue to update Doctor Service Type
+
+        == Update Doctor Service Type Entity ==
+        ServiceTypeService -> AutoMapper : 15. Map(request, existingServiceType)
+        activate AutoMapper
+        AutoMapper --> ServiceTypeService : 16. Updated ServiceTypeEntity
+        deactivate AutoMapper
+
+        ServiceTypeService -> ServiceTypeService : 17. Set UpdatedAt = DateTime.UtcNow
+        activate ServiceTypeService
+        deactivate ServiceTypeService
+
+        == Save Updated Doctor Service Type ==
+        ServiceTypeService -> ServiceTypeRepository : 18. UpdateServiceTypeAsync(updatedServiceType)
+        activate ServiceTypeRepository
+        ServiceTypeRepository -> Database : 19. UPDATE ServiceTypes SET Name = @name, Status = @status, UpdatedAt = @now WHERE Id = @id
+        activate Database
+        Database --> ServiceTypeRepository : 20. Updated count
+        deactivate Database
+        ServiceTypeRepository --> ServiceTypeService : 21. ServiceTypeEntity
+        deactivate ServiceTypeRepository
+
+        == Map to Response DTO ==
+        ServiceTypeService -> AutoMapper : 22. Map(ServiceTypeEntity → ServiceTypeResponse)
+        activate AutoMapper
+        AutoMapper --> ServiceTypeService : 23. ServiceTypeResponse
+        deactivate AutoMapper
+
+        ServiceTypeService --> ServiceTypesController : 24. ServiceTypeResponse
+        deactivate ServiceTypeService
+
+        ServiceTypesController --> UI : 25. HTTP 200 OK (ServiceTypeResponse)
+        deactivate ServiceTypesController
+
+        UI --> Admin : 26. Show "Doctor Service Type updated successfully"
+        deactivate UI
+    end
+end
+
+@enduml

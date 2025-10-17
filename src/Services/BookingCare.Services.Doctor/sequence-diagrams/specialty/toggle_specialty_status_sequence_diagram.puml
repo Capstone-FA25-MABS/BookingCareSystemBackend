@@ -1,0 +1,81 @@
+@startuml
+title Toggle Specialty Status
+
+actor Admin
+participant UI
+participant SpecialtiesController
+participant SpecialtyService
+participant SpecialtyRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Click "Toggle Status" button on specialty
+activate UI
+UI -> SpecialtiesController : 2. HTTP PATCH /api/specialties/{id}/toggle-status
+activate SpecialtiesController
+
+== Service Call ==
+SpecialtiesController -> SpecialtyService : 3. ToggleSpecialtyStatusAsync(Guid id)
+activate SpecialtyService
+
+== Validate Specialty Exists ==
+SpecialtyService -> SpecialtyRepository : 4. GetSpecialtyByIdAsync(specialtyId)
+activate SpecialtyRepository
+SpecialtyRepository -> Database : 5. SELECT * FROM Specialties WHERE Id = @id
+activate Database
+Database --> SpecialtyRepository : 6. SpecialtyEntity
+deactivate Database
+SpecialtyRepository --> SpecialtyService : 7. SpecialtyEntity
+deactivate SpecialtyRepository
+
+alt Specialty not found
+    SpecialtyService --> SpecialtiesController : 8. SpecialtyNotFoundException.WithId(specialtyId)
+    deactivate SpecialtyService
+    SpecialtiesController --> UI : 9. HTTP 404 Not Found
+    deactivate SpecialtiesController
+    UI --> Admin : 10. Show "Specialty not found"
+    deactivate UI
+else Specialty found
+
+    == Toggle Specialty Status ==
+    SpecialtyService -> SpecialtyService : 8. Toggle status logic
+    activate SpecialtyService
+    alt Current status is ACTIVE
+        SpecialtyService -> SpecialtyService : 9. Set Status = INACTIVE
+    else Current status is INACTIVE
+        SpecialtyService -> SpecialtyService : 9. Set Status = ACTIVE
+    end
+    SpecialtyService -> SpecialtyService : 10. Set UpdatedAt = DateTime.UtcNow
+    deactivate SpecialtyService
+
+    == Save Updated Specialty ==
+    SpecialtyService -> SpecialtyRepository : 11. UpdateSpecialtyAsync(updatedSpecialty)
+    activate SpecialtyRepository
+    SpecialtyRepository -> Database : 12. UPDATE Specialties SET Status = @newStatus, UpdatedAt = @now WHERE Id = @id
+    activate Database
+    Database --> SpecialtyRepository : 13. Updated count
+    deactivate Database
+    SpecialtyRepository --> SpecialtyService : 14. SpecialtyEntity
+    deactivate SpecialtyRepository
+
+    alt Status update failed
+        SpecialtyService --> SpecialtiesController : 15. Exception("Failed to toggle specialty status")
+        deactivate SpecialtyService
+        SpecialtiesController --> UI : 16. HTTP 500 Internal Server Error
+        deactivate SpecialtiesController
+        UI --> Admin : 17. Show "Failed to toggle status"
+        deactivate UI
+    else Status update successful
+        SpecialtyService --> SpecialtiesController : 15. true
+        deactivate SpecialtyService
+
+        SpecialtiesController --> UI : 16. HTTP 200 OK
+        deactivate SpecialtiesController
+
+        UI --> Admin : 17. Show "Specialty status toggled successfully"
+        deactivate UI
+    end
+end
+
+@enduml

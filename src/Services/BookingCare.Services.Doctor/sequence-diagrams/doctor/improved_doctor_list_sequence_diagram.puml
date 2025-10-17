@@ -1,0 +1,151 @@
+@startuml
+title Get List Doctors
+
+actor User
+participant UI
+participant DoctorsController
+participant DoctorService
+participant DoctorRepository
+participant HospitalService
+participant ReviewService
+participant FavouriteService
+participant AuthService
+participant AutoMapper
+database Database
+
+== UI Request ==
+User -> UI : 1. Click "View Doctors"
+activate UI
+UI -> DoctorsController : 2. HTTP GET /api/doctors
+activate DoctorsController
+
+== Service Call ==
+DoctorsController -> DoctorService : 3. GetDoctorsAsync(DoctorQueryRequest)
+activate DoctorService
+
+== Query Doctors ==
+DoctorService -> DoctorRepository : 4. GetDoctorsAsync(DoctorQueryRequest)
+activate DoctorRepository
+DoctorRepository -> Database : 5. SELECT d.*, p.*, s.*, dp.*, dl.*\nFROM Doctors d\nLEFT JOIN Positions p ON d.PositionId = p.Id\nLEFT JOIN Specialties s ON d.SpecialtyId = s.Id\nLEFT JOIN DoctorPrices dp ON d.Id = dp.DoctorId\nLEFT JOIN DoctorLanguages dl ON d.Id = dl.DoctorId\nWHERE d.IsActive = 1
+activate Database
+Database --> DoctorRepository : 6. List<DoctorEntity>
+deactivate Database
+DoctorRepository --> DoctorService : 7. (List<DoctorEntity>, TotalCount)
+deactivate DoctorRepository
+
+alt No doctors found
+    DoctorService --> DoctorsController : 8. HTTP 404 Not Found
+    deactivate DoctorService
+    DoctorsController --> UI : 9. Not Found message
+    deactivate DoctorsController
+    UI --> User : 10. Show "No doctors found"
+    deactivate UI
+else Doctors found
+
+    == Enrich with Position and Specialty ==
+    DoctorService -> DoctorService : 8. EnrichDoctorsWithPositionAndSpecialtyAsync(doctors)
+    activate DoctorService
+    DoctorService -> DoctorRepository : 9. GetPositionsByIdsAsync(positionIds)
+    DoctorRepository -> Database : 10. SELECT * FROM Positions WHERE Id IN (...)
+    Database --> DoctorRepository : 11. List<PositionEntity>
+    DoctorRepository --> DoctorService : 12. List<PositionEntity>
+    
+    DoctorService -> DoctorRepository : 13. GetSpecialtiesByIdsAsync(specialtyIds)
+    DoctorRepository -> Database : 14. SELECT * FROM Specialties WHERE Id IN (...)
+    Database --> DoctorRepository : 15. List<SpecialtyEntity>
+    DoctorRepository --> DoctorService : 16. List<SpecialtyEntity>
+    deactivate DoctorService
+
+    == Map to DTOs ==
+    DoctorService -> AutoMapper : 17. Map(List<DoctorEntity> → List<DoctorResponse>)
+    activate AutoMapper
+    AutoMapper --> DoctorService : 18. List<DoctorResponse>
+    deactivate AutoMapper
+
+    == Parallel Enrichment Tasks ==
+    par Hospital Info
+        DoctorService -> HospitalService : 19. GetHospitalsBasicInfoAsync(GetHospitalsBasicInfoRequest)
+        activate HospitalService
+        alt HospitalService available
+            HospitalService -> Database : 20. SELECT Id, Name, Address FROM Hospitals WHERE Id IN (...)
+            activate Database
+            Database --> HospitalService : 21. List<HospitalBasicInfo>
+            deactivate Database
+            HospitalService --> DoctorService : 22. GetHospitalsBasicInfoResponse
+        else HospitalService unavailable
+            HospitalService --> DoctorService : 23. gRPC Error (Service Unavailable)
+        end
+        deactivate HospitalService
+    else Review Statistics
+        DoctorService -> ReviewService : 19. GetBatchDoctorsStatisticsAsync(BatchDoctorsStatisticsRequest)
+        activate ReviewService
+        alt ReviewService available
+            ReviewService -> Database : 20. SELECT DoctorId, AVG(Rating) AS AverageRating,\nCOUNT(*) AS TotalReviews FROM Reviews GROUP BY DoctorId
+            activate Database
+            Database --> ReviewService : 21. List<DoctorStatistics>
+            deactivate Database
+            ReviewService --> DoctorService : 22. BatchDoctorsStatisticsResponse
+        else ReviewService unavailable
+            ReviewService --> DoctorService : 23. gRPC Error (Service Unavailable)
+        end
+        deactivate ReviewService
+    else Account Status
+        DoctorService -> AuthService : 19. GetAccountStatusByIdsAsync(GetAccountStatusByIdsRequest)
+        activate AuthService
+        alt AuthService available
+            AuthService -> Database : 20. SELECT AccountId, Status FROM Accounts WHERE AccountId IN (...)
+            activate Database
+            Database --> AuthService : 21. List<AccountStatus>
+            deactivate Database
+            AuthService --> DoctorService : 22. GetAccountStatusByIdsResponse
+        else AuthService unavailable
+            AuthService --> DoctorService : 23. gRPC Error (Service Unavailable)
+        end
+        deactivate AuthService
+    end
+
+    == Apply Location Filtering (if needed) ==
+    alt Location filtering required
+        DoctorService -> DoctorService : 24. ApplyLocationFilteringAsync(doctors, provinceId, districtId)
+        activate DoctorService
+        DoctorService -> LocationApiService : 25. GetLocationInfoAsync(provinceId, districtId)
+        LocationApiService --> DoctorService : 26. LocationInfo
+        DoctorService -> DoctorService : 27. Filter doctors by location
+        deactivate DoctorService
+    end
+
+    == Apply Rating Filtering (if needed) ==
+    alt Rating filtering required
+        DoctorService -> DoctorService : 28. FilterDoctorsByRating(doctors, minRating, minRatings)
+        activate DoctorService
+        DoctorService -> DoctorService : 29. Filter doctors by rating criteria
+        deactivate DoctorService
+    end
+
+    == Set Favorite Status (if patientId provided) ==
+    alt PatientId provided
+        DoctorService -> FavouriteService : 30. CheckMultipleFavoritesAsync(CheckMultipleFavoritesRequest)
+        activate FavouriteService
+        alt FavouriteService available
+            FavouriteService -> Database : 31. SELECT DoctorId FROM Favourites\nWHERE PatientId = @PatientId AND DoctorId IN (...)
+            activate Database
+            Database --> FavouriteService : 32. List<FavouriteDto>
+            deactivate Database
+            FavouriteService --> DoctorService : 33. CheckMultipleFavoritesResponse
+        else FavouriteService unavailable
+            FavouriteService --> DoctorService : 34. gRPC Error (Service Unavailable)
+        end
+        deactivate FavouriteService
+    end
+
+    DoctorService --> DoctorsController : 35. DoctorListResponse
+    deactivate DoctorService
+
+    DoctorsController --> UI : 36. HTTP 200 OK (DoctorListResponse)
+    deactivate DoctorsController
+
+    UI --> User : 37. Render doctor list on screen
+    deactivate UI
+end
+
+@enduml

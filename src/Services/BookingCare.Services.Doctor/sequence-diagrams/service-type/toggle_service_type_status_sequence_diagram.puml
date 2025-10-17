@@ -1,0 +1,81 @@
+@startuml
+title Toggle Doctor Service Type Status
+
+actor Admin
+participant UI
+participant ServiceTypesController
+participant ServiceTypeService
+participant ServiceTypeRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Click "Toggle Status" button on Doctor Service Type
+activate UI
+UI -> ServiceTypesController : 2. HTTP PATCH /api/service-types/{id}/toggle-status
+activate ServiceTypesController
+
+== Service Call ==
+ServiceTypesController -> ServiceTypeService : 3. ToggleDoctorServiceTypeStatusAsync(Guid id)
+activate ServiceTypeService
+
+== Validate Doctor Service Type Exists ==
+ServiceTypeService -> ServiceTypeRepository : 4. GetServiceTypeByIdAsync(serviceTypeId)
+activate ServiceTypeRepository
+ServiceTypeRepository -> Database : 5. SELECT * FROM ServiceTypes WHERE Id = @id
+activate Database
+Database --> ServiceTypeRepository : 6. ServiceTypeEntity
+deactivate Database
+ServiceTypeRepository --> ServiceTypeService : 7. ServiceTypeEntity
+deactivate ServiceTypeRepository
+
+alt Doctor Service Type not found
+    ServiceTypeService --> ServiceTypesController : 8. ArgumentException("Doctor Service Type with ID not found")
+    deactivate ServiceTypeService
+    ServiceTypesController --> UI : 9. HTTP 400 Bad Request
+    deactivate ServiceTypesController
+    UI --> Admin : 10. Show "Doctor Service Type not found"
+    deactivate UI
+else Doctor Service Type found
+
+    == Toggle Doctor Service Type Status ==
+    ServiceTypeService -> ServiceTypeService : 8. Toggle status logic
+    activate ServiceTypeService
+    alt Current status is ACTIVE
+        ServiceTypeService -> ServiceTypeService : 9. Set Status = INACTIVE
+    else Current status is INACTIVE
+        ServiceTypeService -> ServiceTypeService : 9. Set Status = ACTIVE
+    end
+    ServiceTypeService -> ServiceTypeService : 10. Set UpdatedAt = DateTime.UtcNow
+    deactivate ServiceTypeService
+
+    == Save Updated Doctor Service Type ==
+    ServiceTypeService -> ServiceTypeRepository : 11. UpdateServiceTypeAsync(updatedServiceType)
+    activate ServiceTypeRepository
+    ServiceTypeRepository -> Database : 12. UPDATE ServiceTypes SET Status = @newStatus, UpdatedAt = @now WHERE Id = @id
+    activate Database
+    Database --> ServiceTypeRepository : 13. Updated count
+    deactivate Database
+    ServiceTypeRepository --> ServiceTypeService : 14. ServiceTypeEntity
+    deactivate ServiceTypeRepository
+
+    alt Status update failed
+        ServiceTypeService --> ServiceTypesController : 15. Exception("Failed to toggle Doctor Service Type status")
+        deactivate ServiceTypeService
+        ServiceTypesController --> UI : 16. HTTP 500 Internal Server Error
+        deactivate ServiceTypesController
+        UI --> Admin : 17. Show "Failed to toggle status"
+        deactivate UI
+    else Status update successful
+        ServiceTypeService --> ServiceTypesController : 15. true
+        deactivate ServiceTypeService
+
+        ServiceTypesController --> UI : 16. HTTP 200 OK
+        deactivate ServiceTypesController
+
+        UI --> Admin : 17. Show "Doctor Service Type status toggled successfully"
+        deactivate UI
+    end
+end
+
+@enduml

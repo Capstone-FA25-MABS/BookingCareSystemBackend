@@ -1,0 +1,81 @@
+@startuml
+title Toggle Position Status
+
+actor Admin
+participant UI
+participant PositionsController
+participant PositionService
+participant PositionRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Click "Toggle Status" button on position
+activate UI
+UI -> PositionsController : 2. HTTP PATCH /api/positions/{id}/toggle-status
+activate PositionsController
+
+== Service Call ==
+PositionsController -> PositionService : 3. TogglePositionStatusAsync(Guid id)
+activate PositionService
+
+== Validate Position Exists ==
+PositionService -> PositionRepository : 4. GetPositionByIdAsync(positionId)
+activate PositionRepository
+PositionRepository -> Database : 5. SELECT * FROM Positions WHERE Id = @id
+activate Database
+Database --> PositionRepository : 6. PositionEntity
+deactivate Database
+PositionRepository --> PositionService : 7. PositionEntity
+deactivate PositionRepository
+
+alt Position not found
+    PositionService --> PositionsController : 8. PositionNotFoundException.WithId(positionId)
+    deactivate PositionService
+    PositionsController --> UI : 9. HTTP 404 Not Found
+    deactivate PositionsController
+    UI --> Admin : 10. Show "Position not found"
+    deactivate UI
+else Position found
+
+    == Toggle Position Status ==
+    PositionService -> PositionService : 8. Toggle status logic
+    activate PositionService
+    alt Current status is ACTIVE
+        PositionService -> PositionService : 9. Set Status = INACTIVE
+    else Current status is INACTIVE
+        PositionService -> PositionService : 9. Set Status = ACTIVE
+    end
+    PositionService -> PositionService : 10. Set UpdatedAt = DateTime.UtcNow
+    deactivate PositionService
+
+    == Save Updated Position ==
+    PositionService -> PositionRepository : 11. UpdatePositionAsync(updatedPosition)
+    activate PositionRepository
+    PositionRepository -> Database : 12. UPDATE Positions SET Status = @newStatus, UpdatedAt = @now WHERE Id = @id
+    activate Database
+    Database --> PositionRepository : 13. Updated count
+    deactivate Database
+    PositionRepository --> PositionService : 14. PositionEntity
+    deactivate PositionRepository
+
+    alt Status update failed
+        PositionService --> PositionsController : 15. Exception("Failed to toggle position status")
+        deactivate PositionService
+        PositionsController --> UI : 16. HTTP 500 Internal Server Error
+        deactivate PositionsController
+        UI --> Admin : 17. Show "Failed to toggle status"
+        deactivate UI
+    else Status update successful
+        PositionService --> PositionsController : 15. true
+        deactivate PositionService
+
+        PositionsController --> UI : 16. HTTP 200 OK
+        deactivate PositionsController
+
+        UI --> Admin : 17. Show "Position status toggled successfully"
+        deactivate UI
+    end
+end
+
+@enduml

@@ -1,0 +1,102 @@
+@startuml
+title Toggle Doctor Status
+
+actor User
+participant UI
+participant DoctorsController
+participant DoctorService
+participant DoctorRepository
+participant AuthService
+participant AutoMapper
+database Database
+
+== UI Request ==
+User -> UI : 1. Click "Toggle Status" button on doctor
+activate UI
+UI -> DoctorsController : 2. HTTP PATCH /api/doctors/{id}/toggle-status
+activate DoctorsController
+
+== Service Call ==
+DoctorsController -> DoctorService : 3. ToggleDoctorStatusAsync(Guid id)
+activate DoctorService
+
+== Validate Doctor Exists ==
+DoctorService -> DoctorRepository : 4. GetDoctorByIdAsync(doctorId)
+activate DoctorRepository
+DoctorRepository -> Database : 5. SELECT d.*, p.*, s.*, dp.*, dl.*\nFROM Doctors d\nLEFT JOIN Positions p ON d.PositionId = p.Id\nLEFT JOIN Specialties s ON d.SpecialtyId = s.Id\nLEFT JOIN DoctorPrices dp ON d.Id = dp.DoctorId\nLEFT JOIN DoctorLanguages dl ON d.Id = dl.DoctorId\nWHERE d.Id = @id
+activate Database
+Database --> DoctorRepository : 6. DoctorEntity (with includes)
+deactivate Database
+DoctorRepository --> DoctorService : 7. DoctorEntity
+deactivate DoctorRepository
+
+alt Doctor not found
+    DoctorService --> DoctorsController : 8. DoctorNotFoundException.WithId(doctorId)
+    deactivate DoctorService
+    DoctorsController --> UI : 9. HTTP 404 Not Found
+    deactivate DoctorsController
+    UI --> User : 10. Show "Doctor not found"
+    deactivate UI
+else Doctor found
+
+    == Get Current Account Status ==
+    DoctorService -> AuthService : 8. GetAccountStatusByIdAsync(accountId)
+    activate AuthService
+    AuthService -> Database : 9. SELECT AccountId, Status FROM Accounts WHERE AccountId = @accountId
+    activate Database
+    Database --> AuthService : 10. AccountStatus
+    deactivate Database
+    AuthService --> DoctorService : 11. AccountStatus
+    deactivate AuthService
+
+    == Toggle Account Status ==
+    alt Current status is ACTIVE
+        DoctorService -> AuthService : 12. UpdateAccountStatusAsync(accountId, INACTIVE)
+        activate AuthService
+        AuthService -> Database : 13. UPDATE Accounts SET Status = 'INACTIVE', UpdatedAt = @now WHERE AccountId = @accountId
+        activate Database
+        Database --> AuthService : 14. Updated count
+        deactivate Database
+        AuthService --> DoctorService : 15. Success
+        deactivate AuthService
+    else Current status is INACTIVE
+        DoctorService -> AuthService : 12. UpdateAccountStatusAsync(accountId, ACTIVE)
+        activate AuthService
+        AuthService -> Database : 13. UPDATE Accounts SET Status = 'ACTIVE', UpdatedAt = @now WHERE AccountId = @accountId
+        activate Database
+        Database --> AuthService : 14. Updated count
+        deactivate Database
+        AuthService --> DoctorService : 15. Success
+        deactivate AuthService
+    end
+
+    == Verify Status Change ==
+    DoctorService -> AuthService : 16. GetAccountStatusByIdAsync(accountId)
+    activate AuthService
+    AuthService -> Database : 17. SELECT AccountId, Status FROM Accounts WHERE AccountId = @accountId
+    activate Database
+    Database --> AuthService : 18. Updated AccountStatus
+    deactivate Database
+    AuthService --> DoctorService : 19. Updated AccountStatus
+    deactivate AuthService
+
+    alt Status update failed
+        DoctorService --> DoctorsController : 20. Exception("Failed to toggle doctor status")
+        deactivate DoctorService
+        DoctorsController --> UI : 21. HTTP 500 Internal Server Error
+        deactivate DoctorsController
+        UI --> User : 22. Show "Failed to toggle status"
+        deactivate UI
+    else Status update successful
+        DoctorService --> DoctorsController : 20. true
+        deactivate DoctorService
+
+        DoctorsController --> UI : 21. HTTP 200 OK
+        deactivate DoctorsController
+
+        UI --> User : 22. Show "Doctor status toggled successfully"
+        deactivate UI
+    end
+end
+
+@enduml

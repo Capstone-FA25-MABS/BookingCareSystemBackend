@@ -1,0 +1,57 @@
+@startuml
+title List Specialties
+
+actor Admin
+participant UI
+participant SpecialtiesController
+participant SpecialtyService
+participant SpecialtyRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Click "View Specialties" or load specialties page
+activate UI
+UI -> SpecialtiesController : 2. HTTP GET /api/specialties (SpecialtyQueryRequest)
+activate SpecialtiesController
+
+== Service Call ==
+SpecialtiesController -> SpecialtyService : 3. GetSpecialtiesAsync(SpecialtyQueryRequest)
+activate SpecialtyService
+
+== Query Specialties ==
+SpecialtyService -> SpecialtyRepository : 4. GetSpecialtiesAsync(SpecialtyQueryRequest)
+activate SpecialtyRepository
+SpecialtyRepository -> Database : 5. SELECT * FROM Specialties\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)\nORDER BY @sortBy @sortOrder\nOFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+activate Database
+Database --> SpecialtyRepository : 6. List<SpecialtyEntity>
+deactivate Database
+
+SpecialtyRepository -> Database : 7. SELECT COUNT(*) FROM Specialties\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)
+activate Database
+Database --> SpecialtyRepository : 8. TotalCount
+deactivate Database
+SpecialtyRepository --> SpecialtyService : 9. (List<SpecialtyEntity>, TotalCount)
+deactivate SpecialtyRepository
+
+== Map to DTOs ==
+SpecialtyService -> AutoMapper : 10. Map((List<SpecialtyEntity>, TotalCount) → SpecialtyListResponse)
+activate AutoMapper
+AutoMapper --> SpecialtyService : 11. SpecialtyListResponse
+deactivate AutoMapper
+
+== Set Pagination Info ==
+SpecialtyService -> SpecialtyService : 12. Set pagination info (PageNumber, PageSize, TotalPages)
+activate SpecialtyService
+deactivate SpecialtyService
+
+SpecialtyService --> SpecialtiesController : 13. SpecialtyListResponse
+deactivate SpecialtyService
+
+SpecialtiesController --> UI : 14. HTTP 200 OK (SpecialtyListResponse)
+deactivate SpecialtiesController
+
+UI --> Admin : 15. Render specialties list on screen
+deactivate UI
+
+@enduml

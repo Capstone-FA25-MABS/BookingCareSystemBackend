@@ -1,0 +1,57 @@
+@startuml
+title List Languages
+
+actor Admin
+participant UI
+participant LanguagesController
+participant LanguageService
+participant LanguageRepository
+participant AutoMapper
+database Database
+
+== UI Request ==
+Admin -> UI : 1. Click "View Languages" or load languages page
+activate UI
+UI -> LanguagesController : 2. HTTP GET /api/languages (LanguageQueryRequest)
+activate LanguagesController
+
+== Service Call ==
+LanguagesController -> LanguageService : 3. GetLanguagesAsync(LanguageQueryRequest)
+activate LanguageService
+
+== Query Languages ==
+LanguageService -> LanguageRepository : 4. GetLanguagesAsync(LanguageQueryRequest)
+activate LanguageRepository
+LanguageRepository -> Database : 5. SELECT * FROM Languages\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)\nORDER BY @sortBy @sortOrder\nOFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+activate Database
+Database --> LanguageRepository : 6. List<LanguageEntity>
+deactivate Database
+
+LanguageRepository -> Database : 7. SELECT COUNT(*) FROM Languages\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)
+activate Database
+Database --> LanguageRepository : 8. TotalCount
+deactivate Database
+LanguageRepository --> LanguageService : 9. (List<LanguageEntity>, TotalCount)
+deactivate LanguageRepository
+
+== Map to DTOs ==
+LanguageService -> AutoMapper : 10. Map((List<LanguageEntity>, TotalCount) → LanguageListResponse)
+activate AutoMapper
+AutoMapper --> LanguageService : 11. LanguageListResponse
+deactivate AutoMapper
+
+== Set Pagination Info ==
+LanguageService -> LanguageService : 12. Set pagination info (PageNumber, PageSize, TotalPages)
+activate LanguageService
+deactivate LanguageService
+
+LanguageService --> LanguagesController : 13. LanguageListResponse
+deactivate LanguageService
+
+LanguagesController --> UI : 14. HTTP 200 OK (LanguageListResponse)
+deactivate LanguagesController
+
+UI --> Admin : 15. Render languages list on screen
+deactivate UI
+
+@enduml
