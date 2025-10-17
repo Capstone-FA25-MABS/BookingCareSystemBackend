@@ -265,5 +265,38 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 throw new RpcException(new Status(StatusCode.Internal, StatusConstants.InternalServerError));
             }
         }
+
+        public override async Task<ValidateServiceMedicalResponse> ValidateServiceMedical(
+            ValidateServiceMedicalRequest request, ServerCallContext context)
+        {
+            try
+            {
+                if (!Guid.TryParse(request.Id, out var serviceId))
+                {
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid service ID"));
+                }
+
+                var service = await _serviceMedicalService.GetServiceByIdAsync(serviceId);
+
+                var response = new ValidateServiceMedicalResponse
+                {
+                    ServiceId = serviceId.ToString(),
+                    IsValid = service != null,
+                    IsActive = service != null && service.Status == "ACTIVE",
+                    ServiceName = service?.Name ?? string.Empty
+                };
+
+                return response;
+            }
+            catch (RpcException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating service medical via gRPC: {ServiceId}", request.Id);
+                throw new RpcException(new Status(StatusCode.Internal, StatusConstants.InternalServerError));
+            }
+        }
     }
 }

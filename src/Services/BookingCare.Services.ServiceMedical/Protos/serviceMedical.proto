@@ -20,6 +20,9 @@ service ServiceMedicalService {
   
   // Get services by category
   rpc GetServicesByCategory (GetServicesByCategoryGrpcRequest) returns (ServicesResponse);
+  
+  // Validate service medical
+  rpc ValidateServiceMedical (ValidateServiceMedicalRequest) returns (ValidateServiceMedicalResponse);
 }
 
 // Request messages
@@ -46,6 +49,10 @@ message GetServicesByCategoryGrpcRequest {
   int32 page = 2;
   int32 page_size = 3;
   bool include_inactive = 4;
+}
+
+message ValidateServiceMedicalRequest {
+  string id = 1;
 }
 
 // Response messages
@@ -88,4 +95,11 @@ message HospitalsByServiceCategoryResponse {
   string service_category_name = 2;
   repeated string hospital_ids = 3;
   int32 total_hospitals = 4;
+}
+
+message ValidateServiceMedicalResponse {
+  bool is_valid = 1;
+  bool is_active = 2;
+  string service_id = 3;
+  string service_name = 4;
 }
