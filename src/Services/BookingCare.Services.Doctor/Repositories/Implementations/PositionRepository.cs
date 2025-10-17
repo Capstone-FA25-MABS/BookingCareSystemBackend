@@ -96,6 +96,9 @@ public class PositionRepository : IPositionRepository
             queryable = queryable.Where(p => p.Status == query.Status.Value);
         }
 
+        // Apply sorting
+        queryable = ApplySorting(queryable, query);
+
         // Get total count
         var totalCount = await queryable.CountAsync();
 
@@ -148,6 +151,36 @@ public class PositionRepository : IPositionRepository
             .Where(d => d.PositionId.HasValue && d.PositionId.Value != Guid.Empty)
             .GroupBy(d => d.PositionId!.Value)
             .ToDictionaryAsync(g => g.Key, g => g.Count());
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    private IQueryable<PositionEntity> ApplySorting(IQueryable<PositionEntity> queryable, PositionQueryRequest query)
+    {
+        if (string.IsNullOrEmpty(query.SortBy)) 
+        {
+            // Default sort by CreatedAt descending (newest first)
+            return queryable.OrderByDescending(p => p.CreatedAt);
+        }
+
+        return query.SortBy.ToLower() switch
+        {
+            "name" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(p => p.Name)
+                : queryable.OrderBy(p => p.Name),
+            "createdat" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(p => p.CreatedAt)
+                : queryable.OrderBy(p => p.CreatedAt),
+            "updatedat" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(p => p.UpdatedAt)
+                : queryable.OrderBy(p => p.UpdatedAt),
+            "status" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(p => p.Status)
+                : queryable.OrderBy(p => p.Status),
+            _ => queryable.OrderByDescending(p => p.CreatedAt) // Default fallback
+        };
     }
 
     #endregion
