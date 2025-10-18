@@ -102,4 +102,4 @@ app.UseEventBus(eventBus =>
     eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
 });
 
-app.Run();
+await app.RunAsync();
