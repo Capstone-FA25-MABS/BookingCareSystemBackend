@@ -435,7 +435,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/v{version}/medical-services/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/services/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -443,7 +443,23 @@
           "Port": 6015
         }
       ],
-      "UpstreamPathTemplate": "/api/v{version}/medical-services/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/medical-services/services/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/servicecategories/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6015
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/medical-services/servicecategories/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
