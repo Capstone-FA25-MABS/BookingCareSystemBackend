@@ -175,7 +175,24 @@ try
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
-    // 1. Initialize Saga Database (runs in all environments)
+    // 1. Initialize Auth Database (apply migrations)
+    logger.LogInformation("Initializing Auth database...");
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var authDbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+        // Apply pending migrations (will create database if it doesn't exist)
+        await authDbContext.Database.MigrateAsync();
+        logger.LogInformation("Auth database initialized and migrations applied successfully");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error initializing Auth database");
+        throw new InvalidOperationException("Failed to initialize Auth database. Auth service cannot start without a valid database connection.", ex);
+    }
+
+    // 2. Initialize Saga Database (runs in all environments)
     logger.LogInformation("Initializing Saga database...");
     try
     {
@@ -188,7 +205,7 @@ try
         // Don't throw - Auth service can still work without Saga in some scenarios
     }
 
-    // 2. Initialize default data (development only)
+    // 3. Initialize default data (development only)
     if (app.Environment.IsDevelopment())
     {
         logger.LogInformation("Initializing default data...");
@@ -209,6 +226,7 @@ catch (Exception ex)
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
     logger.LogError(ex, "Critical error during initialization");
+    throw new InvalidOperationException("Critical error occurred during service initialization. The application cannot start.", ex);
 }
 
 // Configure the HTTP request pipeline
