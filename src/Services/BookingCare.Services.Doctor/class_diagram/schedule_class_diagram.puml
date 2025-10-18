@@ -1,21 +1,24 @@
 @startuml
 !theme plain
-title Schedule Class Diagram - BookingCare.Services.Schedule
+title Schedule Class Diagram
+hide circle
 
 ' ===== SKIN PARAMETERS =====
 skinparam class {
     BackgroundColor White
     BorderColor Black
     ArrowColor Black
-    ArrowThickness 2
+    ArrowThickness 1
+    FontSize 10
 }
 
 skinparam arrow {
-    Thickness 2
+    Thickness 1
     Color Black
 }
 
 skinparam linetype ortho
+skinparam packageStyle rectangle
 
 ' ===== VISIBILITY MODIFIERS =====
 skinparam classAttribute {
@@ -28,306 +31,163 @@ skinparam classMethod {
     FontSize 10
 }
 
-' ===== ENTITIES =====
+' ===== CORE ENTITIES =====
 class DoctorDailyScheduleEntity {
-    + public Guid Id
-    + public Guid DoctorId
-    + public DateOnly ScheduleDate
-    + public List<SchedulePatterns> SchedulePatterns
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
-    --
-    [Table("doctor_daily_schedules")]
-    [Required]
-    [Column("doctor_id")]
-    [Column("schedule_date")]
-    [Column("schedule_patterns")]
+    + Guid Id
+    + Guid DoctorId
+    + DateOnly ScheduleDate
+    + List<SchedulePatterns> SchedulePatterns
+    + DateTime CreatedAt
+    + DateTime UpdatedAt
 }
 
 class DoctorScheduleExceptionEntity {
-    + public Guid Id
-    + public Guid DoctorId
-    + public DateOnly ExceptionDate
-    + public AppointmentTime? AppointmentTime
-    + public ExceptionType ExceptionType
-    + public bool IsAvailable
-    + public string? Reason
-    + public DateTime CreatedAt
-    --
-    [Table("doctor_schedule_exceptions")]
-    [Required]
-    [StringLength(20)]
-    [Column("exception_type")]
-    [Column("is_available")]
-    [StringLength(255)]
-    [Column("reason")]
-}
-
-class ServiceScheduleEntity {
-    + public Guid Id
-    + public Guid ServiceId
-    + public List<SchedulePatterns> SchedulePatterns
-    + public Guid? ClinicId
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
-    --
-    [Table("service_schedules")]
-    [Required]
-    [Column("service_id")]
-    [Column("schedule_patterns")]
-    [Column("clinic_id")]
-}
-
-class ClinicExceptionEntity {
-    + public Guid Id
-    + public Guid ClinicId
-    + public DateOnly ExceptionDate
-    + public string? Reason
-    --
-    [Table("clinic_exceptions")]
-    [Required]
-    [StringLength(255)]
-    [Column("reason")]
+    + Guid Id
+    + Guid DoctorId
+    + DateOnly ExceptionDate
+    + AppointmentTime? AppointmentTime
+    + ExceptionType ExceptionType
+    + bool IsAvailable
+    + string? Reason
+    + DateTime CreatedAt
 }
 
 ' ===== REQUEST DTOs =====
 class CreateDoctorDailyScheduleRequest {
-    + public Guid DoctorId
-    + public DateOnly ScheduleDate
-    + public List<SchedulePatterns> SchedulePatterns
-    --
-    [Required]
-    [JsonRequired]
+    + Guid DoctorId
+    + DateOnly ScheduleDate
+    + List<SchedulePatterns> SchedulePatterns
 }
 
 class CreateDoctorScheduleExceptionRequest {
-    + public Guid DoctorId
-    + public DateOnly ExceptionDate
-    + public List<AppointmentTime>? AppointmentTimes
-    + public ExceptionType ExceptionType
-    + public bool IsAvailable
-    + public string? Reason
-    --
-    [Required]
-    [JsonRequired]
-    [StringLength(255)]
-}
-
-class CreateClinicExceptionRequest {
-    + public Guid ClinicId
-    + public DateOnly ExceptionDate
-    + public string? Reason
-    --
-    [Required]
-    [StringLength(255)]
-}
-
-class CreateServiceScheduleRequest {
-    + public Guid ServiceId
-    + public List<SchedulePatterns> SchedulePatterns
-    + public Guid? ClinicId
-    --
-    [Required]
+    + Guid DoctorId
+    + DateOnly ExceptionDate
+    + List<AppointmentTime>? AppointmentTimes
+    + ExceptionType ExceptionType
+    + bool IsAvailable
+    + string? Reason
 }
 
 class GetAvailableSlotsRequest {
-    + public Guid DoctorId
-    + public DateOnly Date
-    + public Guid? ServiceId
-    --
-    [Required]
+    + Guid DoctorId
+    + DateOnly Date
+    + Guid? ServiceId
 }
 
 class GetDoctorScheduleRequest {
-    + public Guid DoctorId
-    + public DateOnly StartDate
-    + public DateOnly EndDate
-    --
-    [Required]
-}
-
-class CreateAppointmentTimeRequest {
-    + public string StartTime
-    + public string EndTime
-    --
-    [Required]
-    [RegularExpression(@"^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"]
+    + Guid DoctorId
+    + DateOnly StartDate
+    + DateOnly EndDate
 }
 
 ' ===== RESPONSE DTOs =====
 class DoctorDailyScheduleDto {
-    + public Guid Id
-    + public Guid DoctorId
-    + public DateOnly ScheduleDate
-    + public List<SchedulePatterns> SchedulePatterns
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
+    + Guid Id
+    + Guid DoctorId
+    + DateOnly ScheduleDate
+    + List<SchedulePatterns> SchedulePatterns
+    + DateTime CreatedAt
+    + DateTime UpdatedAt
 }
 
 class DoctorScheduleExceptionDto {
-    + public Guid Id
-    + public Guid DoctorId
-    + public DateOnly ExceptionDate
-    + public AppointmentTime? AppointmentTime
-    + public string ExceptionType
-    + public bool IsAvailable
-    + public string? Reason
-    + public DateTime CreatedAt
-}
-
-class ClinicExceptionDto {
-    + public Guid Id
-    + public Guid ClinicId
-    + public DateOnly ExceptionDate
-    + public string? Reason
-}
-
-class ServiceScheduleDto {
-    + public Guid Id
-    + public Guid ServiceId
-    + public List<SchedulePatterns> SchedulePatterns
-    + public Guid? ClinicId
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
+    + Guid Id
+    + Guid DoctorId
+    + DateOnly ExceptionDate
+    + AppointmentTime? AppointmentTime
+    + string ExceptionType
+    + bool IsAvailable
+    + string? Reason
+    + DateTime CreatedAt
 }
 
 class AppointmentTimeDto {
-    + public Guid Id
-    + public string StartTime
-    + public string EndTime
+    + Guid Id
+    + string StartTime
+    + string EndTime
 }
 
 ' ===== REPOSITORY INTERFACE =====
 interface IScheduleRepository {
-    + public GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task<DoctorDailyScheduleEntity?>
-    + public GetDoctorScheduleRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate) : Task<IEnumerable<DoctorDailyScheduleEntity>>
-    + public CreateOrUpdateDoctorDailyScheduleAsync(DoctorDailyScheduleEntity schedule) : Task<DoctorDailyScheduleEntity>
-    + public DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task
-    + public GetDoctorExceptionsAsync(Guid doctorId, DateOnly date) : Task<IEnumerable<DoctorScheduleExceptionEntity>>
-    + public GetDoctorExceptionsRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate) : Task<IEnumerable<DoctorScheduleExceptionEntity>>
-    + public CreateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception) : Task<DoctorScheduleExceptionEntity>
-    + public DeleteDoctorScheduleExceptionAsync(Guid id) : Task
-    + public GetClinicExceptionsAsync(Guid clinicId, DateOnly date) : Task<IEnumerable<ClinicExceptionEntity>>
-    + public CreateClinicExceptionAsync(ClinicExceptionEntity exception) : Task<ClinicExceptionEntity>
-    + public DeleteClinicExceptionAsync(Guid id) : Task
-    + public GetServiceSchedulesAsync(Guid serviceId) : Task<IEnumerable<ServiceScheduleEntity>>
-    + public CreateServiceScheduleAsync(ServiceScheduleEntity serviceSchedule) : Task<ServiceScheduleEntity>
-    + public DeleteServiceScheduleAsync(Guid id) : Task
-    + public GetAvailableSlotsAsync(Guid doctorId, DateOnly date, Guid? serviceId) : Task<IEnumerable<AppointmentTime>>
+    + GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task<DoctorDailyScheduleEntity?>
+    + GetDoctorScheduleRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate) : Task<IEnumerable<DoctorDailyScheduleEntity>>
+    + CreateOrUpdateDoctorDailyScheduleAsync(DoctorDailyScheduleEntity schedule) : Task<DoctorDailyScheduleEntity>
+    + DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task
+    + GetDoctorExceptionsAsync(Guid doctorId, DateOnly date) : Task<IEnumerable<DoctorScheduleExceptionEntity>>
+    + CreateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception) : Task<DoctorScheduleExceptionEntity>
+    + DeleteDoctorScheduleExceptionAsync(Guid id) : Task
+    + GetAvailableSlotsAsync(Guid doctorId, DateOnly date, Guid? serviceId) : Task<IEnumerable<AppointmentTime>>
 }
 
 ' ===== REPOSITORY IMPLEMENTATION =====
 class ScheduleRepository {
-    - private ScheduleDbContext _context
+    - ScheduleDbContext _context
     --
-    + public ScheduleRepository(ScheduleDbContext context)
-    + public GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task<DoctorDailyScheduleEntity?>
-    + public GetDoctorScheduleRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate) : Task<IEnumerable<DoctorDailyScheduleEntity>>
-    + public CreateOrUpdateDoctorDailyScheduleAsync(DoctorDailyScheduleEntity schedule) : Task<DoctorDailyScheduleEntity>
-    + public DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task
-    + public GetDoctorExceptionsAsync(Guid doctorId, DateOnly date) : Task<IEnumerable<DoctorScheduleExceptionEntity>>
-    + public GetDoctorExceptionsRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate) : Task<IEnumerable<DoctorScheduleExceptionEntity>>
-    + public CreateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception) : Task<DoctorScheduleExceptionEntity>
-    + public DeleteDoctorScheduleExceptionAsync(Guid id) : Task
-    + public GetClinicExceptionsAsync(Guid clinicId, DateOnly date) : Task<IEnumerable<ClinicExceptionEntity>>
-    + public CreateClinicExceptionAsync(ClinicExceptionEntity exception) : Task<ClinicExceptionEntity>
-    + public DeleteClinicExceptionAsync(Guid id) : Task
-    + public GetServiceSchedulesAsync(Guid serviceId) : Task<IEnumerable<ServiceScheduleEntity>>
-    + public CreateServiceScheduleAsync(ServiceScheduleEntity serviceSchedule) : Task<ServiceScheduleEntity>
-    + public DeleteServiceScheduleAsync(Guid id) : Task
-    + public GetAvailableSlotsAsync(Guid doctorId, DateOnly date, Guid? serviceId) : Task<IEnumerable<AppointmentTime>>
+    + ScheduleRepository(ScheduleDbContext context)
+    + GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task<DoctorDailyScheduleEntity?>
+    + GetDoctorScheduleRangeAsync(Guid doctorId, DateOnly startDate, DateOnly endDate) : Task<IEnumerable<DoctorDailyScheduleEntity>>
+    + CreateOrUpdateDoctorDailyScheduleAsync(DoctorDailyScheduleEntity schedule) : Task<DoctorDailyScheduleEntity>
+    + DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task
+    + GetDoctorExceptionsAsync(Guid doctorId, DateOnly date) : Task<IEnumerable<DoctorScheduleExceptionEntity>>
+    + CreateDoctorScheduleExceptionAsync(DoctorScheduleExceptionEntity exception) : Task<DoctorScheduleExceptionEntity>
+    + DeleteDoctorScheduleExceptionAsync(Guid id) : Task
+    + GetAvailableSlotsAsync(Guid doctorId, DateOnly date, Guid? serviceId) : Task<IEnumerable<AppointmentTime>>
 }
 
 ' ===== SERVICE INTERFACE =====
 interface IScheduleService {
-    + public GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task<DoctorDailyScheduleDto?>
-    + public GetDoctorScheduleRangeAsync(GetDoctorScheduleRequest request) : Task<IEnumerable<DoctorDailyScheduleDto>>
-    + public CreateOrUpdateDoctorDailyScheduleAsync(CreateDoctorDailyScheduleRequest request) : Task<DoctorDailyScheduleDto>
-    + public DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task
-    + public GetDoctorExceptionsAsync(Guid doctorId, DateOnly date) : Task<IEnumerable<DoctorScheduleExceptionDto>>
-    + public CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request) : Task<List<DoctorScheduleExceptionDto>>
-    + public DeleteDoctorScheduleExceptionAsync(Guid id) : Task
-    + public GetClinicExceptionsAsync(Guid clinicId, DateOnly date) : Task<IEnumerable<ClinicExceptionDto>>
-    + public CreateClinicExceptionAsync(CreateClinicExceptionRequest request) : Task<ClinicExceptionDto>
-    + public DeleteClinicExceptionAsync(Guid id) : Task
-    + public GetServiceSchedulesAsync(Guid serviceId) : Task<IEnumerable<ServiceScheduleDto>>
-    + public CreateServiceScheduleAsync(CreateServiceScheduleRequest request) : Task<ServiceScheduleDto>
-    + public DeleteServiceScheduleAsync(Guid id) : Task
-    + public GetAvailableSlotsAsync(GetAvailableSlotsRequest request) : Task<IEnumerable<AppointmentTimeDto>>
+    + GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task<DoctorDailyScheduleDto?>
+    + GetDoctorScheduleRangeAsync(GetDoctorScheduleRequest request) : Task<IEnumerable<DoctorDailyScheduleDto>>
+    + CreateOrUpdateDoctorDailyScheduleAsync(CreateDoctorDailyScheduleRequest request) : Task<DoctorDailyScheduleDto>
+    + DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task
+    + GetDoctorExceptionsAsync(Guid doctorId, DateOnly date) : Task<IEnumerable<DoctorScheduleExceptionDto>>
+    + CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request) : Task<List<DoctorScheduleExceptionDto>>
+    + DeleteDoctorScheduleExceptionAsync(Guid id) : Task
+    + GetAvailableSlotsAsync(GetAvailableSlotsRequest request) : Task<IEnumerable<AppointmentTimeDto>>
 }
 
 ' ===== SERVICE IMPLEMENTATION =====
 class ScheduleService {
-    - private IScheduleRepository _repository
-    - private IMapper _mapper
-    - private ILogger _logger
+    - IScheduleRepository _repository
+    - IMapper _mapper
+    - ILogger _logger
     --
-    + public ScheduleService(IScheduleRepository repository, IMapper mapper, ILogger logger)
-    + public GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task<DoctorDailyScheduleDto?>
-    + public GetDoctorScheduleRangeAsync(GetDoctorScheduleRequest request) : Task<IEnumerable<DoctorDailyScheduleDto>>
-    + public CreateOrUpdateDoctorDailyScheduleAsync(CreateDoctorDailyScheduleRequest request) : Task<DoctorDailyScheduleDto>
-    + public DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task
-    + public GetDoctorExceptionsAsync(Guid doctorId, DateOnly date) : Task<IEnumerable<DoctorScheduleExceptionDto>>
-    + public CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request) : Task<List<DoctorScheduleExceptionDto>>
-    + public DeleteDoctorScheduleExceptionAsync(Guid id) : Task
-    + public GetClinicExceptionsAsync(Guid clinicId, DateOnly date) : Task<IEnumerable<ClinicExceptionDto>>
-    + public CreateClinicExceptionAsync(CreateClinicExceptionRequest request) : Task<ClinicExceptionDto>
-    + public DeleteClinicExceptionAsync(Guid id) : Task
-    + public GetServiceSchedulesAsync(Guid serviceId) : Task<IEnumerable<ServiceScheduleDto>>
-    + public CreateServiceScheduleAsync(CreateServiceScheduleRequest request) : Task<ServiceScheduleDto>
-    + public DeleteServiceScheduleAsync(Guid id) : Task
-    + public GetAvailableSlotsAsync(GetAvailableSlotsRequest request) : Task<IEnumerable<AppointmentTimeDto>>
+    + ScheduleService(IScheduleRepository repository, IMapper mapper, ILogger logger)
+    + GetDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task<DoctorDailyScheduleDto?>
+    + GetDoctorScheduleRangeAsync(GetDoctorScheduleRequest request) : Task<IEnumerable<DoctorDailyScheduleDto>>
+    + CreateOrUpdateDoctorDailyScheduleAsync(CreateDoctorDailyScheduleRequest request) : Task<DoctorDailyScheduleDto>
+    + DeleteDoctorDailyScheduleAsync(Guid doctorId, DateOnly date) : Task
+    + GetDoctorExceptionsAsync(Guid doctorId, DateOnly date) : Task<IEnumerable<DoctorScheduleExceptionDto>>
+    + CreateDoctorScheduleExceptionAsync(CreateDoctorScheduleExceptionRequest request) : Task<List<DoctorScheduleExceptionDto>>
+    + DeleteDoctorScheduleExceptionAsync(Guid id) : Task
+    + GetAvailableSlotsAsync(GetAvailableSlotsRequest request) : Task<IEnumerable<AppointmentTimeDto>>
 }
 
-' ===== CONTROLLERS =====
+' ===== CONTROLLER =====
 class DoctorSchedulesController {
-    - private IScheduleService _scheduleService
+    - IScheduleService _scheduleService
     --
-    + public DoctorSchedulesController(IScheduleService scheduleService)
-    + public GetDoctorDailySchedule(Guid doctorId, DateOnly date) : Task<IActionResult>
-    + public GetDoctorScheduleRange(Guid doctorId, DateOnly startDate, DateOnly endDate) : Task<IActionResult>
-    + public CreateOrUpdateDoctorDailySchedule(CreateDoctorDailyScheduleRequest request) : Task<IActionResult>
-    + public DeleteDoctorDailySchedule(Guid doctorId, DateOnly date) : Task<IActionResult>
-    + public GetAvailableSlots(Guid doctorId, DateOnly date, Guid? serviceId) : Task<IActionResult>
-}
-
-class DoctorScheduleExceptionsController {
-    - private IScheduleService _scheduleService
-    --
-    + public DoctorScheduleExceptionsController(IScheduleService scheduleService)
-    + public GetDoctorExceptions(Guid doctorId, DateOnly date) : Task<IActionResult>
-    + public CreateDoctorScheduleException(CreateDoctorScheduleExceptionRequest request) : Task<IActionResult>
-    + public DeleteDoctorScheduleException(Guid id) : Task<IActionResult>
-}
-
-' ===== MAPPING PROFILE =====
-class ScheduleMappingProfile {
-    + public ScheduleMappingProfile()
-    --
-    AutoMapper profile for Schedule mappings
+    + DoctorSchedulesController(IScheduleService scheduleService)
+    + GetDoctorDailySchedule(Guid doctorId, DateOnly date) : Task<IActionResult>
+    + GetDoctorScheduleRange(Guid doctorId, DateOnly startDate, DateOnly endDate) : Task<IActionResult>
+    + CreateOrUpdateDoctorDailySchedule(CreateDoctorDailyScheduleRequest request) : Task<IActionResult>
+    + DeleteDoctorDailySchedule(Guid doctorId, DateOnly date) : Task<IActionResult>
+    + GetAvailableSlots(Guid doctorId, DateOnly date, Guid? serviceId) : Task<IActionResult>
 }
 
 ' ===== EXTERNAL DEPENDENCIES =====
 class ScheduleDbContext {
-    + public DbSet<DoctorDailyScheduleEntity> DoctorDailySchedules
-    + public DbSet<DoctorScheduleExceptionEntity> DoctorScheduleExceptions
-    + public DbSet<ClinicExceptionEntity> ClinicExceptions
-    + public DbSet<ServiceScheduleEntity> ServiceSchedules
-    --
-    Entity Framework DbContext
+    + DbSet<DoctorDailyScheduleEntity> DoctorDailySchedules
+    + DbSet<DoctorScheduleExceptionEntity> DoctorScheduleExceptions
 }
 
 class AutoMapper.IMapper {
-    + public Map<TSource, TDestination>(TSource source) : TDestination
-    --
-    AutoMapper interface
+    + Map<TSource, TDestination>(TSource source) : TDestination
 }
 
 class ILogger {
-    + public LogInformation(string message)
-    + public LogError(Exception ex, string message)
-    --
-    .NET Core logging interface
+    + LogInformation(string message)
+    + LogError(Exception ex, string message)
 }
 
 ' ===== ENUMS =====
@@ -374,54 +234,25 @@ enum AppointmentTime {
     AT_21_30_22_00
     AT_22_00_22_30
     AT_22_30_23_00
-    AT_08_00_09_00
-    AT_09_00_10_00
-    AT_10_00_11_00
-    AT_11_00_12_00
-    AT_13_00_14_00
-    AT_14_00_15_00
-    AT_15_00_16_00
-    AT_16_00_17_00
-    AT_17_00_18_00
-    AT_18_00_19_00
-    AT_19_00_20_00
-    AT_20_00_21_00
-    AT_21_00_22_00
-    AT_22_00_23_00
 }
 
 ' ===== LAYOUT POSITIONING =====
-' Entities
 DoctorDailyScheduleEntity -[hidden]- DoctorScheduleExceptionEntity
-DoctorScheduleExceptionEntity -[hidden]- ServiceScheduleEntity
-ServiceScheduleEntity -[hidden]- ClinicExceptionEntity
 
-' Request DTOs
 CreateDoctorDailyScheduleRequest -[hidden]- CreateDoctorScheduleExceptionRequest
-CreateDoctorScheduleExceptionRequest -[hidden]- CreateClinicExceptionRequest
-CreateClinicExceptionRequest -[hidden]- CreateServiceScheduleRequest
-CreateServiceScheduleRequest -[hidden]- GetAvailableSlotsRequest
+CreateDoctorScheduleExceptionRequest -[hidden]- GetAvailableSlotsRequest
 GetAvailableSlotsRequest -[hidden]- GetDoctorScheduleRequest
-GetDoctorScheduleRequest -[hidden]- CreateAppointmentTimeRequest
 
-' Response DTOs
 DoctorDailyScheduleDto -[hidden]- DoctorScheduleExceptionDto
-DoctorScheduleExceptionDto -[hidden]- ClinicExceptionDto
-ClinicExceptionDto -[hidden]- ServiceScheduleDto
-ServiceScheduleDto -[hidden]- AppointmentTimeDto
+DoctorScheduleExceptionDto -[hidden]- AppointmentTimeDto
 
-' Repository Layer
 IScheduleRepository -[hidden]- ScheduleRepository
 ScheduleRepository -[hidden]- ScheduleDbContext
 
-' Service Layer
 IScheduleService -[hidden]- ScheduleService
-ScheduleService -[hidden]- IMapper
-IMapper -[hidden]- ILogger
+ScheduleService -[hidden]- DoctorSchedulesController
 
-' Controllers
-DoctorSchedulesController -[hidden]- DoctorScheduleExceptionsController
-DoctorScheduleExceptionsController -[hidden]- ScheduleMappingProfile
+IMapper -[hidden]- ILogger
 
 ' ===== RELATIONSHIPS =====
 IScheduleRepository <|.. ScheduleRepository
@@ -430,8 +261,6 @@ IScheduleService <|.. ScheduleService
 ScheduleRepository --> ScheduleDbContext
 ScheduleRepository --> DoctorDailyScheduleEntity
 ScheduleRepository --> DoctorScheduleExceptionEntity
-ScheduleRepository --> ServiceScheduleEntity
-ScheduleRepository --> ClinicExceptionEntity
 ScheduleRepository --> AppointmentTime
 
 ScheduleService --> IScheduleRepository
@@ -439,14 +268,10 @@ ScheduleService --> IMapper
 ScheduleService --> ILogger
 ScheduleService --> CreateDoctorDailyScheduleRequest
 ScheduleService --> CreateDoctorScheduleExceptionRequest
-ScheduleService --> CreateClinicExceptionRequest
-ScheduleService --> CreateServiceScheduleRequest
 ScheduleService --> GetAvailableSlotsRequest
 ScheduleService --> GetDoctorScheduleRequest
 ScheduleService --> DoctorDailyScheduleDto
 ScheduleService --> DoctorScheduleExceptionDto
-ScheduleService --> ClinicExceptionDto
-ScheduleService --> ServiceScheduleDto
 ScheduleService --> AppointmentTimeDto
 
 DoctorSchedulesController --> IScheduleService
@@ -456,34 +281,13 @@ DoctorSchedulesController --> GetDoctorScheduleRequest
 DoctorSchedulesController --> DoctorDailyScheduleDto
 DoctorSchedulesController --> AppointmentTimeDto
 
-DoctorScheduleExceptionsController --> IScheduleService
-DoctorScheduleExceptionsController --> CreateDoctorScheduleExceptionRequest
-DoctorScheduleExceptionsController --> DoctorScheduleExceptionDto
-
-ScheduleMappingProfile --> DoctorDailyScheduleEntity
-ScheduleMappingProfile --> DoctorScheduleExceptionEntity
-ScheduleMappingProfile --> ServiceScheduleEntity
-ScheduleMappingProfile --> ClinicExceptionEntity
-ScheduleMappingProfile --> CreateDoctorDailyScheduleRequest
-ScheduleMappingProfile --> CreateDoctorScheduleExceptionRequest
-ScheduleMappingProfile --> CreateClinicExceptionRequest
-ScheduleMappingProfile --> CreateServiceScheduleRequest
-ScheduleMappingProfile --> DoctorDailyScheduleDto
-ScheduleMappingProfile --> DoctorScheduleExceptionDto
-ScheduleMappingProfile --> ClinicExceptionDto
-ScheduleMappingProfile --> ServiceScheduleDto
-ScheduleMappingProfile --> AppointmentTimeDto
-
 DoctorDailyScheduleEntity --> SchedulePatterns
 DoctorScheduleExceptionEntity --> ExceptionType
 DoctorScheduleExceptionEntity --> AppointmentTime
-ServiceScheduleEntity --> SchedulePatterns
 CreateDoctorDailyScheduleRequest --> SchedulePatterns
 CreateDoctorScheduleExceptionRequest --> ExceptionType
 CreateDoctorScheduleExceptionRequest --> AppointmentTime
-CreateServiceScheduleRequest --> SchedulePatterns
 DoctorDailyScheduleDto --> SchedulePatterns
 DoctorScheduleExceptionDto --> AppointmentTime
-ServiceScheduleDto --> SchedulePatterns
 
 @enduml

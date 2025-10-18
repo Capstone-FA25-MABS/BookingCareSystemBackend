@@ -1,6 +1,13 @@
 @startuml
 title Toggle Specialty Status
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Admin
 participant UI
 participant SpecialtiesController
@@ -9,20 +16,17 @@ participant SpecialtyRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
 Admin -> UI : 1. Click "Toggle Status" button on specialty
 activate UI
-UI -> SpecialtiesController : 2. HTTP PATCH /api/specialties/{id}/toggle-status
+UI -> SpecialtiesController : 2. ToggleSpecialtyStatus(id)
 activate SpecialtiesController
 
-== Service Call ==
 SpecialtiesController -> SpecialtyService : 3. ToggleSpecialtyStatusAsync(Guid id)
 activate SpecialtyService
 
-== Validate Specialty Exists ==
 SpecialtyService -> SpecialtyRepository : 4. GetSpecialtyByIdAsync(specialtyId)
 activate SpecialtyRepository
-SpecialtyRepository -> Database : 5. SELECT * FROM Specialties WHERE Id = @id
+SpecialtyRepository -> Database : 5. GetSpecialtyDataById(id)
 activate Database
 Database --> SpecialtyRepository : 6. SpecialtyEntity
 deactivate Database
@@ -32,13 +36,12 @@ deactivate SpecialtyRepository
 alt Specialty not found
     SpecialtyService --> SpecialtiesController : 8. SpecialtyNotFoundException.WithId(specialtyId)
     deactivate SpecialtyService
-    SpecialtiesController --> UI : 9. HTTP 404 Not Found
+    SpecialtiesController --> UI : 9. Return not found error
     deactivate SpecialtiesController
     UI --> Admin : 10. Show "Specialty not found"
     deactivate UI
 else Specialty found
 
-    == Toggle Specialty Status ==
     SpecialtyService -> SpecialtyService : 8. Toggle status logic
     activate SpecialtyService
     alt Current status is ACTIVE
@@ -49,10 +52,9 @@ else Specialty found
     SpecialtyService -> SpecialtyService : 10. Set UpdatedAt = DateTime.UtcNow
     deactivate SpecialtyService
 
-    == Save Updated Specialty ==
     SpecialtyService -> SpecialtyRepository : 11. UpdateSpecialtyAsync(updatedSpecialty)
     activate SpecialtyRepository
-    SpecialtyRepository -> Database : 12. UPDATE Specialties SET Status = @newStatus, UpdatedAt = @now WHERE Id = @id
+    SpecialtyRepository -> Database : 12. UpdateSpecialtyStatusData(id, newStatus)
     activate Database
     Database --> SpecialtyRepository : 13. Updated count
     deactivate Database
@@ -62,7 +64,7 @@ else Specialty found
     alt Status update failed
         SpecialtyService --> SpecialtiesController : 15. Exception("Failed to toggle specialty status")
         deactivate SpecialtyService
-        SpecialtiesController --> UI : 16. HTTP 500 Internal Server Error
+        SpecialtiesController --> UI : 16. Return server error
         deactivate SpecialtiesController
         UI --> Admin : 17. Show "Failed to toggle status"
         deactivate UI
@@ -70,7 +72,7 @@ else Specialty found
         SpecialtyService --> SpecialtiesController : 15. true
         deactivate SpecialtyService
 
-        SpecialtiesController --> UI : 16. HTTP 200 OK
+        SpecialtiesController --> UI : 16. Return success
         deactivate SpecialtiesController
 
         UI --> Admin : 17. Show "Specialty status toggled successfully"

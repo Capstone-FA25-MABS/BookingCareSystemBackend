@@ -1,21 +1,24 @@
 @startuml
 !theme plain
-title Hospital Class Diagram - BookingCare.Services.Hospital
+title Hospital Class Diagram
+hide circle
 
 ' ===== SKIN PARAMETERS =====
 skinparam class {
     BackgroundColor White
     BorderColor Black
     ArrowColor Black
-    ArrowThickness 2
+    ArrowThickness 1
+    FontSize 10
 }
 
 skinparam arrow {
-    Thickness 2
+    Thickness 1
     Color Black
 }
 
 skinparam linetype ortho
+skinparam packageStyle rectangle
 
 ' ===== VISIBILITY MODIFIERS =====
 skinparam classAttribute {
@@ -28,414 +31,162 @@ skinparam classMethod {
     FontSize 10
 }
 
-' ===== ENTITIES =====
+' ===== CORE ENTITIES =====
 class HospitalEntity {
-    + public Guid Id
-    + public Guid AccountId
-    + public string Name
-    + public string Address
-    + public string? Phone
-    + public string Email
-    + public string Description
-    + public string? BackgroundUrl
-    + public string? AvatarUrl
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
-    --
-    [Table("hospitals")]
-    [MaxLength(255)]
-    [Column("name")]
-    [MaxLength(20)]
-    [Column("phone")]
-    [MaxLength(100)]
-    [Column("email")]
-}
-
-class HospitalSubscriptionEntity {
-    + public Guid HospitalSubscriptionId
-    + public Guid HospitalId
-    + public Guid SubscriptionId
-    + public DateTime StartDate
-    + public DateTime EndDate
-    + public SubscriptionStatus Status
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
-    --
-    [Table("hospital_subscriptions")]
-    [Column("hospital_subscription_id")]
-}
-
-class HospitalSpecialtyEntity {
-    + public Guid HospitalId
-    + public Guid SpecialtyId
-    --
-    [Table("hospital_specialties")]
-    [Key, Column("hospital_id", Order = 0)]
-    [Key, Column("specialty_id", Order = 1)]
-}
-
-class HospitalImageEntity {
-    + public Guid Id
-    + public Guid HospitalId
-    + public string S3Key
-    + public string ImageUrl
-    + public string? Description
-    + public DateTime CreatedAt
-    --
-    [Table("hospital_images")]
-    [MaxLength(500)]
-    [Column("s3_key")]
-    [MaxLength(255)]
-    [Column("description")]
+    + Guid Id
+    + Guid AccountId
+    + string Name
+    + string Address
+    + string? Phone
+    + string Email
+    + string Description
+    + string? AvatarUrl
+    + DateTime CreatedAt
+    + DateTime UpdatedAt
 }
 
 ' ===== REQUEST DTOs =====
 class CreateHospitalRequest {
-    + public Guid AccountId
-    + public string Name
-    + public string Address
-    + public string? Phone
-    + public string Email
-    + public string Description
-    + public string? BackgroundUrl
-    + public string? AvatarUrl
-    + public List<Guid> SpecialtyIds
-    --
-    [Required]
-    [StringLength(255, MinimumLength = 2)]
-    [Required]
-    [Phone]
-    [Required]
-    [EmailAddress]
-    [StringLength(100)]
-    [Required]
-    [Url]
-    [Url]
+    + Guid AccountId
+    + string Name
+    + string Address
+    + string? Phone
+    + string Email
+    + string Description
+    + string? AvatarUrl
 }
 
 class UpdateHospitalRequest {
-    + public string Name
-    + public string Address
-    + public string? Phone
-    + public string Email
-    + public string Description
-    + public string? BackgroundUrl
-    + public string? AvatarUrl
-    + public List<Guid> SpecialtyIds
-    --
-    [Required]
-    [StringLength(255, MinimumLength = 2)]
-    [Required]
-    [Phone]
-    [Required]
-    [EmailAddress]
-    [StringLength(100)]
-    [Required]
-    [Url]
-    [Url]
+    + string Name
+    + string Address
+    + string? Phone
+    + string Email
+    + string Description
+    + string? AvatarUrl
 }
 
 class HospitalFilterRequest {
-    + public string? SearchTerm
-    + public Guid? SpecialtyId
-    + public int PageNumber
-    + public int PageSize
-    + public string? SortBy
-    + public string? SortOrder
-    --
-    [JsonRequired]
+    + string? SearchTerm
+    + Guid? SpecialtyId
+    + int PageNumber
+    + int PageSize
 }
 
 ' ===== RESPONSE DTOs =====
 class HospitalResponse {
-    + public Guid Id
-    + public Guid AccountId
-    + public string Name
-    + public string Address
-    + public string? Phone
-    + public string Email
-    + public string Description
-    + public string? BackgroundUrl
-    + public string? AvatarUrl
-    + public List<SpecialtyResponse> Specialties
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
-}
-
-class HospitalDetailResponse {
-    + public Guid Id
-    + public Guid AccountId
-    + public string Name
-    + public string Address
-    + public string? Phone
-    + public string Email
-    + public string Description
-    + public string? BackgroundUrl
-    + public string? AvatarUrl
-    + public List<SpecialtyResponse> Specialties
-    + public List<PositionResponse> Positions
-    + public List<ServiceTypeResponse> ServiceTypes
-    + public int DoctorCount
-    + public List<HospitalImageResponse> Images
-    + public HospitalSubscriptionResponse? ActiveSubscription
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
+    + Guid Id
+    + string Name
+    + string Address
+    + string? Phone
+    + string Email
+    + string Description
+    + string? AvatarUrl
+    + DateTime CreatedAt
+    + DateTime UpdatedAt
 }
 
 class HospitalListResponse {
-    + public List<HospitalResponse> Hospitals
-    + public int TotalCount
-    + public int PageNumber
-    + public int PageSize
-    + public int TotalPages
-}
-
-class HospitalSimpleResponse {
-    + public Guid Id
-    + public string Name
-    + public string Address
-    + public string? Phone
-    + public string Email
-    + public string? AvatarUrl
-    --
-    Simple response DTO for performance optimization
-}
-
-class HospitalImageResponse {
-    + public Guid Id
-    + public string S3Key
-    + public string ImageUrl
-    + public string? Description
-    + public DateTime CreatedAt
-}
-
-class HospitalSubscriptionResponse {
-    + public Guid HospitalSubscriptionId
-    + public Guid SubscriptionId
-    + public string SubscriptionName
-    + public DateTime StartDate
-    + public DateTime EndDate
-    + public SubscriptionStatus Status
-}
-
-class SpecialtyResponse {
-    + public Guid Id
-    + public string Name
-    + public string ImageUrl
-}
-
-class PositionResponse {
-    + public Guid Id
-    + public string Name
-    + public int DoctorCount
-}
-
-class ServiceTypeResponse {
-    + public Guid Id
-    + public string Name
-    + public string? Description
-    + public int DoctorCount
+    + List<HospitalResponse> Hospitals
+    + int TotalCount
+    + int PageNumber
+    + int PageSize
+    + int TotalPages
 }
 
 ' ===== REPOSITORY INTERFACE =====
 interface IHospitalRepository {
-    + public GetByIdAsync(Guid id) : Task<HospitalEntity?>
-    + public GetByEmailAsync(string email) : Task<HospitalEntity?>
-    + public GetAllAsync() : Task<List<HospitalEntity>>
-    + public GetFilteredAsync(HospitalFilterRequest filter) : Task<(List<HospitalEntity>, int)>
-    + public CreateAsync(HospitalEntity hospital) : Task<HospitalEntity>
-    + public UpdateAsync(HospitalEntity hospital) : Task<HospitalEntity>
-    + public DeleteAsync(Guid id) : Task<bool>
-    + public ExistsAsync(Guid id) : Task<bool>
-    + public EmailExistsAsync(string email, Guid? excludeId) : Task<bool>
-    + public GetBySpecialtyAsync(Guid specialtyId) : Task<List<HospitalEntity>>
-    + public GetByAccountIdAsync(Guid accountId) : Task<List<HospitalEntity>>
-    + public GetHospitalBasicInfoByIdAsync(Guid id) : Task<HospitalEntity?>
-    + public GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids) : Task<List<HospitalEntity>>
-    + public GetActiveHospitalsSimpleAsync() : Task<List<HospitalEntity>>
+    + GetByIdAsync(Guid id) : Task<HospitalEntity?>
+    + GetByEmailAsync(string email) : Task<HospitalEntity?>
+    + GetAllAsync() : Task<List<HospitalEntity>>
+    + GetFilteredAsync(HospitalFilterRequest filter) : Task<(List<HospitalEntity>, int)>
+    + CreateAsync(HospitalEntity hospital) : Task<HospitalEntity>
+    + UpdateAsync(HospitalEntity hospital) : Task<HospitalEntity>
+    + DeleteAsync(Guid id) : Task<bool>
 }
 
 ' ===== REPOSITORY IMPLEMENTATION =====
 class HospitalRepository {
-    - private HospitalDbContext _context
+    - HospitalDbContext _context
     --
-    + public HospitalRepository(HospitalDbContext context)
-    + public GetByIdAsync(Guid id) : Task<HospitalEntity?>
-    + public GetByEmailAsync(string email) : Task<HospitalEntity?>
-    + public GetAllAsync() : Task<List<HospitalEntity>>
-    + public GetFilteredAsync(HospitalFilterRequest filter) : Task<(List<HospitalEntity>, int)>
-    + public CreateAsync(HospitalEntity hospital) : Task<HospitalEntity>
-    + public UpdateAsync(HospitalEntity hospital) : Task<HospitalEntity>
-    + public DeleteAsync(Guid id) : Task<bool>
-    + public ExistsAsync(Guid id) : Task<bool>
-    + public EmailExistsAsync(string email, Guid? excludeId) : Task<bool>
-    + public GetBySpecialtyAsync(Guid specialtyId) : Task<List<HospitalEntity>>
-    + public GetByAccountIdAsync(Guid accountId) : Task<List<HospitalEntity>>
-    + public GetHospitalBasicInfoByIdAsync(Guid id) : Task<HospitalEntity?>
-    + public GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids) : Task<List<HospitalEntity>>
-    + public GetActiveHospitalsSimpleAsync() : Task<List<HospitalEntity>>
-    - private ApplySorting(IQueryable<HospitalEntity> queryable, HospitalFilterRequest filter) : IQueryable<HospitalEntity>
+    + HospitalRepository(HospitalDbContext context)
+    + GetByIdAsync(Guid id) : Task<HospitalEntity?>
+    + GetByEmailAsync(string email) : Task<HospitalEntity?>
+    + GetAllAsync() : Task<List<HospitalEntity>>
+    + GetFilteredAsync(HospitalFilterRequest filter) : Task<(List<HospitalEntity>, int)>
+    + CreateAsync(HospitalEntity hospital) : Task<HospitalEntity>
+    + UpdateAsync(HospitalEntity hospital) : Task<HospitalEntity>
+    + DeleteAsync(Guid id) : Task<bool>
 }
 
 ' ===== SERVICE INTERFACE =====
 interface IHospitalService {
-    + public GetByIdAsync(Guid id) : Task<HospitalDetailResponse?>
-    + public GetByEmailAsync(string email) : Task<HospitalResponse?>
-    + public GetAllAsync() : Task<HospitalListResponse>
-    + public GetFilteredAsync(HospitalFilterRequest filter) : Task<HospitalListResponse>
-    + public CreateAsync(CreateHospitalRequest request) : Task<HospitalDetailResponse>
-    + public UpdateAsync(Guid id, UpdateHospitalRequest request) : Task<HospitalResponse>
-    + public DeleteAsync(Guid id) : Task<bool>
-    + public GetBySpecialtyAsync(Guid specialtyId) : Task<List<HospitalResponse>>
-    + public GetByAccountIdAsync(Guid accountId) : Task<List<HospitalResponse>>
-    + public AddSpecialtyAsync(Guid hospitalId, Guid specialtyId) : Task<bool>
-    + public RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId) : Task<bool>
-    + public GetHospitalBasicInfoByIdAsync(Guid id) : Task<HospitalEntity?>
-    + public GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids) : Task<List<HospitalEntity>>
-    + public GetActiveHospitalsSimpleAsync() : Task<List<HospitalSimpleResponse>>
+    + GetByIdAsync(Guid id) : Task<HospitalResponse?>
+    + GetByEmailAsync(string email) : Task<HospitalResponse?>
+    + GetAllAsync() : Task<HospitalListResponse>
+    + GetFilteredAsync(HospitalFilterRequest filter) : Task<HospitalListResponse>
+    + CreateAsync(CreateHospitalRequest request) : Task<HospitalResponse>
+    + UpdateAsync(Guid id, UpdateHospitalRequest request) : Task<HospitalResponse>
+    + DeleteAsync(Guid id) : Task<bool>
 }
 
 ' ===== SERVICE IMPLEMENTATION =====
 class HospitalService {
-    - private IHospitalRepository _repository
-    - private IMapper _mapper
-    - private ILogger _logger
-    - private IAuthService _authService
-    - private IDoctorService _doctorService
+    - IHospitalRepository _repository
+    - IMapper _mapper
+    - ILogger _logger
     --
-    + public HospitalService(IHospitalRepository repository, IMapper mapper, ILogger logger, IAuthService authService, IDoctorService doctorService)
-    + public GetByIdAsync(Guid id) : Task<HospitalDetailResponse?>
-    + public GetByEmailAsync(string email) : Task<HospitalResponse?>
-    + public GetAllAsync() : Task<HospitalListResponse>
-    + public GetFilteredAsync(HospitalFilterRequest filter) : Task<HospitalListResponse>
-    + public CreateAsync(CreateHospitalRequest request) : Task<HospitalDetailResponse>
-    + public UpdateAsync(Guid id, UpdateHospitalRequest request) : Task<HospitalResponse>
-    + public DeleteAsync(Guid id) : Task<bool>
-    + public GetBySpecialtyAsync(Guid specialtyId) : Task<List<HospitalResponse>>
-    + public GetByAccountIdAsync(Guid accountId) : Task<List<HospitalResponse>>
-    + public AddSpecialtyAsync(Guid hospitalId, Guid specialtyId) : Task<bool>
-    + public RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId) : Task<bool>
-    + public GetHospitalBasicInfoByIdAsync(Guid id) : Task<HospitalEntity?>
-    + public GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids) : Task<List<HospitalEntity>>
-    + public GetActiveHospitalsSimpleAsync() : Task<List<HospitalSimpleResponse>>
-    - private ValidateCreateHospitalRequest(CreateHospitalRequest request) : Task
-    - private ValidateUpdateHospitalRequest(UpdateHospitalRequest request) : Task
-    - private CreateHospitalEntity(CreateHospitalRequest request) : HospitalEntity
-    - private UpdateHospitalEntity(HospitalEntity existingHospital, UpdateHospitalRequest request) : HospitalEntity
-    - private CreateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds) : Task
-    - private UpdateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds) : Task
-    - private EnrichHospitalWithSpecialtiesAsync(HospitalEntity hospital) : Task
-    - private EnrichHospitalDetailWithDoctorInfoAsync(HospitalEntity hospital) : Task
-    - private EnrichHospitalDetailWithImagesAsync(HospitalEntity hospital) : Task
-    - private EnrichHospitalDetailWithSubscriptionAsync(HospitalEntity hospital) : Task
+    + HospitalService(IHospitalRepository repository, IMapper mapper, ILogger logger)
+    + GetByIdAsync(Guid id) : Task<HospitalResponse?>
+    + GetByEmailAsync(string email) : Task<HospitalResponse?>
+    + GetAllAsync() : Task<HospitalListResponse>
+    + GetFilteredAsync(HospitalFilterRequest filter) : Task<HospitalListResponse>
+    + CreateAsync(CreateHospitalRequest request) : Task<HospitalResponse>
+    + UpdateAsync(Guid id, UpdateHospitalRequest request) : Task<HospitalResponse>
+    + DeleteAsync(Guid id) : Task<bool>
 }
 
 ' ===== CONTROLLER =====
 class HospitalsController {
-    - private IHospitalService _hospitalService
+    - IHospitalService _hospitalService
     --
-    + public HospitalsController(IHospitalService hospitalService)
-    + public Health() : IActionResult
-    + public GetHospital(Guid id) : Task<IActionResult>
-    + public GetHospitalByEmail(string email) : Task<IActionResult>
-    + public GetHospitals(HospitalFilterRequest filter) : Task<IActionResult>
-    + public GetAllHospitals() : Task<IActionResult>
-    + public GetHospitalsBySpecialty(Guid specialtyId) : Task<IActionResult>
-    + public GetHospitalsByAccountId(Guid accountId) : Task<IActionResult>
-    + public CreateHospital(CreateHospitalRequest request) : Task<IActionResult>
-    + public UpdateHospital(Guid id, UpdateHospitalRequest request) : Task<IActionResult>
-    + public DeleteHospital(Guid id) : Task<IActionResult>
-    + public AddSpecialtyToHospital(Guid hospitalId, Guid specialtyId) : Task<IActionResult>
-    + public RemoveSpecialtyFromHospital(Guid hospitalId, Guid specialtyId) : Task<IActionResult>
-    + public ValidateHospitalEmail(string email, Guid? excludeId) : Task<IActionResult>
-    + public GetActiveHospitalsSimple() : Task<IActionResult>
-}
-
-' ===== MAPPING PROFILE =====
-class HospitalMappingProfile {
-    + public HospitalMappingProfile()
-    --
-    AutoMapper profile for Hospital mappings
+    + HospitalsController(IHospitalService hospitalService)
+    + GetHospital(Guid id) : Task<IActionResult>
+    + GetHospitalByEmail(string email) : Task<IActionResult>
+    + GetHospitals(HospitalFilterRequest filter) : Task<IActionResult>
+    + GetAllHospitals() : Task<IActionResult>
+    + CreateHospital(CreateHospitalRequest request) : Task<IActionResult>
+    + UpdateHospital(Guid id, UpdateHospitalRequest request) : Task<IActionResult>
+    + DeleteHospital(Guid id) : Task<IActionResult>
 }
 
 ' ===== EXTERNAL DEPENDENCIES =====
 class HospitalDbContext {
-    + public DbSet<HospitalEntity> Hospitals
-    + public DbSet<HospitalSubscriptionEntity> HospitalSubscriptions
-    + public DbSet<HospitalSpecialtyEntity> HospitalSpecialties
-    + public DbSet<HospitalImageEntity> HospitalImages
-    --
-    Entity Framework DbContext
+    + DbSet<HospitalEntity> Hospitals
 }
 
 class AutoMapper.IMapper {
-    + public Map<TSource, TDestination>(TSource source) : TDestination
-    --
-    AutoMapper interface
+    + Map<TSource, TDestination>(TSource source) : TDestination
 }
 
 class ILogger {
-    + public LogInformation(string message)
-    + public LogError(Exception ex, string message)
-    --
-    .NET Core logging interface
-}
-
-class IAuthService {
-    + public GetAccountStatusByIdsAsync(List<Guid> accountIds) : Task<Dictionary<Guid, AccountStatus>>
-    + public UpdateAccountStatusAsync(Guid accountId, AccountStatus status) : Task<bool>
-    --
-    gRPC service for account management
-}
-
-class IDoctorService {
-    + public GetSpecialtiesAsync() : Task<List<SpecialtyResponse>>
-    + public GetPositionsAsync() : Task<List<PositionResponse>>
-    + public GetServiceTypesAsync() : Task<List<ServiceTypeResponse>>
-    + public GetDoctorCountsByHospitalAsync(Guid hospitalId) : Task<Dictionary<string, int>>
-    --
-    gRPC service for doctor information
-}
-
-' ===== ENUMS =====
-enum SubscriptionStatus {
-    ACTIVE
-    INACTIVE
-    EXPIRED
-    CANCELLED
+    + LogInformation(string message)
+    + LogError(Exception ex, string message)
 }
 
 ' ===== LAYOUT POSITIONING =====
-' Entities
-HospitalEntity -[hidden]- HospitalSubscriptionEntity
-HospitalSubscriptionEntity -[hidden]- HospitalSpecialtyEntity
-HospitalSpecialtyEntity -[hidden]- HospitalImageEntity
-HospitalImageEntity -[hidden]- SubscriptionStatus
-
-' Request DTOs
+HospitalEntity -[hidden]- CreateHospitalRequest
 CreateHospitalRequest -[hidden]- UpdateHospitalRequest
 UpdateHospitalRequest -[hidden]- HospitalFilterRequest
 
-' Response DTOs
-HospitalResponse -[hidden]- HospitalDetailResponse
-HospitalDetailResponse -[hidden]- HospitalListResponse
-HospitalListResponse -[hidden]- HospitalSimpleResponse
-HospitalImageResponse -[hidden]- HospitalSubscriptionResponse
-SpecialtyResponse -[hidden]- PositionResponse
-PositionResponse -[hidden]- ServiceTypeResponse
+HospitalResponse -[hidden]- HospitalListResponse
 
-' Repository Layer
 IHospitalRepository -[hidden]- HospitalRepository
 HospitalRepository -[hidden]- HospitalDbContext
 
-' Service Layer
 IHospitalService -[hidden]- HospitalService
-HospitalService -[hidden]- IMapper
-IMapper -[hidden]- ILogger
-IAuthService -[hidden]- IDoctorService
+HospitalService -[hidden]- HospitalsController
 
-' Controller
-HospitalsController -[hidden]- HospitalMappingProfile
+IMapper -[hidden]- ILogger
 
 ' ===== RELATIONSHIPS =====
 IHospitalRepository <|.. HospitalRepository
@@ -448,46 +199,17 @@ HospitalRepository --> HospitalFilterRequest
 HospitalService --> IHospitalRepository
 HospitalService --> IMapper
 HospitalService --> ILogger
-HospitalService --> IAuthService
-HospitalService --> IDoctorService
 HospitalService --> CreateHospitalRequest
 HospitalService --> UpdateHospitalRequest
 HospitalService --> HospitalFilterRequest
 HospitalService --> HospitalResponse
-HospitalService --> HospitalDetailResponse
 HospitalService --> HospitalListResponse
-HospitalService --> HospitalSimpleResponse
 
 HospitalsController --> IHospitalService
 HospitalsController --> CreateHospitalRequest
 HospitalsController --> UpdateHospitalRequest
 HospitalsController --> HospitalFilterRequest
 HospitalsController --> HospitalResponse
-HospitalsController --> HospitalDetailResponse
 HospitalsController --> HospitalListResponse
-HospitalsController --> HospitalSimpleResponse
-
-HospitalMappingProfile --> HospitalEntity
-HospitalMappingProfile --> CreateHospitalRequest
-HospitalMappingProfile --> UpdateHospitalRequest
-HospitalMappingProfile --> HospitalResponse
-HospitalMappingProfile --> HospitalDetailResponse
-HospitalMappingProfile --> HospitalListResponse
-HospitalMappingProfile --> HospitalSimpleResponse
-HospitalMappingProfile --> HospitalImageResponse
-HospitalMappingProfile --> HospitalSubscriptionResponse
-
-HospitalEntity --> HospitalSubscriptionEntity
-HospitalEntity --> HospitalSpecialtyEntity
-HospitalEntity --> HospitalImageEntity
-HospitalSubscriptionEntity --> SubscriptionStatus
-CreateHospitalRequest --> SpecialtyResponse
-UpdateHospitalRequest --> SpecialtyResponse
-HospitalResponse --> SpecialtyResponse
-HospitalDetailResponse --> SpecialtyResponse
-HospitalDetailResponse --> PositionResponse
-HospitalDetailResponse --> ServiceTypeResponse
-HospitalDetailResponse --> HospitalImageResponse
-HospitalDetailResponse --> HospitalSubscriptionResponse
 
 @enduml

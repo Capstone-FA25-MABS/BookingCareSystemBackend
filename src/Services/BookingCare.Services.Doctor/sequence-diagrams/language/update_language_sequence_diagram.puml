@@ -1,6 +1,13 @@
 @startuml
 title Update Language
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Admin
 participant UI
 participant LanguagesController
@@ -9,20 +16,17 @@ participant LanguageRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
 Admin -> UI : 1. Edit language form and click "Update Language"
 activate UI
-UI -> LanguagesController : 2. HTTP PUT /api/languages/{id} (UpdateLanguageRequest)
+UI -> LanguagesController : 2. UpdateLanguage(id, UpdateLanguageRequest)
 activate LanguagesController
 
-== Service Call ==
 LanguagesController -> LanguageService : 3. UpdateLanguageAsync(UpdateLanguageRequest)
 activate LanguageService
 
-== Validate Language Exists ==
 LanguageService -> LanguageRepository : 4. GetLanguageByIdAsync(languageId)
 activate LanguageRepository
-LanguageRepository -> Database : 5. SELECT * FROM Languages WHERE Id = @id
+LanguageRepository -> Database : 5. GetLanguageDataById(id)
 activate Database
 Database --> LanguageRepository : 6. LanguageEntity
 deactivate Database
@@ -32,16 +36,15 @@ deactivate LanguageRepository
 alt Language not found
     LanguageService --> LanguagesController : 8. ArgumentException("Language with ID not found")
     deactivate LanguageService
-    LanguagesController --> UI : 9. HTTP 400 Bad Request
+    LanguagesController --> UI : 9. Return bad request error
     deactivate LanguagesController
     UI --> Admin : 10. Show "Language not found"
     deactivate UI
 else Language found
 
-    == Validate Language Name (if changed) ==
     LanguageService -> LanguageRepository : 8. LanguageNameExistsAsync(name, excludeId)
     activate LanguageRepository
-    LanguageRepository -> Database : 9. SELECT COUNT(*) FROM Languages WHERE Name = @name AND Id != @excludeId
+    LanguageRepository -> Database : 9. CheckLanguageNameExistsExcludingId(name, excludeId)
     activate Database
     Database --> LanguageRepository : 10. boolean exists
     deactivate Database
@@ -51,14 +54,13 @@ else Language found
     alt Language name already exists
         LanguageService --> LanguagesController : 12. ArgumentException("Language with name already exists")
         deactivate LanguageService
-        LanguagesController --> UI : 13. HTTP 400 Bad Request
+        LanguagesController --> UI : 13. Return bad request error
         deactivate LanguagesController
         UI --> Admin : 14. Show "Language name already exists"
         deactivate UI
     else Language name is unique
         note right: Continue to update language
 
-        == Update Language Entity ==
         LanguageService -> AutoMapper : 15. Map(request, existingLanguage)
         activate AutoMapper
         AutoMapper --> LanguageService : 16. Updated LanguageEntity
@@ -68,17 +70,15 @@ else Language found
         activate LanguageService
         deactivate LanguageService
 
-        == Save Updated Language ==
         LanguageService -> LanguageRepository : 18. UpdateLanguageAsync(updatedLanguage)
         activate LanguageRepository
-        LanguageRepository -> Database : 19. UPDATE Languages SET Name = @name, Status = @status, UpdatedAt = @now WHERE Id = @id
+        LanguageRepository -> Database : 19. UpdateLanguageData(updatedLanguage)
         activate Database
         Database --> LanguageRepository : 20. Updated count
         deactivate Database
         LanguageRepository --> LanguageService : 21. LanguageEntity
         deactivate LanguageRepository
 
-        == Map to Response DTO ==
         LanguageService -> AutoMapper : 22. Map(LanguageEntity → LanguageResponse)
         activate AutoMapper
         AutoMapper --> LanguageService : 23. LanguageResponse
@@ -87,7 +87,7 @@ else Language found
         LanguageService --> LanguagesController : 24. LanguageResponse
         deactivate LanguageService
 
-        LanguagesController --> UI : 25. HTTP 200 OK (LanguageResponse)
+        LanguagesController --> UI : 25. Return LanguageResponse
         deactivate LanguagesController
 
         UI --> Admin : 26. Show "Language updated successfully"

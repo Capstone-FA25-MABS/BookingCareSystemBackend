@@ -1,6 +1,13 @@
 @startuml
 title Update Hospital
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Staff
 participant UI
 participant HospitalsController
@@ -10,20 +17,17 @@ participant AuthService
 participant AutoMapper
 database Database
 
-== UI Request ==
 Staff -> UI : 1. Edit hospital form and click "Update Hospital"
 activate UI
-UI -> HospitalsController : 2. HTTP PUT /api/hospitals/{id} (UpdateHospitalRequest)
+UI -> HospitalsController : 2. UpdateHospital(id, UpdateHospitalRequest)
 activate HospitalsController
 
-== Service Call ==
 HospitalsController -> HospitalService : 3. UpdateAsync(id, UpdateHospitalRequest)
 activate HospitalService
 
-== Validate Hospital Exists ==
 HospitalService -> HospitalRepository : 4. GetByIdAsync(hospitalId)
 activate HospitalRepository
-HospitalRepository -> Database : 5. SELECT * FROM Hospitals WHERE Id = @id
+HospitalRepository -> Database : 5. GetHospitalDataById(id)
 activate Database
 Database --> HospitalRepository : 6. HospitalEntity
 deactivate Database
@@ -33,17 +37,16 @@ deactivate HospitalRepository
 alt Hospital not found
     HospitalService --> HospitalsController : 8. HospitalNotFoundException(id)
     deactivate HospitalService
-    HospitalsController --> UI : 9. HTTP 404 Not Found
+    HospitalsController --> UI : 9. Return not found error
     deactivate HospitalsController
     UI --> Staff : 10. Show "Hospital not found"
     deactivate UI
 else Hospital found
 
-    == Validate Hospital Email (if changed) ==
     alt Email is being updated
         HospitalService -> HospitalRepository : 8. EmailExistsAsync(email, excludeId)
         activate HospitalRepository
-        HospitalRepository -> Database : 9. SELECT COUNT(*) FROM Hospitals WHERE Email = @email AND Id != @excludeId
+        HospitalRepository -> Database : 9. CheckHospitalEmailExistsExcludingId(email, excludeId)
         activate Database
         Database --> HospitalRepository : 10. boolean exists
         deactivate Database
@@ -53,7 +56,7 @@ else Hospital found
         alt Hospital email already exists
             HospitalService --> HospitalsController : 12. HospitalAlreadyExistsException(email)
             deactivate HospitalService
-            HospitalsController --> UI : 13. HTTP 409 Conflict
+            HospitalsController --> UI : 13. Return conflict error
             deactivate HospitalsController
             UI --> Staff : 14. Show "Hospital email already exists"
             deactivate UI
@@ -62,28 +65,25 @@ else Hospital found
         end
     end
 
-    == Update Hospital Entity ==
     HospitalService -> AutoMapper : 15. Map(request, existingHospital)
     activate AutoMapper
     AutoMapper --> HospitalService : 16. Updated HospitalEntity
     deactivate AutoMapper
 
-    == Save Updated Hospital ==
     HospitalService -> HospitalRepository : 17. UpdateAsync(updatedHospital)
     activate HospitalRepository
-    HospitalRepository -> Database : 18. UPDATE Hospitals SET Name = @name, Email = @email, Address = @address, Phone = @phone, Description = @description, UpdatedAt = @now WHERE Id = @id
+    HospitalRepository -> Database : 18. UpdateHospitalData(updatedHospital)
     activate Database
     Database --> HospitalRepository : 19. Updated count
     deactivate Database
     HospitalRepository --> HospitalService : 20. HospitalEntity
     deactivate HospitalRepository
 
-    == Update Specialties (if provided) ==
     alt SpecialtyIds provided
         loop For each specialtyId
             HospitalService -> HospitalService : 21. AddSpecialtyAsync(hospitalId, specialtyId)
             activate HospitalService
-            HospitalService -> Database : 22. INSERT INTO HospitalSpecialties (HospitalId, SpecialtyId)
+            HospitalService -> Database : 22. CreateHospitalSpecialtyData(hospitalId, specialtyId)
             activate Database
             Database --> HospitalService : 23. Success
             deactivate Database
@@ -91,13 +91,11 @@ else Hospital found
         end
     end
 
-    == Map to Response DTO ==
     HospitalService -> AutoMapper : 24. Map(HospitalEntity → HospitalResponse)
     activate AutoMapper
     AutoMapper --> HospitalService : 25. HospitalResponse
     deactivate AutoMapper
 
-    == Enrich with Account Status ==
     HospitalService -> AuthService : 26. GetAccountStatusByIdsAsync([accountId])
     activate AuthService
     AuthService --> HospitalService : 27. Dictionary<Guid, Status>
@@ -110,7 +108,7 @@ else Hospital found
     HospitalService --> HospitalsController : 29. HospitalResponse
     deactivate HospitalService
 
-    HospitalsController --> UI : 30. HTTP 200 OK (HospitalResponse)
+    HospitalsController --> UI : 30. Return HospitalResponse
     deactivate HospitalsController
 
     UI --> Staff : 31. Show "Hospital updated successfully"

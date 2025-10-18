@@ -1,7 +1,14 @@
 @startuml
 title Create Doctor
 
-actor User
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
+actor Staff
 participant UI
 participant DoctorsController
 participant DoctorService
@@ -11,24 +18,20 @@ participant SpecialtyRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
-User -> UI : 1. Fill doctor form and click "Create Doctor"
+Staff -> UI : 1. Fill doctor form and click "Create Doctor"
 activate UI
-UI -> DoctorsController : 2. HTTP POST /api/doctors (CreateDoctorRequest)
+UI -> DoctorsController : 2. CreateDoctor(CreateDoctorRequest)
 activate DoctorsController
 
-== Service Call ==
 DoctorsController -> DoctorService : 3. CreateDoctorAsync(CreateDoctorRequest)
 activate DoctorService
 
-== Validation Phase ==
 DoctorService -> DoctorService : 4. ValidateCreateDoctorRequest(request)
 activate DoctorService
 
-== Email Validation ==
 DoctorService -> DoctorRepository : 5. DoctorEmailExistsAsync(email)
 activate DoctorRepository
-DoctorRepository -> Database : 6. SELECT COUNT(*) FROM Doctors WHERE Email = @email
+DoctorRepository -> Database : 6. CheckDoctorEmailExists(email)
 activate Database
 Database --> DoctorRepository : 7. boolean exists
 deactivate Database
@@ -38,16 +41,15 @@ deactivate DoctorRepository
 alt Email already exists
     DoctorService --> DoctorsController : 9. DoctorConflictException.WithEmail(email)
     deactivate DoctorService
-    DoctorsController --> UI : 10. HTTP 409 Conflict
+    DoctorsController --> UI : 10. Return conflict error
     deactivate DoctorsController
-    UI --> User : 11. Show "Email already exists"
+    UI --> Staff : 11. Show "Email already exists"
     deactivate UI
 else Email is unique
 
-    == Account Validation ==
     DoctorService -> DoctorRepository : 9. DoctorAccountExistsAsync(accountId)
     activate DoctorRepository
-    DoctorRepository -> Database : 10. SELECT COUNT(*) FROM Doctors WHERE AccountId = @accountId
+    DoctorRepository -> Database : 10. CheckDoctorAccountExists(accountId)
     activate Database
     Database --> DoctorRepository : 11. boolean exists
     deactivate Database
@@ -57,17 +59,16 @@ else Email is unique
     alt Account already exists
         DoctorService --> DoctorsController : 13. DoctorConflictException.WithAccountId(accountId)
         deactivate DoctorService
-        DoctorsController --> UI : 14. HTTP 409 Conflict
+        DoctorsController --> UI : 14. Return conflict error
         deactivate DoctorsController
-        UI --> User : 15. Show "Account already exists"
+        UI --> Staff : 15. Show "Account already exists"
         deactivate UI
     else Account is unique
 
-        == Position Validation ==
         alt PositionId provided
             DoctorService -> PositionRepository : 13. PositionExistsAsync(positionId)
             activate PositionRepository
-            PositionRepository -> Database : 14. SELECT COUNT(*) FROM Positions WHERE Id = @positionId
+            PositionRepository -> Database : 14. CheckPositionExists(positionId)
             activate Database
             Database --> PositionRepository : 15. boolean exists
             deactivate Database
@@ -77,20 +78,19 @@ else Email is unique
             alt Position not found
                 DoctorService --> DoctorsController : 17. PositionNotFoundException.WithId(positionId)
                 deactivate DoctorService
-                DoctorsController --> UI : 18. HTTP 404 Not Found
+                DoctorsController --> UI : 18. Return not found error
                 deactivate DoctorsController
-                UI --> User : 19. Show "Position not found"
+                UI --> Staff: 19. Show "Position not found"
                 deactivate UI
             else Position exists
                 note right: Continue to next validation
             end
         end
 
-        == Specialty Validation ==
         alt SpecialtyId provided
             DoctorService -> SpecialtyRepository : 17. SpecialtyExistsAsync(specialtyId)
             activate SpecialtyRepository
-            SpecialtyRepository -> Database : 18. SELECT COUNT(*) FROM Specialties WHERE Id = @specialtyId
+            SpecialtyRepository -> Database : 18. CheckSpecialtyExists(specialtyId)
             activate Database
             Database --> SpecialtyRepository : 19. boolean exists
             deactivate Database
@@ -100,16 +100,15 @@ else Email is unique
             alt Specialty not found
                 DoctorService --> DoctorsController : 21. ArgumentException("Specialty not found")
                 deactivate DoctorService
-                DoctorsController --> UI : 22. HTTP 400 Bad Request
+                DoctorsController --> UI : 22. Return bad request error
                 deactivate DoctorsController
-                UI --> User : 23. Show "Specialty not found"
+                UI --> Staff: 23. Show "Specialty not found"
                 deactivate UI
             else Specialty exists
                 note right: Continue to create doctor
             end
         end
 
-        == Create Doctor Entity ==
         DoctorService -> DoctorService : 21. CreateDoctorEntity(request)
         activate DoctorService
         DoctorService -> AutoMapper : 22. Map(CreateDoctorRequest → DoctorEntity)
@@ -118,21 +117,19 @@ else Email is unique
         deactivate AutoMapper
         deactivate DoctorService
 
-        == Save Doctor to Database ==
         DoctorService -> DoctorRepository : 24. CreateDoctorAsync(doctor)
         activate DoctorRepository
-        DoctorRepository -> Database : 25. INSERT INTO Doctors (Id, FirstName, LastName, Email, ...)
+        DoctorRepository -> Database : 25. CreateDoctorData(doctor)
         activate Database
         Database --> DoctorRepository : 26. DoctorEntity created
         deactivate Database
-        DoctorRepository -> Database : 27. SELECT d.*, p.*, s.*, dp.*, dl.* FROM Doctors d LEFT JOIN... WHERE d.Id = @id
+        DoctorRepository -> Database : 27. GetDoctorDataById(id)
         activate Database
         Database --> DoctorRepository : 28. DoctorEntity (with includes)
         deactivate Database
         DoctorRepository --> DoctorService : 29. DoctorEntity (with includes)
         deactivate DoctorRepository
 
-        == Create Doctor Prices ==
         alt Prices provided
             DoctorService -> DoctorService : 30. CreateDoctorPricesAsync(doctorId, prices)
             activate DoctorService
@@ -140,7 +137,7 @@ else Email is unique
             loop For each price
                 DoctorService -> DoctorRepository : 31. GetServiceTypeByIdAsync(serviceTypeId)
                 activate DoctorRepository
-                DoctorRepository -> Database : 32. SELECT * FROM ServiceTypes WHERE Id = @serviceTypeId
+                DoctorRepository -> Database : 32. GetServiceTypeData(serviceTypeId)
                 activate Database
                 Database --> DoctorRepository : 33. ServiceTypeEntity
                 deactivate Database
@@ -150,14 +147,14 @@ else Email is unique
                 alt ServiceType not found
                     DoctorService --> DoctorsController : 35. ArgumentException("ServiceType not found")
                     deactivate DoctorService
-                    DoctorsController --> UI : 36. HTTP 400 Bad Request
+                    DoctorsController --> UI : 36. Return bad request error
                     deactivate DoctorsController
-                    UI --> User : 37. Show "ServiceType not found"
+                    UI --> Staff: 37. Show "ServiceType not found"
                     deactivate UI
                 else ServiceType exists
                     DoctorService -> DoctorRepository : 35. CreateDoctorPriceAsync(doctorPrice)
                     activate DoctorRepository
-                    DoctorRepository -> Database : 36. INSERT INTO DoctorPrices (Id, DoctorId, ServiceTypeId, Amount)
+                    DoctorRepository -> Database : 36. CreateDoctorPriceData(doctorPrice)
                     activate Database
                     Database --> DoctorRepository : 37. DoctorPriceEntity
                     deactivate Database
@@ -168,7 +165,6 @@ else Email is unique
             deactivate DoctorService
         end
 
-        == Create Doctor Languages ==
         alt Languages provided
             DoctorService -> DoctorService : 39. CreateDoctorLanguagesAsync(doctorId, languageIds)
             activate DoctorService
@@ -176,7 +172,7 @@ else Email is unique
             loop For each language
                 DoctorService -> DoctorRepository : 40. GetLanguageByIdAsync(languageId)
                 activate DoctorRepository
-                DoctorRepository -> Database : 41. SELECT * FROM Languages WHERE Id = @languageId
+                DoctorRepository -> Database : 41. GetLanguageData(languageId)
                 activate Database
                 Database --> DoctorRepository : 42. LanguageEntity
                 deactivate Database
@@ -186,14 +182,14 @@ else Email is unique
                 alt Language not found
                     DoctorService --> DoctorsController : 44. ArgumentException("Language not found")
                     deactivate DoctorService
-                    DoctorsController --> UI : 45. HTTP 400 Bad Request
+                    DoctorsController --> UI : 45. Return bad request error
                     deactivate DoctorsController
-                    UI --> User : 46. Show "Language not found"
+                    UI --> Staff: 46. Show "Language not found"
                     deactivate UI
                 else Language exists
                     DoctorService -> DoctorRepository : 44. CreateDoctorLanguageAsync(doctorLanguage)
                     activate DoctorRepository
-                    DoctorRepository -> Database : 45. INSERT INTO DoctorLanguages (Id, DoctorId, LanguageId)
+                    DoctorRepository -> Database : 45. CreateDoctorLanguageData(doctorLanguage)
                     activate Database
                     Database --> DoctorRepository : 46. DoctorLanguageEntity
                     deactivate Database
@@ -204,7 +200,6 @@ else Email is unique
             deactivate DoctorService
         end
 
-        == Map to Response DTO ==
         DoctorService -> AutoMapper : 48. Map(DoctorEntity → DoctorResponse)
         activate AutoMapper
         AutoMapper --> DoctorService : 49. DoctorResponse
@@ -213,10 +208,10 @@ else Email is unique
         DoctorService --> DoctorsController : 50. DoctorResponse
         deactivate DoctorService
 
-        DoctorsController --> UI : 51. HTTP 201 Created (DoctorResponse)
+        DoctorsController --> UI : 51. Return DoctorResponse
         deactivate DoctorsController
 
-        UI --> User : 52. Show "Doctor created successfully"
+        UI --> Staff: 52. Show "Doctor created successfully"
         deactivate UI
     end
 end

@@ -1,6 +1,13 @@
 @startuml
 title Create Specialty
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Admin
 participant UI
 participant SpecialtiesController
@@ -9,20 +16,17 @@ participant SpecialtyRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
 Admin -> UI : 1. Fill specialty form and click "Create Specialty"
 activate UI
-UI -> SpecialtiesController : 2. HTTP POST /api/specialties (CreateSpecialtyRequest)
+UI -> SpecialtiesController : 2. CreateSpecialty(CreateSpecialtyRequest)
 activate SpecialtiesController
 
-== Service Call ==
 SpecialtiesController -> SpecialtyService : 3. CreateSpecialtyAsync(CreateSpecialtyRequest)
 activate SpecialtyService
 
-== Validate Specialty Name ==
 SpecialtyService -> SpecialtyRepository : 4. SpecialtyNameExistsAsync(name)
 activate SpecialtyRepository
-SpecialtyRepository -> Database : 5. SELECT COUNT(*) FROM Specialties WHERE Name = @name
+SpecialtyRepository -> Database : 5. CheckSpecialtyNameExists(name)
 activate Database
 Database --> SpecialtyRepository : 6. boolean exists
 deactivate Database
@@ -32,13 +36,12 @@ deactivate SpecialtyRepository
 alt Specialty name already exists
     SpecialtyService --> SpecialtiesController : 8. SpecialtyConflictException.WithName(name)
     deactivate SpecialtyService
-    SpecialtiesController --> UI : 9. HTTP 409 Conflict
+    SpecialtiesController --> UI : 9. Return conflict error
     deactivate SpecialtiesController
     UI --> Admin : 10. Show "Specialty name already exists"
     deactivate UI
 else Specialty name is unique
 
-    == Create Specialty Entity ==
     SpecialtyService -> AutoMapper : 8. Map(CreateSpecialtyRequest → SpecialtyEntity)
     activate AutoMapper
     AutoMapper --> SpecialtyService : 9. SpecialtyEntity (with new Guid)
@@ -48,17 +51,15 @@ else Specialty name is unique
     activate SpecialtyService
     deactivate SpecialtyService
 
-    == Save Specialty to Database ==
     SpecialtyService -> SpecialtyRepository : 11. CreateSpecialtyAsync(specialty)
     activate SpecialtyRepository
-    SpecialtyRepository -> Database : 12. INSERT INTO Specialties (Id, Name, Status, CreatedAt, UpdatedAt)
+    SpecialtyRepository -> Database : 12. CreateSpecialtyData(specialty)
     activate Database
     Database --> SpecialtyRepository : 13. SpecialtyEntity created
     deactivate Database
     SpecialtyRepository --> SpecialtyService : 14. SpecialtyEntity
     deactivate SpecialtyRepository
 
-    == Map to Response DTO ==
     SpecialtyService -> AutoMapper : 15. Map(SpecialtyEntity → SpecialtyResponse)
     activate AutoMapper
     AutoMapper --> SpecialtyService : 16. SpecialtyResponse
@@ -67,7 +68,7 @@ else Specialty name is unique
     SpecialtyService --> SpecialtiesController : 17. SpecialtyResponse
     deactivate SpecialtyService
 
-    SpecialtiesController --> UI : 18. HTTP 201 Created (SpecialtyResponse)
+    SpecialtiesController --> UI : 18. Return SpecialtyResponse
     deactivate SpecialtiesController
 
     UI --> Admin : 19. Show "Specialty created successfully"

@@ -1,6 +1,13 @@
 @startuml
 title Create Doctor Service Type
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Admin
 participant UI
 participant ServiceTypesController
@@ -9,20 +16,17 @@ participant ServiceTypeRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
 Admin -> UI : 1. Fill Doctor Service Type form and click "Create Doctor Service Type"
 activate UI
-UI -> ServiceTypesController : 2. HTTP POST /api/service-types (CreateServiceTypeRequest)
+UI -> ServiceTypesController : 2. CreateServiceType(CreateServiceTypeRequest)
 activate ServiceTypesController
 
-== Service Call ==
 ServiceTypesController -> ServiceTypeService : 3. CreateServiceTypeAsync(CreateServiceTypeRequest)
 activate ServiceTypeService
 
-== Validate Doctor Service Type Name ==
 ServiceTypeService -> ServiceTypeRepository : 4. ServiceTypeNameExistsAsync(name)
 activate ServiceTypeRepository
-ServiceTypeRepository -> Database : 5. SELECT COUNT(*) FROM ServiceTypes WHERE Name = @name
+ServiceTypeRepository -> Database : 5. CheckServiceTypeNameExists(name)
 activate Database
 Database --> ServiceTypeRepository : 6. boolean exists
 deactivate Database
@@ -32,13 +36,12 @@ deactivate ServiceTypeRepository
 alt Doctor Service Type name already exists
     ServiceTypeService --> ServiceTypesController : 8. ArgumentException("Doctor Service Type with name already exists")
     deactivate ServiceTypeService
-    ServiceTypesController --> UI : 9. HTTP 400 Bad Request
+    ServiceTypesController --> UI : 9. Return bad request error
     deactivate ServiceTypesController
     UI --> Admin : 10. Show "Doctor Service Type name already exists"
     deactivate UI
 else Doctor Service Type name is unique
 
-    == Create Doctor Service Type Entity ==
     ServiceTypeService -> AutoMapper : 8. Map(CreateServiceTypeRequest → ServiceTypeEntity)
     activate AutoMapper
     AutoMapper --> ServiceTypeService : 9. ServiceTypeEntity (with new Guid)
@@ -48,17 +51,15 @@ else Doctor Service Type name is unique
     activate ServiceTypeService
     deactivate ServiceTypeService
 
-    == Save Doctor Service Type to Database ==
     ServiceTypeService -> ServiceTypeRepository : 11. CreateServiceTypeAsync(serviceType)
     activate ServiceTypeRepository
-    ServiceTypeRepository -> Database : 12. INSERT INTO ServiceTypes (Id, Name, Status, CreatedAt, UpdatedAt)
+    ServiceTypeRepository -> Database : 12. CreateServiceTypeData(serviceType)
     activate Database
     Database --> ServiceTypeRepository : 13. ServiceTypeEntity created
     deactivate Database
     ServiceTypeRepository --> ServiceTypeService : 14. ServiceTypeEntity
     deactivate ServiceTypeRepository
 
-    == Map to Response DTO ==
     ServiceTypeService -> AutoMapper : 15. Map(ServiceTypeEntity → ServiceTypeResponse)
     activate AutoMapper
     AutoMapper --> ServiceTypeService : 16. ServiceTypeResponse
@@ -67,7 +68,7 @@ else Doctor Service Type name is unique
     ServiceTypeService --> ServiceTypesController : 17. ServiceTypeResponse
     deactivate ServiceTypeService
 
-    ServiceTypesController --> UI : 18. HTTP 201 Created (ServiceTypeResponse)
+    ServiceTypesController --> UI : 18. Return ServiceTypeResponse
     deactivate ServiceTypesController
 
     UI --> Admin : 19. Show "Doctor Service Type created successfully"

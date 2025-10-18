@@ -1,6 +1,13 @@
 @startuml
 title Toggle Hospital Status
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Staff
 participant UI
 participant HospitalsController
@@ -10,20 +17,17 @@ participant AuthService
 participant AutoMapper
 database Database
 
-== UI Request ==
 Staff -> UI : 1. Click "Toggle Status" button on hospital
 activate UI
-UI -> HospitalsController : 2. HTTP PATCH /api/hospitals/{id}/toggle-status
+UI -> HospitalsController : 2. ToggleHospitalStatus(id)
 activate HospitalsController
 
-== Service Call ==
 HospitalsController -> HospitalService : 3. ToggleHospitalStatusAsync(Guid id)
 activate HospitalService
 
-== Validate Hospital Exists ==
 HospitalService -> HospitalRepository : 4. GetByIdAsync(hospitalId)
 activate HospitalRepository
-HospitalRepository -> Database : 5. SELECT * FROM Hospitals WHERE Id = @id
+HospitalRepository -> Database : 5. GetHospitalDataById(id)
 activate Database
 Database --> HospitalRepository : 6. HospitalEntity
 deactivate Database
@@ -33,13 +37,12 @@ deactivate HospitalRepository
 alt Hospital not found
     HospitalService --> HospitalsController : 8. HospitalNotFoundException(id)
     deactivate HospitalService
-    HospitalsController --> UI : 9. HTTP 404 Not Found
+    HospitalsController --> UI : 9. Return not found error
     deactivate HospitalsController
     UI --> Staff : 10. Show "Hospital not found"
     deactivate UI
 else Hospital found
 
-    == Get Current Account Status ==
     HospitalService -> AuthService : 8. GetAccountStatusByIdsAsync([accountId])
     activate AuthService
     AuthService --> HospitalService : 9. Dictionary<Guid, Status>
@@ -48,7 +51,7 @@ else Hospital found
     alt Current status is ACTIVE
         HospitalService -> AuthService : 10. UpdateAccountStatusAsync(accountId, INACTIVE)
         activate AuthService
-        AuthService -> Database : 11. UPDATE Accounts SET Status = INACTIVE, UpdatedAt = @now WHERE Id = @accountId
+        AuthService -> Database : 11. UpdateAccountStatusData(accountId, INACTIVE)
         activate Database
         Database --> AuthService : 12. Updated count
         deactivate Database
@@ -57,7 +60,7 @@ else Hospital found
     else Current status is INACTIVE
         HospitalService -> AuthService : 10. UpdateAccountStatusAsync(accountId, ACTIVE)
         activate AuthService
-        AuthService -> Database : 11. UPDATE Accounts SET Status = ACTIVE, UpdatedAt = @now WHERE Id = @accountId
+        AuthService -> Database : 11. UpdateAccountStatusData(accountId, ACTIVE)
         activate Database
         Database --> AuthService : 12. Updated count
         deactivate Database
@@ -68,7 +71,7 @@ else Hospital found
     alt Status update failed
         HospitalService --> HospitalsController : 14. Exception("Failed to toggle hospital status")
         deactivate HospitalService
-        HospitalsController --> UI : 15. HTTP 500 Internal Server Error
+        HospitalsController --> UI : 15. Return server error
         deactivate HospitalsController
         UI --> Staff : 16. Show "Failed to toggle status"
         deactivate UI
@@ -76,7 +79,7 @@ else Hospital found
         HospitalService --> HospitalsController : 14. true
         deactivate HospitalService
 
-        HospitalsController --> UI : 15. HTTP 200 OK
+        HospitalsController --> UI : 15. Return success
         deactivate HospitalsController
 
         UI --> Staff : 16. Show "Hospital status toggled successfully"

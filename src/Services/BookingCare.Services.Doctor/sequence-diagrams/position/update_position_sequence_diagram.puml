@@ -1,6 +1,13 @@
 @startuml
 title Update Position
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Admin
 participant UI
 participant PositionsController
@@ -9,20 +16,17 @@ participant PositionRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
 Admin -> UI : 1. Edit position form and click "Update Position"
 activate UI
-UI -> PositionsController : 2. HTTP PUT /api/positions/{id} (UpdatePositionRequest)
+UI -> PositionsController : 2. UpdatePosition(id, UpdatePositionRequest)
 activate PositionsController
 
-== Service Call ==
 PositionsController -> PositionService : 3. UpdatePositionAsync(UpdatePositionRequest)
 activate PositionService
 
-== Validate Position Exists ==
 PositionService -> PositionRepository : 4. GetPositionByIdAsync(positionId)
 activate PositionRepository
-PositionRepository -> Database : 5. SELECT * FROM Positions WHERE Id = @id
+PositionRepository -> Database : 5. GetPositionDataById(id)
 activate Database
 Database --> PositionRepository : 6. PositionEntity
 deactivate Database
@@ -32,17 +36,16 @@ deactivate PositionRepository
 alt Position not found
     PositionService --> PositionsController : 8. PositionNotFoundException.WithId(positionId)
     deactivate PositionService
-    PositionsController --> UI : 9. HTTP 404 Not Found
+    PositionsController --> UI : 9. Return not found error
     deactivate PositionsController
     UI --> Admin : 10. Show "Position not found"
     deactivate UI
 else Position found
 
-    == Validate Position Name (if changed) ==
     alt Position name is being updated
         PositionService -> PositionRepository : 8. PositionNameExistsAsync(name, excludeId)
         activate PositionRepository
-        PositionRepository -> Database : 9. SELECT COUNT(*) FROM Positions WHERE Name = @name AND Id != @excludeId
+        PositionRepository -> Database : 9. CheckPositionNameExistsExcludingId(name, excludeId)
         activate Database
         Database --> PositionRepository : 10. boolean exists
         deactivate Database
@@ -52,7 +55,7 @@ else Position found
         alt Position name already exists
             PositionService --> PositionsController : 12. PositionConflictException.WithName(name)
             deactivate PositionService
-            PositionsController --> UI : 13. HTTP 409 Conflict
+            PositionsController --> UI : 13. Return conflict error
             deactivate PositionsController
             UI --> Admin : 14. Show "Position name already exists"
             deactivate UI
@@ -61,7 +64,6 @@ else Position found
         end
     end
 
-    == Update Position Entity ==
     PositionService -> AutoMapper : 15. Map(request, existingPosition)
     activate AutoMapper
     AutoMapper --> PositionService : 16. Updated PositionEntity
@@ -71,17 +73,15 @@ else Position found
     activate PositionService
     deactivate PositionService
 
-    == Save Updated Position ==
     PositionService -> PositionRepository : 18. UpdatePositionAsync(updatedPosition)
     activate PositionRepository
-    PositionRepository -> Database : 19. UPDATE Positions SET Name = @name, Status = @status, UpdatedAt = @now WHERE Id = @id
+    PositionRepository -> Database : 19. UpdatePositionData(updatedPosition)
     activate Database
     Database --> PositionRepository : 20. Updated count
     deactivate Database
     PositionRepository --> PositionService : 21. PositionEntity
     deactivate PositionRepository
 
-    == Map to Response DTO ==
     PositionService -> AutoMapper : 22. Map(PositionEntity → PositionResponse)
     activate AutoMapper
     AutoMapper --> PositionService : 23. PositionResponse
@@ -90,7 +90,7 @@ else Position found
     PositionService --> PositionsController : 24. PositionResponse
     deactivate PositionService
 
-    PositionsController --> UI : 25. HTTP 200 OK (PositionResponse)
+    PositionsController --> UI : 25. Return PositionResponse
     deactivate PositionsController
 
     UI --> Admin : 26. Show "Position updated successfully"

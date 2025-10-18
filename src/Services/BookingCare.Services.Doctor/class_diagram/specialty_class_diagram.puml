@@ -1,21 +1,24 @@
 @startuml
 !theme plain
-title Specialty Class Diagram - BookingCare.Services.Doctor
+title Specialty Class Diagram
+hide circle
 
 ' ===== SKIN PARAMETERS =====
 skinparam class {
     BackgroundColor White
     BorderColor Black
     ArrowColor Black
-    ArrowThickness 2
+    ArrowThickness 1
+    FontSize 10
 }
 
 skinparam arrow {
-    Thickness 2
+    Thickness 1
     Color Black
 }
 
 skinparam linetype ortho
+skinparam packageStyle rectangle
 
 ' ===== VISIBILITY MODIFIERS =====
 skinparam classAttribute {
@@ -28,203 +31,134 @@ skinparam classMethod {
     FontSize 10
 }
 
-' ===== ENTITIES =====
-class BaseEntity {
-    + public Guid Id
-    + public string Name
-    + public Status Status
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
-}
-
+' ===== CORE ENTITIES =====
 class SpecialtyEntity {
-    + public string Name
-    + public string ImageUrl
-    --
-    [Table("specialties")]
-    [MaxLength(255)]
-    [Column("name")]
-    [Column("image_url")]
+    + Guid Id
+    + string Name
+    + string ImageUrl
+    + Status Status
+    + DateTime CreatedAt
+    + DateTime UpdatedAt
 }
 
 ' ===== REQUEST DTOs =====
 class CreateSpecialtyRequest {
-    + public string Name
-    + public string ImageUrl
-    + public Status Status
-    --
-    [Required]
-    [StringLength(255, MinimumLength = 2)]
-    [Required]
-    [Url]
+    + string Name
+    + string ImageUrl
+    + Status Status
 }
 
 class UpdateSpecialtyRequest {
-    + public Guid Id
-    + public string Name
-    + public string ImageUrl
-    + public Status Status
-    --
-    [Required]
-    [JsonRequired]
-    [StringLength(255, MinimumLength = 2)]
-    [Required]
-    [Url]
+    + Guid Id
+    + string Name
+    + string ImageUrl
+    + Status Status
 }
 
 class SpecialtyQueryRequest {
-    + public string? SearchTerm
-    + public Status? Status
-    + public int PageNumber
-    + public int PageSize
-    + public string? SortBy
-    + public string? SortOrder
-    --
-    [JsonRequired]
+    + string? SearchTerm
+    + Status? Status
+    + int PageNumber
+    + int PageSize
 }
 
 ' ===== RESPONSE DTOs =====
 class SpecialtyResponse {
-    + public Guid Id
-    + public string Name
-    + public string ImageUrl
-    + public Status Status
-    + public int DoctorCount
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
+    + Guid Id
+    + string Name
+    + string ImageUrl
+    + Status Status
+    + int DoctorCount
+    + DateTime CreatedAt
+    + DateTime UpdatedAt
 }
 
 class SpecialtyListResponse {
-    + public List<SpecialtyResponse> Specialties
-    + public int TotalCount
-    + public int PageNumber
-    + public int PageSize
-    + public int TotalPages
-}
-
-class SpecialtySimpleResponse {
-    + public Guid Id
-    + public string Name
-    + public int DoctorCount
-    --
-    Simple response DTO for performance optimization
+    + List<SpecialtyResponse> Specialties
+    + int TotalCount
+    + int PageNumber
+    + int PageSize
+    + int TotalPages
 }
 
 ' ===== REPOSITORY INTERFACE =====
 interface ISpecialtyRepository {
-    + public GetSpecialtyByIdAsync(Guid id) : Task<SpecialtyEntity?>
-    + public GetSpecialtyByNameAsync(string name) : Task<SpecialtyEntity?>
-    + public CreateSpecialtyAsync(SpecialtyEntity specialty) : Task<SpecialtyEntity>
-    + public UpdateSpecialtyAsync(SpecialtyEntity specialty) : Task<SpecialtyEntity>
-    + public DeleteSpecialtyAsync(Guid id) : Task<bool>
-    + public SpecialtyExistsAsync(Guid id) : Task<bool>
-    + public SpecialtyNameExistsAsync(string name, Guid? excludeId) : Task<bool>
-    + public GetSpecialtiesAsync(SpecialtyQueryRequest query) : Task<(List<SpecialtyEntity>, int)>
-    + public GetAllSpecialtiesAsync() : Task<List<SpecialtyEntity>>
-    + public GetSpecialtiesByIdsAsync(List<Guid> ids) : Task<List<SpecialtyEntity>>
-    + public GetDoctorCountsBySpecialtyAsync() : Task<Dictionary<Guid, int>>
-    + public GetActiveSpecialtiesSimpleAsync() : Task<List<SpecialtyEntity>>
-    + public GetActiveDoctorCountsBySpecialtyAsync() : Task<Dictionary<Guid, int>>
+    + GetSpecialtyByIdAsync(Guid id) : Task<SpecialtyEntity?>
+    + GetSpecialtyByNameAsync(string name) : Task<SpecialtyEntity?>
+    + CreateSpecialtyAsync(SpecialtyEntity specialty) : Task<SpecialtyEntity>
+    + UpdateSpecialtyAsync(SpecialtyEntity specialty) : Task<SpecialtyEntity>
+    + DeleteSpecialtyAsync(Guid id) : Task<bool>
+    + GetSpecialtiesAsync(SpecialtyQueryRequest query) : Task<(List<SpecialtyEntity>, int)>
+    + GetAllSpecialtiesAsync() : Task<List<SpecialtyEntity>>
 }
 
 ' ===== REPOSITORY IMPLEMENTATION =====
 class SpecialtyRepository {
-    - private DoctorDbContext _context
+    - DoctorDbContext _context
     --
-    + public SpecialtyRepository(DoctorDbContext context)
-    + public GetSpecialtyByIdAsync(Guid id) : Task<SpecialtyEntity?>
-    + public GetSpecialtyByNameAsync(string name) : Task<SpecialtyEntity?>
-    + public CreateSpecialtyAsync(SpecialtyEntity specialty) : Task<SpecialtyEntity>
-    + public UpdateSpecialtyAsync(SpecialtyEntity specialty) : Task<SpecialtyEntity>
-    + public DeleteSpecialtyAsync(Guid id) : Task<bool>
-    + public SpecialtyExistsAsync(Guid id) : Task<bool>
-    + public SpecialtyNameExistsAsync(string name, Guid? excludeId) : Task<bool>
-    + public GetSpecialtiesAsync(SpecialtyQueryRequest query) : Task<(List<SpecialtyEntity>, int)>
-    + public GetAllSpecialtiesAsync() : Task<List<SpecialtyEntity>>
-    + public GetSpecialtiesByIdsAsync(List<Guid> ids) : Task<List<SpecialtyEntity>>
-    + public GetDoctorCountsBySpecialtyAsync() : Task<Dictionary<Guid, int>>
-    + public GetActiveSpecialtiesSimpleAsync() : Task<List<SpecialtyEntity>>
-    + public GetActiveDoctorCountsBySpecialtyAsync() : Task<Dictionary<Guid, int>>
-    - private ApplySorting(IQueryable<SpecialtyEntity> queryable, SpecialtyQueryRequest query) : IQueryable<SpecialtyEntity>
+    + SpecialtyRepository(DoctorDbContext context)
+    + GetSpecialtyByIdAsync(Guid id) : Task<SpecialtyEntity?>
+    + GetSpecialtyByNameAsync(string name) : Task<SpecialtyEntity?>
+    + CreateSpecialtyAsync(SpecialtyEntity specialty) : Task<SpecialtyEntity>
+    + UpdateSpecialtyAsync(SpecialtyEntity specialty) : Task<SpecialtyEntity>
+    + DeleteSpecialtyAsync(Guid id) : Task<bool>
+    + GetSpecialtiesAsync(SpecialtyQueryRequest query) : Task<(List<SpecialtyEntity>, int)>
+    + GetAllSpecialtiesAsync() : Task<List<SpecialtyEntity>>
 }
 
 ' ===== SERVICE INTERFACE =====
 interface ISpecialtyService {
-    + public CreateSpecialtyAsync(CreateSpecialtyRequest request) : Task<SpecialtyResponse>
-    + public GetSpecialtyByIdAsync(Guid id) : Task<SpecialtyResponse?>
-    + public GetSpecialtyByNameAsync(string name) : Task<SpecialtyResponse?>
-    + public UpdateSpecialtyAsync(UpdateSpecialtyRequest request) : Task<SpecialtyResponse>
-    + public DeleteSpecialtyAsync(Guid id) : Task<bool>
-    + public ToggleSpecialtyStatusAsync(Guid id) : Task<bool>
-    + public GetSpecialtiesAsync(SpecialtyQueryRequest query) : Task<SpecialtyListResponse>
-    + public GetAllSpecialtiesAsync() : Task<List<SpecialtyResponse>>
-    + public GetActiveSpecialtiesSimpleAsync() : Task<List<SpecialtySimpleResponse>>
-    + public SpecialtyExistsAsync(Guid id) : Task<bool>
-    + public SpecialtyNameExistsAsync(string name, Guid? excludeId) : Task<bool>
+    + CreateSpecialtyAsync(CreateSpecialtyRequest request) : Task<SpecialtyResponse>
+    + GetSpecialtyByIdAsync(Guid id) : Task<SpecialtyResponse?>
+    + GetSpecialtyByNameAsync(string name) : Task<SpecialtyResponse?>
+    + UpdateSpecialtyAsync(UpdateSpecialtyRequest request) : Task<SpecialtyResponse>
+    + DeleteSpecialtyAsync(Guid id) : Task<bool>
+    + GetSpecialtiesAsync(SpecialtyQueryRequest query) : Task<SpecialtyListResponse>
+    + GetAllSpecialtiesAsync() : Task<List<SpecialtyResponse>>
 }
 
 ' ===== SERVICE IMPLEMENTATION =====
 class SpecialtyService {
-    - private ISpecialtyRepository _repository
-    - private IMapper _mapper
-    - private ILogger _logger
+    - ISpecialtyRepository _repository
+    - IMapper _mapper
+    - ILogger _logger
     --
-    + public SpecialtyService(ISpecialtyRepository repository, IMapper mapper, ILogger logger)
-    + public CreateSpecialtyAsync(CreateSpecialtyRequest request) : Task<SpecialtyResponse>
-    + public GetSpecialtyByIdAsync(Guid id) : Task<SpecialtyResponse?>
-    + public GetSpecialtyByNameAsync(string name) : Task<SpecialtyResponse?>
-    + public UpdateSpecialtyAsync(UpdateSpecialtyRequest request) : Task<SpecialtyResponse>
-    + public DeleteSpecialtyAsync(Guid id) : Task<bool>
-    + public ToggleSpecialtyStatusAsync(Guid id) : Task<bool>
-    + public GetSpecialtiesAsync(SpecialtyQueryRequest query) : Task<SpecialtyListResponse>
-    + public GetAllSpecialtiesAsync() : Task<List<SpecialtyResponse>>
-    + public GetActiveSpecialtiesSimpleAsync() : Task<List<SpecialtySimpleResponse>>
-    + public SpecialtyExistsAsync(Guid id) : Task<bool>
-    + public SpecialtyNameExistsAsync(string name, Guid? excludeId) : Task<bool>
+    + SpecialtyService(ISpecialtyRepository repository, IMapper mapper, ILogger logger)
+    + CreateSpecialtyAsync(CreateSpecialtyRequest request) : Task<SpecialtyResponse>
+    + GetSpecialtyByIdAsync(Guid id) : Task<SpecialtyResponse?>
+    + GetSpecialtyByNameAsync(string name) : Task<SpecialtyResponse?>
+    + UpdateSpecialtyAsync(UpdateSpecialtyRequest request) : Task<SpecialtyResponse>
+    + DeleteSpecialtyAsync(Guid id) : Task<bool>
+    + GetSpecialtiesAsync(SpecialtyQueryRequest query) : Task<SpecialtyListResponse>
+    + GetAllSpecialtiesAsync() : Task<List<SpecialtyResponse>>
 }
 
 ' ===== CONTROLLER =====
 class SpecialtiesController {
-    - private ISpecialtyService _specialtyService
+    - ISpecialtyService _specialtyService
     --
-    + public SpecialtiesController(ISpecialtyService specialtyService)
-    + public Health() : IActionResult
-    + public GetSpecialty(Guid id) : Task<IActionResult>
-    + public GetSpecialtyByName(string name) : Task<IActionResult>
-    + public GetSpecialties(SpecialtyQueryRequest query) : Task<IActionResult>
-    + public GetAllSpecialties() : Task<IActionResult>
-    + public CreateSpecialty(CreateSpecialtyRequest request) : Task<IActionResult>
-    + public UpdateSpecialty(Guid id, UpdateSpecialtyRequest request) : Task<IActionResult>
-    + public DeleteSpecialty(Guid id) : Task<IActionResult>
-    + public ToggleSpecialtyStatus(Guid id) : Task<IActionResult>
-    + public ValidateSpecialtyName(string name, Guid? excludeId) : Task<IActionResult>
-}
-
-' ===== MAPPING PROFILE =====
-class SpecialtyMappingProfile {
-    + public SpecialtyMappingProfile()
-    --
-    AutoMapper profile for Specialty mappings
+    + SpecialtiesController(ISpecialtyService specialtyService)
+    + GetSpecialty(Guid id) : Task<IActionResult>
+    + GetSpecialtyByName(string name) : Task<IActionResult>
+    + GetSpecialties(SpecialtyQueryRequest query) : Task<IActionResult>
+    + GetAllSpecialties() : Task<IActionResult>
+    + CreateSpecialty(CreateSpecialtyRequest request) : Task<IActionResult>
+    + UpdateSpecialty(Guid id, UpdateSpecialtyRequest request) : Task<IActionResult>
+    + DeleteSpecialty(Guid id) : Task<IActionResult>
 }
 
 ' ===== EXTERNAL DEPENDENCIES =====
 class DoctorDbContext {
-    + public DbSet<SpecialtyEntity> Specialties
-    --
-    Entity Framework DbContext
+    + DbSet<SpecialtyEntity> Specialties
 }
 
 class AutoMapper.IMapper {
-    + public Map<TSource, TDestination>(TSource source) : TDestination
-    --
-    AutoMapper interface
+    + Map<TSource, TDestination>(TSource source) : TDestination
 }
 
 class ILogger {
-    + public LogInformation(string message)
-    + public LogError(Exception ex, string message)
-    --
-    .NET Core logging interface
+    + LogInformation(string message)
+    + LogError(Exception ex, string message)
 }
 
 ' ===== ENUMS =====
@@ -234,32 +168,21 @@ enum Status {
 }
 
 ' ===== LAYOUT POSITIONING =====
-' Entities
-BaseEntity -[hidden]- SpecialtyEntity
-SpecialtyEntity -[hidden]- Status
-
-' Request DTOs
+SpecialtyEntity -[hidden]- CreateSpecialtyRequest
 CreateSpecialtyRequest -[hidden]- UpdateSpecialtyRequest
 UpdateSpecialtyRequest -[hidden]- SpecialtyQueryRequest
 
-' Response DTOs
 SpecialtyResponse -[hidden]- SpecialtyListResponse
-SpecialtyListResponse -[hidden]- SpecialtySimpleResponse
 
-' Repository Layer
 ISpecialtyRepository -[hidden]- SpecialtyRepository
 SpecialtyRepository -[hidden]- DoctorDbContext
 
-' Service Layer
 ISpecialtyService -[hidden]- SpecialtyService
-SpecialtyService -[hidden]- IMapper
+SpecialtyService -[hidden]- SpecialtiesController
+
 IMapper -[hidden]- ILogger
 
-' Controller
-SpecialtiesController -[hidden]- SpecialtyMappingProfile
-
 ' ===== RELATIONSHIPS =====
-BaseEntity <|-- SpecialtyEntity
 ISpecialtyRepository <|.. SpecialtyRepository
 ISpecialtyService <|.. SpecialtyService
 
@@ -275,7 +198,6 @@ SpecialtyService --> UpdateSpecialtyRequest
 SpecialtyService --> SpecialtyQueryRequest
 SpecialtyService --> SpecialtyResponse
 SpecialtyService --> SpecialtyListResponse
-SpecialtyService --> SpecialtySimpleResponse
 
 SpecialtiesController --> ISpecialtyService
 SpecialtiesController --> CreateSpecialtyRequest
@@ -283,17 +205,11 @@ SpecialtiesController --> UpdateSpecialtyRequest
 SpecialtiesController --> SpecialtyQueryRequest
 SpecialtiesController --> SpecialtyResponse
 SpecialtiesController --> SpecialtyListResponse
-SpecialtiesController --> SpecialtySimpleResponse
-
-SpecialtyMappingProfile --> SpecialtyEntity
-SpecialtyMappingProfile --> CreateSpecialtyRequest
-SpecialtyMappingProfile --> UpdateSpecialtyRequest
-SpecialtyMappingProfile --> SpecialtyResponse
-SpecialtyMappingProfile --> SpecialtyListResponse
 
 SpecialtyEntity --> Status
 CreateSpecialtyRequest --> Status
 UpdateSpecialtyRequest --> Status
+SpecialtyQueryRequest --> Status
 SpecialtyResponse --> Status
 
 @enduml

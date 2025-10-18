@@ -1,6 +1,13 @@
 @startuml
 title Toggle Position Status
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Admin
 participant UI
 participant PositionsController
@@ -9,20 +16,17 @@ participant PositionRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
 Admin -> UI : 1. Click "Toggle Status" button on position
 activate UI
-UI -> PositionsController : 2. HTTP PATCH /api/positions/{id}/toggle-status
+UI -> PositionsController : 2. TogglePositionStatus(id)
 activate PositionsController
 
-== Service Call ==
 PositionsController -> PositionService : 3. TogglePositionStatusAsync(Guid id)
 activate PositionService
 
-== Validate Position Exists ==
 PositionService -> PositionRepository : 4. GetPositionByIdAsync(positionId)
 activate PositionRepository
-PositionRepository -> Database : 5. SELECT * FROM Positions WHERE Id = @id
+PositionRepository -> Database : 5. GetPositionDataById(id)
 activate Database
 Database --> PositionRepository : 6. PositionEntity
 deactivate Database
@@ -32,13 +36,12 @@ deactivate PositionRepository
 alt Position not found
     PositionService --> PositionsController : 8. PositionNotFoundException.WithId(positionId)
     deactivate PositionService
-    PositionsController --> UI : 9. HTTP 404 Not Found
+    PositionsController --> UI : 9. Return not found error
     deactivate PositionsController
     UI --> Admin : 10. Show "Position not found"
     deactivate UI
 else Position found
 
-    == Toggle Position Status ==
     PositionService -> PositionService : 8. Toggle status logic
     activate PositionService
     alt Current status is ACTIVE
@@ -49,10 +52,9 @@ else Position found
     PositionService -> PositionService : 10. Set UpdatedAt = DateTime.UtcNow
     deactivate PositionService
 
-    == Save Updated Position ==
     PositionService -> PositionRepository : 11. UpdatePositionAsync(updatedPosition)
     activate PositionRepository
-    PositionRepository -> Database : 12. UPDATE Positions SET Status = @newStatus, UpdatedAt = @now WHERE Id = @id
+    PositionRepository -> Database : 12. UpdatePositionStatusData(id, newStatus)
     activate Database
     Database --> PositionRepository : 13. Updated count
     deactivate Database
@@ -62,7 +64,7 @@ else Position found
     alt Status update failed
         PositionService --> PositionsController : 15. Exception("Failed to toggle position status")
         deactivate PositionService
-        PositionsController --> UI : 16. HTTP 500 Internal Server Error
+        PositionsController --> UI : 16. Return server error
         deactivate PositionsController
         UI --> Admin : 17. Show "Failed to toggle status"
         deactivate UI
@@ -70,7 +72,7 @@ else Position found
         PositionService --> PositionsController : 15. true
         deactivate PositionService
 
-        PositionsController --> UI : 16. HTTP 200 OK
+        PositionsController --> UI : 16. Return success
         deactivate PositionsController
 
         UI --> Admin : 17. Show "Position status toggled successfully"

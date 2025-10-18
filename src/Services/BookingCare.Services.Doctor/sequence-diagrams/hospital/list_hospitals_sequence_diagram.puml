@@ -1,6 +1,13 @@
 @startuml
 title List Hospitals
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor User
 participant UI
 participant HospitalsController
@@ -10,38 +17,33 @@ participant AuthService
 participant AutoMapper
 database Database
 
-== UI Request ==
 User -> UI : 1. Click "View Hospitals" or load hospitals page
 activate UI
-UI -> HospitalsController : 2. HTTP GET /api/hospitals (HospitalFilterRequest)
+UI -> HospitalsController : 2. GetHospitalsList(HospitalFilterRequest)
 activate HospitalsController
 
-== Service Call ==
 HospitalsController -> HospitalService : 3. GetFilteredAsync(HospitalFilterRequest)
 activate HospitalService
 
-== Query Hospitals ==
 HospitalService -> HospitalRepository : 4. GetFilteredAsync(HospitalFilterRequest)
 activate HospitalRepository
-HospitalRepository -> Database : 5. SELECT * FROM Hospitals\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)\nAND (@location IS NULL OR Location LIKE '%' + @location + '%')\nORDER BY @sortBy @sortOrder\nOFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+HospitalRepository -> Database : 5. GetHospitalsData(HospitalFilterRequest)
 activate Database
 Database --> HospitalRepository : 6. List<HospitalEntity>
 deactivate Database
 
-HospitalRepository -> Database : 7. SELECT COUNT(*) FROM Hospitals\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)\nAND (@location IS NULL OR Location LIKE '%' + @location + '%')
+HospitalRepository -> Database : 7. GetHospitalsCount(HospitalFilterRequest)
 activate Database
 Database --> HospitalRepository : 8. TotalCount
 deactivate Database
 HospitalRepository --> HospitalService : 9. (List<HospitalEntity>, TotalCount)
 deactivate HospitalRepository
 
-== Map to DTOs ==
 HospitalService -> AutoMapper : 10. Map(List<HospitalEntity> → List<HospitalResponse>)
 activate AutoMapper
 AutoMapper --> HospitalService : 11. List<HospitalResponse>
 deactivate AutoMapper
 
-== Enrich with Account Status ==
 HospitalService -> HospitalService : 12. Extract account IDs from hospitals
 activate HospitalService
 deactivate HospitalService
@@ -55,7 +57,6 @@ HospitalService -> HospitalService : 15. EnrichHospitalsWithStatusAsync(hospital
 activate HospitalService
 deactivate HospitalService
 
-== Set Pagination Info ==
 HospitalService -> HospitalService : 16. Set pagination info (Page, PageSize, TotalPages)
 activate HospitalService
 deactivate HospitalService
@@ -63,7 +64,7 @@ deactivate HospitalService
 HospitalService --> HospitalsController : 17. HospitalListResponse
 deactivate HospitalService
 
-HospitalsController --> UI : 18. HTTP 200 OK (HospitalListResponse)
+HospitalsController --> UI : 18. Return HospitalListResponse
 deactivate HospitalsController
 
 UI --> User : 19. Render hospitals list on screen

@@ -1,6 +1,13 @@
 @startuml
 title Get Doctor Detail
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor User
 participant UI
 participant DoctorsController
@@ -11,20 +18,17 @@ participant ReviewService
 participant AutoMapper
 database Database
 
-== UI Request ==
 User -> UI : 1. Click "View Doctor Details"
 activate UI
-UI -> DoctorsController : 2. HTTP GET /api/doctors/{id}
+UI -> DoctorsController : 2. GetDoctorDetail(id)
 activate DoctorsController
 
-== Service Call ==
 DoctorsController -> DoctorService : 3. GetDoctorByIdAsync(Guid id)
 activate DoctorService
 
-== Query Single Doctor ==
 DoctorService -> DoctorRepository : 4. GetDoctorByIdAsync(Guid id)
 activate DoctorRepository
-DoctorRepository -> Database : 5. SELECT d.*, p.*, s.*, dp.*, dl.*\nFROM Doctors d\nLEFT JOIN Positions p ON d.PositionId = p.Id\nLEFT JOIN Specialties s ON d.SpecialtyId = s.Id\nLEFT JOIN DoctorPrices dp ON d.Id = dp.DoctorId\nLEFT JOIN DoctorLanguages dl ON d.Id = dl.DoctorId\nWHERE d.Id = @id
+DoctorRepository -> Database : 5. GetDoctorDetailData(id)
 activate Database
 Database --> DoctorRepository : 6. DoctorEntity (with includes)
 deactivate Database
@@ -34,38 +38,35 @@ deactivate DoctorRepository
 alt Doctor not found
     DoctorService --> DoctorsController : 8. null
     deactivate DoctorService
-    DoctorsController --> UI : 9. HTTP 404 Not Found
+    DoctorsController --> UI : 9. Return not found error
     deactivate DoctorsController
     UI --> User : 10. Show "Doctor not found"
     deactivate UI
 else Doctor found
 
-    == Include Position and Specialty ==
     DoctorService -> DoctorService : 8. IncludePositionAndSpecialtyAsync(doctor)
     activate DoctorService
     DoctorService -> DoctorRepository : 9. GetPositionByIdAsync(positionId)
-    DoctorRepository -> Database : 10. SELECT * FROM Positions WHERE Id = @positionId
+    DoctorRepository -> Database : 10. GetPositionData(positionId)
     Database --> DoctorRepository : 11. PositionEntity
     DoctorRepository --> DoctorService : 12. PositionEntity
     
     DoctorService -> DoctorRepository : 13. GetSpecialtyByIdAsync(specialtyId)
-    DoctorRepository -> Database : 14. SELECT * FROM Specialties WHERE Id = @specialtyId
+    DoctorRepository -> Database : 14. GetSpecialtyData(specialtyId)
     Database --> DoctorRepository : 15. SpecialtyEntity
     DoctorRepository --> DoctorService : 16. SpecialtyEntity
     deactivate DoctorService
 
-    == Map to DTO ==
     DoctorService -> AutoMapper : 17. Map(DoctorEntity → DoctorByIdResponse)
     activate AutoMapper
     AutoMapper --> DoctorService : 18. DoctorByIdResponse
     deactivate AutoMapper
 
-    == Parallel Enrichment Tasks ==
     par Hospital Info
         DoctorService -> HospitalService : 19. GetHospitalsBasicInfoAsync(GetHospitalsBasicInfoRequest)
         activate HospitalService
         alt HospitalService available
-            HospitalService -> Database : 20. SELECT Id, Name, Address, AvatarUrl FROM Hospitals WHERE Id = @hospitalId
+            HospitalService -> Database : 20. GetHospitalBasicData(hospitalId)
             activate Database
             Database --> HospitalService : 21. HospitalBasicInfo
             deactivate Database
@@ -78,7 +79,7 @@ else Doctor found
         DoctorService -> ReviewService : 19. GetBatchDoctorsStatisticsAsync(BatchDoctorsStatisticsRequest)
         activate ReviewService
         alt ReviewService available
-            ReviewService -> Database : 20. SELECT DoctorId, AVG(Rating) AS AverageRating,\nCOUNT(*) AS TotalReviews FROM Reviews WHERE DoctorId = @doctorId
+            ReviewService -> Database : 20. GetDoctorStatisticsData(doctorId)
             activate Database
             Database --> ReviewService : 21. DoctorStatistics
             deactivate Database
@@ -92,7 +93,7 @@ else Doctor found
     DoctorService --> DoctorsController : 24. DoctorByIdResponse
     deactivate DoctorService
 
-    DoctorsController --> UI : 25. HTTP 200 OK (DoctorByIdResponse)
+    DoctorsController --> UI : 25. Return DoctorByIdResponse
     deactivate DoctorsController
 
     UI --> User : 26. Render doctor detail page

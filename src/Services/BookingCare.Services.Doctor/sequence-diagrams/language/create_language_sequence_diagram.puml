@@ -1,6 +1,13 @@
 @startuml
 title Create Language
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Admin
 participant UI
 participant LanguagesController
@@ -9,20 +16,17 @@ participant LanguageRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
 Admin -> UI : 1. Fill language form and click "Create Language"
 activate UI
-UI -> LanguagesController : 2. HTTP POST /api/languages (CreateLanguageRequest)
+UI -> LanguagesController : 2. CreateLanguage(CreateLanguageRequest)
 activate LanguagesController
 
-== Service Call ==
 LanguagesController -> LanguageService : 3. CreateLanguageAsync(CreateLanguageRequest)
 activate LanguageService
 
-== Validate Language Name ==
 LanguageService -> LanguageRepository : 4. LanguageNameExistsAsync(name)
 activate LanguageRepository
-LanguageRepository -> Database : 5. SELECT COUNT(*) FROM Languages WHERE Name = @name
+LanguageRepository -> Database : 5. CheckLanguageNameExists(name)
 activate Database
 Database --> LanguageRepository : 6. boolean exists
 deactivate Database
@@ -32,13 +36,12 @@ deactivate LanguageRepository
 alt Language name already exists
     LanguageService --> LanguagesController : 8. ArgumentException("Language with name already exists")
     deactivate LanguageService
-    LanguagesController --> UI : 9. HTTP 400 Bad Request
+    LanguagesController --> UI : 9. Return bad request error
     deactivate LanguagesController
     UI --> Admin : 10. Show "Language name already exists"
     deactivate UI
 else Language name is unique
 
-    == Create Language Entity ==
     LanguageService -> AutoMapper : 8. Map(CreateLanguageRequest → LanguageEntity)
     activate AutoMapper
     AutoMapper --> LanguageService : 9. LanguageEntity (with new Guid)
@@ -48,17 +51,15 @@ else Language name is unique
     activate LanguageService
     deactivate LanguageService
 
-    == Save Language to Database ==
     LanguageService -> LanguageRepository : 11. CreateLanguageAsync(language)
     activate LanguageRepository
-    LanguageRepository -> Database : 12. INSERT INTO Languages (Id, Name, Status, CreatedAt, UpdatedAt)
+    LanguageRepository -> Database : 12. CreateLanguageData(language)
     activate Database
     Database --> LanguageRepository : 13. LanguageEntity created
     deactivate Database
     LanguageRepository --> LanguageService : 14. LanguageEntity
     deactivate LanguageRepository
 
-    == Map to Response DTO ==
     LanguageService -> AutoMapper : 15. Map(LanguageEntity → LanguageResponse)
     activate AutoMapper
     AutoMapper --> LanguageService : 16. LanguageResponse
@@ -67,7 +68,7 @@ else Language name is unique
     LanguageService --> LanguagesController : 17. LanguageResponse
     deactivate LanguageService
 
-    LanguagesController --> UI : 18. HTTP 201 Created (LanguageResponse)
+    LanguagesController --> UI : 18. Return LanguageResponse
     deactivate LanguagesController
 
     UI --> Admin : 19. Show "Language created successfully"

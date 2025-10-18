@@ -1,6 +1,13 @@
 @startuml
 title List Positions
 
+skinparam backgroundColor White
+skinparam sequenceParticipantBackgroundColor White
+skinparam sequenceActorBackgroundColor White
+skinparam sequenceLifeLineBackgroundColor White
+skinparam databaseBackgroundColor White
+skinparam sequenceGroupBackgroundColor White
+
 actor Admin
 participant UI
 participant PositionsController
@@ -9,38 +16,33 @@ participant PositionRepository
 participant AutoMapper
 database Database
 
-== UI Request ==
 Admin -> UI : 1. Click "View Positions" or load positions page
 activate UI
-UI -> PositionsController : 2. HTTP GET /api/positions (PositionQueryRequest)
+UI -> PositionsController : 2. GetPositionsList(PositionQueryRequest)
 activate PositionsController
 
-== Service Call ==
 PositionsController -> PositionService : 3. GetPositionsAsync(PositionQueryRequest)
 activate PositionService
 
-== Query Positions ==
 PositionService -> PositionRepository : 4. GetPositionsAsync(PositionQueryRequest)
 activate PositionRepository
-PositionRepository -> Database : 5. SELECT * FROM Positions\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)\nORDER BY @sortBy @sortOrder\nOFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+PositionRepository -> Database : 5. GetPositionsData(PositionQueryRequest)
 activate Database
 Database --> PositionRepository : 6. List<PositionEntity>
 deactivate Database
 
-PositionRepository -> Database : 7. SELECT COUNT(*) FROM Positions\nWHERE (@searchTerm IS NULL OR Name LIKE '%' + @searchTerm + '%')\nAND (@status IS NULL OR Status = @status)
+PositionRepository -> Database : 7. GetPositionsCount(PositionQueryRequest)
 activate Database
 Database --> PositionRepository : 8. TotalCount
 deactivate Database
 PositionRepository --> PositionService : 9. (List<PositionEntity>, TotalCount)
 deactivate PositionRepository
 
-== Map to DTOs ==
 PositionService -> AutoMapper : 10. Map((List<PositionEntity>, TotalCount) → PositionListResponse)
 activate AutoMapper
 AutoMapper --> PositionService : 11. PositionListResponse
 deactivate AutoMapper
 
-== Set Pagination Info ==
 PositionService -> PositionService : 12. Set pagination info (PageNumber, PageSize, TotalPages)
 activate PositionService
 deactivate PositionService
@@ -48,7 +50,7 @@ deactivate PositionService
 PositionService --> PositionsController : 13. PositionListResponse
 deactivate PositionService
 
-PositionsController --> UI : 14. HTTP 200 OK (PositionListResponse)
+PositionsController --> UI : 14. Return PositionListResponse
 deactivate PositionsController
 
 UI --> Admin : 15. Render positions list on screen

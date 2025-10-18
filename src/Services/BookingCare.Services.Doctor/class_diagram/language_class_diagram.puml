@@ -1,21 +1,24 @@
 @startuml
 !theme plain
-title Language Class Diagram - BookingCare.Services.Doctor
+title Language Class Diagram
+hide circle
 
 ' ===== SKIN PARAMETERS =====
 skinparam class {
     BackgroundColor White
     BorderColor Black
     ArrowColor Black
-    ArrowThickness 2
+    ArrowThickness 1
+    FontSize 10
 }
 
 skinparam arrow {
-    Thickness 2
+    Thickness 1
     Color Black
 }
 
 skinparam linetype ortho
+skinparam packageStyle rectangle
 
 ' ===== VISIBILITY MODIFIERS =====
 skinparam classAttribute {
@@ -28,209 +31,129 @@ skinparam classMethod {
     FontSize 10
 }
 
-' ===== ENTITIES =====
-class BaseEntity {
-    + public Guid Id
-    + public string Name
-    + public Status Status
-    + public DateTime CreatedAt
-    + public DateTime UpdatedAt
-}
-
+' ===== CORE ENTITIES =====
 class LanguageEntity {
-    +string Name
-    +ICollection<DoctorLanguageEntity> DoctorLanguages
-    --
-    [Table("languages")]
-    [MaxLength(100)]
-    [Column("name")]
-}
-
-class DoctorLanguageEntity {
-    +Guid Id
-    +Guid DoctorId
-    +Guid LanguageId
-    +DoctorEntity Doctor
-    +LanguageEntity Language
-    --
-    [Table("doctor_languages")]
-    Junction table for many-to-many relationship
+    + Guid Id
+    + string Name
+    + Status Status
+    + DateTime CreatedAt
+    + DateTime UpdatedAt
 }
 
 ' ===== REQUEST DTOs =====
 class CreateLanguageRequest {
-    +string Name
-    +Status Status
-    --
-    [Required]
-    [StringLength(100, MinimumLength = 2)]
+    + string Name
+    + Status Status
 }
 
 class UpdateLanguageRequest {
-    +Guid Id
-    +string Name
-    +Status Status
-    --
-    [Required]
-    [JsonRequired]
-    [StringLength(100, MinimumLength = 2)]
+    + Guid Id
+    + string Name
+    + Status Status
 }
 
 class LanguageQueryRequest {
-    +string? SearchTerm
-    +Status? Status
-    +int PageNumber
-    +int PageSize
-    +string? SortBy
-    +string? SortOrder
-    --
-    [JsonRequired]
+    + string? SearchTerm
+    + Status? Status
+    + int PageNumber
+    + int PageSize
 }
 
 ' ===== RESPONSE DTOs =====
 class LanguageResponse {
-    +Guid Id
-    +string Name
-    +Status Status
-    +DateTime CreatedAt
-    +DateTime UpdatedAt
+    + Guid Id
+    + string Name
+    + Status Status
+    + DateTime CreatedAt
+    + DateTime UpdatedAt
 }
 
 class LanguageListResponse {
-    +List<LanguageResponse> Languages
-    +int TotalCount
-    +int PageNumber
-    +int PageSize
-    +int TotalPages
-}
-
-class LanguageSimpleResponse {
-    +Guid Id
-    +string Name
-    --
-    Simple response DTO for performance optimization
+    + List<LanguageResponse> Languages
+    + int TotalCount
+    + int PageNumber
+    + int PageSize
+    + int TotalPages
 }
 
 ' ===== REPOSITORY INTERFACE =====
 interface ILanguageRepository {
-    +GetLanguageByIdAsync(Guid id) : Task<LanguageEntity?>
-    +GetLanguageByNameAsync(string name) : Task<LanguageEntity?>
-    +CreateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
-    +UpdateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
-    +DeleteLanguageAsync(Guid id) : Task<bool>
-    +LanguageExistsAsync(Guid id) : Task<bool>
-    +LanguageNameExistsAsync(string name, Guid? excludeId) : Task<bool>
-    +GetLanguagesAsync(LanguageQueryRequest query) : Task<(List<LanguageEntity>, int)>
-    +GetAllLanguagesAsync() : Task<List<LanguageEntity>>
-    +GetQueryableLanguages() : IQueryable<LanguageEntity>
-    +GetActiveLanguagesSimpleAsync() : Task<List<LanguageEntity>>
+    + GetLanguageByIdAsync(Guid id) : Task<LanguageEntity?>
+    + GetLanguageByNameAsync(string name) : Task<LanguageEntity?>
+    + CreateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
+    + UpdateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
+    + DeleteLanguageAsync(Guid id) : Task<bool>
+    + GetLanguagesAsync(LanguageQueryRequest query) : Task<(List<LanguageEntity>, int)>
+    + GetAllLanguagesAsync() : Task<List<LanguageEntity>>
 }
 
 ' ===== REPOSITORY IMPLEMENTATION =====
 class LanguageRepository {
-    -DoctorDbContext _context
+    - DoctorDbContext _context
     --
-    +LanguageRepository(DoctorDbContext context)
-    +GetLanguageByIdAsync(Guid id) : Task<LanguageEntity?>
-    +GetLanguageByNameAsync(string name) : Task<LanguageEntity?>
-    +CreateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
-    +UpdateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
-    +DeleteLanguageAsync(Guid id) : Task<bool>
-    +LanguageExistsAsync(Guid id) : Task<bool>
-    +LanguageNameExistsAsync(string name, Guid? excludeId) : Task<bool>
-    +GetLanguagesAsync(LanguageQueryRequest query) : Task<(List<LanguageEntity>, int)>
-    +GetAllLanguagesAsync() : Task<List<LanguageEntity>>
-    +GetQueryableLanguages() : IQueryable<LanguageEntity>
-    +GetActiveLanguagesSimpleAsync() : Task<List<LanguageEntity>>
+    + LanguageRepository(DoctorDbContext context)
+    + GetLanguageByIdAsync(Guid id) : Task<LanguageEntity?>
+    + GetLanguageByNameAsync(string name) : Task<LanguageEntity?>
+    + CreateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
+    + UpdateLanguageAsync(LanguageEntity language) : Task<LanguageEntity>
+    + DeleteLanguageAsync(Guid id) : Task<bool>
+    + GetLanguagesAsync(LanguageQueryRequest query) : Task<(List<LanguageEntity>, int)>
+    + GetAllLanguagesAsync() : Task<List<LanguageEntity>>
 }
 
 ' ===== SERVICE INTERFACE =====
 interface ILanguageService {
-    +CreateLanguageAsync(CreateLanguageRequest request) : Task<LanguageResponse>
-    +GetLanguageByIdAsync(Guid id) : Task<LanguageResponse?>
-    +GetLanguageByNameAsync(string name) : Task<LanguageResponse?>
-    +UpdateLanguageAsync(UpdateLanguageRequest request) : Task<LanguageResponse>
-    +DeleteLanguageAsync(Guid id) : Task<bool>
-    +ToggleLanguageStatusAsync(Guid id) : Task<bool>
-    +GetLanguagesAsync(LanguageQueryRequest query) : Task<LanguageListResponse>
-    +GetAllLanguagesAsync() : Task<List<LanguageResponse>>
-    +GetActiveLanguagesSimpleAsync() : Task<List<LanguageSimpleResponse>>
-    +LanguageExistsAsync(Guid id) : Task<bool>
-    +LanguageNameExistsAsync(string name, Guid? excludeId) : Task<bool>
+    + CreateLanguageAsync(CreateLanguageRequest request) : Task<LanguageResponse>
+    + GetLanguageByIdAsync(Guid id) : Task<LanguageResponse?>
+    + GetLanguageByNameAsync(string name) : Task<LanguageResponse?>
+    + UpdateLanguageAsync(UpdateLanguageRequest request) : Task<LanguageResponse>
+    + DeleteLanguageAsync(Guid id) : Task<bool>
+    + GetLanguagesAsync(LanguageQueryRequest query) : Task<LanguageListResponse>
+    + GetAllLanguagesAsync() : Task<List<LanguageResponse>>
 }
 
 ' ===== SERVICE IMPLEMENTATION =====
 class LanguageService {
-    -ILanguageRepository _repository
-    -IMapper _mapper
-    -ILogger _logger
+    - ILanguageRepository _repository
+    - IMapper _mapper
+    - ILogger _logger
     --
-    +LanguageService(ILanguageRepository repository, IMapper mapper, ILogger logger)
-    +CreateLanguageAsync(CreateLanguageRequest request) : Task<LanguageResponse>
-    +GetLanguageByIdAsync(Guid id) : Task<LanguageResponse?>
-    +GetLanguageByNameAsync(string name) : Task<LanguageResponse?>
-    +UpdateLanguageAsync(UpdateLanguageRequest request) : Task<LanguageResponse>
-    +DeleteLanguageAsync(Guid id) : Task<bool>
-    +ToggleLanguageStatusAsync(Guid id) : Task<bool>
-    +GetLanguagesAsync(LanguageQueryRequest query) : Task<LanguageListResponse>
-    +GetAllLanguagesAsync() : Task<List<LanguageResponse>>
-    +GetActiveLanguagesSimpleAsync() : Task<List<LanguageSimpleResponse>>
-    +LanguageExistsAsync(Guid id) : Task<bool>
-    +LanguageNameExistsAsync(string name, Guid? excludeId) : Task<bool>
+    + LanguageService(ILanguageRepository repository, IMapper mapper, ILogger logger)
+    + CreateLanguageAsync(CreateLanguageRequest request) : Task<LanguageResponse>
+    + GetLanguageByIdAsync(Guid id) : Task<LanguageResponse?>
+    + GetLanguageByNameAsync(string name) : Task<LanguageResponse?>
+    + UpdateLanguageAsync(UpdateLanguageRequest request) : Task<LanguageResponse>
+    + DeleteLanguageAsync(Guid id) : Task<bool>
+    + GetLanguagesAsync(LanguageQueryRequest query) : Task<LanguageListResponse>
+    + GetAllLanguagesAsync() : Task<List<LanguageResponse>>
 }
 
 ' ===== CONTROLLER =====
 class LanguagesController {
-    -ILanguageService _languageService
+    - ILanguageService _languageService
     --
-    +LanguagesController(ILanguageService languageService)
-    +Health() : IActionResult
-    +GetLanguage(Guid id) : Task<IActionResult>
-    +GetLanguageByName(string name) : Task<IActionResult>
-    +GetLanguages(LanguageQueryRequest query) : Task<IActionResult>
-    +GetAllLanguages() : Task<IActionResult>
-    +CreateLanguage(CreateLanguageRequest request) : Task<IActionResult>
-    +UpdateLanguage(Guid id, UpdateLanguageRequest request) : Task<IActionResult>
-    +DeleteLanguage(Guid id) : Task<IActionResult>
-    +ToggleLanguageStatus(Guid id) : Task<IActionResult>
-    +ValidateLanguageName(string name, Guid? excludeId) : Task<IActionResult>
-}
-
-' ===== MAPPING PROFILE =====
-class LanguageMappingProfile {
-    +LanguageMappingProfile()
-    --
-    AutoMapper profile for Language mappings
+    + LanguagesController(ILanguageService languageService)
+    + GetLanguage(Guid id) : Task<IActionResult>
+    + GetLanguageByName(string name) : Task<IActionResult>
+    + GetLanguages(LanguageQueryRequest query) : Task<IActionResult>
+    + GetAllLanguages() : Task<IActionResult>
+    + CreateLanguage(CreateLanguageRequest request) : Task<IActionResult>
+    + UpdateLanguage(Guid id, UpdateLanguageRequest request) : Task<IActionResult>
+    + DeleteLanguage(Guid id) : Task<IActionResult>
 }
 
 ' ===== EXTERNAL DEPENDENCIES =====
 class DoctorDbContext {
-    +DbSet<LanguageEntity> Languages
-    +DbSet<DoctorLanguageEntity> DoctorLanguages
-    --
-    Entity Framework DbContext
+    + DbSet<LanguageEntity> Languages
 }
 
 class AutoMapper.IMapper {
-    +Map<TSource, TDestination>(TSource source) : TDestination
-    --
-    AutoMapper interface
+    + Map<TSource, TDestination>(TSource source) : TDestination
 }
 
 class ILogger {
-    +LogInformation(string message)
-    +LogError(Exception ex, string message)
-    --
-    .NET Core logging interface
-}
-
-class DoctorEntity {
-    +Guid Id
-    +string FirstName
-    +string LastName
-    +ICollection<DoctorLanguageEntity> DoctorLanguages
-    --
-    Related entity for many-to-many relationship
+    + LogInformation(string message)
+    + LogError(Exception ex, string message)
 }
 
 ' ===== ENUMS =====
@@ -240,33 +163,21 @@ enum Status {
 }
 
 ' ===== LAYOUT POSITIONING =====
-' Entities
-BaseEntity -[hidden]- LanguageEntity
-LanguageEntity -[hidden]- DoctorLanguageEntity
-DoctorLanguageEntity -[hidden]- DoctorEntity
-
-' Request DTOs
+LanguageEntity -[hidden]- CreateLanguageRequest
 CreateLanguageRequest -[hidden]- UpdateLanguageRequest
 UpdateLanguageRequest -[hidden]- LanguageQueryRequest
 
-' Response DTOs
 LanguageResponse -[hidden]- LanguageListResponse
-LanguageListResponse -[hidden]- LanguageSimpleResponse
 
-' Repository Layer
 ILanguageRepository -[hidden]- LanguageRepository
 LanguageRepository -[hidden]- DoctorDbContext
 
-' Service Layer
 ILanguageService -[hidden]- LanguageService
-LanguageService -[hidden]- IMapper
+LanguageService -[hidden]- LanguagesController
+
 IMapper -[hidden]- ILogger
 
-' Controller
-LanguagesController -[hidden]- LanguageMappingProfile
-
 ' ===== RELATIONSHIPS =====
-BaseEntity <|-- LanguageEntity
 ILanguageRepository <|.. LanguageRepository
 ILanguageService <|.. LanguageService
 
@@ -282,7 +193,6 @@ LanguageService --> UpdateLanguageRequest
 LanguageService --> LanguageQueryRequest
 LanguageService --> LanguageResponse
 LanguageService --> LanguageListResponse
-LanguageService --> LanguageSimpleResponse
 
 LanguagesController --> ILanguageService
 LanguagesController --> CreateLanguageRequest
@@ -290,21 +200,11 @@ LanguagesController --> UpdateLanguageRequest
 LanguagesController --> LanguageQueryRequest
 LanguagesController --> LanguageResponse
 LanguagesController --> LanguageListResponse
-LanguagesController --> LanguageSimpleResponse
-
-LanguageMappingProfile --> LanguageEntity
-LanguageMappingProfile --> CreateLanguageRequest
-LanguageMappingProfile --> UpdateLanguageRequest
-LanguageMappingProfile --> LanguageResponse
-LanguageMappingProfile --> LanguageListResponse
-
-' Many-to-many relationship
-LanguageEntity ||--o{ DoctorLanguageEntity
-DoctorEntity ||--o{ DoctorLanguageEntity
 
 LanguageEntity --> Status
 CreateLanguageRequest --> Status
 UpdateLanguageRequest --> Status
+LanguageQueryRequest --> Status
 LanguageResponse --> Status
 
 @enduml
