@@ -4,6 +4,7 @@ using BookingCare.Services.Appointment.Services;
 using BookingCare.Services.Appointment.Models.DTOs;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Appointment.Controllers;
 
@@ -126,7 +127,7 @@ public class AppointmentsController : BaseApiController
 
     /// <summary>
     /// Cancel an appointment (any time before appointment)
-    /// Triggers refund process and sends notifications
+    /// Triggers refund process and sends notifications with reschedule options
     /// Refund percentage depends on cancellation time:
     /// - >= 24 hours before: 100% refund
     /// - 12-24 hours before: 50% refund
@@ -134,23 +135,150 @@ public class AppointmentsController : BaseApiController
     /// </summary>
     /// <param name="id">Appointment ID</param>
     /// <param name="request">Cancellation request with reason</param>
-    /// <returns>Success status</returns>
+    /// <returns>Success status with reschedule options</returns>
     [HttpPost("cancel/{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [Authorize(Roles = "Staff, Patient")]
-    public async Task<IActionResult> StaffCancelAppointment(
+    public async Task<IActionResult> CancelAppointment(
         Guid id,
         [FromBody] CancelAppointmentRequest request)
     {
         if (id != request.AppointmentId)
             return BadRequest("ID in URL does not match ID in request body");
 
-        var success = await _appointmentService.CancelAppointmentAsync(request);
+        var result = await _appointmentService.CancelAppointmentAsync(request);
 
-        if (!success)
+        if (result == null)
             return BadRequest("Failed to cancel appointment");
 
-        return Success("Appointment cancelled successfully. Refund process has been initiated.");
+        return Success(result, "Appointment cancelled successfully");
+    }
+
+    /// <summary>
+    /// Reschedule appointment with same doctor (Option 1)
+    /// Patient selects new date/time for same doctor
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Reschedule request with token and new date/time</param>
+    /// <returns>Updated appointment</returns>
+    [HttpPost("{id:guid}/reschedule-same-doctor")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RescheduleSameDoctor(
+        Guid id,
+        [FromBody] RescheduleSameDoctorRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest("ID in URL does not match ID in request body");
+
+        var result = await _appointmentService.RescheduleSameDoctorAsync(request);
+
+        if (!result)
+            return BadRequest("Failed to reschedule appointment");
+
+        return Success("Appointment rescheduled successfully with same doctor");
+    }
+
+    /// <summary>
+    /// Staff assigns new doctor (Option 2 - Step 1: Create soft reservation)
+    /// Creates a soft lock on doctor's schedule for 48 hours
+    /// Returns confirmation URL for patient
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Assignment request with new doctor ID</param>
+    /// <returns>Confirmation URL for patient</returns>
+    [HttpPost("{id:guid}/assign-new-doctor")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Staff, Admin")]
+    public async Task<IActionResult> AssignNewDoctor(
+        Guid id,
+        [FromBody] AssignNewDoctorRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest("ID in URL does not match ID in request body");
+
+        var confirmationUrl = await _appointmentService.AssignNewDoctorAsync(request);
+
+        return Success(new { confirmationUrl }, "Doctor assigned successfully. Patient will be notified.");
+    }
+
+    /// <summary>
+    /// Patient confirms assigned doctor (Option 2 - Step 2: Finalize soft reservation)
+    /// Validates soft reservation and converts to confirmed appointment
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Confirm request with token</param>
+    /// <returns>Success status</returns>
+    [HttpPost("{id:guid}/confirm-new-doctor")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ConfirmNewDoctor(
+        Guid id,
+        [FromBody] ConfirmNewDoctorRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest("ID in URL does not match ID in request body");
+
+        var result = await _appointmentService.ConfirmNewDoctorAsync(request);
+
+        if (!result)
+            return BadRequest("Failed to confirm new doctor assignment");
+
+        return Success("New doctor confirmed successfully");
+    }
+
+    /// <summary>
+    /// Request refund for cancelled appointment (Option 4)
+    /// Patient chooses refund instead of rescheduling
+    /// Triggers Payment Service to create refund record
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Refund request with token and bank info</param>
+    /// <returns>Success status</returns>
+    [HttpPost("{id:guid}/request-refund")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RequestRefund(
+        Guid id,
+        [FromBody] RequestRefundRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest("ID in URL does not match ID in request body");
+
+        var success = await _appointmentService.RequestRefundAsync(request);
+
+        if (!success)
+            return BadRequest("Failed to create refund request");
+
+        return Success("Refund request submitted successfully. Payment Service will process your request.");
+    }
+
+    /// <summary>
+    /// Get available doctors for assignment (Option 2)
+    /// Returns doctors from same hospital + specialty
+    /// Used by staff when assigning new doctor to cancelled appointment
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="specialtyId">Specialty ID</param>
+    /// <param name="appointmentDate">Appointment date (required when checkAvailability = true)</param>
+    /// <param name="appointmentTimeId">Appointment time slot (required when checkAvailability = true)</param>
+    /// <param name="checkAvailability">If true, only return doctors available at specified date/time. If false, return all doctors.</param>
+    /// <returns>List of doctors</returns>
+    [HttpGet("available-doctors")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Staff, Admin")]
+    public async Task<IActionResult> GetAvailableDoctors(
+        [FromQuery] Guid hospitalId,
+        [FromQuery] Guid specialtyId,
+        [FromQuery] DateTime? appointmentDate = null,
+        [FromQuery] AppointmentTime? appointmentTimeId = null,
+        [FromQuery] bool checkAvailability = true)
+    {
+        var result = await _appointmentService.GetAvailableDoctorsAsync(
+            hospitalId,
+            specialtyId,
+            appointmentDate,
+            appointmentTimeId,
+            checkAvailability);
+
+        return Success(result, $"Found {result.TotalCount} doctors");
     }
 
 }
