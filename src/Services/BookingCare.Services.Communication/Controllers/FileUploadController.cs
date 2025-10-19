@@ -2,14 +2,17 @@
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 
 namespace BookingCare.Services.Communication.Controllers;
 
 /// <summary>
-/// Controller để xử lý file uploads cho chat messages
+/// Controller để xử lý file uploads cho chat messages với API versioning
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Produces("application/json")]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
 public class FileUploadController : BaseApiController
 {
     private readonly IFileUploadService _fileUploadService;
@@ -27,6 +30,7 @@ public class FileUploadController : BaseApiController
     /// Upload single file cho message attachment
     /// </summary>
     [HttpPost("upload")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UploadFile(
         [FromForm] IFormFile file,
         [FromForm] string userId,
@@ -62,6 +66,7 @@ public class FileUploadController : BaseApiController
     /// Upload multiple files cùng lúc
     /// </summary>
     [HttpPost("upload-multiple")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UploadMultipleFiles(
         [FromForm] IEnumerable<IFormFile> files,
         [FromForm] string userId,
@@ -88,6 +93,7 @@ public class FileUploadController : BaseApiController
     /// Tạo presigned URL để client upload trực tiếp lên cloud
     /// </summary>
     [HttpPost("presigned-url")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GeneratePresignedUrl([FromBody] PresignedUrlRequest request)
     {
         try
@@ -111,6 +117,7 @@ public class FileUploadController : BaseApiController
     /// Generate thumbnail cho image/video
     /// </summary>
     [HttpPost("generate-thumbnail")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GenerateThumbnail([FromBody] ThumbnailRequest request)
     {
         try
@@ -135,6 +142,7 @@ public class FileUploadController : BaseApiController
     /// Xóa file từ cloud storage
     /// </summary>
     [HttpDelete("delete")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteFile([FromBody] DeleteFileRequest request)
     {
         try

@@ -331,7 +331,7 @@ public class HybridFileUploadService : IHybridFileUploadService
             MessageType.Image => "images",
             MessageType.Video => "videos",
             MessageType.Audio => "audio",
-            MessageType.VoiceNote => "voicenotes", 
+            MessageType.VoiceNote => "voicenotes",
             MessageType.Gif => "gifs",
             MessageType.File => "documents",
             MessageType.Text => "text",  // For text files
@@ -365,14 +365,14 @@ public class HybridFileUploadService : IHybridFileUploadService
             // 1. Return the original URL as thumbnail (simple approach)
             // 2. Use query parameter to indicate thumbnail request (if you have Lambda processing)
             // 3. Generate separate thumbnail file path
-            
+
             // Simple approach: return original URL for now
             // You can enhance this with AWS Lambda for actual thumbnail generation
             if (messageType == MessageType.Image)
             {
                 return originalUrl; // Use original image as thumbnail for now
             }
-            
+
             return null;
         }
         catch (Exception ex)
@@ -394,7 +394,7 @@ public class HybridFileUploadService : IHybridFileUploadService
                 // For now, return null to keep it simple
                 return (null, null, null);
             }
-            
+
             return (null, null, null);
         }
         catch

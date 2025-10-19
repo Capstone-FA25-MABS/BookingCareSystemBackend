@@ -54,7 +54,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
             var contentType = file.ContentType.ToLowerInvariant();
             var extension = Path.GetExtension(fileName);
 
-            _logger.LogDebug("Detecting file type for {FileName} with content type {ContentType}", 
+            _logger.LogDebug("Detecting file type for {FileName} with content type {ContentType}",
                 fileName, contentType);
 
             // Strategy 1: File signature detection (most reliable)
@@ -93,7 +93,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         var typeFolder = detectedType switch
         {
             DetailedMessageType.Image => "images",
-            DetailedMessageType.Video => "videos", 
+            DetailedMessageType.Video => "videos",
             DetailedMessageType.Audio => "audio",
             DetailedMessageType.VoiceNote => "voicenotes",
             DetailedMessageType.Document => "documents",
@@ -127,7 +127,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         return detectedType switch
         {
             DetailedMessageType.Image or DetailedMessageType.Gif => "Media",
-            DetailedMessageType.Video => "Media", 
+            DetailedMessageType.Video => "Media",
             DetailedMessageType.Audio or DetailedMessageType.VoiceNote => "Audio",
             DetailedMessageType.Document => "Documents",
             DetailedMessageType.Archive => "Archives",
@@ -188,7 +188,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
 
             result.IsValid = !result.ValidationErrors.Any();
 
-            _logger.LogInformation("File detection completed: {FileName} -> {DetectedType} (Valid: {IsValid})", 
+            _logger.LogInformation("File detection completed: {FileName} -> {DetectedType} (Valid: {IsValid})",
                 file.FileName, detectedType, result.IsValid);
 
             return result;
@@ -309,13 +309,13 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         // Simple heuristic to understand how type was detected
         var contentType = file.ContentType.ToLowerInvariant();
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        
+
         if (FileSignatures.Any(sig => contentType.Contains(sig.Key)))
             return "FileSignature";
-        
+
         if (DetectByContentType(contentType) == detectedType)
             return "ContentType";
-            
+
         return "FileExtension";
     }
 

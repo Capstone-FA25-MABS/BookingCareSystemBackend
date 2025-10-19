@@ -5,27 +5,24 @@ using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Services.Implementations;
 using BookingCare.Services.Communication.Configuration;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Extensions;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
 builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "communication");
 
-// Add services to the container
-builder.Services.AddControllers();
+// Add common services using ProgramExtensions
+builder.Services.AddCommonControllers();
 builder.Services.AddGrpc();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new()
-    {
-        Title = "BookingCare Communication API",
-        Version = "v1.0",
-        Description = "Communication Service with S3-Only File Upload Support (AWS S3 + CloudFront)"
-    });
-});
+
+// BẮT BUỘC: Add API versioning support
+builder.Services.AddApiVersioningSupport();
+
+// Add common Swagger configuration using ProgramExtensions  
+builder.Services.AddCommonSwagger("Communication");
 
 // Add SignalR
 builder.Services.AddSignalR(options =>
@@ -82,16 +79,8 @@ app.UseGlobalExceptionHandling();
 // Use CORS before other middleware
 app.UseCors("SignalRCorsPolicy");
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Communication Service V1.0 (S3-Only Upload)");
-        c.RoutePrefix = "swagger";
-    });
-}
+// Configure the HTTP request pipeline using ProgramExtensions
+app.UseCommonSwaggerUI("Communication");
 
 app.UseRouting();
 
@@ -109,5 +98,8 @@ app.MapHub<ChatHub>("/chatHub");
 
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();
+
+// Add common health check endpoint using ProgramExtensions
+app.MapCommonHealthCheck("Communication");
 
 app.Run();

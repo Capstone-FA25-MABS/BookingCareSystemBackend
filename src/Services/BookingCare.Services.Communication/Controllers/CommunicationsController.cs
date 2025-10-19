@@ -5,14 +5,17 @@ using BookingCare.Services.Communication.Data.Seeding;
 using BookingCare.Services.Communication.Data;
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 
 namespace BookingCare.Services.Communication.Controllers;
 
 /// <summary>
-/// Controller cho Communication service sử dụng BaseApiController
+/// Controller cho Communication service sử dụng BaseApiController với API versioning
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Produces("application/json")]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
 public class CommunicationsController : BaseApiController
 {
     private readonly IMessageService _messageService;
@@ -33,19 +36,35 @@ public class CommunicationsController : BaseApiController
     }
 
     /// <summary>
-    /// Health check endpoint
+    /// Health check endpoint với version info
     /// </summary>
     [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Health()
     {
-        return Success(new { Status = "Healthy", Service = "Communication", Timestamp = DateTime.UtcNow },
-            "Communication service đang hoạt động bình thường");
+        var healthData = new
+        {
+            Status = "Healthy",
+            Service = "Communication",
+            Version = ApiVersions.V1_0,
+            Timestamp = DateTime.UtcNow,
+            Features = new[]
+            {
+                "Real-time messaging via SignalR",
+                "File upload with S3-CloudFront",
+                "Voice/Video call logging",
+                "Mixed timeline (messages + calls)",
+                "Conversation management"
+            }
+        };
+        return Success(healthData, "Communication service đang hoạt động bình thường");
     }
 
     /// <summary>
     /// Seed dữ liệu mẫu vào database (chỉ dùng trong development)
     /// </summary>
     [HttpPost("seed-data")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> SeedData()
     {
         try
@@ -65,6 +84,7 @@ public class CommunicationsController : BaseApiController
     /// Tạo tin nhắn mới
     /// </summary>
     [HttpPost("messages")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateMessage([FromBody] CreateMessageRequest request)
     {
         var result = await _messageService.CreateAsync(request);
@@ -75,6 +95,7 @@ public class CommunicationsController : BaseApiController
     /// Tạo tin nhắn với file upload (Complete Flow) - One-step upload & send
     /// </summary>
     [HttpPost("messages/with-files")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateMessageWithFiles([FromForm] CreateMessageWithFilesRequest request)
     {
         try
@@ -105,6 +126,7 @@ public class CommunicationsController : BaseApiController
     /// Tạo tin nhắn với attachments đã upload sẵn
     /// </summary>
     [HttpPost("messages/with-attachments")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateMessageWithAttachments([FromBody] CreateMessageWithAttachmentsRequest request)
     {
         try
@@ -143,6 +165,7 @@ public class CommunicationsController : BaseApiController
     /// Cập nhật tin nhắn
     /// </summary>
     [HttpPut("messages/{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateMessage(string id, [FromBody] UpdateMessageRequest request)
     {
         if (id != request.Id)
@@ -158,6 +181,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy tin nhắn theo ID
     /// </summary>
     [HttpGet("messages/{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetMessage(string id)
     {
         var result = await _messageService.GetByIdAsync(id);
@@ -172,6 +196,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy mixed timeline (messages + call logs) cho conversation
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetMessagesByConversationId(
         string conversationId,
         [FromQuery] string? before = null,
@@ -201,6 +226,7 @@ public class CommunicationsController : BaseApiController
     /// Legacy endpoint với page-based pagination (kept for backward compatibility)
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages/paginated")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetMessagesByConversationIdPaginated(
         string conversationId,
         [FromQuery] int page = 1,
@@ -214,6 +240,7 @@ public class CommunicationsController : BaseApiController
     /// Xóa tin nhắn
     /// </summary>
     [HttpDelete("messages/{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteMessage(string id)
     {
         var result = await _messageService.DeleteAsync(id);
@@ -228,6 +255,7 @@ public class CommunicationsController : BaseApiController
     /// Đánh dấu tin nhắn đã đọc
     /// </summary>
     [HttpPost("messages/mark-as-read")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> MarkMessageAsRead([FromBody] MarkMessageAsReadRequest request)
     {
         var result = await _messageService.MarkAsReadAsync(request);
@@ -242,6 +270,7 @@ public class CommunicationsController : BaseApiController
     /// Đánh dấu tất cả tin nhắn chưa đọc trong conversation là đã đọc
     /// </summary>
     [HttpPost("messages/mark-all-as-read")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> MarkAllMessagesAsRead([FromBody] MarkAllMessagesAsReadRequest request)
     {
         var result = await _messageService.MarkAllAsReadAsync(request);
@@ -256,6 +285,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy số tin nhắn chưa đọc
     /// </summary>
     [HttpGet("conversations/{conversationId}/unread-count")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetUnreadCount(string conversationId, [FromQuery] string userId)
     {
         var count = await _messageService.GetUnreadCountAsync(conversationId, userId);
@@ -267,6 +297,7 @@ public class CommunicationsController : BaseApiController
     /// Tìm kiếm tin nhắn
     /// </summary>
     [HttpPost("messages/search")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> SearchMessages([FromBody] SearchMessageRequest request)
     {
         var result = await _messageService.SearchAsync(request);
@@ -277,6 +308,7 @@ public class CommunicationsController : BaseApiController
     /// Tạo tin nhắn text với real-time notification
     /// </summary>
     [HttpPost("messages/text")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateTextMessage([FromBody] CreateMessageRequest request)
     {
         try
@@ -301,6 +333,7 @@ public class CommunicationsController : BaseApiController
     /// API endpoint để test SignalR connection
     /// </summary>
     [HttpPost("test-signalr")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> TestSignalR([FromBody] TestSignalRRequest request)
     {
         try
@@ -330,6 +363,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy tin nhắn theo loại
     /// </summary>
     [HttpGet("conversations/{conversationId}/messages/by-type/{messageType}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetMessagesByType(
         string conversationId,
         MessageType messageType,
@@ -344,6 +378,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy tất cả attachments trong conversation
     /// </summary>
     [HttpGet("conversations/{conversationId}/attachments")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversationAttachments(
         string conversationId,
         [FromQuery] MessageType? messageType = null,
@@ -364,6 +399,7 @@ public class CommunicationsController : BaseApiController
     /// Tạo cuộc hội thoại mới
     /// </summary>
     [HttpPost("conversations")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
     {
         var result = await _conversationService.CreateAsync(request);
@@ -374,6 +410,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy cuộc hội thoại theo ID
     /// </summary>
     [HttpGet("conversations/{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversation(string id)
     {
         var result = await _conversationService.GetByIdAsync(id);
@@ -390,6 +427,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy cuộc hội thoại theo user ID - phiên bản performance cao cho mobile
     /// </summary>
     [HttpGet("users/{userId}/conversations/mobile")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversationsForMobile(
         string userId,
         [FromQuery] string? before = null,      // Cursor cho mobile cũng dùng cursor-based
@@ -428,6 +466,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy cuộc hội thoại theo user ID - phiên bản đầy đủ cho web
     /// </summary>
     [HttpGet("users/{userId}/conversations")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversationsByUserId(
         string userId,
         [FromQuery] string? before = null,              // Cursor để load conversations cũ hơn
@@ -454,6 +493,7 @@ public class CommunicationsController : BaseApiController
     /// Legacy endpoint với page-based pagination (kept for backward compatibility)
     /// </summary>
     [HttpGet("users/{userId}/conversations/paginated")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversationsByUserIdPaginated(
         string userId,
         [FromQuery] int page = 1,
@@ -479,6 +519,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy chi tiết conversation với các thông tin lazy loading
     /// </summary>
     [HttpGet("conversations/{id}/details")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversationDetails(
         string id,
         [FromQuery] bool includeParticipantDetails = true,
@@ -503,6 +544,7 @@ public class CommunicationsController : BaseApiController
     /// Tìm cuộc hội thoại giữa 2 users
     /// </summary>
     [HttpGet("conversations/between")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversationBetweenUsers([FromQuery] string userId1, [FromQuery] string userId2)
     {
         var result = await _conversationService.GetConversationBetweenUsersAsync(userId1, userId2);
@@ -517,6 +559,7 @@ public class CommunicationsController : BaseApiController
     /// Chặn cuộc hội thoại
     /// </summary>
     [HttpPost("conversations/block")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> BlockConversation([FromBody] BlockConversationRequest request)
     {
         var result = await _conversationService.BlockConversationAsync(request);
@@ -531,6 +574,7 @@ public class CommunicationsController : BaseApiController
     /// Bỏ chặn cuộc hội thoại
     /// </summary>
     [HttpPost("conversations/unblock")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UnblockConversation([FromBody] UnblockConversationRequest request)
     {
         var result = await _conversationService.UnblockConversationAsync(request);
@@ -549,6 +593,7 @@ public class CommunicationsController : BaseApiController
     /// Tạo call log mới
     /// </summary>
     [HttpPost("call-logs")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateCallLog([FromBody] CreateCallLogRequest request)
     {
         var result = await _callLogService.CreateAsync(request);
@@ -559,6 +604,7 @@ public class CommunicationsController : BaseApiController
     /// Cập nhật call log
     /// </summary>
     [HttpPut("call-logs/{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateCallLog(string id, [FromBody] UpdateCallLogRequest request)
     {
         if (id != request.Id)
@@ -574,6 +620,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy call log theo ID
     /// </summary>
     [HttpGet("call-logs/{id}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetCallLog(string id)
     {
         var result = await _callLogService.GetByIdAsync(id);
@@ -588,6 +635,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy call logs theo user ID
     /// </summary>
     [HttpGet("users/{userId}/call-logs")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetCallLogsByUserId(
         string userId,
         [FromQuery] int page = 1,
@@ -601,6 +649,7 @@ public class CommunicationsController : BaseApiController
     /// Lấy thống kê cuộc gọi
     /// </summary>
     [HttpPost("call-logs/statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetCallStatistics([FromBody] GetCallStatisticsRequest request)
     {
         var result = await _callLogService.GetCallStatisticsAsync(request);
@@ -610,9 +659,10 @@ public class CommunicationsController : BaseApiController
     #endregion
 
     /// <summary>
-    /// Test kết nối database
+    /// Test kết nối database với version info
     /// </summary>
     [HttpGet("test-connection")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> TestConnection()
     {
         try
@@ -627,7 +677,9 @@ public class CommunicationsController : BaseApiController
                 MessageCount = messageCount,
                 CallLogCount = callLogCount,
                 DatabaseName = "BookingCare_Communication",
-                ConnectionStatus = "Connected"
+                ConnectionStatus = "Connected",
+                Version = ApiVersions.V1_0,
+                Timestamp = DateTime.UtcNow
             };
 
             return Success(data, "Kết nối database thành công!");

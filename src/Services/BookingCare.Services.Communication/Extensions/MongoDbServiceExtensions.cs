@@ -71,18 +71,18 @@ public static class MongoDbServiceExtensions
 
         // Đăng ký Enhanced File Upload services với S3-only mode
         services.AddScoped<IHybridFileUploadService, HybridFileUploadService>();
-        
+
         // Đăng ký S3-only FileUploadService wrapper cho backward compatibility
         services.AddScoped<IFileUploadService, FileUploadServiceWrapper>();
 
         // Đăng ký File Upload Configuration
         services.Configure<FileUploadConfiguration>(configuration.GetSection(FileUploadConfiguration.SectionName));
-        
+
         // Đăng ký FluentValidation
         services.AddFluentValidationAutoValidation();
         services.AddFluentValidationClientsideAdapters();
         services.AddValidatorsFromAssemblyContaining<CommunicationMappingProfile>();
-        
+
         return services;
     }
 

@@ -2,18 +2,20 @@
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using System.Text.Json.Serialization;
 using System.ComponentModel.DataAnnotations;
 
 namespace BookingCare.Services.Communication.Controllers;
 
 /// <summary>
-/// Enhanced FileUpload Controller with AWS S3 + CloudFront support
+/// Enhanced FileUpload Controller with AWS S3 + CloudFront support và API versioning
 /// Provides new endpoints while maintaining backward compatibility
 /// </summary>
 [ApiController]
 [Produces("application/json")]
-[Route("api/enhanced-fileupload")]
+[Route(ApiRouteTemplates.Versioned)]
+[ApiVersion(ApiVersions.V1_0)]
 public class EnhancedFileUploadController : BaseApiController
 {
     private readonly IHybridFileUploadService _hybridFileUploadService;
@@ -31,6 +33,7 @@ public class EnhancedFileUploadController : BaseApiController
     /// Upload file to AWS S3 + CloudFront (S3-ONLY MODE)
     /// </summary>
     [HttpPost("s3/upload")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UploadToS3(
         [FromForm] IFormFile file,
         [FromForm] string userId,
@@ -67,6 +70,7 @@ public class EnhancedFileUploadController : BaseApiController
     /// Smart upload - auto-routes to AWS S3 (S3-ONLY MODE)
     /// </summary>
     [HttpPost("smart-upload")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> SmartUpload(
         [FromForm] IFormFile file,
         [FromForm] string userId,
@@ -107,6 +111,7 @@ public class EnhancedFileUploadController : BaseApiController
     /// Get CloudFront URL for S3 key (NEW ENDPOINT)
     /// </summary>
     [HttpGet("s3/cloudfront-url")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult GetCloudFrontUrl([FromQuery] string s3Key)
     {
         if (string.IsNullOrEmpty(s3Key))
@@ -135,6 +140,7 @@ public class EnhancedFileUploadController : BaseApiController
     /// Check if file exists in either storage (NEW ENDPOINT)
     /// </summary>
     [HttpHead("exists")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CheckFileExists([FromQuery] string fileUrl)
     {
         if (string.IsNullOrEmpty(fileUrl))
@@ -159,6 +165,7 @@ public class EnhancedFileUploadController : BaseApiController
     /// Get file info (NEW ENDPOINT)
     /// </summary>
     [HttpGet("info")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetFileInfo([FromQuery] string fileUrl)
     {
         if (string.IsNullOrEmpty(fileUrl))
@@ -200,6 +207,7 @@ public class EnhancedFileUploadController : BaseApiController
     /// Bulk upload with smart routing (NEW ENDPOINT)
     /// </summary>
     [HttpPost("bulk-smart-upload")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> BulkSmartUpload([FromForm] BulkUploadRequest request)
     {
         if (request.Files == null || !request.Files.Any())
@@ -240,13 +248,14 @@ public class EnhancedFileUploadController : BaseApiController
     /// Health check for hybrid file upload service (NEW ENDPOINT)
     /// </summary>
     [HttpGet("health")]
+    [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Health()
     {
         var healthData = new
         {
             Status = "Healthy",
             Service = "Enhanced File Upload (Hybrid)",
-            Version = "1.0",
+            Version = ApiVersions.V1_0,
             Providers = new[]
             {
                 "AWS S3 + CloudFront",

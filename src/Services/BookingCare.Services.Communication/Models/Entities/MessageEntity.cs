@@ -30,7 +30,10 @@ public class MessageEntity
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID của người nhận tin nhắn (Guid từ UserService được lưu dạng string, dùng cho chat 1-1)
+    /// ID của người nhận tin nhắn 
+    /// - Trong chat 1-1: ID của người nhận cụ thể
+    /// - Trong group chat: null (broadcast to all participants)
+    /// - Cho system/bot messages: ID của target user (nếu có)
     /// </summary>
     [BsonElement("receiverId")]
     public string? ReceiverId { get; set; }
