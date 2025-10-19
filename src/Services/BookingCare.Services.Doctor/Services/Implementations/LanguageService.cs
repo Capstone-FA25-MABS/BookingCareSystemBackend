@@ -5,6 +5,7 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
@@ -96,6 +97,25 @@ public class LanguageService : BaseService, ILanguageService
         return await _repository.DeleteLanguageAsync(id);
     }
 
+    public async Task<bool> ToggleLanguageStatusAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var language = await _repository.GetLanguageByIdAsync(id);
+            if (language == null)
+            {
+                throw new ArgumentException($"Language with ID {id} not found");
+            }
+
+            // Toggle status: ACTIVE -> INACTIVE, INACTIVE -> ACTIVE
+            language.Status = language.Status == Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
+            language.UpdatedAt = DateTime.UtcNow;
+
+            await _repository.UpdateLanguageAsync(language);
+            return true;
+        }, nameof(ToggleLanguageStatusAsync));
+    }
+
     #endregion
 
     #region Language Query Operations
@@ -117,6 +137,26 @@ public class LanguageService : BaseService, ILanguageService
     {
         var languages = await _repository.GetAllLanguagesAsync();
         return _mapper.Map<List<LanguageResponse>>(languages);
+    }
+
+    public async Task<List<LanguageSimpleResponse>> GetActiveLanguagesSimpleAsync()
+    {
+        var languages = await _repository.GetActiveLanguagesSimpleAsync();
+        return _mapper.Map<List<LanguageSimpleResponse>>(languages);
+    }
+
+    #endregion
+
+    #region Validation Operations
+
+    public async Task<bool> LanguageExistsAsync(Guid id)
+    {
+        return await _repository.LanguageExistsAsync(id);
+    }
+
+    public async Task<bool> LanguageNameExistsAsync(string name, Guid? excludeId = null)
+    {
+        return await _repository.LanguageNameExistsAsync(name, excludeId);
     }
 
     #endregion

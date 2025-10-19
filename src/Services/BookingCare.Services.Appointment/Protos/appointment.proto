@@ -1,0 +1,22 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Appointment.Protos";
+
+package appointment;
+
+// Appointment service definition
+service AppointmentService {
+    // Get doctor ID from appointment ID (for Payment service integration)
+    rpc GetDoctorIdByAppointmentId (GetDoctorIdByAppointmentIdRequest) returns (GetDoctorIdByAppointmentIdResponse);
+}
+
+// Request message
+message GetDoctorIdByAppointmentIdRequest {
+    string appointment_id = 1;
+}
+
+// Response message
+message GetDoctorIdByAppointmentIdResponse {
+    bool success = 1;
+    string doctor_id = 2; // Can be empty string if null or appointment not found
+}

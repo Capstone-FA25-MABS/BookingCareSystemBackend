@@ -2,6 +2,8 @@ using BookingCare.Services.User.Models.DTOs;
 using BookingCare.Services.User.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.User.Controllers;
@@ -49,12 +51,75 @@ public class UsersController : BaseApiController
     }
 
     /// <summary>
-    /// Get user by account ID
+    /// Get current user profile (requires authentication)
+    /// </summary>
+    /// <returns>Current user details</returns>
+    [HttpGet("profile")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    //[Authorize]
+    public async Task<IActionResult> GetCurrentUserProfile()
+    {
+        try
+        {
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            var user = await _userService.GetByAccountIdAsync(accountId);
+            if (user == null)
+            {
+                return NotFound("User profile not found");
+            }
+
+            return Success(user, "User profile retrieved successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Update current user profile (requires authentication)
+    /// </summary>
+    /// <param name="updateUserRequest">User update data</param>
+    /// <returns>Updated user profile</returns>
+    [HttpPut("profile")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    //[Authorize]
+    public async Task<IActionResult> UpdateCurrentUserProfile([FromBody] UpdateUserRequest updateUserRequest)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest("Invalid request data", ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
+
+        try
+        {
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            // Get confirmation statuses from JWT claims
+            var (emailConfirmed, phoneConfirmed) = JwtHelper.GetConfirmationStatuses(HttpContext);
+
+            // Update with confirmation statuses (service will handle user lookup)
+            var updatedUser = await _userService.UpdateByAccountIdAsync(accountId, updateUserRequest, emailConfirmed, phoneConfirmed);
+            return Success(updatedUser, "User profile updated successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Get user by account ID (for internal use)
     /// </summary>
     /// <param name="accountId">Account ID</param>
     /// <returns>User details</returns>
     [HttpGet("account/{accountId:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize]
     public async Task<IActionResult> GetUserByAccountId(Guid accountId)
     {
         var user = await _userService.GetByAccountIdAsync(accountId);
@@ -67,13 +132,14 @@ public class UsersController : BaseApiController
     }
 
     /// <summary>
-    /// Update user
+    /// Update user (Admin only - bypasses confirmation checks)
     /// </summary>
     /// <param name="id">User ID</param>
     /// <param name="updateUserRequest">User update data</param>
     /// <returns>Updated user</returns>
     [HttpPut("{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest updateUserRequest)
     {
         if (!ModelState.IsValid)
@@ -84,7 +150,8 @@ public class UsersController : BaseApiController
                 .ToList());
         }
 
-        var user = await _userService.UpdateAsync(id, updateUserRequest);
+        // Admin updates bypass confirmation checks (defaults to false, false)
+        var user = await _userService.UpdateAsync(id, updateUserRequest, emailConfirmed: false, phoneConfirmed: false);
         return Success(user, "User updated successfully");
     }
 

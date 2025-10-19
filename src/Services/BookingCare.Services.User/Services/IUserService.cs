@@ -8,8 +8,13 @@ public interface IUserService
     Task<UserResponse?> GetByIdAsync(Guid id);
     Task<UserResponse?> GetByAccountIdAsync(Guid accountId);
     Task<UserResponse> CreateAsync(CreateUserRequest createUserRequest);
-    Task<UserResponse> UpdateAsync(Guid id, UpdateUserRequest updateUserRequest);
+    Task<UserResponse> UpdateAsync(Guid id, UpdateUserRequest updateUserRequest, bool emailConfirmed = false, bool phoneConfirmed = false);
+    Task<UserResponse> UpdateByAccountIdAsync(Guid accountId, UpdateUserRequest updateUserRequest, bool emailConfirmed = false, bool phoneConfirmed = false);
     Task<bool> DeleteAsync(Guid id);
+
+    // Performance-optimized operations
+    Task<UserBasicInfoDto?> GetBasicInfoByIdAsync(Guid id);
+    Task<List<UserBasicInfoDto>> GetUsersBasicInfoByIdsAsync(List<Guid> ids);
 
     // Query operations
     Task<UserListResponse> GetUsersAsync(UserQueryRequest query);

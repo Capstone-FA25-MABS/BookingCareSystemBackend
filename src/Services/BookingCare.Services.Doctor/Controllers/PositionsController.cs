@@ -88,14 +88,14 @@ public class PositionsController : BaseApiController
     }
 
     /// <summary>
-    /// Get all positions (no pagination)
+    /// Get all positions (no pagination) - Optimized for performance
     /// </summary>
     [HttpGet("all")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAllPositions()
     {
-        var positions = await _positionService.GetAllPositionsAsync();
-        return Success<List<PositionResponse>>(positions, "All positions retrieved successfully");
+        var positions = await _positionService.GetActivePositionsSimpleAsync();
+        return Success<List<PositionSimpleResponse>>(positions, "All active positions retrieved successfully");
     }
 
     /// <summary>
@@ -151,6 +151,22 @@ public class PositionsController : BaseApiController
         }
 
         return Success<object?>(null, "Position deleted successfully");
+    }
+
+    /// <summary>
+    /// Toggle position status (ACTIVE/INACTIVE)
+    /// </summary>
+    [HttpPatch("{id}/toggle-status")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> TogglePositionStatus(Guid id)
+    {
+        var result = await _positionService.TogglePositionStatusAsync(id);
+        if (!result)
+        {
+            return NotFound($"Position with ID {id} not found");
+        }
+
+        return Success<object?>(null, "Position status toggled successfully");
     }
 
     #endregion

@@ -171,6 +171,96 @@ public static class ValidationHelper
 }
 
 /// <summary>
+/// Helper class for file validation
+/// </summary>
+public static class FileValidationHelper
+{
+    /// <summary>
+    /// Validates file upload with specific constraints
+    /// </summary>
+    /// <param name="file">The file to validate</param>
+    /// <param name="allowedExtensions">Allowed file extensions (e.g., [".jpg", ".png"])</param>
+    /// <param name="maxSizeInMB">Maximum file size in megabytes</param>
+    /// <param name="errorMessage">Output error message if validation fails</param>
+    /// <returns>True if valid, false otherwise</returns>
+    public static bool ValidateFile(
+        Microsoft.AspNetCore.Http.IFormFile? file,
+        string[] allowedExtensions,
+        int maxSizeInMB,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+
+        if (file == null || file.Length == 0)
+        {
+            errorMessage = "No file provided";
+            return false;
+        }
+
+        var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(fileExtension))
+        {
+            var extensionsString = string.Join(", ", allowedExtensions);
+            errorMessage = $"Only files with extensions {extensionsString} are allowed";
+            return false;
+        }
+
+        var maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+        if (file.Length > maxSizeInBytes)
+        {
+            errorMessage = $"File size must not exceed {maxSizeInMB}MB";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validates file extension
+    /// </summary>
+    /// <param name="fileName">The file name</param>
+    /// <param name="allowedExtensions">Allowed file extensions</param>
+    /// <returns>True if valid, false otherwise</returns>
+    public static bool IsValidFileExtension(string fileName, string[] allowedExtensions)
+    {
+        var fileExtension = Path.GetExtension(fileName).ToLowerInvariant();
+        return allowedExtensions.Contains(fileExtension);
+    }
+
+    /// <summary>
+    /// Validates file size
+    /// </summary>
+    /// <param name="fileLength">The file length in bytes</param>
+    /// <param name="maxSizeInMB">Maximum file size in megabytes</param>
+    /// <returns>True if valid, false otherwise</returns>
+    public static bool IsValidFileSize(long fileLength, int maxSizeInMB)
+    {
+        var maxSizeInBytes = maxSizeInMB * 1024 * 1024;
+        return fileLength <= maxSizeInBytes;
+    }
+
+    /// <summary>
+    /// Gets allowed extensions message
+    /// </summary>
+    /// <param name="allowedExtensions">Allowed file extensions</param>
+    /// <returns>Formatted message</returns>
+    public static string GetAllowedExtensionsMessage(string[] allowedExtensions)
+    {
+        return $"Only files with extensions {string.Join(", ", allowedExtensions)} are allowed";
+    }
+
+    /// <summary>
+    /// Gets max file size message
+    /// </summary>
+    /// <param name="maxSizeInMB">Maximum file size in megabytes</param>
+    /// <returns>Formatted message</returns>
+    public static string GetMaxFileSizeMessage(int maxSizeInMB)
+    {
+        return $"File size must not exceed {maxSizeInMB}MB";
+    }
+}
+
+/// <summary>
 /// Helper class for creating paginated results
 /// </summary>
 public static class PaginationHelper

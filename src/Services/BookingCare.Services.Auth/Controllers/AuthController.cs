@@ -11,6 +11,7 @@ using BookingCare.Services.Auth.Constants;
 using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Models;
 using BookingCare.Shared.Saga.SagaDefinition;
+using BookingCare.Shared.Common.Helpers;
 
 namespace BookingCare.Services.Auth.Controllers;
 
@@ -81,7 +82,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Registration information</param>
     /// <returns>Authentication response message</returns>
     [HttpPost("register/doctor")]
-    [Authorize(Policy = "Role:Clinic")]
+    [Authorize(Policy = "Role:Staff")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RegisterDoctor([FromBody] RegisterRequest request)
     {
@@ -97,23 +98,23 @@ public class AuthController : BaseApiController
     }
 
     /// <summary>
-    /// Register new clinic account
+    /// Register new hospital account
     /// </summary>
     /// <param name="request">Registration information</param>
     /// <returns>Authentication response message</returns>
-    [HttpPost("register/clinic")]
+    [HttpPost("register/staff")]
     [Authorize(Policy = "Role:Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> RegisterClinic([FromBody] RegisterRequest request)
+    public async Task<IActionResult> RegisterHospital([FromBody] RegisterRequest request)
     {
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
 
         // Role-specific validation
-        var roleValidation = ValidateRoleSpecificRequirements(request, Role.CLINIC);
+        var roleValidation = ValidateRoleSpecificRequirements(request, Role.STAFF);
         if (roleValidation != null) return roleValidation;
 
-        var result = await _authService.RegisterAsync(request, Role.CLINIC);
+        var result = await _authService.RegisterAsync(request, Role.STAFF);
         return Created(result, "Account registered successfully");
     }
 
@@ -163,11 +164,21 @@ public class AuthController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        var validation = ValidateBasicRequest();
-        if (validation != null) return validation;
+        try
+        {
+            var validation = ValidateBasicRequest();
+            if (validation != null) return validation;
 
-        await _authService.ChangePasswordAsync(request);
-        return Success("Password changed successfully");
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            await _authService.ChangePasswordAsync(request, accountId);
+            return Success("Password changed successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+
     }
 
     /// <summary>
@@ -291,6 +302,9 @@ public class AuthController : BaseApiController
         sagaContext.SetData("Gender", request.Gender?.ToString());
         sagaContext.SetData("Birthday", request.Birthday?.ToString("yyyy-MM-dd"));
         sagaContext.SetData("Address", request.Address);
+        sagaContext.SetData("AvatarUrl", request.Gender == Gender.MALE ?
+            "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png"
+            : "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/female_20251003_d13e4998.png");
 
         // OTP verification fields for Patient registration
         sagaContext.SetData("Purpose", request.Purpose.ToKey());
@@ -335,7 +349,7 @@ public class AuthController : BaseApiController
     /// <param name="request">Registration information</param>
     /// <returns>Saga execution result</returns>
     [HttpPost("register/doctor-saga")]
-    [Authorize(Policy = "Role:Clinic")]
+    [Authorize(Policy = "Role:Staff")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RegisterDoctorSaga([FromBody] RegisterRequest request)
     {
@@ -369,7 +383,7 @@ public class AuthController : BaseApiController
             sagaContext.SetData("YearsOfExperience", request.DoctorProfile.YearsOfExperience);
             sagaContext.SetData("SpecialtyId", request.DoctorProfile.SpecialtyId.ToString());
             sagaContext.SetData("PositionId", request.DoctorProfile.PositionId.ToString());
-            sagaContext.SetData("ClinicId", request.DoctorProfile.ClinicId.ToString());
+            sagaContext.SetData("HospitalId", request.DoctorProfile.HospitalId.ToString());
         }
 
         try

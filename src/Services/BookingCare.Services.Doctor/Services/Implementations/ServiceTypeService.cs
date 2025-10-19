@@ -5,6 +5,7 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
@@ -99,6 +100,25 @@ public class ServiceTypeService : BaseService, IServiceTypeService
         }, nameof(DeleteServiceTypeAsync));
     }
 
+    public async Task<bool> ToggleDoctorServiceTypeStatusAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var serviceType = await _repository.GetServiceTypeByIdAsync(id);
+            if (serviceType == null)
+            {
+                throw new ArgumentException($"Service type with ID {id} not found");
+            }
+
+            // Toggle status: ACTIVE -> INACTIVE, INACTIVE -> ACTIVE
+            serviceType.Status = serviceType.Status == Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
+            serviceType.UpdatedAt = DateTime.UtcNow;
+
+            await _repository.UpdateServiceTypeAsync(serviceType);
+            return true;
+        }, nameof(ToggleDoctorServiceTypeStatusAsync));
+    }
+
     #endregion
 
     #region ServiceType Query Operations
@@ -120,6 +140,26 @@ public class ServiceTypeService : BaseService, IServiceTypeService
     {
         var serviceTypes = await _repository.GetAllServiceTypesAsync();
         return _mapper.Map<List<ServiceTypeResponse>>(serviceTypes);
+    }
+
+    public async Task<List<ServiceTypeSimpleResponse>> GetActiveServiceTypesSimpleAsync()
+    {
+        var serviceTypes = await _repository.GetActiveServiceTypesSimpleAsync();
+        return _mapper.Map<List<ServiceTypeSimpleResponse>>(serviceTypes);
+    }
+
+    #endregion
+
+    #region Validation Operations
+
+    public async Task<bool> ServiceTypeExistsAsync(Guid id)
+    {
+        return await _repository.ServiceTypeExistsAsync(id);
+    }
+
+    public async Task<bool> ServiceTypeNameExistsAsync(string name, Guid? excludeId = null)
+    {
+        return await _repository.ServiceTypeNameExistsAsync(name, excludeId);
     }
 
     #endregion

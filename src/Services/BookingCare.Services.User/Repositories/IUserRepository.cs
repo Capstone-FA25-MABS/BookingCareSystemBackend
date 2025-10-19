@@ -12,11 +12,19 @@ public interface IUserRepository
     Task<UserEntity> UpdateAsync(UserEntity user);
     Task<bool> DeleteAsync(UserEntity user);
 
+    // Performance-optimized operations
+    Task<UserBasicInfoDto?> GetBasicInfoByIdAsync(Guid id);
+    Task<List<UserBasicInfoDto>> GetUsersBasicInfoByIdsAsync(List<Guid> ids);
+
     // Query operations
     Task<(List<UserEntity> Users, int TotalCount)> GetUsersAsync(UserQueryRequest query);
     Task<List<UserEntity>> SearchUsersAsync(string searchTerm, int limit = 10);
 
     // Batch operations for performance optimization
     Task<List<UserBasicInfoResponse>> GetUsersByAccountIdsAsync(List<Guid> accountIds);
+
+    // Validation operations
+    Task<bool> EmailExistsAsync(string email);
+    Task<bool> PhoneExistsAsync(string phone);
 
 }

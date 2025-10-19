@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Protobuf Include="Protos\ReviewService.proto" GrpcServices="Server" />
+    <Protobuf Include="..\BookingCare.Services.Auth\Protos\auth.proto" GrpcServices="Client" Link="Protos\auth.proto" />
   </ItemGroup>
 
   <ItemGroup>
@@ -19,6 +20,7 @@
     <PackageReference Include="MongoDB.Bson" Version="3.4.3" />
     <PackageReference Include="MongoDB.Driver" Version="3.4.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

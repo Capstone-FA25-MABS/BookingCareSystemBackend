@@ -1,0 +1,34 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using BookingCare.Services.Schedule.Enums;
+
+namespace BookingCare.Services.Schedule.Models.Entities;
+
+/// <summary>
+/// Represents daily schedules for doctors (according to pattern)
+/// </summary>
+[Table("doctor_daily_schedules")]
+public class DoctorDailyScheduleEntity
+{
+    [Key]
+    [Column("id")]
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    [Required]
+    [Column("doctor_id")]
+    public Guid DoctorId { get; set; }
+
+    [Required]
+    [Column("schedule_date")]
+    public DateOnly ScheduleDate { get; set; }
+
+    [Required]
+    [Column("schedule_patterns")]
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
+
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}

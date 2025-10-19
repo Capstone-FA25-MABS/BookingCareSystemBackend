@@ -1,5 +1,4 @@
 using BookingCare.Services.Notification.Services;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Handlers;
@@ -8,7 +7,6 @@ using BookingCare.Services.Notification.Utils.SMS;
 using BookingCare.Services.Notification.Utils.OTP;
 using BookingCare.Services.Notification.Setting;
 using BookingCare.Services.Auth.Protos;
-using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Services.Notification.Repositories.Implementations;
 using BookingCare.Services.Notification.Repositories.Interfaces;
@@ -17,41 +15,16 @@ using BookingCare.Services.Notification.Services.Grpc;
 using BookingCare.Shared.Cache.Extensions;
 using BookingCare.Shared.Common.Versioning;
 
-
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
-
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(6010, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-    options.ListenAnyIP(6020, listenOptions =>
-    {
-        // listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "notification");
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+// Add controllers and Swagger
+builder.Services.AddCommonControllers();
+builder.Services.AddCommonSwagger("Notification");
+
 builder.Services.AddGrpc();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1.0", new Microsoft.OpenApi.Models.OpenApiInfo
-    {
-        Title = "BookingCare Notification API",
-        Version = "v1.0",
-        Description = "API for notification services including OTP, email, SMS, and push notifications"
-    });
-});
 
 // Email settings and service
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
@@ -83,13 +56,16 @@ builder.Services.AddGlobalExceptionHandling();
 builder.Services.AddApiVersioningSupport();
 
 // Add logging
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
+builder.Logging.AddCommonLogging();
 
 // EventBus
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "notification-service-queue");
 builder.Services.AddIntegrationEventHandler<NotificationSendEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentRefundRequestedEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentNoRefundNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
+builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -100,32 +76,30 @@ builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    var provider = app.Services.GetRequiredService<Microsoft.AspNetCore.Mvc.ApiExplorer.IApiVersionDescriptionProvider>();
-    app.UseSwaggerUI(c =>
-    {
-        provider.ApiVersionDescriptions.ToList().ForEach(description =>
-            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"BookingCare Notification API {description.GroupName.ToUpperInvariant()}"));
-        c.RoutePrefix = "swagger";
-        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-    });
-}
+// Configure the HTTP request pipeline
+app.UseCommonSwaggerUI("Notification");
 app.UseGlobalExceptionHandling(); // Assuming this is already added via AddGlobalExceptionHandling
 app.UseStandardAuthPipeline();
 
 app.MapControllers();
 
-// Configure the HTTP request pipeline.
+// Map gRPC services
 app.MapGrpcService<OtpGrpcService>();
-app.MapGet("/", () => "BookingCare Notification Service is running...");
 
-// Subscribe to email notifications
+// Map health check endpoint
+app.MapCommonHealthCheck("Notification");
+
+// Subscribe to events
 app.UseEventBus(eventBus =>
 {
     eventBus.Subscribe<NotificationSendEvent, NotificationSendEventHandler>();
+    eventBus.Subscribe<AppointmentRefundRequestedIntegrationEvent, AppointmentRefundRequestedEventHandler>();
+    eventBus.Subscribe<AppointmentNoRefundNotificationEvent, AppointmentNoRefundNotificationEventHandler>();
+    eventBus.Subscribe<RefundHistoryCompletedIntegrationEvent, RefundHistoryCompletedEventHandler>();
+    eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
+
+    // Subscribe to appointment booking success notifications for email sending
+    eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
 });
 
-app.Run();
+await app.RunAsync();

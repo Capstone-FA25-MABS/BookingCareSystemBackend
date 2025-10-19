@@ -1,17 +1,16 @@
 using BookingCare.Services.Auth.Data;
+using BookingCare.Services.Auth.Handlers;
 using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Repositories;
 using BookingCare.Services.Auth.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using BookingCare.Services.Auth.Mappings;
-using System.Text.Json.Serialization;
 using BookingCare.Services.Notification.Protos;
 using BookingCare.Services.Auth.Utils;
+using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.Common.AppRouting;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Auth.Providers;
@@ -20,37 +19,15 @@ using BookingCare.Shared.Saga.Steps;
 using BookingCare.Shared.Saga.SagaDefinition;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.User.Protos;
-// Enable HTTP/2 without TLS for gRPC (development only)
-AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.WebHost.ConfigureKestrel(options =>
-{
-    // HTTP endpoint for REST API
-    options.ListenAnyIP(6003, listenOptions =>
-    {
-        //listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
+// Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "auth");
 
-    // gRPC endpoint
-    options.ListenAnyIP(6013, listenOptions =>
-    {
-        // listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http2;
-    });
-});
-// Add services to the container.
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
-
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// Add services to the container using common extensions
+builder.Services.AddCommonControllers();
+builder.Services.AddCommonSwagger("Auth");
 
 // Add DbContext
 builder.Services.AddDbContext<AuthDbContext>(options =>
@@ -144,9 +121,7 @@ builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(o =>
 builder.Services.AddGlobalExceptionHandling();
 
 // Add logging
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
+builder.Logging.AddCommonLogging();
 
 // Add JWT Authentication and Authorization using centralized configuration
 // This includes: JWT auth, authorization, and frontend configuration
@@ -155,20 +130,8 @@ builder.Services.AddJwtAuthAndAuthorization();
 // Add gRPC
 builder.Services.AddGrpc();
 
-builder.Services.AddEndpointsApiExplorer();
-
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
-
-builder.Services.AddSwaggerGen(c =>
-{
-    // Register common group names to avoid mismatch (some setups produce v1 instead of v1.0)
-    c.SwaggerDoc("v1", new() { Title = "BookingCare Auth API", Version = "v1" });
-    c.SwaggerDoc("v1.0", new() { Title = "BookingCare Auth API", Version = "v1.0" });
-    // Ensure endpoints are included in the correct Swagger doc based on ApiExplorer group name (e.g., v1.0)
-    c.DocInclusionPredicate((docName, apiDesc) =>
-        string.Equals(docName, apiDesc.GroupName, StringComparison.OrdinalIgnoreCase));
-});
 
 
 // Add Saga Orchestration
@@ -184,6 +147,9 @@ builder.Services.AddSagaStep<CreateAccountGrpcStep>();
 builder.Services.AddSagaStep<CreateExternalAccountGrpcStep>();
 builder.Services.AddSagaStep<CreateUserProfileGrpcStep>();
 builder.Services.AddSagaStep<CreateDoctorProfileGrpcStep>();
+
+// Register Event Handlers
+builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncEventHandler>();
 
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth-service-queue");
@@ -204,18 +170,67 @@ builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(Fro
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Initialize database and default data
+try
 {
-    app.UseSwagger();
-    var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
-    app.UseSwaggerUI(c =>
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+
+    // 1. Initialize Auth Database (apply migrations)
+    logger.LogInformation("Initializing Auth database...");
+    try
     {
-        provider.ApiVersionDescriptions.ToList().ForEach(description =>
-            c.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", $"BookingCare Auth API {description.GroupName.ToUpperInvariant()}"));
-        c.RoutePrefix = "swagger";
-    });
+        using var scope = app.Services.CreateScope();
+        var authDbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+
+        // Apply pending migrations (will create database if it doesn't exist)
+        await authDbContext.Database.MigrateAsync();
+        logger.LogInformation("Auth database initialized and migrations applied successfully");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error initializing Auth database");
+        throw new InvalidOperationException("Failed to initialize Auth database. Auth service cannot start without a valid database connection.", ex);
+    }
+
+    // 2. Initialize Saga Database (runs in all environments)
+    logger.LogInformation("Initializing Saga database...");
+    try
+    {
+        await app.Services.InitializeSagaDatabaseAsync();
+        logger.LogInformation("Saga database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error initializing Saga database");
+        // Don't throw - Auth service can still work without Saga in some scenarios
+    }
+
+    // 3. Initialize default data (development only)
+    if (app.Environment.IsDevelopment())
+    {
+        logger.LogInformation("Initializing default data...");
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var dataInitializationService = scope.ServiceProvider.GetRequiredService<DataInitializationService>();
+            await dataInitializationService.InitializeDefaultDataAsync();
+            logger.LogInformation("Default data initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error initializing default data");
+        }
+    }
 }
+catch (Exception ex)
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "Critical error during initialization");
+    throw new InvalidOperationException("Critical error occurred during service initialization. The application cannot start.", ex);
+}
+
+// Configure the HTTP request pipeline
+app.UseCommonSwaggerUI("Auth");
 
 app.UseGlobalExceptionHandling();
 app.UseStandardAuthPipeline();
@@ -224,26 +239,16 @@ app.MapControllers();
 
 // Map gRPC services
 app.MapGrpcService<AuthGrpcService>();
-app.MapGet("/", () => "BookingCare Auth Service is running...");
 
-// Configure EventBus subscriptions (none for Auth now)
-app.UseEventBus(eventBus => { /* No subscriptions in Auth service currently */ });
+// Map health check endpoint
+app.MapCommonHealthCheck("Auth");
 
-// Initialize default data
-if (app.Environment.IsDevelopment())
+// Configure EventBus subscriptions
+app.UseEventBus(eventBus =>
 {
-    try
-    {
-        using var scope = app.Services.CreateScope();
-        var dataInitializationService = scope.ServiceProvider.GetRequiredService<DataInitializationService>();
-        await dataInitializationService.InitializeDefaultDataAsync();
-    }
-    catch (Exception ex)
-    {
-        var logger = app.Services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Error initializing default data");
-    }
-}
+    // Subscribe to User Service sync requests
+    eventBus.Subscribe<UserEmailPhoneSyncRequestedEvent, UserEmailPhoneSyncEventHandler>();
+});
 
 app.Run();
 

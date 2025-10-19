@@ -1,9 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.Entities;
 
-[Table("service_types")]
+[Table("doctor_service_types")]
 public class ServiceTypeEntity
 {
     [Key]
@@ -18,6 +19,10 @@ public class ServiceTypeEntity
     [MaxLength(255)]
     [Column("description")]
     public string? Description { get; set; }
+
+    [Required]
+    [Column("status")]
+    public Status Status { get; set; } = Status.ACTIVE;
 
     [Required]
     [Column("created_at")]

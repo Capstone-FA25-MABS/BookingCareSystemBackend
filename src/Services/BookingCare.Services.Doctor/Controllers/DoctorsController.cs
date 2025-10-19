@@ -2,6 +2,7 @@ using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
@@ -46,7 +47,19 @@ public class DoctorsController : BaseApiController
     #region Doctor Endpoints
 
     /// <summary>
-    /// Get doctor by ID
+    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ) - Optimized response
+    /// </summary>
+    [HttpPost("filter")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> FilterDoctors([FromBody] DoctorAdvancedFilterRequest filter)
+    {
+        // Use optimized filter method that returns only necessary fields
+        var result = await _doctorService.FilterDoctorsOptimizedAsync(filter);
+        return Success<DoctorSearchListResponse>(result, "Doctors filtered successfully");
+    }
+
+    /// <summary>
+    /// Get doctor by ID with optimized response (only essential fields)
     /// </summary>
     [HttpGet("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -58,7 +71,7 @@ public class DoctorsController : BaseApiController
             return NotFound($"Doctor with ID {id} not found");
         }
 
-        return Success<DoctorResponse>(doctor, "Doctor retrieved successfully");
+        return Success<DoctorByIdResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
@@ -80,17 +93,25 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Get doctor by account ID
     /// </summary>
-    [HttpGet("by-account/{accountId}")]
+    [HttpGet("by-account")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetDoctorByAccountId(Guid accountId)
+    public async Task<IActionResult> GetDoctorByAccountId()
     {
-        var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
-        if (doctor == null)
+        try
         {
-            return NotFound($"Doctor with account ID {accountId} not found");
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
+            if (doctor == null)
+            {
+                return NotFound($"Doctor with account ID {accountId} not found");
+            }
+            return Success(doctor, "Doctor retrieved successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
         }
 
-        return Success<DoctorResponse>(doctor, "Doctor retrieved successfully");
     }
 
     /// <summary>
@@ -146,25 +167,14 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Filter doctors nâng cao theo nhiều tiêu chí (chuyên khoa, lịch trống, gender, số năm kinh nghiệm, giá, phòng khám, loại tư vấn, ngôn ngữ, đánh giá, địa chỉ, loại hình dịch vụ)
-    /// </summary>
-    [HttpPost("filter")]
-    [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> FilterDoctors([FromBody] DoctorAdvancedFilterRequest filter)
-    {
-        var result = await _doctorService.FilterDoctorsAsync(filter);
-        return Success<DoctorListResponse>(result, "Doctors filtered successfully");
-    }
-
-    /// <summary>
-    /// Get doctors by hospital
+    /// Get doctors by hospital with optimized response for hospital staff (includes both ACTIVE and INACTIVE doctors)
     /// </summary>
     [HttpGet("hospital/{hospitalId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetDoctorsByHospital(Guid hospitalId)
+    public async Task<IActionResult> GetDoctorsByHospital(Guid hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
-        var doctors = await _doctorService.GetDoctorsByHospitalAsync(hospitalId);
-        return Success<List<DoctorResponse>>(doctors, $"Doctors for hospital {hospitalId} retrieved successfully");
+        var result = await _doctorService.GetDoctorsByHospitalOptimizedAsync(hospitalId, pageNumber, pageSize);
+        return Success<DoctorSearchListResponse>(result, $"Doctors for hospital {hospitalId} retrieved successfully");
     }
 
     /// <summary>
@@ -205,18 +215,18 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patient/{patientId}/favorites")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetPatientFavoriteDoctors(Guid patientId, [FromQuery] int page = 1, [FromQuery] int pageSize = 9, [FromQuery] string? searchTerm = null)
+    public async Task<IActionResult> GetPatientFavoriteDoctors(Guid patientId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 9, [FromQuery] string? searchTerm = null)
     {
-        var result = await _doctorService.GetPatientFavoriteDoctorsAsync(patientId, page, pageSize, searchTerm);
+        var result = await _doctorService.GetPatientFavoriteDoctorsAsync(patientId, pageNumber, pageSize, searchTerm);
         return Success<DoctorListResponse>(result, $"Favorite doctors for patient {patientId} retrieved successfully");
     }
 
     /// <summary>
-    /// Search active doctors by name, specialty, or location for patients
+    /// Search active doctors by name, specialty, or location for patients (Optimized response with only necessary fields)
     /// </summary>
     [HttpGet("patients/search")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> SearchActiveDoctors([FromQuery] string? searchTerm, [FromQuery] Guid? specialtyId, [FromQuery] Guid? hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> SearchActiveDoctors([FromQuery] string? searchTerm, [FromQuery] Guid? specialtyId, [FromQuery] Guid? hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
         {
@@ -224,20 +234,13 @@ public class DoctorsController : BaseApiController
             SpecialtyId = specialtyId,
             HospitalId = hospitalId,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
-            PageNumber = page,
+            PageNumber = pageNumber,
             PageSize = pageSize
         };
 
-        DoctorListResponse result;
-        if (patientId.HasValue && patientId.Value != Guid.Empty)
-        {
-            result = await _doctorService.GetDoctorsWithFavoriteStatusAsync(query, patientId.Value);
-        }
-        else
-        {
-            result = await _doctorService.GetDoctorsAsync(query);
-        }
-        return Success<DoctorListResponse>(result, "Active doctors search completed successfully");
+        // Use optimized search method that returns only necessary fields
+        var result = await _doctorService.SearchDoctorsForPatientsAsync(query, patientId);
+        return Success<DoctorSearchListResponse>(result, "Active doctors search completed successfully");
     }
 
     /// <summary>
@@ -245,13 +248,13 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/specialty/{specialtyId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDoctorsBySpecialty(Guid specialtyId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> GetActiveDoctorsBySpecialty(Guid specialtyId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
         {
             SpecialtyId = specialtyId,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
-            PageNumber = page,
+            PageNumber = pageNumber,
             PageSize = pageSize
         };
 
@@ -272,13 +275,13 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/hospital/{hospitalId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDoctorsByHospital(Guid hospitalId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> GetActiveDoctorsByHospital(Guid hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
     {
         var query = new DoctorQueryRequest
         {
             HospitalId = hospitalId,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
-            PageNumber = page,
+            PageNumber = pageNumber,
             PageSize = pageSize
         };
 
@@ -390,6 +393,22 @@ public class DoctorsController : BaseApiController
         }
 
         return Success<object?>(null, "Doctor deleted successfully");
+    }
+
+    /// <summary>
+    /// Toggle doctor status (ACTIVE/INACTIVE)
+    /// </summary>
+    [HttpPatch("{id}/toggle-status")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ToggleDoctorStatus(Guid id)
+    {
+        var result = await _doctorService.ToggleDoctorStatusAsync(id);
+        if (!result)
+        {
+            return NotFound($"Doctor with ID {id} not found");
+        }
+
+        return Success<object?>(null, "Doctor status toggled successfully");
     }
 
     /// <summary>

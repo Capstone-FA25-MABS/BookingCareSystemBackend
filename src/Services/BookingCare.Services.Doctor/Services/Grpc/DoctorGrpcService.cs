@@ -30,7 +30,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
                 throw new RpcException(new Status(StatusCode.NotFound, $"Doctor with ID {id} not found"));
             }
 
-            return MapToGrpcDoctorResponse(doctor);
+            return MapToGrpcDoctorResponseFromById(doctor);
         }
         catch (RpcException)
         {
@@ -204,6 +204,85 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         }
     }
 
+    public override async Task<Protos.DoctorBasicInfoResponse> GetDoctorBasicInfo(Protos.GetDoctorBasicInfoRequest request, ServerCallContext context)
+    {
+        try
+        {
+            if (!Guid.TryParse(request.Id, out var id))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid doctor ID format"));
+            }
+
+            var doctor = await _doctorService.GetDoctorBasicInfoByIdAsync(id);
+            if (doctor == null)
+            {
+                throw new RpcException(new Status(StatusCode.NotFound, $"Doctor with ID {id} not found"));
+            }
+
+            return MapToGrpcDoctorBasicInfoResponse(doctor);
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorBasicInfo for {Id}", request.Id);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    public override async Task<Protos.DoctorsBasicInfoResponse> GetDoctorsBasicInfo(Protos.GetDoctorsBasicInfoRequest request, ServerCallContext context)
+    {
+        try
+        {
+            var ids = new List<Guid>();
+            foreach (var idStr in request.Ids)
+            {
+                if (!Guid.TryParse(idStr, out var id))
+                {
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, $"Invalid doctor ID format: {idStr}"));
+                }
+                ids.Add(id);
+            }
+
+            var doctors = await _doctorService.GetDoctorsBasicInfoByIdsAsync(ids);
+            var response = new Protos.DoctorsBasicInfoResponse();
+
+            foreach (var doctor in doctors)
+            {
+                response.Doctors.Add(MapToGrpcDoctorBasicInfoResponse(doctor));
+            }
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorsBasicInfo");
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    private static Protos.DoctorBasicInfoResponse MapToGrpcDoctorBasicInfoResponse(Models.Entities.DoctorEntity doctor)
+    {
+        return new Protos.DoctorBasicInfoResponse
+        {
+            Id = doctor.Id.ToString(),
+            Email = doctor.Email,
+            FirstName = doctor.FirstName,
+            LastName = doctor.LastName,
+            FullName = $"{doctor.FirstName} {doctor.LastName}".Trim(),
+            PositionName = doctor.Position?.Name ?? string.Empty,
+            SpecialtyName = doctor.Specialty?.Name ?? string.Empty,
+            AvatarUrl = doctor.AvatarUrl,
+            HospitalId = doctor.HospitalId?.ToString() ?? string.Empty
+        };
+    }
+
     private static Protos.DoctorResponse MapToGrpcDoctorResponse(DoctorResponse d)
     {
         return new Protos.DoctorResponse
@@ -225,6 +304,30 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             CreatedAt = d.CreatedAt.ToString("O"),
             UpdatedAt = d.UpdatedAt.ToString("O"),
             Status = d.Status.ToString()
+        };
+    }
+
+    private static Protos.DoctorResponse MapToGrpcDoctorResponseFromById(DoctorByIdResponse d)
+    {
+        return new Protos.DoctorResponse
+        {
+            Id = d.Id.ToString(),
+            AccountId = string.Empty, // Not available in DoctorByIdResponse
+            Email = d.Email,
+            FirstName = d.FirstName,
+            LastName = d.LastName,
+            FullName = $"{d.FirstName} {d.LastName}".Trim(),
+            Gender = d.Gender?.ToString() ?? string.Empty,
+            Address = d.Address ?? string.Empty,
+            SpecialtyId = d.Specialty?.Id.ToString() ?? string.Empty,
+            PositionId = d.Position?.Id.ToString() ?? string.Empty,
+            HospitalId = d.Hospital?.Id.ToString() ?? string.Empty,
+            Bio = d.Bio ?? string.Empty,
+            YearsOfExperience = d.YearsOfExperience,
+            AvatarUrl = d.AvatarUrl,
+            CreatedAt = string.Empty, // Not available in DoctorByIdResponse
+            UpdatedAt = string.Empty, // Not available in DoctorByIdResponse
+            Status = string.Empty // Not available in DoctorByIdResponse
         };
     }
 }

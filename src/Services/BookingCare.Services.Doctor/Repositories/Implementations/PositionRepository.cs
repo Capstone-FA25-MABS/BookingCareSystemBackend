@@ -2,6 +2,7 @@ using BookingCare.Services.Doctor.Data;
 using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
+using BookingCare.Shared.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Doctor.Repositories.Implementations;
@@ -48,7 +49,10 @@ public class PositionRepository : IPositionRepository
         var position = await GetPositionByIdAsync(id);
         if (position == null) return false;
 
-        _context.Positions.Remove(position);
+        // Soft delete - chỉ thay đổi status thành INACTIVE
+        position.Status = Status.INACTIVE;
+        position.UpdatedAt = DateTime.UtcNow;
+        _context.Positions.Update(position);
         await _context.SaveChangesAsync();
         return true;
     }
@@ -86,6 +90,15 @@ public class PositionRepository : IPositionRepository
             queryable = queryable.Where(p => p.Name.ToLower().Contains(searchTerm));
         }
 
+        // Apply status filter
+        if (query.Status.HasValue)
+        {
+            queryable = queryable.Where(p => p.Status == query.Status.Value);
+        }
+
+        // Apply sorting
+        queryable = ApplySorting(queryable, query);
+
         // Get total count
         var totalCount = await queryable.CountAsync();
 
@@ -101,6 +114,73 @@ public class PositionRepository : IPositionRepository
     public async Task<List<PositionEntity>> GetAllPositionsAsync()
     {
         return await _context.Positions.ToListAsync();
+    }
+
+    public async Task<List<PositionEntity>> GetPositionsByIdsAsync(List<Guid> ids)
+    {
+        return await _context.Positions
+            .Where(p => ids.Contains(p.Id))
+            .ToListAsync();
+    }
+
+    public async Task<Dictionary<Guid, int>> GetDoctorCountsByPositionAsync()
+    {
+        return await _context.Doctors
+            .Where(d => d.PositionId.HasValue && d.PositionId.Value != Guid.Empty)
+            .GroupBy(d => d.PositionId!.Value)
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
+    }
+
+    public async Task<List<PositionEntity>> GetActivePositionsSimpleAsync()
+    {
+        return await _context.Positions
+            .Where(p => p.Status == Status.ACTIVE)
+            .Select(p => new PositionEntity
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Status = p.Status
+            })
+            .OrderBy(p => p.Name)
+            .ToListAsync();
+    }
+
+    public async Task<Dictionary<Guid, int>> GetActiveDoctorCountsByPositionAsync()
+    {
+        return await _context.Doctors
+            .Where(d => d.PositionId.HasValue && d.PositionId.Value != Guid.Empty)
+            .GroupBy(d => d.PositionId!.Value)
+            .ToDictionaryAsync(g => g.Key, g => g.Count());
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    private IQueryable<PositionEntity> ApplySorting(IQueryable<PositionEntity> queryable, PositionQueryRequest query)
+    {
+        if (string.IsNullOrEmpty(query.SortBy))
+        {
+            // Default sort by CreatedAt descending (newest first)
+            return queryable.OrderByDescending(p => p.CreatedAt);
+        }
+
+        return query.SortBy.ToLower() switch
+        {
+            "name" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(p => p.Name)
+                : queryable.OrderBy(p => p.Name),
+            "createdat" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(p => p.CreatedAt)
+                : queryable.OrderBy(p => p.CreatedAt),
+            "updatedat" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(p => p.UpdatedAt)
+                : queryable.OrderBy(p => p.UpdatedAt),
+            "status" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(p => p.Status)
+                : queryable.OrderBy(p => p.Status),
+            _ => queryable.OrderByDescending(p => p.CreatedAt) // Default fallback
+        };
     }
 
     #endregion

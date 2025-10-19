@@ -5,6 +5,7 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
@@ -88,6 +89,25 @@ public class PositionService : BaseService, IPositionService
         }, nameof(DeletePositionAsync));
     }
 
+    public async Task<bool> TogglePositionStatusAsync(Guid id)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var position = await _repository.GetPositionByIdAsync(id);
+            if (position == null)
+            {
+                throw PositionNotFoundException.WithId(id);
+            }
+
+            // Toggle status: ACTIVE -> INACTIVE, INACTIVE -> ACTIVE
+            position.Status = position.Status == Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
+            position.UpdatedAt = DateTime.UtcNow;
+
+            await _repository.UpdatePositionAsync(position);
+            return true;
+        }, nameof(TogglePositionStatusAsync));
+    }
+
     #endregion
 
     #region Position Query Operations
@@ -108,7 +128,33 @@ public class PositionService : BaseService, IPositionService
     public async Task<List<PositionResponse>> GetAllPositionsAsync()
     {
         var positions = await _repository.GetAllPositionsAsync();
-        return _mapper.Map<List<PositionResponse>>(positions);
+        var doctorCounts = await _repository.GetDoctorCountsByPositionAsync();
+
+        var positionResponses = _mapper.Map<List<PositionResponse>>(positions);
+
+        // Set doctor count for each position
+        foreach (var position in positionResponses)
+        {
+            position.DoctorCount = doctorCounts.GetValueOrDefault(position.Id, 0);
+        }
+
+        return positionResponses;
+    }
+
+    public async Task<List<PositionSimpleResponse>> GetActivePositionsSimpleAsync()
+    {
+        var positions = await _repository.GetActivePositionsSimpleAsync();
+        var doctorCounts = await _repository.GetActiveDoctorCountsByPositionAsync();
+
+        var positionResponses = _mapper.Map<List<PositionSimpleResponse>>(positions);
+
+        // Set doctor count for each position
+        foreach (var position in positionResponses)
+        {
+            position.DoctorCount = doctorCounts.GetValueOrDefault(position.Id, 0);
+        }
+
+        return positionResponses;
     }
 
     #endregion

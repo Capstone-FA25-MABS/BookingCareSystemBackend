@@ -35,7 +35,17 @@ public interface IDoctorRepository
 
     // DoctorPrice Query operations
     Task<List<DoctorPriceEntity>> GetDoctorPricesAsync(Guid doctorId);
+
+    // Optimized methods for gRPC performance
+    Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
+    Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
     Task<bool> DeleteAllDoctorPricesAsync(Guid doctorId);
+
+    // Optimized method for Patient Search with minimal data
+    Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsForPatientSearchAsync(DoctorQueryRequest query);
+
+    // Optimized method for complex filtering with multiple criteria
+    Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsForComplexFilterAsync(DoctorQueryRequest query);
 
     // Language operations
     Task<List<LanguageEntity>> GetLanguagesAsync();
