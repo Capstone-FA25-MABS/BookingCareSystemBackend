@@ -16,6 +16,8 @@ public class CreateAppointmentRequest
 
     public Guid? ServiceId { get; set; }
 
+    public Guid? SpecialtyId { get; set; }
+
     [Required(ErrorMessage = "Appointment date is required")]
     public required DateTime AppointmentDate { get; set; }
 
@@ -72,6 +74,146 @@ public class CancelAppointmentRequest
     /// Optional: ID of the patient who cancelled the appointment
     /// </summary>
     public Guid? CancelledByPatientId { get; set; }
+
+    /// <summary>
+    /// Enable reschedule options for patient (staff cancellation only)
+    /// </summary>
+    public bool EnableRescheduleOptions { get; set; } = true;
+
+    /// <summary>
+    /// Specific reschedule options enabled by staff (only relevant if EnableRescheduleOptions = true)
+    /// </summary>
+    public RescheduleOptionsSelection? RescheduleOptions { get; set; }
+}
+
+/// <summary>
+/// Specifies which reschedule options are enabled by staff
+/// </summary>
+public class RescheduleOptionsSelection
+{
+    /// <summary>
+    /// Option 1: Allow patient to reschedule with same doctor
+    /// </summary>
+    public bool EnableSameDoctorReschedule { get; set; }
+
+    /// <summary>
+    /// Option 2: Allow staff to assign new doctor
+    /// </summary>
+    public bool EnableNewDoctorAssignment { get; set; }
+
+    /// <summary>
+    /// Option 3: Allow patient to choose new doctor
+    /// </summary>
+    public bool EnableDoctorSelection { get; set; }
+
+    /// <summary>
+    /// Option 4: Allow patient to request refund
+    /// </summary>
+    public bool EnableRefundRequest { get; set; }
+}
+
+/// <summary>
+/// Request to reschedule appointment with same doctor
+/// </summary>
+public class RescheduleSameDoctorRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "Reschedule token is required")]
+    public required string RescheduleToken { get; set; }
+
+    [Required(ErrorMessage = "New appointment date is required")]
+    public required DateTime NewAppointmentDate { get; set; }
+
+    [Required(ErrorMessage = "New appointment time is required")]
+    public required AppointmentTime NewAppointmentTimeId { get; set; }
+}
+
+/// <summary>
+/// Request for staff to assign new doctor (creates soft reservation)
+/// This is called by STAFF to assign a replacement doctor
+/// Creates a soft lock on the doctor's schedule until patient confirms
+/// </summary>
+public class AssignNewDoctorRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "New doctor ID is required")]
+    public required Guid NewDoctorId { get; set; }
+
+    /// <summary>
+    /// Optional: New appointment date (if different from original)
+    /// If not provided, keeps original appointment date
+    /// </summary>
+    public DateTime? NewAppointmentDate { get; set; }
+
+    /// <summary>
+    /// Optional: New appointment time (if different from original)
+    /// If not provided, keeps original appointment time
+    /// </summary>
+    public AppointmentTime? NewAppointmentTimeId { get; set; }
+
+    /// <summary>
+    /// Staff ID who is assigning the new doctor
+    /// </summary>
+    [Required(ErrorMessage = "Staff ID is required")]
+    public required Guid AssignedByStaffId { get; set; }
+
+    /// <summary>
+    /// Reason for cancelling the original appointment (required if appointment is not yet cancelled)
+    /// </summary>
+    [MaxLength(500)]
+    public string? CancellationReason { get; set; }
+
+    /// <summary>
+    /// Optional note from staff about the assignment
+    /// </summary>
+    [MaxLength(500)]
+    public string? StaffNote { get; set; }
+}
+
+/// <summary>
+/// Request to confirm new doctor assignment (called by PATIENT)
+/// Validates soft reservation and finalizes the appointment
+/// Note: NewDoctorId is not required here as it's already stored in AssignedDoctorId
+/// </summary>
+public class ConfirmNewDoctorRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "Reschedule token is required")]
+    public required string RescheduleToken { get; set; }
+}
+
+/// <summary>
+/// Request refund for cancelled appointment
+/// </summary>
+public class RequestRefundRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "Reschedule token is required")]
+    public required string RescheduleToken { get; set; }
+
+    [MaxLength(1000, ErrorMessage = "Patient note cannot exceed 1000 characters")]
+    public string? PatientNote { get; set; }
+
+    // Bank account info for refund
+    [Required(ErrorMessage = "Bank account number is required")]
+    [MaxLength(50)]
+    public required string BankAccountNumber { get; set; }
+
+    [Required(ErrorMessage = "Bank name is required")]
+    [MaxLength(100)]
+    public required string BankName { get; set; }
+
+    [Required(ErrorMessage = "Bank account holder name is required")]
+    [MaxLength(200)]
+    public required string BankAccountHolderName { get; set; }
 }
 
 /// <summary>

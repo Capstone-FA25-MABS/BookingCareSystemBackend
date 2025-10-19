@@ -19,6 +19,9 @@ public class AppointmentResponse
     public string? AttachmentUrls { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    
+    // Additional IDs for convenience (used for fetching available doctors, etc.)
+    public Guid? SpecialtyId { get; set; }
 
     // Payment information from gRPC call
     public decimal? ConsultationFees { get; set; }
@@ -117,5 +120,64 @@ public class AppointmentListResponse
     /// Counts for each status - only populated when requesting all statuses
     /// </summary>
     public AppointmentStatusCounts? StatusCounts { get; set; }
+}
+
+/// <summary>
+/// Response for reschedule operations with deep links for all 4 options
+/// </summary>
+public class RescheduleResponse
+{
+    public Guid AppointmentId { get; set; }
+    public string RescheduleToken { get; set; } = string.Empty;
+    public DateTime TokenExpiry { get; set; }
+    public string Message { get; set; } = string.Empty;
+    
+    // Deep links for patient (4 options)
+    /// <summary>
+    /// Option 1: Reschedule with same doctor
+    /// </summary>
+    public string? SameDoctorRescheduleUrl { get; set; }
+    
+    /// <summary>
+    /// Option 2: Confirm new doctor assigned by hospital staff
+    /// URL contains placeholder {newDoctorId} that will be replaced when staff assigns a doctor
+    /// </summary>
+    public string? ConfirmNewDoctorUrl { get; set; }
+    
+    /// <summary>
+    /// Option 3: Choose new doctor yourself (redirects to doctors list with filters)
+    /// No API endpoint needed - just redirect to frontend page
+    /// </summary>
+    public string? ChooseNewDoctorUrl { get; set; }
+    
+    /// <summary>
+    /// Option 4: Request refund
+    /// </summary>
+    public string? RefundRequestUrl { get; set; }
+}
+
+/// <summary>
+/// Response for available doctors query
+/// Returns doctors from same hospital + specialty that are available at specified date/time
+/// </summary>
+public class AvailableDoctorsResponse
+{
+    public List<AvailableDoctors> Doctors { get; set; } = new();
+    public int TotalCount { get; set; }
+}
+
+/// <summary>
+/// Available doctor information
+/// </summary>
+public class AvailableDoctors
+{
+    public Guid Id { get; set; }
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public string? PositionName { get; set; }
+    public string? SpecialtyName { get; set; }
+    public int YearsOfExperience { get; set; }
 }
 
