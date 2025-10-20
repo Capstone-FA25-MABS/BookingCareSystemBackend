@@ -62,6 +62,47 @@ public class HospitalsController : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Get optimized hospital list with essential fields, filters, and pagination
+    /// </summary>
+    [HttpGet("list")]
+    public async Task<IActionResult> GetOptimizedHospitalList(
+        [FromQuery] string? search,
+        [FromQuery] string[]? specialtyIds,
+        [FromQuery] string? provinceId,
+        [FromQuery] string? districtId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? sortBy = "Name",
+        [FromQuery] string? sortOrder = "asc")
+    {
+        try
+        {
+            var filter = new HospitalListOptimizedFilterRequest
+            {
+                Search = search,
+                SpecialtyIds = specialtyIds,
+                ProvinceId = provinceId,
+                DistrictId = districtId,
+                Page = page,
+                PageSize = pageSize,
+                SortBy = sortBy,
+                SortOrder = sortOrder
+            };
+
+            _logger.LogInformation("Controller received filter: Search={Search}, SpecialtyIds={SpecialtyIds}, ProvinceId={ProvinceId}, DistrictId={DistrictId}, Page={Page}, PageSize={PageSize}",
+                filter.Search, string.Join(",", filter.SpecialtyIds ?? new string[0]), filter.ProvinceId, filter.DistrictId, filter.Page, filter.PageSize);
+
+            var result = await _hospitalService.GetOptimizedHospitalListAsync(filter);
+            return Success<HospitalListOptimizedPaginatedResponse>(result, "Hospital list retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving optimized hospital list");
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetHospitalById(Guid id)
     {

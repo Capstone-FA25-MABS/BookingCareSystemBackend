@@ -23,4 +23,7 @@ public interface IHospitalService
 
     // Optimized methods for simple responses
     Task<List<HospitalSimpleResponse>> GetActiveHospitalsSimpleAsync();
+
+    // Optimized method for hospital list with essential fields and filters
+    Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter);
 }

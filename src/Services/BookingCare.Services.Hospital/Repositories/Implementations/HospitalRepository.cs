@@ -210,5 +210,127 @@ public class HospitalRepository : IHospitalRepository
             .ToListAsync();
     }
 
+    public async Task<(List<HospitalEntity> hospitals, int totalCount)> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter)
+    {
+        var query = _context.Hospitals.AsQueryable();
+
+        // Apply search filter
+        if (!string.IsNullOrEmpty(filter.Search))
+        {
+            Console.WriteLine($"Applying search filter: '{filter.Search}'");
+            query = query.Where(h => h.Name.Contains(filter.Search) || h.Address.Contains(filter.Search));
+        }
+
+        // Apply specialty filter
+        if (filter.SpecialtyIds != null && filter.SpecialtyIds.Length > 0)
+        {
+            Console.WriteLine($"Applying specialty filter with {filter.SpecialtyIds.Length} specialty IDs: {string.Join(", ", filter.SpecialtyIds)}");
+
+            // Convert string IDs to Guid
+            var specialtyGuids = new List<Guid>();
+            foreach (var specialtyIdStr in filter.SpecialtyIds)
+            {
+                if (Guid.TryParse(specialtyIdStr, out var specialtyGuid))
+                {
+                    specialtyGuids.Add(specialtyGuid);
+                }
+                else
+                {
+                    Console.WriteLine($"Invalid specialty ID format: {specialtyIdStr}");
+                }
+            }
+
+            if (specialtyGuids.Any())
+            {
+                // Debug: Check if any hospitals have specialties
+                var hospitalsWithSpecialties = await _context.Hospitals
+                    .Where(h => h.HospitalSpecialties.Any())
+                    .CountAsync();
+                Console.WriteLine($"Total hospitals with specialties: {hospitalsWithSpecialties}");
+
+                // Debug: Check specific specialty
+                var hospitalsWithSpecificSpecialty = await _context.Hospitals
+                    .Where(h => h.HospitalSpecialties.Any(hs => specialtyGuids.Contains(hs.SpecialtyId)))
+                    .CountAsync();
+                Console.WriteLine($"Hospitals with specific specialty: {hospitalsWithSpecificSpecialty}");
+
+                // Debug: Check hospital-specialty relationships
+                var hospitalSpecialtyCount = await _context.HospitalSpecialties
+                    .Where(hs => specialtyGuids.Contains(hs.SpecialtyId))
+                    .CountAsync();
+                Console.WriteLine($"Hospital-specialty relationships: {hospitalSpecialtyCount}");
+
+                // Debug: Check if any hospital-specialty relationships exist at all
+                var totalHospitalSpecialtyRelations = await _context.HospitalSpecialties.CountAsync();
+                Console.WriteLine($"Total hospital-specialty relationships: {totalHospitalSpecialtyRelations}");
+
+                // Debug: Check if any hospitals exist at all
+                var totalHospitals = await _context.Hospitals.CountAsync();
+                Console.WriteLine($"Total hospitals in database: {totalHospitals}");
+
+                // Apply specialty filter - hospitals must have at least one of the specified specialties
+                query = query.Where(h => h.HospitalSpecialties.Any(hs => specialtyGuids.Contains(hs.SpecialtyId)));
+            }
+        }
+
+        // Location filtering is handled at service level using address matching
+        // No database-level location filtering needed
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+        Console.WriteLine($"Total hospitals after database filtering: {totalCount}");
+
+        // Apply sorting
+        query = filter.SortBy?.ToLower() switch
+        {
+            "name" => filter.SortOrder?.ToLower() == "desc" ? query.OrderByDescending(h => h.Name) : query.OrderBy(h => h.Name),
+            "address" => filter.SortOrder?.ToLower() == "desc" ? query.OrderByDescending(h => h.Address) : query.OrderBy(h => h.Address),
+            _ => query.OrderBy(h => h.Name)
+        };
+
+        // Apply pagination
+        var hospitals = await query
+            .Include(h => h.HospitalSpecialties)
+            .Select(h => new HospitalEntity
+            {
+                Id = h.Id,
+                Name = h.Name,
+                Address = h.Address,
+                AvatarUrl = h.AvatarUrl,
+                HospitalSpecialties = h.HospitalSpecialties.Select(hs => new HospitalSpecialtyEntity
+                {
+                    HospitalId = hs.HospitalId,
+                    SpecialtyId = hs.SpecialtyId
+                }).ToList()
+            })
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync();
+
+        Console.WriteLine($"Returning {hospitals.Count} hospitals from repository");
+        return (hospitals, totalCount);
+    }
+
+    /// <summary>
+    /// Get specialty information directly from database for performance optimization
+    /// </summary>
+    public async Task<Dictionary<Guid, (string Name, string? ImageUrl)>> GetSpecialtyInfoByIdsAsync(List<Guid> specialtyIds)
+    {
+        if (specialtyIds == null || !specialtyIds.Any())
+        {
+            return new Dictionary<Guid, (string Name, string? ImageUrl)>();
+        }
+
+        // This would require a direct connection to Doctor database
+        // For now, we'll return empty dictionary and rely on gRPC
+        // In a real implementation, you might want to:
+        // 1. Use a shared database
+        // 2. Use database federation
+        // 3. Use a data warehouse
+        // 4. Use event sourcing to sync specialty data
+
+        return new Dictionary<Guid, (string Name, string? ImageUrl)>();
+    }
+
     #endregion
 }

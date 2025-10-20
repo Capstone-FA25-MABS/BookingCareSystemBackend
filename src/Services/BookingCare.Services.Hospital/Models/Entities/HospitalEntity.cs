@@ -43,7 +43,6 @@ public class HospitalEntity
     [Column("avatar_url")]
     public string? AvatarUrl { get; set; }
 
-
     [Required]
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.Now;

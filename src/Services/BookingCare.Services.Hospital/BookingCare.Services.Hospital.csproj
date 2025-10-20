@@ -9,6 +9,7 @@
   <ItemGroup>
     <Protobuf Include="Protos\hospital.proto" GrpcServices="Server" />
     <Protobuf Include="..\BookingCare.Services.Auth\Protos\auth.proto" GrpcServices="Client" />
+    <Protobuf Include="..\BookingCare.Services.Doctor\Protos\doctor.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>
@@ -41,6 +42,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
+    <ProjectReference Include="..\BookingCare.Services.Doctor\BookingCare.Services.Doctor.csproj" />
   </ItemGroup>
 
 </Project>
