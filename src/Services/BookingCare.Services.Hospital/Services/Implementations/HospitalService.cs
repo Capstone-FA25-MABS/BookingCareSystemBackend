@@ -508,48 +508,6 @@ public class HospitalService : IHospitalService
         // Status enrichment is handled at the response level, not entity level
     }
 
-    /// <summary>
-    /// Get specialty with retry logic to handle rate limiting
-    /// </summary>
-    private async Task<SpecialtySimpleResponse?> GetSpecialtyWithRetryAsync(
-        GetSpecialtyByIdRequest request,
-        Guid specialtyId,
-        Guid hospitalId,
-        int maxRetries = 5)
-    {
-        for (int attempt = 1; attempt <= maxRetries; attempt++)
-        {
-            try
-            {
-                return await _doctorClient.GetSpecialtyByIdAsync(request);
-            }
-            catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.Unavailable && attempt < maxRetries)
-            {
-                // Much longer delays for rate limiting: 1s, 2s, 4s, 8s, 16s
-                var delay = Math.Pow(2, attempt) * 1000;
-                _logger.LogWarning("gRPC call failed for specialty {SpecialtyId} (attempt {Attempt}/{MaxRetries}), retrying in {Delay}ms. Error: {Error}",
-                    specialtyId, attempt, maxRetries, delay, ex.Message);
-                await Task.Delay((int)delay);
-            }
-            catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.Unavailable && attempt == maxRetries)
-            {
-                _logger.LogError("gRPC call failed for specialty {SpecialtyId} after {MaxRetries} attempts. Skipping this specialty. Error: {Error}",
-                    specialtyId, maxRetries, ex.Message);
-                return null; // Return null instead of throwing to continue processing other specialties
-            }
-            catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
-            {
-                _logger.LogWarning("Specialty {SpecialtyId} not found", specialtyId);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error retrieving specialty {SpecialtyId}", specialtyId);
-                return null;
-            }
-        }
-        return null;
-    }
 
     /// <summary>
     /// Get multiple specialties with retry logic and circuit breaker pattern
@@ -708,7 +666,20 @@ public class HospitalService : IHospitalService
         List<HospitalListOptimizedResponse> hospitalBatch,
         Dictionary<Guid, HospitalEntity> hospitalEntityMap)
     {
-        // Collect all unique specialty IDs from all hospitals in this batch
+        // Collect specialty information from hospitals
+        var (allSpecialtyIds, hospitalSpecialtyMap) = CollectSpecialtyInformation(hospitalBatch, hospitalEntityMap);
+
+        // Bulk fetch all specialties with caching
+        var specialtyCache = await FetchSpecialtiesWithCachingAsync(allSpecialtyIds);
+
+        // Assign specialties to each hospital
+        AssignSpecialtiesToHospitals(hospitalBatch, hospitalSpecialtyMap, specialtyCache);
+    }
+
+    private (HashSet<Guid> allSpecialtyIds, Dictionary<Guid, List<Guid>> hospitalSpecialtyMap) CollectSpecialtyInformation(
+        List<HospitalListOptimizedResponse> hospitalBatch,
+        Dictionary<Guid, HospitalEntity> hospitalEntityMap)
+    {
         var allSpecialtyIds = new HashSet<Guid>();
         var hospitalSpecialtyMap = new Dictionary<Guid, List<Guid>>();
 
@@ -726,101 +697,132 @@ public class HospitalService : IHospitalService
             }
         }
 
-        // Bulk fetch all specialties with caching
-        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache = new();
-        if (allSpecialtyIds.Any())
+        return (allSpecialtyIds, hospitalSpecialtyMap);
+    }
+
+    private async Task<Dictionary<Guid, SpecialtySimpleResponse>> FetchSpecialtiesWithCachingAsync(HashSet<Guid> allSpecialtyIds)
+    {
+        var specialtyCache = new Dictionary<Guid, SpecialtySimpleResponse>();
+
+        if (!allSpecialtyIds.Any())
+            return specialtyCache;
+
+        try
         {
-            try
+            // Check cache first and identify uncached IDs
+            var uncachedIds = GetUncachedSpecialtyIds(allSpecialtyIds, specialtyCache);
+
+            // Fetch uncached specialties
+            if (uncachedIds.Any())
             {
-                // Check cache first
-                var uncachedIds = new List<Guid>();
-                foreach (var specialtyId in allSpecialtyIds)
-                {
-                    var cacheKey = $"specialty_{specialtyId}";
-                    if (_cache.TryGetValue(cacheKey, out SpecialtySimpleResponse? cachedSpecialty) && cachedSpecialty != null)
-                    {
-                        specialtyCache[specialtyId] = cachedSpecialty;
-                    }
-                    else
-                    {
-                        uncachedIds.Add(specialtyId);
-                    }
-                }
-
-                // Fetch uncached specialties
-                if (uncachedIds.Any())
-                {
-                    var bulkRequest = new GetSpecialtiesByIdsRequest();
-                    bulkRequest.Ids.AddRange(uncachedIds.Select(id => id.ToString()));
-
-                    var bulkResponse = await GetSpecialtiesBulkWithRetryAsync(bulkRequest);
-                    if (bulkResponse?.Specialties != null)
-                    {
-                        foreach (var specialty in bulkResponse.Specialties)
-                        {
-                            if (Guid.TryParse(specialty.Id, out var specialtyId))
-                            {
-                                specialtyCache[specialtyId] = specialty;
-
-                                // Cache for 30 minutes
-                                var cacheKey = $"specialty_{specialtyId}";
-                                var cacheOptions = new MemoryCacheEntryOptions
-                                {
-                                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
-                                    SlidingExpiration = TimeSpan.FromMinutes(10),
-                                    Priority = CacheItemPriority.Normal
-                                };
-                                _cache.Set(cacheKey, specialty, cacheOptions);
-                            }
-                        }
-                    }
-                }
-
-                _logger.LogInformation("Bulk retrieved {RetrievedCount}/{RequestedCount} specialties for batch (cached: {CachedCount}, fetched: {FetchedCount})",
-                    specialtyCache.Count, allSpecialtyIds.Count, specialtyCache.Count - uncachedIds.Count, uncachedIds.Count);
+                await FetchAndCacheUncachedSpecialtiesAsync(uncachedIds, specialtyCache);
             }
-            catch (Exception ex)
+
+            _logger.LogInformation("Bulk retrieved {RetrievedCount}/{RequestedCount} specialties for batch (cached: {CachedCount}, fetched: {FetchedCount})",
+                specialtyCache.Count, allSpecialtyIds.Count, specialtyCache.Count - uncachedIds.Count, uncachedIds.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in bulk specialty retrieval for batch");
+        }
+
+        return specialtyCache;
+    }
+
+    private List<Guid> GetUncachedSpecialtyIds(HashSet<Guid> allSpecialtyIds, Dictionary<Guid, SpecialtySimpleResponse> specialtyCache)
+    {
+        var uncachedIds = new List<Guid>();
+
+        foreach (var specialtyId in allSpecialtyIds)
+        {
+            var cacheKey = $"specialty_{specialtyId}";
+            if (_cache.TryGetValue(cacheKey, out SpecialtySimpleResponse? cachedSpecialty) && cachedSpecialty != null)
             {
-                _logger.LogError(ex, "Error in bulk specialty retrieval for batch");
+                specialtyCache[specialtyId] = cachedSpecialty;
+            }
+            else
+            {
+                uncachedIds.Add(specialtyId);
             }
         }
 
-        // Assign specialties to each hospital
+        return uncachedIds;
+    }
+
+    private async Task FetchAndCacheUncachedSpecialtiesAsync(List<Guid> uncachedIds, Dictionary<Guid, SpecialtySimpleResponse> specialtyCache)
+    {
+        var bulkRequest = new GetSpecialtiesByIdsRequest();
+        bulkRequest.Ids.AddRange(uncachedIds.Select(id => id.ToString()));
+
+        var bulkResponse = await GetSpecialtiesBulkWithRetryAsync(bulkRequest);
+        if (bulkResponse?.Specialties == null)
+            return;
+
+        foreach (var specialty in bulkResponse.Specialties)
+        {
+            if (Guid.TryParse(specialty.Id, out var specialtyId))
+            {
+                specialtyCache[specialtyId] = specialty;
+                CacheSpecialty(specialtyId, specialty);
+            }
+        }
+    }
+
+    private void CacheSpecialty(Guid specialtyId, SpecialtySimpleResponse specialty)
+    {
+        var cacheKey = $"specialty_{specialtyId}";
+        var cacheOptions = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
+            SlidingExpiration = TimeSpan.FromMinutes(10),
+            Priority = CacheItemPriority.Normal
+        };
+        _cache.Set(cacheKey, specialty, cacheOptions);
+    }
+
+    private void AssignSpecialtiesToHospitals(
+        List<HospitalListOptimizedResponse> hospitalBatch,
+        Dictionary<Guid, List<Guid>> hospitalSpecialtyMap,
+        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache)
+    {
         foreach (var hospitalResponse in hospitalBatch)
         {
             if (hospitalSpecialtyMap.TryGetValue(hospitalResponse.Id, out var specialtyIds))
             {
-                if (specialtyIds.Any())
-                {
-                    var specialties = new List<HospitalSpecialtyOptimizedResponse>();
+                var specialties = BuildHospitalSpecialties(specialtyIds, specialtyCache);
+                hospitalResponse.Specialties = specialties;
+                hospitalResponse.TotalSpecialties = specialtyIds.Count;
 
-                    foreach (var specialtyId in specialtyIds)
-                    {
-                        if (specialtyCache.TryGetValue(specialtyId, out var specialty))
-                        {
-                            specialties.Add(new HospitalSpecialtyOptimizedResponse
-                            {
-                                Id = specialtyId,
-                                Name = specialty.Name,
-                                ImageUrl = specialty.ImageUrl
-                            });
-                        }
-                    }
-
-                    hospitalResponse.Specialties = specialties;
-                    hospitalResponse.TotalSpecialties = specialtyIds.Count; // Use original count from DB
-
-                    _logger.LogDebug("Hospital {HospitalId} enriched with {RetrievedCount}/{TotalCount} specialties",
-                        hospitalResponse.Id, specialties.Count, specialtyIds.Count);
-                }
-                else
-                {
-                    hospitalResponse.Specialties = new List<HospitalSpecialtyOptimizedResponse>();
-                    hospitalResponse.TotalSpecialties = 0;
-                    _logger.LogDebug("Hospital {HospitalId} has no specialties", hospitalResponse.Id);
-                }
+                _logger.LogDebug("Hospital {HospitalId} enriched with {RetrievedCount}/{TotalCount} specialties",
+                    hospitalResponse.Id, specialties.Count, specialtyIds.Count);
             }
         }
+    }
+
+    private List<HospitalSpecialtyOptimizedResponse> BuildHospitalSpecialties(
+        List<Guid> specialtyIds,
+        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache)
+    {
+        if (!specialtyIds.Any())
+        {
+            return new List<HospitalSpecialtyOptimizedResponse>();
+        }
+
+        var specialties = new List<HospitalSpecialtyOptimizedResponse>();
+        foreach (var specialtyId in specialtyIds)
+        {
+            if (specialtyCache.TryGetValue(specialtyId, out var specialty))
+            {
+                specialties.Add(new HospitalSpecialtyOptimizedResponse
+                {
+                    Id = specialtyId,
+                    Name = specialty.Name,
+                    ImageUrl = specialty.ImageUrl
+                });
+            }
+        }
+
+        return specialties;
     }
 
     #endregion

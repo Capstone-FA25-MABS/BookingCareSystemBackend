@@ -66,30 +66,10 @@ public class HospitalsController : BaseApiController
     /// Get optimized hospital list with essential fields, filters, and pagination
     /// </summary>
     [HttpGet("list")]
-    public async Task<IActionResult> GetOptimizedHospitalList(
-        [FromQuery] string? search,
-        [FromQuery] string[]? specialtyIds,
-        [FromQuery] string? provinceId,
-        [FromQuery] string? districtId,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10,
-        [FromQuery] string? sortBy = "Name",
-        [FromQuery] string? sortOrder = "asc")
+    public async Task<IActionResult> GetOptimizedHospitalList([FromQuery] HospitalListOptimizedFilterRequest filter)
     {
         try
         {
-            var filter = new HospitalListOptimizedFilterRequest
-            {
-                Search = search,
-                SpecialtyIds = specialtyIds,
-                ProvinceId = provinceId,
-                DistrictId = districtId,
-                Page = page,
-                PageSize = pageSize,
-                SortBy = sortBy,
-                SortOrder = sortOrder
-            };
-
             _logger.LogInformation("Controller received filter: Search={Search}, SpecialtyIds={SpecialtyIds}, ProvinceId={ProvinceId}, DistrictId={DistrictId}, Page={Page}, PageSize={PageSize}",
                 filter.Search, string.Join(",", filter.SpecialtyIds ?? new string[0]), filter.ProvinceId, filter.DistrictId, filter.Page, filter.PageSize);
 

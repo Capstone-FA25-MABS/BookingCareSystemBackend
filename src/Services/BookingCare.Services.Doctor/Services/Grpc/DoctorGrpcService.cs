@@ -304,16 +304,19 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             var ids = new List<Guid>();
             foreach (var idStr in request.Ids)
             {
-                if (!Guid.TryParse(idStr, out var id))
+                if (Guid.TryParse(idStr, out var id))
+                {
+                    ids.Add(id);
+                }
+                else
                 {
                     _logger.LogWarning("[DoctorGrpcService] Invalid specialty ID format: {Id}", idStr);
-                    continue; // Skip invalid IDs instead of throwing
                 }
-                ids.Add(id);
             }
 
-            if (ids.Count == 0)
+            if (!ids.Any())
             {
+                _logger.LogWarning("[DoctorGrpcService] No valid specialty IDs provided");
                 return new Protos.SpecialtiesBatchResponse();
             }
 
