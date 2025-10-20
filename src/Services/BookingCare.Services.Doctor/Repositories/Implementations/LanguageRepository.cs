@@ -83,7 +83,7 @@ public class LanguageRepository : ILanguageRepository
     {
         var queryable = _context.Languages.AsQueryable();
 
-        // Apply filters
+        // Apply search filter
         if (!string.IsNullOrEmpty(query.SearchTerm))
         {
             var searchTerm = query.SearchTerm.ToLower();
@@ -96,18 +96,8 @@ public class LanguageRepository : ILanguageRepository
             queryable = queryable.Where(l => l.Status == query.Status.Value);
         }
 
-        // Sort
-        if (!string.IsNullOrEmpty(query.SortBy))
-        {
-            if (query.SortBy == "Name")
-                queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(l => l.Name) : queryable.OrderBy(l => l.Name);
-            else if (query.SortBy == "CreatedAt")
-                queryable = query.SortOrder == "desc" ? queryable.OrderByDescending(l => l.CreatedAt) : queryable.OrderBy(l => l.CreatedAt);
-        }
-        else
-        {
-            queryable = queryable.OrderBy(l => l.Name);
-        }
+        // Apply sorting
+        queryable = ApplySorting(queryable, query);
 
         // Get total count
         var totalCount = await queryable.CountAsync();
@@ -123,14 +113,14 @@ public class LanguageRepository : ILanguageRepository
 
     public async Task<List<LanguageEntity>> GetAllLanguagesAsync()
     {
-        return await _context.Languages
-            .OrderBy(l => l.Name)
-            .ToListAsync();
+        return await _context.Languages.ToListAsync();
     }
 
-    public IQueryable<LanguageEntity> GetQueryableLanguages()
+    public async Task<List<LanguageEntity>> GetLanguagesByIdsAsync(List<Guid> ids)
     {
-        return _context.Languages.AsQueryable();
+        return await _context.Languages
+            .Where(l => ids.Contains(l.Id))
+            .ToListAsync();
     }
 
     public async Task<List<LanguageEntity>> GetActiveLanguagesSimpleAsync()
@@ -145,6 +135,36 @@ public class LanguageRepository : ILanguageRepository
             })
             .OrderBy(l => l.Name)
             .ToListAsync();
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    private IQueryable<LanguageEntity> ApplySorting(IQueryable<LanguageEntity> queryable, LanguageQueryRequest query)
+    {
+        if (string.IsNullOrEmpty(query.SortBy))
+        {
+            // Default sort by CreatedAt descending (newest first)
+            return queryable.OrderByDescending(l => l.CreatedAt);
+        }
+
+        return query.SortBy.ToLower() switch
+        {
+            "name" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(l => l.Name)
+                : queryable.OrderBy(l => l.Name),
+            "createdat" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(l => l.CreatedAt)
+                : queryable.OrderBy(l => l.CreatedAt),
+            "updatedat" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(l => l.UpdatedAt)
+                : queryable.OrderBy(l => l.UpdatedAt),
+            "status" => query.SortOrder?.ToLower() == "desc"
+                ? queryable.OrderByDescending(l => l.Status)
+                : queryable.OrderBy(l => l.Status),
+            _ => queryable.OrderByDescending(l => l.CreatedAt) // Default fallback
+        };
     }
 
     #endregion

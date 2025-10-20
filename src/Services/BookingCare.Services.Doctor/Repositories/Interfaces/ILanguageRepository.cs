@@ -17,7 +17,7 @@ public interface ILanguageRepository
     // Language Query operations
     Task<(List<LanguageEntity> Languages, int TotalCount)> GetLanguagesAsync(LanguageQueryRequest query);
     Task<List<LanguageEntity>> GetAllLanguagesAsync();
-    IQueryable<LanguageEntity> GetQueryableLanguages();
+    Task<List<LanguageEntity>> GetLanguagesByIdsAsync(List<Guid> ids);
 
     // Optimized methods for simple responses
     Task<List<LanguageEntity>> GetActiveLanguagesSimpleAsync();
