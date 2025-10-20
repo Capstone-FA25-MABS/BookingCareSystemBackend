@@ -36,4 +36,10 @@ public interface IAppointmentRepository
         Guid? doctorId = null,
         Guid? hospitalId = null,
         bool countAll = false);
+
+    /// <summary>
+    /// Get all booked appointment time IDs for a doctor on a specific date
+    /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
+    /// </summary>
+    Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(Guid doctorId, DateOnly appointmentDate);
 }

@@ -7,6 +7,7 @@ using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
+using BookingCare.Shared.Cache.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +22,9 @@ builder.Services.AddCommonSwagger("Appointment");
 // Add DbContext
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add Redis Cache
+builder.Services.AddRedisCache(builder.Configuration);
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
@@ -87,6 +91,9 @@ app.UseGlobalExceptionHandling();
 app.UseStandardAuthPipeline();
 
 app.MapControllers();
+
+// Map gRPC service
+app.MapGrpcService<AppointmentGrpcService>();
 
 // Map health check endpoint
 app.MapCommonHealthCheck("Appointment");

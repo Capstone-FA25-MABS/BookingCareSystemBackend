@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option csharp_namespace = "BookingCare.Services.Appointment.Protos";
+
+package appointment;
+
+// Service for appointment operations
+service AppointmentService {
+  // Check if appointment slots are already booked for a doctor on a specific date
+  rpc CheckBookedSlots(CheckBookedSlotsRequest) returns (CheckBookedSlotsResponse);
+}
+
+// Request to check booked slots
+message CheckBookedSlotsRequest {
+  string doctor_id = 1;  // GUID as string
+  string appointment_date = 2;  // ISO 8601 date format (yyyy-MM-dd)
+}
+
+// Response with booked appointment time IDs
+message CheckBookedSlotsResponse {
+  repeated int32 booked_appointment_time_ids = 1;  // List of AppointmentTime enum values that are booked
+}

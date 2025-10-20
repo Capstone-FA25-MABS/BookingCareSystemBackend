@@ -24,6 +24,7 @@ public class ScheduleService : IScheduleService
     private readonly ILogger<ScheduleService> _logger;
     private readonly DoctorService.DoctorServiceClient _doctorClient;
     private readonly ServiceMedicalService.ServiceMedicalServiceClient _serviceMedicalClient;
+    private readonly BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient _appointmentClient;
     private readonly IMapper _mapper;
 
     public ScheduleService(
@@ -32,6 +33,7 @@ public class ScheduleService : IScheduleService
         ILogger<ScheduleService> logger,
         DoctorService.DoctorServiceClient doctorClient,
         ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient,
+        BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient appointmentClient,
         IMapper mapper)
     {
         _repository = repository;
@@ -39,6 +41,7 @@ public class ScheduleService : IScheduleService
         _logger = logger;
         _doctorClient = doctorClient;
         _serviceMedicalClient = serviceMedicalClient;
+        _appointmentClient = appointmentClient;
         _mapper = mapper;
     }
 
@@ -315,12 +318,51 @@ public class ScheduleService : IScheduleService
             return cached;
         }
 
+        // Get all potential available slots from schedule
         var entities = await _repository.GetAvailableSlotsAsync(request.DoctorId, request.Date, request.ServiceId);
-        var dtos = entities.Select(BookingCare.Services.Schedule.Utilities.AppointmentTimeHelper.ConvertEnumToDto).ToList();
+            var allSlots = entities.Select(BookingCare.Services.Schedule.Utilities.AppointmentTimeHelper.ConvertEnumToDto).ToList();
 
-        await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+        // Check which slots are already booked via gRPC call to Appointment service
+        try
+        {
+            var checkBookedRequest = new BookingCare.Services.Appointment.Protos.CheckBookedSlotsRequest
+            {
+                DoctorId = request.DoctorId.ToString(),
+                AppointmentDate = request.Date.ToString(DateFormat)
+            };
 
-        return dtos;
+            var bookedSlotsResponse = await _appointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
+            var bookedTimeIds = new HashSet<int>(bookedSlotsResponse.BookedAppointmentTimeIds);
+
+            _logger.LogInformation("Doctor {DoctorId} on {Date}: Found {TotalSlots} potential slots, {BookedSlots} already booked",
+                request.DoctorId, request.Date, allSlots.Count, bookedTimeIds.Count);
+
+            // Filter out booked slots - only return slots that are NOT booked
+            // We need to match AppointmentTimeDto.Id with AppointmentTime enum values
+            var availableSlots = allSlots.Where(slot =>
+            {
+                // Extract the AppointmentTime enum value from the deterministic GUID
+                var slotBytes = slot.Id.ToByteArray();
+                var enumValue = BitConverter.ToInt32(slotBytes, 0);
+                return !bookedTimeIds.Contains(enumValue);
+            }).ToList();
+
+            _logger.LogInformation("Returning {AvailableCount} available slots after filtering booked slots",
+                availableSlots.Count);
+
+            await _cacheService.SetAsync(cacheKey, availableSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+
+            return availableSlots;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking booked slots for doctor {DoctorId} on {Date}. Returning all slots without filtering.",
+                request.DoctorId, request.Date);
+
+            // Fallback: return all slots if appointment service is unavailable
+            await _cacheService.SetAsync(cacheKey, allSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+            return allSlots;
+        }
     }
 
     #endregion
