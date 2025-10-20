@@ -320,7 +320,7 @@ public class ScheduleService : IScheduleService
 
         // Get all potential available slots from schedule
         var entities = await _repository.GetAvailableSlotsAsync(request.DoctorId, request.Date, request.ServiceId);
-            var allSlots = entities.Select(BookingCare.Services.Schedule.Utilities.AppointmentTimeHelper.ConvertEnumToDto).ToList();
+        var allSlots = entities.Select(BookingCare.Services.Schedule.Utilities.AppointmentTimeHelper.ConvertEnumToDto).ToList();
 
         // Check which slots are already booked via gRPC call to Appointment service
         try

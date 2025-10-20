@@ -662,7 +662,7 @@ public class AppointmentService : BaseService, IAppointmentService
             // We need to use the FULL cache key including Schedule Service's prefix
             // Otherwise we'll try to delete "BookingCare:Appointment:available_slots:..." 
             // but the actual cache is "BookingCare:Schedule:available_slots:..."
-            
+
             // Invalidate cache with specific serviceId (if provided)
             if (serviceId.HasValue)
             {
@@ -726,14 +726,14 @@ public class AppointmentService : BaseService, IAppointmentService
             // Direct Redis operation using injected IConnectionMultiplexer
             var server = _redisConnection.GetServer(_redisConnection.GetEndPoints()[0]);
             var db = _redisConnection.GetDatabase(0);
-            
+
             var keys = server.Keys(0, fullPattern).ToArray();
             foreach (var key in keys)
             {
                 await db.KeyDeleteAsync(key);
             }
-            
-            LogInfo("Directly removed {Count} cache keys matching pattern: {Pattern}", 
+
+            LogInfo("Directly removed {Count} cache keys matching pattern: {Pattern}",
                 null, keys.Length, fullPattern);
         }
         catch (Exception ex)
