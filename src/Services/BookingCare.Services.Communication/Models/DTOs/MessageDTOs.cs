@@ -124,6 +124,53 @@ public class MessageResponse
     /// Thời gian đọc tin nhắn
     /// </summary>
     public DateTime? ReadAt { get; set; }
+
+    // 🎯 NEW: User Info for UI Display
+    /// <summary>
+    /// Thông tin người gửi (tên, avatar) - được enriched từ Auth Service
+    /// </summary>
+    public MessageSenderInfo? SenderInfo { get; set; }
+
+    /// <summary>
+    /// Thông tin người nhận (tên, avatar) - được enriched từ Auth Service (optional)
+    /// </summary>
+    public MessageSenderInfo? ReceiverInfo { get; set; }
+}
+
+/// <summary>
+/// Thông tin user cho message (sender hoặc receiver)
+/// </summary>
+public class MessageSenderInfo
+{
+    /// <summary>
+    /// Account ID
+    /// </summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Họ và tên đầy đủ
+    /// </summary>
+    public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Email của user
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// URL avatar
+    /// </summary>
+    public string AvatarUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Role của user (PATIENT, DOCTOR, STAFF, ADMIN)
+    /// </summary>
+    public string Role { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Trạng thái online (optional)
+    /// </summary>
+    public bool IsOnline { get; set; } = false;
 }
 
 /// <summary>
@@ -309,17 +356,22 @@ public class CreateMessageWithAttachmentsRequest
 }
 
 /// <summary>
-/// Request để test SignalR
+/// Options cho việc load dữ liệu message (lazy loading)
 /// </summary>
-public class TestSignalRRequest
+public class MessageLoadOptions
 {
     /// <summary>
-    /// ID của conversation
+    /// Load thông tin sender từ Auth Service
     /// </summary>
-    public string ConversationId { get; set; } = string.Empty;
+    public bool IncludeSenderInfo { get; set; } = false;
 
     /// <summary>
-    /// Tin nhắn test
+    /// Load thông tin receiver từ Auth Service (nếu có)
     /// </summary>
-    public string Message { get; set; } = string.Empty;
+    public bool IncludeReceiverInfo { get; set; } = false;
+
+    /// <summary>
+    /// Load online status của sender/receiver từ presence service
+    /// </summary>
+    public bool IncludeOnlineStatus { get; set; } = false;
 }

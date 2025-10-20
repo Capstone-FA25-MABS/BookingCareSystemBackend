@@ -33,6 +33,10 @@ public interface IMessageService
     /// </summary>
     Task<IEnumerable<MessageResponse>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50);
 
+    /// <summary>
+    /// 🎯 NEW: Lấy danh sách tin nhắn theo conversation ID với user info enrichment
+    /// </summary>
+    Task<IEnumerable<MessageResponse>> GetByConversationIdWithUserInfoAsync(string conversationId, int page = 1, int pageSize = 50, MessageLoadOptions? options = null);
 
     /// <summary>
     /// Xóa tin nhắn
@@ -73,4 +77,9 @@ public interface IMessageService
     /// Lấy mixed timeline (messages + call logs) cho conversation
     /// </summary>
     Task<MixedTimelineResponse> GetMixedTimelineAsync(GetMixedTimelineRequest request);
+
+    /// <summary>
+    /// 🎯 NEW: Lấy mixed timeline với user info enrichment
+    /// </summary>
+    Task<MixedTimelineResponse> GetMixedTimelineWithUserInfoAsync(GetMixedTimelineRequest request, MessageLoadOptions? options = null);
 }

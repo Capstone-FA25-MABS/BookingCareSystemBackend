@@ -7,7 +7,9 @@ using BookingCare.Services.Communication.Configuration;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Extensions;
-
+using BookingCare.Shared.Cache.Extensions; // Add Redis Cache support
+using BookingCare.Services.Auth.Protos; // Add Auth gRPC proto
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +25,25 @@ builder.Services.AddApiVersioningSupport();
 
 // Add common Swagger configuration using ProgramExtensions  
 builder.Services.AddCommonSwagger("Communication");
+
+// === REDIS CACHE INTEGRATION ===
+// Add Redis caching support for user data
+builder.Services.AddRedisCache(builder.Configuration);
+
+// === gRPC CLIENT INTEGRATION ===
+// Add Auth Service gRPC client for account details
+builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
+{
+    var authServiceUrl = builder.Configuration.GetValue<string>("GrpcServices:AuthService:Url") ?? "http://localhost:6103";
+    options.Address = new Uri(authServiceUrl);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true // Allow self-signed certificates in development
+});
+
+// Register participant enrichment service
+builder.Services.AddScoped<IParticipantEnrichmentService, ParticipantEnrichmentService>();
 
 // Add SignalR
 builder.Services.AddSignalR(options =>

@@ -61,6 +61,12 @@ public class MixedTimelineResponse
     /// Limit đã request
     /// </summary>
     public int Limit { get; set; }
+
+    // 🎯 NEW: Enrichment Info for Messages
+    /// <summary>
+    /// Thông tin enrichment cho messages trong timeline
+    /// </summary>
+    public MessageEnrichmentInfo? EnrichmentInfo { get; set; }
 }
 
 /// <summary>
@@ -128,4 +134,40 @@ public class GetMixedTimelineRequest
     /// Lọc theo loại message
     /// </summary>
     public MessageType? MessageTypeFilter { get; set; }
+}
+
+/// <summary>
+/// Thông tin enrichment cho messages timeline
+/// </summary>
+public class MessageEnrichmentInfo
+{
+    /// <summary>
+    /// Sender info có được load không
+    /// </summary>
+    public bool SenderInfoLoaded { get; set; }
+
+    /// <summary>
+    /// Receiver info có được load không  
+    /// </summary>
+    public bool ReceiverInfoLoaded { get; set; }
+
+    /// <summary>
+    /// Online status có được load không
+    /// </summary>
+    public bool OnlineStatusLoaded { get; set; }
+
+    /// <summary>
+    /// Tổng số users được enriched
+    /// </summary>
+    public int TotalUsersEnriched { get; set; }
+
+    /// <summary>
+    /// Tổng số messages có sender info
+    /// </summary>
+    public int MessagesWithSenderInfo { get; set; }
+
+    /// <summary>
+    /// Tổng số messages có receiver info
+    /// </summary>
+    public int MessagesWithReceiverInfo { get; set; }
 }

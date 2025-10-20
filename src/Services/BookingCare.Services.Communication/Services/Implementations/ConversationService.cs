@@ -9,22 +9,25 @@ using BookingCare.Services.Communication.Utils;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Implementation của Conversation service với BaseService và Lazy Loading support
+/// Implementation của Conversation service với BaseService, Lazy Loading và Participant Enrichment
 /// </summary>
 public class ConversationService : BaseService, IConversationService
 {
     private readonly IConversationRepository _conversationRepository;
     private readonly IMessageService _messageService;
+    private readonly IParticipantEnrichmentService _participantEnrichmentService;
     private readonly IMapper _mapper;
 
     public ConversationService(
         IConversationRepository conversationRepository,
         IMessageService messageService,
+        IParticipantEnrichmentService participantEnrichmentService,
         IMapper mapper,
         ILogger<ConversationService> logger) : base(logger)
     {
         _conversationRepository = conversationRepository;
         _messageService = messageService;
+        _participantEnrichmentService = participantEnrichmentService;
         _mapper = mapper;
     }
 
@@ -158,7 +161,7 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// Helper method để load dữ liệu lazy loading
+    /// Helper method để load dữ liệu lazy loading với Auth Service + Redis caching
     /// </summary>
     private async Task LoadConversationDataAsync(IEnumerable<ConversationResponse> conversations, string currentUserId, ConversationLoadOptions options)
     {
@@ -182,37 +185,39 @@ public class ConversationService : BaseService, IConversationService
             }
         }
 
-        // Load participant details (placeholder - would require User Service integration)
+        // 🎯 OPTIMIZED: Load participant details từ Auth Service - CHỈ OTHER PARTICIPANTS
         if (options.IncludeParticipantDetails)
         {
-            foreach (var conversation in conversationList)
+            try
             {
-                try
+                if (!string.IsNullOrEmpty(currentUserId))
                 {
-                    // Initialize empty list for now
-                    conversation.ParticipantDetails = new List<ConversationParticipant>();
+                    LogDebug("Bắt đầu enrichment OTHER participant details cho {Count} conversations (exclude current user: {CurrentUserId})",
+                        null, conversationList.Count, currentUserId);
 
-                    // TODO: Implement User Service integration
-                    // foreach (var participantId in conversation.Participants)
-                    // {
-                    //     var userDetails = await _userService.GetUserByIdAsync(participantId);
-                    //     if (userDetails != null)
-                    //     {
-                    //         conversation.ParticipantDetails.Add(new ConversationParticipant
-                    //         {
-                    //             Id = userDetails.Id,
-                    //             Name = userDetails.Name,
-                    //             Avatar = userDetails.Avatar,
-                    //             IsOnline = options.IncludeOnlineStatus ? await _presenceService.IsUserOnlineAsync(participantId) : false
-                    //         });
-                    //     }
-                    // }
+                    // 🎯 OPTIMIZATION: Chỉ enrich OTHER participants (exclude current user)
+                    await _participantEnrichmentService.EnrichOtherParticipantDetailsAsync(conversationList, currentUserId);
 
-                    LogDebug("Participant details placeholder loaded for conversation {ConversationId}", null, conversation.Id);
+                    LogDebug("Hoàn thành enrichment OTHER participant details cho {Count} conversations", null, conversationList.Count);
                 }
-                catch (Exception ex)
+                else
                 {
-                    LogWarning("Lỗi khi load participant details cho conversation {ConversationId}: {Error}", null, conversation.Id, ex.Message);
+                    LogDebug("Bắt đầu enrichment ALL participant details cho {Count} conversations (no current user specified)",
+                        null, conversationList.Count);
+
+                    // 📝 FALLBACK: Nếu không có currentUserId thì vẫn load all (backward compatibility)
+                    await _participantEnrichmentService.EnrichParticipantDetailsAsync(conversationList);
+
+                    LogDebug("Hoàn thành enrichment ALL participant details cho {Count} conversations", null, conversationList.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError(ex, "Lỗi khi enrichment participant details cho conversations", null);
+
+                // Fallback: Initialize empty lists để tránh null reference
+                foreach (var conversation in conversationList)
+                {
                     conversation.ParticipantDetails = new List<ConversationParticipant>();
                 }
             }
@@ -369,7 +374,7 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
-    /// Lấy danh sách cuộc hội thoại của user với cursor-based pagination
+    /// Lấy danh sách cuộc hội thoại của user với cursor-based pagination và participant enrichment
     /// </summary>
     public async Task<CursorPaginatedResponse<ConversationResponse>> GetByUserIdWithCursorAsync(string userId, string? before = null, string? after = null, int limit = 20, ConversationLoadOptions? options = null)
     {
@@ -402,7 +407,7 @@ public class ConversationService : BaseService, IConversationService
             // Convert to DTOs
             var conversationDtos = _mapper.Map<List<ConversationResponse>>(conversationList);
 
-            // Apply lazy loading if options provided
+            // Apply lazy loading if options provided (including participant enrichment)
             if (options != null)
             {
                 await LoadConversationDataAsync(conversationDtos, userId, options);
@@ -438,7 +443,7 @@ public class ConversationService : BaseService, IConversationService
                 Limit = limit
             };
 
-            LogInfo("Lấy thành công {Count} conversations với cursor pagination cho user: {UserId}",
+            LogInfo("Lấy thành công {Count} conversations với cursor pagination và participant enrichment cho user: {UserId}",
                 null, conversationDtos.Count, userId);
 
             return result;

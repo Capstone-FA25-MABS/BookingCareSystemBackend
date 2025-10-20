@@ -205,7 +205,10 @@ public class CommunicationsController : BaseApiController
         [FromQuery] bool messagesOnly = false,
         [FromQuery] bool callLogsOnly = false,
         [FromQuery] CallType? callTypeFilter = null,
-        [FromQuery] MessageType? messageTypeFilter = null)
+        [FromQuery] MessageType? messageTypeFilter = null,
+        [FromQuery] bool includeSenderInfo = false,        // 🎯 NEW: Include sender user info
+        [FromQuery] bool includeReceiverInfo = false,      // 🎯 NEW: Include receiver user info
+        [FromQuery] bool includeOnlineStatus = false)      // 🎯 NEW: Include online status
     {
         var request = new GetMixedTimelineRequest
         {
@@ -219,9 +222,26 @@ public class CommunicationsController : BaseApiController
             MessageTypeFilter = messageTypeFilter
         };
 
-        var result = await _messageService.GetMixedTimelineAsync(request);
-        return Success(result, "Lấy mixed timeline thành công!");
+        // 🎯 Check if user info enrichment is requested
+        if (includeSenderInfo || includeReceiverInfo)
+        {
+            var messageOptions = new MessageLoadOptions
+            {
+                IncludeSenderInfo = includeSenderInfo,
+                IncludeReceiverInfo = includeReceiverInfo,
+                IncludeOnlineStatus = includeOnlineStatus
+            };
+
+            var result = await _messageService.GetMixedTimelineWithUserInfoAsync(request, messageOptions);
+            return Success(result, "Lấy mixed timeline với user info thành công!");
+        }
+        else
+        {
+            var result = await _messageService.GetMixedTimelineAsync(request);
+            return Success(result, "Lấy mixed timeline thành công!");
+        }
     }
+
     /// <summary>
     /// Legacy endpoint với page-based pagination (kept for backward compatibility)
     /// </summary>
@@ -230,10 +250,41 @@ public class CommunicationsController : BaseApiController
     public async Task<IActionResult> GetMessagesByConversationIdPaginated(
         string conversationId,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] int pageSize = 50,
+        [FromQuery] bool includeSenderInfo = false,        // 🎯 NEW: Include sender user info
+        [FromQuery] bool includeReceiverInfo = false,      // 🎯 NEW: Include receiver user info 
+        [FromQuery] bool includeOnlineStatus = false)      // 🎯 NEW: Include online status
     {
-        var result = await _messageService.GetByConversationIdAsync(conversationId, page, pageSize);
-        return Success(result, "Lấy tin nhắn thành công!");
+        // 🎯 Check if user info enrichment is requested
+        if (includeSenderInfo || includeReceiverInfo)
+        {
+            var messageOptions = new MessageLoadOptions
+            {
+                IncludeSenderInfo = includeSenderInfo,
+                IncludeReceiverInfo = includeReceiverInfo,
+                IncludeOnlineStatus = includeOnlineStatus
+            };
+
+            var result = await _messageService.GetByConversationIdWithUserInfoAsync(conversationId, page, pageSize, messageOptions);
+            return Success(new
+            {
+                Messages = result,
+                EnrichmentInfo = new
+                {
+                    SenderInfoLoaded = includeSenderInfo,
+                    ReceiverInfoLoaded = includeReceiverInfo,
+                    OnlineStatusLoaded = includeOnlineStatus,
+                    TotalMessages = result.Count(),
+                    MessagesWithSenderInfo = result.Count(m => m.SenderInfo != null),
+                    MessagesWithReceiverInfo = result.Count(m => m.ReceiverInfo != null)
+                }
+            }, "Lấy tin nhắn với user info thành công!");
+        }
+        else
+        {
+            var result = await _messageService.GetByConversationIdAsync(conversationId, page, pageSize);
+            return Success(result, "Lấy tin nhắn thành công!");
+        }
     }
 
     /// <summary>
@@ -463,7 +514,7 @@ public class CommunicationsController : BaseApiController
     }
 
     /// <summary>
-    /// Lấy cuộc hội thoại theo user ID - phiên bản đầy đủ cho web
+    /// Lấy cuộc hội thoại theo user ID - phiên bản đầy đủ cho web với participant enrichment
     /// </summary>
     [HttpGet("users/{userId}/conversations")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -472,21 +523,63 @@ public class CommunicationsController : BaseApiController
         [FromQuery] string? before = null,              // Cursor để load conversations cũ hơn
         [FromQuery] string? after = null,               // Cursor để load conversations mới hơn  
         [FromQuery] int limit = 20,                     // Số lượng conversations cần load
-        [FromQuery] bool includeParticipantDetails = false,
+        [FromQuery] bool includeParticipantDetails = false,  // NEW: Enable participant enrichment
         [FromQuery] bool includeUnreadCount = true,
         [FromQuery] bool includeMetadata = false,
         [FromQuery] bool includeOnlineStatus = false)
     {
         var options = new ConversationLoadOptions
         {
-            IncludeParticipantDetails = includeParticipantDetails,
+            IncludeParticipantDetails = includeParticipantDetails,  // Enable gRPC + caching
             IncludeUnreadCount = includeUnreadCount,
             IncludeMetadata = includeMetadata,
             IncludeOnlineStatus = includeOnlineStatus
         };
 
         var result = await _conversationService.GetByUserIdWithCursorAsync(userId, before, after, limit, options);
-        return Success(result, "Lấy cuộc hội thoại thành công!");
+
+        // 🎯 Enhanced response với optimization info
+        var totalOtherParticipantsEnriched = includeParticipantDetails
+            ? result.Data.Sum(c => c.ParticipantDetails?.Count ?? 0) : 0;
+
+        var totalOriginalParticipants = result.Data.Sum(c => c.Participants.Count);
+        var totalConversationsWithOtherParticipants = includeParticipantDetails
+            ? result.Data.Count(c => c.ParticipantDetails?.Any() == true) : 0;
+
+        var response = new
+        {
+            result.Data,
+            result.NextCursor,
+            result.PreviousCursor,
+            result.HasNext,
+            result.HasPrevious,
+            result.Limit,
+            EnrichmentInfo = new
+            {
+                ParticipantDetailsLoaded = includeParticipantDetails,
+                UnreadCountLoaded = includeUnreadCount,
+                MetadataLoaded = includeMetadata,
+                OnlineStatusLoaded = includeOnlineStatus,
+                TotalConversations = result.Data.Count,
+
+                // 🎯 OPTIMIZATION METRICS
+                OptimizationMode = includeParticipantDetails ? "OtherParticipantsOnly" : "Disabled",
+                TotalOriginalParticipants = totalOriginalParticipants,
+                TotalOtherParticipantsEnriched = totalOtherParticipantsEnriched,
+                ConversationsWithOtherParticipants = totalConversationsWithOtherParticipants,
+                PerformanceBenefit = new
+                {
+                    ParticipantsSkipped = includeParticipantDetails ? result.Data.Count : 0, // Current user skipped per conversation
+                    CacheCallsOptimized = includeParticipantDetails,
+                    NetworkCallsReduced = includeParticipantDetails
+                },
+
+                // Backward compatibility metric
+                TotalParticipantsEnriched = totalOtherParticipantsEnriched // Legacy field name
+            }
+        };
+
+        return Success(response, "Lấy cuộc hội thoại thành công!");
     }
 
     /// <summary>
@@ -689,4 +782,84 @@ public class CommunicationsController : BaseApiController
             return BadRequest($"Lỗi kết nối database: {ex.Message}");
         }
     }
+
+    #region Cache Management
+
+    /// <summary>
+    /// Clear cache cho một account ID cụ thể
+    /// </summary>
+    [HttpDelete("cache/accounts/{accountId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ClearAccountCache(string accountId)
+    {
+        try
+        {
+            var participantEnrichmentService = HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
+            await participantEnrichmentService.ClearAccountCacheAsync(accountId);
+
+            return Success(new { AccountId = accountId, ClearedAt = DateTime.UtcNow },
+                $"Cache đã được clear cho account {accountId}");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Lỗi khi clear cache cho account {accountId}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Clear cache cho multiple account IDs
+    /// </summary>
+    [HttpPost("cache/accounts/clear-multiple")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ClearMultipleAccountsCache([FromBody] ClearMultipleAccountsCacheRequest request)
+    {
+        try
+        {
+            if (request.AccountIds == null || !request.AccountIds.Any())
+            {
+                return BadRequest("AccountIds không được để trống");
+            }
+
+            var participantEnrichmentService = HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
+            await participantEnrichmentService.ClearAccountCacheAsync(request.AccountIds);
+
+            return Success(new
+            {
+                AccountIds = request.AccountIds,
+                Count = request.AccountIds.Count(),
+                ClearedAt = DateTime.UtcNow
+            }, $"Cache đã được clear cho {request.AccountIds.Count()} accounts");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Lỗi khi clear cache cho multiple accounts: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Lấy thông tin account detail từ cache hoặc Auth Service (for testing)
+    /// </summary>
+    [HttpGet("cache/accounts/{accountId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetAccountDetail(string accountId)
+    {
+        try
+        {
+            var participantEnrichmentService = HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
+            var accountDetail = await participantEnrichmentService.GetAccountDetailAsync(accountId);
+
+            if (accountDetail == null)
+            {
+                return NotFound($"Account với ID {accountId} không tìm thấy");
+            }
+
+            return Success(accountDetail, $"Lấy thông tin account {accountId} thành công");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Lỗi khi lấy thông tin account {accountId}: {ex.Message}");
+        }
+    }
+
+    #endregion
 }

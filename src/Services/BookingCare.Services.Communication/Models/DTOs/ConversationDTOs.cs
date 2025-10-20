@@ -53,7 +53,7 @@ public class ConversationResponse
 
     // Lazy loading properties - only loaded when requested
     /// <summary>
-    /// Chi tiết thông tin users (lazy loaded)
+    /// Chi tiết thông tin users (lazy loaded từ Auth Service)
     /// </summary>
     public List<ConversationParticipant>? ParticipantDetails { get; set; }
 
@@ -85,27 +85,44 @@ public class ConversationListResponse
 }
 
 /// <summary>
-/// Chi tiết participant cho lazy loading
+/// Chi tiết participant với thông tin đầy đủ từ Auth Service
 /// </summary>
 public class ConversationParticipant
 {
+    /// <summary>
+    /// Account ID (Guid string)
+    /// </summary>
     public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string Avatar { get; set; } = string.Empty;
-    public bool IsOnline { get; set; }
-    public DateTime? LastSeen { get; set; }
-}
 
-/// <summary>
-/// Metadata bổ sung cho conversation
-/// </summary>
-public class ConversationMetadata
-{
-    public int TotalMessages { get; set; }
-    public int TotalFiles { get; set; }
-    public int TotalImages { get; set; }
-    public DateTime? FirstMessageDate { get; set; }
-    public List<string> CommonFiles { get; set; } = new();
+    /// <summary>
+    /// Họ và tên đầy đủ
+    /// </summary>
+    public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Email của user
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// URL avatar
+    /// </summary>
+    public string AvatarUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Role của user (PATIENT, DOCTOR, STAFF, ADMIN)
+    /// </summary>
+    public string Role { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Trạng thái online (sẽ được populate bởi presence service nếu cần)
+    /// </summary>
+    public bool IsOnline { get; set; } = false;
+
+    /// <summary>
+    /// Thời gian online cuối cùng (tùy chọn)
+    /// </summary>
+    public DateTime? LastOnlineAt { get; set; }
 }
 
 /// <summary>
@@ -113,24 +130,9 @@ public class ConversationMetadata
 /// </summary>
 public class LastMessageResponse
 {
-    /// <summary>
-    /// ID của tin nhắn
-    /// </summary>
     public string MessageId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Nội dung preview
-    /// </summary>
     public string Content { get; set; } = string.Empty;
-
-    /// <summary>
-    /// ID người gửi
-    /// </summary>
     public string SenderId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Thời gian gửi
-    /// </summary>
     public DateTime CreatedAt { get; set; }
 }
 
@@ -139,15 +141,87 @@ public class LastMessageResponse
 /// </summary>
 public class BlockedInfoResponse
 {
-    /// <summary>
-    /// ID người thực hiện chặn
-    /// </summary>
     public string By { get; set; } = string.Empty;
+    public DateTime At { get; set; }
+}
+
+/// <summary>
+/// Metadata bổ sung cho conversation
+/// </summary>
+public class ConversationMetadata
+{
+    public long TotalMessages { get; set; }
+    public long TotalFiles { get; set; }
+    public long TotalImages { get; set; }
+    public DateTime? FirstMessageDate { get; set; }
+    public List<string> CommonFiles { get; set; } = new();
+}
+
+/// <summary>
+/// Options cho việc load dữ liệu conversation (lazy loading)
+/// </summary>
+public class ConversationLoadOptions
+{
+    /// <summary>
+    /// Load chi tiết thông tin participants từ Auth Service
+    /// </summary>
+    public bool IncludeParticipantDetails { get; set; } = false;
 
     /// <summary>
-    /// Thời gian chặn
+    /// Load số tin nhắn chưa đọc
     /// </summary>
-    public DateTime At { get; set; }
+    public bool IncludeUnreadCount { get; set; } = false;
+
+    /// <summary>
+    /// Load metadata bổ sung (total messages, files, etc.)
+    /// </summary>
+    public bool IncludeMetadata { get; set; } = false;
+
+    /// <summary>
+    /// Load online status từ presence service
+    /// </summary>
+    public bool IncludeOnlineStatus { get; set; } = false;
+}
+
+/// <summary>
+/// Response cho cursor-based pagination (infinite scroll friendly)
+/// </summary>
+public class CursorPaginatedResponse<T>
+{
+    /// <summary>
+    /// Dữ liệu cho trang hiện tại
+    /// </summary>
+    public List<T> Data { get; set; } = new();
+
+    /// <summary>
+    /// Cursor để load trang trước đó (older items)
+    /// </summary>
+    public string? PreviousCursor { get; set; }
+
+    /// <summary>
+    /// Cursor để load trang kế tiếp (newer items)
+    /// </summary>
+    public string? NextCursor { get; set; }
+
+    /// <summary>
+    /// Có trang kế tiếp không
+    /// </summary>
+    public bool HasNext { get; set; }
+
+    /// <summary>
+    /// Có trang trước không
+    /// </summary>
+    public bool HasPrevious { get; set; }
+
+    /// <summary>
+    /// Số lượng items trong trang hiện tại
+    /// </summary>
+    public int Count => Data.Count;
+
+    /// <summary>
+    /// Limit được request
+    /// </summary>
+    public int Limit { get; set; }
 }
 
 /// <summary>
@@ -161,7 +235,7 @@ public class BlockConversationRequest
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID người thực hiện chặn
+    /// ID của user thực hiện chặn
     /// </summary>
     public string BlockedBy { get; set; } = string.Empty;
 }
@@ -175,4 +249,20 @@ public class UnblockConversationRequest
     /// ID của cuộc hội thoại
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request để test SignalR connection
+/// </summary>
+public class TestSignalRRequest
+{
+    /// <summary>
+    /// ID của cuộc hội thoại để test
+    /// </summary>
+    public string ConversationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Tin nhắn test
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
 }

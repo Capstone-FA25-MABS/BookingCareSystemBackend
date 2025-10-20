@@ -19,6 +19,7 @@ public class MessageService : BaseService, IMessageService
     private readonly ICallLogRepository _callLogRepository;
     private readonly IFileUploadService _fileUploadService;
     private readonly ISignalRNotificationService _signalRNotificationService;
+    private readonly IParticipantEnrichmentService _participantEnrichmentService;
     private readonly IMapper _mapper;
 
     public MessageService(
@@ -27,6 +28,7 @@ public class MessageService : BaseService, IMessageService
         ICallLogRepository callLogRepository,
         IFileUploadService fileUploadService,
         ISignalRNotificationService signalRNotificationService,
+        IParticipantEnrichmentService participantEnrichmentService,
         IMapper mapper,
         ILogger<MessageService> logger) : base(logger)
     {
@@ -35,6 +37,7 @@ public class MessageService : BaseService, IMessageService
         _callLogRepository = callLogRepository;
         _fileUploadService = fileUploadService;
         _signalRNotificationService = signalRNotificationService;
+        _participantEnrichmentService = participantEnrichmentService;
         _mapper = mapper;
     }
 
@@ -260,6 +263,35 @@ public class MessageService : BaseService, IMessageService
     {
         var messages = await _messageRepository.GetByConversationIdAsync(conversationId, page, pageSize);
         return _mapper.Map<IEnumerable<MessageResponse>>(messages);
+    }
+
+    /// <summary>
+    /// 🎯 NEW: Lấy danh sách tin nhắn theo conversation ID với user info enrichment
+    /// </summary>
+    public async Task<IEnumerable<MessageResponse>> GetByConversationIdWithUserInfoAsync(string conversationId, int page = 1, int pageSize = 50, MessageLoadOptions? options = null)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Lấy messages với user info cho conversation: {ConversationId}, page: {Page}, pageSize: {PageSize}",
+                null, conversationId, page, pageSize);
+
+            ValidateRequiredString(conversationId, nameof(conversationId));
+
+            // Lấy messages từ repository
+            var messages = await _messageRepository.GetByConversationIdAsync(conversationId, page, pageSize);
+            var messageResponses = _mapper.Map<List<MessageResponse>>(messages);
+
+            // Apply user info enrichment nếu options provided
+            if (options != null && (options.IncludeSenderInfo || options.IncludeReceiverInfo))
+            {
+                await EnrichMessageUserInfoAsync(messageResponses, options);
+            }
+
+            LogInfo("Lấy thành công {Count} messages với user info cho conversation: {ConversationId}",
+                null, messageResponses.Count, conversationId);
+
+            return messageResponses;
+        }, "GetByConversationIdWithUserInfo");
     }
 
     /// <summary>
@@ -612,4 +644,165 @@ public class MessageService : BaseService, IMessageService
             return result;
         }, "GetMixedTimeline");
     }
+
+    /// <summary>
+    /// 🎯 NEW: Lấy mixed timeline với user info enrichment
+    /// </summary>
+    public async Task<MixedTimelineResponse> GetMixedTimelineWithUserInfoAsync(GetMixedTimelineRequest request, MessageLoadOptions? options = null)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Lấy mixed timeline với user info cho conversation: {ConversationId}, options: {Options}",
+                null, request.ConversationId, options?.IncludeSenderInfo);
+
+            // Lấy mixed timeline bình thường
+            var result = await GetMixedTimelineAsync(request);
+
+            // Apply user info enrichment nếu options provided
+            if (options != null && (options.IncludeSenderInfo || options.IncludeReceiverInfo))
+            {
+                // Extract messages from timeline items
+                var messages = result.Items
+                    .Where(item => item.ItemType == TimelineItemType.Message && item.Message != null)
+                    .Select(item => item.Message!)
+                    .ToList();
+
+                if (messages.Any())
+                {
+                    await EnrichMessageUserInfoAsync(messages, options);
+
+                    // Count enrichment statistics
+                    var messagesWithSenderInfo = messages.Count(m => m.SenderInfo != null);
+                    var messagesWithReceiverInfo = messages.Count(m => m.ReceiverInfo != null);
+                    var totalUsersEnriched = messages.SelectMany(m => new[] { m.SenderInfo, m.ReceiverInfo })
+                        .Where(info => info != null)
+                        .Select(info => info!.Id)
+                        .Distinct()
+                        .Count();
+
+                    // Add enrichment info
+                    result.EnrichmentInfo = new MessageEnrichmentInfo
+                    {
+                        SenderInfoLoaded = options.IncludeSenderInfo,
+                        ReceiverInfoLoaded = options.IncludeReceiverInfo,
+                        OnlineStatusLoaded = options.IncludeOnlineStatus,
+                        TotalUsersEnriched = totalUsersEnriched,
+                        MessagesWithSenderInfo = messagesWithSenderInfo,
+                        MessagesWithReceiverInfo = messagesWithReceiverInfo
+                    };
+
+                    LogInfo("Enriched mixed timeline với {TotalUsers} users, {SenderCount} sender info, {ReceiverCount} receiver info",
+                        null, totalUsersEnriched, messagesWithSenderInfo, messagesWithReceiverInfo);
+                }
+            }
+
+            return result;
+        }, "GetMixedTimelineWithUserInfo");
+    }
+
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Enrichment user info cho danh sách messages
+    /// </summary>
+    private async Task EnrichMessageUserInfoAsync(IEnumerable<MessageResponse> messages, MessageLoadOptions options)
+    {
+        var messageList = messages.ToList();
+        if (!messageList.Any()) return;
+
+        LogDebug("Bắt đầu enrichment user info cho {Count} messages", null, messageList.Count);
+
+        // Collect unique user IDs cần enrichment
+        var userIds = new HashSet<string>();
+
+        if (options.IncludeSenderInfo)
+        {
+            foreach (var message in messageList)
+            {
+                if (!string.IsNullOrEmpty(message.SenderId))
+                {
+                    userIds.Add(message.SenderId.ToLowerInvariant());
+                }
+            }
+        }
+
+        if (options.IncludeReceiverInfo)
+        {
+            foreach (var message in messageList)
+            {
+                if (!string.IsNullOrEmpty(message.ReceiverId))
+                {
+                    userIds.Add(message.ReceiverId.ToLowerInvariant());
+                }
+            }
+        }
+
+        if (!userIds.Any())
+        {
+            LogDebug("Không có user IDs để enrichment", null);
+            return;
+        }
+
+        LogDebug("Enriching user info cho {Count} unique users: {UserIds}",
+            null, userIds.Count, string.Join(", ", userIds.Take(5)));
+
+        try
+        {
+            // Lấy user details từ ParticipantEnrichmentService
+            var userDetails = await _participantEnrichmentService.GetAccountDetailsAsync(userIds);
+
+            // Apply user info cho từng message
+            foreach (var message in messageList)
+            {
+                // Enrich sender info
+                if (options.IncludeSenderInfo && !string.IsNullOrEmpty(message.SenderId))
+                {
+                    var normalizedSenderId = message.SenderId.ToLowerInvariant();
+                    if (userDetails.TryGetValue(normalizedSenderId, out var senderDetail))
+                    {
+                        message.SenderInfo = new MessageSenderInfo
+                        {
+                            Id = senderDetail.Id,
+                            FullName = senderDetail.FullName,
+                            Email = senderDetail.Email,
+                            AvatarUrl = senderDetail.AvatarUrl,
+                            Role = senderDetail.Role,
+                            IsOnline = senderDetail.IsOnline
+                        };
+                    }
+                }
+
+                // Enrich receiver info
+                if (options.IncludeReceiverInfo && !string.IsNullOrEmpty(message.ReceiverId))
+                {
+                    var normalizedReceiverId = message.ReceiverId.ToLowerInvariant();
+                    if (userDetails.TryGetValue(normalizedReceiverId, out var receiverDetail))
+                    {
+                        message.ReceiverInfo = new MessageSenderInfo
+                        {
+                            Id = receiverDetail.Id,
+                            FullName = receiverDetail.FullName,
+                            Email = receiverDetail.Email,
+                            AvatarUrl = receiverDetail.AvatarUrl,
+                            Role = receiverDetail.Role,
+                            IsOnline = receiverDetail.IsOnline
+                        };
+                    }
+                }
+            }
+
+            var enrichedSenders = messageList.Count(m => m.SenderInfo != null);
+            var enrichedReceivers = messageList.Count(m => m.ReceiverInfo != null);
+
+            LogDebug("Hoàn thành enrichment user info: {Senders} sender info, {Receivers} receiver info",
+                null, enrichedSenders, enrichedReceivers);
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Lỗi khi enrichment user info cho messages", null);
+            // Continue without user enrichment
+        }
+    }
+
+    #endregion
 }
