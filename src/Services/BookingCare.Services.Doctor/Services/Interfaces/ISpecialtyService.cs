@@ -20,6 +20,7 @@ public interface ISpecialtyService
 
     // Optimized methods for simple responses
     Task<List<SpecialtySimpleResponse>> GetActiveSpecialtiesSimpleAsync();
+    Task<List<SpecialtyResponse>> GetSpecialtiesByIdsAsync(List<Guid> ids);
 
     // Validation operations
     Task<bool> SpecialtyExistsAsync(Guid id);
