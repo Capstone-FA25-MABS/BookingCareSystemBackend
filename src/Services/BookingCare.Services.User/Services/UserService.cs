@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.User.Exceptions;
 using BookingCare.Services.User.Models.DTOs;
 using BookingCare.Services.User.Models.Entities;
@@ -144,7 +144,21 @@ public class UserService : BaseService, IUserService
         // Business rule validation
         ValidateBusinessRules(emailConfirmed, phoneConfirmed);
 
-        // Get original values for comparison
+        // Get original values for comparison and event publishing
+        var originalUser = new UserEntity
+        {
+            Id = existingUser.Id,
+            AccountId = existingUser.AccountId,
+            Email = existingUser.Email,
+            FirstName = existingUser.FirstName,
+            LastName = existingUser.LastName,
+            Phone = existingUser.Phone,
+            Gender = existingUser.Gender,
+            DateOfBirth = existingUser.DateOfBirth,
+            Address = existingUser.Address,
+            AvatarUrl = existingUser.AvatarUrl
+        };
+
         var originalEmail = existingUser.Email;
         var originalPhone = existingUser.Phone;
 
@@ -166,6 +180,13 @@ public class UserService : BaseService, IUserService
 
         // Save to database
         var updatedUser = await _userRepository.UpdateAsync(existingUser);
+
+        // 🎯 Publish UserProfileUpdatedEvent for cache invalidation (fire and forget)
+        var correlationId = Guid.NewGuid().ToString();
+        _ = Task.Run(async () =>
+        {
+            await PublishUserProfileUpdatedEventAsync(originalUser, updatedUser, updateUserRequest, correlationId);
+        });
 
         LogInfo("User updated successfully with ID: {UserId}", null, existingUser.Id);
         return _mapper.Map<UserResponse>(updatedUser);
@@ -380,6 +401,71 @@ public class UserService : BaseService, IUserService
 
         user.AvatarUrl = avatarUrl;
         return true;
+    }
+
+    /// <summary>
+    /// 🎯 Publish detailed UserProfileUpdatedEvent for cache invalidation
+    /// </summary>
+    private async Task PublishUserProfileUpdatedEventAsync(UserEntity originalUser, UserEntity updatedUser, UpdateUserRequest request, string correlationId)
+    {
+        try
+        {
+            LogInfo("Publishing UserProfileUpdatedEvent for user: {UserId}, CorrelationId: {CorrelationId}",
+                null, updatedUser.Id, correlationId);
+
+            // Determine which fields were updated
+            var updatedFields = DetermineUpdatedFields(originalUser, updatedUser, request);
+
+            var userUpdatedEvent = new UserProfileUpdatedEvent
+            {
+                UserId = updatedUser.Id,
+                AccountId = updatedUser.AccountId,
+                Email = updatedUser.Email,
+                PreviousEmail = originalUser.Email != updatedUser.Email ? originalUser.Email : null,
+                FullName = $"{updatedUser.FirstName} {updatedUser.LastName}".Trim(),
+                FirstName = updatedUser.FirstName,
+                LastName = updatedUser.LastName,
+                AvatarUrl = updatedUser.AvatarUrl ?? "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png",
+                Phone = updatedUser.Phone,
+                Role = "PATIENT", // Default role, could be enhanced to get from Auth Service
+                Gender = updatedUser.Gender?.ToString(),
+                DateOfBirth = updatedUser.DateOfBirth,
+                Address = updatedUser.Address,
+                UpdatedAt = DateTime.UtcNow,
+                CorrelationId = correlationId,
+                UpdatedFields = updatedFields
+            };
+
+            await _eventBus.PublishAsync(userUpdatedEvent);
+
+            LogInfo("UserProfileUpdatedEvent published successfully for user: {UserId}, Fields: {Fields}",
+                null, updatedUser.Id, string.Join(", ", updatedFields));
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the user update if event publishing fails
+            LogError(ex, "Failed to publish UserProfileUpdatedEvent for user: {UserId}, CorrelationId: {CorrelationId}",
+                null, updatedUser.Id, correlationId);
+        }
+    }
+
+    /// <summary>
+    /// Determine which fields were updated for selective cache invalidation
+    /// </summary>
+    private static List<string> DetermineUpdatedFields(UserEntity original, UserEntity updated, UpdateUserRequest request)
+    {
+        var updatedFields = new List<string>();
+
+        if (original.FirstName != updated.FirstName) updatedFields.Add("FirstName");
+        if (original.LastName != updated.LastName) updatedFields.Add("LastName");
+        if (original.Email != updated.Email) updatedFields.Add("Email");
+        if (original.Phone != updated.Phone) updatedFields.Add("Phone");
+        if (original.Gender != updated.Gender) updatedFields.Add("Gender");
+        if (original.DateOfBirth != updated.DateOfBirth) updatedFields.Add("DateOfBirth");
+        if (original.Address != updated.Address) updatedFields.Add("Address");
+        if (original.AvatarUrl != updated.AvatarUrl) updatedFields.Add("AvatarUrl");
+
+        return updatedFields;
     }
 
     public async Task<UserListResponse> GetUsersAsync(UserQueryRequest query)

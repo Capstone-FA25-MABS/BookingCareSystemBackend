@@ -4,10 +4,13 @@ using BookingCare.Services.Communication.Hubs;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Services.Implementations;
 using BookingCare.Services.Communication.Configuration;
+using BookingCare.Services.Communication.Handlers; // 🎯 Add for event handlers
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Shared.Cache.Extensions; // Add Redis Cache support
+using BookingCare.Shared.EventBus.Extensions; // 🎯 Add EventBus extensions
+using BookingCare.Shared.EventBus.Events; // 🎯 Add EventBus events
 using BookingCare.Services.Auth.Protos; // Add Auth gRPC proto
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -29,6 +32,13 @@ builder.Services.AddCommonSwagger("Communication");
 // === REDIS CACHE INTEGRATION ===
 // Add Redis caching support for user data
 builder.Services.AddRedisCache(builder.Configuration);
+
+// === EVENT BUS INTEGRATION ===
+// 🎯 Add RabbitMQ EventBus for user cache invalidation
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "communication-service-queue");
+
+// 🎯 Register event handlers for cache invalidation
+builder.Services.AddIntegrationEventHandler<UserProfileUpdatedEventHandler>();
 
 // === gRPC CLIENT INTEGRATION ===
 // Add Auth Service gRPC client for account details
@@ -99,6 +109,14 @@ app.UseGlobalExceptionHandling();
 
 // Use CORS before other middleware
 app.UseCors("SignalRCorsPolicy");
+
+// === EVENT BUS MIDDLEWARE ===
+// 🎯 Configure EventBus and register event handlers
+app.UseEventBus(eventBus =>
+{
+    // Register UserProfileUpdatedEvent handler
+    eventBus.Subscribe<UserProfileUpdatedEvent, UserProfileUpdatedEventHandler>();
+});
 
 // Configure the HTTP request pipeline using ProgramExtensions
 app.UseCommonSwaggerUI("Communication");
