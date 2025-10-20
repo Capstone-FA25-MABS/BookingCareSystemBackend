@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Doctor.Protos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,9 @@ builder.Services.AddDbContext<HospitalDbContext>(options =>
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(HospitalMappingProfile));
 
+// Add Memory Cache
+builder.Services.AddMemoryCache();
+
 // Register repositories
 builder.Services.AddScoped<IHospitalRepository, HospitalRepository>();
 builder.Services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanRepository>();
@@ -35,6 +39,10 @@ builder.Services.AddScoped<IHospitalSubscriptionRepository, HospitalSubscription
 // Register services
 builder.Services.AddScoped<IHospitalService, HospitalService>();
 builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionService>();
+builder.Services.AddScoped<ILocationApiService, LocationApiService>();
+
+// Add HttpClient for LocationApiService
+builder.Services.AddHttpClient<ILocationApiService, LocationApiService>();
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -55,6 +63,12 @@ var authAddress = builder.Configuration.GetSection("GrpcClients:Auth:Address").V
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
 {
     options.Address = new Uri(authAddress);
+});
+
+var doctorAddress = builder.Configuration.GetSection("GrpcClients:Doctor:Address").Value ?? "http://localhost:6108";
+builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(options =>
+{
+    options.Address = new Uri(doctorAddress);
 });
 
 var app = builder.Build();
