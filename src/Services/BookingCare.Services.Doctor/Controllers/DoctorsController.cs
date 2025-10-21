@@ -167,14 +167,14 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Get doctors by hospital
+    /// Get doctors by hospital with optimized response for hospital staff (includes both ACTIVE and INACTIVE doctors)
     /// </summary>
     [HttpGet("hospital/{hospitalId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetDoctorsByHospital(Guid hospitalId)
+    public async Task<IActionResult> GetDoctorsByHospital(Guid hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
     {
-        var doctors = await _doctorService.GetDoctorsByHospitalAsync(hospitalId);
-        return Success<List<DoctorResponse>>(doctors, $"Doctors for hospital {hospitalId} retrieved successfully");
+        var result = await _doctorService.GetDoctorsByHospitalOptimizedAsync(hospitalId, pageNumber, pageSize);
+        return Success<DoctorSearchListResponse>(result, $"Doctors for hospital {hospitalId} retrieved successfully");
     }
 
     /// <summary>

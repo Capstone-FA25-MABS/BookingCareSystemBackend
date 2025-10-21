@@ -1,4 +1,6 @@
-﻿namespace BookingCare.Services.Notification.Utils.Email;
+﻿using BookingCare.Services.Notification.Models.DTOs;
+
+namespace BookingCare.Services.Notification.Utils.Email;
 
 public static class EmailTemplate
 {
@@ -389,6 +391,179 @@ public static class EmailTemplate
       
       <div class=""divider""></div>
       <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for no refund case (0% refund due to late cancellation)
+    /// </summary>
+    public static string BuildNoRefundEmailHtml(string patientName, DateTime appointmentDate, string cancellationReason)
+    {
+        var appointmentDateStr = appointmentDate.ToString("dd/MM/yyyy HH:mm");
+
+        return $@"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""utf-8"">
+    <title>Thông báo hủy lịch hẹn</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .container {{ background: #f9f9f9; padding: 30px; border-radius: 10px; }}
+        .header {{ background: #dc3545; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; }}
+        .content {{ background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+        .alert {{ background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }}
+        .info-box {{ background: #f8f9fa; padding: 15px; border-left: 4px solid #dc3545; margin: 15px 0; }}
+        .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+        .warning-icon {{ color: #dc3545; font-size: 18px; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""header"">
+            <h2>🚫 Lịch hẹn đã được hủy</h2>
+        </div>
+        
+        <div class=""content"">
+            <p>Xin chào <strong>{patientName}</strong>,</p>
+            
+            <p>Chúng tôi xin thông báo rằng lịch hẹn của bạn đã được hủy thành công.</p>
+            
+            <div class=""info-box"">
+                <p><strong>📅 Thời gian hẹn:</strong> {appointmentDateStr}</p>
+                <p><strong>📝 Lý do hủy:</strong> {cancellationReason}</p>
+            </div>
+            
+            <div class=""alert"">
+                <p><span class=""warning-icon"">⚠️</span> <strong>Thông báo về chính sách hoàn tiền:</strong></p>
+                <p>Do lịch hẹn được hủy trong vòng 12 giờ trước thời gian hẹn, theo chính sách của chúng tôi, <strong>không có khoản hoàn tiền nào được áp dụng</strong>.</p>
+                <p>Chúng tôi hiểu rằng điều này có thể gây bất tiện và chân thành xin lỗi về sự bất tiện này.</p>
+            </div>
+            
+            <p>Nếu bạn có bất kỳ thắc mắc nào về chính sách hoàn tiền hoặc cần hỗ trợ thêm, vui lòng liên hệ với chúng tôi.</p>
+            
+            <p>Trân trọng,<br/>
+            <strong>Đội ngũ BookingCare</strong></p>
+        </div>
+        
+        <div class=""footer"">
+            Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
+        </div>
+    </div>
+</body>
+</html>";
+    }
+    /// <summary>
+    /// Build email content for successful appointment booking
+    /// Fixed SonarQube issue: Reduced from 10 parameters to 1 parameter object
+    /// Updated to use pure composition pattern with AppointmentData
+    /// </summary>
+    public static string BuildAppointmentBookedSuccessEmailHtml(AppointmentBookingEmailData emailData)
+    {
+        var appointmentData = emailData.AppointmentData; // Direct access to avoid repetition
+
+        var doctorInfoHtml = "";
+        if (!string.IsNullOrEmpty(appointmentData.DoctorName))
+        {
+            doctorInfoHtml = $@"
+        <div class=""info-item""><strong>Bác sĩ:</strong> {appointmentData.DoctorName}</div>";
+            if (!string.IsNullOrEmpty(appointmentData.DoctorSpecialty))
+            {
+                doctorInfoHtml += $@"
+        <div class=""info-item""><strong>Chuyên khoa:</strong> {appointmentData.DoctorSpecialty}</div>";
+            }
+        }
+
+        var hospitalInfoHtml = "";
+        if (!string.IsNullOrEmpty(appointmentData.HospitalName))
+        {
+            hospitalInfoHtml = $@"
+        <div class=""info-item""><strong>Bệnh viện:</strong> {appointmentData.HospitalName}</div>";
+            if (!string.IsNullOrEmpty(appointmentData.HospitalAddress))
+            {
+                hospitalInfoHtml += $@"
+        <div class=""info-item""><strong>Địa chỉ:</strong> {appointmentData.HospitalAddress}</div>";
+            }
+        }
+
+        var serviceInfoHtml = "";
+        if (!string.IsNullOrEmpty(appointmentData.ServiceName))
+        {
+            serviceInfoHtml = $@"
+        <div class=""info-item""><strong>Dịch vụ:</strong> {appointmentData.ServiceName}</div>";
+        }
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Đặt lịch hẹn thành công - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .success-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
+    .success-box strong {{ color:#047857; }}
+    .info-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
+    .info-box strong {{ color:#0369a1; }}
+    .info-item {{ margin:8px 0; }}
+    .amount {{ font-size:20px; font-weight:700; color:#10b981; }}
+    .check-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .reminder {{ background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:16px; margin:20px 0; }}
+    .reminder strong {{ color:#c2410c; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Đặt lịch hẹn thành công</div>
+    </div>
+    <div class=""content"">
+      <div class=""check-icon"">✅</div>
+      <p class=""greeting"">Kính gửi {appointmentData.PatientName},</p>
+      <p class=""lead"">Chúc mừng! Lịch hẹn của quý khách đã được đặt thành công và thanh toán hoàn tất.</p>
+      
+      <div class=""success-box"">
+        <p><strong>🎉 Thông tin lịch hẹn:</strong></p>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentData.AppointmentDate:dd/MM/yyyy}</div>
+        <div class=""info-item""><strong>Thời gian:</strong> {appointmentData.AppointmentTime}</div>
+        <div class=""info-item""><strong>Loại hẹn:</strong> {appointmentData.AppointmentType}</div>{doctorInfoHtml}{serviceInfoHtml}
+        <div class=""info-item""><strong>Số tiền đã thanh toán:</strong> <span class=""amount"">{appointmentData.Amount:N0} VNĐ</span></div>
+      </div>
+      
+      <div class=""info-box"">
+        <p><strong>🏥 Địa điểm khám:</strong></p>{hospitalInfoHtml}
+      </div>
+      
+      <div class=""reminder"">
+        <p><strong>📋 Lưu ý quan trọng:</strong></p>
+        <ul style=""margin:8px 0; padding-left:20px;"">
+          <li>Vui lòng có mặt <strong>15 phút trước</strong> giờ hẹn</li>
+          <li>Mang theo giấy tờ tùy thân (CMND/CCCD/Hộ chiếu)</li>
+          <li>Mang theo sổ bảo hiểm y tế (nếu có)</li>
+          <li>Chuẩn bị các kết quả xét nghiệm, chẩn đoán hình ảnh liên quan (nếu có)</li>
+          <li>Nếu cần hủy lịch hẹn, vui lòng thông báo trước <strong>24 giờ</strong></li>
+        </ul>
+      </div>
+      
+      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
+      <strong>📧 Email:</strong> support@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Cảm ơn quý khách đã tin tương và sử dụng dịch vụ BookingCare.<br/><br/>
+      Trân trọng,<br/>Đội ngũ BookingCare</p>
     </div>
     <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
   </div>

@@ -26,6 +26,12 @@ service DoctorService {
 
   // Get multiple doctors basic info (batch operation for performance)
   rpc GetDoctorsBasicInfo (GetDoctorsBasicInfoRequest) returns (DoctorsBasicInfoResponse);
+
+  // Get specialty by ID (for Hospital service) - Optimized response
+  rpc GetSpecialtyById (GetSpecialtyByIdRequest) returns (SpecialtySimpleResponse);
+
+  // Get multiple specialties by IDs (bulk operation for performance)
+  rpc GetSpecialtiesByIds (GetSpecialtiesByIdsRequest) returns (SpecialtiesBatchResponse);
 }
 
 // Request messages
@@ -110,6 +116,16 @@ message GetDoctorsBasicInfoRequest {
   repeated string ids = 1;
 }
 
+// Request message for getting specialty by ID
+message GetSpecialtyByIdRequest {
+  string id = 1;
+}
+
+// Request message for getting multiple specialties by IDs
+message GetSpecialtiesByIdsRequest {
+  repeated string ids = 1;
+}
+
 // Response message for doctor basic info with position and specialty names
 message DoctorBasicInfoResponse {
   string id = 1;
@@ -126,4 +142,25 @@ message DoctorBasicInfoResponse {
 // Response message for multiple doctors basic info
 message DoctorsBasicInfoResponse {
   repeated DoctorBasicInfoResponse doctors = 1;
+}
+
+// Response message for specialty
+message SpecialtyResponse {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string image_url = 4;
+  string status = 5;
+}
+
+// Optimized response message for specialty (only essential fields)
+message SpecialtySimpleResponse {
+  string id = 1;
+  string name = 2;
+  string image_url = 3;
+}
+
+// Response message for multiple specialties batch
+message SpecialtiesBatchResponse {
+  repeated SpecialtySimpleResponse specialties = 1;
 }

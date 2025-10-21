@@ -193,6 +193,10 @@ namespace BookingCare.Services.Payment.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("image_url");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -252,6 +256,7 @@ namespace BookingCare.Services.Payment.Migrations
                         {
                             Id = new Guid("66666666-6666-6666-6666-666666666666"),
                             Description = "Thanh toán qua VNPay",
+                            ImageUrl = "https://yt3.googleusercontent.com/JM1m2wng0JQUgSg9ZSEvz7G4Rwo7pYb4QBYip4PAhvGRyf1D_YTbL2DdDjOy0qOXssJPdz2r7Q=s900-c-k-c0x00ffffff-no-rj",
                             Name = "VNPAY",
                             Status = "ACTIVE"
                         },
@@ -259,6 +264,7 @@ namespace BookingCare.Services.Payment.Migrations
                         {
                             Id = new Guid("77777777-7777-7777-7777-777777777777"),
                             Description = "Thanh toán qua PayOS",
+                            ImageUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTzyLwczXxezKsQjX4t5uvXGWDvlwwOwuX-1A&s",
                             Name = "PAYOS",
                             Status = "ACTIVE"
                         });

@@ -27,4 +27,11 @@ public interface IAppointmentService
 
     // Validation operations
     Task<bool> ValidateAppointmentAsync(CreateAppointmentRequest request);
+
+    // Email notification operations
+    /// <summary>
+    /// Send appointment booking success email notification to patient
+    /// This method is called by event handler when payment is successful
+    /// </summary>
+    Task<bool> SendAppointmentBookingSuccessEmailAsync(Guid appointmentId, Guid patientId, decimal amount = 0);
 }

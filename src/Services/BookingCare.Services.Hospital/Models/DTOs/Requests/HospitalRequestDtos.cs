@@ -70,3 +70,18 @@ public class HospitalFilterRequest
     public string? SortBy { get; set; }
     public string? SortOrder { get; set; } = "asc";
 }
+
+/// <summary>
+/// Optimized filter request for hospital list with essential filters
+/// </summary>
+public class HospitalListOptimizedFilterRequest
+{
+    public string? Search { get; set; }
+    public string[]? SpecialtyIds { get; set; }
+    public string? ProvinceId { get; set; }
+    public string? DistrictId { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+    public string? SortBy { get; set; } = "Name";
+    public string? SortOrder { get; set; } = "asc";
+}

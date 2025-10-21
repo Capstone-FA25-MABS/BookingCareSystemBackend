@@ -67,6 +67,11 @@ public class CancelAppointmentRequest
     /// Optional: ID of the staff who cancelled the appointment
     /// </summary>
     public Guid? CancelledByStaffId { get; set; }
+
+    /// <summary>
+    /// Optional: ID of the patient who cancelled the appointment
+    /// </summary>
+    public Guid? CancelledByPatientId { get; set; }
 }
 
 /// <summary>

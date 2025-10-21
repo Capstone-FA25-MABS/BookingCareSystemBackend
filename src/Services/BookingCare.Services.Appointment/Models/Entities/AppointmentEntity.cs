@@ -45,6 +45,10 @@ public class AppointmentEntity
     [MaxLength(2000)]
     public string? AttachmentUrls { get; set; }
 
+    // Cancellation information
+    public string? CancelledBy { get; set; }
+    public DateTime? CancelledAt { get; set; }
+
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

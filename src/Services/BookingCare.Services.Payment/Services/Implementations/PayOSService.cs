@@ -8,6 +8,8 @@ using BookingCare.Services.Payment.Models.Configurations;
 using BookingCare.Services.Payment.Repositories.Interfaces;
 using BookingCare.Services.Payment.Enums;
 using BookingCare.Shared.Common.Services;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Services.Payment.Services.Implementations;
 
@@ -21,15 +23,18 @@ public class PayOSService : BaseService, IPayOSService
     private readonly IPaymentService _paymentService;
     private readonly IPayOSPaymentMappingRepository _mappingRepository;
 
+
     public PayOSService(
         IOptions<PayOSConfiguration> payOSConfig,
         IPaymentService paymentService,
         IPayOSPaymentMappingRepository mappingRepository,
+        IEventBus eventBus,
         ILogger<PayOSService> logger) : base(logger)
     {
         _payOSConfig = payOSConfig.Value;
         _paymentService = paymentService;
         _mappingRepository = mappingRepository;
+
 
         ValidateConfiguration();
 

@@ -62,8 +62,10 @@ builder.Logging.AddCommonLogging();
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "notification-service-queue");
 builder.Services.AddIntegrationEventHandler<NotificationSendEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentRefundRequestedEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentNoRefundNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -92,8 +94,12 @@ app.UseEventBus(eventBus =>
 {
     eventBus.Subscribe<NotificationSendEvent, NotificationSendEventHandler>();
     eventBus.Subscribe<AppointmentRefundRequestedIntegrationEvent, AppointmentRefundRequestedEventHandler>();
+    eventBus.Subscribe<AppointmentNoRefundNotificationEvent, AppointmentNoRefundNotificationEventHandler>();
     eventBus.Subscribe<RefundHistoryCompletedIntegrationEvent, RefundHistoryCompletedEventHandler>();
     eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
+
+    // Subscribe to appointment booking success notifications for email sending
+    eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
 });
 
-app.Run();
+await app.RunAsync();
