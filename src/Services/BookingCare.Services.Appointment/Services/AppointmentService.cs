@@ -34,11 +34,7 @@ public class AppointmentService : BaseService, IAppointmentService
     private readonly IMapper _mapper;
     private readonly IEventBus _eventBus;
     private readonly GrpcClientWrapper _grpcClients;
-    private readonly ICacheService _cacheService;
     private readonly RedisClient.IConnectionMultiplexer _redisConnection;
-    private readonly DoctorService.DoctorServiceClient _doctorGrpcClient;
-    private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
-    private readonly UserService.UserServiceClient _userGrpcClient;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AppointmentService(
@@ -46,11 +42,7 @@ public class AppointmentService : BaseService, IAppointmentService
         IMapper mapper,
         IEventBus eventBus,
         GrpcClientWrapper grpcClients,
-        ICacheService cacheService,
         RedisClient.IConnectionMultiplexer redisConnection,
-        DoctorService.DoctorServiceClient doctorGrpcClient,
-        HospitalService.HospitalServiceClient hospitalGrpcClient,
-        UserService.UserServiceClient userGrpcClient,
         IHttpContextAccessor httpContextAccessor,
         ILogger<AppointmentService> logger) : base(logger)
     {
@@ -58,11 +50,7 @@ public class AppointmentService : BaseService, IAppointmentService
         _mapper = mapper;
         _eventBus = eventBus;
         _grpcClients = grpcClients;
-        _cacheService = cacheService;
         _redisConnection = redisConnection;
-        _doctorGrpcClient = doctorGrpcClient;
-        _hospitalGrpcClient = hospitalGrpcClient;
-        _userGrpcClient = userGrpcClient;
         _httpContextAccessor = httpContextAccessor;
     }
 

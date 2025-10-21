@@ -22,6 +22,57 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
     }
 
     /// <summary>
+    /// Get doctor ID from appointment ID (for Payment service integration)
+    /// </summary>
+    public override async Task<GetDoctorIdByAppointmentIdResponse> GetDoctorIdByAppointmentId(GetDoctorIdByAppointmentIdRequest request, ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[AppointmentGrpcService] GetDoctorIdByAppointmentId called with ID: {AppointmentId}", request.AppointmentId);
+
+            if (!Guid.TryParse(request.AppointmentId, out var appointmentId))
+            {
+                _logger.LogWarning("[AppointmentGrpcService] Invalid appointment ID format: {AppointmentId}", request.AppointmentId);
+                return new GetDoctorIdByAppointmentIdResponse
+                {
+                    Success = false,
+                    DoctorId = string.Empty
+                };
+            }
+
+            var appointmentEntity = await _appointmentRepository.GetAppointmentByIdAsync(appointmentId);
+            if (appointmentEntity == null)
+            {
+                _logger.LogWarning("[AppointmentGrpcService] Appointment not found: {AppointmentId}", appointmentId);
+                return new GetDoctorIdByAppointmentIdResponse
+                {
+                    Success = false,
+                    DoctorId = string.Empty
+                };
+            }
+
+            var doctorId = appointmentEntity.DoctorId?.ToString() ?? string.Empty;
+            _logger.LogInformation("[AppointmentGrpcService] Successfully retrieved doctorId {DoctorId} for appointment: {AppointmentId}",
+                doctorId, appointmentId);
+
+            return new GetDoctorIdByAppointmentIdResponse
+            {
+                Success = true,
+                DoctorId = doctorId
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AppointmentGrpcService] Error in GetDoctorIdByAppointmentId for ID: {AppointmentId}", request.AppointmentId);
+            return new GetDoctorIdByAppointmentIdResponse
+            {
+                Success = false,
+                DoctorId = string.Empty
+            };
+        }
+    }
+
+    /// <summary>
     /// Checks which appointment time slots are already booked for a doctor on a specific date
     /// Returns slots with status PENDING, CONFIRMED, or COMPLETED
     /// </summary>
