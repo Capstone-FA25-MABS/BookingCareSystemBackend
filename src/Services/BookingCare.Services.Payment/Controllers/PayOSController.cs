@@ -140,7 +140,8 @@ public class PayOSController : BasePaymentGatewayController
 
             if (result.Success)
             {
-                return HandleSuccessfulPayment(payment, result, requestId, GatewayName,
+                // Use PayOS-specific async handler for supplementary payment support
+                return await HandleSuccessfulPaymentAsync(payment, result, requestId,
                     (p, r, reqId) => CreateStandardResponse(r, reqId));
             }
 
@@ -268,6 +269,90 @@ public class PayOSController : BasePaymentGatewayController
         {
             return CreateProcessingErrorResponse(ex, requestId, GatewayName, orderCode);
         }
+    }
+
+    /// <summary>
+    /// Override to extract metadata from PayOS webhook data
+    /// PayOS callback doesn't include Description, need to query payment info
+    /// Note: This is synchronous extraction, PayOS needs async call via HandleSuccessfulPayment
+    /// </summary>
+    protected override string? ExtractMetadataFromCallback<TResponse>(TResponse callbackResult)
+    {
+        // PayOS callback doesn't have Description directly
+        // Will be extracted asynchronously in HandlePayOSSupplementaryPayment
+        return base.ExtractMetadataFromCallback(callbackResult);
+    }
+
+    /// <summary>
+    /// Override HandleSuccessfulPayment to handle PayOS-specific supplementary payment check
+    /// PayOS requires async call to get payment description
+    /// </summary>
+    protected async Task<IActionResult> HandleSuccessfulPaymentAsync(
+        PaymentResponse payment,
+        PayOSCallbackResponse callbackResult,
+        string requestId,
+        Func<PaymentResponse, PayOSCallbackResponse, string, IActionResult> createResponseFunc)
+    {
+        var appointmentId = payment.AppointmentId;
+
+        // PayOS-specific: Extract metadata by querying payment info
+        string? metadata = null;
+        Guid? suppAppointmentId = null;
+        bool isSupplementaryPayment = false;
+        bool isStaffAssigned = false;
+        try
+        {
+            var paymentInfo = await _payOSService.GetPaymentInfoAsync(callbackResult.OrderCode);
+            if (paymentInfo != null)
+            {
+                // Extract description from dynamic object
+                dynamic dynPaymentInfo = paymentInfo;
+                metadata = dynPaymentInfo.description?.ToString();
+
+                if (!string.IsNullOrEmpty(metadata))
+                {
+                    isSupplementaryPayment = IsSupplementaryPayment(metadata, out suppAppointmentId);
+                    isStaffAssigned = ExtractIsStaffAssigned(metadata);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "PayOS Callback #{RequestId} - Failed to extract metadata for OrderCode: {OrderCode}",
+                requestId, callbackResult.OrderCode);
+        }
+
+        if (isSupplementaryPayment && suppAppointmentId.HasValue)
+        {
+            // Handle supplementary payment
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await HandleSupplementaryPaymentSuccessAsync(
+                        suppAppointmentId.Value,
+                        payment,
+                        callbackResult,
+                        requestId,
+                        GatewayName,
+                        isStaffAssigned);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "PayOS Callback #{RequestId} - Failed to process supplementary payment for AppointmentId: {AppointmentId}",
+                        requestId, suppAppointmentId.Value);
+                }
+            });
+
+            // Redirect to booking confirmation page
+            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(FrontendOptions, suppAppointmentId.Value, true);
+            Logger.LogInformation("PayOS Callback #{RequestId} - Supplementary payment successful, redirecting to confirmation for AppointmentId: {AppointmentId}",
+                requestId, suppAppointmentId.Value);
+            return Redirect(frontendUrl);
+        }
+
+        // Regular payment - call base implementation
+        return await HandleSuccessfulPayment(payment, callbackResult, requestId, GatewayName, createResponseFunc);
     }
 
     #region Private Helper Methods
