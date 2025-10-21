@@ -1,0 +1,127 @@
+@startuml Schedule_Service_Complete_Architecture
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 10
+skinparam packageFontSize 13
+skinparam linetype ortho
+
+title Schedule Service - Complete Architecture Overview
+
+package "Presentation Layer" <<Rectangle>> #LightBlue {
+    class DoctorSchedulesController
+    class DoctorScheduleExceptionsController
+    class ScheduleGrpcService
+}
+
+package "Business Layer" <<Rectangle>> #LightGreen {
+    interface IScheduleService
+    class ScheduleService
+}
+
+package "Data Access Layer" <<Rectangle>> #LightYellow {
+    interface IScheduleRepository
+    class ScheduleRepository
+    class ScheduleDbContext
+}
+
+package "Domain Models" <<Rectangle>> #LightCoral {
+    package "Entities" {
+        class DoctorDailyScheduleEntity
+        class DoctorScheduleExceptionEntity
+        class ClinicExceptionEntity
+        class ServiceScheduleEntity
+    }
+    
+    package "DTOs" {
+        class DoctorDailyScheduleDto
+        class DoctorScheduleExceptionDto
+        class ClinicExceptionDto
+        class ServiceScheduleDto
+        class AppointmentTimeDto
+    }
+    
+    package "Requests" {
+        class CreateDoctorDailyScheduleRequest
+        class CreateDoctorScheduleExceptionRequest
+        class GetAvailableSlotsRequest
+    }
+    
+    package "Enums" {
+        enum SchedulePatterns
+        enum ExceptionType
+        enum AppointmentTime
+    }
+}
+
+package "Infrastructure" <<Rectangle>> #Lavender {
+    class ScheduleMappingProfile
+    class AppointmentTimeHelper
+    class ScheduleModelBuilderExtensions
+}
+
+package "External Dependencies" <<Cloud>> #LightGray {
+    interface ICacheService <<Redis>>
+    interface IMapper <<AutoMapper>>
+    class DoctorServiceClient <<gRPC>>
+    class ServiceMedicalServiceClient <<gRPC>>
+    class AppointmentServiceClient <<gRPC>>
+}
+
+database "SQL Server Database" as DB {
+    collections "Tables" {
+        [doctor_daily_schedules]
+        [doctor_schedule_exceptions]
+        [clinic_exceptions]
+        [service_schedules]
+    }
+}
+
+' Presentation Layer relationships
+DoctorSchedulesController --> IScheduleService
+DoctorScheduleExceptionsController --> IScheduleService
+ScheduleGrpcService --> IScheduleService
+
+' Business Layer relationships
+IScheduleService <|.. ScheduleService
+ScheduleService --> IScheduleRepository
+ScheduleService --> ICacheService
+ScheduleService --> IMapper
+ScheduleService --> DoctorServiceClient
+ScheduleService --> ServiceMedicalServiceClient
+ScheduleService --> AppointmentServiceClient
+
+' Data Access Layer relationships
+IScheduleRepository <|.. ScheduleRepository
+ScheduleRepository --> ScheduleDbContext
+
+' Database relationships
+ScheduleDbContext --> DB
+ScheduleDbContext ..> ScheduleModelBuilderExtensions : uses
+
+' Domain Model relationships
+ScheduleService ..> DoctorDailyScheduleDto : returns
+ScheduleService ..> DoctorScheduleExceptionDto : returns
+ScheduleService ..> AppointmentTimeDto : returns
+ScheduleRepository ..> DoctorDailyScheduleEntity : queries
+ScheduleRepository ..> DoctorScheduleExceptionEntity : queries
+
+' Infrastructure relationships
+ScheduleMappingProfile ..> IMapper : configures
+ScheduleService ..> AppointmentTimeHelper : uses
+ScheduleRepository ..> AppointmentTimeHelper : uses
+
+DoctorDailyScheduleEntity "1" *-- "0..*" SchedulePatterns
+DoctorScheduleExceptionEntity "1" -- "1" ExceptionType
+DoctorScheduleExceptionEntity "1" o-- "0..1" AppointmentTime
+ServiceScheduleEntity "1" *-- "0..*" SchedulePatterns
+
+legend right
+  |= Layer |= Responsibility |
+  | Presentation | HTTP/gRPC API endpoints |
+  | Business | Business logic, validation, caching |
+  | Data Access | Database operations, queries |
+  | Domain Models | Data structures, DTOs, Requests |
+  | Infrastructure | Mappings, utilities, extensions |
+endlegend
+
+@enduml

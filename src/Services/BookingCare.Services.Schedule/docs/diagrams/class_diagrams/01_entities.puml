@@ -1,0 +1,95 @@
+@startuml Schedule_Service_Entities
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam packageFontSize 14
+
+title Schedule Service - Domain Entities
+
+package "Entities" <<Rectangle>> {
+    class DoctorDailyScheduleEntity {
+        + Id: Guid
+        + DoctorId: Guid
+        + ScheduleDate: DateOnly
+        + SchedulePatterns: List<SchedulePatterns>
+        + CreatedAt: DateTime
+        + UpdatedAt: DateTime
+    }
+
+    class DoctorScheduleExceptionEntity {
+        + Id: Guid
+        + DoctorId: Guid
+        + ExceptionDate: DateOnly
+        + AppointmentTime: AppointmentTime?
+        + ExceptionType: ExceptionType
+        + IsAvailable: bool
+        + Reason: string?
+        + CreatedAt: DateTime
+    }
+
+    class ClinicExceptionEntity {
+        + Id: Guid
+        + ClinicId: Guid
+        + ExceptionDate: DateOnly
+        + Reason: string?
+    }
+
+    class ServiceScheduleEntity {
+        + Id: Guid
+        + ServiceId: Guid
+        + SchedulePatterns: List<SchedulePatterns>
+        + ClinicId: Guid?
+        + CreatedAt: DateTime
+        + UpdatedAt: DateTime
+    }
+}
+
+package "Enums" <<Rectangle>> {
+    enum SchedulePatterns {
+        MORNING = 1
+        AFTERNOON = 2
+        EVENING = 3
+        FULL_DAY = 4
+    }
+
+    enum ExceptionType {
+        BLOCK_SLOT = 1
+        UNBLOCK_SLOT = 2
+        DAY_OFF = 3
+        CAPACITY_CHANGE = 4
+    }
+
+    enum AppointmentTime {
+        AT_08_00_08_30
+        AT_08_30_09_00
+        AT_09_00_09_30
+        ...
+        AT_20_30_21_00
+    }
+}
+
+' Relationships
+DoctorDailyScheduleEntity "1" *-- "0..*" SchedulePatterns : contains
+DoctorScheduleExceptionEntity "1" -- "1" ExceptionType : has
+DoctorScheduleExceptionEntity "1" o-- "0..1" AppointmentTime : references
+ServiceScheduleEntity "1" *-- "0..*" SchedulePatterns : contains
+
+note right of DoctorDailyScheduleEntity
+  Represents doctor's daily
+  working schedule based on
+  time patterns (Morning,
+  Afternoon, Evening, Full Day)
+end note
+
+note right of DoctorScheduleExceptionEntity
+  Overrides doctor's schedule
+  for specific dates or time slots
+  (Day off, Block/Unblock slots)
+end note
+
+note right of ServiceScheduleEntity
+  Defines available time slots
+  for medical services
+end note
+
+@enduml

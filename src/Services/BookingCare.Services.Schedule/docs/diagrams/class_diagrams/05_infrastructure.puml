@@ -1,0 +1,145 @@
+@startuml Schedule_Service_Infrastructure
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 11
+skinparam packageFontSize 14
+
+title Schedule Service - Infrastructure & Supporting Classes
+
+package "Data" <<Database>> {
+    class ScheduleDbContext {
+        + DoctorDailySchedules: DbSet<DoctorDailyScheduleEntity>
+        + DoctorScheduleExceptions: DbSet<DoctorScheduleExceptionEntity>
+        + ClinicExceptions: DbSet<ClinicExceptionEntity>
+        + ServiceSchedules: DbSet<ServiceScheduleEntity>
+        # OnModelCreating(modelBuilder): void
+        + SaveChanges(): int
+        + SaveChangesAsync(cancellationToken): Task<int>
+        - UpdateTimestamps(): void
+    }
+}
+
+package "Mappings" <<Rectangle>> {
+    class ScheduleMappingProfile {
+        + ScheduleMappingProfile()
+        - ConfigureDoctorDailyScheduleMappings(): void
+        - ConfigureDoctorScheduleExceptionMappings(): void
+        - ConfigureClinicExceptionMappings(): void
+        - ConfigureServiceScheduleMappings(): void
+        - ConfigureAppointmentTimeMappings(): void
+    }
+}
+
+package "Extensions" <<Rectangle>> {
+    class ScheduleModelBuilderExtensions <<static>> {
+        + {static} ConfigureScheduleEntities(modelBuilder): void
+    }
+}
+
+package "Utilities" <<Rectangle>> {
+    class AppointmentTimeHelper <<static>> {
+        + {static} ConvertEnumToDto(appointmentTime): AppointmentTimeDto
+        + {static} GenerateDeterministicGuid(value): Guid
+        + {static} GetTimeStringsFromEnum(appointmentTime): (string, string)
+    }
+}
+
+package "Exceptions" <<Rectangle>> {
+    class ScheduleException {
+        + ScheduleException(message, errorCode, statusCode, innerException, details)
+    }
+
+    class ScheduleExceptionNotFoundException {
+        + ScheduleExceptionNotFoundException(message)
+        + {static} WithId(exceptionId): ScheduleExceptionNotFoundException
+    }
+
+    class ScheduleExceptionConflictException {
+        + ScheduleExceptionConflictException(message)
+        + {static} WithDoctorDateAndTime(doctorId, date, appointmentTime): ScheduleExceptionConflictException
+    }
+
+    class ClinicNotFoundException {
+        + ClinicNotFoundException(message)
+        + {static} WithId(clinicId): ClinicNotFoundException
+    }
+
+    class ClinicExceptionNotFoundException {
+        + ClinicExceptionNotFoundException(message)
+        + {static} WithId(exceptionId): ClinicExceptionNotFoundException
+    }
+
+    class ServiceNotAvailableException {
+        + ServiceNotAvailableException(message)
+        + {static} WithId(serviceId): ServiceNotAvailableException
+    }
+
+    class ServiceScheduleNotFoundException {
+        + ServiceScheduleNotFoundException(message)
+        + {static} WithId(scheduleId): ServiceScheduleNotFoundException
+    }
+}
+
+package "External Libraries" <<Cloud>> {
+    interface "ICacheService" as ICacheService <<Shared>> {
+        + GetAsync<T>(key): Task<T?>
+        + SetAsync<T>(key, value, expiration): Task
+        + RemoveAsync(key): Task
+        + RemoveByPatternAsync(pattern): Task
+    }
+
+    interface "IMapper" as IMapper <<AutoMapper>> {
+        + Map<TDestination>(source): TDestination
+    }
+
+    class "DoctorServiceClient" as DoctorClient <<gRPC>> {
+        + GetDoctorAsync(request): Task<DoctorResponse>
+    }
+
+    class "ServiceMedicalServiceClient" as ServiceClient <<gRPC>> {
+        + ValidateServiceMedicalAsync(request): Task<ValidationResponse>
+    }
+
+    class "AppointmentServiceClient" as AppointmentClient <<gRPC>> {
+        + CheckBookedSlotsAsync(request): Task<BookedSlotsResponse>
+    }
+}
+
+' Relationships
+ScheduleDbContext --> ScheduleModelBuilderExtensions : uses
+ScheduleMappingProfile ..> IMapper : configures
+
+ScheduleException <|-- ScheduleExceptionNotFoundException
+ScheduleException <|-- ScheduleExceptionConflictException
+ScheduleException <|-- ClinicNotFoundException
+ScheduleException <|-- ClinicExceptionNotFoundException
+ScheduleException <|-- ServiceNotAvailableException
+ScheduleException <|-- ServiceScheduleNotFoundException
+
+note right of ScheduleDbContext
+  EF Core DbContext
+  - Manages entity tracking
+  - Auto-updates timestamps
+  - Configures entity relationships
+end note
+
+note right of ScheduleMappingProfile
+  AutoMapper Profile
+  Maps between:
+  - Entities ↔ DTOs
+  - Requests → Entities
+end note
+
+note right of AppointmentTimeHelper
+  Utility for converting
+  AppointmentTime enum to DTO
+  with deterministic GUID
+  generation
+end note
+
+note bottom of ICacheService
+  Redis cache service
+  from Shared library
+end note
+
+@enduml

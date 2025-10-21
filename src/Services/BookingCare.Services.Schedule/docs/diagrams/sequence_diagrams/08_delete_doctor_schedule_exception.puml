@@ -1,0 +1,53 @@
+@startuml Delete_Doctor_Schedule_Exception
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+
+actor User as user
+participant "UI" as ui
+participant "Controller" as controller
+participant "ScheduleService" as service
+participant "Repository" as repo
+database "Database" as db
+participant "CacheService" as cache
+
+user -> ui: 1. Xóa ngoại lệ\nlịch khám
+ui -> controller: 2. DeleteDoctorScheduleException(id)
+activate controller
+
+controller -> service: 3. DeleteDoctorScheduleExceptionAsync(id)
+activate service
+
+service -> repo: 4. DeleteDoctorScheduleExceptionAsync(id)
+activate repo
+
+repo -> db: 5. SELECT FROM\nDoctorScheduleExceptions WHERE Id
+activate db
+db --> repo: 6. exception entity (nếu có)
+deactivate db
+
+alt Exception Found
+    repo -> db: 7. DELETE FROM\nDoctorScheduleExceptions WHERE Id
+    activate db
+    db --> repo: 8. Deleted
+    deactivate db
+end
+
+repo --> service: 9. Completed
+deactivate repo
+
+' Invalidate caches by pattern
+service -> cache: 10. RemoveByPatternAsync(\nSchedulePattern)
+activate cache
+cache --> service: 11. OK
+deactivate cache
+
+service --> controller: 12. Completed
+deactivate service
+
+controller --> ui: 13. Success(message)
+deactivate controller
+
+ui --> user: 14. Thông báo xóa\nngoại lệ thành công
+
+@enduml
