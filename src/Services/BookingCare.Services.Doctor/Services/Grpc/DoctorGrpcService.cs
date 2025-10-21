@@ -7,11 +7,13 @@ namespace BookingCare.Services.Doctor.Services.Grpc;
 public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 {
     private readonly IDoctorService _doctorService;
+    private readonly ISpecialtyService _specialtyService;
     private readonly ILogger<DoctorGrpcService> _logger;
 
-    public DoctorGrpcService(IDoctorService doctorService, ILogger<DoctorGrpcService> logger)
+    public DoctorGrpcService(IDoctorService doctorService, ISpecialtyService specialtyService, ILogger<DoctorGrpcService> logger)
     {
         _doctorService = doctorService;
+        _specialtyService = specialtyService;
         _logger = logger;
     }
 
@@ -267,6 +269,79 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         }
     }
 
+    public override async Task<Protos.SpecialtySimpleResponse> GetSpecialtyById(Protos.GetSpecialtyByIdRequest request, ServerCallContext context)
+    {
+        try
+        {
+            if (!Guid.TryParse(request.Id, out var id))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+            }
+
+            var specialty = await _specialtyService.GetSpecialtyByIdAsync(id);
+            if (specialty == null)
+            {
+                throw new RpcException(new Status(StatusCode.NotFound, $"Specialty with ID {id} not found"));
+            }
+
+            return MapToGrpcSpecialtySimpleResponse(specialty);
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetSpecialtyById for {Id}", request.Id);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    public override async Task<Protos.SpecialtiesBatchResponse> GetSpecialtiesByIds(Protos.GetSpecialtiesByIdsRequest request, ServerCallContext context)
+    {
+        try
+        {
+            var ids = new List<Guid>();
+            var hasValidId = false;
+            foreach (var idStr in request.Ids)
+            {
+                if (Guid.TryParse(idStr, out var id))
+                {
+                    ids.Add(id);
+                    hasValidId = true;
+                }
+                else
+                {
+                    _logger.LogWarning("[DoctorGrpcService] Invalid specialty ID format: {Id}", idStr);
+                }
+            }
+
+            if (!hasValidId)
+            {
+                _logger.LogWarning("[DoctorGrpcService] No valid specialty IDs provided");
+                return new Protos.SpecialtiesBatchResponse();
+            }
+
+            var specialties = await _specialtyService.GetSpecialtiesByIdsAsync(ids);
+            var response = new Protos.SpecialtiesBatchResponse();
+
+            foreach (var specialty in specialties)
+            {
+                response.Specialties.Add(MapToGrpcSpecialtySimpleResponse(specialty));
+            }
+
+            _logger.LogInformation("[DoctorGrpcService] Retrieved {Count} specialties out of {Requested} requested",
+                specialties.Count, request.Ids.Count);
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetSpecialtiesByIds");
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
     private static Protos.DoctorBasicInfoResponse MapToGrpcDoctorBasicInfoResponse(Models.Entities.DoctorEntity doctor)
     {
         return new Protos.DoctorBasicInfoResponse
@@ -427,6 +502,16 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             CreatedAt = string.Empty, // Not available in DoctorByIdResponse
             UpdatedAt = string.Empty, // Not available in DoctorByIdResponse
             Status = string.Empty // Not available in DoctorByIdResponse
+        };
+    }
+
+    private static Protos.SpecialtySimpleResponse MapToGrpcSpecialtySimpleResponse(SpecialtyResponse specialty)
+    {
+        return new Protos.SpecialtySimpleResponse
+        {
+            Id = specialty.Id.ToString(),
+            Name = specialty.Name,
+            ImageUrl = specialty.ImageUrl ?? string.Empty
         };
     }
 }

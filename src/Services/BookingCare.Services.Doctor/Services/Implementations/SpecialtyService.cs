@@ -157,5 +157,19 @@ public class SpecialtyService : BaseService, ISpecialtyService
         return await _repository.SpecialtyNameExistsAsync(name, excludeId);
     }
 
+    public async Task<List<SpecialtyResponse>> GetSpecialtiesByIdsAsync(List<Guid> ids)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            if (ids == null || ids.Count == 0)
+            {
+                return new List<SpecialtyResponse>();
+            }
+
+            var specialties = await _repository.GetSpecialtiesByIdsAsync(ids);
+            return _mapper.Map<List<SpecialtyResponse>>(specialties);
+        }, nameof(GetSpecialtiesByIdsAsync));
+    }
+
     #endregion
 }

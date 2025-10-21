@@ -56,4 +56,10 @@ public interface IAppointmentRepository
     Task<List<AppointmentEntity>> GetOverdueAppointmentsByStatusAsync(
         AppointmentStatus status,
         DateTime referenceDate);
+
+    /// <summary>
+    /// Get all booked appointment time IDs for a doctor on a specific date
+    /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
+    /// </summary>
+    Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(Guid doctorId, DateOnly appointmentDate);
 }

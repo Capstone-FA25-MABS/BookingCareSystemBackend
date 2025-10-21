@@ -1,0 +1,93 @@
+@startuml Schedule_Service_Requests
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam packageFontSize 14
+
+title Schedule Service - Request Models
+
+package "Requests" <<Rectangle>> {
+    class CreateAppointmentTimeRequest {
+        + StartTime: string <<Required>>
+        + EndTime: string <<Required>>
+    }
+
+    class CreateDoctorDailyScheduleRequest {
+        + DoctorId: Guid <<Required>>
+        + ScheduleDate: DateOnly <<Required>>
+        + SchedulePatterns: List<SchedulePatterns> <<Required>>
+    }
+
+    class CreateDoctorScheduleExceptionRequest {
+        + DoctorId: Guid <<Required>>
+        + ExceptionDate: DateOnly <<Required>>
+        + AppointmentTimes: List<AppointmentTime>?
+        + ExceptionType: ExceptionType <<Required>>
+        + IsAvailable: bool <<Required>>
+        + Reason: string?
+    }
+
+    class CreateClinicExceptionRequest {
+        + ClinicId: Guid <<Required>>
+        + ExceptionDate: DateOnly <<Required>>
+        + Reason: string?
+    }
+
+    class CreateServiceScheduleRequest {
+        + ServiceId: Guid <<Required>>
+        + SchedulePatterns: List<SchedulePatterns> <<Required>>
+        + ClinicId: Guid?
+    }
+
+    class GetAvailableSlotsRequest {
+        + DoctorId: Guid <<Required>>
+        + Date: DateOnly <<Required>>
+        + ServiceId: Guid?
+    }
+
+    class GetDoctorScheduleRequest {
+        + DoctorId: Guid <<Required>>
+        + StartDate: DateOnly <<Required>>
+        + EndDate: DateOnly <<Required>>
+    }
+}
+
+package "Enums" <<Rectangle>> {
+    enum SchedulePatterns {
+        MORNING = 1
+        AFTERNOON = 2
+        EVENING = 3
+        FULL_DAY = 4
+    }
+
+    enum ExceptionType {
+        BLOCK_SLOT = 1
+        UNBLOCK_SLOT = 2
+        DAY_OFF = 3
+        CAPACITY_CHANGE = 4
+    }
+
+    enum AppointmentTime {
+        AT_08_00_08_30
+        AT_08_30_09_00
+        ...
+    }
+}
+
+' Relationships
+CreateDoctorDailyScheduleRequest "1" *-- "0..*" SchedulePatterns : contains
+CreateDoctorScheduleExceptionRequest "1" *-- "0..*" AppointmentTime : contains
+CreateDoctorScheduleExceptionRequest "1" -- "1" ExceptionType : has
+CreateServiceScheduleRequest "1" *-- "0..*" SchedulePatterns : contains
+
+note top of CreateDoctorScheduleExceptionRequest
+  AppointmentTimes can be null/empty
+  for full day off exceptions
+end note
+
+note right of GetAvailableSlotsRequest
+  ServiceId is optional
+  Used to filter slots by service
+end note
+
+@enduml

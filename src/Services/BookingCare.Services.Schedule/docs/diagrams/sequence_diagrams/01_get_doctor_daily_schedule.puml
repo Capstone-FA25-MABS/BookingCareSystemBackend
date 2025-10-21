@@ -1,0 +1,62 @@
+@startuml Get_Doctor_Daily_Schedule
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+
+actor User as user
+participant "UI" as ui
+participant "Controller" as controller
+participant "ScheduleService" as service
+participant "CacheService" as cache
+participant "Repository" as repo
+database "Database" as db
+
+user -> ui: 1. Xem lịch khám\ncủa bác sĩ theo ngày
+ui -> controller: 2. GetDoctorDailySchedule(doctorId, date)
+activate controller
+
+controller -> service: 3. GetDoctorDailyScheduleAsync(doctorId, date)
+activate service
+
+service -> cache: 4. GetAsync<DoctorDailyScheduleDto>(cacheKey)
+activate cache
+cache --> service: 5. cached data (nếu có)
+deactivate cache
+
+alt Cache Hit
+    service --> controller: 6. DoctorDailyScheduleDto
+else Cache Miss
+    service -> repo: 7. GetDoctorDailyScheduleAsync(doctorId, date)
+    activate repo
+    
+    repo -> db: 8. SELECT FROM\nDoctorDailySchedules
+    activate db
+    db --> repo: 9. DoctorDailyScheduleEntity
+    deactivate db
+    
+    repo --> service: 10. entity
+    deactivate repo
+    
+    alt Schedule Found
+        service -> service: 11. Map entity to DTO
+        service -> cache: 12. SetAsync(cacheKey, dto, expiration)
+        activate cache
+        cache --> service: 13. OK
+        deactivate cache
+        service --> controller: 14. DoctorDailyScheduleDto
+    else Schedule Not Found
+        service --> controller: 15. null
+    end
+end
+
+alt Success
+    controller --> ui: 16. Success(schedule, message)
+else Not Found
+    controller --> ui: 17. NotFound(message)
+end
+deactivate controller
+
+ui --> user: 18. Hiển thị lịch khám\nhoặc thông báo không có lịch
+deactivate service
+
+@enduml
