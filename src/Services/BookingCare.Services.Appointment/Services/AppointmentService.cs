@@ -550,12 +550,12 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         // Generate reschedule token
         var token = Guid.NewGuid().ToString("N");
-        
+
         // Calculate expiry based on appointment date - more logical approach
         // Token should expire BEFORE the original appointment date
         var appointmentDate = appointment.AppointmentDate;
         var currentTime = DateTime.UtcNow;
-        
+
         // If appointment is in the future, set expiry to 1 day before appointment
         // If appointment is today or past, set expiry to end of today
         DateTime expiry;
@@ -563,19 +563,19 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             // Appointment is in the future - expire 1 day before appointment
             var oneDayBeforeAppointment = appointmentDate.AddDays(-1);
-            expiry = oneDayBeforeAppointment < currentTime.AddDays(7) 
-                ? oneDayBeforeAppointment 
+            expiry = oneDayBeforeAppointment < currentTime.AddDays(7)
+                ? oneDayBeforeAppointment
                 : currentTime.AddDays(7); // But not more than 7 days from now
-            
-            LogInfo("Reschedule token expiry calculated for future appointment: {AppointmentDate} -> {Expiry} (1 day before appointment)", 
+
+            LogInfo("Reschedule token expiry calculated for future appointment: {AppointmentDate} -> {Expiry} (1 day before appointment)",
                 null, appointmentDate, expiry);
         }
         else
         {
             // Appointment is today or past - expire at end of today
             expiry = currentTime.Date.AddDays(1).AddSeconds(-1); // End of today
-            
-            LogInfo("Reschedule token expiry calculated for past/today appointment: {AppointmentDate} -> {Expiry} (end of today)", 
+
+            LogInfo("Reschedule token expiry calculated for past/today appointment: {AppointmentDate} -> {Expiry} (end of today)",
                 null, appointmentDate, expiry);
         }
 
