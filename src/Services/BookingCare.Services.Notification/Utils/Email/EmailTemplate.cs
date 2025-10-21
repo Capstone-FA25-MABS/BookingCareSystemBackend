@@ -570,5 +570,335 @@ public static class EmailTemplate
 </body>
 </html>";
     }
+
+    /// <summary>
+    /// Build email content for staff-initiated cancellation with reschedule options
+    /// Patient can choose from 4 options: reschedule same doctor, confirm new doctor, choose new doctor, or request refund
+    /// </summary>
+    public static string BuildCancellationWithOptionsEmailHtml(
+        string patientName,
+        DateTime appointmentDate,
+        string cancellationReason,
+        string? doctorName,
+        string? hospitalName,
+        decimal? potentialRefundAmount,
+        decimal? potentialRefundPercentage,
+        string? sameDoctorRescheduleUrl,
+        string? confirmNewDoctorUrl,
+        string? chooseNewDoctorUrl,
+        string? refundRequestUrl,
+        DateTime? tokenExpiry)
+    {
+        var doctorInfo = !string.IsNullOrEmpty(doctorName) ? $" với bác sĩ <strong>{doctorName}</strong>" : "";
+        var hospitalInfo = !string.IsNullOrEmpty(hospitalName) ? $" tại <strong>{hospitalName}</strong>" : "";
+
+        var refundInfo = "";
+        if (potentialRefundAmount.HasValue && potentialRefundPercentage.HasValue)
+        {
+            refundInfo = $@"
+        <div class=""refund-info"">
+            <p>💰 <strong>Thông tin hoàn tiền (nếu chọn Option 4):</strong></p>
+            <div class=""info-item"">Tỷ lệ hoàn: <strong>{potentialRefundPercentage:N0}%</strong></div>
+            <div class=""info-item"">Số tiền ước tính: <strong>{potentialRefundAmount:N0} VNĐ</strong></div>
+        </div>";
+        }
+
+        var expiryInfo = tokenExpiry.HasValue
+            ? $"<p class=\"warning\">⏰ <strong>Lưu ý:</strong> Các tùy chọn đổi lịch có hiệu lực đến <strong>{tokenExpiry.Value.ToString("dd/MM/yyyy HH:mm")}</strong> (trước ngày hẹn gốc)</p>"
+            : "";
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Lịch hẹn đã bị hủy - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:12px; color:#222; }}
+    .card {{ max-width:600px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#f59e0b; color:#fff; padding:16px 20px; }}
+    .brand {{ font-size:16px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:20px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 16px; color:#444; line-height:1.5; }}
+    .cancel-box {{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin:16px 0; }}
+    .cancel-box strong {{ color:#991b1b; }}
+    .info-item {{ margin:6px 0; font-size:14px; }}
+    .refund-info {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; margin:16px 0; }}
+    .refund-info strong {{ color:#166534; }}
+    .options-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:16px 0; }}
+    .option-button {{ display:block; width:100%; padding:12px 16px; margin:8px 0; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:6px; font-weight:600; text-align:center; transition:background 0.3s; font-size:14px; word-wrap:break-word; }}
+    .option-button:hover {{ background:#0284c7; }}
+    .option-button.secondary {{ background:#8b5cf6; }}
+    .option-button.secondary:hover {{ background:#7c3aed; }}
+    .option-button.tertiary {{ background:#10b981; }}
+    .option-button.tertiary:hover {{ background:#059669; }}
+    .option-button.danger {{ background:#ef4444; }}
+    .option-button.danger:hover {{ background:#dc2626; }}
+    .option-desc {{ font-size:12px; color:#6b7280; margin:4px 0 12px; text-align:center; line-height:1.4; }}
+    .warning {{ background:#fff7ed; border:1px solid #fed7aa; padding:10px; border-radius:6px; margin:12px 0; color:#c2410c; font-size:13px; }}
+    .muted {{ margin-top:12px; color:#6b7280; font-size:12px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:16px 0; }}
+    .footer {{ padding:12px 20px 16px; color:#6b7280; font-size:11px; text-align:center; }}
+    
+    /* Mobile responsive */
+    @media only screen and (max-width: 600px) {{
+      body {{ padding:8px; }}
+      .content {{ padding:16px; }}
+      .header {{ padding:12px 16px; }}
+      .brand {{ font-size:14px; }}
+      .option-button {{ padding:10px 12px; font-size:13px; }}
+      .option-desc {{ font-size:11px; }}
+      .info-item {{ font-size:13px; }}
+    }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Thông báo hủy lịch hẹn</div>
+    </div>
+    <div class=""content"">
+      <p class=""greeting"">Kính gửi {patientName},</p>
+      <p class=""lead"">Chúng tôi rất tiếc phải thông báo rằng lịch hẹn của quý khách{doctorInfo}{hospitalInfo} đã bị hủy bởi bệnh viện.</p>
+      
+      <div class=""cancel-box"">
+        <p><strong>📅 Thông tin lịch hẹn bị hủy:</strong></p>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate.ToString("dd/MM/yyyy HH:mm")}</div>
+        <div class=""info-item""><strong>Lý do hủy:</strong> {cancellationReason}</div>
+      </div>
+      {refundInfo}
+      
+      <div class=""options-box"">
+        <p style=""text-align:center; font-size:16px; font-weight:600; margin-bottom:20px; color:#0369a1;"">
+          🔄 VUI LÒNG CHỌN PHƯƠNG ÁN XỬ LÝ
+        </p>
+        
+        {(!string.IsNullOrEmpty(sameDoctorRescheduleUrl) ? $@"
+        <a href=""{sameDoctorRescheduleUrl}"" class=""option-button"">
+          📆 Option: Đổi lịch với cùng bác sĩ
+        </a>
+        <p class=""option-desc"">Chọn ngày giờ khác với bác sĩ {doctorName}</p>" : "")}
+        
+        {(!string.IsNullOrEmpty(confirmNewDoctorUrl) ? $@"
+        <a href=""{confirmNewDoctorUrl}"" class=""option-button secondary"">
+          👨‍⚕️ Option: Xác nhận bác sĩ mới (do bệnh viện chỉ định)
+        </a>
+        <p class=""option-desc"">Bệnh viện chỉ định bác sĩ thay thế</p>" : "")}
+        
+        {(!string.IsNullOrEmpty(chooseNewDoctorUrl) ? $@"
+        <a href=""{chooseNewDoctorUrl}"" class=""option-button tertiary"">
+          🔍 Option 3: Tự chọn bác sĩ mới
+        </a>
+        <p class=""option-desc"">Tự chọn bác sĩ khác cùng chuyên khoa</p>" : "")}
+        
+        {(!string.IsNullOrEmpty(refundRequestUrl) ? $@"
+        <a href=""{refundRequestUrl}"" class=""option-button danger"">
+          💰 Option: Yêu cầu hoàn tiền
+        </a>
+        <p class=""option-desc"">Không muốn đổi lịch, xin hoàn tiền</p>" : "")}
+      </div>
+      
+      {expiryInfo}
+      
+      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
+      <strong>📧 Email:</strong> support@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Chúng tôi chân thành xin lỗi vì sự bất tiện này và hy vọng quý khách sẽ tiếp tục tin tưởng sử dụng dịch vụ của BookingCare.<br/><br/>
+      Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for doctor change refund (patient has bank account - PENDING status)
+    /// Used when patient chooses new doctor with lower deposit price (Option 3: Lower price scenario)
+    /// </summary>
+    public static string BuildDoctorChangeRefundEmailWithBankAccountHtml(
+        string patientName,
+        DateTime appointmentDate,
+        string originalDoctorName,
+        decimal originalFee,
+        string newDoctorName,
+        decimal newFee,
+        decimal refundAmount)
+    {
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Xác nhận thay đổi bác sĩ - Hoàn tiền chênh lệch - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .change-box {{ background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
+    .change-box strong {{ color:#0369a1; }}
+    .doctor-change {{ display:flex; align-items:center; justify-content:space-between; margin:16px 0; }}
+    .doctor-item {{ flex:1; text-align:center; }}
+    .doctor-name {{ font-weight:700; color:#0c4a6e; margin:8px 0; }}
+    .doctor-price {{ color:#6b7280; font-size:14px; }}
+    .arrow {{ font-size:24px; color:#10b981; margin:0 16px; }}
+    .refund-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
+    .refund-box strong {{ color:#047857; }}
+    .amount {{ font-size:20px; font-weight:700; color:#10b981; }}
+    .info-item {{ margin:8px 0; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Xác nhận thay đổi bác sĩ</div>
+    </div>
+    <div class=""content"">
+      <div class=""success-icon"">✅</div>
+      <p class=""greeting"">Kính gửi {patientName},</p>
+      <p class=""lead"">Chúng tôi xác nhận rằng quý khách đã thay đổi bác sĩ khám thành công!</p>
+      
+      <div class=""change-box"">
+        <p><strong>👨‍⚕️ Thông tin thay đổi:</strong></p>
+        <div class=""doctor-change"">
+          <div class=""doctor-item"">
+            <p class=""muted"" style=""margin:0;"">Bác sĩ cũ</p>
+            <p class=""doctor-name"">{originalDoctorName}</p>
+            <p class=""doctor-price"">Cọc: {originalFee:N0} VNĐ</p>
+          </div>
+          <div class=""arrow"">→</div>
+          <div class=""doctor-item"">
+            <p class=""muted"" style=""margin:0;"">Bác sĩ mới</p>
+            <p class=""doctor-name"">{newDoctorName}</p>
+            <p class=""doctor-price"">Cọc: {newFee:N0} VNĐ</p>
+          </div>
+        </div>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy HH:mm}</div>
+      </div>
+      
+      <div class=""refund-box"">
+        <p><strong>💰 Hoàn tiền chênh lệch:</strong></p>
+        <div class=""info-item"">Do bác sĩ mới có mức cọc thấp hơn, chúng tôi sẽ hoàn lại cho quý khách số tiền chênh lệch:</div>
+        <div class=""info-item""><strong>Số tiền hoàn trả:</strong> <span class=""amount"">{refundAmount:N0} VNĐ</span></div>
+        <div class=""info-item"">Tiền sẽ được chuyển vào tài khoản ngân hàng của quý khách trong vòng <strong>5-7 ngày làm việc</strong>.</div>
+      </div>
+      
+      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua hotline: <strong>1900-xxxx</strong>.</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for doctor change refund (patient has NO bank account - WAITING status)
+    /// Used when patient chooses new doctor with lower deposit price (Option 3: Lower price scenario)
+    /// </summary>
+    public static string BuildDoctorChangeRefundEmailNoBankAccountHtml(
+        string patientName,
+        DateTime appointmentDate,
+        string originalDoctorName,
+        decimal originalFee,
+        string newDoctorName,
+        decimal newFee,
+        decimal refundAmount)
+    {
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Xác nhận thay đổi bác sĩ - Cần cung cấp tài khoản - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#FF9800; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .change-box {{ background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
+    .change-box strong {{ color:#0369a1; }}
+    .doctor-change {{ display:flex; align-items:center; justify-content:space-between; margin:16px 0; }}
+    .doctor-item {{ flex:1; text-align:center; }}
+    .doctor-name {{ font-weight:700; color:#0c4a6e; margin:8px 0; }}
+    .doctor-price {{ color:#6b7280; font-size:14px; }}
+    .arrow {{ font-size:24px; color:#10b981; margin:0 16px; }}
+    .action-required {{ background:#ffebee; border:2px solid #ef5350; border-radius:8px; padding:16px; margin:20px 0; }}
+    .action-required strong {{ color:#c62828; }}
+    .action-required ol {{ margin:12px 0; padding-left:20px; }}
+    .action-required li {{ margin:8px 0; }}
+    .info-item {{ margin:8px 0; }}
+    .amount {{ font-size:20px; font-weight:700; color:#f57c00; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Xác nhận thay đổi bác sĩ</div>
+    </div>
+    <div class=""content"">
+      <p class=""greeting"">Kính gửi {patientName},</p>
+      <p class=""lead"">Chúng tôi xác nhận rằng quý khách đã thay đổi bác sĩ khám thành công!</p>
+      
+      <div class=""change-box"">
+        <p><strong>👨‍⚕️ Thông tin thay đổi:</strong></p>
+        <div class=""doctor-change"">
+          <div class=""doctor-item"">
+            <p class=""muted"" style=""margin:0;"">Bác sĩ cũ</p>
+            <p class=""doctor-name"">{originalDoctorName}</p>
+            <p class=""doctor-price"">Cọc: {originalFee:N0} VNĐ</p>
+          </div>
+          <div class=""arrow"">→</div>
+          <div class=""doctor-item"">
+            <p class=""muted"" style=""margin:0;"">Bác sĩ mới</p>
+            <p class=""doctor-name"">{newDoctorName}</p>
+            <p class=""doctor-price"">Cọc: {newFee:N0} VNĐ</p>
+          </div>
+        </div>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy HH:mm}</div>
+      </div>
+      
+      <div class=""action-required"">
+        <p><strong>⚠️ HÀNH ĐỘNG YÊU CẦU - VUI LÒNG ĐỌC KỸ:</strong></p>
+        <p>Do bác sĩ mới có mức cọc thấp hơn, quý khách sẽ được hoàn lại <strong>{refundAmount:N0} VNĐ</strong>.</p>
+        <p>Để nhận lại số tiền này, quý khách vui lòng:</p>
+        <ol>
+          <li>Đăng nhập vào tài khoản BookingCare</li>
+          <li>Vào phần <strong>""Tài khoản ngân hàng""</strong> trong cài đặt</li>
+          <li>Thêm thông tin tài khoản ngân hàng để nhận hoàn tiền</li>
+        </ol>
+        <p><strong>⏰ Lưu ý quan trọng:</strong> Nếu không cung cấp thông tin tài khoản ngân hàng, chúng tôi sẽ không thể hoàn trả tiền cho quý khách.</p>
+      </div>
+      
+      <p class=""muted"">Sau khi cập nhật thông tin tài khoản ngân hàng, chúng tôi sẽ tiến hành hoàn tiền trong vòng <strong>5-7 ngày làm việc</strong>.</p>
+      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua hotline: <strong>1900-xxxx</strong>.</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
 }
 

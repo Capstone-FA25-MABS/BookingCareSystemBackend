@@ -30,38 +30,79 @@ public class AppointmentRefundRequestedEventHandler
                 "Processing refund notification for RefundHistoryId: {RefundHistoryId}, PatientId: {PatientId}",
                 @event.RefundHistoryId, @event.PatientId);
 
-            // Determine notification content based on bank account status
+            // Determine notification content based on cancellation source and bank account status
             string emailSubject;
             string emailContent;
             string? smsContent;
 
             var patientName = @event.PatientFullName ?? "Quý khách";
 
-            if (@event.HasBankAccount)
+            // Check if this is a doctor change refund (Option 3: Choose new doctor with lower price)
+            if (@event.CancellationSource == "DOCTOR_CHANGE_REFUND")
             {
-                // Patient has bank account → refund is PENDING
-                emailSubject = "Lịch hẹn đã được hủy - Xác nhận hoàn tiền";
-                emailContent = EmailTemplate.BuildRefundEmailWithBankAccountHtml(
-                    patientName,
-                    @event.AppointmentDate,
-                    @event.CancellationReason,
-                    @event.RefundAmount);
-                smsContent = SmsTemplate.BuildRefundSmsWithBankAccount(
-                    @event.AppointmentDate,
-                    @event.RefundAmount);
+                // Doctor change refund - special template
+                emailSubject = "Xác nhận thay đổi bác sĩ - Hoàn tiền chênh lệch";
+
+                if (@event.HasBankAccount)
+                {
+                    emailContent = EmailTemplate.BuildDoctorChangeRefundEmailWithBankAccountHtml(
+                        patientName,
+                        @event.AppointmentDate,
+                        @event.OriginalDoctorName ?? "Bác sĩ cũ",
+                        @event.OriginalConsultationFee ?? 0,
+                        @event.NewDoctorName ?? "Bác sĩ mới",
+                        @event.NewConsultationFee ?? 0,
+                        @event.RefundAmount);
+                    smsContent = SmsTemplate.BuildDoctorChangeRefundSms(
+                        @event.OriginalDoctorName ?? "Bác sĩ cũ",
+                        @event.NewDoctorName ?? "Bác sĩ mới",
+                        @event.RefundAmount);
+                }
+                else
+                {
+                    emailContent = EmailTemplate.BuildDoctorChangeRefundEmailNoBankAccountHtml(
+                        patientName,
+                        @event.AppointmentDate,
+                        @event.OriginalDoctorName ?? "Bác sĩ cũ",
+                        @event.OriginalConsultationFee ?? 0,
+                        @event.NewDoctorName ?? "Bác sĩ mới",
+                        @event.NewConsultationFee ?? 0,
+                        @event.RefundAmount);
+                    smsContent = SmsTemplate.BuildDoctorChangeRefundSmsNoBankAccount(
+                        @event.OriginalDoctorName ?? "Bác sĩ cũ",
+                        @event.NewDoctorName ?? "Bác sĩ mới",
+                        @event.RefundAmount);
+                }
             }
             else
             {
-                // Patient has NO bank account → refund is WAITING
-                emailSubject = "Lịch hẹn đã được hủy - Cần cung cấp thông tin tài khoản";
-                emailContent = EmailTemplate.BuildRefundEmailNoBankAccountHtml(
-                    patientName,
-                    @event.AppointmentDate,
-                    @event.CancellationReason,
-                    @event.RefundAmount);
-                smsContent = SmsTemplate.BuildRefundSmsNoBankAccount(
-                    @event.AppointmentDate,
-                    @event.RefundAmount);
+                // Regular cancellation refund (patient or staff cancelled)
+                if (@event.HasBankAccount)
+                {
+                    // Patient has bank account → refund is PENDING
+                    emailSubject = "Lịch hẹn đã được hủy - Xác nhận hoàn tiền";
+                    emailContent = EmailTemplate.BuildRefundEmailWithBankAccountHtml(
+                        patientName,
+                        @event.AppointmentDate,
+                        @event.CancellationReason,
+                        @event.RefundAmount);
+                    smsContent = SmsTemplate.BuildRefundSmsWithBankAccount(
+                        @event.AppointmentDate,
+                        @event.RefundAmount);
+                }
+                else
+                {
+                    // Patient has NO bank account → refund is WAITING
+                    emailSubject = "Lịch hẹn đã được hủy - Cần cung cấp thông tin tài khoản";
+                    emailContent = EmailTemplate.BuildRefundEmailNoBankAccountHtml(
+                        patientName,
+                        @event.AppointmentDate,
+                        @event.CancellationReason,
+                        @event.RefundAmount);
+                    smsContent = SmsTemplate.BuildRefundSmsNoBankAccount(
+                        @event.AppointmentDate,
+                        @event.RefundAmount);
+                }
             }
 
             // Send Email
