@@ -9,7 +9,6 @@ using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Services.Appointment.Helpers;
-using BookingCare.Services.Appointment.Services.Grpc;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Appointment.Handlers;
 using BookingCare.Shared.Cache.Extensions;
