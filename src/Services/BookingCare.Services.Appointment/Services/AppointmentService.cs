@@ -1243,7 +1243,7 @@ public class AppointmentService : BaseService, IAppointmentService
             };
 
             // Scenario 1: Same price or no payment - Update directly
-            if (priceDifference == 0)
+            if (priceDifference == 0 || originalPrice ==0 )
             {
                 // Use appropriate method based on IsStaffAssigned flag
                 if (request.IsStaffAssigned)
