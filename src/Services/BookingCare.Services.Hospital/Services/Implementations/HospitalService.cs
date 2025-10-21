@@ -86,13 +86,17 @@ public class HospitalService : IHospitalService
                             .Where(s => Guid.TryParse(s.Id, out _))
                             .ToDictionary(s => Guid.Parse(s.Id), s => s);
 
+                        // Get doctor counts for each specialty
+                        var doctorCounts = await GetDoctorCountsBySpecialtyAndHospitalAsync(id, specialtyIds);
+
                         response.Specialties = specialtyIds
                             .Where(id => map.ContainsKey(id))
-                            .Select(id => new HospitalSpecialtyWithImageResponse
+                            .Select(specialtyId => new HospitalSpecialtyWithImageResponse
                             {
-                                Id = id,
-                                Name = map[id].Name,
-                                ImageUrl = map[id].ImageUrl
+                                Id = specialtyId,
+                                Name = map[specialtyId].Name,
+                                ImageUrl = map[specialtyId].ImageUrl,
+                                DoctorCount = doctorCounts.GetValueOrDefault(specialtyId, 0)
                             })
                             .ToList();
                     }
@@ -887,6 +891,45 @@ public class HospitalService : IHospitalService
         }
 
         return specialties;
+    }
+
+    #endregion
+
+    #region Doctor Count Operations
+
+    private async Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, List<Guid> specialtyIds)
+    {
+        try
+        {
+            if (!specialtyIds.Any() || _doctorClient == null)
+            {
+                return new Dictionary<Guid, int>();
+            }
+
+            var request = new GetDoctorCountsBySpecialtyAndHospitalRequest
+            {
+                HospitalId = hospitalId.ToString()
+            };
+            request.SpecialtyIds.AddRange(specialtyIds.Select(x => x.ToString()));
+
+            var response = await _doctorClient.GetDoctorCountsBySpecialtyAndHospitalAsync(request);
+
+            var result = new Dictionary<Guid, int>();
+            foreach (var count in response.SpecialtyCounts)
+            {
+                if (Guid.TryParse(count.Key, out var specialtyId))
+                {
+                    result[specialtyId] = count.Value;
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get doctor counts for hospital {HospitalId}, returning empty counts", hospitalId);
+            return new Dictionary<Guid, int>();
+        }
     }
 
     #endregion

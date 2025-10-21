@@ -48,4 +48,7 @@ public interface IDoctorService
     // Optimized methods for gRPC performance
     Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
     Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
+
+    // Doctor count operations
+    Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
 }
