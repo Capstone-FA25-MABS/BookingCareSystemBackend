@@ -175,20 +175,6 @@ public class AssignNewDoctorRequest
 }
 
 /// <summary>
-/// Request to confirm new doctor assignment (called by PATIENT)
-/// Validates soft reservation and finalizes the appointment
-/// Note: NewDoctorId is not required here as it's already stored in AssignedDoctorId
-/// </summary>
-public class ConfirmNewDoctorRequest
-{
-    [Required(ErrorMessage = "Appointment ID is required")]
-    public required Guid AppointmentId { get; set; }
-
-    [Required(ErrorMessage = "Reschedule token is required")]
-    public required string RescheduleToken { get; set; }
-}
-
-/// <summary>
 /// Request refund for cancelled appointment
 /// </summary>
 public class RequestRefundRequest
@@ -198,22 +184,44 @@ public class RequestRefundRequest
 
     [Required(ErrorMessage = "Reschedule token is required")]
     public required string RescheduleToken { get; set; }
+}
 
-    [MaxLength(1000, ErrorMessage = "Patient note cannot exceed 1000 characters")]
-    public string? PatientNote { get; set; }
+/// <summary>
+/// Request to choose new doctor (Option 3)
+/// Used when patient selects a different doctor from same hospital + specialty
+/// Handles 3 scenarios: same price, higher price, lower price
+/// </summary>
+public class ChooseNewDoctorRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
 
-    // Bank account info for refund
-    [Required(ErrorMessage = "Bank account number is required")]
-    [MaxLength(50)]
-    public required string BankAccountNumber { get; set; }
-
-    [Required(ErrorMessage = "Bank name is required")]
+    [Required(ErrorMessage = "Reschedule token is required")]
     [MaxLength(100)]
-    public required string BankName { get; set; }
+    public required string RescheduleToken { get; set; }
 
-    [Required(ErrorMessage = "Bank account holder name is required")]
-    [MaxLength(200)]
-    public required string BankAccountHolderName { get; set; }
+    [Required(ErrorMessage = "New doctor ID is required")]
+    public required Guid NewDoctorId { get; set; }
+
+    [Required(ErrorMessage = "New appointment date is required")]
+    public required DateTime NewAppointmentDate { get; set; }
+
+    [Required(ErrorMessage = "New appointment time is required")]
+    public required AppointmentTime NewAppointmentTimeId { get; set; }
+
+    /// <summary>
+    /// Price ID of the new doctor's service
+    /// Used to calculate price difference
+    /// </summary>
+    [Required(ErrorMessage = "Doctor price ID is required")]
+    public required Guid DoctorPriceId { get; set; }
+
+    /// <summary>
+    /// Flag to indicate if this is a staff-assigned doctor (Option 2)
+    /// True: Use ConfirmNewDoctorAsync (staff assigned)
+    /// False: Use UpdateAppointmentWithNewDoctorAsync (patient chose)
+    /// </summary>
+    public bool IsStaffAssigned { get; set; } = false;
 }
 
 /// <summary>

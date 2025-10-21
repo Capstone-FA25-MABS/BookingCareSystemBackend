@@ -202,30 +202,6 @@ public class AppointmentsController : BaseApiController
     }
 
     /// <summary>
-    /// Patient confirms assigned doctor (Option 2 - Step 2: Finalize soft reservation)
-    /// Validates soft reservation and converts to confirmed appointment
-    /// </summary>
-    /// <param name="id">Appointment ID</param>
-    /// <param name="request">Confirm request with token</param>
-    /// <returns>Success status</returns>
-    [HttpPost("{id:guid}/confirm-new-doctor")]
-    [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> ConfirmNewDoctor(
-        Guid id,
-        [FromBody] ConfirmNewDoctorRequest request)
-    {
-        if (id != request.AppointmentId)
-            return BadRequest("ID in URL does not match ID in request body");
-
-        var result = await _appointmentService.ConfirmNewDoctorAsync(request);
-
-        if (!result)
-            return BadRequest("Failed to confirm new doctor assignment");
-
-        return Success("New doctor confirmed successfully");
-    }
-
-    /// <summary>
     /// Request refund for cancelled appointment (Option 4)
     /// Patient chooses refund instead of rescheduling
     /// Triggers Payment Service to create refund record
@@ -248,6 +224,28 @@ public class AppointmentsController : BaseApiController
             return BadRequest("Failed to create refund request");
 
         return Success("Refund request submitted successfully. Payment Service will process your request.");
+    }
+
+    /// <summary>
+    /// Choose new doctor (Option 3)
+    /// Patient selects a different doctor from same hospital + specialty
+    /// Handles 3 scenarios: same price (direct update), higher price (payment required), lower price (refund created)
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Choose new doctor request with token and new doctor info</param>
+    /// <returns>Response with action to take and any payment/refund info</returns>
+    [HttpPost("{id:guid}/choose-new-doctor")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> ChooseNewDoctor(
+        Guid id,
+        [FromBody] ChooseNewDoctorRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest("ID in URL does not match ID in request body");
+
+        var result = await _appointmentService.ChooseNewDoctorAsync(request);
+
+        return Success(result, result.Message);
     }
 
     /// <summary>

@@ -19,7 +19,7 @@ public class AppointmentResponse
     public string? AttachmentUrls { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    
+
     // Additional IDs for convenience (used for fetching available doctors, etc.)
     public Guid? SpecialtyId { get; set; }
 
@@ -131,25 +131,25 @@ public class RescheduleResponse
     public string RescheduleToken { get; set; } = string.Empty;
     public DateTime TokenExpiry { get; set; }
     public string Message { get; set; } = string.Empty;
-    
+
     // Deep links for patient (4 options)
     /// <summary>
     /// Option 1: Reschedule with same doctor
     /// </summary>
     public string? SameDoctorRescheduleUrl { get; set; }
-    
+
     /// <summary>
     /// Option 2: Confirm new doctor assigned by hospital staff
     /// URL contains placeholder {newDoctorId} that will be replaced when staff assigns a doctor
     /// </summary>
     public string? ConfirmNewDoctorUrl { get; set; }
-    
+
     /// <summary>
     /// Option 3: Choose new doctor yourself (redirects to doctors list with filters)
     /// No API endpoint needed - just redirect to frontend page
     /// </summary>
     public string? ChooseNewDoctorUrl { get; set; }
-    
+
     /// <summary>
     /// Option 4: Request refund
     /// </summary>
@@ -179,5 +179,21 @@ public class AvailableDoctors
     public string? PositionName { get; set; }
     public string? SpecialtyName { get; set; }
     public int YearsOfExperience { get; set; }
+}
+
+/// <summary>
+/// Response for choosing new doctor (Option 3)
+/// Includes action to take based on price comparison
+/// </summary>
+public class ChooseNewDoctorResponse
+{
+    public Guid AppointmentId { get; set; }
+    public string Action { get; set; } = string.Empty; // "direct_update", "payment_required", "refund_created"
+    public decimal OriginalPrice { get; set; }
+    public decimal NewPrice { get; set; }
+    public decimal PriceDifference { get; set; }
+    public string? PaymentUrl { get; set; } // For higher price scenario
+    public string? RefundRequestId { get; set; } // For lower price scenario
+    public string Message { get; set; } = string.Empty;
 }
 
