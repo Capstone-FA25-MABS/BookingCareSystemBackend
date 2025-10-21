@@ -73,8 +73,6 @@ public class PendingPaymentCleanupService : BackgroundService
 
     private async Task ProcessOverduePaymentsAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("[PendingPaymentCleanup] Starting to process overdue pending payments...");
-
         using var scope = _serviceProvider.CreateScope();
         var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
         var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
@@ -90,8 +88,9 @@ public class PendingPaymentCleanupService : BackgroundService
             return;
         }
 
+        // Combined start and found message to reduce LogInformation calls
         _logger.LogInformation(
-            "[PendingPaymentCleanup] Found {Count} overdue pending payments to process (older than {CutoffTime})",
+            "[PendingPaymentCleanup] Starting to process {Count} overdue pending payments (older than {CutoffTime})",
             overduePendingPayments.Count, cutoffTime);
 
         foreach (var payment in overduePendingPayments)
