@@ -489,15 +489,15 @@ public class AppointmentService : BaseService, IAppointmentService
 
         await _eventBus.PublishAsync(cancelledEvent);
 
-         // Invalidate available slots cache after cancellation
-            // The cancelled slot should become available again
-            if (appointment.DoctorId.HasValue)
-            {
-                await InvalidateAvailableSlotsCacheAsync(
-                    appointment.DoctorId.Value,
-                    appointment.AppointmentDate,
-                    appointment.ServiceId);
-            }
+        // Invalidate available slots cache after cancellation
+        // The cancelled slot should become available again
+        if (appointment.DoctorId.HasValue)
+        {
+            await InvalidateAvailableSlotsCacheAsync(
+                appointment.DoctorId.Value,
+                appointment.AppointmentDate,
+                appointment.ServiceId);
+        }
 
         LogInfo("Published refund event for appointment {AppointmentId} with {Refund}% refund",
             null, appointment.Id, details.RefundPercentage);
