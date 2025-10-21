@@ -9,7 +9,7 @@ using BookingCare.Shared.Common.Services;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Implementation của CallLog service với BaseService
+/// Implementation of the CallLog service with BaseService
 /// </summary>
 public class CallLogService : BaseService, ICallLogService
 {
@@ -35,7 +35,7 @@ public class CallLogService : BaseService, ICallLogService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu tạo call log cho conversation: {ConversationId}", null, request.ConversationId);
+            LogInfo("Starting creation of call log for conversation: {ConversationId}", correlationId: null, args: new object[] { request.ConversationId });
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -45,27 +45,27 @@ public class CallLogService : BaseService, ICallLogService
 
             if (request.CallerId == request.ReceiverId)
             {
-                throw new ArgumentException("CallerId và ReceiverId không được giống nhau");
+                throw new ArgumentException("CallerId and ReceiverId must not be the same");
             }
 
             // Kiểm tra conversation có tồn tại không
             var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId);
             if (conversation == null)
             {
-                throw new ArgumentException($"Conversation với ID {request.ConversationId} không tồn tại");
+                throw new ArgumentException($"Conversation with ID {request.ConversationId} does not exist");
             }
 
             // Kiểm tra users có trong conversation không
             if (!conversation.Participants.Contains(request.CallerId) || !conversation.Participants.Contains(request.ReceiverId))
             {
-                throw new UnauthorizedAccessException("Users không có quyền thực hiện cuộc gọi trong conversation này");
+                throw new UnauthorizedAccessException("Users are not authorized to perform calls in this conversation");
             }
 
             // Tạo entity từ request
             var callLogEntity = _mapper.Map<CallLogEntity>(request);
             var createdCallLog = await _callLogRepository.CreateAsync(callLogEntity);
 
-            LogInfo("Tạo call log thành công với ID: {CallLogId}", null, createdCallLog.Id);
+            LogInfo("Call log created successfully with ID: {CallLogId}", correlationId: null, args: new object[] { createdCallLog.Id });
             return _mapper.Map<CallLogResponse>(createdCallLog);
         }, "CreateCallLog");
     }
@@ -77,7 +77,7 @@ public class CallLogService : BaseService, ICallLogService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu cập nhật call log: {CallLogId}", null, request.Id);
+            LogInfo("Starting update of call log: {CallLogId}", correlationId: null, args: new object[] { request.Id });
 
             ValidateRequired(request, nameof(request));
             ValidateRequiredString(request.Id, nameof(request.Id));
@@ -85,25 +85,25 @@ public class CallLogService : BaseService, ICallLogService
             var existingCallLog = await _callLogRepository.GetByIdAsync(request.Id);
             if (existingCallLog == null)
             {
-                throw new ArgumentException($"Call log với ID {request.Id} không tồn tại");
+                throw new ArgumentException($"Call log with ID {request.Id} does not exist");
             }
 
             // Validate duration và status logic
             if (request.Status == CallStatus.Accepted && request.Duration <= 0)
             {
-                throw new ArgumentException("Duration phải lớn hơn 0 khi status là Accepted");
+                throw new ArgumentException("Duration must be greater than 0 when status is Accepted");
             }
 
             if (request.Status != CallStatus.Accepted && request.Duration > 0)
             {
-                LogWarning("Duration được đặt cho cuộc gọi không phải Accepted: {CallLogId}", null, request.Id);
+                LogWarning("Duration set for a call that is not Accepted: {CallLogId}", correlationId: null, args: new object[] { request.Id });
             }
 
             // Cập nhật thông tin
             _mapper.Map(request, existingCallLog);
             var updatedCallLog = await _callLogRepository.UpdateAsync(existingCallLog);
 
-            LogInfo("Cập nhật call log thành công với ID: {CallLogId}", null, updatedCallLog.Id);
+            LogInfo("Call log updated successfully with ID: {CallLogId}", correlationId: null, args: new object[] { updatedCallLog.Id });
             return _mapper.Map<CallLogResponse>(updatedCallLog);
         }, "UpdateCallLog");
     }
@@ -142,18 +142,18 @@ public class CallLogService : BaseService, ICallLogService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu xóa call log: {CallLogId}", null, id);
+            LogInfo("Starting deletion of call log: {CallLogId}", correlationId: null, args: new object[] { id });
 
             ValidateRequiredString(id, nameof(id));
 
             var result = await _callLogRepository.DeleteAsync(id);
             if (result)
             {
-                LogInfo("Xóa call log thành công: {CallLogId}", null, id);
+                LogInfo("Call log deleted successfully: {CallLogId}", correlationId: null, args: new object[] { id });
             }
             else
             {
-                LogWarning("Không thể xóa call log: {CallLogId}", null, id);
+                LogWarning("Failed to delete call log: {CallLogId}", correlationId: null, args: new object[] { id });
             }
 
             return result;
@@ -167,20 +167,19 @@ public class CallLogService : BaseService, ICallLogService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy thống kê cuộc gọi cho user: {UserId} từ {FromDate} đến {ToDate}",
-                null, request.UserId, request.FromDate, request.ToDate);
+            LogInfo("Fetching call statistics for user: {UserId} from {FromDate} to {ToDate}", correlationId: null, args: new object[] { request.UserId, request.FromDate, request.ToDate });
 
             ValidateRequired(request, nameof(request));
             ValidateRequiredString(request.UserId, nameof(request.UserId));
 
             if (request.FromDate > request.ToDate)
             {
-                throw new ArgumentException("FromDate phải nhỏ hơn hoặc bằng ToDate");
+                throw new ArgumentException("FromDate must be less than or equal to ToDate");
             }
 
             var statistics = await _callLogRepository.GetCallStatisticsAsync(request.UserId, request.FromDate, request.ToDate);
 
-            LogInfo("Lấy thống kê cuộc gọi thành công cho user: {UserId}", null, request.UserId);
+            LogInfo("Successfully fetched call statistics for user: {UserId}", correlationId: null, args: new object[] { request.UserId });
             return _mapper.Map<CallStatisticsResponse>(statistics);
         }, "GetCallStatistics");
     }

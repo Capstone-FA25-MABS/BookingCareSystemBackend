@@ -3,67 +3,67 @@
 namespace BookingCare.Services.Communication.Services.Interfaces;
 
 /// <summary>
-/// Interface cho Conversation service
+/// Interface for Conversation service
 /// </summary>
 public interface IConversationService
 {
     /// <summary>
-    /// Tạo cuộc hội thoại mới
+    /// Create a new conversation
     /// </summary>
     Task<ConversationResponse> CreateAsync(CreateConversationRequest request);
 
     /// <summary>
-    /// Lấy cuộc hội thoại theo ID
+    /// Get a conversation by ID
     /// </summary>
     Task<ConversationResponse?> GetByIdAsync(string id);
 
     /// <summary>
-    /// Lấy danh sách cuộc hội thoại của user với lazy loading options
+    /// Get conversations for a user with lazy loading options
     /// </summary>
     Task<IEnumerable<ConversationResponse>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20, ConversationLoadOptions? options = null);
 
     /// <summary>
-    /// Lấy danh sách cuộc hội thoại của user với cursor-based pagination
+    /// Get conversations for a user with cursor-based pagination
     /// </summary>
     Task<CursorPaginatedResponse<ConversationResponse>> GetByUserIdWithCursorAsync(string userId, string? before = null, string? after = null, int limit = 20, ConversationLoadOptions? options = null);
 
     /// <summary>
-    /// Lấy danh sách cuộc hội thoại lightweight (chỉ thông tin cơ bản)
+    /// Get lightweight list of conversations (basic info only)
     /// </summary>
     Task<IEnumerable<ConversationListResponse>> GetConversationsLightweightAsync(string userId, int page = 1, int pageSize = 20);
 
     /// <summary>
-    /// Lấy chi tiết conversation với đầy đủ thông tin lazy loading
+    /// Get conversation details with full info and lazy loading
     /// </summary>
     Task<ConversationResponse?> GetConversationDetailsAsync(string id, ConversationLoadOptions? options = null);
 
     /// <summary>
-    /// Tìm cuộc hội thoại giữa 2 người dùng
+    /// Find a conversation between two users
     /// </summary>
     Task<ConversationResponse?> GetConversationBetweenUsersAsync(string userId1, string userId2);
 
     /// <summary>
-    /// Xóa cuộc hội thoại
+    /// Delete a conversation
     /// </summary>
     Task<bool> DeleteAsync(string id);
 
     /// <summary>
-    /// Cập nhật tin nhắn cuối cùng
+    /// Update the last message of a conversation
     /// </summary>
     Task<bool> UpdateLastMessageAsync(string conversationId, string messageId, string content, string senderId);
 
     /// <summary>
-    /// Chặn cuộc hội thoại
+    /// Block a conversation
     /// </summary>
     Task<bool> BlockConversationAsync(BlockConversationRequest request);
 
     /// <summary>
-    /// Bỏ chặn cuộc hội thoại
+    /// Unblock a conversation
     /// </summary>
     Task<bool> UnblockConversationAsync(UnblockConversationRequest request);
 
     /// <summary>
-    /// Kiểm tra cuộc hội thoại có bị chặn không
+    /// Check if a conversation is blocked
     /// </summary>
     Task<bool> IsConversationBlockedAsync(string conversationId);
 }

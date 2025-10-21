@@ -5,7 +5,7 @@ using BookingCare.Services.Communication.Enums;
 namespace BookingCare.Services.Communication.Validators;
 
 /// <summary>
-/// Validator cho CreateCallLogRequest
+/// Validator for CreateCallLogRequest
 /// </summary>
 public class CreateCallLogRequestValidator : AbstractValidator<CreateCallLogRequest>
 {
@@ -13,28 +13,28 @@ public class CreateCallLogRequestValidator : AbstractValidator<CreateCallLogRequ
     {
         RuleFor(x => x.ConversationId)
             .NotEmpty()
-            .WithMessage("ConversationId là b?t bu?c");
+            .WithMessage("ConversationId is required");
 
         RuleFor(x => x.CallerId)
             .NotEmpty()
-            .WithMessage("CallerId là b?t bu?c");
+            .WithMessage("CallerId is required");
 
         RuleFor(x => x.ReceiverId)
             .NotEmpty()
-            .WithMessage("ReceiverId là b?t bu?c");
+            .WithMessage("ReceiverId is required");
 
         RuleFor(x => x.CallerId)
             .NotEqual(x => x.ReceiverId)
-            .WithMessage("CallerId và ReceiverId không ???c gi?ng nhau");
+            .WithMessage("CallerId and ReceiverId must not be the same");
 
         RuleFor(x => x.Type)
             .IsInEnum()
-            .WithMessage("Type ph?i là Audio ho?c Video");
+            .WithMessage("Type must be Audio or Video");
     }
 }
 
 /// <summary>
-/// Validator cho UpdateCallLogRequest
+/// Validator for UpdateCallLogRequest
 /// </summary>
 public class UpdateCallLogRequestValidator : AbstractValidator<UpdateCallLogRequest>
 {
@@ -42,28 +42,28 @@ public class UpdateCallLogRequestValidator : AbstractValidator<UpdateCallLogRequ
     {
         RuleFor(x => x.Id)
             .NotEmpty()
-            .WithMessage("Id là b?t bu?c");
+            .WithMessage("Id is required");
 
         RuleFor(x => x.Duration)
             .GreaterThanOrEqualTo(0)
-            .WithMessage("Duration ph?i l?n h?n ho?c b?ng 0")
-            .LessThanOrEqualTo(24 * 60) // 24 gi?
-            .WithMessage("Duration không ???c v??t quá 24 gi?");
+            .WithMessage("Duration must be greater than or equal to 0")
+            .LessThanOrEqualTo(24 * 60) // 24 hours
+            .WithMessage("Duration must not exceed 24 hours");
 
         RuleFor(x => x.Status)
             .IsInEnum()
-            .WithMessage("Status ph?i là Accepted, Missed, ho?c Rejected");
+            .WithMessage("Status must be Accepted, Missed, or Rejected");
 
         RuleFor(x => x.EndedAt)
             .Must((request, endedAt) =>
                 !endedAt.HasValue ||
                 endedAt.Value >= DateTime.UtcNow.AddDays(-1))
-            .WithMessage("EndedAt không ???c là th?i gian quá xa trong quá kh?");
+            .WithMessage("EndedAt must not be a time too far in the past");
     }
 }
 
 /// <summary>
-/// Validator cho GetCallStatisticsRequest
+/// Validator for GetCallStatisticsRequest
 /// </summary>
 public class GetCallStatisticsRequestValidator : AbstractValidator<GetCallStatisticsRequest>
 {
@@ -71,18 +71,18 @@ public class GetCallStatisticsRequestValidator : AbstractValidator<GetCallStatis
     {
         RuleFor(x => x.UserId)
             .NotEmpty()
-            .WithMessage("UserId là b?t bu?c");
+            .WithMessage("UserId is required");
 
         RuleFor(x => x.FromDate)
             .LessThanOrEqualTo(x => x.ToDate)
-            .WithMessage("FromDate ph?i nh? h?n ho?c b?ng ToDate");
+            .WithMessage("FromDate must be less than or equal to ToDate");
 
         RuleFor(x => x.ToDate)
             .LessThanOrEqualTo(DateTime.UtcNow.AddDays(1))
-            .WithMessage("ToDate không ???c là th?i gian trong t??ng lai");
+            .WithMessage("ToDate must not be a future time");
 
         RuleFor(x => x.FromDate)
             .GreaterThanOrEqualTo(DateTime.UtcNow.AddYears(-2))
-            .WithMessage("FromDate không ???c quá 2 n?m trong quá kh?");
+            .WithMessage("FromDate must not be more than 2 years in the past");
     }
 }

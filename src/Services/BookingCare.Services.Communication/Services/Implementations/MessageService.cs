@@ -10,7 +10,7 @@ using BookingCare.Services.Communication.Utils;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Triển khai Message service với BaseService và tích hợp File Upload
+/// Implementation of the Message service with BaseService and file upload integration
 /// </summary>
 public class MessageService : BaseService, IMessageService
 {
@@ -48,7 +48,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu tạo tin nhắn cho conversation: {ConversationId}", null, request.ConversationId);
+            LogInfo("Starting creation of message for conversation: {ConversationId}", null, request.ConversationId);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -56,17 +56,17 @@ public class MessageService : BaseService, IMessageService
             ValidateRequiredString(request.SenderId, nameof(request.SenderId));
             ValidateRequiredString(request.Content, nameof(request.Content));
 
-            // Kiểm tra conversation có tồn tại không
+            // Check if conversation exists
             var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId);
             if (conversation == null)
             {
-                throw new ArgumentException($"Conversation với ID {request.ConversationId} không tồn tại");
+                throw new ArgumentException($"Conversation with ID {request.ConversationId} does not exist");
             }
 
-            // Kiểm tra user có trong conversation không
+            // Check if user is in the conversation
             if (!conversation.Participants.Contains(request.SenderId))
             {
-                throw new UnauthorizedAccessException("User không có quyền gửi tin nhắn trong conversation này");
+                throw new UnauthorizedAccessException("User is not authorized to send messages in this conversation");
             }
 
             // Tạo entity từ request
@@ -95,12 +95,12 @@ public class MessageService : BaseService, IMessageService
                 }
                 catch (Exception ex)
                 {
-                    LogWarning("Lỗi khi gửi thông báo SignalR cho tin nhắn {MessageId}: {Error}",
+                    LogWarning("Error sending SignalR notification for message {MessageId}: {Error}",
                         null, result.Id, ex.Message);
                 }
             });
 
-            LogInfo("Tạo tin nhắn thành công với ID: {MessageId}", null, createdMessage.Id);
+            LogInfo("Message created successfully with ID: {MessageId}", null, createdMessage.Id);
             return result;
         }, "CreateMessage");
     }
@@ -112,7 +112,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu tạo tin nhắn với files cho conversation: {ConversationId}", null, request.ConversationId);
+            LogInfo("Starting creation of message with files for conversation: {ConversationId}", null, request.ConversationId);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -121,24 +121,24 @@ public class MessageService : BaseService, IMessageService
 
             if (request.Type == MessageType.Text && request.Files.Any())
             {
-                throw new ArgumentException("Tin nhắn text không được có files");
+                throw new ArgumentException("Text messages must not include files");
             }
 
             if (request.Type != MessageType.Text && !request.Files.Any())
             {
-                throw new ArgumentException($"Tin nhắn loại {request.Type} yêu cầu phải có files");
+                throw new ArgumentException($"Messages of type {request.Type} require files");
             }
 
             // Kiểm tra conversation
             var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId);
             if (conversation == null)
             {
-                throw new ArgumentException($"Conversation với ID {request.ConversationId} không tồn tại");
+                throw new ArgumentException($"Conversation with ID {request.ConversationId} does not exist");
             }
 
             if (!conversation.Participants.Contains(request.SenderId))
             {
-                throw new UnauthorizedAccessException("User không có quyền gửi tin nhắn trong conversation này");
+                throw new UnauthorizedAccessException("User is not authorized to send messages in this conversation");
             }
 
             // Upload files
@@ -160,7 +160,7 @@ public class MessageService : BaseService, IMessageService
                 }).ToList();
             }
 
-            // Tạo message entity
+            // Create message entity
             var messageEntity = new MessageEntity
             {
                 ConversationId = request.ConversationId,
@@ -180,7 +180,7 @@ public class MessageService : BaseService, IMessageService
             var lastMessage = new LastMessage
             {
                 MessageId = createdMessage.Id,
-                Content = attachments.Any() ? $"Đã gửi {attachments.Count} file(s)" : createdMessage.Content,
+                Content = attachments.Any() ? $"Sent {attachments.Count} file(s)" : createdMessage.Content,
                 SenderId = createdMessage.SenderId,
                 CreatedAt = createdMessage.CreatedAt
             };
@@ -197,12 +197,12 @@ public class MessageService : BaseService, IMessageService
                 }
                 catch (Exception ex)
                 {
-                    LogWarning("Lỗi khi gửi thông báo SignalR cho tin nhắn với files {MessageId}: {Error}",
+                    LogWarning("Error sending SignalR notification for message with files {MessageId}: {Error}",
                         null, result.Id, ex.Message);
                 }
             });
 
-            LogInfo("Tạo tin nhắn với files thành công với ID: {MessageId}", null, createdMessage.Id);
+            LogInfo("Message with files created successfully with ID: {MessageId}", null, createdMessage.Id);
             return result;
         }, "CreateMessageWithFiles");
     }
@@ -214,7 +214,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu cập nhật tin nhắn với ID: {MessageId}", null, request.Id);
+            LogInfo("Starting update of message with ID: {MessageId}", null, request.Id);
 
             // Validation
             ValidateRequired(request, nameof(request));
@@ -225,7 +225,7 @@ public class MessageService : BaseService, IMessageService
             var existingMessage = await _messageRepository.GetByIdAsync(request.Id);
             if (existingMessage == null)
             {
-                throw new ArgumentException($"Tin nhắn với ID {request.Id} không tồn tại");
+                throw new ArgumentException($"Message with ID {request.Id} does not exist");
             }
 
             // Cập nhật thông tin
@@ -242,7 +242,7 @@ public class MessageService : BaseService, IMessageService
 
             var updatedMessage = await _messageRepository.UpdateAsync(existingMessage);
 
-            LogInfo("Cập nhật tin nhắn thành công với ID: {MessageId}", null, updatedMessage.Id);
+            LogInfo("Message updated successfully with ID: {MessageId}", null, updatedMessage.Id);
             return _mapper.Map<MessageResponse>(updatedMessage);
         }, "UpdateMessage");
     }
@@ -272,7 +272,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy messages với user info cho conversation: {ConversationId}, page: {Page}, pageSize: {PageSize}",
+            LogInfo("Fetching messages with user info for conversation: {ConversationId}, page: {Page}, pageSize: {PageSize}",
                 null, conversationId, page, pageSize);
 
             ValidateRequiredString(conversationId, nameof(conversationId));
@@ -287,7 +287,7 @@ public class MessageService : BaseService, IMessageService
                 await EnrichMessageUserInfoAsync(messageResponses, options);
             }
 
-            LogInfo("Lấy thành công {Count} messages với user info cho conversation: {ConversationId}",
+            LogInfo("Successfully fetched {Count} messages with user info for conversation: {ConversationId}",
                 null, messageResponses.Count, conversationId);
 
             return messageResponses;
@@ -301,7 +301,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu xóa tin nhắn với ID: {MessageId}", null, id);
+            LogInfo("Starting deletion of message with ID: {MessageId}", null, id);
 
             // Lấy tin nhắn để xóa attachments
             var message = await _messageRepository.GetByIdAsync(id);
@@ -316,7 +316,7 @@ public class MessageService : BaseService, IMessageService
                     }
                     catch (Exception ex)
                     {
-                        LogWarning("Không thể xóa attachment {Url}: {Error}", null, attachment.Url, ex.Message);
+                        LogWarning("Failed to delete attachment {Url}: {Error}", null, attachment.Url, ex.Message);
                     }
                 }
             }
@@ -325,11 +325,11 @@ public class MessageService : BaseService, IMessageService
 
             if (result)
             {
-                LogInfo("Xóa tin nhắn thành công với ID: {MessageId}", null, id);
+                LogInfo("Message deleted successfully with ID: {MessageId}", null, id);
             }
             else
             {
-                LogWarning("Không thể xóa tin nhắn với ID: {MessageId}", null, id);
+                LogWarning("Failed to delete message with ID: {MessageId}", null, id);
             }
 
             return result;
@@ -343,7 +343,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đánh dấu tin nhắn đã đọc: {MessageId}", null, request.MessageId);
+            LogInfo("Marking message as read: {MessageId}", null, request.MessageId);
 
             ValidateRequired(request, nameof(request));
             ValidateRequiredString(request.MessageId, nameof(request.MessageId));
@@ -352,7 +352,7 @@ public class MessageService : BaseService, IMessageService
             var message = await _messageRepository.GetByIdAsync(request.MessageId);
             if (message == null)
             {
-                throw new ArgumentException($"Tin nhắn với ID {request.MessageId} không tồn tại");
+                throw new ArgumentException($"Message with ID {request.MessageId} does not exist");
             }
 
             var result = await _messageRepository.MarkAsReadAsync(request.MessageId, DateTime.UtcNow);
@@ -371,7 +371,7 @@ public class MessageService : BaseService, IMessageService
                     }
                     catch (Exception ex)
                     {
-                        LogWarning("Lỗi khi gửi thông báo đọc tin nhắn SignalR cho {MessageId}: {Error}",
+                        LogWarning("Error sending SignalR read notification for {MessageId}: {Error}",
                             null, request.MessageId, ex.Message);
                     }
                 });
@@ -388,7 +388,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đánh dấu tất cả tin nhắn đã đọc cho conversation: {ConversationId}, user: {UserId}",
+            LogInfo("Marking all messages as read for conversation: {ConversationId}, user: {UserId}",
                 null, request.ConversationId, request.UserId);
 
             ValidateRequired(request, nameof(request));
@@ -399,13 +399,13 @@ public class MessageService : BaseService, IMessageService
             var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId);
             if (conversation == null)
             {
-                throw new ArgumentException($"Conversation với ID {request.ConversationId} không tồn tại");
+                throw new ArgumentException($"Conversation with ID {request.ConversationId} does not exist");
             }
 
             // Kiểm tra user có trong conversation không
             if (!conversation.Participants.Contains(request.UserId))
             {
-                throw new UnauthorizedAccessException("User không có quyền đọc tin nhắn trong conversation này");
+                throw new UnauthorizedAccessException("User is not authorized to read messages in this conversation");
             }
 
             var result = await _messageRepository.MarkAllAsReadAsync(request.ConversationId, request.UserId, DateTime.UtcNow);
@@ -425,14 +425,14 @@ public class MessageService : BaseService, IMessageService
                     }
                     catch (Exception ex)
                     {
-                        LogWarning("Lỗi khi gửi thông báo đọc tất cả tin nhắn SignalR cho conversation {ConversationId}: {Error}",
+                        LogWarning("Error sending SignalR all-messages-read notification for conversation {ConversationId}: {Error}",
                             null, request.ConversationId, ex.Message);
                     }
                 });
             }
             else
             {
-                LogInfo("Không có tin nhắn nào được đánh dấu là đã đọc (có thể đã đọc hết) cho conversation: {ConversationId}, user: {UserId}",
+                LogInfo("No messages were marked as read (may already be read) for conversation: {ConversationId}, user: {UserId}",
                     null, request.ConversationId, request.UserId);
             }
 
@@ -455,7 +455,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Tìm kiếm tin nhắn trong conversation: {ConversationId} với từ khóa: {SearchTerm}",
+            LogInfo("Searching messages in conversation: {ConversationId} with term: {SearchTerm}",
                 null, request.ConversationId, request.SearchTerm);
 
             ValidateRequired(request, nameof(request));
@@ -464,7 +464,7 @@ public class MessageService : BaseService, IMessageService
 
             var messages = await _messageRepository.SearchAsync(request.ConversationId, request.SearchTerm, request.Page, request.PageSize);
 
-            LogInfo("Tìm thấy {Count} tin nhắn", null, messages.Count());
+            LogInfo("Found {Count} messages", null, messages.Count());
             return _mapper.Map<IEnumerable<MessageResponse>>(messages);
         }, "SearchMessages");
     }
@@ -514,7 +514,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy mixed timeline cho conversation: {ConversationId}, before: {Before}, after: {After}, limit: {Limit}",
+            LogInfo("Fetching mixed timeline for conversation: {ConversationId}, before: {Before}, after: {After}, limit: {Limit}",
                 null, request.ConversationId, request.Before, request.After, request.Limit);
 
             ValidateRequired(request, nameof(request));
@@ -522,12 +522,12 @@ public class MessageService : BaseService, IMessageService
 
             if (request.Limit <= 0 || request.Limit > 200)
             {
-                throw new ArgumentException("Limit phải từ 1 đến 200");
+                throw new ArgumentException("Limit must be between 1 and 200");
             }
 
             if (request.MessagesOnly && request.CallLogsOnly)
             {
-                throw new ArgumentException("Không thể đồng thời chọn MessagesOnly và CallLogsOnly");
+                throw new ArgumentException("Cannot select both MessagesOnly and CallLogsOnly");
             }
 
             // Parse cursors để lấy timestamp filter
@@ -592,7 +592,7 @@ public class MessageService : BaseService, IMessageService
                 }));
             }
 
-            // Sort theo thời gian descending và lấy số lượng cần thiết
+            // Sort by time descending and take the required number
             var sortedItems = timelineItems
                 .OrderByDescending(item => item.CreatedAt)
                 .ThenByDescending(item => item.Id)
@@ -638,7 +638,7 @@ public class MessageService : BaseService, IMessageService
                 Limit = request.Limit
             };
 
-            LogInfo("Lấy thành công mixed timeline với {Count} items cho conversation: {ConversationId}",
+            LogInfo("Successfully fetched mixed timeline with {Count} items for conversation: {ConversationId}",
                 null, sortedItems.Count, request.ConversationId);
 
             return result;
@@ -652,7 +652,7 @@ public class MessageService : BaseService, IMessageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy mixed timeline với user info cho conversation: {ConversationId}, options: {Options}",
+            LogInfo("Fetching mixed timeline with user info for conversation: {ConversationId}, options: {Options}",
                 null, request.ConversationId, options?.IncludeSenderInfo);
 
             // Lấy mixed timeline bình thường
@@ -691,7 +691,7 @@ public class MessageService : BaseService, IMessageService
                         MessagesWithReceiverInfo = messagesWithReceiverInfo
                     };
 
-                    LogInfo("Enriched mixed timeline với {TotalUsers} users, {SenderCount} sender info, {ReceiverCount} receiver info",
+                    LogInfo("Enriched mixed timeline with {TotalUsers} users, {SenderCount} sender info, {ReceiverCount} receiver info",
                         null, totalUsersEnriched, messagesWithSenderInfo, messagesWithReceiverInfo);
                 }
             }
@@ -710,7 +710,7 @@ public class MessageService : BaseService, IMessageService
         var messageList = messages.ToList();
         if (!messageList.Any()) return;
 
-        LogDebug("Bắt đầu enrichment user info cho {Count} messages", null, messageList.Count);
+        LogDebug("Starting enrichment of user info for {Count} messages", null, messageList.Count);
 
         // Collect unique user IDs cần enrichment
         var userIds = new HashSet<string>();
@@ -739,11 +739,11 @@ public class MessageService : BaseService, IMessageService
 
         if (!userIds.Any())
         {
-            LogDebug("Không có user IDs để enrichment", null);
+            LogDebug("No user IDs to enrich", null);
             return;
         }
 
-        LogDebug("Enriching user info cho {Count} unique users: {UserIds}",
+        LogDebug("Enriching user info for {Count} unique users: {UserIds}",
             null, userIds.Count, string.Join(", ", userIds.Take(5)));
 
         try
@@ -794,12 +794,12 @@ public class MessageService : BaseService, IMessageService
             var enrichedSenders = messageList.Count(m => m.SenderInfo != null);
             var enrichedReceivers = messageList.Count(m => m.ReceiverInfo != null);
 
-            LogDebug("Hoàn thành enrichment user info: {Senders} sender info, {Receivers} receiver info",
+            LogDebug("Completed enrichment of user info: {Senders} sender info, {Receivers} receiver info",
                 null, enrichedSenders, enrichedReceivers);
         }
         catch (Exception ex)
         {
-            LogError(ex, "Lỗi khi enrichment user info cho messages", null);
+            LogError(ex, "Error enriching user info for messages", null);
             // Continue without user enrichment
         }
     }

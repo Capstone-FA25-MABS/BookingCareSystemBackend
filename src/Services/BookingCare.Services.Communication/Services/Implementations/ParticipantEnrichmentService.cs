@@ -8,7 +8,7 @@ using BookingCare.Shared.Common.Services;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Service để enrichment participant data từ Auth Service với Redis caching
+/// Service to enrich participant data from the Auth Service with Redis caching
 /// </summary>
 public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentService
 {
@@ -32,14 +32,14 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
     }
 
     /// <summary>
-    /// 🎯 OPTIMIZED: Enrichment participant details chỉ cho OTHER participants (exclude current user)
+    /// 🎯 OPTIMIZED: Enrich participant details only for OTHER participants (exclude current user)
     /// </summary>
     public async Task EnrichOtherParticipantDetailsAsync(IEnumerable<ConversationResponse> conversations, string currentUserId)
     {
         await ExecuteWithErrorHandling(async () =>
         {
             var conversationList = conversations.ToList();
-            LogInfo("Bắt đầu enrichment OTHER participant details cho {Count} conversations (exclude user: {CurrentUserId})",
+            LogInfo("Starting enrichment of OTHER participant details for {Count} conversations (exclude user: {CurrentUserId})",
                 null, conversationList.Count, currentUserId);
 
             // 🎯 OPTIMIZATION: Collect only OTHER participants (exclude currentUserId) - NORMALIZED TO LOWERCASE
@@ -52,17 +52,17 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
 
             if (!otherParticipantIds.Any())
             {
-                LogDebug("Không có other participants để enrichment (all conversations chỉ có current user)", null);
+                LogDebug("No OTHER participants to enrich (all conversations only contain the current user)", null);
                 return;
             }
 
             LogDebug("Found {Count} unique OTHER participants to enrich: {ParticipantIds}",
                 null, otherParticipantIds.Count, string.Join(", ", otherParticipantIds));
 
-            // Lấy account details cho OTHER participants only
+            // Get account details for OTHER participants only
             var accountDetails = await GetAccountDetailsAsync(otherParticipantIds);
 
-            // Apply enrichment cho từng conversation - chỉ OTHER participants
+            // Apply enrichment per conversation - only OTHER participants
             foreach (var conversation in conversationList)
             {
                 var enrichedParticipants = new List<ConversationParticipant>();
@@ -87,7 +87,7 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
                     }
                     else
                     {
-                        LogWarning("Không tìm thấy account details cho OTHER participant: {ParticipantId} (normalized: {NormalizedId})",
+                        LogWarning("Account details not found for OTHER participant: {ParticipantId} (normalized: {NormalizedId})",
                             null, participantId, normalizedId);
                     }
                 }
@@ -98,22 +98,22 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
                     null, enrichedParticipants.Count, conversation.Id, conversation.Participants.Count);
             }
 
-            LogInfo("Hoàn thành enrichment OTHER participant details cho {Count} conversations với {TotalEnriched} OTHER participants",
+            LogInfo("Completed enrichment of OTHER participant details for {Count} conversations with {TotalEnriched} OTHER participants",
                 null, conversationList.Count, accountDetails.Count);
         }, "EnrichOtherParticipantDetails");
     }
 
     /// <summary>
-    /// 📝 LEGACY: Enrichment participant details cho TẤT CẢ participants (backward compatibility)
+    /// 📝 LEGACY: Enrich participant details for ALL participants (backward compatibility)
     /// </summary>
     public async Task EnrichParticipantDetailsAsync(IEnumerable<ConversationResponse> conversations)
     {
         await ExecuteWithErrorHandling(async () =>
         {
             var conversationList = conversations.ToList();
-            LogInfo("Bắt đầu enrichment ALL participant details cho {Count} conversations", null, conversationList.Count);
+            LogInfo("Starting enrichment of ALL participant details for {Count} conversations", null, conversationList.Count);
 
-            // Collect tất cả unique participant IDs - NORMALIZE TO LOWERCASE
+            // Collect all unique participant IDs - NORMALIZE TO LOWERCASE
             var allParticipantIds = conversationList
                 .SelectMany(c => c.Participants)
                 .Select(id => id.ToLowerInvariant()) // 🔧 FIX: Normalize to lowercase
@@ -122,16 +122,16 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
 
             if (!allParticipantIds.Any())
             {
-                LogDebug("Không có participants để enrichment", null);
+                LogDebug("No participants to enrich", null);
                 return;
             }
 
             LogDebug("Normalized ALL participant IDs to lowercase: {ParticipantIds}", null, string.Join(", ", allParticipantIds));
 
-            // Lấy account details cho tất cả participants
+            // Get account details for all participants
             var accountDetails = await GetAccountDetailsAsync(allParticipantIds);
 
-            // Apply enrichment cho từng conversation
+            // Apply enrichment per conversation
             foreach (var conversation in conversationList)
             {
                 var enrichedParticipants = new List<ConversationParticipant>();
@@ -146,7 +146,7 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
                     }
                     else
                     {
-                        LogWarning("Không tìm thấy account details cho participant: {ParticipantId} (normalized: {NormalizedId})",
+                        LogWarning("Account details not found for participant: {ParticipantId} (normalized: {NormalizedId})",
                             null, participantId, normalizedId);
                     }
                 }
@@ -157,13 +157,13 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
                     null, enrichedParticipants.Count, conversation.Participants.Count, conversation.Id);
             }
 
-            LogInfo("Hoàn thành enrichment ALL participant details cho {Count} conversations với {TotalEnriched} participants",
+            LogInfo("Completed enrichment of ALL participant details for {Count} conversations with {TotalEnriched} participants",
                 null, conversationList.Count, accountDetails.Count);
         }, "EnrichParticipantDetails");
     }
 
     /// <summary>
-    /// Lấy thông tin account details cho multiple account IDs với batch processing và caching
+    /// Get account details for multiple account IDs with batch processing and caching
     /// </summary>
     public async Task<Dictionary<string, ConversationParticipant>> GetAccountDetailsAsync(IEnumerable<string> accountIds)
     {
@@ -173,9 +173,9 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
             var normalizedAccountIds = accountIds.Select(id => id.ToLowerInvariant()).Distinct().ToList();
             var result = new Dictionary<string, ConversationParticipant>();
 
-            LogInfo("Lấy account details cho {Count} accounts (normalized)", null, normalizedAccountIds.Count);
+            LogInfo("Retrieving account details for {Count} accounts (normalized)", null, normalizedAccountIds.Count);
 
-            // Step 1: Kiểm tra cache trước
+            // Step 1: Check cache first
             var cachedAccounts = new List<string>();
             var uncachedAccountIds = new List<string>();
 
@@ -196,26 +196,26 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
             LogDebug("Cache results: {CachedCount} cached, {UncachedCount} uncached",
                 null, cachedAccounts.Count, uncachedAccountIds.Count);
 
-            // Step 2: Fetch uncached accounts từ Auth Service
+            // Step 2: Fetch uncached accounts from Auth Service
             if (uncachedAccountIds.Any())
             {
                 try
                 {
-                    // 🔧 FIX: Pass original IDs to gRPC (Auth Service có thể case-sensitive)
+                    // 🔧 FIX: Pass original IDs to gRPC (Auth Service may be case-sensitive)
                     var originalAccountIds = accountIds.Where(id =>
                         uncachedAccountIds.Contains(id.ToLowerInvariant())).ToList();
 
                     var grpcRequest = new GetAccountDetailsRequest();
                     grpcRequest.AccountIds.AddRange(originalAccountIds);
 
-                    LogDebug("Calling Auth Service gRPC cho {Count} accounts: {AccountIds}",
+                    LogDebug("Calling Auth Service gRPC for {Count} accounts: {AccountIds}",
                         null, originalAccountIds.Count, string.Join(", ", originalAccountIds));
 
                     var grpcResponse = await _authClient.GetAccountDetailsAsync(grpcRequest);
 
                     if (grpcResponse.Success && grpcResponse.AccountDetails.Any())
                     {
-                        // Process và cache results
+                        // Process and cache results
                         foreach (var accountDetail in grpcResponse.AccountDetails)
                         {
                             if (accountDetail.Found)
@@ -226,7 +226,7 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
                                 var normalizedKey = accountDetail.AccountId.ToLowerInvariant();
                                 result[normalizedKey] = participantDetail;
 
-                                // Cache result với normalized key
+                                // Cache result with normalized key
                                 await SetToCacheAsync(normalizedKey, participantDetail);
 
                                 LogDebug("Cached account details for {AccountId} (key: {NormalizedKey}): {FullName}",
@@ -234,21 +234,21 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
                             }
                             else
                             {
-                                LogWarning("Account không tìm thấy trong Auth Service: {AccountId}", null, accountDetail.AccountId);
+                                LogWarning("Account not found in Auth Service: {AccountId}", null, accountDetail.AccountId);
                             }
                         }
 
-                        LogInfo("Processed {FoundCount}/{RequestedCount} accounts từ Auth Service",
+                        LogInfo("Processed {FoundCount}/{RequestedCount} accounts from Auth Service",
                             null, grpcResponse.AccountDetails.Count(a => a.Found), originalAccountIds.Count);
                     }
                     else
                     {
-                        LogWarning("Auth Service trả về lỗi hoặc empty results: {Message}", null, grpcResponse.Message);
+                        LogWarning("Auth Service returned an error or empty results: {Message}", null, grpcResponse.Message);
                     }
                 }
                 catch (Exception ex)
                 {
-                    LogError(ex, "Lỗi khi gọi Auth Service gRPC cho accounts: {AccountIds}", null, string.Join(", ", uncachedAccountIds));
+                    LogError(ex, "Error calling Auth Service gRPC for accounts: {AccountIds}", null, string.Join(", ", uncachedAccountIds));
                     // Continue with cached results only
                 }
             }
@@ -261,7 +261,7 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
     }
 
     /// <summary>
-    /// Lấy thông tin account detail cho một account ID duy nhất
+    /// Get account detail for a single account ID
     /// </summary>
     public async Task<ConversationParticipant?> GetAccountDetailAsync(string accountId)
     {
@@ -272,7 +272,7 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
     }
 
     /// <summary>
-    /// Clear cache cho một account ID
+    /// Clear cache for a single account ID
     /// </summary>
     public async Task ClearAccountCacheAsync(string accountId)
     {
@@ -287,7 +287,7 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
     }
 
     /// <summary>
-    /// Clear cache cho multiple account IDs
+    /// Clear cache for multiple account IDs
     /// </summary>
     public async Task ClearAccountCacheAsync(IEnumerable<string> accountIds)
     {
@@ -306,7 +306,7 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
     #region Private Helper Methods
 
     /// <summary>
-    /// Lấy account detail từ cache
+    /// Get account detail from cache
     /// </summary>
     private async Task<ConversationParticipant?> GetFromCacheAsync(string normalizedAccountId)
     {
@@ -328,13 +328,13 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
         }
         catch (Exception ex)
         {
-            LogWarning("Lỗi khi lấy từ cache cho account {AccountId}: {Error}", null, normalizedAccountId, ex.Message);
+            LogWarning("Error getting from cache for account {AccountId}: {Error}", null, normalizedAccountId, ex.Message);
             return null;
         }
     }
 
     /// <summary>
-    /// Lưu account detail vào cache
+    /// Save account detail to cache
     /// </summary>
     private async Task SetToCacheAsync(string normalizedAccountId, ConversationParticipant participantDetail)
     {
@@ -347,17 +347,17 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
         }
         catch (Exception ex)
         {
-            LogWarning("Lỗi khi lưu cache cho account {AccountId}: {Error}", null, normalizedAccountId, ex.Message);
+            LogWarning("Error saving cache for account {AccountId}: {Error}", null, normalizedAccountId, ex.Message);
         }
     }
 
     /// <summary>
-    /// Generate cache key cho account - ALWAYS USE NORMALIZED KEY
+    /// Generate cache key for account - ALWAYS USE NORMALIZED KEY
     /// </summary>
     private static string GetCacheKey(string normalizedAccountId) => $"{ACCOUNT_CACHE_PREFIX}:{normalizedAccountId}";
 
     /// <summary>
-    /// Map gRPC AccountDetail sang ConversationParticipant
+    /// Map gRPC AccountDetail to ConversationParticipant
     /// </summary>
     private static ConversationParticipant MapToConversationParticipant(AccountDetail accountDetail)
     {

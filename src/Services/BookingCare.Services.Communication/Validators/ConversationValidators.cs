@@ -4,7 +4,7 @@ using BookingCare.Services.Communication.Models.DTOs;
 namespace BookingCare.Services.Communication.Validators;
 
 /// <summary>
-/// Validator cho CreateConversationRequest
+/// Validator for CreateConversationRequest
 /// </summary>
 public class CreateConversationRequestValidator : AbstractValidator<CreateConversationRequest>
 {
@@ -12,22 +12,22 @@ public class CreateConversationRequestValidator : AbstractValidator<CreateConver
     {
         RuleFor(x => x.Participants)
             .NotNull()
-            .WithMessage("Participants là b?t bu?c")
+            .WithMessage("Participants are required")
             .Must(participants => participants.Count >= 2)
-            .WithMessage("Cu?c h?i tho?i ph?i có ít nh?t 2 thành viên")
+            .WithMessage("A conversation must have at least 2 participants")
             .Must(participants => participants.Count <= 10)
-            .WithMessage("Cu?c h?i tho?i không ???c có quá 10 thành viên")
+            .WithMessage("A conversation must not have more than 10 participants")
             .Must(participants => participants.Distinct().Count() == participants.Count)
-            .WithMessage("Không ???c có thành viên trùng l?p");
+            .WithMessage("Participants must be unique");
 
         RuleForEach(x => x.Participants)
             .NotEmpty()
-            .WithMessage("ID thành viên không ???c ?? tr?ng");
+            .WithMessage("Participant ID must not be empty");
     }
 }
 
 /// <summary>
-/// Validator cho BlockConversationRequest
+/// Validator for BlockConversationRequest
 /// </summary>
 public class BlockConversationRequestValidator : AbstractValidator<BlockConversationRequest>
 {
@@ -35,16 +35,16 @@ public class BlockConversationRequestValidator : AbstractValidator<BlockConversa
     {
         RuleFor(x => x.ConversationId)
             .NotEmpty()
-            .WithMessage("ConversationId là b?t bu?c");
+            .WithMessage("ConversationId is required");
 
         RuleFor(x => x.BlockedBy)
             .NotEmpty()
-            .WithMessage("BlockedBy là b?t bu?c");
+            .WithMessage("BlockedBy is required");
     }
 }
 
 /// <summary>
-/// Validator cho UnblockConversationRequest
+/// Validator for UnblockConversationRequest
 /// </summary>
 public class UnblockConversationRequestValidator : AbstractValidator<UnblockConversationRequest>
 {
@@ -52,6 +52,6 @@ public class UnblockConversationRequestValidator : AbstractValidator<UnblockConv
     {
         RuleFor(x => x.ConversationId)
             .NotEmpty()
-            .WithMessage("ConversationId là b?t bu?c");
+            .WithMessage("ConversationId is required");
     }
 }

@@ -4,82 +4,82 @@ using BookingCare.Services.Communication.Enums;
 namespace BookingCare.Services.Communication.Services.Interfaces;
 
 /// <summary>
-/// Interface cho Message service
+/// Interface for Message service
 /// </summary>
 public interface IMessageService
 {
     /// <summary>
-    /// Tạo tin nhắn mới
+    /// Create a new message
     /// </summary>
     Task<MessageResponse> CreateAsync(CreateMessageRequest request);
 
     /// <summary>
-    /// Tạo tin nhắn với file upload (Complete Flow)
+    /// Create a message with file upload (complete flow)
     /// </summary>
     Task<MessageResponse> CreateMessageWithFilesAsync(CreateMessageWithFilesRequest request);
 
     /// <summary>
-    /// Cập nhật tin nhắn
+    /// Update a message
     /// </summary>
     Task<MessageResponse> UpdateAsync(UpdateMessageRequest request);
 
     /// <summary>
-    /// Lấy tin nhắn theo ID
+    /// Get a message by ID
     /// </summary>
     Task<MessageResponse?> GetByIdAsync(string id);
 
     /// <summary>
-    /// Lấy danh sách tin nhắn theo conversation ID
+    /// Get messages by conversation ID
     /// </summary>
     Task<IEnumerable<MessageResponse>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50);
 
     /// <summary>
-    /// 🎯 NEW: Lấy danh sách tin nhắn theo conversation ID với user info enrichment
+    /// 🎯 NEW: Get messages by conversation ID with user info enrichment
     /// </summary>
     Task<IEnumerable<MessageResponse>> GetByConversationIdWithUserInfoAsync(string conversationId, int page = 1, int pageSize = 50, MessageLoadOptions? options = null);
 
     /// <summary>
-    /// Xóa tin nhắn
+    /// Delete a message
     /// </summary>
     Task<bool> DeleteAsync(string id);
 
     /// <summary>
-    /// Đánh dấu tin nhắn đã đọc
+    /// Mark a message as read
     /// </summary>
     Task<bool> MarkAsReadAsync(MarkMessageAsReadRequest request);
 
     /// <summary>
-    /// Đánh dấu tất cả tin nhắn chưa đọc trong conversation là đã đọc
+    /// Mark all unread messages in a conversation as read
     /// </summary>
     Task<bool> MarkAllAsReadAsync(MarkAllMessagesAsReadRequest request);
 
     /// <summary>
-    /// Lấy số tin nhắn chưa đọc
+    /// Get unread message count
     /// </summary>
     Task<long> GetUnreadCountAsync(string conversationId, string userId);
 
     /// <summary>
-    /// Tìm kiếm tin nhắn
+    /// Search messages
     /// </summary>
     Task<IEnumerable<MessageResponse>> SearchAsync(SearchMessageRequest request);
 
     /// <summary>
-    /// Lấy tin nhắn theo loại (Text, Image, File, etc.)
+    /// Get messages by type (Text, Image, File, etc.)
     /// </summary>
     Task<IEnumerable<MessageResponse>> GetMessagesByTypeAsync(string conversationId, MessageType messageType, int page = 1, int pageSize = 20);
 
     /// <summary>
-    /// Lấy tất cả file attachments trong conversation
+    /// Get all file attachments in a conversation
     /// </summary>
     Task<IEnumerable<MessageAttachmentResponse>> GetConversationAttachmentsAsync(string conversationId, MessageType? messageType = null, int page = 1, int pageSize = 50);
 
     /// <summary>
-    /// Lấy mixed timeline (messages + call logs) cho conversation
+    /// Get mixed timeline (messages + call logs) for a conversation
     /// </summary>
     Task<MixedTimelineResponse> GetMixedTimelineAsync(GetMixedTimelineRequest request);
 
     /// <summary>
-    /// 🎯 NEW: Lấy mixed timeline với user info enrichment
+    /// 🎯 NEW: Get mixed timeline with user info enrichment
     /// </summary>
     Task<MixedTimelineResponse> GetMixedTimelineWithUserInfoAsync(GetMixedTimelineRequest request, MessageLoadOptions? options = null);
 }

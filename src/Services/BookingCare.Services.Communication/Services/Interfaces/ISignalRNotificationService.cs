@@ -3,42 +3,42 @@
 namespace BookingCare.Services.Communication.Services.Interfaces;
 
 /// <summary>
-/// Interface cho SignalR notification service
+/// Interface for the SignalR notification service
 /// </summary>
 public interface ISignalRNotificationService
 {
     /// <summary>
-    /// Gửi tin nhắn đến conversation group
+    /// Send a message to a conversation group
     /// </summary>
     Task SendMessageToConversationAsync(string conversationId, MessageResponse message);
 
     /// <summary>
-    /// Gửi thông báo tin nhắn đã đọc
+    /// Send a read notification for a message
     /// </summary>
     Task SendMessageReadNotificationAsync(string conversationId, string messageId, string userId);
 
     /// <summary>
-    /// Gửi thông báo tất cả tin nhắn đã đọc
+    /// Send a notification that all messages have been read
     /// </summary>
     Task SendAllMessagesReadNotificationAsync(string conversationId, string userId);
 
     /// <summary>
-    /// Gửi thông báo user online
+    /// Send a user online notification
     /// </summary>
     Task SendUserOnlineNotificationAsync(string userId);
 
     /// <summary>
-    /// Gửi thông báo user offline
+    /// Send a user offline notification
     /// </summary>
     Task SendUserOfflineNotificationAsync(string userId);
 
     /// <summary>
-    /// Gửi thông báo conversation mới được tạo
+    /// Send a notification when a conversation is created
     /// </summary>
     Task SendConversationCreatedNotificationAsync(ConversationResponse conversation);
 
     /// <summary>
-    /// Gửi thông báo user đang gõ
+    /// Send a typing notification
     /// </summary>
     Task SendTypingNotificationAsync(string conversationId, string userId, bool isTyping);
 }

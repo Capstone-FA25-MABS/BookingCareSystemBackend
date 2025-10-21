@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.SignalR;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Triển khai SignalR notification service
+/// Implementation of the SignalR notification service
 /// </summary>
 public class SignalRNotificationService : BaseService, ISignalRNotificationService
 {
@@ -21,13 +21,13 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
     }
 
     /// <summary>
-    /// Gửi tin nhắn đến conversation group
+    /// Send a message to the conversation group
     /// </summary>
     public async Task SendMessageToConversationAsync(string conversationId, MessageResponse message)
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi tin nhắn SignalR đến conversation: {ConversationId}", null, conversationId);
+            LogInfo("Sending SignalR message to conversation: {ConversationId}", null, conversationId);
 
             var groupName = GetConversationGroupName(conversationId);
             await _hubContext.Clients.Group(groupName).SendAsync("ReceiveMessage", new
@@ -43,18 +43,18 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
                 Status = message.Status
             });
 
-            LogInfo("Tin nhắn SignalR đã được gửi thành công đến conversation: {ConversationId}", null, conversationId);
+            LogInfo("SignalR message successfully sent to conversation: {ConversationId}", null, conversationId);
         }, "SendMessageToConversation");
     }
 
     /// <summary>
-    /// Gửi thông báo tin nhắn đã đọc
+    /// Send a message read notification
     /// </summary>
     public async Task SendMessageReadNotificationAsync(string conversationId, string messageId, string userId)
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi thông báo tin nhắn đã đọc: {MessageId} bởi user: {UserId}", null, messageId, userId);
+            LogInfo("Sending message read notification: {MessageId} by user: {UserId}", null, messageId, userId);
 
             var groupName = GetConversationGroupName(conversationId);
             await _hubContext.Clients.Group(groupName).SendAsync("MessageRead", new
@@ -64,18 +64,18 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
                 ReadAt = DateTime.UtcNow
             });
 
-            LogInfo("Thông báo tin nhắn đã đọc đã được gửi thành công: {MessageId}", null, messageId);
+            LogInfo("Message read notification successfully sent: {MessageId}", null, messageId);
         }, "SendMessageReadNotification");
     }
 
     /// <summary>
-    /// Gửi thông báo tất cả tin nhắn đã đọc
+    /// Send notification that all messages have been read
     /// </summary>
     public async Task SendAllMessagesReadNotificationAsync(string conversationId, string userId)
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi thông báo tất cả tin nhắn đã đọc trong conversation: {ConversationId} bởi user: {UserId}",
+            LogInfo("Sending all-messages-read notification for conversation: {ConversationId} by user: {UserId}",
                 null, conversationId, userId);
 
             var groupName = GetConversationGroupName(conversationId);
@@ -86,51 +86,51 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
                 ReadAt = DateTime.UtcNow
             });
 
-            LogInfo("Thông báo tất cả tin nhắn đã đọc đã được gửi thành công cho conversation: {ConversationId}",
+            LogInfo("All-messages-read notification successfully sent for conversation: {ConversationId}",
                 null, conversationId);
         }, "SendAllMessagesReadNotification");
     }
 
     /// <summary>
-    /// Gửi thông báo user online
+    /// Send user online notification
     /// </summary>
     public async Task SendUserOnlineNotificationAsync(string userId)
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi thông báo user online: {UserId}", null, userId);
+            LogInfo("Sending user online notification: {UserId}", null, userId);
 
             await _hubContext.Clients.All.SendAsync("UserOnline", userId);
 
-            LogInfo("Thông báo user online đã được gửi thành công: {UserId}", null, userId);
+            LogInfo("User online notification successfully sent: {UserId}", null, userId);
         }, "SendUserOnlineNotification");
     }
 
     /// <summary>
-    /// Gửi thông báo user offline
+    /// Send user offline notification
     /// </summary>
     public async Task SendUserOfflineNotificationAsync(string userId)
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi thông báo user offline: {UserId}", null, userId);
+            LogInfo("Sending user offline notification: {UserId}", null, userId);
 
             await _hubContext.Clients.All.SendAsync("UserOffline", userId);
 
-            LogInfo("Thông báo user offline đã được gửi thành công: {UserId}", null, userId);
+            LogInfo("User offline notification successfully sent: {UserId}", null, userId);
         }, "SendUserOfflineNotification");
     }
 
     /// <summary>
-    /// Gửi thông báo conversation mới được tạo
+    /// Send notification when a conversation is created
     /// </summary>
     public async Task SendConversationCreatedNotificationAsync(ConversationResponse conversation)
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi thông báo conversation mới được tạo: {ConversationId}", null, conversation.Id);
+            LogInfo("Sending conversation created notification: {ConversationId}", null, conversation.Id);
 
-            // Gửi đến tất cả participants
+            // Send to all participants
             foreach (var participantId in conversation.Participants)
             {
                 var userConnections = ChatHub.GetUserConnections(participantId);
@@ -140,18 +140,18 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
                 }
             }
 
-            LogInfo("Thông báo conversation mới đã được gửi thành công: {ConversationId}", null, conversation.Id);
+            LogInfo("Conversation created notification successfully sent: {ConversationId}", null, conversation.Id);
         }, "SendConversationCreatedNotification");
     }
 
     /// <summary>
-    /// Gửi thông báo user đang gõ
+    /// Send typing notification
     /// </summary>
     public async Task SendTypingNotificationAsync(string conversationId, string userId, bool isTyping)
     {
         await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Đang gửi thông báo typing cho user: {UserId} trong conversation: {ConversationId}, isTyping: {IsTyping}",
+            LogInfo("Sending typing notification for user: {UserId} in conversation: {ConversationId}, isTyping: {IsTyping}",
                 null, userId, conversationId, isTyping);
 
             var groupName = GetConversationGroupName(conversationId);
@@ -163,14 +163,14 @@ public class SignalRNotificationService : BaseService, ISignalRNotificationServi
                 ConversationId = conversationId
             });
 
-            LogInfo("Thông báo typing đã được gửi thành công cho user: {UserId}", null, userId);
+            LogInfo("Typing notification successfully sent for user: {UserId}", null, userId);
         }, "SendTypingNotification");
     }
 
     #region Private Methods
 
     /// <summary>
-    /// Tạo tên group cho conversation
+    /// Create the group name for a conversation
     /// </summary>
     private static string GetConversationGroupName(string conversationId)
     {

@@ -9,7 +9,7 @@ using BookingCare.Services.Communication.Utils;
 namespace BookingCare.Services.Communication.Services.Implementations;
 
 /// <summary>
-/// Implementation của Conversation service với BaseService, Lazy Loading và Participant Enrichment
+/// Implementation of the Conversation service with BaseService, lazy loading and participant enrichment
 /// </summary>
 public class ConversationService : BaseService, IConversationService
 {
@@ -38,13 +38,13 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu tạo cuộc hội thoại với {Count} thành viên", null, request.Participants.Count);
+            LogInfo("Starting creation of conversation with {Count} participants", correlationId: null, args: new object[] { request.Participants.Count });
 
             // Validation
             ValidateRequired(request, nameof(request));
             if (request.Participants == null || request.Participants.Count < 2)
             {
-                throw new ArgumentException("Cuộc hội thoại phải có ít nhất 2 thành viên");
+                throw new ArgumentException("Conversation must have at least 2 participants");
             }
 
             // Kiểm tra xem conversation giữa 2 user đã tồn tại chưa (nếu là chat 1-1)
@@ -55,7 +55,7 @@ public class ConversationService : BaseService, IConversationService
 
                 if (existingConversation != null)
                 {
-                    LogInfo("Cuộc hội thoại giữa 2 user đã tồn tại: {ConversationId}", null, existingConversation.Id);
+                    LogInfo("Conversation between two users already exists: {ConversationId}", correlationId: null, args: new object[] { existingConversation.Id });
                     return _mapper.Map<ConversationResponse>(existingConversation);
                 }
             }
@@ -64,7 +64,7 @@ public class ConversationService : BaseService, IConversationService
             var conversationEntity = _mapper.Map<ConversationEntity>(request);
             var createdConversation = await _conversationRepository.CreateAsync(conversationEntity);
 
-            LogInfo("Tạo cuộc hội thoại thành công với ID: {ConversationId}", null, createdConversation.Id);
+            LogInfo("Conversation created successfully with ID: {ConversationId}", correlationId: null, args: new object[] { createdConversation.Id });
             return _mapper.Map<ConversationResponse>(createdConversation);
         }, "CreateConversation");
     }
@@ -94,7 +94,7 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy conversations cho user: {UserId}, page: {Page}, pageSize: {PageSize} với lazy loading", null, userId, page, pageSize);
+            LogInfo("Fetching conversations for user: {UserId}, page: {Page}, pageSize: {PageSize} with lazy loading", correlationId: null, args: new object[] { userId, page, pageSize });
 
             var conversations = await _conversationRepository.GetByUserIdAsync(userId, page, pageSize);
             var result = _mapper.Map<IEnumerable<ConversationResponse>>(conversations).ToList();
@@ -105,7 +105,7 @@ public class ConversationService : BaseService, IConversationService
                 await LoadConversationDataAsync(result, userId, options);
             }
 
-            LogInfo("Lấy thành công {Count} conversations cho user: {UserId}", null, result.Count, userId);
+            LogInfo("Successfully fetched {Count} conversations for user: {UserId}", correlationId: null, args: new object[] { result.Count, userId });
             return result;
         }, "GetConversationsByUserIdWithLazyLoading");
     }
@@ -117,7 +117,7 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy conversations lightweight cho user: {UserId}", null, userId);
+            LogInfo("Fetching lightweight conversations for user: {UserId}", correlationId: null, args: new object[] { userId });
 
             var conversations = await _conversationRepository.GetByUserIdAsync(userId, page, pageSize);
             var result = conversations.Select(c => new ConversationListResponse
@@ -131,7 +131,7 @@ public class ConversationService : BaseService, IConversationService
                 UnreadCount = 0 // Will be loaded separately if needed
             }).ToList();
 
-            LogInfo("Lấy thành công {Count} conversations lightweight cho user: {UserId}", null, result.Count, userId);
+            LogInfo("Successfully fetched {Count} lightweight conversations for user: {UserId}", correlationId: null, args: new object[] { result.Count, userId });
             return result;
         }, "GetConversationsLightweight");
     }
@@ -143,7 +143,7 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy chi tiết conversation: {ConversationId}", null, id);
+            LogInfo("Fetching conversation details: {ConversationId}", correlationId: null, args: new object[] { id });
 
             var conversation = await _conversationRepository.GetByIdAsync(id);
             if (conversation == null) return null;
@@ -155,7 +155,7 @@ public class ConversationService : BaseService, IConversationService
                 await LoadConversationDataAsync(new[] { result }, "", options);
             }
 
-            LogInfo("Lấy chi tiết conversation thành công: {ConversationId}", null, id);
+            LogInfo("Successfully fetched conversation details: {ConversationId}", correlationId: null, args: new object[] { id });
             return result;
         }, "GetConversationDetails");
     }
@@ -179,7 +179,7 @@ public class ConversationService : BaseService, IConversationService
                 }
                 catch (Exception ex)
                 {
-                    LogWarning("Lỗi khi load unread count cho conversation {ConversationId}: {Error}", null, conversation.Id, ex.Message);
+                    LogWarning("Error loading unread count for conversation {ConversationId}: {Error}", correlationId: null, args: new object[] { conversation.Id, ex.Message });
                     conversation.UnreadCount = 0;
                 }
             }
@@ -192,28 +192,28 @@ public class ConversationService : BaseService, IConversationService
             {
                 if (!string.IsNullOrEmpty(currentUserId))
                 {
-                    LogDebug("Bắt đầu enrichment OTHER participant details cho {Count} conversations (exclude current user: {CurrentUserId})",
-                        null, conversationList.Count, currentUserId);
+                    LogDebug("Starting enrichment of OTHER participant details for {Count} conversations (exclude current user: {CurrentUserId})",
+                        correlationId: null, args: new object[] { conversationList.Count, currentUserId });
 
                     // 🎯 OPTIMIZATION: Chỉ enrich OTHER participants (exclude current user)
                     await _participantEnrichmentService.EnrichOtherParticipantDetailsAsync(conversationList, currentUserId);
 
-                    LogDebug("Hoàn thành enrichment OTHER participant details cho {Count} conversations", null, conversationList.Count);
+                    LogDebug("Completed enrichment of OTHER participant details for {Count} conversations", correlationId: null, args: new object[] { conversationList.Count });
                 }
                 else
                 {
-                    LogDebug("Bắt đầu enrichment ALL participant details cho {Count} conversations (no current user specified)",
-                        null, conversationList.Count);
+                    LogDebug("Starting enrichment of ALL participant details for {Count} conversations (no current user specified)",
+                        correlationId: null, args: new object[] { conversationList.Count });
 
                     // 📝 FALLBACK: Nếu không có currentUserId thì vẫn load all (backward compatibility)
                     await _participantEnrichmentService.EnrichParticipantDetailsAsync(conversationList);
 
-                    LogDebug("Hoàn thành enrichment ALL participant details cho {Count} conversations", null, conversationList.Count);
+                    LogDebug("Completed enrichment of ALL participant details for {Count} conversations", correlationId: null, args: new object[] { conversationList.Count });
                 }
             }
             catch (Exception ex)
             {
-                LogError(ex, "Lỗi khi enrichment participant details cho conversations", null);
+                LogError(ex, "Error enriching participant details for conversations", correlationId: null);
 
                 // Fallback: Initialize empty lists để tránh null reference
                 foreach (var conversation in conversationList)
@@ -240,11 +240,11 @@ public class ConversationService : BaseService, IConversationService
                         CommonFiles = new List<string>()
                     };
 
-                    LogDebug("Metadata loaded for conversation {ConversationId}", null, conversation.Id);
+                    LogDebug("Metadata loaded for conversation {ConversationId}", correlationId: null, args: new object[] { conversation.Id });
                 }
                 catch (Exception ex)
                 {
-                    LogWarning("Lỗi khi load metadata cho conversation {ConversationId}: {Error}", null, conversation.Id, ex.Message);
+                    LogWarning("Error loading metadata for conversation {ConversationId}: {Error}", correlationId: null, args: new object[] { conversation.Id, ex.Message });
                     conversation.Metadata = new ConversationMetadata();
                 }
             }
@@ -267,18 +267,18 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bắt đầu xóa cuộc hội thoại: {ConversationId}", null, id);
+            LogInfo("Starting deletion of conversation: {ConversationId}", correlationId: null, args: new object[] { id });
 
             ValidateRequiredString(id, nameof(id));
 
             var result = await _conversationRepository.DeleteAsync(id);
             if (result)
             {
-                LogInfo("Xóa cuộc hội thoại thành công: {ConversationId}", null, id);
+                LogInfo("Conversation deleted successfully: {ConversationId}", correlationId: null, args: new object[] { id });
             }
             else
             {
-                LogWarning("Không thể xóa cuộc hội thoại: {ConversationId}", null, id);
+                LogWarning("Failed to delete conversation: {ConversationId}", correlationId: null, args: new object[] { id });
             }
 
             return result;
@@ -292,7 +292,7 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Cập nhật tin nhắn cuối cho conversation: {ConversationId}", null, conversationId);
+            LogInfo("Updating last message for conversation: {ConversationId}", correlationId: null, args: new object[] { conversationId });
 
             ValidateRequiredString(conversationId, nameof(conversationId));
             ValidateRequiredString(messageId, nameof(messageId));
@@ -311,7 +311,7 @@ public class ConversationService : BaseService, IConversationService
 
             if (result)
             {
-                LogInfo("Cập nhật tin nhắn cuối thành công cho conversation: {ConversationId}", null, conversationId);
+                LogInfo("Last message updated successfully for conversation: {ConversationId}", correlationId: null, args: new object[] { conversationId });
             }
 
             return result;
@@ -325,7 +325,7 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Chặn cuộc hội thoại: {ConversationId} bởi user: {UserId}", null, request.ConversationId, request.BlockedBy);
+            LogInfo("Blocking conversation: {ConversationId} by user: {UserId}", correlationId: null, args: new object[] { request.ConversationId, request.BlockedBy });
 
             ValidateRequired(request, nameof(request));
             ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
@@ -335,7 +335,7 @@ public class ConversationService : BaseService, IConversationService
 
             if (result)
             {
-                LogInfo("Chặn cuộc hội thoại thành công: {ConversationId}", null, request.ConversationId);
+                LogInfo("Conversation blocked successfully: {ConversationId}", correlationId: null, args: new object[] { request.ConversationId });
             }
 
             return result;
@@ -349,7 +349,7 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Bỏ chặn cuộc hội thoại: {ConversationId}", null, request.ConversationId);
+            LogInfo("Unblocking conversation: {ConversationId}", correlationId: null, args: new object[] { request.ConversationId });
 
             ValidateRequired(request, nameof(request));
             ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
@@ -358,7 +358,7 @@ public class ConversationService : BaseService, IConversationService
 
             if (result)
             {
-                LogInfo("Bỏ chặn cuộc hội thoại thành công: {ConversationId}", null, request.ConversationId);
+                LogInfo("Conversation unblocked successfully: {ConversationId}", correlationId: null, args: new object[] { request.ConversationId });
             }
 
             return result;
@@ -380,14 +380,14 @@ public class ConversationService : BaseService, IConversationService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Lấy conversations với cursor pagination cho user: {UserId}, before: {Before}, after: {After}, limit: {Limit}",
-                null, userId, before, after, limit);
+            LogInfo("Fetching conversations with cursor pagination for user: {UserId}, before: {Before}, after: {After}, limit: {Limit}",
+                correlationId: null, args: new object[] { userId, before ?? string.Empty, after ?? string.Empty, limit });
 
             ValidateRequiredString(userId, nameof(userId));
 
             if (limit <= 0 || limit > 100)
             {
-                throw new ArgumentException("Limit phải từ 1 đến 100");
+                throw new ArgumentException("Limit must be between 1 and 100");
             }
 
             // Lấy conversations từ repository với cursor
@@ -443,8 +443,8 @@ public class ConversationService : BaseService, IConversationService
                 Limit = limit
             };
 
-            LogInfo("Lấy thành công {Count} conversations với cursor pagination và participant enrichment cho user: {UserId}",
-                null, conversationDtos.Count, userId);
+            LogInfo("Successfully fetched {Count} conversations with cursor pagination and participant enrichment for user: {UserId}",
+                correlationId: null, args: new object[] { conversationDtos.Count, userId });
 
             return result;
         }, "GetConversationsByUserIdWithCursor");

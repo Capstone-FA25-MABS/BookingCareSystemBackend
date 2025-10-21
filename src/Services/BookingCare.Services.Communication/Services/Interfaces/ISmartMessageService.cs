@@ -25,27 +25,27 @@ public interface ISmartMessageService
 public class CreateSmartMessageRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// Conversation ID
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i
+    /// Sender ID
     /// </summary>
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// Receiver ID (used for 1-1 chats)
     /// </summary>
     public string? ReceiverId { get; set; }
 
     /// <summary>
-    /// N?i dung tin nh?n
+    /// Message content
     /// </summary>
     public string Content { get; set; } = string.Empty;
 
     /// <summary>
-    /// Lo?i tin nh?n ??n gi?n: Text ho?c File
+    /// Simple message type: Text or File
     /// </summary>
     public SimpleMessageType Type { get; set; } = SimpleMessageType.Text;
 
@@ -61,22 +61,22 @@ public class CreateSmartMessageRequest
 public class CreateMessageWithSmartFilesRequest
 {
     /// <summary>
-    /// ID c?a cu?c h?i tho?i
+    /// Conversation ID
     /// </summary>
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i g?i
+    /// Sender ID
     /// </summary>
     public string SenderId { get; set; } = string.Empty;
 
     /// <summary>
-    /// ID c?a ng??i nh?n (dùng cho chat 1-1)
+    /// Receiver ID (used for 1-1 chats)
     /// </summary>
     public string? ReceiverId { get; set; }
 
     /// <summary>
-    /// N?i dung tin nh?n (optional for file messages)
+    /// Message content (optional for file messages)
     /// </summary>
     public string? Content { get; set; }
 
