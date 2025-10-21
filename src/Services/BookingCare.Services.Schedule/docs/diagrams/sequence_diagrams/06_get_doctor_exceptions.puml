@@ -1,0 +1,54 @@
+@startuml Get_Doctor_Exceptions
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+
+actor User as user
+participant "UI" as ui
+participant "Controller" as controller
+participant "ScheduleService" as service
+participant "CacheService" as cache
+participant "Repository" as repo
+database "Database" as db
+
+user -> ui: 1. Xem danh sách ngoại lệ\nlịch khám của bác sĩ
+ui -> controller: 2. GetDoctorExceptions(doctorId, date)
+activate controller
+
+controller -> service: 3. GetDoctorExceptionsAsync(doctorId, date)
+activate service
+
+service -> cache: 4. GetAsync<IEnumerable<\nDoctorScheduleExceptionDto>>(cacheKey)
+activate cache
+cache --> service: 5. cached data (nếu có)
+deactivate cache
+
+alt Cache Hit
+    service --> controller: 6. List<DoctorScheduleExceptionDto>
+else Cache Miss
+    service -> repo: 7. GetDoctorExceptionsAsync(doctorId, date)
+    activate repo
+    
+    repo -> db: 8. SELECT FROM DoctorScheduleExceptions\nWHERE DoctorId AND ExceptionDate
+    activate db
+    db --> repo: 9. List<DoctorScheduleExceptionEntity>
+    deactivate db
+    
+    repo --> service: 10. entities
+    deactivate repo
+    
+    service -> service: 11. Map entities to DTOs
+    service -> cache: 12. SetAsync(cacheKey, dtos, expiration)
+    activate cache
+    cache --> service: 13. OK
+    deactivate cache
+    service --> controller: 14. List<DoctorScheduleExceptionDto>
+end
+
+controller --> ui: 15. Success(exceptions, message)
+deactivate controller
+
+ui --> user: 16. Hiển thị danh sách\nngoại lệ lịch khám
+deactivate service
+
+@enduml

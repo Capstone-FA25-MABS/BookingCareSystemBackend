@@ -1,0 +1,58 @@
+@startuml Delete_Doctor_Daily_Schedule
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+
+actor User as user
+participant "UI" as ui
+participant "Controller" as controller
+participant "ScheduleService" as service
+participant "Repository" as repo
+database "Database" as db
+participant "CacheService" as cache
+
+user -> ui: 1. Xóa lịch khám\ntheo ngày
+ui -> controller: 2. DeleteDoctorDailySchedule(doctorId, date)
+activate controller
+
+controller -> service: 3. DeleteDoctorDailyScheduleAsync(\ndoctorId, date)
+activate service
+
+service -> repo: 4. DeleteDoctorDailyScheduleAsync(\ndoctorId, date)
+activate repo
+
+repo -> db: 5. SELECT FROM DoctorDailySchedules\nWHERE DoctorId AND ScheduleDate
+activate db
+db --> repo: 6. schedule entity (nếu có)
+deactivate db
+
+alt Schedule Found
+    repo -> db: 7. DELETE FROM DoctorDailySchedules\nWHERE Id
+    activate db
+    db --> repo: 8. Deleted
+    deactivate db
+end
+
+repo --> service: 9. Completed
+deactivate repo
+
+' Invalidate caches
+service -> cache: 10. RemoveAsync(dailyCacheKey)
+activate cache
+cache --> service: 11. OK
+deactivate cache
+
+service -> cache: 12. RemoveByPatternAsync(\navailableSlotsCacheKey)
+activate cache
+cache --> service: 13. OK
+deactivate cache
+
+service --> controller: 14. Completed
+deactivate service
+
+controller --> ui: 15. Success(message)
+deactivate controller
+
+ui --> user: 16. Thông báo xóa\nlịch khám thành công
+
+@enduml

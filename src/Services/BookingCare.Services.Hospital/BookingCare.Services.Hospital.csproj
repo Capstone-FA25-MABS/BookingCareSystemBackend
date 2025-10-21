@@ -42,7 +42,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
-    <ProjectReference Include="..\BookingCare.Services.Doctor\BookingCare.Services.Doctor.csproj" />
   </ItemGroup>
 
 </Project>

@@ -393,6 +393,41 @@ public class AppointmentRepository : IAppointmentRepository
         }
     }
 
+    /// <summary>
+    /// Get all booked appointment time IDs for a doctor on a specific date
+    /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
+    /// </summary>
+    public async Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(Guid doctorId, DateOnly appointmentDate)
+    {
+        try
+        {
+            var startOfDay = appointmentDate.ToDateTime(TimeOnly.MinValue);
+            var endOfDay = appointmentDate.ToDateTime(TimeOnly.MaxValue);
+
+            var bookedTimeIds = await _context.Appointments
+                .Where(a => a.DoctorId == doctorId &&
+                           a.AppointmentDate >= startOfDay &&
+                           a.AppointmentDate <= endOfDay &&
+                           (a.Status == AppointmentStatus.PENDING ||
+                            a.Status == AppointmentStatus.CONFIRMED ||
+                            a.Status == AppointmentStatus.COMPLETED))
+                .Select(a => a.AppointmentTimeId)
+                .Distinct()
+                .ToListAsync();
+
+            _logger.LogDebug("Found {Count} booked time slots for doctor {DoctorId} on {Date}",
+                bookedTimeIds.Count, doctorId, appointmentDate);
+
+            return bookedTimeIds;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting booked appointment times for doctor {DoctorId} on {Date}",
+                doctorId, appointmentDate);
+            throw new AppointmentException("Failed to get booked appointment times", innerException: ex);
+        }
+    }
+
     #endregion
 
     #region Background Service Operations

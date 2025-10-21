@@ -1,0 +1,69 @@
+@startuml Create_Doctor_Schedule_Exception
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+
+actor User as user
+participant "UI" as ui
+participant "Controller" as controller
+participant "ScheduleService" as service
+participant "Repository" as repo
+database "Database" as db
+participant "CacheService" as cache
+
+user -> ui: 1. Tạo ngoại lệ\nlịch khám (nghỉ/khóa/mở slot)
+ui -> controller: 2. CreateDoctorScheduleException(request)
+activate controller
+
+controller -> service: 3. CreateDoctorScheduleExceptionAsync(request)
+activate service
+
+alt No Appointment Times (Day Off)
+    service -> service: 4. Create entity with\nnull appointment time
+    service -> repo: 5. CreateDoctorScheduleExceptionAsync(entity)
+    activate repo
+    
+    repo -> db: 6. INSERT INTO\nDoctorScheduleExceptions
+    activate db
+    db --> repo: 7. Created entity
+    deactivate db
+    
+    repo --> service: 8. entity
+    deactivate repo
+else With Appointment Times
+    loop For each appointment time
+        service -> service: 9. Create entity for\neach appointment time
+        service -> repo: 10. CreateDoctorScheduleExceptionAsync(entity)
+        activate repo
+        
+        repo -> db: 11. INSERT INTO\nDoctorScheduleExceptions
+        activate db
+        db --> repo: 12. Created entity
+        deactivate db
+        
+        repo --> service: 13. entity
+        deactivate repo
+    end
+end
+
+' Invalidate caches
+service -> cache: 14. RemoveAsync(exceptionsCacheKey)
+activate cache
+cache --> service: 15. OK
+deactivate cache
+
+service -> cache: 16. RemoveByPatternAsync(\navailableSlotsCacheKey)
+activate cache
+cache --> service: 17. OK
+deactivate cache
+
+service -> service: 18. Map entities to DTOs
+service --> controller: 19. List<DoctorScheduleExceptionDto>
+deactivate service
+
+controller --> ui: 20. Success(exceptions, message)
+deactivate controller
+
+ui --> user: 21. Thông báo tạo\nngoại lệ thành công
+
+@enduml
