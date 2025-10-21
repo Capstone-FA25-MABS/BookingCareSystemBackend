@@ -8,6 +8,9 @@ package appointment;
 service AppointmentService {
     // Get doctor ID from appointment ID (for Payment service integration)
     rpc GetDoctorIdByAppointmentId (GetDoctorIdByAppointmentIdRequest) returns (GetDoctorIdByAppointmentIdResponse);
+    
+    // Confirm appointment after supplementary payment (for Payment service integration)
+    rpc ConfirmAppointment (ConfirmAppointmentRequest) returns (ConfirmAppointmentResponse);
 }
 
 // Request message
@@ -19,4 +22,21 @@ message GetDoctorIdByAppointmentIdRequest {
 message GetDoctorIdByAppointmentIdResponse {
     bool success = 1;
     string doctor_id = 2; // Can be empty string if null or appointment not found
+    string pending_doctor_id = 3;
+    string assigned_doctor_id = 4;
+    string reschedule_token = 5;
+    string hospital_id = 6;
+    string specialty_id = 7;
+}
+
+// Confirm appointment request message
+message ConfirmAppointmentRequest {
+    string appointment_id = 1;
+    bool staff_assigned = 2;
+}
+
+// Confirm appointment response message
+message ConfirmAppointmentResponse {
+    bool success = 1;
+    string message = 2;
 }
