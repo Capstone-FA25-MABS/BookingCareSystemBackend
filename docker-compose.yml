@@ -134,27 +134,27 @@ services:
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=Saga@1234
-      - MSSQL_DB=MABS_Sagas
+      # - MSSQL_DB=MABS_Sagas
       - MSSQL_PID=Developer
     volumes:
       - sqlserver_saga_data:/var/opt/mssql
     networks:
       - bookingcare-network
 
-  sqlserver-user-service:
-    image: mcr.microsoft.com/azure-sql-edge:latest
-    container_name: bookingcare_sqlserver_user_service
-    ports:
-      - "1444:1433"
-    environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=User@1234!
-      # - MSSQL_DB=MABS_Users
-      - MSSQL_PID=Developer
-    volumes:
-      - sqlserver_user_data:/var/opt/mssql
-    networks:
-      - bookingcare-network
+  # sqlserver-user-service:
+  #   image: mcr.microsoft.com/azure-sql-edge:latest
+  #   container_name: bookingcare_sqlserver_user_service
+  #   ports:
+  #     - "1444:1433"
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #     - SA_PASSWORD=User@1234!
+  #     # - MSSQL_DB=MABS_Users
+  #     - MSSQL_PID=Developer
+  #   volumes:
+  #     - sqlserver_user_data:/var/opt/mssql
+  #   networks:
+  #     - bookingcare-network
 
   sqlserver-user-service-v2:
     image: mcr.microsoft.com/azure-sql-edge:latest
@@ -164,7 +164,6 @@ services:
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=User@1234!
-      # - MSSQL_DB=MABS_Users
       - MSSQL_PID=Developer
     volumes:
       - sqlserver_user_data_v2:/var/opt/mssql
@@ -185,6 +184,36 @@ services:
       - sqlserver_doctor_data:/var/opt/mssql
     networks:
       - bookingcare-network
+
+  sqlserver-auth-service:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_auth_service
+    ports:
+      - "1449:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=StrongP@ssw0rd!
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_auth_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+
+
+  sqlserver-appointment-service:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_appointment_service
+    ports:
+      - "1450:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Appointment@1234!
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_appointment_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+
 
   sqlserver-hospital-service:
     image: mcr.microsoft.com/azure-sql-edge:latest
@@ -448,7 +477,9 @@ volumes:
   sqlserver:
   sqlserver_discount_data:
   sqlserver_saga_data:
+  sqlserver_auth_data:
   sqlserver_user_data:
+  sqlserver_appointment_data:
   sqlserver_doctor_data:
   sqlserver_hospital_data:
   sqlserver_user_data_v2:

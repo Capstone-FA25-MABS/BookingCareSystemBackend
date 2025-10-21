@@ -1,0 +1,152 @@
+@startuml Schedule_Service_Layers
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 11
+skinparam packageFontSize 14
+
+title Schedule Service - Service and Repository Layers
+
+package "Controllers" <<Rectangle>> {
+    class DoctorSchedulesController {
+        - _scheduleService: IScheduleService
+        + GetDoctorDailySchedule(doctorId, date): Task<IActionResult>
+        + GetDoctorScheduleRange(doctorId, startDate, endDate): Task<IActionResult>
+        + CreateOrUpdateDoctorDailySchedule(request): Task<IActionResult>
+        + DeleteDoctorDailySchedule(doctorId, date): Task<IActionResult>
+        + GetAvailableSlots(doctorId, date, serviceId): Task<IActionResult>
+    }
+
+    class DoctorScheduleExceptionsController {
+        - _scheduleService: IScheduleService
+        + GetDoctorExceptions(doctorId, date): Task<IActionResult>
+        + CreateDoctorScheduleException(request): Task<IActionResult>
+        + DeleteDoctorScheduleException(id): Task<IActionResult>
+    }
+}
+
+package "Services" <<Rectangle>> {
+    interface IScheduleService {
+        + GetDoctorDailyScheduleAsync(doctorId, date): Task<DoctorDailyScheduleDto?>
+        + GetDoctorScheduleRangeAsync(request): Task<IEnumerable<DoctorDailyScheduleDto>>
+        + CreateOrUpdateDoctorDailyScheduleAsync(request): Task<DoctorDailyScheduleDto>
+        + DeleteDoctorDailyScheduleAsync(doctorId, date): Task
+        + GetDoctorExceptionsAsync(doctorId, date): Task<IEnumerable<DoctorScheduleExceptionDto>>
+        + CreateDoctorScheduleExceptionAsync(request): Task<List<DoctorScheduleExceptionDto>>
+        + DeleteDoctorScheduleExceptionAsync(id): Task
+        + GetClinicExceptionsAsync(clinicId, date): Task<IEnumerable<ClinicExceptionDto>>
+        + CreateClinicExceptionAsync(request): Task<ClinicExceptionDto>
+        + DeleteClinicExceptionAsync(id): Task
+        + GetServiceSchedulesAsync(serviceId): Task<IEnumerable<ServiceScheduleDto>>
+        + CreateServiceScheduleAsync(request): Task<ServiceScheduleDto>
+        + DeleteServiceScheduleAsync(id): Task
+        + GetAvailableSlotsAsync(request): Task<IEnumerable<AppointmentTimeDto>>
+    }
+
+    class ScheduleService {
+        - _repository: IScheduleRepository
+        - _cacheService: ICacheService
+        - _logger: ILogger<ScheduleService>
+        - _doctorClient: DoctorServiceClient
+        - _serviceMedicalClient: ServiceMedicalServiceClient
+        - _appointmentClient: AppointmentServiceClient
+        - _mapper: IMapper
+        + GetDoctorDailyScheduleAsync(...)
+        + GetDoctorScheduleRangeAsync(...)
+        + CreateOrUpdateDoctorDailyScheduleAsync(...)
+        + DeleteDoctorDailyScheduleAsync(...)
+        + GetDoctorExceptionsAsync(...)
+        + CreateDoctorScheduleExceptionAsync(...)
+        + DeleteDoctorScheduleExceptionAsync(...)
+        + GetClinicExceptionsAsync(...)
+        + CreateClinicExceptionAsync(...)
+        + DeleteClinicExceptionAsync(...)
+        + GetServiceSchedulesAsync(...)
+        + CreateServiceScheduleAsync(...)
+        + DeleteServiceScheduleAsync(...)
+        + GetAvailableSlotsAsync(...)
+        - ValidateDoctorAsync(doctorId): Task<bool>
+        - ValidateServiceMedicalAsync(serviceId): Task<bool>
+    }
+
+    class ScheduleGrpcService {
+        - _scheduleService: IScheduleService
+        - _logger: ILogger<ScheduleGrpcService>
+        + GetAvailableSlots(request, context): Task<GetAvailableSlotsResponse>
+        + GetDoctorDailySchedule(request, context): Task<GetDoctorDailyScheduleResponse>
+        + CreateDoctorDailySchedule(request, context): Task<CreateDoctorDailyScheduleResponse>
+        + CreateDoctorScheduleException(request, context): Task<CreateDoctorScheduleExceptionResponse>
+    }
+}
+
+package "Repositories" <<Rectangle>> {
+    interface IScheduleRepository {
+        + GetDoctorDailyScheduleAsync(doctorId, date): Task<DoctorDailyScheduleEntity?>
+        + GetDoctorScheduleRangeAsync(doctorId, startDate, endDate): Task<IEnumerable<DoctorDailyScheduleEntity>>
+        + CreateOrUpdateDoctorDailyScheduleAsync(schedule): Task<DoctorDailyScheduleEntity>
+        + DeleteDoctorDailyScheduleAsync(doctorId, date): Task
+        + GetDoctorExceptionsAsync(doctorId, date): Task<IEnumerable<DoctorScheduleExceptionEntity>>
+        + GetDoctorExceptionsRangeAsync(doctorId, startDate, endDate): Task<IEnumerable<DoctorScheduleExceptionEntity>>
+        + CreateDoctorScheduleExceptionAsync(exception): Task<DoctorScheduleExceptionEntity>
+        + DeleteDoctorScheduleExceptionAsync(id): Task
+        + GetClinicExceptionsAsync(clinicId, date): Task<IEnumerable<ClinicExceptionEntity>>
+        + CreateClinicExceptionAsync(exception): Task<ClinicExceptionEntity>
+        + DeleteClinicExceptionAsync(id): Task
+        + GetServiceSchedulesAsync(serviceId): Task<IEnumerable<ServiceScheduleEntity>>
+        + CreateServiceScheduleAsync(serviceSchedule): Task<ServiceScheduleEntity>
+        + DeleteServiceScheduleAsync(id): Task
+        + GetAvailableSlotsAsync(doctorId, date, serviceId): Task<IEnumerable<AppointmentTime>>
+    }
+
+    class ScheduleRepository {
+        - _context: ScheduleDbContext
+        + GetDoctorDailyScheduleAsync(...)
+        + GetDoctorScheduleRangeAsync(...)
+        + CreateOrUpdateDoctorDailyScheduleAsync(...)
+        + DeleteDoctorDailyScheduleAsync(...)
+        + GetDoctorExceptionsAsync(...)
+        + GetDoctorExceptionsRangeAsync(...)
+        + CreateDoctorScheduleExceptionAsync(...)
+        + DeleteDoctorScheduleExceptionAsync(...)
+        + GetClinicExceptionsAsync(...)
+        + CreateClinicExceptionAsync(...)
+        + DeleteClinicExceptionAsync(...)
+        + GetServiceSchedulesAsync(...)
+        + CreateServiceScheduleAsync(...)
+        + DeleteServiceScheduleAsync(...)
+        + GetAvailableSlotsAsync(...)
+        - ApplyExceptionsToSlots(...): List<AppointmentTime>
+        - ProcessSlotException(...): void
+        - FilterSlotsByService(...): Task<List<AppointmentTime>>
+        - GetAppointmentTimesForPatterns(...): IEnumerable<AppointmentTime>
+        - GetAppointmentTimesForPattern(...): IEnumerable<AppointmentTime>
+        - GetMorningSlots(): IEnumerable<AppointmentTime>
+        - GetAfternoonSlots(): IEnumerable<AppointmentTime>
+        - GetEveningSlots(): IEnumerable<AppointmentTime>
+    }
+}
+
+' Relationships
+DoctorSchedulesController --> IScheduleService : uses
+DoctorScheduleExceptionsController --> IScheduleService : uses
+ScheduleGrpcService --> IScheduleService : uses
+IScheduleService <|.. ScheduleService : implements
+ScheduleService --> IScheduleRepository : uses
+IScheduleRepository <|.. ScheduleRepository : implements
+
+note right of ScheduleService
+  Business logic layer
+  - Cache management (Redis)
+  - gRPC client calls for validation
+  - Entity-DTO mapping (AutoMapper)
+  - Cache invalidation
+end note
+
+note right of ScheduleRepository
+  Data access layer
+  - Database operations (EF Core)
+  - Complex slot calculations
+  - Exception handling logic
+  - Pattern-based slot generation
+end note
+
+@enduml
