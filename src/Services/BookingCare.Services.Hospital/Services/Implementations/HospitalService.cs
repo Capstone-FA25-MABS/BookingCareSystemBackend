@@ -45,15 +45,79 @@ public class HospitalService : IHospitalService
         _cache = cache;
     }
 
-    public async Task<HospitalDetailResponse?> GetByIdAsync(Guid id)
+    public async Task<HospitalProfileResponse?> GetByIdAsync(Guid id)
     {
-        var hospital = await _hospitalRepository.GetByIdAsync(id);
-        if (hospital == null) return null;
+        try
+        {
+            _logger.LogInformation("Getting hospital by ID: {HospitalId}", id);
+            var hospital = await _hospitalRepository.GetByIdAsync(id);
+            if (hospital == null)
+            {
+                _logger.LogWarning("Hospital with ID {HospitalId} not found", id);
+                return null;
+            }
 
-        var response = _mapper.Map<HospitalDetailResponse>(hospital);
-        await EnrichHospitalDetailWithStatusAsync(response);
-        return response;
+            _logger.LogInformation("Hospital found: {HospitalName}, mapping to response", hospital.Name);
+            _logger.LogInformation("Hospital images count: {ImageCount}", hospital.HospitalImages?.Count ?? 0);
+            if (hospital.HospitalImages?.Any() == true)
+            {
+                _logger.LogInformation("Sample image URL: {ImageUrl}", hospital.HospitalImages.First().ImageUrl);
+            }
+            else
+            {
+                _logger.LogWarning("No images found for hospital {HospitalId}", id);
+            }
+            var response = _mapper.Map<HospitalProfileResponse>(hospital);
+            _logger.LogInformation("Mapping completed successfully");
+            _logger.LogInformation("Response images count: {ResponseImageCount}", response.Images?.Count ?? 0);
+
+            // Enrich specialties with name and image via Doctor gRPC
+            var specialtyIds = hospital.HospitalSpecialties?.Select(hs => hs.SpecialtyId).ToList() ?? new List<Guid>();
+            if (specialtyIds.Any() && _doctorClient != null)
+            {
+                try
+                {
+                    var bulkRequest = new GetSpecialtiesByIdsRequest();
+                    bulkRequest.Ids.AddRange(specialtyIds.Select(x => x.ToString()));
+                    var bulkResponse = await GetSpecialtiesBulkWithRetryAsync(bulkRequest);
+                    if (bulkResponse?.Specialties != null)
+                    {
+                        var map = bulkResponse.Specialties
+                            .Where(s => Guid.TryParse(s.Id, out _))
+                            .ToDictionary(s => Guid.Parse(s.Id), s => s);
+
+                        response.Specialties = specialtyIds
+                            .Where(id => map.ContainsKey(id))
+                            .Select(id => new HospitalSpecialtyWithImageResponse
+                            {
+                                Id = id,
+                                Name = map[id].Name,
+                                ImageUrl = map[id].ImageUrl
+                            })
+                            .ToList();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to enrich specialties for hospital {HospitalId}, returning empty specialties list", id);
+                    response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
+                }
+            }
+            else
+            {
+                // If no specialties or gRPC client is not available, return empty list
+                response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
+            }
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetByIdAsync for hospital {HospitalId}", id);
+            throw;
+        }
     }
+
 
     public async Task<HospitalResponse?> GetByEmailAsync(string email)
     {
