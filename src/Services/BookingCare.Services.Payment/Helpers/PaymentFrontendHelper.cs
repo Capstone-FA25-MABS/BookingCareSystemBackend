@@ -43,13 +43,25 @@ public static class PaymentFrontendHelper
         return $"{baseUrl}/booking/{doctorId}";
     }
 
+    public static string BuildConfirmNewDoctorRedirectUrl(FrontendOptions frontendOptions, Guid appointmentId, string rescheduleToken, Guid assignedDoctorId)
+    {
+        var baseUrl = frontendOptions.Client.BaseUrl.TrimEnd('/');
+        return $"{baseUrl}/booking/confirm-doctor/{appointmentId}?token={rescheduleToken}&newDoctorId={assignedDoctorId}";
+    }
+
+    public static string BuildChooseNewDoctorRedirectUrl(FrontendOptions frontendOptions, Guid? hosptitalId, Guid? specialtyId, Guid appointmentId, string rescheduleToken)
+    {
+        var baseUrl = frontendOptions.Client.BaseUrl.TrimEnd('/');
+        return $"{baseUrl}/doctors?hospitalId={hosptitalId}&specialtyId={specialtyId}&rescheduleFor={appointmentId}&token={rescheduleToken}";
+    }
+
     /// <summary>
     /// Get doctor ID from appointment using gRPC call
     /// </summary>
     /// <param name="appointmentClient">Appointment gRPC client</param>
     /// <param name="appointmentId">Appointment ID</param>
     /// <returns>Doctor ID if found, null otherwise</returns>
-    public static async Task<Guid?> GetDoctorIdFromAppointmentAsync(
+    public static async Task<(Guid? doctorId, Guid? pendingDoctorId, Guid? assignedDoctorId, string? rescheduleToken, Guid? hospitalId, Guid? specialtyId)> GetDoctorIdFromAppointmentAsync(
     AppointmentService.AppointmentServiceClient appointmentClient,
     Guid appointmentId)
     {
@@ -62,34 +74,49 @@ public static class PaymentFrontendHelper
 
             var response = await appointmentClient.GetDoctorIdByAppointmentIdAsync(request);
 
+            Guid? doctorId = null;
+            Guid? pendingDoctorId = null;
+            Guid? assignedDoctorId = null;
+            Guid? hospitalId = null;
+            Guid? specialtyId = null;
+            string? rescheduleToken = null;
 
-
-
-            if (response.Success && !string.IsNullOrEmpty(response.DoctorId) && Guid.TryParse(response.DoctorId, out var doctorId))
+            if (response.Success)
             {
-                return doctorId;
+                if (!string.IsNullOrEmpty(response.DoctorId) && Guid.TryParse(response.DoctorId, out var parsedDoctorId))
+                    doctorId = parsedDoctorId;
+
+                if (!string.IsNullOrEmpty(response.PendingDoctorId) && Guid.TryParse(response.PendingDoctorId, out var parsedPendingDoctorId))
+                    pendingDoctorId = parsedPendingDoctorId;
+
+                if (!string.IsNullOrEmpty(response.AssignedDoctorId) && Guid.TryParse(response.AssignedDoctorId, out var parsedAssignedDoctorId))
+                    assignedDoctorId = parsedAssignedDoctorId;
+
+                if (!string.IsNullOrEmpty(response.HospitalId) && Guid.TryParse(response.HospitalId, out var parsedHospitalId))
+                    hospitalId = parsedHospitalId;
+
+                if (!string.IsNullOrEmpty(response.SpecialtyId) && Guid.TryParse(response.SpecialtyId, out var parsedSpecialtyId))
+                    specialtyId = parsedSpecialtyId;
+
+                rescheduleToken = response.RescheduleToken;
             }
 
-            return null;
+            return (doctorId, pendingDoctorId, assignedDoctorId, rescheduleToken, hospitalId, specialtyId);
         }
         catch (Grpc.Core.RpcException rpcEx)
         {
-            // Log specific gRPC errors for troubleshooting
-            var status = rpcEx.StatusCode;
-            var detail = rpcEx.Status.Detail;
-
-            // Don't throw - this is a helper method that should fail gracefully
-            // The calling method will handle fallback to original error page
-            System.Diagnostics.Debug.WriteLine($"[PaymentFrontendHelper] gRPC call failed - Status: {status}, Detail: {detail}, AppointmentId: {appointmentId}");
-            return null;
+            System.Diagnostics.Debug.WriteLine(
+                $"[PaymentFrontendHelper] gRPC call failed - Status: {rpcEx.StatusCode}, Detail: {rpcEx.Status.Detail}, AppointmentId: {appointmentId}");
+            return (null, null, null, null, null, null);
         }
         catch (Exception ex)
         {
-            // Log any other unexpected errors
-            System.Diagnostics.Debug.WriteLine($"[PaymentFrontendHelper] Unexpected error in gRPC call: {ex.Message}, AppointmentId: {appointmentId}");
-            return null;
+            System.Diagnostics.Debug.WriteLine(
+                $"[PaymentFrontendHelper] Unexpected error in gRPC call: {ex.Message}, AppointmentId: {appointmentId}");
+            return (null, null, null, null, null, null);
         }
     }
+
 
     /// <summary>
     /// Check if payment is for an appointment and needs frontend redirect
