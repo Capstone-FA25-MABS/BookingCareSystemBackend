@@ -4,6 +4,7 @@ using BookingCare.Services.Appointment.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Appointment.Migrations
 {
     [DbContext(typeof(AppointmentDbContext))]
-    partial class AppointmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251019045338_AddNewPropertiesAssignDoctor")]
+    partial class AddNewPropertiesAssignDoctor
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -67,15 +70,6 @@ namespace BookingCare.Services.Appointment.Migrations
                         .HasColumnType("bit");
 
                     b.Property<Guid>("PatientId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("PendingNewAppointmentDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("PendingNewAppointmentTimeId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("PendingNewDoctorId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Reason")

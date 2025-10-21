@@ -4,6 +4,7 @@ using BookingCare.Services.Appointment.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Appointment.Migrations
 {
     [DbContext(typeof(AppointmentDbContext))]
-    partial class AppointmentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251019024800_AddNewPropertiesCancel")]
+    partial class AddNewPropertiesCancel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -38,9 +41,6 @@ namespace BookingCare.Services.Appointment.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
-
-                    b.Property<Guid?>("AssignedDoctorId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AttachmentUrls")
                         .HasMaxLength(2000)
@@ -69,15 +69,6 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.Property<Guid>("PatientId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("PendingNewAppointmentDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("PendingNewAppointmentTimeId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("PendingNewDoctorId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("Reason")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
@@ -95,9 +86,6 @@ namespace BookingCare.Services.Appointment.Migrations
 
                     b.Property<Guid?>("ServiceId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("SoftReservedUntil")
-                        .HasColumnType("datetime2");
 
                     b.Property<Guid?>("SpecialtyId")
                         .HasColumnType("uniqueidentifier");
