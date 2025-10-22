@@ -102,6 +102,7 @@ public class HospitalsController : BaseApiController
         }
     }
 
+
     [HttpGet("email/{email}")]
     public async Task<IActionResult> GetHospitalByEmail(string email)
     {

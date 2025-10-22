@@ -147,7 +147,7 @@ public class VNPayController : BasePaymentGatewayController
             // Handle success or failure scenarios
             if (callbackResult.IsSuccess)
             {
-                return HandleSuccessfulPayment(payment, callbackResult, requestId, GatewayName,
+                return await HandleSuccessfulPayment(payment, callbackResult, requestId, GatewayName,
                     (p, r, reqId) => CreateVNPayResponse(p.Id, r, reqId, true));
             }
 

@@ -27,11 +27,19 @@ service DoctorService {
   // Get multiple doctors basic info (batch operation for performance)
   rpc GetDoctorsBasicInfo (GetDoctorsBasicInfoRequest) returns (DoctorsBasicInfoResponse);
 
+  // Get available doctors by hospital, specialty, date, and time (for appointment assignment)
+  rpc GetAvailableDoctors (GetAvailableDoctorsRequest) returns (GetAvailableDoctorsResponse);
+
+  // Get doctor price by price ID (for appointment rescheduling - Option 3)
+  rpc GetDoctorPrice (GetDoctorPriceRequest) returns (GetDoctorPriceResponse);
   // Get specialty by ID (for Hospital service) - Optimized response
   rpc GetSpecialtyById (GetSpecialtyByIdRequest) returns (SpecialtySimpleResponse);
 
   // Get multiple specialties by IDs (bulk operation for performance)
   rpc GetSpecialtiesByIds (GetSpecialtiesByIdsRequest) returns (SpecialtiesBatchResponse);
+
+  // Get doctor counts by specialty and hospital
+  rpc GetDoctorCountsBySpecialtyAndHospital (GetDoctorCountsBySpecialtyAndHospitalRequest) returns (GetDoctorCountsBySpecialtyAndHospitalResponse);
 }
 
 // Request messages
@@ -144,6 +152,42 @@ message DoctorsBasicInfoResponse {
   repeated DoctorBasicInfoResponse doctors = 1;
 }
 
+// Request message for getting available doctors
+message GetAvailableDoctorsRequest {
+  string hospital_id = 1;
+  string specialty_id = 2;
+}
+
+// Available doctor information (lightweight for performance)
+message AvailableDoctorInfo {
+  string id = 1;
+  string first_name = 3;
+  string last_name = 4;
+  string full_name = 5;
+  string avatar_url = 6;
+  string position_name = 7;
+  string specialty_name = 8;
+  int32 years_of_experience = 9;
+}
+
+// Response message for available doctors
+message GetAvailableDoctorsResponse {
+  repeated AvailableDoctorInfo doctors = 1;
+  int32 total_count = 2;
+}
+
+// Request message for getting doctor price by ID
+message GetDoctorPriceRequest {
+  string price_id = 1;
+}
+
+// Response message for doctor price
+message GetDoctorPriceResponse {
+  string id = 1;
+  string doctor_id = 2;
+  double amount = 5;
+  string currency = 6; // "VND"
+}
 // Response message for specialty
 message SpecialtyResponse {
   string id = 1;
@@ -163,4 +207,15 @@ message SpecialtySimpleResponse {
 // Response message for multiple specialties batch
 message SpecialtiesBatchResponse {
   repeated SpecialtySimpleResponse specialties = 1;
+}
+
+// Request message for getting doctor counts by specialty and hospital
+message GetDoctorCountsBySpecialtyAndHospitalRequest {
+  string hospital_id = 1;
+  repeated string specialty_ids = 2;
+}
+
+// Response message for doctor counts by specialty and hospital
+message GetDoctorCountsBySpecialtyAndHospitalResponse {
+  map<string, int32> specialty_counts = 1;
 }

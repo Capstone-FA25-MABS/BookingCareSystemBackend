@@ -36,7 +36,12 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
                 return new GetDoctorIdByAppointmentIdResponse
                 {
                     Success = false,
-                    DoctorId = string.Empty
+                    DoctorId = string.Empty,
+                    PendingDoctorId = string.Empty,
+                    AssignedDoctorId = string.Empty,
+                    RescheduleToken = string.Empty,
+                    HospitalId = string.Empty,
+                    SpecialtyId = string.Empty,
                 };
             }
 
@@ -47,18 +52,34 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
                 return new GetDoctorIdByAppointmentIdResponse
                 {
                     Success = false,
-                    DoctorId = string.Empty
+                    DoctorId = string.Empty,
+                    PendingDoctorId = string.Empty,
+                    AssignedDoctorId = string.Empty,
+                    RescheduleToken = string.Empty,
+                    HospitalId = string.Empty,
+                    SpecialtyId = string.Empty,
                 };
             }
 
             var doctorId = appointmentEntity.DoctorId?.ToString() ?? string.Empty;
+            var pendingDoctorId = appointmentEntity.PendingNewDoctorId?.ToString() ?? string.Empty;
+            var assignedDoctorId = appointmentEntity.AssignedDoctorId?.ToString() ?? string.Empty;
+            var rescheduleToken = appointmentEntity.RescheduleToken ?? string.Empty;
+            var hospitalId = appointmentEntity.HospitalId?.ToString() ?? string.Empty;
+            var specialtyId = appointmentEntity.SpecialtyId?.ToString() ?? string.Empty;
+
             _logger.LogInformation("[AppointmentGrpcService] Successfully retrieved doctorId {DoctorId} for appointment: {AppointmentId}",
                 doctorId, appointmentId);
 
             return new GetDoctorIdByAppointmentIdResponse
             {
                 Success = true,
-                DoctorId = doctorId
+                DoctorId = doctorId,
+                PendingDoctorId = pendingDoctorId,
+                AssignedDoctorId = assignedDoctorId,
+                RescheduleToken = rescheduleToken,
+                HospitalId = hospitalId,
+                SpecialtyId = specialtyId,
             };
         }
         catch (Exception ex)
@@ -67,7 +88,114 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             return new GetDoctorIdByAppointmentIdResponse
             {
                 Success = false,
-                DoctorId = string.Empty
+                DoctorId = string.Empty,
+                PendingDoctorId = string.Empty,
+                AssignedDoctorId = string.Empty,
+                RescheduleToken = string.Empty,
+                HospitalId = string.Empty,
+                SpecialtyId = string.Empty,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Confirm appointment after supplementary payment (for Payment service integration)
+    /// Updates appointment status from CANCELLED to CONFIRMED
+    /// </summary>
+    public override async Task<ConfirmAppointmentResponse> ConfirmAppointment(ConfirmAppointmentRequest request, ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[AppointmentGrpcService] ConfirmAppointment called with ID: {AppointmentId}", request.AppointmentId);
+
+            if (!Guid.TryParse(request.AppointmentId, out var appointmentId))
+            {
+                _logger.LogWarning("[AppointmentGrpcService] Invalid appointment ID format: {AppointmentId}", request.AppointmentId);
+                return new ConfirmAppointmentResponse
+                {
+                    Success = false,
+                    Message = "Invalid appointment ID format"
+                };
+            }
+
+            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(appointmentId);
+            if (appointment == null)
+            {
+                _logger.LogWarning("[AppointmentGrpcService] Appointment not found: {AppointmentId}", appointmentId);
+                return new ConfirmAppointmentResponse
+                {
+                    Success = false,
+                    Message = "Appointment not found"
+                };
+            }
+
+            // Check if there are pending doctor changes (from Option 3 - Scenario 2: Higher price)
+            // Apply them before confirming
+            var hasPendingChanges = appointment.PendingNewDoctorId.HasValue &&
+                                   appointment.PendingNewAppointmentDate.HasValue &&
+                                   appointment.PendingNewAppointmentTimeId.HasValue;
+
+            if (hasPendingChanges)
+            {
+                _logger.LogInformation("[AppointmentGrpcService] Applying pending doctor changes for appointment: {AppointmentId}", appointmentId);
+
+                appointment.DoctorId = appointment.PendingNewDoctorId;
+                appointment.AppointmentDate = appointment.PendingNewAppointmentDate!.Value;
+                appointment.AppointmentTimeId = appointment.PendingNewAppointmentTimeId!.Value;
+
+                _logger.LogInformation("[AppointmentGrpcService] Applied pending doctor change to {DoctorId} for appointment: {AppointmentId}",
+                    appointment.DoctorId, appointmentId);
+            }
+
+            // If it was staff-assigned (Option 2), clear soft reservation fields
+            if (request.StaffAssigned)
+            {
+                appointment.DoctorId = appointment.AssignedDoctorId;
+                _logger.LogInformation("[AppointmentGrpcService] Cleared soft reservation for staff-assigned doctor");
+            }
+
+            // Clear pending fields after applying
+            appointment.PendingNewDoctorId = null;
+            appointment.PendingNewAppointmentDate = null;
+            appointment.PendingNewAppointmentTimeId = null;
+            appointment.AssignedDoctorId = null; // Clear soft reservation
+            appointment.SoftReservedUntil = null;
+            appointment.IsRescheduled = true;
+            appointment.RescheduleToken = null; // Clear token after use
+            appointment.RescheduleTokenExpiry = null;
+
+            // Update appointment status to CONFIRMED
+            appointment.Status = AppointmentStatus.CONFIRMED;
+
+            var success = await _appointmentRepository.UpdateAppointmentAsync(appointment);
+            if (!success)
+            {
+                _logger.LogError("[AppointmentGrpcService] Failed to update appointment status for ID: {AppointmentId}", appointmentId);
+                return new ConfirmAppointmentResponse
+                {
+                    Success = false,
+                    Message = "Failed to update appointment status"
+                };
+            }
+
+            var message = hasPendingChanges
+                ? "Appointment confirmed successfully with new doctor applied"
+                : "Appointment confirmed successfully";
+
+            _logger.LogInformation("[AppointmentGrpcService] Successfully confirmed appointment: {AppointmentId}", appointmentId);
+            return new ConfirmAppointmentResponse
+            {
+                Success = true,
+                Message = message
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AppointmentGrpcService] Error in ConfirmAppointment for ID: {AppointmentId}", request.AppointmentId);
+            return new ConfirmAppointmentResponse
+            {
+                Success = false,
+                Message = $"Internal error: {ex.Message}"
             };
         }
     }

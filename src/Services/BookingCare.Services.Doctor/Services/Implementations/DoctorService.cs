@@ -5,14 +5,12 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Services.Hospital;
-using BookingCare.Services.Doctor.Models.ApiModels;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
@@ -1700,6 +1698,83 @@ public class DoctorService : BaseService, IDoctorService
         return await _repository.Value.GetDoctorsBasicInfoByIdsAsync(ids);
     }
 
+    /// <summary>
+    /// Get doctors by hospital and specialty (for Appointment Service)
+    /// Returns basic doctor entities without availability check
+    /// Filters by ACTIVE status from Auth Service
+    /// Availability check is done by Appointment Service
+    /// </summary>
+    public async Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Fetching doctors for hospital {HospitalId} and specialty {SpecialtyId}",
+                null, hospitalId, specialtyId);
+
+            // Step 1: Get doctors from repository
+            var doctors = await _repository.Value.GetDoctorsByHospitalAndSpecialtyAsync(hospitalId, specialtyId);
+
+            if (!doctors.Any())
+            {
+                LogInfo("No doctors found for hospital {HospitalId} and specialty {SpecialtyId}",
+                    null, hospitalId, specialtyId);
+                return doctors;
+            }
+
+            // Step 2: Get account statuses from Auth Service
+            var accountIds = doctors.Select(d => d.AccountId).ToList();
+            var statusMap = await GetAccountStatusesAsync(accountIds);
+
+            // Step 3: Filter only ACTIVE doctors
+            var activeDoctors = doctors.Where(d =>
+            {
+                if (statusMap.TryGetValue(d.AccountId, out var status))
+                {
+                    return status == Status.ACTIVE;
+                }
+                // If status not found in Auth Service, assume ACTIVE (fallback)
+                return true;
+            }).ToList();
+
+            LogInfo("Found {Count} active doctors out of {Total} for hospital {HospitalId} and specialty {SpecialtyId}",
+                null, activeDoctors.Count, doctors.Count, hospitalId, specialtyId);
+
+            return activeDoctors;
+        }, nameof(GetDoctorsByHospitalAndSpecialtyAsync));
+    }
+
+    /// <summary>
+    /// Get doctor price by ID (for Appointment Service - Option 3 reschedule)
+    /// Used for price comparison when patient chooses new doctor
+    /// </summary>
+    public async Task<DoctorPriceResponse?> GetDoctorPriceByIdAsync(Guid priceId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Fetching doctor price for price ID {PriceId}", null, priceId);
+
+            // Get price from repository
+            var price = await _repository.Value.GetDoctorPriceByIdAsync(priceId);
+
+            if (price == null)
+            {
+                LogWarning("Doctor price not found for ID {PriceId}", null, priceId);
+                return null;
+            }
+
+            // Map to response DTO
+            var priceResponse = new DoctorPriceResponse
+            {
+                Id = price.Id,
+                DoctorId = price.DoctorId,
+                Amount = price.Amount,
+            };
+
+            LogInfo("Found doctor price {Amount} VND for price ID {PriceId}", null, price.Amount, priceId);
+            return priceResponse;
+        }, nameof(GetDoctorPriceByIdAsync));
+    }
+
     #endregion
 
     #region Optimized Patient Search
@@ -1975,6 +2050,15 @@ public class DoctorService : BaseService, IDoctorService
             AverageRating = 0.0,
             TotalReviews = 0
         };
+    }
+
+    #endregion
+
+    #region Doctor Count Operations
+
+    public async Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds)
+    {
+        return await _repository.Value.GetDoctorCountsBySpecialtyAndHospitalAsync(hospitalId, specialtyIds);
     }
 
     #endregion

@@ -5,7 +5,7 @@ namespace BookingCare.Services.Hospital.Services.Interfaces;
 
 public interface IHospitalService
 {
-    Task<HospitalDetailResponse?> GetByIdAsync(Guid id);
+    Task<HospitalProfileResponse?> GetByIdAsync(Guid id);
     Task<HospitalResponse?> GetByEmailAsync(string email);
     Task<HospitalListResponse> GetAllAsync();
     Task<HospitalListResponse> GetFilteredAsync(HospitalFilterRequest filter);

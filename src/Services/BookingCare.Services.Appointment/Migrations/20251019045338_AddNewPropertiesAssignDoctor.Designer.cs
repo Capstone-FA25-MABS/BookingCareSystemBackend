@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Appointment.Migrations
 {
     [DbContext(typeof(AppointmentDbContext))]
-    [Migration("20251015082018_Init")]
-    partial class Init
+    [Migration("20251019045338_AddNewPropertiesAssignDoctor")]
+    partial class AddNewPropertiesAssignDoctor
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -42,6 +42,9 @@ namespace BookingCare.Services.Appointment.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<Guid?>("AssignedDoctorId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("AttachmentUrls")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
@@ -63,6 +66,9 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.Property<Guid?>("HospitalId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("IsRescheduled")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("PatientId")
                         .HasColumnType("uniqueidentifier");
 
@@ -70,11 +76,24 @@ namespace BookingCare.Services.Appointment.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
+                    b.Property<string>("RescheduleToken")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("RescheduleTokenExpiry")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Result")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
                     b.Property<Guid?>("ServiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("SoftReservedUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SpecialtyId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Status")
