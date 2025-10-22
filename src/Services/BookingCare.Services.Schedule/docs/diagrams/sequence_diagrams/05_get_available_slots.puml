@@ -1,0 +1,113 @@
+@startuml Get_Available_Slots
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+
+actor User as user
+participant "UI" as ui
+participant "Controller" as controller
+participant "ScheduleService" as service
+participant "DoctorServiceClient\n(gRPC)" as doctorClient
+participant "ServiceMedicalClient\n(gRPC)" as serviceClient
+participant "CacheService" as cache
+participant "Repository" as repo
+database "Database" as db
+participant "AppointmentClient\n(gRPC)" as appointmentClient
+
+user -> ui: 1. Xem khung giờ\ntrống của bác sĩ
+ui -> controller: 2. GetAvailableSlots(doctorId,\ndate, serviceId?)
+activate controller
+
+controller -> service: 3. GetAvailableSlotsAsync(request)
+activate service
+
+' Validate doctor
+service -> doctorClient: 4. GetDoctorAsync(doctorId)
+activate doctorClient
+doctorClient --> service: 5. DoctorResponse
+deactivate doctorClient
+
+alt Doctor Not Valid
+    service --> controller: 6. throw DoctorNotAvailableException
+    controller --> ui: 7. Error Response
+    ui --> user: 8. Thông báo bác sĩ\nkhông khả dụng
+else Doctor Valid
+    ' Validate service if provided
+    opt ServiceId provided
+        service -> serviceClient: 9. ValidateServiceMedicalAsync(serviceId)
+        activate serviceClient
+        serviceClient --> service: 10. ValidationResponse
+        deactivate serviceClient
+        
+        alt Service Not Valid
+            service --> controller: 11. throw ServiceNotAvailableException
+            controller --> ui: 12. Error Response
+            ui --> user: 13. Thông báo dịch vụ\nkhông khả dụng
+        end
+    end
+    
+    ' Check cache
+    service -> cache: 14. GetAsync<IEnumerable<\nAppointmentTimeDto>>(cacheKey)
+    activate cache
+    cache --> service: 15. cached data (nếu có)
+    deactivate cache
+    
+    alt Cache Hit
+        service --> controller: 16. List<AppointmentTimeDto>
+    else Cache Miss
+        ' Get available slots from schedule
+        service -> repo: 17. GetAvailableSlotsAsync(\ndoctorId, date, serviceId)
+        activate repo
+        
+        repo -> db: 18. SELECT FROM\nDoctorDailySchedules
+        activate db
+        db --> repo: 19. DoctorDailyScheduleEntity
+        deactivate db
+        
+        repo -> repo: 20. Get appointment times\nfrom schedule patterns
+        
+        repo -> db: 21. SELECT FROM\nDoctorScheduleExceptions
+        activate db
+        db --> repo: 22. List<DoctorScheduleExceptionEntity>
+        deactivate db
+        
+        repo -> repo: 23. Apply exceptions\nto filter slots
+        
+        opt ServiceId provided
+            repo -> db: 24. SELECT FROM ServiceSchedules
+            activate db
+            db --> repo: 25. List<ServiceScheduleEntity>
+            deactivate db
+            
+            repo -> repo: 26. Filter slots by\nservice schedule
+        end
+        
+        repo --> service: 27. List<AppointmentTime>
+        deactivate repo
+        
+        service -> service: 28. Convert enums to DTOs
+        
+        ' Check booked slots
+        service -> appointmentClient: 29. CheckBookedSlotsAsync(\ndoctorId, date)
+        activate appointmentClient
+        appointmentClient --> service: 30. BookedSlotsResponse
+        deactivate appointmentClient
+        
+        service -> service: 31. Filter out booked slots
+        
+        service -> cache: 32. SetAsync(cacheKey,\navailableSlots, expiration)
+        activate cache
+        cache --> service: 33. OK
+        deactivate cache
+        
+        service --> controller: 34. List<AppointmentTimeDto>
+    end
+    
+    controller --> ui: 35. Success(slots, message)
+    ui --> user: 36. Hiển thị danh sách\nkhung giờ trống
+end
+
+deactivate service
+deactivate controller
+
+@enduml

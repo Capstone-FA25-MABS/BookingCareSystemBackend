@@ -1,0 +1,90 @@
+@startuml Schedule_Service_DTOs
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam packageFontSize 14
+
+title Schedule Service - Data Transfer Objects (DTOs)
+
+package "DTOs" <<Rectangle>> {
+    class AppointmentTimeDto {
+        + Id: Guid
+        + StartTime: string
+        + EndTime: string
+    }
+
+    class DoctorDailyScheduleDto {
+        + Id: Guid
+        + DoctorId: Guid
+        + ScheduleDate: DateOnly
+        + SchedulePatterns: List<SchedulePatterns>
+        + CreatedAt: DateTime
+        + UpdatedAt: DateTime
+    }
+
+    class DoctorScheduleExceptionDto {
+        + Id: Guid
+        + DoctorId: Guid
+        + ExceptionDate: DateOnly
+        + AppointmentTime: AppointmentTime?
+        + ExceptionType: string
+        + IsAvailable: bool
+        + Reason: string?
+        + CreatedAt: DateTime
+    }
+
+    class ClinicExceptionDto {
+        + Id: Guid
+        + ClinicId: Guid
+        + ExceptionDate: DateOnly
+        + Reason: string?
+    }
+
+    class ServiceScheduleDto {
+        + Id: Guid
+        + ServiceId: Guid
+        + SchedulePatterns: List<SchedulePatterns>
+        + ClinicId: Guid?
+        + CreatedAt: DateTime
+        + UpdatedAt: DateTime
+    }
+}
+
+package "Enums" <<Rectangle>> {
+    enum SchedulePatterns {
+        MORNING = 1
+        AFTERNOON = 2
+        EVENING = 3
+        FULL_DAY = 4
+    }
+
+    enum AppointmentTime {
+        AT_08_00_08_30
+        AT_08_30_09_00
+        ...
+    }
+}
+
+' Relationships
+DoctorDailyScheduleDto "1" *-- "0..*" SchedulePatterns : contains
+DoctorScheduleExceptionDto "1" o-- "0..1" AppointmentTime : references
+ServiceScheduleDto "1" *-- "0..*" SchedulePatterns : contains
+
+note top of AppointmentTimeDto
+  Represents a specific time slot
+  Generated from AppointmentTime enum
+  with deterministic GUID
+end note
+
+note right of DoctorDailyScheduleDto
+  DTO for exposing doctor's
+  daily schedule via API
+end note
+
+note right of DoctorScheduleExceptionDto
+  DTO for exposing schedule
+  exceptions via API
+  ExceptionType as string
+end note
+
+@enduml

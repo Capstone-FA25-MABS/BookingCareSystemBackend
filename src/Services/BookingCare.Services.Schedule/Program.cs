@@ -54,6 +54,12 @@ builder.Services.AddGrpcClient<BookingCare.Services.ServiceMedical.Protos.Servic
     options.Address = new Uri(serviceMedicalAddress);
 });
 
+var appointmentAddress = builder.Configuration.GetSection("GrpcClients:Appointment:Address").Value ?? "http://localhost:6102";
+builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient>(options =>
+{
+    options.Address = new Uri(appointmentAddress);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline

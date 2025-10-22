@@ -1,0 +1,54 @@
+@startuml Get_Doctor_Schedule_Range
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+
+actor User as user
+participant "UI" as ui
+participant "Controller" as controller
+participant "ScheduleService" as service
+participant "CacheService" as cache
+participant "Repository" as repo
+database "Database" as db
+
+user -> ui: 1. Xem lịch khám\ntheo khoảng thời gian
+ui -> controller: 2. GetDoctorScheduleRange(doctorId,\nstartDate, endDate)
+activate controller
+
+controller -> service: 3. GetDoctorScheduleRangeAsync(request)
+activate service
+
+service -> cache: 4. GetAsync<IEnumerable<\nDoctorDailyScheduleDto>>(cacheKey)
+activate cache
+cache --> service: 5. cached data (nếu có)
+deactivate cache
+
+alt Cache Hit
+    service --> controller: 6. List<DoctorDailyScheduleDto>
+else Cache Miss
+    service -> repo: 7. GetDoctorScheduleRangeAsync(\ndoctorId, startDate, endDate)
+    activate repo
+    
+    repo -> db: 8. SELECT FROM DoctorDailySchedules\nWHERE date BETWEEN startDate AND endDate\nORDER BY ScheduleDate
+    activate db
+    db --> repo: 9. List<DoctorDailyScheduleEntity>
+    deactivate db
+    
+    repo --> service: 10. entities
+    deactivate repo
+    
+    service -> service: 11. Map entities to DTOs
+    service -> cache: 12. SetAsync(cacheKey, dtos, expiration)
+    activate cache
+    cache --> service: 13. OK
+    deactivate cache
+    service --> controller: 14. List<DoctorDailyScheduleDto>
+end
+
+controller --> ui: 15. Success(schedules, message)
+deactivate controller
+
+ui --> user: 16. Hiển thị danh sách\nlịch khám theo khoảng thời gian
+deactivate service
+
+@enduml

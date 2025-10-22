@@ -18,6 +18,9 @@ using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Extensions;
 using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
 using BookingCare.Services.Appointment.Models; // Add using for AppointmentData
+using BookingCare.Shared.Cache.Abstractions;
+using BookingCare.Shared.Cache.Constants;
+using RedisClient = StackExchange.Redis;
 
 namespace BookingCare.Services.Appointment.Services;
 
@@ -26,10 +29,12 @@ namespace BookingCare.Services.Appointment.Services;
 /// </summary>
 public class AppointmentService : BaseService, IAppointmentService
 {
+    private const string DateFormat = "yyyy-MM-dd";
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
     private readonly IEventBus _eventBus;
     private readonly GrpcClientWrapper _grpcClients;
+    private readonly RedisClient.IConnectionMultiplexer _redisConnection;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AppointmentService(
@@ -37,6 +42,7 @@ public class AppointmentService : BaseService, IAppointmentService
         IMapper mapper,
         IEventBus eventBus,
         GrpcClientWrapper grpcClients,
+        RedisClient.IConnectionMultiplexer redisConnection,
         IHttpContextAccessor httpContextAccessor,
         ILogger<AppointmentService> logger) : base(logger)
     {
@@ -44,6 +50,7 @@ public class AppointmentService : BaseService, IAppointmentService
         _mapper = mapper;
         _eventBus = eventBus;
         _grpcClients = grpcClients;
+        _redisConnection = redisConnection;
         _httpContextAccessor = httpContextAccessor;
     }
 
@@ -123,6 +130,15 @@ public class AppointmentService : BaseService, IAppointmentService
 
             var appointmentEntity = _mapper.Map<AppointmentEntity>(request);
             await _appointmentRepository.CreateAppointmentAsync(appointmentEntity);
+
+            // Invalidate available slots cache after successful appointment creation
+            if (request.DoctorId.HasValue)
+            {
+                await InvalidateAvailableSlotsCacheAsync(
+                    request.DoctorId.Value,
+                    request.AppointmentDate,
+                    request.ServiceId);
+            }
 
             LogInfo("Successfully created appointment {AppointmentId}", null, appointmentEntity.Id);
             return appointmentEntity.Id;
@@ -472,6 +488,17 @@ public class AppointmentService : BaseService, IAppointmentService
         };
 
         await _eventBus.PublishAsync(cancelledEvent);
+
+        // Invalidate available slots cache after cancellation
+        // The cancelled slot should become available again
+        if (appointment.DoctorId.HasValue)
+        {
+            await InvalidateAvailableSlotsCacheAsync(
+                appointment.DoctorId.Value,
+                appointment.AppointmentDate,
+                appointment.ServiceId);
+        }
+
         LogInfo("Published refund event for appointment {AppointmentId} with {Refund}% refund",
             null, appointment.Id, details.RefundPercentage);
     }
@@ -572,6 +599,18 @@ public class AppointmentService : BaseService, IAppointmentService
             if (!updated)
             {
                 throw new AppointmentException("Failed to update appointment status");
+            }
+
+            // Invalidate available slots cache if status changes affect availability
+            // When CANCELLED or COMPLETED, the slot should become available again
+            if ((request.Status == AppointmentStatus.CANCELLED ||
+                 request.Status == AppointmentStatus.COMPLETED)
+                && existingAppointment.DoctorId.HasValue)
+            {
+                await InvalidateAvailableSlotsCacheAsync(
+                    existingAppointment.DoctorId.Value,
+                    existingAppointment.AppointmentDate,
+                    existingAppointment.ServiceId);
             }
 
             LogInfo("Successfully updated appointment {AppointmentId} status to {Status}",
@@ -870,6 +909,108 @@ public class AppointmentService : BaseService, IAppointmentService
         catch (GrpcCore.RpcException rpcEx)
         {
             LogWarning("gRPC error batch fetching patients for {Context}: {Error}", null, context, rpcEx.Status.Detail);
+        }
+    }
+
+    /// <summary>
+    /// Invalidate available slots cache for a specific doctor and date
+    /// This ensures that after creating/cancelling/updating appointments,
+    /// the cached available slots are refreshed to reflect current availability
+    /// IMPORTANT: Available slots cache is stored by Schedule Service with prefix "BookingCare:Schedule:"
+    /// We need to invalidate using the SAME prefix, not our Appointment Service prefix
+    /// </summary>
+    private async Task InvalidateAvailableSlotsCacheAsync(
+        Guid doctorId,
+        DateTime appointmentDate,
+        Guid? serviceId)
+    {
+        try
+        {
+            // Convert DateTime to DateOnly format to match ScheduleService cache key format
+            // ScheduleService uses DateOnly.ToString("yyyy-MM-dd") for cache keys
+            var dateStr = DateOnly.FromDateTime(appointmentDate).ToString(DateFormat);
+
+            // CRITICAL: Schedule Service uses "BookingCare:Schedule:" prefix
+            // We need to use the FULL cache key including Schedule Service's prefix
+            // Otherwise we'll try to delete "BookingCare:Appointment:available_slots:..." 
+            // but the actual cache is "BookingCare:Schedule:available_slots:..."
+
+            // Invalidate cache with specific serviceId (if provided)
+            if (serviceId.HasValue)
+            {
+                var serviceIdStr = serviceId.Value.ToString();
+                var cacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, doctorId, dateStr, serviceIdStr);
+                // Add Schedule Service prefix to match where cache was created
+                var fullCacheKey = $"BookingCare:Schedule:{cacheKey}";
+                await RemoveCacheDirectlyAsync(fullCacheKey);
+                LogInfo("Invalidated available slots cache for doctor {DoctorId} on {Date} with serviceId {ServiceId}",
+                    null, doctorId, dateStr, serviceIdStr);
+            }
+
+            // Invalidate cache without service filter (serviceId = "null")
+            var nullServiceCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, doctorId, dateStr, "null");
+            var fullNullCacheKey = $"BookingCare:Schedule:{nullServiceCacheKey}";
+            await RemoveCacheDirectlyAsync(fullNullCacheKey);
+
+            // Invalidate all variations using pattern matching
+            var patternCacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, doctorId, dateStr, "*");
+            var fullPatternCacheKey = $"BookingCare:Schedule:{patternCacheKey}";
+            await RemoveCacheByPatternDirectlyAsync(fullPatternCacheKey);
+
+            LogInfo("Successfully invalidated available slots cache for doctor {DoctorId} on {Date}",
+                null, doctorId, dateStr);
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't throw - cache invalidation failure should not fail appointment operations
+            LogError(ex, "Failed to invalidate available slots cache for doctor {DoctorId} on {Date}: {Error}",
+                null, doctorId, DateOnly.FromDateTime(appointmentDate).ToString(DateFormat), ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Remove cache directly without adding this service's prefix
+    /// Used to delete cache keys created by other services (like Schedule Service)
+    /// </summary>
+    private async Task RemoveCacheDirectlyAsync(string fullCacheKey)
+    {
+        try
+        {
+            // Direct Redis operation using injected IConnectionMultiplexer
+            var db = _redisConnection.GetDatabase(0);
+            await db.KeyDeleteAsync(fullCacheKey);
+            LogInfo("Directly removed cache key: {CacheKey}", null, fullCacheKey);
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error directly removing cache key: {CacheKey}", null, fullCacheKey);
+        }
+    }
+
+    /// <summary>
+    /// Remove cache by pattern directly without adding this service's prefix
+    /// Used to delete cache patterns created by other services (like Schedule Service)
+    /// </summary>
+    private async Task RemoveCacheByPatternDirectlyAsync(string fullPattern)
+    {
+        try
+        {
+            // Direct Redis operation using injected IConnectionMultiplexer
+            var server = _redisConnection.GetServer(_redisConnection.GetEndPoints()[0]);
+            var db = _redisConnection.GetDatabase(0);
+
+            var keys = server.Keys(0, fullPattern).ToArray();
+            foreach (var key in keys)
+            {
+                await db.KeyDeleteAsync(key);
+            }
+
+            LogInfo("Directly removed {Count} cache keys matching pattern: {Pattern}",
+                null, keys.Length, fullPattern);
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error directly removing cache by pattern: {Pattern}", null, fullPattern);
         }
     }
 
