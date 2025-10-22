@@ -70,5 +70,42 @@ public static class SmsTemplate
 
         return $"BookingCare: Lich hen {appointmentDateStr} da huy. Do huy qua sat gio, khong duoc hoan tien theo chinh sach. Xin loi vi bat tien.";
     }
+
+    /// <summary>
+    /// Build SMS content for staff-initiated cancellation with reschedule options
+    /// Patient needs to check email for full details and choose from 4 options
+    /// </summary>
+    public static string BuildCancellationWithOptionsSms(DateTime appointmentDate, string? optionUrl)
+    {
+        var appointmentDateStr = appointmentDate.ToString("dd/MM/yyyy HH:mm");
+        var urlPart = !string.IsNullOrEmpty(optionUrl) ? $" Chon phuong an: {optionUrl}" : "";
+
+        return $"BookingCare: Lich hen {appointmentDateStr} da huy boi benh vien. Vui long kiem tra email de chon phuong an xu ly (doi lich hoac hoan tien).{urlPart}";
+    }
+
+    /// <summary>
+    /// Build SMS content for doctor change refund (patient has bank account)
+    /// </summary>
+    public static string BuildDoctorChangeRefundSms(
+        string originalDoctorName,
+        string newDoctorName,
+        decimal refundAmount)
+    {
+        return $"BookingCare: Doi bac si thanh cong tu {originalDoctorName} sang {newDoctorName}. " +
+               $"Hoan tra chenh lech {refundAmount:N0} VND trong 5-7 ngay.";
+    }
+
+    /// <summary>
+    /// Build SMS content for doctor change refund (patient has NO bank account)
+    /// </summary>
+    public static string BuildDoctorChangeRefundSmsNoBankAccount(
+        string originalDoctorName,
+        string newDoctorName,
+        decimal refundAmount)
+    {
+        return $"BookingCare: Doi bac si thanh cong tu {originalDoctorName} sang {newDoctorName}. " +
+               $"Cap nhat tai khoan ngan hang de nhan {refundAmount:N0} VND. " +
+               $"Dang nhap: bookingcare.vn";
+    }
 }
 

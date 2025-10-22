@@ -22,4 +22,10 @@ public class UpdatePaymentStatusRequest
     [Required]
     [JsonRequired]
     public PaymentStatus Status { get; set; }
+
+    /// <summary>
+    /// Optional: New amount (used for supplementary payments)
+    /// If not provided, amount will not be updated
+    /// </summary>
+    public decimal? Amount { get; set; }
 }

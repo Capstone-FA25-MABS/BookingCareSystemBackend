@@ -1,4 +1,5 @@
 using BookingCare.Services.Appointment.Models.DTOs;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Appointment.Services;
 
@@ -20,10 +21,50 @@ public interface IAppointmentService
     Task<bool> UpdateAppointmentStatusAsync(UpdateAppointmentStatusRequest request);
 
     /// <summary>
-    /// Cancel an appointment with validation (must be 24 hours before appointment)
-    /// Publishes event to trigger refund and notification
+    /// Cancel an appointment with validation
+    /// Publishes event to trigger refund/reschedule options and notification
     /// </summary>
-    Task<bool> CancelAppointmentAsync(CancelAppointmentRequest request);
+    Task<RescheduleResponse?> CancelAppointmentAsync(CancelAppointmentRequest request);
+
+    /// <summary>
+    /// Reschedule appointment with same doctor (Option 1)
+    /// </summary>
+    Task<bool> RescheduleSameDoctorAsync(RescheduleSameDoctorRequest request);
+
+    /// <summary>
+    /// Staff assigns new doctor (creates soft reservation) - Option 2 Step 1
+    /// This creates a soft lock on the doctor's schedule until patient confirms or token expires
+    /// </summary>
+    Task<string> AssignNewDoctorAsync(AssignNewDoctorRequest request);
+
+    /// <summary>
+    /// Request refund for cancelled appointment (Option 4)
+    /// Publishes event to Payment Service to create refund request
+    /// </summary>
+    Task<bool> RequestRefundAsync(RequestRefundRequest request);
+
+    /// <summary>
+    /// Choose new doctor (Option 3)
+    /// Patient selects a different doctor from same hospital + specialty
+    /// Handles 3 scenarios:
+    /// - Same price: Update appointment directly
+    /// - Higher price: Return payment URL for price difference
+    /// - Lower price: Update appointment and create refund request
+    /// </summary>
+    Task<ChooseNewDoctorResponse> ChooseNewDoctorAsync(ChooseNewDoctorRequest request);
+
+    /// <summary>
+    /// Get available doctors for staff to assign (Option 2)
+    /// Returns doctors from same hospital + specialty
+    /// If checkAvailability = true, only returns doctors available at specified date/time
+    /// If checkAvailability = false, returns all doctors (ignores date/time)
+    /// </summary>
+    Task<AvailableDoctorsResponse> GetAvailableDoctorsAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        DateTime? appointmentDate,
+        AppointmentTime? appointmentTimeId,
+        bool checkAvailability = true);
 
     // Validation operations
     Task<bool> ValidateAppointmentAsync(CreateAppointmentRequest request);
