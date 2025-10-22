@@ -2003,26 +2003,15 @@ public class AppointmentService : BaseService, IAppointmentService
             }
 
             // Check availability for specific date/time
-            if (await IsDoctorAvailableForAppointmentAsync(doctorId, appointmentDate, appointmentTimeId))
+            if (appointmentDate.HasValue &&
+                appointmentTimeId.HasValue &&
+                await _appointmentRepository.IsDoctorAvailableAsync(doctorId, appointmentDate.Value, appointmentTimeId.Value))
             {
                 availableDoctors.Add(MapToDoctorResponse(doctor, doctorId));
             }
         }
 
         return availableDoctors;
-    }
-
-    /// <summary>
-    /// Check if doctor is available for appointment
-    /// </summary>
-    private async Task<bool> IsDoctorAvailableForAppointmentAsync(
-        Guid doctorId, DateTime? appointmentDate, AppointmentTime? appointmentTimeId)
-    {
-        if (!appointmentDate.HasValue || !appointmentTimeId.HasValue)
-            return false;
-
-        return await _appointmentRepository.IsDoctorAvailableAsync(
-            doctorId, appointmentDate.Value, appointmentTimeId.Value);
     }
 
     /// <summary>
