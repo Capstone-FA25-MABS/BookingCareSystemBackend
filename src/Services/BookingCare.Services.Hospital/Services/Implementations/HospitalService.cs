@@ -118,7 +118,7 @@ public class HospitalService : IHospitalService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in GetByIdAsync for hospital {HospitalId}", id);
-            throw;
+            throw new HospitalOperationException($"Failed to retrieve hospital with ID {id}", ex);
         }
     }
 
