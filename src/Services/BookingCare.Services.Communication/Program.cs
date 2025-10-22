@@ -39,6 +39,7 @@ builder.Services.AddRabbitMQEventBus(builder.Configuration, "communication-servi
 
 // 🎯 Register event handlers for cache invalidation
 builder.Services.AddIntegrationEventHandler<UserProfileUpdatedEventHandler>();
+builder.Services.AddIntegrationEventHandler<DoctorProfileUpdatedEventHandler>();
 
 // === gRPC CLIENT INTEGRATION ===
 // Add Auth Service gRPC client for account details
@@ -114,8 +115,9 @@ app.UseCors("SignalRCorsPolicy");
 // 🎯 Configure EventBus and register event handlers
 app.UseEventBus(eventBus =>
 {
-    // Register UserProfileUpdatedEvent handler
+    // Register UserProfileUpdatedEvent handlers for both User and Doctor profile updates
     eventBus.Subscribe<UserProfileUpdatedEvent, UserProfileUpdatedEventHandler>();
+    eventBus.Subscribe<UserProfileUpdatedEvent, DoctorProfileUpdatedEventHandler>();
 });
 
 // Configure the HTTP request pipeline using ProgramExtensions

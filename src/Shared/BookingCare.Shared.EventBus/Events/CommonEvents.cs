@@ -16,6 +16,7 @@ public class UserRegisteredEvent : IntegrationEvent
 
 /// <summary>
 /// ?? Enhanced User Profile Updated Event with detailed info for cache invalidation
+/// Used by both User Service and Doctor Service (with Role = "DOCTOR")
 /// </summary>
 public class UserProfileUpdatedEvent : IntegrationEvent
 {
