@@ -667,6 +667,42 @@ public class DoctorRepository : IDoctorRepository
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Get doctors by hospital and specialty (for Appointment Service via gRPC)
+    /// Returns lightweight doctor entities with Position and Specialty names
+    /// Note: Status check is done in Service layer via Auth Service
+    /// </summary>
+    public async Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId)
+    {
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.Specialty)
+            .Where(d => d.HospitalId == hospitalId
+                     && d.SpecialtyId == specialtyId)
+            .Select(d => new DoctorEntity
+            {
+                Id = d.Id,
+                AccountId = d.AccountId, // Need for status check in Service layer
+                Email = d.Email,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                AvatarUrl = d.AvatarUrl,
+                YearsOfExperience = d.YearsOfExperience,
+                Position = d.Position != null ? new PositionEntity { Name = d.Position.Name } : null,
+                Specialty = d.Specialty != null ? new SpecialtyEntity { Name = d.Specialty.Name } : null
+            })
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get doctor price by ID (for Appointment Service - Option 3 reschedule)
+    /// Returns price with service type name for comparison
+    /// </summary>
+    public async Task<DoctorPriceEntity?> GetDoctorPriceByIdAsync(Guid priceId)
+    {
+        return await _context.DoctorPrices.FirstOrDefaultAsync(p => p.Id == priceId);
+    }
+
     #endregion
 
     #region Common Helper Methods

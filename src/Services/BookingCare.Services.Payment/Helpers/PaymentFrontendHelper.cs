@@ -43,13 +43,25 @@ public static class PaymentFrontendHelper
         return $"{baseUrl}/booking/{doctorId}";
     }
 
+    public static string BuildConfirmNewDoctorRedirectUrl(FrontendOptions frontendOptions, Guid appointmentId, string rescheduleToken, Guid assignedDoctorId)
+    {
+        var baseUrl = frontendOptions.Client.BaseUrl.TrimEnd('/');
+        return $"{baseUrl}/booking/confirm-doctor/{appointmentId}?token={rescheduleToken}&newDoctorId={assignedDoctorId}";
+    }
+
+    public static string BuildChooseNewDoctorRedirectUrl(FrontendOptions frontendOptions, Guid? hosptitalId, Guid? specialtyId, Guid appointmentId, string rescheduleToken)
+    {
+        var baseUrl = frontendOptions.Client.BaseUrl.TrimEnd('/');
+        return $"{baseUrl}/doctors?hospitalId={hosptitalId}&specialtyId={specialtyId}&rescheduleFor={appointmentId}&token={rescheduleToken}";
+    }
+
     /// <summary>
     /// Get doctor ID from appointment using gRPC call
     /// </summary>
     /// <param name="appointmentClient">Appointment gRPC client</param>
     /// <param name="appointmentId">Appointment ID</param>
     /// <returns>Doctor ID if found, null otherwise</returns>
-    public static async Task<Guid?> GetDoctorIdFromAppointmentAsync(
+    public static async Task<(Guid? doctorId, Guid? pendingDoctorId, Guid? assignedDoctorId, string? rescheduleToken, Guid? hospitalId, Guid? specialtyId)> GetDoctorIdFromAppointmentAsync(
     AppointmentService.AppointmentServiceClient appointmentClient,
     Guid appointmentId)
     {
@@ -62,34 +74,56 @@ public static class PaymentFrontendHelper
 
             var response = await appointmentClient.GetDoctorIdByAppointmentIdAsync(request);
 
-
-
-
-            if (response.Success && !string.IsNullOrEmpty(response.DoctorId) && Guid.TryParse(response.DoctorId, out var doctorId))
+            if (!response.Success)
             {
-                return doctorId;
+                return (null, null, null, null, null, null);
             }
 
-            return null;
+            return ParseAppointmentResponse(response);
         }
         catch (Grpc.Core.RpcException rpcEx)
         {
-            // Log specific gRPC errors for troubleshooting
-            var status = rpcEx.StatusCode;
-            var detail = rpcEx.Status.Detail;
-
-            // Don't throw - this is a helper method that should fail gracefully
-            // The calling method will handle fallback to original error page
-            System.Diagnostics.Debug.WriteLine($"[PaymentFrontendHelper] gRPC call failed - Status: {status}, Detail: {detail}, AppointmentId: {appointmentId}");
-            return null;
+            System.Diagnostics.Debug.WriteLine(
+                $"[PaymentFrontendHelper] gRPC call failed - Status: {rpcEx.StatusCode}, Detail: {rpcEx.Status.Detail}, AppointmentId: {appointmentId}");
+            return (null, null, null, null, null, null);
         }
         catch (Exception ex)
         {
-            // Log any other unexpected errors
-            System.Diagnostics.Debug.WriteLine($"[PaymentFrontendHelper] Unexpected error in gRPC call: {ex.Message}, AppointmentId: {appointmentId}");
-            return null;
+            System.Diagnostics.Debug.WriteLine(
+                $"[PaymentFrontendHelper] Unexpected error in gRPC call: {ex.Message}, AppointmentId: {appointmentId}");
+            return (null, null, null, null, null, null);
         }
     }
+
+    /// <summary>
+    /// Parse appointment response to extract IDs
+    /// </summary>
+    private static (Guid? doctorId, Guid? pendingDoctorId, Guid? assignedDoctorId, string? rescheduleToken, Guid? hospitalId, Guid? specialtyId) ParseAppointmentResponse(
+        GetDoctorIdByAppointmentIdResponse response)
+    {
+        var doctorId = TryParseGuid(response.DoctorId);
+        var pendingDoctorId = TryParseGuid(response.PendingDoctorId);
+        var assignedDoctorId = TryParseGuid(response.AssignedDoctorId);
+        var hospitalId = TryParseGuid(response.HospitalId);
+        var specialtyId = TryParseGuid(response.SpecialtyId);
+        var rescheduleToken = response.RescheduleToken;
+
+        return (doctorId, pendingDoctorId, assignedDoctorId, rescheduleToken, hospitalId, specialtyId);
+    }
+
+    /// <summary>
+    /// Try to parse a string to Guid, return null if invalid
+    /// </summary>
+    private static Guid? TryParseGuid(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return null;
+        }
+
+        return Guid.TryParse(value, out var result) ? result : null;
+    }
+
 
     /// <summary>
     /// Check if payment is for an appointment and needs frontend redirect

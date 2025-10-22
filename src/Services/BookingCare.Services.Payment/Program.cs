@@ -54,6 +54,7 @@ builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>(
 // Add background services
 builder.Services.AddHostedService<PayOSMappingCleanupService>();
 builder.Services.AddHostedService<RefundHistoryProcessingService>();
+builder.Services.AddHostedService<PendingPaymentCleanupService>();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(PaymentMappingProfile));

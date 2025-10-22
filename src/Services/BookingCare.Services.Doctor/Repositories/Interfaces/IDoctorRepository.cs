@@ -41,6 +41,12 @@ public interface IDoctorRepository
     Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
     Task<bool> DeleteAllDoctorPricesAsync(Guid doctorId);
 
+    // Get doctors by hospital and specialty (for Appointment Service)
+    Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+
+    // Get doctor price by ID (for Appointment Service - Option 3 reschedule)
+    Task<DoctorPriceEntity?> GetDoctorPriceByIdAsync(Guid priceId);
+
     // Optimized method for Patient Search with minimal data
     Task<(List<DoctorEntity> Doctors, int TotalCount)> GetDoctorsForPatientSearchAsync(DoctorQueryRequest query);
 
