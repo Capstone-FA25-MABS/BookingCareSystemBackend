@@ -37,6 +37,13 @@ public class VNPayPaymentRequest
     /// Customer information (optional)
     /// </summary>
     public string? CustomerInfo { get; set; }
+
+    /// <summary>
+    /// Order information / metadata (optional)
+    /// Used to pass custom metadata like supplementary payment identifier
+    /// Maps to vnp_OrderInfo parameter in VNPay gateway
+    /// </summary>
+    public string? OrderInfo { get; set; }
 }
 
 /// <summary>

@@ -48,4 +48,11 @@ public interface IDoctorService
     // Optimized methods for gRPC performance
     Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
     Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
+
+    // Get available doctors by hospital, specialty (for Appointment Service)
+    // Note: Availability check (appointment conflicts) is done by Appointment Service
+    Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+
+    // Get doctor price by ID (for Appointment Service - Option 3 reschedule)
+    Task<DoctorPriceResponse?> GetDoctorPriceByIdAsync(Guid priceId);
 }
