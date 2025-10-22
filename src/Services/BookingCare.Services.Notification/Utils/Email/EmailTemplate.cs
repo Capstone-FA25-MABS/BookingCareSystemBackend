@@ -623,11 +623,11 @@ public static class EmailTemplate
     .lead {{ margin:0 0 16px; color:#444; line-height:1.5; }}
     .cancel-box {{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin:16px 0; }}
     .cancel-box strong {{ color:#991b1b; }}
-    .info-item {{ margin:6px 0; font-size:14px; }}
+    .info-item {{ margin:6px 0; font-size:14px; word-break:break-word; }}
     .refund-info {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; margin:16px 0; }}
     .refund-info strong {{ color:#166534; }}
     .options-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:16px 0; }}
-    .option-button {{ display:block; width:100%; padding:12px 16px; margin:8px 0; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:6px; font-weight:600; text-align:center; transition:background 0.3s; font-size:14px; word-wrap:break-word; }}
+    .option-button {{ display:block; width:100%; max-width:100%; padding:12px 16px; margin:8px 0; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:6px; font-weight:600; text-align:center; transition:background 0.3s; font-size:14px; word-wrap:break-word; overflow-wrap:break-word; box-sizing:border-box; }}
     .option-button:hover {{ background:#0284c7; }}
     .option-button.secondary {{ background:#8b5cf6; }}
     .option-button.secondary:hover {{ background:#7c3aed; }}
@@ -635,11 +635,11 @@ public static class EmailTemplate
     .option-button.tertiary:hover {{ background:#059669; }}
     .option-button.danger {{ background:#ef4444; }}
     .option-button.danger:hover {{ background:#dc2626; }}
-    .option-desc {{ font-size:12px; color:#6b7280; margin:4px 0 12px; text-align:center; line-height:1.4; }}
-    .warning {{ background:#fff7ed; border:1px solid #fed7aa; padding:10px; border-radius:6px; margin:12px 0; color:#c2410c; font-size:13px; }}
-    .muted {{ margin-top:12px; color:#6b7280; font-size:12px; }}
+    .option-desc {{ font-size:12px; color:#6b7280; margin:4px 0 12px; text-align:center; line-height:1.4; word-break:break-word; }}
+    .warning {{ background:#fff7ed; border:1px solid #fed7aa; padding:10px; border-radius:6px; margin:12px 0; color:#c2410c; font-size:13px; word-break:break-word; }}
+    .muted {{ margin-top:12px; color:#6b7280; font-size:12px; word-break:break-word; }}
     .divider {{ height:1px; background:#f1f5f9; margin:16px 0; }}
-    .footer {{ padding:12px 20px 16px; color:#6b7280; font-size:11px; text-align:center; }}
+    .footer {{ padding:12px 20px 16px; color:#6b7280; font-size:11px; text-align:center; word-break:break-word; }}
     
     /* Mobile responsive */
     @media only screen and (max-width: 600px) {{

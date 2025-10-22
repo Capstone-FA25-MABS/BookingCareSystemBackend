@@ -20,8 +20,6 @@ using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Extensions;
 using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
 using Microsoft.Extensions.Options;
-using BookingCare.Services.Appointment.Models; // Add using for AppointmentData
-using BookingCare.Shared.Cache.Abstractions;
 using BookingCare.Shared.Cache.Constants;
 using RedisClient = StackExchange.Redis;
 
@@ -573,24 +571,29 @@ public class AppointmentService : BaseService, IAppointmentService
         var appointmentDate = appointment.AppointmentDate;
         var currentTime = DateTime.UtcNow;
 
-        // If appointment is in the future, set expiry to 1 day before appointment
+        // If appointment is in the future, set expiry to END OF DAY before appointment
         // If appointment is today or past, set expiry to end of today
         DateTime expiry;
         if (appointmentDate > currentTime)
         {
-            // Appointment is in the future - expire 1 day before appointment
-            var oneDayBeforeAppointment = appointmentDate.AddDays(-1);
-            expiry = oneDayBeforeAppointment < currentTime.AddDays(7)
-                ? oneDayBeforeAppointment
-                : currentTime.AddDays(7); // But not more than 7 days from now
+            // Appointment is in the future - expire at END OF DAY before appointment (23:59:59)
+            // This ensures token is valid throughout the day before appointment
+            var appointmentDateOnly = appointmentDate.Date; // Get date part only (00:00:00)
+            var endOfDayBeforeAppointment = appointmentDateOnly.AddSeconds(-1); // 23:59:59 of previous day
 
-            LogInfo("Reschedule token expiry calculated for future appointment: {AppointmentDate} -> {Expiry} (1 day before appointment)",
+            // But not more than 7 days from now
+            var maxExpiry = currentTime.AddDays(7);
+            expiry = endOfDayBeforeAppointment < maxExpiry
+                ? endOfDayBeforeAppointment
+                : maxExpiry;
+
+            LogInfo("Reschedule token expiry calculated for future appointment: {AppointmentDate} -> {Expiry} (end of day before appointment)",
                 null, appointmentDate, expiry);
         }
         else
         {
             // Appointment is today or past - expire at end of today
-            expiry = currentTime.Date.AddDays(1).AddSeconds(-1); // End of today
+            expiry = currentTime.Date.AddDays(1).AddSeconds(-1); // End of today (23:59:59)
 
             LogInfo("Reschedule token expiry calculated for past/today appointment: {AppointmentDate} -> {Expiry} (end of today)",
                 null, appointmentDate, expiry);
@@ -1243,7 +1246,7 @@ public class AppointmentService : BaseService, IAppointmentService
             };
 
             // Scenario 1: Same price or no payment - Update directly
-            if (priceDifference == 0 || originalPrice ==0 )
+            if (priceDifference == 0 || originalPrice == 0)
             {
                 // Use appropriate method based on IsStaffAssigned flag
                 if (request.IsStaffAssigned)
