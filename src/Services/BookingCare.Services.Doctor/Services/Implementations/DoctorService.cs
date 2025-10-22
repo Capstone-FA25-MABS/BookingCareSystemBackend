@@ -1988,4 +1988,34 @@ public class DoctorService : BaseService, IDoctorService
 
     #endregion
 
+    #region Avatar Operations
+
+    /// <summary>
+    /// Update doctor avatar URL
+    /// </summary>
+    public async Task<bool> UpdateDoctorAvatarAsync(Guid accountId, string avatarUrl)
+    {
+        try
+        {
+            var doctor = await _repository.Value.GetDoctorByAccountIdAsync(accountId);
+            if (doctor == null)
+            {
+                return false;
+            }
+
+            doctor.AvatarUrl = avatarUrl;
+            doctor.UpdatedAt = DateTime.UtcNow;
+
+            await _repository.Value.UpdateDoctorAsync(doctor);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating doctor avatar for account {AccountId}", accountId);
+            return false;
+        }
+    }
+
+    #endregion
+
 }

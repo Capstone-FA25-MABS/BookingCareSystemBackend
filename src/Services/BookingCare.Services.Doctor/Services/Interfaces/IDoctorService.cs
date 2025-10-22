@@ -51,4 +51,7 @@ public interface IDoctorService
 
     // Doctor count operations
     Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
+
+    // Avatar operations
+    Task<bool> UpdateDoctorAvatarAsync(Guid accountId, string avatarUrl);
 }

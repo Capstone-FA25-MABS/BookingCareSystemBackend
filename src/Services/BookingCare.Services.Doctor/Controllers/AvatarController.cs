@@ -1,5 +1,4 @@
-using BookingCare.Services.User.Services;
-using BookingCare.Services.User.Models.DTOs;
+using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
@@ -7,7 +6,7 @@ using BookingCare.Shared.FileUpload.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BookingCare.Services.User.Controllers;
+namespace BookingCare.Services.Doctor.Controllers;
 
 [ApiController]
 [Produces("application/json")]
@@ -17,21 +16,21 @@ namespace BookingCare.Services.User.Controllers;
 public class AvatarController : BaseApiController
 {
     private readonly FileUploadOrchestrator _uploadOrchestrator;
-    private readonly IUserService _userService;
+    private readonly IDoctorService _doctorService;
     private readonly ILogger<AvatarController> _logger;
 
     public AvatarController(
         FileUploadOrchestrator uploadOrchestrator,
-        IUserService userService,
+        IDoctorService doctorService,
         ILogger<AvatarController> logger)
     {
         _uploadOrchestrator = uploadOrchestrator;
-        _userService = userService;
+        _doctorService = doctorService;
         _logger = logger;
     }
 
     /// <summary>
-    /// Upload user avatar
+    /// Upload doctor avatar
     /// </summary>
     [HttpPost("upload")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -43,23 +42,23 @@ public class AvatarController : BaseApiController
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            // Get current user to check for existing avatar
-            var currentUser = await _userService.GetByAccountIdAsync(accountId);
-            if (currentUser == null)
+            // Get current doctor to check for existing avatar
+            var currentDoctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
+            if (currentDoctor == null)
             {
-                return NotFound("User not found");
+                return NotFound("Doctor not found");
             }
 
             // Delete old avatar if exists (not default avatar)
-            if (!string.IsNullOrEmpty(currentUser.AvatarUrl) &&
-                currentUser.AvatarUrl != "https://bookingcaree.com/user-avatar-default.png")
+            if (!string.IsNullOrEmpty(currentDoctor.AvatarUrl) &&
+                currentDoctor.AvatarUrl != "https://bookingcaree.com/user-avatar-default.png")
             {
                 var deleteConfig = new FileDeletionConfig
                 {
-                    FileUrl = currentUser.AvatarUrl,
+                    FileUrl = currentDoctor.AvatarUrl,
                     ExpectedFolder = "avatars",
                     SuccessMessage = "Old avatar deleted successfully",
-                    EntityType = "avatar"
+                    EntityType = "doctor-avatar"
                 };
 
                 var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, accountId, _logger, cancellationToken);
@@ -74,9 +73,9 @@ public class AvatarController : BaseApiController
             {
                 AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
                 MaxSizeInMB = 5,
-                Folder = "avatars/patients",
-                SuccessMessage = "Avatar uploaded successfully",
-                EntityType = "avatar"
+                Folder = "avatars/doctors",
+                SuccessMessage = "Doctor avatar uploaded successfully",
+                EntityType = "doctor-avatar"
             };
 
             var result = await _uploadOrchestrator.UploadFileAsync(file, config, accountId, _logger, cancellationToken);
@@ -86,13 +85,13 @@ public class AvatarController : BaseApiController
                 return BadRequest(result.ErrorMessage!);
             }
 
-            // Update user avatar URL in database - use CloudFront URL for public access
-            var updateRequest = new UpdateUserRequest
+            // Update doctor avatar URL in database - use CloudFront URL for public access
+            var updateSuccess = await _doctorService.UpdateDoctorAvatarAsync(accountId, result.UploadResult?.CloudFrontUrl ?? result.UploadResult?.FileUrl ?? string.Empty);
+            if (!updateSuccess)
             {
-                AvatarUrl = result.UploadResult?.CloudFrontUrl ?? result.UploadResult?.FileUrl ?? string.Empty
-            };
-
-            await _userService.UpdateByAccountIdAsync(accountId, updateRequest);
+                _logger.LogWarning("Failed to update doctor avatar URL in database for account {AccountId}", accountId);
+                // Don't fail the request since file was uploaded successfully
+            }
 
             return Success(result.UploadResult, config.SuccessMessage);
         }
@@ -103,7 +102,7 @@ public class AvatarController : BaseApiController
     }
 
     /// <summary>
-    /// Delete user avatar
+    /// Delete doctor avatar
     /// </summary>
     [HttpDelete]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -113,23 +112,23 @@ public class AvatarController : BaseApiController
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
-            var user = await _userService.GetByAccountIdAsync(accountId);
-            if (user == null)
+            var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
+            if (doctor == null)
             {
-                return NotFound("User not found");
+                return NotFound("Doctor not found");
             }
 
-            if (string.IsNullOrEmpty(user.AvatarUrl))
+            if (string.IsNullOrEmpty(doctor.AvatarUrl) || doctor.AvatarUrl == "https://bookingcaree.com/user-avatar-default.png")
             {
-                return BadRequest("User has no avatar to delete");
+                return BadRequest("Doctor has no custom avatar to delete");
             }
 
             var config = new FileDeletionConfig
             {
-                FileUrl = user.AvatarUrl,
+                FileUrl = doctor.AvatarUrl,
                 ExpectedFolder = "avatars",
-                SuccessMessage = "Avatar deleted successfully",
-                EntityType = "avatar"
+                SuccessMessage = "Doctor avatar deleted successfully",
+                EntityType = "doctor-avatar"
             };
 
             var result = await _uploadOrchestrator.DeleteFileAsync(config, accountId, _logger, cancellationToken);
@@ -139,7 +138,15 @@ public class AvatarController : BaseApiController
                 return BadRequest(result.ErrorMessage!);
             }
 
-            return Success(new { message = result.Message }, result.Message ?? "Avatar deleted successfully");
+            // Update doctor avatar URL to default in database
+            var updateSuccess = await _doctorService.UpdateDoctorAvatarAsync(accountId, "https://bookingcaree.com/user-avatar-default.png");
+            if (!updateSuccess)
+            {
+                _logger.LogWarning("Failed to update doctor avatar URL to default in database for account {AccountId}", accountId);
+                // Don't fail the request since file was deleted successfully
+            }
+
+            return Success(new { message = result.Message }, result.Message ?? "Doctor avatar deleted successfully");
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -147,4 +154,3 @@ public class AvatarController : BaseApiController
         }
     }
 }
-

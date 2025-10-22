@@ -30,11 +30,11 @@ public abstract class BaseDoctorRequest
     public string? Address { get; set; }
 
     [StringLength(50, MinimumLength = 2, ErrorMessage = "First name must be between 2 and 50 characters")]
-    [RegularExpression(@"^[a-zA-Z\s\-']+$", ErrorMessage = "First name can only contain letters, spaces, hyphens, and apostrophes")]
+    [RegularExpression(@"^[\p{L}\p{M}\s\-']+$", ErrorMessage = "First name can only contain letters (including accents), spaces, hyphens, and apostrophes")]
     public string? FirstName { get; set; }
 
     [StringLength(50, MinimumLength = 2, ErrorMessage = "Last name must be between 2 and 50 characters")]
-    [RegularExpression(@"^[a-zA-Z\s\-']+$", ErrorMessage = "Last name can only contain letters, spaces, hyphens, and apostrophes")]
+    [RegularExpression(@"^[\p{L}\p{M}\s\-']+$", ErrorMessage = "Last name can only contain letters (including accents), spaces, hyphens, and apostrophes")]
     public string? LastName { get; set; }
 
     [EnumDataType(typeof(Gender), ErrorMessage = "Gender must be one of: MALE, FEMALE, OTHER")]
