@@ -72,7 +72,7 @@ public class PaymentRepository : IPaymentRepository
     {
         var baseQuery = _context.Payments
             .Include(p => p.PaymentMethod)
-            .Where(p => p.PatientId == patientId);
+            .Where(p => p.PatientId == patientId && p.Status == PaymentStatus.COMPLETED);
 
         return await GetPagedResultAsync(baseQuery, request);
     }
