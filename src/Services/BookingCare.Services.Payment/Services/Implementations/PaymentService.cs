@@ -125,7 +125,7 @@ public class PaymentService : BaseService, IPaymentService
 
         // Filter payments that have appointment IDs
         var appointmentPayments = payments.Where(p => p.AppointmentId.HasValue).ToList();
-        
+
         if (!appointmentPayments.Any())
             return;
 
@@ -144,7 +144,7 @@ public class PaymentService : BaseService, IPaymentService
                 }
                 else
                 {
-                    LogWarning("Could not retrieve appointment details for AppointmentId: {AppointmentId}", 
+                    LogWarning("Could not retrieve appointment details for AppointmentId: {AppointmentId}",
                         null, payment.AppointmentId.Value);
                 }
             }

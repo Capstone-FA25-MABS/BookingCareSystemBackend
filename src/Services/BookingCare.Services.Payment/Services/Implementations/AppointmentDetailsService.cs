@@ -1,5 +1,6 @@
-using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Services.Appointment.Protos;
+using BookingCare.Services.Payment.Services.Interfaces;
+using BookingCare.Shared.Common.Extensions;
 using Grpc.Core;
 
 namespace BookingCare.Services.Payment.Services.Implementations;
@@ -29,6 +30,7 @@ public class AppointmentDetailsService : IAppointmentDetailsService
     {
         try
         {
+
             _logger.LogDebug("Getting appointment details for ID: {AppointmentId}", appointmentId);
 
             var request = new GetAppointmentDetailsRequest
@@ -56,16 +58,16 @@ public class AppointmentDetailsService : IAppointmentDetailsService
             var appointmentDetails = new AppointmentDetailsDto
             {
                 AppointmentId = appointmentId,
-                AppointmentDate = DateTime.Parse(response.Appointment.AppointmentDate),
+                AppointmentDate = DateTime.Parse(response.Appointment.AppointmentDate, System.Globalization.CultureInfo.InvariantCulture),
                 AppointmentType = appointmentTypeString,
-                DoctorId = !string.IsNullOrEmpty(response.Appointment.DoctorId) 
-                    ? Guid.Parse(response.Appointment.DoctorId) 
+                DoctorId = !string.IsNullOrEmpty(response.Appointment.DoctorId)
+                    ? Guid.Parse(response.Appointment.DoctorId)
                     : null,
-                ServiceId = !string.IsNullOrEmpty(response.Appointment.ServiceId) 
-                    ? Guid.Parse(response.Appointment.ServiceId) 
+                ServiceId = !string.IsNullOrEmpty(response.Appointment.ServiceId)
+                    ? Guid.Parse(response.Appointment.ServiceId)
                     : null,
-                HospitalId = !string.IsNullOrEmpty(response.Appointment.HospitalId) 
-                    ? Guid.Parse(response.Appointment.HospitalId) 
+                HospitalId = !string.IsNullOrEmpty(response.Appointment.HospitalId)
+                    ? Guid.Parse(response.Appointment.HospitalId)
                     : null
             };
 

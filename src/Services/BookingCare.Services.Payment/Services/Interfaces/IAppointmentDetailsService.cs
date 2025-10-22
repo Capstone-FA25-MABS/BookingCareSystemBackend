@@ -10,6 +10,7 @@ public interface IAppointmentDetailsService
     /// </summary>
     /// <param name="appointmentId">The appointment ID</param>
     /// <returns>Appointment details or null if not found</returns>
+
     Task<AppointmentDetailsDto?> GetAppointmentDetailsAsync(Guid appointmentId);
 }
 
