@@ -293,8 +293,6 @@ public class PayOSController : BasePaymentGatewayController
         string requestId,
         Func<PaymentResponse, PayOSCallbackResponse, string, IActionResult> createResponseFunc)
     {
-        var appointmentId = payment.AppointmentId;
-
         // PayOS-specific: Extract metadata by querying payment info
         string? metadata = null;
         Guid? suppAppointmentId = null;

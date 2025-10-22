@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Shared.Common.Enums;
+using System.Text.Json.Serialization;
 
 namespace BookingCare.Services.Appointment.Models.DTOs;
 
@@ -94,21 +95,25 @@ public class RescheduleOptionsSelection
     /// <summary>
     /// Option 1: Allow patient to reschedule with same doctor
     /// </summary>
+    [JsonRequired]
     public bool EnableSameDoctorReschedule { get; set; }
 
     /// <summary>
     /// Option 2: Allow staff to assign new doctor
     /// </summary>
+    [JsonRequired]
     public bool EnableNewDoctorAssignment { get; set; }
 
     /// <summary>
     /// Option 3: Allow patient to choose new doctor
     /// </summary>
+    [JsonRequired]
     public bool EnableDoctorSelection { get; set; }
 
     /// <summary>
     /// Option 4: Allow patient to request refund
     /// </summary>
+    [JsonRequired]
     public bool EnableRefundRequest { get; set; }
 }
 

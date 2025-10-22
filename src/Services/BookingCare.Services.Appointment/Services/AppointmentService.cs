@@ -563,82 +563,11 @@ public class AppointmentService : BaseService, IAppointmentService
         AppointmentEntity appointment,
         RescheduleOptionsSelection? selectedOptions = null)
     {
-        // Generate reschedule token
         var token = Guid.NewGuid().ToString("N");
+        var expiry = CalculateRescheduleTokenExpiry(appointment.AppointmentDate);
+        var urls = GenerateRescheduleUrls(appointment, token, selectedOptions);
 
-        // Calculate expiry based on appointment date - more logical approach
-        // Token should expire BEFORE the original appointment date
-        var appointmentDate = appointment.AppointmentDate;
-        var currentTime = DateTime.UtcNow;
-
-        // If appointment is in the future, set expiry to END OF DAY before appointment
-        // If appointment is today or past, set expiry to end of today
-        DateTime expiry;
-        if (appointmentDate > currentTime)
-        {
-            // Appointment is in the future - expire at END OF DAY before appointment (23:59:59)
-            // This ensures token is valid throughout the day before appointment
-            var appointmentDateOnly = appointmentDate.Date; // Get date part only (00:00:00)
-            var endOfDayBeforeAppointment = appointmentDateOnly.AddSeconds(-1); // 23:59:59 of previous day
-
-            // But not more than 7 days from now
-            var maxExpiry = currentTime.AddDays(7);
-            expiry = endOfDayBeforeAppointment < maxExpiry
-                ? endOfDayBeforeAppointment
-                : maxExpiry;
-
-            LogInfo("Reschedule token expiry calculated for future appointment: {AppointmentDate} -> {Expiry} (end of day before appointment)",
-                null, appointmentDate, expiry);
-        }
-        else
-        {
-            // Appointment is today or past - expire at end of today
-            expiry = currentTime.Date.AddDays(1).AddSeconds(-1); // End of today (23:59:59)
-
-            LogInfo("Reschedule token expiry calculated for past/today appointment: {AppointmentDate} -> {Expiry} (end of today)",
-                null, appointmentDate, expiry);
-        }
-
-        // Frontend base URL from configuration
-        var frontendBaseUrl = _frontendConfig.BaseUrl;
-
-        // Conditional URL generation based on appointment type AND selected options
-        string? sameDoctorUrl = null;
-        string? confirmDoctorUrl = null;
-        string? chooseNewDoctorUrl = null;
-        string? refundUrl = null;
-
-        // If no options specified, generate all URLs (backward compatibility)
-        var generateAll = selectedOptions == null;
-
-        // Option 1: Reschedule with same doctor (only if doctor-based appointment)
-        if (appointment.DoctorId.HasValue && (generateAll || selectedOptions!.EnableSameDoctorReschedule))
-        {
-            sameDoctorUrl = $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}";
-        }
-
-        // Option 2: Confirm new doctor assigned by staff (only if doctor-based appointment AND has assigned doctor)
-        // Note: This URL is only generated AFTER staff assigns a doctor via AssignNewDoctorAsync
-        if (appointment.DoctorId.HasValue &&
-            appointment.AssignedDoctorId.HasValue &&
-            (generateAll || selectedOptions!.EnableNewDoctorAssignment))
-        {
-            confirmDoctorUrl = $"{frontendBaseUrl}/booking/confirm-doctor/{appointment.Id}?token={token}&newDoctorId={appointment.AssignedDoctorId}";
-        }
-
-        // Option 3: Choose new doctor yourself
-        if (generateAll || selectedOptions!.EnableDoctorSelection)
-        {
-            chooseNewDoctorUrl = $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}";
-        }
-
-        // Option 4: Request refund
-        if (generateAll || selectedOptions!.EnableRefundRequest)
-        {
-            refundUrl = $"{frontendBaseUrl}/booking/refund/{appointment.Id}?token={token}";
-        }
-
-        await Task.CompletedTask; // Satisfy async requirement
+        await Task.CompletedTask;
 
         return new RescheduleResponse
         {
@@ -648,11 +577,82 @@ public class AppointmentService : BaseService, IAppointmentService
             Message = appointment.DoctorId.HasValue
                 ? "Appointment cancelled. You can reschedule or request a refund."
                 : "Appointment cancelled. You can book a new service or request a refund.",
-            SameDoctorRescheduleUrl = sameDoctorUrl,
-            ConfirmNewDoctorUrl = confirmDoctorUrl,
-            ChooseNewDoctorUrl = chooseNewDoctorUrl,
-            RefundRequestUrl = refundUrl
+            SameDoctorRescheduleUrl = urls.SameDoctorUrl,
+            ConfirmNewDoctorUrl = urls.ConfirmDoctorUrl,
+            ChooseNewDoctorUrl = urls.ChooseNewDoctorUrl,
+            RefundRequestUrl = urls.RefundUrl
         };
+    }
+
+    /// <summary>
+    /// Calculate reschedule token expiry based on appointment date
+    /// </summary>
+    private DateTime CalculateRescheduleTokenExpiry(DateTime appointmentDate)
+    {
+        var currentTime = DateTime.UtcNow;
+
+        if (appointmentDate > currentTime)
+        {
+            var appointmentDateOnly = appointmentDate.Date;
+            var endOfDayBeforeAppointment = appointmentDateOnly.AddSeconds(-1);
+            var maxExpiry = currentTime.AddDays(7);
+            var expiry = endOfDayBeforeAppointment < maxExpiry ? endOfDayBeforeAppointment : maxExpiry;
+
+            LogInfo("Reschedule token expiry calculated for future appointment: {AppointmentDate} -> {Expiry} (end of day before appointment)",
+                null, appointmentDate, expiry);
+            return expiry;
+        }
+
+        var endOfToday = currentTime.Date.AddDays(1).AddSeconds(-1);
+        LogInfo("Reschedule token expiry calculated for past/today appointment: {AppointmentDate} -> {Expiry} (end of today)",
+            null, appointmentDate, endOfToday);
+        return endOfToday;
+    }
+
+    /// <summary>
+    /// Generate reschedule URLs based on selected options
+    /// </summary>
+    private (string? SameDoctorUrl, string? ConfirmDoctorUrl, string? ChooseNewDoctorUrl, string? RefundUrl) GenerateRescheduleUrls(
+        AppointmentEntity appointment, string token, RescheduleOptionsSelection? selectedOptions)
+    {
+        var frontendBaseUrl = _frontendConfig.BaseUrl;
+        var generateAll = selectedOptions == null;
+
+        var sameDoctorUrl = ShouldGenerateSameDoctorUrl(appointment, generateAll, selectedOptions)
+            ? $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}"
+            : null;
+
+        var confirmDoctorUrl = ShouldGenerateConfirmDoctorUrl(appointment, generateAll, selectedOptions)
+            ? $"{frontendBaseUrl}/booking/confirm-doctor/{appointment.Id}?token={token}&newDoctorId={appointment.AssignedDoctorId}"
+            : null;
+
+        var chooseNewDoctorUrl = (generateAll || selectedOptions!.EnableDoctorSelection)
+            ? $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}"
+            : null;
+
+        var refundUrl = (generateAll || selectedOptions!.EnableRefundRequest)
+            ? $"{frontendBaseUrl}/booking/refund/{appointment.Id}?token={token}"
+            : null;
+
+        return (sameDoctorUrl, confirmDoctorUrl, chooseNewDoctorUrl, refundUrl);
+    }
+
+    /// <summary>
+    /// Check if should generate same doctor reschedule URL
+    /// </summary>
+    private bool ShouldGenerateSameDoctorUrl(AppointmentEntity appointment, bool generateAll, RescheduleOptionsSelection? selectedOptions)
+    {
+        return appointment.DoctorId.HasValue && (generateAll || selectedOptions!.EnableSameDoctorReschedule);
+    }
+
+    /// <summary>
+    /// Check if should generate confirm new doctor URL
+    /// </summary>
+    private bool ShouldGenerateConfirmDoctorUrl(AppointmentEntity appointment, bool generateAll, RescheduleOptionsSelection? selectedOptions)
+    {
+        return appointment.DoctorId.HasValue &&
+               appointment.AssignedDoctorId.HasValue &&
+               (generateAll || selectedOptions!.EnableNewDoctorAssignment);
     }
 
     /// <summary>
@@ -952,27 +952,8 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogInfo("Rescheduling appointment {AppointmentId} with same doctor", null, request.AppointmentId);
 
-            // Get and validate appointment
-            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
-            if (appointment == null)
-            {
-                throw new AppointmentNotFoundException(request.AppointmentId);
-            }
-
-            // Validate appointment is cancelled
-            if (appointment.Status != AppointmentStatus.CANCELLED)
-            {
-                throw new AppointmentException("Only cancelled appointments can be rescheduled");
-            }
-
-            // Validate reschedule token
-            if (string.IsNullOrEmpty(appointment.RescheduleToken) ||
-                appointment.RescheduleToken != request.RescheduleToken ||
-                appointment.RescheduleTokenExpiry == null ||
-                appointment.RescheduleTokenExpiry < DateTime.UtcNow)
-            {
-                throw new AppointmentException("Invalid or expired reschedule token");
-            }
+            // Get and validate appointment (common validation logic extracted)
+            var appointment = await ValidateRescheduleEligibilityAsync(request.AppointmentId, request.RescheduleToken, "be rescheduled");
 
             // Check doctor availability
             if (appointment.DoctorId.HasValue)
@@ -1025,82 +1006,114 @@ public class AppointmentService : BaseService, IAppointmentService
                 throw new AppointmentNotFoundException(request.AppointmentId);
             }
 
-            // STEP 1: Assign doctor first (before cancellation to ensure AssignedDoctorId is set)
-            LogInfo("Assigning doctor {DoctorId} to appointment {AppointmentId} before cancellation",
-                null, request.NewDoctorId, request.AppointmentId);
+            // STEP 1: Assign doctor and create soft reservation
+            await AssignDoctorWithSoftReservationAsync(appointment, request);
 
-            // Determine final date/time (use provided or keep original)
-            var finalDate = request.NewAppointmentDate ?? appointment.AppointmentDate;
-            var finalTime = request.NewAppointmentTimeId ?? appointment.AppointmentTimeId;
-
-            // Check doctor availability (respects soft reservations)
-            var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
-                request.NewDoctorId, finalDate, finalTime);
-            if (!isDoctorAvailable)
-            {
-                throw new DoctorNotAvailableException(request.NewDoctorId, finalDate);
-            }
-
-            // Assign doctor and create soft reservation (48 hours)
-            appointment.AssignedDoctorId = request.NewDoctorId;
-            appointment.SoftReservedUntil = DateTime.UtcNow.AddHours(48);
-
-            // Update date/time if changed
-            if (request.NewAppointmentDate.HasValue)
-            {
-                appointment.AppointmentDate = request.NewAppointmentDate.Value;
-            }
-            if (request.NewAppointmentTimeId.HasValue)
-            {
-                appointment.AppointmentTimeId = request.NewAppointmentTimeId.Value;
-            }
-
-            // STEP 2: Cancel appointment with reschedule options (now AssignedDoctorId is set)
-            if (appointment.Status != AppointmentStatus.CANCELLED)
-            {
-                LogInfo("Appointment {AppointmentId} is not cancelled yet, cancelling now with assigned doctor...", null, request.AppointmentId);
-
-                // Cancel the appointment with reschedule options enabled
-                var cancelRequest = new CancelAppointmentRequest
-                {
-                    AppointmentId = request.AppointmentId,
-                    CancellationReason = request.CancellationReason ?? "Staff is assigning a new doctor",
-                    CancelledByStaffId = request.AssignedByStaffId,
-                    EnableRescheduleOptions = true
-                };
-
-                await CancelAppointmentAsync(cancelRequest);
-
-                // Reload appointment to get updated status and reschedule token
-                appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
-                if (appointment == null)
-                {
-                    throw new AppointmentNotFoundException(request.AppointmentId);
-                }
-            }
-            else
-            {
-                // Appointment already cancelled, just validate reschedule token exists
-                if (string.IsNullOrEmpty(appointment.RescheduleToken) ||
-                    appointment.RescheduleTokenExpiry == null ||
-                    appointment.RescheduleTokenExpiry < DateTime.UtcNow)
-                {
-                    throw new AppointmentException("Reschedule token is missing or expired for cancelled appointment");
-                }
-            }
+            // STEP 2: Cancel appointment with reschedule options (if needed)
+            appointment = await EnsureAppointmentIsCancelledAsync(appointment, request);
 
             // STEP 3: Update appointment with assigned doctor info
             await _appointmentRepository.UpdateAppointmentAsync(appointment);
 
             // Generate confirmation URL for patient
-            var frontendBaseUrl = _frontendConfig.BaseUrl;
-            var confirmUrl = $"{frontendBaseUrl}/booking/confirm-doctor/{appointment.Id}?token={appointment.RescheduleToken}&newDoctorId={appointment.AssignedDoctorId}";
+            var confirmUrl = GenerateDoctorConfirmationUrl(appointment);
 
             LogInfo("Successfully assigned doctor {DoctorId} to appointment {AppointmentId} with soft reservation until {Expiry}",
                 null, request.NewDoctorId, request.AppointmentId, appointment.SoftReservedUntil!);
 
             return confirmUrl;
         }, "AssignNewDoctor");
+    }
+
+    /// <summary>
+    /// Assign doctor and create soft reservation for the appointment
+    /// </summary>
+    private async Task AssignDoctorWithSoftReservationAsync(AppointmentEntity appointment, AssignNewDoctorRequest request)
+    {
+        LogInfo("Assigning doctor {DoctorId} to appointment {AppointmentId} before cancellation",
+            null, request.NewDoctorId, appointment.Id);
+
+        // Determine final date/time (use provided or keep original)
+        var finalDate = request.NewAppointmentDate ?? appointment.AppointmentDate;
+        var finalTime = request.NewAppointmentTimeId ?? appointment.AppointmentTimeId;
+
+        // Check doctor availability (respects soft reservations)
+        var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
+            request.NewDoctorId, finalDate, finalTime);
+        if (!isDoctorAvailable)
+        {
+            throw new DoctorNotAvailableException(request.NewDoctorId, finalDate);
+        }
+
+        // Assign doctor and create soft reservation (48 hours)
+        appointment.AssignedDoctorId = request.NewDoctorId;
+        appointment.SoftReservedUntil = DateTime.UtcNow.AddHours(48);
+
+        // Update date/time if changed
+        if (request.NewAppointmentDate.HasValue)
+        {
+            appointment.AppointmentDate = request.NewAppointmentDate.Value;
+        }
+        if (request.NewAppointmentTimeId.HasValue)
+        {
+            appointment.AppointmentTimeId = request.NewAppointmentTimeId.Value;
+        }
+    }
+
+    /// <summary>
+    /// Ensure appointment is cancelled with reschedule options
+    /// </summary>
+    private async Task<AppointmentEntity> EnsureAppointmentIsCancelledAsync(AppointmentEntity appointment, AssignNewDoctorRequest request)
+    {
+        if (appointment.Status != AppointmentStatus.CANCELLED)
+        {
+            LogInfo("Appointment {AppointmentId} is not cancelled yet, cancelling now with assigned doctor...", null, appointment.Id);
+
+            // Cancel the appointment with reschedule options enabled
+            var cancelRequest = new CancelAppointmentRequest
+            {
+                AppointmentId = appointment.Id,
+                CancellationReason = request.CancellationReason ?? "Staff is assigning a new doctor",
+                CancelledByStaffId = request.AssignedByStaffId,
+                EnableRescheduleOptions = true
+            };
+
+            await CancelAppointmentAsync(cancelRequest);
+
+            // Reload appointment to get updated status and reschedule token
+            var updatedAppointment = await _appointmentRepository.GetAppointmentByIdAsync(appointment.Id);
+            if (updatedAppointment == null)
+            {
+                throw new AppointmentNotFoundException(appointment.Id);
+            }
+            return updatedAppointment;
+        }
+
+        // Appointment already cancelled, just validate reschedule token exists
+        ValidateRescheduleToken(appointment);
+        return appointment;
+    }
+
+    /// <summary>
+    /// Validate reschedule token for cancelled appointment
+    /// </summary>
+    private void ValidateRescheduleToken(AppointmentEntity appointment)
+    {
+        if (string.IsNullOrEmpty(appointment.RescheduleToken) ||
+            appointment.RescheduleTokenExpiry == null ||
+            appointment.RescheduleTokenExpiry < DateTime.UtcNow)
+        {
+            throw new AppointmentException("Reschedule token is missing or expired for cancelled appointment");
+        }
+    }
+
+    /// <summary>
+    /// Generate confirmation URL for patient to confirm assigned doctor
+    /// </summary>
+    private string GenerateDoctorConfirmationUrl(AppointmentEntity appointment)
+    {
+        var frontendBaseUrl = _frontendConfig.BaseUrl;
+        return $"{frontendBaseUrl}/booking/confirm-doctor/{appointment.Id}?token={appointment.RescheduleToken}&newDoctorId={appointment.AssignedDoctorId}";
     }
 
     /// <summary>
@@ -1114,27 +1127,8 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogInfo("Patient requesting refund for appointment {AppointmentId}", null, request.AppointmentId);
 
-            // Get and validate appointment
-            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
-            if (appointment == null)
-            {
-                throw new AppointmentNotFoundException(request.AppointmentId);
-            }
-
-            // Validate appointment is cancelled
-            if (appointment.Status != AppointmentStatus.CANCELLED)
-            {
-                throw new AppointmentException("Only cancelled appointments can request refund");
-            }
-
-            // Validate reschedule token
-            if (string.IsNullOrEmpty(appointment.RescheduleToken) ||
-                appointment.RescheduleToken != request.RescheduleToken ||
-                appointment.RescheduleTokenExpiry == null ||
-                appointment.RescheduleTokenExpiry < DateTime.UtcNow)
-            {
-                throw new AppointmentException("Invalid or expired reschedule token");
-            }
+            // Get and validate appointment (common validation logic extracted)
+            var appointment = await ValidateRescheduleEligibilityAsync(request.AppointmentId, request.RescheduleToken, "request refund");
 
             // Calculate refund percentage
             var now = DateTime.UtcNow;
@@ -1197,46 +1191,13 @@ public class AppointmentService : BaseService, IAppointmentService
             LogInfo("Patient choosing new doctor {DoctorId} for appointment {AppointmentId}",
                 null, request.NewDoctorId, request.AppointmentId);
 
-            // Get and validate appointment
-            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
-            if (appointment == null)
-            {
-                throw new AppointmentNotFoundException(request.AppointmentId);
-            }
+            // Validate and get appointment
+            var appointment = await ValidateChooseNewDoctorRequestAsync(request);
 
-            // Validate appointment is cancelled
-            if (appointment.Status != AppointmentStatus.CANCELLED)
-            {
-                throw new AppointmentException("Only cancelled appointments can choose new doctor");
-            }
+            // Calculate price difference
+            var (originalPrice, newPrice, priceDifference) = await CalculatePriceDifferenceAsync(appointment, request);
 
-            // Validate reschedule token
-            if (string.IsNullOrEmpty(appointment.RescheduleToken) ||
-                appointment.RescheduleToken != request.RescheduleToken ||
-                appointment.RescheduleTokenExpiry == null ||
-                appointment.RescheduleTokenExpiry < DateTime.UtcNow)
-            {
-                throw new AppointmentException("Invalid or expired reschedule token");
-            }
-
-            // Check new doctor availability
-            if (!request.IsStaffAssigned)
-            {
-                var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
-                request.NewDoctorId, request.NewAppointmentDate, request.NewAppointmentTimeId);
-                if (!isDoctorAvailable)
-                {
-                    throw new DoctorNotAvailableException(request.NewDoctorId, request.NewAppointmentDate);
-                }
-            }
-
-            // Get original payment amount from Payment Service
-            var originalPrice = await GetAppointmentPaymentAmountAsync(appointment.Id);
-
-            // Get new doctor price from Doctor Service
-            var newPrice = await GetDoctorPriceAsync(request.DoctorPriceId);
-
-            var priceDifference = (newPrice * (decimal)0.3) - originalPrice;
+            // Create response object
             var response = new ChooseNewDoctorResponse
             {
                 AppointmentId = appointment.Id,
@@ -1245,77 +1206,18 @@ public class AppointmentService : BaseService, IAppointmentService
                 PriceDifference = Math.Abs(priceDifference)
             };
 
-            // Scenario 1: Same price or no payment - Update directly
+            // Handle different price scenarios
             if (priceDifference == 0 || originalPrice == 0)
             {
-                // Use appropriate method based on IsStaffAssigned flag
-                if (request.IsStaffAssigned)
-                {
-                    await ConfirmNewDoctorAsync(appointment);
-                    LogInfo("Confirmed staff-assigned doctor {DoctorId} for appointment {AppointmentId}",
-                        null, request.NewDoctorId, appointment.Id);
-                }
-                else
-                {
-                    await UpdateAppointmentWithNewDoctorAsync(appointment, request);
-                }
-
-                response.Action = "direct_update";
-                response.Message = "Appointment updated successfully with new doctor";
+                await HandleSamePriceScenarioAsync(appointment, request, response);
             }
-            // Scenario 2: Higher price - Need additional payment
-            // Save pending changes, will be applied after successful supplementary payment
             else if (priceDifference > 0)
             {
-                if (!request.IsStaffAssigned)
-                {
-                    // Store pending new doctor info (will be applied after successful payment callback)
-                    appointment.PendingNewDoctorId = request.NewDoctorId;
-                    appointment.PendingNewAppointmentDate = request.NewAppointmentDate;
-                    appointment.PendingNewAppointmentTimeId = request.NewAppointmentTimeId;
-                    await _appointmentRepository.UpdateAppointmentAsync(appointment);
-
-                    LogInfo("Saved pending doctor change for appointment {AppointmentId} (IsStaffAssigned={IsStaffAssigned}) - will apply after payment",
-                        null, appointment.Id, request.IsStaffAssigned);
-                }
-                response.Action = "payment_required";
-                response.Message = $"Additional payment required: {priceDifference:N0} VND. Appointment will be updated after successful payment.";
-
+                await HandleHigherPriceScenarioAsync(appointment, request, priceDifference, response);
             }
-            // Scenario 3: Lower price - Publish immediate refund event
             else
             {
-                var refundAmount = Math.Abs(priceDifference);
-
-                // Get doctor information for refund history transparency
-                var originalDoctorInfo = await GetDoctorBasicInfoAsync(appointment.DoctorId!.Value);
-                var newDoctorInfo = await GetDoctorBasicInfoAsync(request.NewDoctorId);
-                var patientInfo = await GetPatientInfoForNotificationAsync(appointment.PatientId);
-
-                // Update appointment with new doctor (use appropriate method based on IsStaffAssigned)
-                if (request.IsStaffAssigned)
-                {
-                    await ConfirmNewDoctorAsync(appointment);
-                    LogInfo("Confirmed staff-assigned doctor {DoctorId} with refund for appointment {AppointmentId}",
-                        null, request.NewDoctorId, appointment.Id);
-                }
-                else
-                {
-                    await UpdateAppointmentWithNewDoctorAsync(appointment, request);
-                }
-
-                // Publish immediate refund event with doctor change context
-                await PublishDoctorChangeRefundEventAsync(
-                    appointment,
-                    refundAmount,
-                    originalPrice,
-                    (newPrice * (decimal)0.3),
-                    originalDoctorInfo,
-                    newDoctorInfo,
-                    patientInfo);
-
-                response.Action = "refund_created";
-                response.Message = $"Appointment updated. Refund of {refundAmount:N0} VND will be processed automatically";
+                await HandleLowerPriceScenarioAsync(appointment, request, originalPrice, newPrice, priceDifference, response);
             }
 
             LogInfo("Successfully processed choose new doctor for appointment {AppointmentId} - Action: {Action}",
@@ -1323,6 +1225,148 @@ public class AppointmentService : BaseService, IAppointmentService
 
             return response;
         }, "ChooseNewDoctor");
+    }
+
+    /// <summary>
+    /// Validate choose new doctor request and return appointment
+    /// </summary>
+    private async Task<AppointmentEntity> ValidateChooseNewDoctorRequestAsync(ChooseNewDoctorRequest request)
+    {
+        // Get and validate appointment
+        var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
+        if (appointment == null)
+        {
+            throw new AppointmentNotFoundException(request.AppointmentId);
+        }
+
+        // Validate appointment is cancelled
+        if (appointment.Status != AppointmentStatus.CANCELLED)
+        {
+            throw new AppointmentException("Only cancelled appointments can choose new doctor");
+        }
+
+        // Validate reschedule token
+        if (string.IsNullOrEmpty(appointment.RescheduleToken) ||
+            appointment.RescheduleToken != request.RescheduleToken ||
+            appointment.RescheduleTokenExpiry == null ||
+            appointment.RescheduleTokenExpiry < DateTime.UtcNow)
+        {
+            throw new AppointmentException("Invalid or expired reschedule token");
+        }
+
+        // Check new doctor availability (only for patient-chosen doctors)
+        if (!request.IsStaffAssigned)
+        {
+            var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
+                request.NewDoctorId, request.NewAppointmentDate, request.NewAppointmentTimeId);
+            if (!isDoctorAvailable)
+            {
+                throw new DoctorNotAvailableException(request.NewDoctorId, request.NewAppointmentDate);
+            }
+        }
+
+        return appointment;
+    }
+
+    /// <summary>
+    /// Calculate price difference between original and new doctor
+    /// </summary>
+    private async Task<(decimal originalPrice, decimal newPrice, decimal priceDifference)> CalculatePriceDifferenceAsync(
+        AppointmentEntity appointment, ChooseNewDoctorRequest request)
+    {
+        // Get original payment amount from Payment Service
+        var originalPrice = await GetAppointmentPaymentAmountAsync(appointment.Id);
+
+        // Get new doctor price from Doctor Service
+        var newPrice = await GetDoctorPriceAsync(request.DoctorPriceId);
+
+        var priceDifference = (newPrice * (decimal)0.3) - originalPrice;
+
+        return (originalPrice, newPrice, priceDifference);
+    }
+
+    /// <summary>
+    /// Handle same price scenario - Direct update
+    /// </summary>
+    private async Task HandleSamePriceScenarioAsync(
+        AppointmentEntity appointment, ChooseNewDoctorRequest request, ChooseNewDoctorResponse response)
+    {
+        // Use appropriate method based on IsStaffAssigned flag
+        if (request.IsStaffAssigned)
+        {
+            await ConfirmNewDoctorAsync(appointment, request);
+            LogInfo("Confirmed staff-assigned doctor {DoctorId} for appointment {AppointmentId}",
+                null, request.NewDoctorId, appointment.Id);
+        }
+        else
+        {
+            await UpdateAppointmentWithNewDoctorAsync(appointment, request);
+        }
+
+        response.Action = "direct_update";
+        response.Message = "Appointment updated successfully with new doctor";
+    }
+
+    /// <summary>
+    /// Handle higher price scenario - Need additional payment
+    /// </summary>
+    private async Task HandleHigherPriceScenarioAsync(
+        AppointmentEntity appointment, ChooseNewDoctorRequest request, decimal priceDifference, ChooseNewDoctorResponse response)
+    {
+        if (!request.IsStaffAssigned)
+        {
+            // Store pending new doctor info (will be applied after successful payment callback)
+            appointment.PendingNewDoctorId = request.NewDoctorId;
+            appointment.PendingNewAppointmentDate = request.NewAppointmentDate;
+            appointment.PendingNewAppointmentTimeId = request.NewAppointmentTimeId;
+            appointment.PendingIsStaffAssigned = request.IsStaffAssigned;
+            await _appointmentRepository.UpdateAppointmentAsync(appointment);
+
+            LogInfo("Saved pending doctor change for appointment {AppointmentId} (IsStaffAssigned={IsStaffAssigned}) - will apply after payment",
+                null, appointment.Id, request.IsStaffAssigned);
+        }
+        response.Action = "payment_required";
+        response.Message = $"Additional payment required: {priceDifference:N0} VND. Appointment will be updated after successful payment.";
+    }
+
+    /// <summary>
+    /// Handle lower price scenario - Publish immediate refund event
+    /// </summary>
+    private async Task HandleLowerPriceScenarioAsync(
+        AppointmentEntity appointment, ChooseNewDoctorRequest request,
+        decimal originalPrice, decimal newPrice, decimal priceDifference, ChooseNewDoctorResponse response)
+    {
+        var refundAmount = Math.Abs(priceDifference);
+
+        // Get doctor information for refund history transparency
+        var originalDoctorInfo = await GetDoctorBasicInfoAsync(appointment.DoctorId!.Value);
+        var newDoctorInfo = await GetDoctorBasicInfoAsync(request.NewDoctorId);
+        var patientInfo = await GetPatientInfoForNotificationAsync(appointment.PatientId);
+
+        // Update appointment with new doctor (use appropriate method based on IsStaffAssigned)
+        if (request.IsStaffAssigned)
+        {
+            await ConfirmNewDoctorAsync(appointment, request);
+            LogInfo("Confirmed staff-assigned doctor {DoctorId} with refund for appointment {AppointmentId}",
+                null, request.NewDoctorId, appointment.Id);
+        }
+        else
+        {
+            await UpdateAppointmentWithNewDoctorAsync(appointment, request);
+        }
+
+        // Publish immediate refund event with doctor change context
+        await PublishDoctorChangeRefundEventAsync(
+            appointment,
+            refundAmount,
+            originalPrice,
+            (newPrice * (decimal)0.3),
+            originalDoctorInfo,
+            newDoctorInfo,
+            patientInfo);
+
+        response.Action = "refund_created";
+        response.Message = $"Appointment updated. Refund of {refundAmount:N0} VND will be processed automatically";
     }
 
     #endregion
@@ -1973,6 +2017,40 @@ public class AppointmentService : BaseService, IAppointmentService
             };
 
         }, "GetAvailableDoctors");
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Validate appointment exists, is cancelled, and has valid reschedule token
+    /// </summary>
+    private async Task<AppointmentEntity> ValidateRescheduleEligibilityAsync(Guid appointmentId, string rescheduleToken, string errorContext)
+    {
+        // Get and validate appointment
+        var appointment = await _appointmentRepository.GetAppointmentByIdAsync(appointmentId);
+        if (appointment == null)
+        {
+            throw new AppointmentNotFoundException(appointmentId);
+        }
+
+        // Validate appointment is cancelled
+        if (appointment.Status != AppointmentStatus.CANCELLED)
+        {
+            throw new AppointmentException($"Only cancelled appointments can {errorContext}");
+        }
+
+        // Validate reschedule token
+        if (string.IsNullOrEmpty(appointment.RescheduleToken) ||
+            appointment.RescheduleToken != rescheduleToken ||
+            appointment.RescheduleTokenExpiry == null ||
+            appointment.RescheduleTokenExpiry < DateTime.UtcNow)
+        {
+            throw new AppointmentException("Invalid or expired reschedule token");
+        }
+
+        return appointment;
     }
 
     #endregion

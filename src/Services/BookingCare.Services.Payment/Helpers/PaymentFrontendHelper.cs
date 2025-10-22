@@ -74,34 +74,12 @@ public static class PaymentFrontendHelper
 
             var response = await appointmentClient.GetDoctorIdByAppointmentIdAsync(request);
 
-            Guid? doctorId = null;
-            Guid? pendingDoctorId = null;
-            Guid? assignedDoctorId = null;
-            Guid? hospitalId = null;
-            Guid? specialtyId = null;
-            string? rescheduleToken = null;
-
-            if (response.Success)
+            if (!response.Success)
             {
-                if (!string.IsNullOrEmpty(response.DoctorId) && Guid.TryParse(response.DoctorId, out var parsedDoctorId))
-                    doctorId = parsedDoctorId;
-
-                if (!string.IsNullOrEmpty(response.PendingDoctorId) && Guid.TryParse(response.PendingDoctorId, out var parsedPendingDoctorId))
-                    pendingDoctorId = parsedPendingDoctorId;
-
-                if (!string.IsNullOrEmpty(response.AssignedDoctorId) && Guid.TryParse(response.AssignedDoctorId, out var parsedAssignedDoctorId))
-                    assignedDoctorId = parsedAssignedDoctorId;
-
-                if (!string.IsNullOrEmpty(response.HospitalId) && Guid.TryParse(response.HospitalId, out var parsedHospitalId))
-                    hospitalId = parsedHospitalId;
-
-                if (!string.IsNullOrEmpty(response.SpecialtyId) && Guid.TryParse(response.SpecialtyId, out var parsedSpecialtyId))
-                    specialtyId = parsedSpecialtyId;
-
-                rescheduleToken = response.RescheduleToken;
+                return (null, null, null, null, null, null);
             }
 
-            return (doctorId, pendingDoctorId, assignedDoctorId, rescheduleToken, hospitalId, specialtyId);
+            return ParseAppointmentResponse(response);
         }
         catch (Grpc.Core.RpcException rpcEx)
         {
@@ -115,6 +93,35 @@ public static class PaymentFrontendHelper
                 $"[PaymentFrontendHelper] Unexpected error in gRPC call: {ex.Message}, AppointmentId: {appointmentId}");
             return (null, null, null, null, null, null);
         }
+    }
+
+    /// <summary>
+    /// Parse appointment response to extract IDs
+    /// </summary>
+    private static (Guid? doctorId, Guid? pendingDoctorId, Guid? assignedDoctorId, string? rescheduleToken, Guid? hospitalId, Guid? specialtyId) ParseAppointmentResponse(
+        GetDoctorIdByAppointmentIdResponse response)
+    {
+        var doctorId = TryParseGuid(response.DoctorId);
+        var pendingDoctorId = TryParseGuid(response.PendingDoctorId);
+        var assignedDoctorId = TryParseGuid(response.AssignedDoctorId);
+        var hospitalId = TryParseGuid(response.HospitalId);
+        var specialtyId = TryParseGuid(response.SpecialtyId);
+        var rescheduleToken = response.RescheduleToken;
+
+        return (doctorId, pendingDoctorId, assignedDoctorId, rescheduleToken, hospitalId, specialtyId);
+    }
+
+    /// <summary>
+    /// Try to parse a string to Guid, return null if invalid
+    /// </summary>
+    private static Guid? TryParseGuid(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return null;
+        }
+
+        return Guid.TryParse(value, out var result) ? result : null;
     }
 
 

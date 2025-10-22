@@ -575,36 +575,24 @@ public static class EmailTemplate
     /// Build email content for staff-initiated cancellation with reschedule options
     /// Patient can choose from 4 options: reschedule same doctor, confirm new doctor, choose new doctor, or request refund
     /// </summary>
-    public static string BuildCancellationWithOptionsEmailHtml(
-        string patientName,
-        DateTime appointmentDate,
-        string cancellationReason,
-        string? doctorName,
-        string? hospitalName,
-        decimal? potentialRefundAmount,
-        decimal? potentialRefundPercentage,
-        string? sameDoctorRescheduleUrl,
-        string? confirmNewDoctorUrl,
-        string? chooseNewDoctorUrl,
-        string? refundRequestUrl,
-        DateTime? tokenExpiry)
+    public static string BuildCancellationWithOptionsEmailHtml(CancellationWithOptionsEmailData data)
     {
-        var doctorInfo = !string.IsNullOrEmpty(doctorName) ? $" với bác sĩ <strong>{doctorName}</strong>" : "";
-        var hospitalInfo = !string.IsNullOrEmpty(hospitalName) ? $" tại <strong>{hospitalName}</strong>" : "";
+        var doctorInfo = !string.IsNullOrEmpty(data.DoctorName) ? $" với bác sĩ <strong>{data.DoctorName}</strong>" : "";
+        var hospitalInfo = !string.IsNullOrEmpty(data.HospitalName) ? $" tại <strong>{data.HospitalName}</strong>" : "";
 
         var refundInfo = "";
-        if (potentialRefundAmount.HasValue && potentialRefundPercentage.HasValue)
+        if (data.PotentialRefundAmount.HasValue && data.PotentialRefundPercentage.HasValue)
         {
             refundInfo = $@"
         <div class=""refund-info"">
             <p>💰 <strong>Thông tin hoàn tiền (nếu chọn Option 4):</strong></p>
-            <div class=""info-item"">Tỷ lệ hoàn: <strong>{potentialRefundPercentage:N0}%</strong></div>
-            <div class=""info-item"">Số tiền ước tính: <strong>{potentialRefundAmount:N0} VNĐ</strong></div>
+            <div class=""info-item"">Tỷ lệ hoàn: <strong>{data.PotentialRefundPercentage:N0}%</strong></div>
+            <div class=""info-item"">Số tiền ước tính: <strong>{data.PotentialRefundAmount:N0} VNĐ</strong></div>
         </div>";
         }
 
-        var expiryInfo = tokenExpiry.HasValue
-            ? $"<p class=\"warning\">⏰ <strong>Lưu ý:</strong> Các tùy chọn đổi lịch có hiệu lực đến <strong>{tokenExpiry.Value.ToString("dd/MM/yyyy HH:mm")}</strong> (trước ngày hẹn gốc)</p>"
+        var expiryInfo = data.TokenExpiry.HasValue
+            ? $"<p class=\"warning\">⏰ <strong>Lưu ý:</strong> Các tùy chọn đổi lịch có hiệu lực đến <strong>{data.TokenExpiry.Value.ToString("dd/MM/yyyy HH:mm")}</strong> (trước ngày hẹn gốc)</p>"
             : "";
 
         return $@"<!DOCTYPE html>
@@ -659,13 +647,13 @@ public static class EmailTemplate
       <div class=""brand"">BookingCare - Thông báo hủy lịch hẹn</div>
     </div>
     <div class=""content"">
-      <p class=""greeting"">Kính gửi {patientName},</p>
+      <p class=""greeting"">Kính gửi {data.PatientName},</p>
       <p class=""lead"">Chúng tôi rất tiếc phải thông báo rằng lịch hẹn của quý khách{doctorInfo}{hospitalInfo} đã bị hủy bởi bệnh viện.</p>
       
       <div class=""cancel-box"">
         <p><strong>📅 Thông tin lịch hẹn bị hủy:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate.ToString("dd/MM/yyyy HH:mm")}</div>
-        <div class=""info-item""><strong>Lý do hủy:</strong> {cancellationReason}</div>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString("dd/MM/yyyy HH:mm")}</div>
+        <div class=""info-item""><strong>Lý do hủy:</strong> {data.CancellationReason}</div>
       </div>
       {refundInfo}
       
@@ -674,26 +662,26 @@ public static class EmailTemplate
           🔄 VUI LÒNG CHỌN PHƯƠNG ÁN XỬ LÝ
         </p>
         
-        {(!string.IsNullOrEmpty(sameDoctorRescheduleUrl) ? $@"
-        <a href=""{sameDoctorRescheduleUrl}"" class=""option-button"">
+        {(!string.IsNullOrEmpty(data.SameDoctorRescheduleUrl) ? $@"
+        <a href=""{data.SameDoctorRescheduleUrl}"" class=""option-button"">
           📆 Option: Đổi lịch với cùng bác sĩ
         </a>
-        <p class=""option-desc"">Chọn ngày giờ khác với bác sĩ {doctorName}</p>" : "")}
+        <p class=""option-desc"">Chọn ngày giờ khác với bác sĩ {data.DoctorName}</p>" : "")}
         
-        {(!string.IsNullOrEmpty(confirmNewDoctorUrl) ? $@"
-        <a href=""{confirmNewDoctorUrl}"" class=""option-button secondary"">
+        {(!string.IsNullOrEmpty(data.ConfirmNewDoctorUrl) ? $@"
+        <a href=""{data.ConfirmNewDoctorUrl}"" class=""option-button secondary"">
           👨‍⚕️ Option: Xác nhận bác sĩ mới (do bệnh viện chỉ định)
         </a>
         <p class=""option-desc"">Bệnh viện chỉ định bác sĩ thay thế</p>" : "")}
         
-        {(!string.IsNullOrEmpty(chooseNewDoctorUrl) ? $@"
-        <a href=""{chooseNewDoctorUrl}"" class=""option-button tertiary"">
+        {(!string.IsNullOrEmpty(data.ChooseNewDoctorUrl) ? $@"
+        <a href=""{data.ChooseNewDoctorUrl}"" class=""option-button tertiary"">
           🔍 Option 3: Tự chọn bác sĩ mới
         </a>
         <p class=""option-desc"">Tự chọn bác sĩ khác cùng chuyên khoa</p>" : "")}
         
-        {(!string.IsNullOrEmpty(refundRequestUrl) ? $@"
-        <a href=""{refundRequestUrl}"" class=""option-button danger"">
+        {(!string.IsNullOrEmpty(data.RefundRequestUrl) ? $@"
+        <a href=""{data.RefundRequestUrl}"" class=""option-button danger"">
           💰 Option: Yêu cầu hoàn tiền
         </a>
         <p class=""option-desc"">Không muốn đổi lịch, xin hoàn tiền</p>" : "")}

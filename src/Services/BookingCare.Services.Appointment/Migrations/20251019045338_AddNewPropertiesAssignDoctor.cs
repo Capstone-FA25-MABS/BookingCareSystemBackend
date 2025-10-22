@@ -8,18 +8,20 @@ namespace BookingCare.Services.Appointment.Migrations
     /// <inheritdoc />
     public partial class AddNewPropertiesAssignDoctor : Migration
     {
+        private const string TableName = "Appointments";
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<Guid>(
                 name: "AssignedDoctorId",
-                table: "Appointments",
+                table: TableName,
                 type: "uniqueidentifier",
                 nullable: true);
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "SoftReservedUntil",
-                table: "Appointments",
+                table: TableName,
                 type: "datetime2",
                 nullable: true);
         }
@@ -29,11 +31,11 @@ namespace BookingCare.Services.Appointment.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "AssignedDoctorId",
-                table: "Appointments");
+                table: TableName);
 
             migrationBuilder.DropColumn(
                 name: "SoftReservedUntil",
-                table: "Appointments");
+                table: TableName);
         }
     }
 }

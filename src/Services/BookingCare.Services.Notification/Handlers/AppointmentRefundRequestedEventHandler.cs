@@ -13,6 +13,9 @@ public class AppointmentRefundRequestedEventHandler
     : BaseRefundNotificationHandler,
       IIntegrationEventHandler<AppointmentRefundRequestedIntegrationEvent>
 {
+    private const string DefaultOldDoctorLabel = "Bác sĩ cũ";
+    private const string DefaultNewDoctorLabel = "Bác sĩ mới";
+
     public AppointmentRefundRequestedEventHandler(
         EmailService emailService,
         FcmV1Service fcmService,
@@ -48,14 +51,14 @@ public class AppointmentRefundRequestedEventHandler
                     emailContent = EmailTemplate.BuildDoctorChangeRefundEmailWithBankAccountHtml(
                         patientName,
                         @event.AppointmentDate,
-                        @event.OriginalDoctorName ?? "Bác sĩ cũ",
+                        @event.OriginalDoctorName ?? DefaultOldDoctorLabel,
                         @event.OriginalConsultationFee ?? 0,
-                        @event.NewDoctorName ?? "Bác sĩ mới",
+                        @event.NewDoctorName ?? DefaultNewDoctorLabel,
                         @event.NewConsultationFee ?? 0,
                         @event.RefundAmount);
                     smsContent = SmsTemplate.BuildDoctorChangeRefundSms(
-                        @event.OriginalDoctorName ?? "Bác sĩ cũ",
-                        @event.NewDoctorName ?? "Bác sĩ mới",
+                        @event.OriginalDoctorName ?? DefaultOldDoctorLabel,
+                        @event.NewDoctorName ?? DefaultNewDoctorLabel,
                         @event.RefundAmount);
                 }
                 else
@@ -63,14 +66,14 @@ public class AppointmentRefundRequestedEventHandler
                     emailContent = EmailTemplate.BuildDoctorChangeRefundEmailNoBankAccountHtml(
                         patientName,
                         @event.AppointmentDate,
-                        @event.OriginalDoctorName ?? "Bác sĩ cũ",
+                        @event.OriginalDoctorName ?? DefaultOldDoctorLabel,
                         @event.OriginalConsultationFee ?? 0,
-                        @event.NewDoctorName ?? "Bác sĩ mới",
+                        @event.NewDoctorName ?? DefaultNewDoctorLabel,
                         @event.NewConsultationFee ?? 0,
                         @event.RefundAmount);
                     smsContent = SmsTemplate.BuildDoctorChangeRefundSmsNoBankAccount(
-                        @event.OriginalDoctorName ?? "Bác sĩ cũ",
-                        @event.NewDoctorName ?? "Bác sĩ mới",
+                        @event.OriginalDoctorName ?? DefaultOldDoctorLabel,
+                        @event.NewDoctorName ?? DefaultNewDoctorLabel,
                         @event.RefundAmount);
                 }
             }

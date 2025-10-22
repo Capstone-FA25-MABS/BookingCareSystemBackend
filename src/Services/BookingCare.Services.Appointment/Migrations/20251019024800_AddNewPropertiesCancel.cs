@@ -8,26 +8,28 @@ namespace BookingCare.Services.Appointment.Migrations
     /// <inheritdoc />
     public partial class AddNewPropertiesCancel : Migration
     {
+        private const string TableName = "Appointments";
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<bool>(
                 name: "IsRescheduled",
-                table: "Appointments",
+                table: TableName,
                 type: "bit",
                 nullable: false,
                 defaultValue: false);
 
             migrationBuilder.AddColumn<string>(
                 name: "RescheduleToken",
-                table: "Appointments",
+                table: TableName,
                 type: "nvarchar(100)",
                 maxLength: 100,
                 nullable: true);
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "RescheduleTokenExpiry",
-                table: "Appointments",
+                table: TableName,
                 type: "datetime2",
                 nullable: true);
         }
@@ -37,15 +39,15 @@ namespace BookingCare.Services.Appointment.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "IsRescheduled",
-                table: "Appointments");
+                table: TableName);
 
             migrationBuilder.DropColumn(
                 name: "RescheduleToken",
-                table: "Appointments");
+                table: TableName);
 
             migrationBuilder.DropColumn(
                 name: "RescheduleTokenExpiry",
-                table: "Appointments");
+                table: TableName);
         }
     }
 }

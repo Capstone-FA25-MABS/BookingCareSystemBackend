@@ -242,23 +242,10 @@ public class PaymentsController(
 
             return Created(response, "Create appointment payment with payment URL successful");
         }
-        catch (ArgumentException ex)
-        {
-            _logger.LogWarning(ex, "Invalid argument when creating appointment payment");
-            return BadRequest(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation when creating appointment payment");
-            return Conflict(ex.Message);
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating appointment payment");
-            return StatusCode(
-                500,
-                new { Message = "An error occurred while creating appointment payment" }
-            );
+            return HandlePaymentCreationError(ex, "appointment");
         }
     }
 
@@ -469,23 +456,10 @@ public class PaymentsController(
 
             return Created(response, "Create supplementary payment URL successful");
         }
-        catch (ArgumentException ex)
-        {
-            _logger.LogWarning(ex, "Invalid argument when creating supplementary payment");
-            return BadRequest(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation when creating supplementary payment");
-            return Conflict(ex.Message);
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating supplementary payment");
-            return StatusCode(
-                500,
-                new { Message = "An error occurred while creating supplementary payment" }
-            );
+            return HandlePaymentCreationError(ex, "supplementary");
         }
     }
 
@@ -637,5 +611,18 @@ public class PaymentsController(
             _logger.LogError(ex, "Error getting payment statistics");
             return StatusCode(500, new { Message = "An error occurred while retrieving payment statistics" });
         }
+    }
+
+    /// <summary>
+    /// Handle common payment creation errors
+    /// </summary>
+    private IActionResult HandlePaymentCreationError(Exception ex, string operationType)
+    {
+        return ex switch
+        {
+            ArgumentException argEx => BadRequest(argEx.Message),
+            InvalidOperationException invOpEx => Conflict(invOpEx.Message),
+            _ => StatusCode(500, new { Message = $"An error occurred while creating {operationType} payment" })
+        };
     }
 }

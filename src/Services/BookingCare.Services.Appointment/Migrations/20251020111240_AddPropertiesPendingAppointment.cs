@@ -8,24 +8,26 @@ namespace BookingCare.Services.Appointment.Migrations
     /// <inheritdoc />
     public partial class AddPropertiesPendingAppointment : Migration
     {
+        private const string TableName = "Appointments";
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<DateTime>(
                 name: "PendingNewAppointmentDate",
-                table: "Appointments",
+                table: TableName,
                 type: "datetime2",
                 nullable: true);
 
             migrationBuilder.AddColumn<int>(
                 name: "PendingNewAppointmentTimeId",
-                table: "Appointments",
+                table: TableName,
                 type: "int",
                 nullable: true);
 
             migrationBuilder.AddColumn<Guid>(
                 name: "PendingNewDoctorId",
-                table: "Appointments",
+                table: TableName,
                 type: "uniqueidentifier",
                 nullable: true);
         }
@@ -35,15 +37,15 @@ namespace BookingCare.Services.Appointment.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "PendingNewAppointmentDate",
-                table: "Appointments");
+                table: TableName);
 
             migrationBuilder.DropColumn(
                 name: "PendingNewAppointmentTimeId",
-                table: "Appointments");
+                table: TableName);
 
             migrationBuilder.DropColumn(
                 name: "PendingNewDoctorId",
-                table: "Appointments");
+                table: TableName);
         }
     }
 }

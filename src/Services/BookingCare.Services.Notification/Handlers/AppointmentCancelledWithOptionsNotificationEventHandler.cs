@@ -36,19 +36,21 @@ public class AppointmentCancelledWithOptionsNotificationEventHandler
 
             // Build notification content with 4 reschedule options
             var emailSubject = "Lịch hẹn đã được hủy - Vui lòng chọn phương án xử lý";
-            var emailContent = EmailTemplate.BuildCancellationWithOptionsEmailHtml(
-                patientName,
-                @event.AppointmentDate,
-                @event.CancellationReason,
-                @event.DoctorName,
-                @event.HospitalName,
-                @event.PotentialRefundAmount,
-                @event.PotentialRefundPercentage,
-                @event.SameDoctorRescheduleUrl,
-                @event.ConfirmNewDoctorUrl,
-                @event.ChooseNewDoctorUrl,
-                @event.RefundRequestUrl,
-                @event.RescheduleTokenExpiry);
+            var emailContent = EmailTemplate.BuildCancellationWithOptionsEmailHtml(new CancellationWithOptionsEmailData
+            {
+                PatientName = patientName,
+                AppointmentDate = @event.AppointmentDate,
+                CancellationReason = @event.CancellationReason,
+                DoctorName = @event.DoctorName,
+                HospitalName = @event.HospitalName,
+                PotentialRefundAmount = @event.PotentialRefundAmount,
+                PotentialRefundPercentage = @event.PotentialRefundPercentage,
+                SameDoctorRescheduleUrl = @event.SameDoctorRescheduleUrl,
+                ConfirmNewDoctorUrl = @event.ConfirmNewDoctorUrl,
+                ChooseNewDoctorUrl = @event.ChooseNewDoctorUrl,
+                RefundRequestUrl = @event.RefundRequestUrl,
+                TokenExpiry = @event.RescheduleTokenExpiry
+            });
 
             var smsContent = SmsTemplate.BuildCancellationWithOptionsSms(
                 @event.AppointmentDate,

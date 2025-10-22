@@ -8,18 +8,21 @@ namespace BookingCare.Services.Payment.Migrations
     /// <inheritdoc />
     public partial class ChangeRelationShipRefundHistories : Migration
     {
+        private const string IndexName = "IX_refund_histories_payment_id";
+        private const string TableName = "refund_histories";
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropIndex(
-                name: "IX_refund_histories_payment_id",
-                table: "refund_histories");
+                name: IndexName,
+                table: TableName);
 
 
 
             migrationBuilder.CreateIndex(
-                name: "IX_refund_histories_payment_id",
-                table: "refund_histories",
+                name: IndexName,
+                table: TableName,
                 column: "payment_id");
         }
 
@@ -27,14 +30,14 @@ namespace BookingCare.Services.Payment.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropIndex(
-                name: "IX_refund_histories_payment_id",
-                table: "refund_histories");
+                name: IndexName,
+                table: TableName);
 
 
 
             migrationBuilder.CreateIndex(
-                name: "IX_refund_histories_payment_id",
-                table: "refund_histories",
+                name: IndexName,
+                table: TableName,
                 column: "payment_id",
                 unique: true);
         }

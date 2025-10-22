@@ -18,6 +18,7 @@ namespace BookingCare.Services.Appointment.Controllers;
 public class AppointmentsController : BaseApiController
 {
     private readonly IAppointmentService _appointmentService;
+    private const string IdMismatchErrorMessage = "ID in URL does not match ID in request body";
 
     public AppointmentsController(IAppointmentService appointmentService)
     {
@@ -115,7 +116,7 @@ public class AppointmentsController : BaseApiController
         [FromBody] UpdateAppointmentStatusRequest request)
     {
         if (id != request.Id)
-            return BadRequest("ID in URL does not match ID in request body");
+            return BadRequest(IdMismatchErrorMessage);
 
         var success = await _appointmentService.UpdateAppointmentStatusAsync(request);
 
@@ -144,7 +145,7 @@ public class AppointmentsController : BaseApiController
         [FromBody] CancelAppointmentRequest request)
     {
         if (id != request.AppointmentId)
-            return BadRequest("ID in URL does not match ID in request body");
+            return BadRequest(IdMismatchErrorMessage);
 
         var result = await _appointmentService.CancelAppointmentAsync(request);
 
@@ -168,7 +169,7 @@ public class AppointmentsController : BaseApiController
         [FromBody] RescheduleSameDoctorRequest request)
     {
         if (id != request.AppointmentId)
-            return BadRequest("ID in URL does not match ID in request body");
+            return BadRequest(IdMismatchErrorMessage);
 
         var result = await _appointmentService.RescheduleSameDoctorAsync(request);
 
@@ -194,7 +195,7 @@ public class AppointmentsController : BaseApiController
         [FromBody] AssignNewDoctorRequest request)
     {
         if (id != request.AppointmentId)
-            return BadRequest("ID in URL does not match ID in request body");
+            return BadRequest(IdMismatchErrorMessage);
 
         var confirmationUrl = await _appointmentService.AssignNewDoctorAsync(request);
 
@@ -216,7 +217,7 @@ public class AppointmentsController : BaseApiController
         [FromBody] RequestRefundRequest request)
     {
         if (id != request.AppointmentId)
-            return BadRequest("ID in URL does not match ID in request body");
+            return BadRequest(IdMismatchErrorMessage);
 
         var success = await _appointmentService.RequestRefundAsync(request);
 
@@ -241,7 +242,7 @@ public class AppointmentsController : BaseApiController
         [FromBody] ChooseNewDoctorRequest request)
     {
         if (id != request.AppointmentId)
-            return BadRequest("ID in URL does not match ID in request body");
+            return BadRequest(IdMismatchErrorMessage);
 
         var result = await _appointmentService.ChooseNewDoctorAsync(request);
 

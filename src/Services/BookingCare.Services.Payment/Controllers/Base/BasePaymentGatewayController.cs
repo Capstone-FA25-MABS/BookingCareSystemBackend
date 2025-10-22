@@ -382,7 +382,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
         }
 
         // Try PayOS callback  
-        if (callbackResult is Models.DTOs.PayOS.PayOSCallbackResponse payOSCallback)
+        if (callbackResult is Models.DTOs.PayOS.PayOSCallbackResponse)
         {
             // PayOS doesn't have Description in callback, need to query webhook data
             // For now, return null and we'll handle it differently
@@ -410,13 +410,10 @@ public abstract class BasePaymentGatewayController : BaseApiController
         {
             // Parse: SUPP_PAYMENT:{suppId}:APPT:{appointmentId}
             var parts = metadata.Split(':');
-            if (parts.Length >= 4 && parts[2] == "APPT")
+            if (parts.Length >= 4 && parts[2] == "APPT" && Guid.TryParse(parts[3].Split(' ')[0], out var apptId))
             {
-                if (Guid.TryParse(parts[3].Split(' ')[0], out var apptId)) // Handle potential extra text after ID
-                {
-                    appointmentId = apptId;
-                    return true;
-                }
+                appointmentId = apptId;
+                return true;
             }
         }
         catch (Exception ex)
@@ -439,12 +436,9 @@ public abstract class BasePaymentGatewayController : BaseApiController
         {
             // Parse: SUPP_PAYMENT:{suppId}:APPT:{appointmentId}:STAFF_ASSIGNED:{bool}
             var parts = metadata.Split(':');
-            if (parts.Length >= 6 && parts[4] == "STAFF_ASSIGNED")
+            if (parts.Length >= 6 && parts[4] == "STAFF_ASSIGNED" && bool.TryParse(parts[5].Split(' ')[0], out var isStaffAssigned))
             {
-                if (bool.TryParse(parts[5].Split(' ')[0], out var isStaffAssigned))
-                {
-                    return isStaffAssigned;
-                }
+                return isStaffAssigned;
             }
         }
         catch (Exception ex)
@@ -518,7 +512,10 @@ public abstract class BasePaymentGatewayController : BaseApiController
         {
             Logger.LogError(ex, "{Gateway} Callback #{RequestId} - Error processing supplementary payment for AppointmentId: {AppointmentId}",
                 gatewayName, requestId, appointmentId);
-            throw;
+            throw new InvalidOperationException(
+                $"Failed to process supplementary payment for appointment {appointmentId} in {gatewayName} callback #{requestId}. " +
+                $"Payment may be in inconsistent state. Manual intervention may be required.",
+                ex);
         }
     }
 
