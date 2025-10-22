@@ -55,4 +55,7 @@ public interface IDoctorService
 
     // Get doctor price by ID (for Appointment Service - Option 3 reschedule)
     Task<DoctorPriceResponse?> GetDoctorPriceByIdAsync(Guid priceId);
+
+    // Doctor count operations
+    Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
 }

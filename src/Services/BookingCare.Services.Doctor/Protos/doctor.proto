@@ -37,6 +37,9 @@ service DoctorService {
 
   // Get multiple specialties by IDs (bulk operation for performance)
   rpc GetSpecialtiesByIds (GetSpecialtiesByIdsRequest) returns (SpecialtiesBatchResponse);
+
+  // Get doctor counts by specialty and hospital
+  rpc GetDoctorCountsBySpecialtyAndHospital (GetDoctorCountsBySpecialtyAndHospitalRequest) returns (GetDoctorCountsBySpecialtyAndHospitalResponse);
 }
 
 // Request messages
@@ -204,4 +207,15 @@ message SpecialtySimpleResponse {
 // Response message for multiple specialties batch
 message SpecialtiesBatchResponse {
   repeated SpecialtySimpleResponse specialties = 1;
+}
+
+// Request message for getting doctor counts by specialty and hospital
+message GetDoctorCountsBySpecialtyAndHospitalRequest {
+  string hospital_id = 1;
+  repeated string specialty_ids = 2;
+}
+
+// Response message for doctor counts by specialty and hospital
+message GetDoctorCountsBySpecialtyAndHospitalResponse {
+  map<string, int32> specialty_counts = 1;
 }
