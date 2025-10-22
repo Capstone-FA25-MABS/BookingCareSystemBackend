@@ -2,6 +2,7 @@ using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Utils.SMS;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
+using BookingCare.Services.Notification.Models.DTOs;
 
 namespace BookingCare.Services.Notification.Handlers;
 

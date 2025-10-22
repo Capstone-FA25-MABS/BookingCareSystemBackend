@@ -640,7 +640,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// <summary>
     /// Check if should generate same doctor reschedule URL
     /// </summary>
-    private bool ShouldGenerateSameDoctorUrl(AppointmentEntity appointment, bool generateAll, RescheduleOptionsSelection? selectedOptions)
+    private static bool ShouldGenerateSameDoctorUrl(AppointmentEntity appointment, bool generateAll, RescheduleOptionsSelection? selectedOptions)
     {
         return appointment.DoctorId.HasValue && (generateAll || selectedOptions!.EnableSameDoctorReschedule);
     }
@@ -648,7 +648,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// <summary>
     /// Check if should generate confirm new doctor URL
     /// </summary>
-    private bool ShouldGenerateConfirmDoctorUrl(AppointmentEntity appointment, bool generateAll, RescheduleOptionsSelection? selectedOptions)
+    private static bool ShouldGenerateConfirmDoctorUrl(AppointmentEntity appointment, bool generateAll, RescheduleOptionsSelection? selectedOptions)
     {
         return appointment.DoctorId.HasValue &&
                appointment.AssignedDoctorId.HasValue &&
@@ -1097,7 +1097,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// <summary>
     /// Validate reschedule token for cancelled appointment
     /// </summary>
-    private void ValidateRescheduleToken(AppointmentEntity appointment)
+    private static void ValidateRescheduleToken(AppointmentEntity appointment)
     {
         if (string.IsNullOrEmpty(appointment.RescheduleToken) ||
             appointment.RescheduleTokenExpiry == null ||
@@ -1294,7 +1294,7 @@ public class AppointmentService : BaseService, IAppointmentService
         // Use appropriate method based on IsStaffAssigned flag
         if (request.IsStaffAssigned)
         {
-            await ConfirmNewDoctorAsync(appointment, request);
+            await ConfirmNewDoctorAsync(appointment);
             LogInfo("Confirmed staff-assigned doctor {DoctorId} for appointment {AppointmentId}",
                 null, request.NewDoctorId, appointment.Id);
         }
@@ -1319,7 +1319,6 @@ public class AppointmentService : BaseService, IAppointmentService
             appointment.PendingNewDoctorId = request.NewDoctorId;
             appointment.PendingNewAppointmentDate = request.NewAppointmentDate;
             appointment.PendingNewAppointmentTimeId = request.NewAppointmentTimeId;
-            appointment.PendingIsStaffAssigned = request.IsStaffAssigned;
             await _appointmentRepository.UpdateAppointmentAsync(appointment);
 
             LogInfo("Saved pending doctor change for appointment {AppointmentId} (IsStaffAssigned={IsStaffAssigned}) - will apply after payment",
@@ -1346,7 +1345,7 @@ public class AppointmentService : BaseService, IAppointmentService
         // Update appointment with new doctor (use appropriate method based on IsStaffAssigned)
         if (request.IsStaffAssigned)
         {
-            await ConfirmNewDoctorAsync(appointment, request);
+            await ConfirmNewDoctorAsync(appointment);
             LogInfo("Confirmed staff-assigned doctor {DoctorId} with refund for appointment {AppointmentId}",
                 null, request.NewDoctorId, appointment.Id);
         }
@@ -1942,73 +1941,20 @@ public class AppointmentService : BaseService, IAppointmentService
             LogInfo("Fetching doctors via gRPC for hospital {HospitalId}, specialty {SpecialtyId}, checkAvailability {CheckAvailability}",
                 null, hospitalId, specialtyId, checkAvailability);
 
-            // Step 1: Call Doctor Service via gRPC to get all doctors by hospital + specialty
-            var grpcRequest = new GetAvailableDoctorsRequest
-            {
-                HospitalId = hospitalId.ToString(),
-                SpecialtyId = specialtyId.ToString()
-            };
-
-            var grpcResponse = await _grpcClients.DoctorClient.GetAvailableDoctorsAsync(grpcRequest);
-
+            // Step 1: Fetch doctors from Doctor Service
+            var grpcResponse = await FetchDoctorsFromGrpcAsync(hospitalId, specialtyId);
             if (grpcResponse.Doctors == null || grpcResponse.Doctors.Count == 0)
             {
                 LogInfo("No doctors found for hospital {HospitalId}, specialty {SpecialtyId}", null, hospitalId, specialtyId);
                 return new AvailableDoctorsResponse();
             }
 
-            // Step 2: Conditional filtering based on checkAvailability parameter
-            var availableDoctors = new List<AvailableDoctors>();
-
-            foreach (var doctor in grpcResponse.Doctors)
-            {
-                if (!Guid.TryParse(doctor.Id, out var doctorId))
-                    continue;
-
-                // If checkAvailability = false, return all doctors without availability check
-                if (!checkAvailability)
-                {
-                    availableDoctors.Add(new AvailableDoctors
-                    {
-                        Id = doctorId,
-                        FirstName = doctor.FirstName,
-                        LastName = doctor.LastName,
-                        FullName = doctor.FullName,
-                        AvatarUrl = doctor.AvatarUrl,
-                        PositionName = doctor.PositionName,
-                        SpecialtyName = doctor.SpecialtyName,
-                        YearsOfExperience = doctor.YearsOfExperience
-                    });
-                    continue;
-                }
-
-                // If checkAvailability = true, check if doctor is available at specified date/time
-                if (appointmentDate.HasValue && appointmentTimeId.HasValue)
-                {
-                    var isAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
-                        doctorId,
-                        appointmentDate.Value,
-                        appointmentTimeId.Value);
-
-                    if (isAvailable)
-                    {
-                        availableDoctors.Add(new AvailableDoctors
-                        {
-                            Id = doctorId,
-                            FirstName = doctor.FirstName,
-                            LastName = doctor.LastName,
-                            FullName = doctor.FullName,
-                            AvatarUrl = doctor.AvatarUrl,
-                            PositionName = doctor.PositionName,
-                            SpecialtyName = doctor.SpecialtyName,
-                            YearsOfExperience = doctor.YearsOfExperience
-                        });
-                    }
-                }
-            }
+            // Step 2: Filter doctors based on availability
+            var availableDoctors = await FilterDoctorsByAvailabilityAsync(
+                grpcResponse.Doctors, checkAvailability, appointmentDate, appointmentTimeId);
 
             LogInfo("Found {Count} doctors out of {Total} for hospital {HospitalId}, specialty {SpecialtyId} (checkAvailability: {CheckAvailability})",
-                null, availableDoctors.Count, grpcResponse.Doctors.Count, hospitalId, specialtyId, checkAvailability);
+                null, availableDoctors.Count, grpcResponse.Doctors?.Count ?? 0, hospitalId, specialtyId, checkAvailability);
 
             return new AvailableDoctorsResponse
             {
@@ -2017,6 +1963,84 @@ public class AppointmentService : BaseService, IAppointmentService
             };
 
         }, "GetAvailableDoctors");
+    }
+
+    /// <summary>
+    /// Fetch doctors from gRPC Doctor Service
+    /// </summary>
+    private async Task<GetAvailableDoctorsResponse> FetchDoctorsFromGrpcAsync(Guid hospitalId, Guid specialtyId)
+    {
+        var grpcRequest = new GetAvailableDoctorsRequest
+        {
+            HospitalId = hospitalId.ToString(),
+            SpecialtyId = specialtyId.ToString()
+        };
+
+        return await _grpcClients.DoctorClient.GetAvailableDoctorsAsync(grpcRequest);
+    }
+
+    /// <summary>
+    /// Filter doctors by availability
+    /// </summary>
+    private async Task<List<AvailableDoctors>> FilterDoctorsByAvailabilityAsync(
+        IEnumerable<AvailableDoctorInfo> doctors,
+        bool checkAvailability,
+        DateTime? appointmentDate,
+        AppointmentTime? appointmentTimeId)
+    {
+        var availableDoctors = new List<AvailableDoctors>();
+
+        foreach (var doctor in doctors)
+        {
+            if (!Guid.TryParse(doctor.Id, out var doctorId))
+                continue;
+
+            // If no availability check needed, add all doctors
+            if (!checkAvailability)
+            {
+                availableDoctors.Add(MapToDoctorResponse(doctor, doctorId));
+                continue;
+            }
+
+            // Check availability for specific date/time
+            if (await IsDoctorAvailableForAppointmentAsync(doctorId, appointmentDate, appointmentTimeId))
+            {
+                availableDoctors.Add(MapToDoctorResponse(doctor, doctorId));
+            }
+        }
+
+        return availableDoctors;
+    }
+
+    /// <summary>
+    /// Check if doctor is available for appointment
+    /// </summary>
+    private async Task<bool> IsDoctorAvailableForAppointmentAsync(
+        Guid doctorId, DateTime? appointmentDate, AppointmentTime? appointmentTimeId)
+    {
+        if (!appointmentDate.HasValue || !appointmentTimeId.HasValue)
+            return false;
+
+        return await _appointmentRepository.IsDoctorAvailableAsync(
+            doctorId, appointmentDate.Value, appointmentTimeId.Value);
+    }
+
+    /// <summary>
+    /// Map gRPC doctor to response DTO
+    /// </summary>
+    private static AvailableDoctors MapToDoctorResponse(AvailableDoctorInfo doctor, Guid doctorId)
+    {
+        return new AvailableDoctors
+        {
+            Id = doctorId,
+            FirstName = doctor.FirstName,
+            LastName = doctor.LastName,
+            FullName = doctor.FullName,
+            AvatarUrl = doctor.AvatarUrl,
+            PositionName = doctor.PositionName,
+            SpecialtyName = doctor.SpecialtyName,
+            YearsOfExperience = doctor.YearsOfExperience
+        };
     }
 
     #endregion
