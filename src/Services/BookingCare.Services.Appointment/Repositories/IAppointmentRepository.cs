@@ -26,6 +26,11 @@ public interface IAppointmentRepository
     Task<bool> UpdateAppointmentAsync(AppointmentEntity appointment);
 
     /// <summary>
+    /// Get appointments with expired reschedule tokens for cleanup
+    /// </summary>
+    Task<List<AppointmentEntity>> GetAppointmentsWithExpiredTokensAsync(DateTime now);
+
+    /// <summary>
     /// Cancel an appointment with cancellation reason
     /// Optimized method specifically for cancellation that takes the full entity
     /// </summary>

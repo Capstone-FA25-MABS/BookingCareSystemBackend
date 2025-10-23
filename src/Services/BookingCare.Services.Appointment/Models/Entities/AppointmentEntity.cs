@@ -57,6 +57,14 @@ public class AppointmentEntity
     public string? RescheduleToken { get; set; }
     public DateTime? RescheduleTokenExpiry { get; set; }
 
+    /// <summary>
+    /// Pending reschedule action type (for lazy token generation)
+    /// Null = no pending action, SAME_DOCTOR = reschedule with same doctor, NEW_DOCTOR = choose new doctor
+    /// This allows user to initiate reschedule without cancelling appointment immediately
+    /// </summary>
+    [MaxLength(20)]
+    public string? PendingRescheduleAction { get; set; }
+
     // Soft reservation for staff-assigned doctor (Option 2)
     /// <summary>
     /// Doctor ID assigned by staff, pending patient confirmation
