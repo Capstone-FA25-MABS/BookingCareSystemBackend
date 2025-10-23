@@ -265,4 +265,21 @@ public class AppointmentQueryRequest
     public bool IncludeStatusCounts { get; set; } = false;
 }
 
+/// <summary>
+/// Request to generate reschedule token without cancelling appointment (lazy token generation)
+/// Used when patient clicks reschedule/choose new doctor button
+/// </summary>
+public class GenerateRescheduleTokenRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "Reschedule action is required")]
+    [MaxLength(20, ErrorMessage = "Reschedule action cannot exceed 20 characters")]
+    public required string RescheduleAction { get; set; } // "SAME_DOCTOR" or "NEW_DOCTOR"
+
+    [Required(ErrorMessage = "Patient ID is required")]
+    public required Guid PatientId { get; set; }
+}
+
 
