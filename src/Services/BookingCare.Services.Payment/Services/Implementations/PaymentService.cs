@@ -254,7 +254,7 @@ public class PaymentService : BaseService, IPaymentService
             {
                 AppointmentId = request.AppointmentId,
                 PatientId = request.PatientId,
-                HospitalId = null,
+                HospitalId = request.HospitalId,
                 SubscriptionId = null,
                 Amount = request.Amount,
                 TransactionType = TransactionType.APPOINTMENT,

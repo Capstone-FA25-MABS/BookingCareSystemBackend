@@ -26,7 +26,7 @@ public class PaymentMethodRepository : IPaymentMethodRepository
     public async Task<IEnumerable<PaymentMethodEntity>> GetAllAsync()
     {
         return await _context.PaymentMethods
-            .OrderBy(pm => pm.Name)
+            .OrderBy(pm => pm.Status)
             .ToListAsync();
     }
 
