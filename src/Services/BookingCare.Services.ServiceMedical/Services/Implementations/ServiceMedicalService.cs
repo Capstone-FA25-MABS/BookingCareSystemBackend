@@ -440,13 +440,13 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var servicesOptimized = servicesResult.Services.Select(service =>
                 {
                     var serviceOptimized = _mapper.Map<ServiceOptimizedResponse>(service);
-                    
+
                     // Map hospital basic info
                     if (hospitalDict.TryGetValue(service.HospitalId, out var hospital))
                     {
                         serviceOptimized.Hospital = _mapper.Map<HospitalBasicInfo>(hospital);
                     }
-                    
+
                     // Set parent category name for each service
                     serviceOptimized.ParentCategoryName = category.Parent?.Name;
 
