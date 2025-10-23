@@ -19,12 +19,10 @@ public static class RefundPolicyHelper
             var timeString = appointmentTimeId.ToString();
             var parts = timeString.Split('_');
 
-            if (parts.Length >= 3 && parts[0] == "AT")
+            if (parts.Length >= 3 && parts[0] == "AT" &&
+                int.TryParse(parts[1], out int hour) && int.TryParse(parts[2], out int minute))
             {
-                if (int.TryParse(parts[1], out int hour) && int.TryParse(parts[2], out int minute))
-                {
-                    return new TimeOnly(hour, minute);
-                }
+                return new TimeOnly(hour, minute);
             }
 
             return null;
@@ -147,11 +145,12 @@ public static class RefundPolicyHelper
     /// <summary>
     /// Check if reschedule is allowed (fallback method - uses date only)
     /// WARNING: This is less accurate. Use overload with AppointmentTime when possible.
+    /// NOTE: Kept for backward compatibility with existing code. Will be removed in v2.0.0
     /// </summary>
     /// <param name="appointmentDate">The appointment date and time</param>
     /// <param name="requestTime">The reschedule request time (defaults to now)</param>
     /// <returns>True if reschedule is allowed</returns>
-    [Obsolete("Use overload with AppointmentTime parameter for accurate validation")]
+    [Obsolete("Use overload with AppointmentTime parameter for accurate validation. Will be removed in v2.0.0")]
     public static bool IsRescheduleAllowed(DateTime appointmentDate, DateTime? requestTime = null)
     {
         var checkTime = requestTime ?? DateTime.UtcNow;
@@ -191,11 +190,12 @@ public static class RefundPolicyHelper
     /// <summary>
     /// Get reschedule policy message (fallback method - uses date only)
     /// WARNING: This is less accurate. Use overload with AppointmentTime when possible.
+    /// NOTE: Kept for backward compatibility with existing code. Will be removed in v2.0.0
     /// </summary>
     /// <param name="appointmentDate">The appointment date and time</param>
     /// <param name="requestTime">The reschedule request time (defaults to now)</param>
     /// <returns>Policy message</returns>
-    [Obsolete("Use overload with AppointmentTime parameter for accurate validation")]
+    [Obsolete("Use overload with AppointmentTime parameter for accurate validation. Will be removed in v2.0.0")]
     public static string GetReschedulePolicyMessage(DateTime appointmentDate, DateTime? requestTime = null)
     {
         var checkTime = requestTime ?? DateTime.UtcNow;

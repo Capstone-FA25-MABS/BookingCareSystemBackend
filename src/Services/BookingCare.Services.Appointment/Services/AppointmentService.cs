@@ -515,64 +515,17 @@ public class AppointmentService : BaseService, IAppointmentService
                 null, request.AppointmentId, request.RescheduleAction);
 
             // Validate appointment
-            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
-            if (appointment == null)
-            {
-                throw new AppointmentNotFoundException(request.AppointmentId);
-            }
+            var appointment = await GetAndValidateAppointmentForRescheduleAsync(request.AppointmentId, request.PatientId);
 
-            // Validate appointment status - must be PENDING or CONFIRMED
-            if (appointment.Status != AppointmentStatus.PENDING &&
-                appointment.Status != AppointmentStatus.CONFIRMED)
-            {
-                throw new AppointmentException(
-                    $"Cannot generate reschedule token for appointment with status {appointment.Status}");
-            }
+            // Validate reschedule timing and action
+            ValidateRescheduleTimingAndAction(appointment, request.RescheduleAction);
 
-            // Validate patient ownership
-            if (appointment.PatientId != request.PatientId)
-            {
-                throw new AppointmentException("You are not authorized to reschedule this appointment");
-            }
-
-            // Validate reschedule is allowed (must be at least 24 hours before appointment)
-            // Use AppointmentDate + AppointmentTimeId for accurate time calculation
-            if (!RefundPolicyHelper.IsRescheduleAllowed(appointment.AppointmentDate, appointment.AppointmentTimeId))
-            {
-                var policyMessage = RefundPolicyHelper.GetReschedulePolicyMessage(appointment.AppointmentDate, appointment.AppointmentTimeId);
-                throw new AppointmentException(
-                    $"Không thể đổi lịch hẹn này. {policyMessage}");
-            }
-
-            // Validate reschedule action
-            if (request.RescheduleAction != PendingRescheduleAction.SAME_DOCTOR &&
-                request.RescheduleAction != PendingRescheduleAction.NEW_DOCTOR)
-            {
-                throw new AppointmentException($"Invalid reschedule action: {request.RescheduleAction}");
-            }
-
-            // For SAME_DOCTOR action, validate that doctor is assigned
-            if (request.RescheduleAction == PendingRescheduleAction.SAME_DOCTOR && !appointment.DoctorId.HasValue)
-            {
-                throw new AppointmentException("Cannot reschedule with same doctor when no doctor is assigned");
-            }
-
-            // Generate token and expiry
-            var token = Guid.NewGuid().ToString("N");
-            var expiry = CalculateRescheduleTokenExpiry(appointment.AppointmentDate);
-
-            // Store token and pending action in appointment
-            appointment.RescheduleToken = token;
-            appointment.RescheduleTokenExpiry = expiry;
-            appointment.PendingRescheduleAction = request.RescheduleAction;
-
+            // Generate and store token
+            var (token, expiry) = GenerateAndStoreRescheduleToken(appointment, request.RescheduleAction);
             await _appointmentRepository.UpdateAppointmentAsync(appointment);
 
-            // Build redirect URL based on action
-            var frontendBaseUrl = _frontendConfig.BaseUrl;
-            var redirectUrl = request.RescheduleAction == PendingRescheduleAction.SAME_DOCTOR
-                ? $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}&doctorId={appointment.DoctorId}"
-                : $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}";
+            // Build redirect URL
+            var redirectUrl = BuildRescheduleRedirectUrl(appointment, token, request.RescheduleAction);
 
             LogInfo("Generated reschedule token for appointment {AppointmentId}, expires at {Expiry}",
                 null, appointment.Id, expiry);
@@ -586,6 +539,89 @@ public class AppointmentService : BaseService, IAppointmentService
             };
 
         }, "GenerateRescheduleToken");
+    }
+
+    /// <summary>
+    /// Get and validate appointment for reschedule token generation
+    /// </summary>
+    private async Task<AppointmentEntity> GetAndValidateAppointmentForRescheduleAsync(Guid appointmentId, Guid patientId)
+    {
+        var appointment = await _appointmentRepository.GetAppointmentByIdAsync(appointmentId);
+        if (appointment == null)
+        {
+            throw new AppointmentNotFoundException(appointmentId);
+        }
+
+        // Validate appointment status
+        if (appointment.Status != AppointmentStatus.PENDING &&
+            appointment.Status != AppointmentStatus.CONFIRMED)
+        {
+            throw new AppointmentException(
+                $"Cannot generate reschedule token for appointment with status {appointment.Status}");
+        }
+
+        // Validate patient ownership
+        if (appointment.PatientId != patientId)
+        {
+            throw new AppointmentException("You are not authorized to reschedule this appointment");
+        }
+
+        return appointment;
+    }
+
+    /// <summary>
+    /// Validate reschedule timing (24 hours rule) and action
+    /// </summary>
+    private static void ValidateRescheduleTimingAndAction(AppointmentEntity appointment, string rescheduleAction)
+    {
+        // Validate timing
+        if (!RefundPolicyHelper.IsRescheduleAllowed(appointment.AppointmentDate, appointment.AppointmentTimeId))
+        {
+            var policyMessage = RefundPolicyHelper.GetReschedulePolicyMessage(
+                appointment.AppointmentDate, appointment.AppointmentTimeId);
+            throw new AppointmentException($"Không thể đổi lịch hẹn này. {policyMessage}");
+        }
+
+        // Validate action type
+        if (rescheduleAction != PendingRescheduleAction.SAME_DOCTOR &&
+            rescheduleAction != PendingRescheduleAction.NEW_DOCTOR)
+        {
+            throw new AppointmentException($"Invalid reschedule action: {rescheduleAction}");
+        }
+
+        // Validate doctor is assigned for SAME_DOCTOR action
+        if (rescheduleAction == PendingRescheduleAction.SAME_DOCTOR && !appointment.DoctorId.HasValue)
+        {
+            throw new AppointmentException("Cannot reschedule with same doctor when no doctor is assigned");
+        }
+    }
+
+    /// <summary>
+    /// Generate token and store in appointment entity
+    /// </summary>
+    private (string token, DateTime expiry) GenerateAndStoreRescheduleToken(
+        AppointmentEntity appointment, string rescheduleAction)
+    {
+        var token = Guid.NewGuid().ToString("N");
+        var expiry = CalculateRescheduleTokenExpiry(appointment.AppointmentDate);
+
+        appointment.RescheduleToken = token;
+        appointment.RescheduleTokenExpiry = expiry;
+        appointment.PendingRescheduleAction = rescheduleAction;
+
+        return (token, expiry);
+    }
+
+    /// <summary>
+    /// Build redirect URL based on reschedule action
+    /// </summary>
+    private string BuildRescheduleRedirectUrl(AppointmentEntity appointment, string token, string rescheduleAction)
+    {
+        var frontendBaseUrl = _frontendConfig.BaseUrl;
+
+        return rescheduleAction == PendingRescheduleAction.SAME_DOCTOR
+            ? $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}&doctorId={appointment.DoctorId}"
+            : $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}";
     }
 
     /// <summary>
