@@ -14,6 +14,9 @@ service AppointmentService {
 
     // Check if appointment slots are already booked for a doctor on a specific date
     rpc CheckBookedSlots(CheckBookedSlotsRequest) returns (CheckBookedSlotsResponse);
+
+    // Get appointment details by ID (for Payment service integration)
+    rpc GetAppointmentDetails (GetAppointmentDetailsRequest) returns (GetAppointmentDetailsResponse);
 }
 
 // Request message
@@ -53,5 +56,27 @@ message CheckBookedSlotsRequest {
 // Response with booked appointment time IDs
 message CheckBookedSlotsResponse {
   repeated int32 booked_appointment_time_ids = 1;  // List of AppointmentTime enum values that are booked
+}
+
+// Request to get appointment details
+message GetAppointmentDetailsRequest {
+    string appointment_id = 1;
+}
+
+// Response with appointment details
+message GetAppointmentDetailsResponse {
+    bool success = 1;
+    string message = 2;
+    AppointmentDetails appointment = 3;
+}
+
+// Appointment details message
+message AppointmentDetails {
+    string appointment_id = 1;
+    string appointment_date = 2; // ISO 8601 date-time format (yyyy-MM-ddTHH:mm:ss)
+    int32 appointment_type = 3;  // AppointmentType enum value (0=IN_PERSON, 1=TELEHEALTH)
+    string doctor_id = 4;        // Can be empty if null
+    string service_id = 5;       // Can be empty if null
+    string hospital_id = 6;      // Can be empty if null
 }
 
