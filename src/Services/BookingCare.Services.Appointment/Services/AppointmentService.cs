@@ -504,6 +504,91 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
+    /// Generate reschedule token without cancelling appointment (lazy token generation)
+    /// Creates token and stores PendingRescheduleAction, but keeps appointment status unchanged
+    /// </summary>
+    public async Task<GenerateRescheduleTokenResponse> GenerateRescheduleTokenAsync(GenerateRescheduleTokenRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Generating reschedule token for appointment {AppointmentId} with action {Action}",
+                null, request.AppointmentId, request.RescheduleAction);
+
+            // Validate appointment
+            var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
+            if (appointment == null)
+            {
+                throw new AppointmentNotFoundException(request.AppointmentId);
+            }
+
+            // Validate appointment status - must be PENDING or CONFIRMED
+            if (appointment.Status != AppointmentStatus.PENDING &&
+                appointment.Status != AppointmentStatus.CONFIRMED)
+            {
+                throw new AppointmentException(
+                    $"Cannot generate reschedule token for appointment with status {appointment.Status}");
+            }
+
+            // Validate patient ownership
+            if (appointment.PatientId != request.PatientId)
+            {
+                throw new AppointmentException("You are not authorized to reschedule this appointment");
+            }
+
+            // Validate reschedule is allowed (must be at least 24 hours before appointment)
+            // Use AppointmentDate + AppointmentTimeId for accurate time calculation
+            if (!RefundPolicyHelper.IsRescheduleAllowed(appointment.AppointmentDate, appointment.AppointmentTimeId))
+            {
+                var policyMessage = RefundPolicyHelper.GetReschedulePolicyMessage(appointment.AppointmentDate, appointment.AppointmentTimeId);
+                throw new AppointmentException(
+                    $"Không thể đổi lịch hẹn này. {policyMessage}");
+            }
+
+            // Validate reschedule action
+            if (request.RescheduleAction != PendingRescheduleAction.SAME_DOCTOR &&
+                request.RescheduleAction != PendingRescheduleAction.NEW_DOCTOR)
+            {
+                throw new AppointmentException($"Invalid reschedule action: {request.RescheduleAction}");
+            }
+
+            // For SAME_DOCTOR action, validate that doctor is assigned
+            if (request.RescheduleAction == PendingRescheduleAction.SAME_DOCTOR && !appointment.DoctorId.HasValue)
+            {
+                throw new AppointmentException("Cannot reschedule with same doctor when no doctor is assigned");
+            }
+
+            // Generate token and expiry
+            var token = Guid.NewGuid().ToString("N");
+            var expiry = CalculateRescheduleTokenExpiry(appointment.AppointmentDate);
+
+            // Store token and pending action in appointment
+            appointment.RescheduleToken = token;
+            appointment.RescheduleTokenExpiry = expiry;
+            appointment.PendingRescheduleAction = request.RescheduleAction;
+
+            await _appointmentRepository.UpdateAppointmentAsync(appointment);
+
+            // Build redirect URL based on action
+            var frontendBaseUrl = _frontendConfig.BaseUrl;
+            var redirectUrl = request.RescheduleAction == PendingRescheduleAction.SAME_DOCTOR
+                ? $"{frontendBaseUrl}/booking/reschedule/{appointment.Id}?token={token}&doctorId={appointment.DoctorId}"
+                : $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}";
+
+            LogInfo("Generated reschedule token for appointment {AppointmentId}, expires at {Expiry}",
+                null, appointment.Id, expiry);
+
+            return new GenerateRescheduleTokenResponse
+            {
+                RescheduleToken = token,
+                TokenExpiry = expiry,
+                RedirectUrl = redirectUrl,
+                Message = "Reschedule token generated successfully"
+            };
+
+        }, "GenerateRescheduleToken");
+    }
+
+    /// <summary>
     /// Get appointment and validate it can be cancelled
     /// </summary>
     private async Task<AppointmentEntity> GetAndValidateAppointmentForCancellationAsync(Guid appointmentId)
@@ -976,6 +1061,7 @@ public class AppointmentService : BaseService, IAppointmentService
             appointment.PendingNewDoctorId = null;
             appointment.PendingNewAppointmentDate = null;
             appointment.PendingNewAppointmentTimeId = null;
+            appointment.PendingRescheduleAction = null; // Clear pending reschedule action
             appointment.IsRescheduled = true;
             appointment.RescheduleToken = null; // Clear token after use
             appointment.RescheduleTokenExpiry = null;
@@ -1239,10 +1325,17 @@ public class AppointmentService : BaseService, IAppointmentService
             throw new AppointmentNotFoundException(request.AppointmentId);
         }
 
+        // Validate appointment status:
+        // - CANCELLED (old flow: staff cancels and offers reschedule)
+        // - PENDING/CONFIRMED with PendingRescheduleAction (new flow: patient initiates reschedule without cancelling)
+        var isValidStatus = appointment.Status == AppointmentStatus.CANCELLED ||
+                           ((appointment.Status == AppointmentStatus.PENDING || appointment.Status == AppointmentStatus.CONFIRMED) &&
+                            !string.IsNullOrEmpty(appointment.PendingRescheduleAction));
+
         // Validate appointment is cancelled
-        if (appointment.Status != AppointmentStatus.CANCELLED)
+        if (!isValidStatus)
         {
-            throw new AppointmentException("Only cancelled appointments can choose new doctor");
+            throw new AppointmentException("Only cancelled or pending appointments can choose new doctor");
         }
 
         // Validate reschedule token
@@ -1626,8 +1719,23 @@ public class AppointmentService : BaseService, IAppointmentService
 
         try
         {
+            // Group entities by AppointmentType to minimize gRPC calls
+            // For each unique AppointmentType, get doctor prices with that service type
+            var entitiesByType = entities
+                .Where(e => e.DoctorId.HasValue)
+                .GroupBy(e => e.AppointmentType)
+                .ToList();
+
             var doctorRequest = new GetDoctorsBasicInfoRequest();
             doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
+
+            // If all appointments have same type, fetch prices in single call
+            // Otherwise, fetch without prices and make separate calls per type
+            if (entitiesByType.Count == 1)
+            {
+                var appointmentType = entitiesByType[0].Key;
+                doctorRequest.ServiceTypeName = appointmentType.ToString();
+            }
 
             var doctorsResponse = await _grpcClients.DoctorClient.GetDoctorsBasicInfoAsync(doctorRequest);
             var doctorDict = doctorsResponse.Doctors.ToDictionary(
@@ -1655,7 +1763,9 @@ public class AppointmentService : BaseService, IAppointmentService
                         AvatarUrl = doctorInfo.AvatarUrl,
                         HospitalId = !string.IsNullOrEmpty(doctorInfo.HospitalId)
                             ? Guid.Parse(doctorInfo.HospitalId)
-                            : null
+                            : null,
+                        // Add consultation fee if returned from gRPC
+                        ConsultationFee = doctorInfo.ConsultationFee > 0 ? (decimal)doctorInfo.ConsultationFee : null
                     };
                 }
             }
@@ -2052,10 +2162,16 @@ public class AppointmentService : BaseService, IAppointmentService
             throw new AppointmentNotFoundException(appointmentId);
         }
 
-        // Validate appointment is cancelled
-        if (appointment.Status != AppointmentStatus.CANCELLED)
+        // Validate appointment status:
+        // - CANCELLED (old flow: staff cancels and offers reschedule)
+        // - PENDING/CONFIRMED with PendingRescheduleAction (new flow: patient initiates reschedule without cancelling)
+        var isValidStatus = appointment.Status == AppointmentStatus.CANCELLED ||
+                           ((appointment.Status == AppointmentStatus.PENDING || appointment.Status == AppointmentStatus.CONFIRMED) &&
+                            !string.IsNullOrEmpty(appointment.PendingRescheduleAction));
+
+        if (!isValidStatus)
         {
-            throw new AppointmentException($"Only cancelled appointments can {errorContext}");
+            throw new AppointmentException($"Only cancelled or pending reschedule appointments can {errorContext}");
         }
 
         // Validate reschedule token
