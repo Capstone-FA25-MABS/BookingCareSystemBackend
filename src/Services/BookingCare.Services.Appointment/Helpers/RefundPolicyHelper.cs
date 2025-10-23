@@ -150,7 +150,6 @@ public static class RefundPolicyHelper
     /// <param name="appointmentDate">The appointment date and time</param>
     /// <param name="requestTime">The reschedule request time (defaults to now)</param>
     /// <returns>True if reschedule is allowed</returns>
-    [Obsolete("Use overload with AppointmentTime parameter for accurate validation. Will be removed in v2.0.0")]
     public static bool IsRescheduleAllowed(DateTime appointmentDate, DateTime? requestTime = null)
     {
         var checkTime = requestTime ?? DateTime.UtcNow;
@@ -195,7 +194,6 @@ public static class RefundPolicyHelper
     /// <param name="appointmentDate">The appointment date and time</param>
     /// <param name="requestTime">The reschedule request time (defaults to now)</param>
     /// <returns>Policy message</returns>
-    [Obsolete("Use overload with AppointmentTime parameter for accurate validation. Will be removed in v2.0.0")]
     public static string GetReschedulePolicyMessage(DateTime appointmentDate, DateTime? requestTime = null)
     {
         var checkTime = requestTime ?? DateTime.UtcNow;
