@@ -201,6 +201,64 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
     }
 
     /// <summary>
+    /// Get appointment details by ID (for Payment service integration)
+    /// </summary>
+    public override async Task<GetAppointmentDetailsResponse> GetAppointmentDetails(GetAppointmentDetailsRequest request, ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[AppointmentGrpcService] GetAppointmentDetails called with ID: {AppointmentId}", request.AppointmentId);
+
+            if (!Guid.TryParse(request.AppointmentId, out var appointmentId))
+            {
+                _logger.LogWarning("[AppointmentGrpcService] Invalid appointment ID format: {AppointmentId}", request.AppointmentId);
+                return new GetAppointmentDetailsResponse
+                {
+                    Success = false,
+                    Message = "Invalid appointment ID format"
+                };
+            }
+
+            var appointmentEntity = await _appointmentRepository.GetAppointmentByIdAsync(appointmentId);
+            if (appointmentEntity == null)
+            {
+                _logger.LogWarning("[AppointmentGrpcService] Appointment not found: {AppointmentId}", appointmentId);
+                return new GetAppointmentDetailsResponse
+                {
+                    Success = false,
+                    Message = "Appointment not found"
+                };
+            }
+
+            _logger.LogInformation("[AppointmentGrpcService] Successfully retrieved appointment details for ID: {AppointmentId}", appointmentId);
+
+            return new GetAppointmentDetailsResponse
+            {
+                Success = true,
+                Message = "Appointment details retrieved successfully",
+                Appointment = new AppointmentDetails
+                {
+                    AppointmentId = appointmentEntity.Id.ToString(),
+                    AppointmentDate = appointmentEntity.AppointmentDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    AppointmentType = (int)appointmentEntity.AppointmentType,
+                    DoctorId = appointmentEntity.DoctorId?.ToString() ?? string.Empty,
+                    ServiceId = appointmentEntity.ServiceId?.ToString() ?? string.Empty,
+                    HospitalId = appointmentEntity.HospitalId?.ToString() ?? string.Empty
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AppointmentGrpcService] Error in GetAppointmentDetails for ID: {AppointmentId}", request.AppointmentId);
+            return new GetAppointmentDetailsResponse
+            {
+                Success = false,
+                Message = "Internal server error occurred while retrieving appointment details"
+            };
+        }
+    }
+
+    /// <summary>
     /// Checks which appointment time slots are already booked for a doctor on a specific date
     /// Returns slots with status PENDING, CONFIRMED, or COMPLETED
     /// </summary>
