@@ -86,7 +86,7 @@ public class DoctorService : BaseService, IDoctorService
         // Validate SpecialtyId if provided
         if (request.SpecialtyId.HasValue && !await _specialtyRepository.Value.SpecialtyExistsAsync(request.SpecialtyId.Value))
         {
-            throw new ArgumentException($"Specialty with ID {request.SpecialtyId.Value} not found");
+            throw new ArgumentException($"Không tìm thấy chuyên khoa với ID {request.SpecialtyId.Value}");
         }
     }
 
@@ -113,14 +113,14 @@ public class DoctorService : BaseService, IDoctorService
         var serviceType = await _repository.Value.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
         if (serviceType == null)
         {
-            throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
+            throw new ArgumentException($"Không tìm thấy loại dịch vụ với ID {priceRequest.ServiceTypeId}");
         }
 
         // Check if doctor already has a price for this service type
         var existingPrices = await _repository.Value.GetDoctorPricesAsync(doctorId);
         if (existingPrices.Any(p => p.ServiceTypeId == priceRequest.ServiceTypeId))
         {
-            throw new ArgumentException($"Doctor already has a price for service type {serviceType.Name}");
+            throw new ArgumentException($"Bác sĩ đã có giá cho loại dịch vụ {serviceType.Name}");
         }
 
         var doctorPrice = new DoctorPriceEntity
@@ -149,14 +149,14 @@ public class DoctorService : BaseService, IDoctorService
         var language = await _repository.Value.GetLanguageByIdAsync(languageId);
         if (language == null)
         {
-            throw new ArgumentException($"Language with ID {languageId} not found");
+            throw new ArgumentException($"Không tìm thấy ngôn ngữ với ID {languageId}");
         }
 
         // Check if doctor already has this language
         var existingLanguages = await _repository.Value.GetDoctorLanguagesAsync(doctorId);
         if (existingLanguages.Any(l => l.LanguageId == languageId))
         {
-            throw new ArgumentException($"Doctor already has language {language.Name}");
+            throw new ArgumentException($"Bác sĩ đã có ngôn ngữ {language.Name}");
         }
 
         var doctorLanguage = new DoctorLanguageEntity
@@ -260,6 +260,16 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task ValidateUpdateDoctorRequest(UpdateDoctorRequest request)
     {
+        // Validate email uniqueness if email is being updated
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            var emailExists = await _repository.Value.DoctorEmailExistsAsync(request.Email, request.Id);
+            if (emailExists)
+            {
+                throw DoctorConflictException.WithEmail(request.Email);
+            }
+        }
+
         if (request.PositionId.HasValue && !await _positionRepository.Value.PositionExistsAsync(request.PositionId.Value))
         {
             throw PositionNotFoundException.WithId(request.PositionId.Value);
@@ -268,7 +278,7 @@ public class DoctorService : BaseService, IDoctorService
         // Validate SpecialtyId if provided
         if (request.SpecialtyId.HasValue && !await _specialtyRepository.Value.SpecialtyExistsAsync(request.SpecialtyId.Value))
         {
-            throw new ArgumentException($"Specialty with ID {request.SpecialtyId.Value} not found");
+            throw new ArgumentException($"Không tìm thấy chuyên khoa với ID {request.SpecialtyId.Value}");
         }
     }
 

@@ -26,21 +26,21 @@ public class DoctorNotFoundException : NotFoundException
 
     public static DoctorNotFoundException WithId(Guid doctorId)
     {
-        var exception = new DoctorNotFoundException($"Doctor with ID '{doctorId}' was not found.");
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với ID '{doctorId}'.");
         exception.Details["DoctorId"] = doctorId;
         return exception;
     }
 
     public static DoctorNotFoundException WithEmail(string email)
     {
-        var exception = new DoctorNotFoundException($"Doctor with email '{email}' was not found.");
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với email '{email}'.");
         exception.Details["Email"] = email;
         return exception;
     }
 
     public static DoctorNotFoundException WithAccountId(Guid accountId)
     {
-        var exception = new DoctorNotFoundException($"Doctor with account ID '{accountId}' was not found.");
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với tài khoản ID '{accountId}'.");
         exception.Details["AccountId"] = accountId;
         return exception;
     }
@@ -76,14 +76,14 @@ public class DoctorConflictException : ConflictException
 
     public static DoctorConflictException WithEmail(string email)
     {
-        var exception = new DoctorConflictException($"Doctor with email '{email}' already exists.");
+        var exception = new DoctorConflictException($"Email '{email}' đã tồn tại trong hệ thống. Vui lòng sử dụng email khác.");
         exception.Details["Email"] = email;
         return exception;
     }
 
     public static DoctorConflictException WithAccountId(Guid accountId)
     {
-        var exception = new DoctorConflictException($"Doctor with account ID '{accountId}' already exists.");
+        var exception = new DoctorConflictException($"Tài khoản với ID '{accountId}' đã tồn tại.");
         exception.Details["AccountId"] = accountId;
         return exception;
     }

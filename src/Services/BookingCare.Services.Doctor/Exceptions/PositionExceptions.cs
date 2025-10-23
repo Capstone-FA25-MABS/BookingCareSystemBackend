@@ -26,7 +26,7 @@ public class PositionNotFoundException : NotFoundException
 
     public static PositionNotFoundException WithId(Guid positionId)
     {
-        var exception = new PositionNotFoundException($"Position with ID '{positionId}' was not found.");
+        var exception = new PositionNotFoundException($"Không tìm thấy học vị với ID '{positionId}'.");
         exception.Details["PositionId"] = positionId;
         return exception;
     }

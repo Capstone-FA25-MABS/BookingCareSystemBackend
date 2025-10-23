@@ -89,6 +89,10 @@ public class UpdateDoctorRequest : BaseDoctorRequest
     [Required(ErrorMessage = "Doctor ID is required")]
     [JsonRequired]
     public Guid Id { get; set; }
+
+    [EmailAddress(ErrorMessage = "Invalid email format")]
+    [StringLength(100, ErrorMessage = "Email cannot exceed 100 characters")]
+    public string? Email { get; set; }
 }
 
 public class DoctorQueryRequest : BaseDoctorQueryRequest
