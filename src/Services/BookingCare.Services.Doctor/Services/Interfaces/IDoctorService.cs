@@ -49,6 +49,12 @@ public interface IDoctorService
     Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
     Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
 
+    /// <summary>
+    /// Get consultation fees for multiple doctors by service type (batch operation for performance)
+    /// Returns a dictionary of doctorId -> price, only includes doctors that have the specified service type
+    /// </summary>
+    Task<Dictionary<Guid, decimal>> GetDoctorsPricesByServiceTypeAsync(IEnumerable<Guid> doctorIds, string serviceTypeName);
+
     // Get available doctors by hospital, specialty (for Appointment Service)
     // Note: Availability check (appointment conflicts) is done by Appointment Service
     Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId);

@@ -667,6 +667,21 @@ public class DoctorRepository : IDoctorRepository
             .ToListAsync();
     }
 
+    public async Task<Dictionary<Guid, decimal>> GetDoctorsPricesByServiceTypeAsync(IEnumerable<Guid> doctorIds, string serviceTypeName)
+    {
+        var idList = doctorIds.ToList();
+
+        var prices = await _context.DoctorPrices
+            .Include(dp => dp.ServiceType)
+            .Where(dp => idList.Contains(dp.DoctorId) &&
+                         dp.ServiceType != null &&
+                         dp.ServiceType.Name == serviceTypeName)
+            .Select(dp => new { dp.DoctorId, dp.Amount })
+            .ToListAsync();
+
+        return prices.ToDictionary(p => p.DoctorId, p => p.Amount);
+    }
+
     /// <summary>
     /// Get doctors by hospital and specialty (for Appointment Service via gRPC)
     /// Returns lightweight doctor entities with Position and Specialty names
