@@ -186,6 +186,60 @@ public class AppointmentCancelledIntegrationEvent : IntegrationEvent
     /// 100 = full refund, 50 = half refund, 0 = no refund
     /// </summary>
     public decimal RefundPercentage { get; set; } = 100m;
+
+    // Patient information for notification
+    public string? PatientEmail { get; set; }
+    public string? PatientPhone { get; set; }
+    public string? PatientFullName { get; set; }
+
+    // Reschedule options (for staff cancellation only)
+    public string? RescheduleToken { get; set; }
+    public DateTime? RescheduleTokenExpiry { get; set; }
+    public string? SameDoctorRescheduleUrl { get; set; }
+    public string? ChooseNewDoctorUrl { get; set; }
+    public string? RefundRequestUrl { get; set; }
+
+    // Doctor change refund context (Option 3: Choose new doctor with lower price)
+    /// <summary>
+    /// Cancellation source - helps identify the context for notifications
+    /// Values: "PATIENT_CANCELLED", "STAFF_CANCELLED", "DOCTOR_CHANGE_REFUND"
+    /// </summary>
+    public string? CancellationSource { get; set; }
+
+    /// <summary>
+    /// Original doctor ID (when changing to new doctor)
+    /// </summary>
+    public Guid? OriginalDoctorId { get; set; }
+
+    /// <summary>
+    /// Original doctor name (for refund history transparency)
+    /// </summary>
+    public string? OriginalDoctorName { get; set; }
+
+    /// <summary>
+    /// Original consultation fee (deposit paid)
+    /// </summary>
+    public decimal? OriginalConsultationFee { get; set; }
+
+    /// <summary>
+    /// New doctor ID (when changing to new doctor)
+    /// </summary>
+    public Guid? NewDoctorId { get; set; }
+
+    /// <summary>
+    /// New doctor name (for refund history transparency)
+    /// </summary>
+    public string? NewDoctorName { get; set; }
+
+    /// <summary>
+    /// New consultation fee (new deposit amount)
+    /// </summary>
+    public decimal? NewConsultationFee { get; set; }
+
+    /// <summary>
+    /// Refund amount (difference when new doctor is cheaper)
+    /// </summary>
+    public decimal? RefundAmount { get; set; }
 }
 
 
@@ -269,6 +323,33 @@ public class AppointmentRefundRequestedIntegrationEvent : IntegrationEvent
     /// </summary>
     public DateTime AppointmentDate { get; set; }
     public bool IsPartialRefund => RefundPercentage > 0 && RefundPercentage < 100; // Helper property
+
+    // Doctor change refund context (Option 3: Choose new doctor with lower price)
+    /// <summary>
+    /// Cancellation source - helps Notification Service create appropriate templates
+    /// Values: "PATIENT_CANCELLED", "STAFF_CANCELLED", "DOCTOR_CHANGE_REFUND"
+    /// </summary>
+    public string? CancellationSource { get; set; }
+
+    /// <summary>
+    /// Original doctor name (for doctor change refund notification)
+    /// </summary>
+    public string? OriginalDoctorName { get; set; }
+
+    /// <summary>
+    /// New doctor name (for doctor change refund notification)
+    /// </summary>
+    public string? NewDoctorName { get; set; }
+
+    /// <summary>
+    /// Original consultation fee (for doctor change refund notification)
+    /// </summary>
+    public decimal? OriginalConsultationFee { get; set; }
+
+    /// <summary>
+    /// New consultation fee (for doctor change refund notification)
+    /// </summary>
+    public decimal? NewConsultationFee { get; set; }
 }
 
 // Payment-related events
@@ -690,3 +771,47 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
     // NO delegation properties here - completely eliminates duplicate code!
     // Access appointment data via: event.AppointmentData.PatientName, etc.
 }
+
+/// <summary>
+/// Event published when appointment is cancelled by staff with reschedule options
+/// This is a NOTIFICATION-ONLY event consumed by Notification Service
+/// Does NOT trigger refund - patient must explicitly choose refund option
+/// </summary>
+public class AppointmentCancelledWithOptionsNotificationEvent : IntegrationEvent
+{
+    public Guid AppointmentId { get; set; }
+    public Guid PatientId { get; set; }
+    public DateTime AppointmentDate { get; set; }
+    public string CancellationReason { get; set; } = string.Empty;
+    public DateTime CancelledAt { get; set; }
+
+    // Patient contact information
+    public string? PatientEmail { get; set; }
+    public string? PatientPhone { get; set; }
+    public string? PatientFullName { get; set; }
+
+    // Doctor and Hospital info (for context in notification)
+    public string? DoctorName { get; set; }
+    public string? HospitalName { get; set; }
+
+    // Reschedule options with deep links (4 options)
+    public string? RescheduleToken { get; set; }
+    public DateTime? RescheduleTokenExpiry { get; set; }
+
+    /// <summary>Option 1: Reschedule with same doctor</summary>
+    public string? SameDoctorRescheduleUrl { get; set; }
+
+    /// <summary>Option 2: Confirm new doctor assigned by staff</summary>
+    public string? ConfirmNewDoctorUrl { get; set; }
+
+    /// <summary>Option 3: Choose new doctor yourself</summary>
+    public string? ChooseNewDoctorUrl { get; set; }
+
+    /// <summary>Option 4: Request refund</summary>
+    public string? RefundRequestUrl { get; set; }
+
+    // Potential refund info (for display only, not for processing)
+    public decimal? PotentialRefundPercentage { get; set; }
+    public decimal? PotentialRefundAmount { get; set; }
+}
+

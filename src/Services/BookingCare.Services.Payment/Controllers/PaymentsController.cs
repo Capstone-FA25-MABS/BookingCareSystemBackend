@@ -15,6 +15,7 @@ namespace BookingCare.Services.Payment.Controllers;
 [ApiVersion(ApiVersions.V1_0)]
 public class PaymentsController(
     IPaymentService paymentService,
+    IPaymentMethodService paymentMethodService,
     IPayOSService payOSService,
     IVNPayService vnPayService,
     IPaymentValidationService validationService,
@@ -23,6 +24,7 @@ public class PaymentsController(
     private const string InvalidRequestDataMessage = "Invalid request data";
 
     private readonly IPaymentService _paymentService = paymentService;
+    private readonly IPaymentMethodService _paymentMethodService = paymentMethodService;
     private readonly IPayOSService _payOSService = payOSService;
     private readonly IVNPayService _vnPayService = vnPayService;
     private readonly IPaymentValidationService _validationService = validationService;
@@ -219,7 +221,16 @@ public class PaymentsController(
             switch (paymentMethodName)
             {
                 case "PAYOS":
-                    response = await CreatePayOSPaymentUrl(payment);
+                    try
+                    {
+                        response = await CreatePayOSPaymentUrl(payment);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "PayOS payment failed, falling back to VNPay for PaymentId: {PaymentId}", payment.Id);
+                        // Fallback to VNPay if PayOS fails
+                        response = await CreateVNPayPaymentUrl(payment, request);
+                    }
                     break;
                 case "VNPAY":
                     response = await CreateVNPayPaymentUrl(payment, request);
@@ -231,23 +242,10 @@ public class PaymentsController(
 
             return Created(response, "Create appointment payment with payment URL successful");
         }
-        catch (ArgumentException ex)
-        {
-            _logger.LogWarning(ex, "Invalid argument when creating appointment payment");
-            return BadRequest(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Invalid operation when creating appointment payment");
-            return Conflict(ex.Message);
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating appointment payment");
-            return StatusCode(
-                500,
-                new { Message = "An error occurred while creating appointment payment" }
-            );
+            return HandlePaymentCreationError(ex, "appointment");
         }
     }
 
@@ -317,6 +315,152 @@ public class PaymentsController(
             ExpireAt = vnPayResponse.ExpireTime,
             PaymentReference = vnPayResponse.TransactionRef
         };
+    }
+
+    /// <summary>
+    /// Create PayOS payment URL for supplementary payment
+    /// </summary>
+    private async Task<CreateSupplementaryPaymentResponse> CreatePayOSSupplementaryPaymentUrl(
+        CreateSupplementaryPaymentRequest request, string supplementaryPaymentId)
+    {
+        var existingPayment = await _paymentService.GetByAppointmentIdAsync(request.AppointmentId);
+        var gatewayPaymentId = existingPayment?.Id ?? Guid.NewGuid(); // fallback only if truly no base payment
+
+        var payOSRequest = new Models.DTOs.PayOS.PayOSPaymentRequest
+        {
+            PaymentId = gatewayPaymentId,
+            Amount = request.AdditionalAmount,
+            // Add supplementary payment identifier and IsStaffAssigned flag in Description for callback handling
+            Description = $"SUPP_PAYMENT:{supplementaryPaymentId}:APPT:{request.AppointmentId}:STAFF_ASSIGNED:{request.IsStaffAssigned}",
+            BuyerInfo = new Models.DTOs.PayOS.PayOSBuyerInfo
+            {
+                // Note: We don't have buyer info in the request, so we'll leave these empty
+                // In a real scenario, you might want to fetch patient info from another service
+            },
+            Items = new List<Models.DTOs.PayOS.PayOSItemInfo>
+            {
+                new Models.DTOs.PayOS.PayOSItemInfo
+                {
+                    Name = "Phí khám bệnh bổ sung",
+                    Quantity = 1,
+                    Price = (int)request.AdditionalAmount
+                }
+            },
+        };
+
+        var payOSResponse = await _payOSService.CreatePaymentLinkAsync(payOSRequest);
+
+        return new CreateSupplementaryPaymentResponse
+        {
+            AppointmentId = request.AppointmentId,
+            AdditionalAmount = request.AdditionalAmount,
+            PaymentUrl = payOSResponse.CheckoutUrl,
+            PaymentGateway = "PayOS",
+            ExpireAt = payOSResponse.ExpireAt,
+            PaymentReference = payOSResponse.OrderCode.ToString(),
+            SupplementaryPaymentId = supplementaryPaymentId
+        };
+    }
+
+    /// <summary>
+    /// Create VNPay payment URL for supplementary payment
+    /// </summary>
+    private async Task<CreateSupplementaryPaymentResponse> CreateVNPaySupplementaryPaymentUrl(
+        CreateSupplementaryPaymentRequest request, string supplementaryPaymentId)
+    {
+        var existingPayment = await _paymentService.GetByAppointmentIdAsync(request.AppointmentId);
+        var gatewayPaymentId = existingPayment?.Id ?? Guid.NewGuid(); // fallback only if truly no base payment
+
+        var vnPayRequest = new Models.DTOs.VNPay.VNPayPaymentRequest
+        {
+            PaymentId = gatewayPaymentId, // Temporary ID for VNPay
+            Amount = request.AdditionalAmount,
+            OrderDescription = $"Thanh toán bổ sung - Appointment ID: {request.AppointmentId} - {request.Reason}",
+            ClientIP = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            CustomerInfo = $"Patient ID: {request.PatientId}",
+            // Add supplementary payment identifier and IsStaffAssigned flag for callback handling
+            OrderInfo = $"SUPP_PAYMENT:{supplementaryPaymentId}:APPT:{request.AppointmentId}:STAFF_ASSIGNED:{request.IsStaffAssigned}"
+        };
+
+        var vnPayResponse = await _vnPayService.CreatePaymentUrlAsync(vnPayRequest);
+
+        return new CreateSupplementaryPaymentResponse
+        {
+            AppointmentId = request.AppointmentId,
+            AdditionalAmount = request.AdditionalAmount,
+            PaymentUrl = vnPayResponse.PaymentUrl,
+            PaymentGateway = "VNPay",
+            ExpireAt = vnPayResponse.ExpireTime,
+            PaymentReference = vnPayResponse.TransactionRef,
+            SupplementaryPaymentId = supplementaryPaymentId
+        };
+    }
+
+    /// <summary>
+    /// Create supplementary payment for appointment price difference (Option 3)
+    /// Used when patient chooses new doctor with higher price
+    /// Does not create new Payment entity, only generates payment URL for price difference
+    /// </summary>
+    [HttpPost("supplementary")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> CreateSupplementaryPayment(
+        [FromBody] CreateSupplementaryPaymentRequest request
+    )
+    {
+        try
+        {
+            var validationResult = await _validationService.ValidateCreateSupplementaryPaymentAsync(request);
+            if (!validationResult.IsValid)
+            {
+                var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
+                return BadRequest(InvalidRequestDataMessage, errors);
+            }
+
+            // Generate unique supplementary payment ID
+            var supplementaryPaymentId = $"SUPP_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+
+            // Get payment method to determine which gateway to use
+            var paymentMethod = await _paymentMethodService.GetByIdAsync(request.PaymentMethodId);
+            if (paymentMethod == null)
+            {
+                _logger.LogError("Payment method not found for ID: {PaymentMethodId}", request.PaymentMethodId);
+                return BadRequest($"Payment method with ID {request.PaymentMethodId} not found");
+            }
+
+            var paymentMethodName = paymentMethod.Name?.ToUpperInvariant() ?? "VNPAY";
+
+            // Generate payment URL based on payment method
+            CreateSupplementaryPaymentResponse response;
+
+            switch (paymentMethodName)
+            {
+                case "PAYOS":
+                    try
+                    {
+                        response = await CreatePayOSSupplementaryPaymentUrl(request, supplementaryPaymentId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "PayOS supplementary payment failed, falling back to VNPay for PaymentMethodId: {PaymentMethodId}", request.PaymentMethodId);
+                        // Fallback to VNPay if PayOS fails
+                        response = await CreateVNPaySupplementaryPaymentUrl(request, supplementaryPaymentId);
+                    }
+                    break;
+                case "VNPAY":
+                    response = await CreateVNPaySupplementaryPaymentUrl(request, supplementaryPaymentId);
+                    break;
+                default:
+                    _logger.LogWarning("Unsupported payment method for supplementary payment: {PaymentMethod}", paymentMethodName);
+                    return BadRequest($"Payment method '{paymentMethodName}' is not supported for supplementary payment");
+            }
+
+            return Created(response, "Create supplementary payment URL successful");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating supplementary payment");
+            return HandlePaymentCreationError(ex, "supplementary");
+        }
     }
 
     /// <summary>
@@ -467,5 +611,18 @@ public class PaymentsController(
             _logger.LogError(ex, "Error getting payment statistics");
             return StatusCode(500, new { Message = "An error occurred while retrieving payment statistics" });
         }
+    }
+
+    /// <summary>
+    /// Handle common payment creation errors
+    /// </summary>
+    private IActionResult HandlePaymentCreationError(Exception ex, string operationType)
+    {
+        return ex switch
+        {
+            ArgumentException argEx => BadRequest(argEx.Message),
+            InvalidOperationException invOpEx => Conflict(invOpEx.Message),
+            _ => StatusCode(500, new { Message = $"An error occurred while creating {operationType} payment" })
+        };
     }
 }

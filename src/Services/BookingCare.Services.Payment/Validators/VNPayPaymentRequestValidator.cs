@@ -37,6 +37,14 @@ public class VNPayPaymentRequestValidator : AbstractValidator<VNPayPaymentReques
                 .MaximumLength(50)
                 .WithMessage("CustomerInfo must not exceed 50 characters");
         });
+
+        // OrderInfo is optional - validate length when provided
+        When(x => !string.IsNullOrEmpty(x.OrderInfo), () =>
+        {
+            RuleFor(x => x.OrderInfo)
+                .MaximumLength(255)
+                .WithMessage("OrderInfo must not exceed 255 characters");
+        });
     }
 
 

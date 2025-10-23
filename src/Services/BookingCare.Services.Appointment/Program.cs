@@ -3,15 +3,17 @@ using BookingCare.Services.Appointment.Services;
 using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Mappings;
 using BookingCare.Services.Appointment.BackgroundServices;
+using BookingCare.Services.Appointment.Configuration;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Services.Appointment.Helpers;
-using BookingCare.Services.Appointment.Services.Grpc;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Appointment.Handlers;
+using BookingCare.Shared.Cache.Extensions;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +31,9 @@ builder.Services.AddCommonSwagger("Appointment");
 builder.Services.AddDbContext<AppointmentDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Add Redis Cache
+builder.Services.AddRedisCache(builder.Configuration);
+
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
 
@@ -41,6 +46,10 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 // Add Services
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<DataInitializationService>();
+
+// Add Configuration
+builder.Services.Configure<FrontendConfiguration>(
+    builder.Configuration.GetSection("Frontend"));
 
 // Add Background Services
 builder.Services.AddHostedService<AppointmentStatusUpdateService>();

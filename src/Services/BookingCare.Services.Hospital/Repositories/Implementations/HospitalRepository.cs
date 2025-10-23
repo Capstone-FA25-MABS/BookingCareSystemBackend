@@ -22,8 +22,6 @@ public class HospitalRepository : IHospitalRepository
         return await _context.Hospitals
             .Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalImages)
-            .Include(h => h.HospitalSubscriptions.Where(s => s.Status == SubscriptionStatus.ACTIVE))
-                .ThenInclude(s => s.SubscriptionPlan)
             .FirstOrDefaultAsync(h => h.Id == id);
     }
 
@@ -327,11 +325,11 @@ public class HospitalRepository : IHospitalRepository
     /// <summary>
     /// Get specialty information directly from database for performance optimization
     /// </summary>
-    public async Task<Dictionary<Guid, (string Name, string? ImageUrl)>> GetSpecialtyInfoByIdsAsync(List<Guid> specialtyIds)
+    public Task<Dictionary<Guid, (string Name, string? ImageUrl)>> GetSpecialtyInfoByIdsAsync(List<Guid> specialtyIds)
     {
         if (specialtyIds == null || !specialtyIds.Any())
         {
-            return new Dictionary<Guid, (string Name, string? ImageUrl)>();
+            return Task.FromResult(new Dictionary<Guid, (string Name, string? ImageUrl)>());
         }
 
         // This would require a direct connection to Doctor database
@@ -342,7 +340,7 @@ public class HospitalRepository : IHospitalRepository
         // 3. Use a data warehouse
         // 4. Use event sourcing to sync specialty data
 
-        return new Dictionary<Guid, (string Name, string? ImageUrl)>();
+        return Task.FromResult(new Dictionary<Guid, (string Name, string? ImageUrl)>());
     }
 
     #endregion

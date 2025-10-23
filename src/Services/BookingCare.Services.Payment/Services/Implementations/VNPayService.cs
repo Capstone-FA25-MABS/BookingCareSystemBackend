@@ -90,6 +90,12 @@ public class VNPayService : BaseService, IVNPayService
                 vnpParams.Add("vnp_Bill_FirstName", request.CustomerInfo);
             }
 
+            // pseudo in _vnPayService.CreatePaymentUrlAsync
+            if (!string.IsNullOrEmpty(request.OrderInfo))
+            {
+                vnpParams["vnp_OrderInfo"] = request.OrderInfo;
+            }
+
             // Create payment URL
             var paymentUrl = CreateRequestUrl(_vnpayConfig.PaymentUrl, vnpParams, _vnpayConfig.HashSecret);
 
