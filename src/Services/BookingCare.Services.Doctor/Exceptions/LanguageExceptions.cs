@@ -26,7 +26,7 @@ public class LanguageNotFoundException : NotFoundException
 
     public static LanguageNotFoundException WithId(Guid languageId)
     {
-        var exception = new LanguageNotFoundException($"Language with ID '{languageId}' was not found.");
+        var exception = new LanguageNotFoundException($"Không tìm thấy ngôn ngữ với ID '{languageId}'.");
         exception.Details["LanguageId"] = languageId;
         return exception;
     }
@@ -40,7 +40,7 @@ public class LanguageValidationException : ValidationException
     }
 
     public LanguageValidationException(List<ValidationError> validationErrors)
-        : base("Language validation failed", validationErrors, "LANGUAGE_VALIDATION_ERROR")
+        : base("Xác thực ngôn ngữ thất bại", validationErrors, "LANGUAGE_VALIDATION_ERROR")
     {
     }
 }
@@ -54,7 +54,7 @@ public class LanguageConflictException : ConflictException
 
     public static LanguageConflictException WithName(string name)
     {
-        var exception = new LanguageConflictException($"Language with name '{name}' already exists.");
+        var exception = new LanguageConflictException($"Ngôn ngữ với tên '{name}' đã tồn tại.");
         exception.Details["Name"] = name;
         return exception;
     }

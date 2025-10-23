@@ -3,6 +3,8 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Services;
+using BookingCare.Shared.FileUpload.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Doctor.Controllers;
@@ -14,10 +16,17 @@ namespace BookingCare.Services.Doctor.Controllers;
 public class SpecialtiesController : BaseApiController
 {
     private readonly ISpecialtyService _specialtyService;
+    private readonly FileUploadOrchestrator _uploadOrchestrator;
+    private readonly ILogger<SpecialtiesController> _logger;
 
-    public SpecialtiesController(ISpecialtyService specialtyService)
+    public SpecialtiesController(
+        ISpecialtyService specialtyService,
+        FileUploadOrchestrator uploadOrchestrator,
+        ILogger<SpecialtiesController> logger)
     {
         _specialtyService = specialtyService;
+        _uploadOrchestrator = uploadOrchestrator;
+        _logger = logger;
     }
 
     #region Health Check
@@ -54,10 +63,10 @@ public class SpecialtiesController : BaseApiController
         var specialty = await _specialtyService.GetSpecialtyByIdAsync(id);
         if (specialty == null)
         {
-            return NotFound($"Specialty with ID {id} not found");
+            return NotFound($"Không tìm thấy chuyên khoa với ID {id}");
         }
 
-        return Success<SpecialtyResponse>(specialty, "Specialty retrieved successfully");
+        return Success<SpecialtyResponse>(specialty, "Lấy thông tin chuyên khoa thành công");
     }
 
     /// <summary>
@@ -70,10 +79,10 @@ public class SpecialtiesController : BaseApiController
         var specialty = await _specialtyService.GetSpecialtyByNameAsync(name);
         if (specialty == null)
         {
-            return NotFound($"Specialty with name '{name}' not found");
+            return NotFound($"Không tìm thấy chuyên khoa với tên '{name}'");
         }
 
-        return Success<SpecialtyResponse>(specialty, "Specialty retrieved successfully");
+        return Success<SpecialtyResponse>(specialty, "Lấy thông tin chuyên khoa thành công");
     }
 
     /// <summary>
@@ -84,7 +93,7 @@ public class SpecialtiesController : BaseApiController
     public async Task<IActionResult> GetSpecialties([FromQuery] SpecialtyQueryRequest query)
     {
         var result = await _specialtyService.GetSpecialtiesAsync(query);
-        return Success<SpecialtyListResponse>(result, "Specialties retrieved successfully");
+        return Success<SpecialtyListResponse>(result, "Lấy danh sách chuyên khoa thành công");
     }
 
     /// <summary>
@@ -95,7 +104,7 @@ public class SpecialtiesController : BaseApiController
     public async Task<IActionResult> GetAllSpecialties()
     {
         var specialties = await _specialtyService.GetActiveSpecialtiesSimpleAsync();
-        return Success<List<SpecialtySimpleResponse>>(specialties, "All active specialties retrieved successfully");
+        return Success<List<SpecialtySimpleResponse>>(specialties, "Lấy tất cả chuyên khoa hoạt động thành công");
     }
 
     /// <summary>
@@ -106,7 +115,7 @@ public class SpecialtiesController : BaseApiController
     public async Task<IActionResult> GetActiveSpecialties()
     {
         var specialties = await _specialtyService.GetActiveSpecialtiesAsync();
-        return Success<List<SpecialtyResponse>>(specialties, "Active specialties retrieved successfully");
+        return Success<List<SpecialtyResponse>>(specialties, "Lấy danh sách chuyên khoa hoạt động thành công");
     }
 
     /// <summary>
@@ -118,14 +127,81 @@ public class SpecialtiesController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest("Dữ liệu yêu cầu không hợp lệ", ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
         }
 
         var specialty = await _specialtyService.CreateSpecialtyAsync(request);
-        return Created(specialty, "Specialty created successfully");
+        return Created(specialty, "Tạo chuyên khoa thành công");
+    }
+
+    /// <summary>
+    /// Create a new specialty with image upload
+    /// </summary>
+    [HttpPost("upload-image")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> CreateSpecialtyWithImage(
+        [FromForm] CreateSpecialtyWithImageRequest request,
+        [FromForm] IFormFile? imageFile,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest("Invalid request data", ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList());
+            }
+
+            // Handle image upload if provided
+            if (imageFile != null)
+            {
+                var config = new FileUploadConfig
+                {
+                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+                    MaxSizeInMB = 5,
+                    Folder = "specialties",
+                    SuccessMessage = "Specialty image uploaded successfully",
+                    EntityType = "specialty-image"
+                };
+
+                var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
+
+                if (!uploadResult.Success)
+                {
+                    return BadRequest($"Tải lên hình ảnh thất bại: {uploadResult.ErrorMessage}");
+                }
+
+                // Set the image URL from upload result - use CloudFront URL for public access
+                request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+            }
+
+            // Convert to CreateSpecialtyRequest for service layer
+            var createRequest = new CreateSpecialtyRequest
+            {
+                Name = request.Name,
+                ImageUrl = request.ImageUrl ?? string.Empty,
+                Status = request.Status
+            };
+
+            var specialty = await _specialtyService.CreateSpecialtyAsync(createRequest);
+            return Created(specialty, "Tạo chuyên khoa với hình ảnh thành công");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi tạo chuyên khoa với hình ảnh: {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = ex.Message,
+                errors = new[] { ex.GetType().Name },
+                timestamp = DateTime.UtcNow
+            });
+        }
     }
 
     /// <summary>
@@ -137,7 +213,7 @@ public class SpecialtiesController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest("Dữ liệu yêu cầu không hợp lệ", ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
@@ -145,7 +221,98 @@ public class SpecialtiesController : BaseApiController
 
         request.Id = id;
         var specialty = await _specialtyService.UpdateSpecialtyAsync(request);
-        return Success<SpecialtyResponse>(specialty, "Specialty updated successfully");
+        return Success<SpecialtyResponse>(specialty, "Cập nhật chuyên khoa thành công");
+    }
+
+    /// <summary>
+    /// Update specialty with image upload
+    /// </summary>
+    [HttpPut("{id}/upload-image")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> UpdateSpecialtyWithImage(
+        Guid id,
+        [FromForm] UpdateSpecialtyWithImageRequest request,
+        [FromForm] IFormFile? imageFile,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest("Invalid request data", ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList());
+            }
+
+            request.Id = id;
+
+            // Handle image upload if provided
+            if (imageFile != null)
+            {
+                // Get current specialty to check for existing image
+                var currentSpecialty = await _specialtyService.GetSpecialtyByIdAsync(id);
+                if (currentSpecialty != null && !string.IsNullOrEmpty(currentSpecialty.ImageUrl))
+                {
+                    // Delete old image from S3
+                    var deleteConfig = new FileDeletionConfig
+                    {
+                        FileUrl = currentSpecialty.ImageUrl,
+                        ExpectedFolder = "specialties",
+                        EntityType = "specialty-image"
+                    };
+
+                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, Guid.Empty, _logger, cancellationToken);
+                    if (!deleteResult.Success)
+                    {
+                        _logger.LogWarning("Failed to delete old specialty image: {ErrorMessage}", deleteResult.ErrorMessage);
+                        // Continue with upload even if deletion fails
+                    }
+                }
+
+                var config = new FileUploadConfig
+                {
+                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+                    MaxSizeInMB = 5,
+                    Folder = "specialties",
+                    SuccessMessage = "Specialty image uploaded successfully",
+                    EntityType = "specialty-image"
+                };
+
+                var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
+
+                if (!uploadResult.Success)
+                {
+                    return BadRequest($"Tải lên hình ảnh thất bại: {uploadResult.ErrorMessage}");
+                }
+
+                // Set the image URL from upload result - use CloudFront URL for public access
+                request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+            }
+
+            // Convert to UpdateSpecialtyRequest for service layer
+            var updateRequest = new UpdateSpecialtyRequest
+            {
+                Id = id,
+                Name = request.Name,
+                ImageUrl = request.ImageUrl ?? string.Empty,
+                Status = request.Status
+            };
+
+            var specialty = await _specialtyService.UpdateSpecialtyAsync(updateRequest);
+            return Success<SpecialtyResponse>(specialty, "Cập nhật chuyên khoa với hình ảnh thành công");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi cập nhật chuyên khoa với hình ảnh: {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = ex.Message,
+                errors = new[] { ex.GetType().Name },
+                timestamp = DateTime.UtcNow
+            });
+        }
     }
 
     /// <summary>
@@ -155,13 +322,53 @@ public class SpecialtiesController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteSpecialty(Guid id)
     {
-        var result = await _specialtyService.DeleteSpecialtyAsync(id);
-        if (!result)
+        try
         {
-            return NotFound($"Specialty with ID {id} not found");
-        }
+            // Get specialty before deletion to get image URL
+            var specialty = await _specialtyService.GetSpecialtyByIdAsync(id);
+            if (specialty == null)
+            {
+                return NotFound($"Không tìm thấy chuyên khoa với ID {id}");
+            }
 
-        return Success<object?>(null, "Specialty deleted successfully");
+            // Delete the specialty from database
+            var result = await _specialtyService.DeleteSpecialtyAsync(id);
+            if (!result)
+            {
+                return NotFound($"Không tìm thấy chuyên khoa với ID {id}");
+            }
+
+            // Delete associated image from S3 if exists
+            if (!string.IsNullOrEmpty(specialty.ImageUrl))
+            {
+                var deleteConfig = new FileDeletionConfig
+                {
+                    FileUrl = specialty.ImageUrl,
+                    ExpectedFolder = "specialties",
+                    EntityType = "specialty-image"
+                };
+
+                var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, Guid.Empty, _logger, CancellationToken.None);
+                if (!deleteResult.Success)
+                {
+                    _logger.LogWarning("Failed to delete specialty image from S3: {ErrorMessage}", deleteResult.ErrorMessage);
+                    // Continue even if image deletion fails
+                }
+            }
+
+            return Success<object?>(null, "Xóa chuyên khoa thành công");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xóa chuyên khoa: {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = ex.Message,
+                errors = new[] { ex.GetType().Name },
+                timestamp = DateTime.UtcNow
+            });
+        }
     }
 
     /// <summary>
@@ -174,10 +381,10 @@ public class SpecialtiesController : BaseApiController
         var result = await _specialtyService.ToggleSpecialtyStatusAsync(id);
         if (!result)
         {
-            return NotFound($"Specialty with ID {id} not found");
+            return NotFound($"Không tìm thấy chuyên khoa với ID {id}");
         }
 
-        return Success<object?>(null, "Specialty status toggled successfully");
+        return Success<object?>(null, "Thay đổi trạng thái chuyên khoa thành công");
     }
 
     #endregion
@@ -192,7 +399,7 @@ public class SpecialtiesController : BaseApiController
     public async Task<IActionResult> ValidateSpecialtyName(string name, [FromQuery] Guid? excludeId = null)
     {
         var exists = await _specialtyService.SpecialtyNameExistsAsync(name, excludeId);
-        return Success<object>(new { exists }, "Specialty name validation completed");
+        return Success<object>(new { exists }, "Kiểm tra tên chuyên khoa hoàn tất");
     }
 
     #endregion
