@@ -61,4 +61,16 @@ public class PaymentResponse
     /// Creation time
     /// </summary>
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Appointment date (populated via gRPC call to Appointment Service)
+    /// Only available when AppointmentId is not null
+    /// </summary>
+    public DateTime? AppointmentDate { get; set; }
+
+    /// <summary>
+    /// Appointment type (populated via gRPC call to Appointment Service)
+    /// Only available when AppointmentId is not null
+    /// </summary>
+    public string? AppointmentType { get; set; }
 }

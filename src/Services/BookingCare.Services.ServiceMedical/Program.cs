@@ -33,14 +33,14 @@ builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 
 // Add Services
 builder.Services.AddScoped<IServiceMedicalService, ServiceMedicalService>();
-builder.Services.AddScoped<IHospitalServiceClient, HospitalServiceClient>();
+builder.Services.AddScoped<IHospitalService, HospitalService>();
 
-// Add HttpClient for Hospital Service
-builder.Services.AddHttpClient<IHospitalServiceClient, HospitalServiceClient>(client =>
+// Add gRPC client for Hospital Service
+var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6104";
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
 {
-    client.Timeout = TimeSpan.FromSeconds(30);
+    options.Address = new Uri(hospitalAddress);
 });
-
 // Add API Versioning
 builder.Services.AddApiVersioning(opt =>
 {
