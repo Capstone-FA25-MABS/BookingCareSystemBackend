@@ -287,6 +287,15 @@ public class PaymentService : BaseService, IPaymentService
 
             // Business logic
             payment.Status = request.Status;
+
+            // Update amount if provided (for supplementary payments)
+            if (request.Amount.HasValue)
+            {
+                LogInfo("Updating payment amount from {OldAmount} to {NewAmount} for PaymentId: {PaymentId}",
+                    null, payment.Amount, request.Amount.Value, request.Id);
+                payment.Amount = request.Amount.Value;
+            }
+
             var updatedPayment = await _paymentRepository.UpdateAsync(payment);
 
             LogInfo("Payment status updated successfully: {PaymentId}", null, request.Id);

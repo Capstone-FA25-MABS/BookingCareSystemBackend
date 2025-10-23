@@ -19,6 +19,11 @@ public interface IPaymentValidationService
     Task<FluentValidation.Results.ValidationResult> ValidateCreateSubscriptionPaymentAsync(CreateSubscriptionPaymentRequest request);
 
     /// <summary>
+    /// Validate create supplementary payment request
+    /// </summary>
+    Task<FluentValidation.Results.ValidationResult> ValidateCreateSupplementaryPaymentAsync(CreateSupplementaryPaymentRequest request);
+
+    /// <summary>
     /// Validate update payment status request
     /// </summary>
     Task<FluentValidation.Results.ValidationResult> ValidateUpdatePaymentStatusAsync(UpdatePaymentStatusRequest request);
