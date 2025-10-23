@@ -1,150 +1,29 @@
 using BookingCare.Services.User.Services;
-using BookingCare.Services.User.Models.DTOs;
-using BookingCare.Shared.Common.Controllers;
-using BookingCare.Shared.Common.Helpers;
-using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Controllers;
 using BookingCare.Shared.FileUpload.Services;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.User.Controllers;
 
-[ApiController]
-[Produces("application/json")]
-[Route(ApiRouteTemplates.Versioned)]
-[ApiVersion(ApiVersions.V1_0)]
-[Authorize]
-public class AvatarController : BaseApiController
+/// <summary>
+/// Controller for managing user avatars
+/// </summary>
+public class AvatarController : BaseAvatarController<IUserService, AvatarController>
 {
-    private readonly FileUploadOrchestrator _uploadOrchestrator;
-    private readonly IUserService _userService;
-    private readonly ILogger<AvatarController> _logger;
+    private static readonly AvatarConfig Config = new()
+    {
+        EntityType = "avatar",
+        EntityDisplayName = "User",
+        UploadFolder = "avatars/patients",
+        UploadSuccessMessage = "Avatar uploaded successfully",
+        DeleteSuccessMessage = "Avatar deleted successfully"
+    };
 
     public AvatarController(
         FileUploadOrchestrator uploadOrchestrator,
         IUserService userService,
         ILogger<AvatarController> logger)
+        : base(uploadOrchestrator, userService, logger, Config)
     {
-        _uploadOrchestrator = uploadOrchestrator;
-        _userService = userService;
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Upload user avatar
-    /// </summary>
-    [HttpPost("upload")]
-    [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> UploadAvatar(
-        IFormFile file,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-
-            // Get current user to check for existing avatar
-            var currentUser = await _userService.GetByAccountIdAsync(accountId);
-            if (currentUser == null)
-            {
-                return NotFound("User not found");
-            }
-
-            // Delete old avatar if exists (not default avatar)
-            if (!string.IsNullOrEmpty(currentUser.AvatarUrl) &&
-                currentUser.AvatarUrl != "https://bookingcaree.com/user-avatar-default.png")
-            {
-                var deleteConfig = new FileDeletionConfig
-                {
-                    FileUrl = currentUser.AvatarUrl,
-                    ExpectedFolder = "avatars",
-                    SuccessMessage = "Old avatar deleted successfully",
-                    EntityType = "avatar"
-                };
-
-                var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, accountId, _logger, cancellationToken);
-                if (!deleteResult.Success)
-                {
-                    _logger.LogWarning("Failed to delete old avatar for account {AccountId}: {Error}", accountId, deleteResult.ErrorMessage);
-                    // Continue with upload even if deletion fails
-                }
-            }
-
-            var config = new FileUploadConfig
-            {
-                AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                MaxSizeInMB = 5,
-                Folder = "avatars/patients",
-                SuccessMessage = "Avatar uploaded successfully",
-                EntityType = "avatar"
-            };
-
-            var result = await _uploadOrchestrator.UploadFileAsync(file, config, accountId, _logger, cancellationToken);
-
-            if (!result.Success)
-            {
-                return BadRequest(result.ErrorMessage!);
-            }
-
-            // Update user avatar URL in database - use CloudFront URL for public access
-            var updateRequest = new UpdateUserRequest
-            {
-                AvatarUrl = result.UploadResult?.CloudFrontUrl ?? result.UploadResult?.FileUrl ?? string.Empty
-            };
-
-            await _userService.UpdateByAccountIdAsync(accountId, updateRequest);
-
-            return Success(result.UploadResult, config.SuccessMessage);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Unauthorized(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Delete user avatar
-    /// </summary>
-    [HttpDelete]
-    [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> DeleteAvatar(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-
-            var user = await _userService.GetByAccountIdAsync(accountId);
-            if (user == null)
-            {
-                return NotFound("User not found");
-            }
-
-            if (string.IsNullOrEmpty(user.AvatarUrl))
-            {
-                return BadRequest("User has no avatar to delete");
-            }
-
-            var config = new FileDeletionConfig
-            {
-                FileUrl = user.AvatarUrl,
-                ExpectedFolder = "avatars",
-                SuccessMessage = "Avatar deleted successfully",
-                EntityType = "avatar"
-            };
-
-            var result = await _uploadOrchestrator.DeleteFileAsync(config, accountId, _logger, cancellationToken);
-
-            if (!result.Success)
-            {
-                return BadRequest(result.ErrorMessage!);
-            }
-
-            return Success(new { message = result.Message }, result.Message ?? "Avatar deleted successfully");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Unauthorized(ex.Message);
-        }
     }
 }
 

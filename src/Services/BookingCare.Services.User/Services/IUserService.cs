@@ -1,8 +1,9 @@
 using BookingCare.Services.User.Models.DTOs;
+using BookingCare.Shared.Common.Interfaces;
 
 namespace BookingCare.Services.User.Services;
 
-public interface IUserService
+public interface IUserService : IAvatarService
 {
     // Basic CRUD operations
     Task<UserResponse?> GetByIdAsync(Guid id);

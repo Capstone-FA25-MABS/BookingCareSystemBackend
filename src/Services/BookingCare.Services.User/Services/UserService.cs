@@ -477,4 +477,49 @@ public class UserService : BaseService, IUserService
         }, "DeleteUser");
     }
 
+    #region IAvatarService Implementation
+
+    public async Task<bool> EntityExistsByAccountIdAsync(Guid accountId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var user = await _userRepository.GetByAccountIdAsync(accountId);
+            return user != null;
+        }, "EntityExistsByAccountId");
+    }
+
+    public async Task<string?> GetAvatarUrlByAccountIdAsync(Guid accountId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var user = await _userRepository.GetByAccountIdAsync(accountId);
+            return user?.AvatarUrl;
+        }, "GetAvatarUrlByAccountId");
+    }
+
+    public async Task<bool> UpdateAvatarUrlByAccountIdAsync(Guid accountId, string avatarUrl)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            ValidateGuid(accountId, nameof(accountId));
+
+            var user = await _userRepository.GetByAccountIdAsync(accountId);
+            if (user == null)
+            {
+                LogWarning("User not found for avatar update: {AccountId}", null, accountId);
+                return false;
+            }
+
+            // Update only avatar URL, skip business rules validation
+            user.AvatarUrl = avatarUrl;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+            LogInfo("Avatar URL updated successfully for account {AccountId}", null, accountId);
+
+            return true;
+        }, "UpdateAvatarUrlByAccountId");
+    }
+
+    #endregion
 }

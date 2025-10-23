@@ -2028,4 +2028,41 @@ public class DoctorService : BaseService, IDoctorService
 
     #endregion
 
+    #region IAvatarService Implementation
+
+    public async Task<bool> EntityExistsByAccountIdAsync(Guid accountId)
+    {
+        try
+        {
+            var doctor = await _repository.Value.GetDoctorByAccountIdAsync(accountId);
+            return doctor != null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking if doctor exists for account {AccountId}", accountId);
+            return false;
+        }
+    }
+
+    public async Task<string?> GetAvatarUrlByAccountIdAsync(Guid accountId)
+    {
+        try
+        {
+            var doctor = await _repository.Value.GetDoctorByAccountIdAsync(accountId);
+            return doctor?.AvatarUrl;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting doctor avatar URL for account {AccountId}", accountId);
+            return null;
+        }
+    }
+
+    public async Task<bool> UpdateAvatarUrlByAccountIdAsync(Guid accountId, string avatarUrl)
+    {
+        return await UpdateDoctorAvatarAsync(accountId, avatarUrl);
+    }
+
+    #endregion
+
 }
