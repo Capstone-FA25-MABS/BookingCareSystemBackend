@@ -530,4 +530,46 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             ImageUrl = specialty.ImageUrl ?? string.Empty
         };
     }
+
+    public override async Task<Protos.GetDoctorCountsBySpecialtyAndHospitalResponse> GetDoctorCountsBySpecialtyAndHospital(
+        Protos.GetDoctorCountsBySpecialtyAndHospitalRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            var specialtyIds = request.SpecialtyIds
+                .Where(id => Guid.TryParse(id, out _))
+                .Select(Guid.Parse)
+                .ToList();
+
+            if (!specialtyIds.Any())
+            {
+                return new Protos.GetDoctorCountsBySpecialtyAndHospitalResponse();
+            }
+
+            var counts = await _doctorService.GetDoctorCountsBySpecialtyAndHospitalAsync(hospitalId, specialtyIds);
+
+            var response = new Protos.GetDoctorCountsBySpecialtyAndHospitalResponse();
+            foreach (var count in counts)
+            {
+                response.SpecialtyCounts[count.Key.ToString()] = count.Value;
+            }
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorCountsBySpecialtyAndHospital for hospital {HospitalId}", request.HospitalId);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
 }

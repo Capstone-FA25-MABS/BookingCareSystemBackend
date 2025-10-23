@@ -22,8 +22,6 @@ public class HospitalRepository : IHospitalRepository
         return await _context.Hospitals
             .Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalImages)
-            .Include(h => h.HospitalSubscriptions.Where(s => s.Status == SubscriptionStatus.ACTIVE))
-                .ThenInclude(s => s.SubscriptionPlan)
             .FirstOrDefaultAsync(h => h.Id == id);
     }
 

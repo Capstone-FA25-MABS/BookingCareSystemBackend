@@ -73,4 +73,7 @@ public interface IDoctorRepository
     Task<ServiceTypeEntity> CreateServiceTypeAsync(ServiceTypeEntity serviceType);
     Task<ServiceTypeEntity> UpdateServiceTypeAsync(ServiceTypeEntity serviceType);
     Task<bool> DeleteServiceTypeAsync(Guid id);
+
+    // Doctor count operations
+    Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
 }

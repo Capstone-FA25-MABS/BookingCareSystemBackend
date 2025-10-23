@@ -2059,4 +2059,13 @@ public class DoctorService : BaseService, IDoctorService
 
     #endregion
 
+    #region Doctor Count Operations
+
+    public async Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds)
+    {
+        return await _repository.Value.GetDoctorCountsBySpecialtyAndHospitalAsync(hospitalId, specialtyIds);
+    }
+
+    #endregion
+
 }

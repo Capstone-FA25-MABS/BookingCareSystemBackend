@@ -1,5 +1,6 @@
 ﻿using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
+using BookingCare.Services.Payment.Enums;
 using BookingCare.Shared.Common.Models;
 
 namespace BookingCare.Services.Payment.Repositories.Interfaces;
@@ -68,4 +69,15 @@ public interface IPaymentRepository
     /// Check if payment exists
     /// </summary>
     Task<bool> ExistsAsync(Guid id);
+
+    /// <summary>
+    /// Update payment status with optional failure reason
+    /// </summary>
+    Task<bool> UpdatePaymentStatusAsync(Guid paymentId, PaymentStatus status, string? failureReason = null);
+
+    /// <summary>
+    /// Get payments that are in PENDING status and older than the specified cutoff time
+    /// Used by background service to identify payments that have exceeded the timeout period
+    /// </summary>
+    Task<List<PaymentEntity>> GetOverduePendingPaymentsAsync(DateTime cutoffTime);
 }

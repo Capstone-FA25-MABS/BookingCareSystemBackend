@@ -960,4 +960,35 @@ public class DoctorRepository : IDoctorRepository
     }
 
     #endregion
+
+    #region Doctor Count Operations
+
+    public async Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds)
+    {
+        var specialtyIdsList = specialtyIds.ToList();
+        if (!specialtyIdsList.Any())
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        var counts = await _context.Doctors
+            .Where(d => d.HospitalId.HasValue &&
+                       d.HospitalId.Value == hospitalId &&
+                       d.SpecialtyId.HasValue &&
+                       specialtyIdsList.Contains(d.SpecialtyId.Value))
+            .GroupBy(d => d.SpecialtyId!.Value)
+            .Select(g => new { SpecialtyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SpecialtyId, x => x.Count);
+
+        // Ensure all requested specialty IDs are in the result with count 0 if no doctors found
+        var result = new Dictionary<Guid, int>();
+        foreach (var specialtyId in specialtyIdsList)
+        {
+            result[specialtyId] = counts.GetValueOrDefault(specialtyId, 0);
+        }
+
+        return result;
+    }
+
+    #endregion
 }
