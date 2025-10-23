@@ -27,6 +27,13 @@ public interface IAppointmentService
     Task<RescheduleResponse?> CancelAppointmentAsync(CancelAppointmentRequest request);
 
     /// <summary>
+    /// Generate reschedule token without cancelling appointment (lazy token generation)
+    /// Used when patient clicks reschedule/choose new doctor button
+    /// Appointment status remains unchanged until patient completes the reschedule flow
+    /// </summary>
+    Task<GenerateRescheduleTokenResponse> GenerateRescheduleTokenAsync(GenerateRescheduleTokenRequest request);
+
+    /// <summary>
     /// Reschedule appointment with same doctor (Option 1)
     /// </summary>
     Task<bool> RescheduleSameDoctorAsync(RescheduleSameDoctorRequest request);

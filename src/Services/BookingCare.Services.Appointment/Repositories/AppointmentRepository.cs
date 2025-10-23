@@ -301,6 +301,26 @@ public class AppointmentRepository : IAppointmentRepository
         }
     }
 
+    public async Task<List<AppointmentEntity>> GetAppointmentsWithExpiredTokensAsync(DateTime now)
+    {
+        try
+        {
+            var appointments = await _context.Appointments
+                .Where(a => a.RescheduleToken != null &&
+                           a.RescheduleTokenExpiry != null &&
+                           a.RescheduleTokenExpiry < now)
+                .ToListAsync();
+
+            _logger.LogInformation("Found {Count} appointments with expired tokens", appointments.Count);
+            return appointments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching appointments with expired tokens");
+            throw new AppointmentException("Failed to fetch appointments with expired tokens", innerException: ex);
+        }
+    }
+
     /// <summary>
     /// Cancel an appointment with cancellation reason
     /// Optimized method that takes the full entity to avoid additional DB query

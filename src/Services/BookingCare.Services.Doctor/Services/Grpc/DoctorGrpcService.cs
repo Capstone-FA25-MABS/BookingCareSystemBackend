@@ -251,9 +251,24 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             var doctors = await _doctorService.GetDoctorsBasicInfoByIdsAsync(ids);
             var response = new Protos.DoctorsBasicInfoResponse();
 
+            // If service_type_name is provided, get prices for all doctors in batch
+            Dictionary<Guid, decimal>? priceDict = null;
+            if (!string.IsNullOrWhiteSpace(request.ServiceTypeName))
+            {
+                priceDict = await _doctorService.GetDoctorsPricesByServiceTypeAsync(ids, request.ServiceTypeName);
+            }
+
             foreach (var doctor in doctors)
             {
-                response.Doctors.Add(MapToGrpcDoctorBasicInfoResponse(doctor));
+                var grpcDoctor = MapToGrpcDoctorBasicInfoResponse(doctor);
+
+                // Add consultation fee if available
+                if (priceDict != null && priceDict.TryGetValue(doctor.Id, out var price))
+                {
+                    grpcDoctor.ConsultationFee = (double)price;
+                }
+
+                response.Doctors.Add(grpcDoctor);
             }
 
             return response;
@@ -456,6 +471,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }
     }
+
 
     private static Protos.DoctorResponse MapToGrpcDoctorResponse(DoctorResponse d)
     {
