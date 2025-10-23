@@ -150,10 +150,13 @@ public class PaymentDbContext : DbContext
                     v => (RefundStatus)Enum.Parse(typeof(RefundStatus), v))
                 .HasMaxLength(20);
 
-            // Relationship with PaymentEntity (1:1 - each payment has only one refund history)
+            // Relationship with PaymentEntity (1:N - one payment can have multiple refund histories)
+            // Example scenarios:
+            // 1. Patient changes to cheaper doctor -> creates 1st refund for price difference
+            // 2. Patient later cancels appointment -> creates 2nd refund for remaining amount
             entity.HasOne(r => r.Payment)
-                .WithOne()
-                .HasForeignKey<RefundHistoryEntity>(r => r.PaymentId)
+                .WithMany()
+                .HasForeignKey(r => r.PaymentId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_refund_histories_payment_id");
 
@@ -200,35 +203,35 @@ public class PaymentDbContext : DbContext
                 Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 Name = "CASH",
                 Description = "Thanh toán bằng tiền mặt",
-                Status = PaymentMethodStatus.ACTIVE
+                Status = PaymentMethodStatus.INACTIVE
             },
             new PaymentMethodEntity
             {
                 Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
                 Name = "CREDIT_CARD",
                 Description = "Thanh toán bằng thẻ tín dụng",
-                Status = PaymentMethodStatus.ACTIVE
+                Status = PaymentMethodStatus.INACTIVE
             },
             new PaymentMethodEntity
             {
                 Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
                 Name = "BANK_TRANSFER",
                 Description = "Chuyển khoản ngân hàng",
-                Status = PaymentMethodStatus.ACTIVE
+                Status = PaymentMethodStatus.INACTIVE
             },
             new PaymentMethodEntity
             {
                 Id = Guid.Parse("44444444-4444-4444-4444-444444444444"),
                 Name = "MOMO",
                 Description = "Thanh toán qua MoMo",
-                Status = PaymentMethodStatus.ACTIVE
+                Status = PaymentMethodStatus.INACTIVE
             },
             new PaymentMethodEntity
             {
                 Id = Guid.Parse("55555555-5555-5555-5555-555555555555"),
                 Name = "ZALOPAY",
                 Description = "Thanh toán qua ZaloPay",
-                Status = PaymentMethodStatus.ACTIVE
+                Status = PaymentMethodStatus.INACTIVE
             },
             new PaymentMethodEntity
             {
