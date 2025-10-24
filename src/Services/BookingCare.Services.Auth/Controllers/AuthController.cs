@@ -371,96 +371,20 @@ public class AuthController : BaseApiController
         var validation = ValidateBasicRequest();
         if (validation != null) return validation;
 
-        // Role-specific validation
         var roleValidation = ValidateRoleSpecificRequirements(request, Role.DOCTOR);
         if (roleValidation != null) return roleValidation;
 
-        // Create saga context
-        var sagaContext = new SagaContext
-        {
-            SagaName = "DoctorRegistration",
-            CorrelationId = Guid.NewGuid().ToString(),
-            CreatedAt = DateTime.UtcNow
-        };
-
-        sagaContext.SetData("Role", Role.DOCTOR.ToString());
-        sagaContext.SetData("Email", request.Email);
-
-        // Auto-generate strong password for Doctor (will be sent via email)
         var generatedPassword = Utils.PasswordHelper.GenerateStrongPassword(16);
-        sagaContext.SetData("Password", generatedPassword);
-        sagaContext.SetData("GeneratedPassword", generatedPassword); // Store for email notification
-        sagaContext.SetData("MustChangePassword", "true"); // Flag to force password change on first login
-
-        sagaContext.SetData("FullName", request.FullName);
-        sagaContext.SetData("Gender", request.Gender?.ToString());
-        sagaContext.SetData("Address", request.Address);
-
-        // Doctor-specific data from DoctorProfile
-        if (request.DoctorProfile != null)
-        {
-            sagaContext.SetData("Bio", request.DoctorProfile.Bio);
-            sagaContext.SetData("YearsOfExperience", request.DoctorProfile.YearsOfExperience);
-            sagaContext.SetData("SpecialtyId", request.DoctorProfile.SpecialtyId.ToString());
-            sagaContext.SetData("PositionId", request.DoctorProfile.PositionId.ToString());
-            sagaContext.SetData("HospitalId", request.DoctorProfile.HospitalId.ToString());
-
-            // Set AvatarUrl - use provided URL or default based on gender
-            var avatarUrl = request.Gender == Gender.MALE
-                ? _avatarOptions.User.Male
-                : _avatarOptions.User.Female;
-            sagaContext.SetData("AvatarUrl", avatarUrl);
-
-            // Set LanguageIds
-            if (request.DoctorProfile.LanguageIds != null && request.DoctorProfile.LanguageIds.Any())
-            {
-                sagaContext.SetData("LanguageIds", string.Join(",", request.DoctorProfile.LanguageIds));
-            }
-
-            // Set ServicePrices
-            if (request.DoctorProfile.ServicePrices != null && request.DoctorProfile.ServicePrices.Any())
-            {
-                var pricesJson = System.Text.Json.JsonSerializer.Serialize(
-                    request.DoctorProfile.ServicePrices.Select(p => new
-                    {
-                        ServiceTypeId = p.ServiceTypeId.ToString(),
-                        Amount = p.Amount
-                    })
-                );
-                sagaContext.SetData("ServicePrices", pricesJson);
-            }
-        }
+        var sagaContext = PrepareDoctorSagaContext(request, generatedPassword);
 
         try
         {
-            // Execute Doctor Registration Saga synchronously
             var result = await _sagaManager.ExecuteSagaAsync<DoctorRegistrationSaga>(sagaContext);
 
             if (result.Status == SagaStatus.Completed)
             {
-                _logger.LogInformation("Doctor registration completed. Generated password will be sent to: {Email}", request.Email);
-
-                // Publish event to send credentials via email
-                try
-                {
-                    var credentialsEvent = new DoctorCredentialsGeneratedEvent
-                    {
-                        Email = request.Email,
-                        FullName = request.FullName ?? "Doctor",
-                        GeneratedPassword = generatedPassword,
-                        HospitalId = request.DoctorProfile?.HospitalId,
-                        LoginUrl = $"{_frontendOptions.Admin.BaseUrl}login",
-                    };
-
-                    await _eventBus.PublishAsync(credentialsEvent);
-                    _logger.LogInformation("Published DoctorCredentialsGeneratedEvent for {Email}", request.Email);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to publish DoctorCredentialsGeneratedEvent for {Email}", request.Email);
-                    // Don't fail the registration if event publishing fails
-                }
-
+                await PublishDoctorCredentialsAsync(request, generatedPassword);
+                
                 return Created(new
                 {
                     SagaId = result.SagaId,
@@ -468,16 +392,14 @@ public class AuthController : BaseApiController
                     Message = "Doctor registration completed successfully",
                 }, "Doctor registration completed successfully");
             }
-            else
+
+            return BadRequest(new
             {
-                return BadRequest(new
-                {
-                    SagaId = result.SagaId,
-                    Status = result.Status.ToString(),
-                    Message = "Doctor registration failed",
-                    Error = result.ErrorMessage
-                });
-            }
+                SagaId = result.SagaId,
+                Status = result.Status.ToString(),
+                Message = "Doctor registration failed",
+                Error = result.ErrorMessage
+            });
         }
         catch (Exception ex)
         {
@@ -972,6 +894,96 @@ public class AuthController : BaseApiController
                 .ToList());
         }
         return null; // No validation errors
+    }
+
+    /// <summary>
+    /// Prepare saga context for doctor registration
+    /// </summary>
+    private SagaContext PrepareDoctorSagaContext(RegisterRequest request, string generatedPassword)
+    {
+        var sagaContext = new SagaContext
+        {
+            SagaName = "DoctorRegistration",
+            CorrelationId = Guid.NewGuid().ToString(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        sagaContext.SetData("Role", Role.DOCTOR.ToString());
+        sagaContext.SetData("Email", request.Email);
+        sagaContext.SetData("Password", generatedPassword);
+        sagaContext.SetData("GeneratedPassword", generatedPassword);
+        sagaContext.SetData("MustChangePassword", "true");
+        sagaContext.SetData("FullName", request.FullName);
+        sagaContext.SetData("Gender", request.Gender?.ToString());
+        sagaContext.SetData("Address", request.Address);
+
+        SetDoctorProfileData(sagaContext, request);
+
+        return sagaContext;
+    }
+
+    /// <summary>
+    /// Set doctor profile specific data in saga context
+    /// </summary>
+    private void SetDoctorProfileData(SagaContext context, RegisterRequest request)
+    {
+        if (request.DoctorProfile == null) return;
+
+        context.SetData("Bio", request.DoctorProfile.Bio);
+        context.SetData("YearsOfExperience", request.DoctorProfile.YearsOfExperience);
+        context.SetData("SpecialtyId", request.DoctorProfile.SpecialtyId.ToString());
+        context.SetData("PositionId", request.DoctorProfile.PositionId.ToString());
+        context.SetData("HospitalId", request.DoctorProfile.HospitalId.ToString());
+
+        var avatarUrl = request.Gender == Gender.MALE
+            ? _avatarOptions.User.Male
+            : _avatarOptions.User.Female;
+        context.SetData("AvatarUrl", avatarUrl);
+
+        if (request.DoctorProfile.LanguageIds?.Any() == true)
+        {
+            context.SetData("LanguageIds", string.Join(",", request.DoctorProfile.LanguageIds));
+        }
+
+        if (request.DoctorProfile.ServicePrices?.Any() == true)
+        {
+            var pricesJson = System.Text.Json.JsonSerializer.Serialize(
+                request.DoctorProfile.ServicePrices.Select(p => new
+                {
+                    ServiceTypeId = p.ServiceTypeId.ToString(),
+                    Amount = p.Amount
+                })
+            );
+            context.SetData("ServicePrices", pricesJson);
+        }
+    }
+
+    /// <summary>
+    /// Publish doctor credentials event to notification service
+    /// </summary>
+    private async Task PublishDoctorCredentialsAsync(RegisterRequest request, string generatedPassword)
+    {
+        _logger.LogInformation("Doctor registration completed. Generated password will be sent to: {Email}", request.Email);
+
+        try
+        {
+            var credentialsEvent = new DoctorCredentialsGeneratedEvent
+            {
+                Email = request.Email,
+                FullName = request.FullName ?? "Doctor",
+                GeneratedPassword = generatedPassword,
+                HospitalId = request.DoctorProfile?.HospitalId,
+                LoginUrl = $"{_frontendOptions.Admin.BaseUrl}login",
+            };
+
+            await _eventBus.PublishAsync(credentialsEvent);
+            _logger.LogInformation("Published DoctorCredentialsGeneratedEvent for {Email}", request.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish DoctorCredentialsGeneratedEvent for {Email}", request.Email);
+            // Don't throw - registration is successful even if notification fails
+        }
     }
 
     #endregion
