@@ -52,7 +52,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <param name="operation">Operation type for error message</param>
     /// <returns>Task</returns>
     /// <exception cref="ArgumentException">Thrown when duplicate service types are found</exception>
-    private async Task ValidateServiceTypesForDuplicatesAsync(IEnumerable<PriceRequest> prices, string operation)
+    private async Task ValidateServiceTypesForDuplicatesAsync(IEnumerable<DoctorPriceRequest>? prices, string operation)
     {
         if (prices == null || !prices.Any()) return;
 
@@ -137,6 +137,8 @@ public class DoctorService : BaseService, IDoctorService
     {
         // Validate no duplicate service types in request
         await ValidateServiceTypesForDuplicatesAsync(prices, "tạo bác sĩ");
+
+        if (prices == null) return;
 
         foreach (var priceRequest in prices)
         {
