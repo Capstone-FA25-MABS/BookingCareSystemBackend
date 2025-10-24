@@ -52,6 +52,7 @@ public class UpdateSpecialtyRequest
 public class UpdateSpecialtyWithImageRequest
 {
     [Required(ErrorMessage = "Specialty ID is required")]
+    [JsonRequired]
     public Guid Id { get; set; }
 
     [Required(ErrorMessage = "Name is required")]

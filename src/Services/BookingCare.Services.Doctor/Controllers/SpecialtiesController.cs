@@ -29,6 +29,42 @@ public class SpecialtiesController : BaseApiController
         _logger = logger;
     }
 
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Handle specialty image upload
+    /// </summary>
+    /// <param name="imageFile">Image file to upload</param>
+    /// <param name="request">Request object to set image URL</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>BadRequest if upload fails, null if successful</returns>
+    private async Task<IActionResult?> HandleSpecialtyImageUploadAsync(IFormFile? imageFile, dynamic request, CancellationToken cancellationToken)
+    {
+        if (imageFile == null) return null;
+
+        var config = new FileUploadConfig
+        {
+            AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+            MaxSizeInMB = 5,
+            Folder = "specialties",
+            SuccessMessage = "Specialty image uploaded successfully",
+            EntityType = "specialty-image"
+        };
+
+        var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
+
+        if (!uploadResult.Success)
+        {
+            return BadRequest($"Tải lên hình ảnh thất bại: {uploadResult.ErrorMessage}");
+        }
+
+        // Set the image URL from upload result - use CloudFront URL for public access
+        request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+        return null;
+    }
+
+    #endregion
+
     #region Health Check
 
     /// <summary>
@@ -158,27 +194,8 @@ public class SpecialtiesController : BaseApiController
             }
 
             // Handle image upload if provided
-            if (imageFile != null)
-            {
-                var config = new FileUploadConfig
-                {
-                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                    MaxSizeInMB = 5,
-                    Folder = "specialties",
-                    SuccessMessage = "Specialty image uploaded successfully",
-                    EntityType = "specialty-image"
-                };
-
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
-
-                if (!uploadResult.Success)
-                {
-                    return BadRequest($"Tải lên hình ảnh thất bại: {uploadResult.ErrorMessage}");
-                }
-
-                // Set the image URL from upload result - use CloudFront URL for public access
-                request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
-            }
+            var uploadError = await HandleSpecialtyImageUploadAsync(imageFile, request, cancellationToken);
+            if (uploadError != null) return uploadError;
 
             // Convert to CreateSpecialtyRequest for service layer
             var createRequest = new CreateSpecialtyRequest
@@ -270,24 +287,8 @@ public class SpecialtiesController : BaseApiController
                     }
                 }
 
-                var config = new FileUploadConfig
-                {
-                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                    MaxSizeInMB = 5,
-                    Folder = "specialties",
-                    SuccessMessage = "Specialty image uploaded successfully",
-                    EntityType = "specialty-image"
-                };
-
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
-
-                if (!uploadResult.Success)
-                {
-                    return BadRequest($"Tải lên hình ảnh thất bại: {uploadResult.ErrorMessage}");
-                }
-
-                // Set the image URL from upload result - use CloudFront URL for public access
-                request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                var uploadError = await HandleSpecialtyImageUploadAsync(imageFile, request, cancellationToken);
+                if (uploadError != null) return uploadError;
             }
 
             // Convert to UpdateSpecialtyRequest for service layer
