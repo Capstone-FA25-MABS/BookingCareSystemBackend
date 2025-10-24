@@ -17,16 +17,19 @@ public class PaymentService : BaseService, IPaymentService
 {
     private readonly IPaymentRepository _paymentRepository;
     private readonly IPaymentMethodRepository _paymentMethodRepository;
+    private readonly IAppointmentDetailsService _appointmentDetailsService;
     private readonly IMapper _mapper;
 
     public PaymentService(
         IPaymentRepository paymentRepository,
         IPaymentMethodRepository paymentMethodRepository,
+        IAppointmentDetailsService appointmentDetailsService,
         IMapper mapper,
         ILogger<PaymentService> logger) : base(logger)
     {
         _paymentRepository = paymentRepository;
         _paymentMethodRepository = paymentMethodRepository;
+        _appointmentDetailsService = appointmentDetailsService;
         _mapper = mapper;
     }
 
@@ -92,19 +95,69 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
-    /// Get list of payments by patient ID with pagination - Simple read operation
+    /// Get list of payments by patient ID with pagination - Enhanced with appointment details
     /// </summary>
     public async Task<PagedResult<PaymentResponse>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request)
     {
         var pagedResult = await _paymentRepository.GetPagedByPatientIdAsync(patientId, request);
 
+        var paymentResponses = _mapper.Map<List<PaymentResponse>>(pagedResult.Items);
+
+        // Enrich payments with appointment details for appointment-related payments
+        await EnrichPaymentsWithAppointmentDetailsAsync(paymentResponses);
+
         return new PagedResult<PaymentResponse>
         {
-            Items = _mapper.Map<List<PaymentResponse>>(pagedResult.Items),
+            Items = paymentResponses,
             TotalCount = pagedResult.TotalCount,
             PageNumber = pagedResult.PageNumber,
             PageSize = pagedResult.PageSize
         };
+    }
+
+    /// <summary>
+    /// Enrich payment responses with appointment details by calling Appointment Service via gRPC
+    /// </summary>
+    private async Task EnrichPaymentsWithAppointmentDetailsAsync(List<PaymentResponse> payments)
+    {
+        if (!payments.Any())
+            return;
+
+        // Filter payments that have appointment IDs
+        var appointmentPayments = payments.Where(p => p.AppointmentId.HasValue).ToList();
+
+        if (!appointmentPayments.Any())
+            return;
+
+        LogInfo("Enriching {Count} payments with appointment details", null, appointmentPayments.Count);
+
+        // Get appointment details for each payment concurrently
+        var tasks = appointmentPayments.Select(async payment =>
+        {
+            try
+            {
+                var appointmentDetails = await _appointmentDetailsService.GetAppointmentDetailsAsync(payment.AppointmentId!.Value);
+                if (appointmentDetails != null)
+                {
+                    payment.AppointmentDate = appointmentDetails.AppointmentDate;
+                    payment.AppointmentType = appointmentDetails.AppointmentType;
+                }
+                else
+                {
+                    LogWarning("Could not retrieve appointment details for AppointmentId: {AppointmentId}",
+                        null, payment.AppointmentId.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError(ex, "Error enriching payment {PaymentId} with appointment details for AppointmentId: {AppointmentId}",
+                    null, payment.Id, payment.AppointmentId.Value);
+            }
+        });
+
+        await Task.WhenAll(tasks);
+
+        LogInfo("Completed enriching payments with appointment details", null);
     }
 
     /// <summary>
@@ -201,7 +254,7 @@ public class PaymentService : BaseService, IPaymentService
             {
                 AppointmentId = request.AppointmentId,
                 PatientId = request.PatientId,
-                HospitalId = null,
+                HospitalId = request.HospitalId,
                 SubscriptionId = null,
                 Amount = request.Amount,
                 TransactionType = TransactionType.APPOINTMENT,

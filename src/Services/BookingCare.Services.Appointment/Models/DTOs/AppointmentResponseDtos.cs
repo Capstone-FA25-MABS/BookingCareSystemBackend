@@ -64,6 +64,7 @@ public class DoctorInfo
     public string? SpecialtyName { get; set; }
     public string? AvatarUrl { get; set; }
     public Guid? HospitalId { get; set; }
+    public decimal? ConsultationFee { get; set; } // Consultation fee based on appointment type
 }
 
 /// <summary>
@@ -194,6 +195,17 @@ public class ChooseNewDoctorResponse
     public decimal PriceDifference { get; set; }
     public string? PaymentUrl { get; set; } // For higher price scenario
     public string? RefundRequestId { get; set; } // For lower price scenario
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response for lazy reschedule token generation
+/// </summary>
+public class GenerateRescheduleTokenResponse
+{
+    public string RescheduleToken { get; set; } = string.Empty;
+    public DateTime TokenExpiry { get; set; }
+    public string RedirectUrl { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 }
 

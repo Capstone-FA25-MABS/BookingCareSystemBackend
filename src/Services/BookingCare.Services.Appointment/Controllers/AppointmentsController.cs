@@ -127,6 +127,28 @@ public class AppointmentsController : BaseApiController
     }
 
     /// <summary>
+    /// Generate reschedule token without cancelling appointment (lazy token generation)
+    /// Used when patient clicks reschedule/choose new doctor button
+    /// Appointment status remains unchanged until patient completes the reschedule flow
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Reschedule token generation request</param>
+    /// <returns>Token and redirect URL</returns>
+    [HttpPost("{id:guid}/generate-reschedule-token")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GenerateRescheduleToken(
+        Guid id,
+        [FromBody] GenerateRescheduleTokenRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest(IdMismatchErrorMessage);
+
+        var result = await _appointmentService.GenerateRescheduleTokenAsync(request);
+
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
     /// Cancel an appointment (any time before appointment)
     /// Triggers refund process and sends notifications with reschedule options
     /// Refund percentage depends on cancellation time:

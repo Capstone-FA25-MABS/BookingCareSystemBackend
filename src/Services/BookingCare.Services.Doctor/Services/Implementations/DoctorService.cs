@@ -1750,6 +1750,11 @@ public class DoctorService : BaseService, IDoctorService
         return await _repository.Value.GetDoctorsBasicInfoByIdsAsync(ids);
     }
 
+    public async Task<Dictionary<Guid, decimal>> GetDoctorsPricesByServiceTypeAsync(IEnumerable<Guid> doctorIds, string serviceTypeName)
+    {
+        return await _repository.Value.GetDoctorsPricesByServiceTypeAsync(doctorIds, serviceTypeName);
+    }
+
     /// <summary>
     /// Get doctors by hospital and specialty (for Appointment Service)
     /// Returns basic doctor entities without availability check
