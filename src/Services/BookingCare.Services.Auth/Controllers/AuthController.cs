@@ -384,7 +384,7 @@ public class AuthController : BaseApiController
             if (result.Status == SagaStatus.Completed)
             {
                 await PublishDoctorCredentialsAsync(request, generatedPassword);
-                
+
                 return Created(new
                 {
                     SagaId = result.SagaId,
