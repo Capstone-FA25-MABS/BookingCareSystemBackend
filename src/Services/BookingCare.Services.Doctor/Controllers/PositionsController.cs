@@ -54,10 +54,10 @@ public class PositionsController : BaseApiController
         var position = await _positionService.GetPositionByIdAsync(id);
         if (position == null)
         {
-            return NotFound($"Position with ID {id} not found");
+            return NotFound($"Không tìm thấy chức vụ với ID {id}");
         }
 
-        return Success<PositionResponse>(position, "Position retrieved successfully");
+        return Success<PositionResponse>(position, "Lấy thông tin chức vụ thành công");
     }
 
     /// <summary>
@@ -70,10 +70,10 @@ public class PositionsController : BaseApiController
         var position = await _positionService.GetPositionByNameAsync(name);
         if (position == null)
         {
-            return NotFound($"Position with name '{name}' not found");
+            return NotFound($"Không tìm thấy chức vụ với tên '{name}'");
         }
 
-        return Success<PositionResponse>(position, "Position retrieved successfully");
+        return Success<PositionResponse>(position, "Lấy thông tin chức vụ thành công");
     }
 
     /// <summary>
@@ -84,7 +84,7 @@ public class PositionsController : BaseApiController
     public async Task<IActionResult> GetPositions([FromQuery] PositionQueryRequest query)
     {
         var result = await _positionService.GetPositionsAsync(query);
-        return Success<PositionListResponse>(result, "Positions retrieved successfully");
+        return Success<PositionListResponse>(result, "Lấy danh sách chức vụ thành công");
     }
 
     /// <summary>
@@ -95,7 +95,7 @@ public class PositionsController : BaseApiController
     public async Task<IActionResult> GetAllPositions()
     {
         var positions = await _positionService.GetActivePositionsSimpleAsync();
-        return Success<List<PositionSimpleResponse>>(positions, "All active positions retrieved successfully");
+        return Success<List<PositionSimpleResponse>>(positions, "Lấy tất cả chức vụ hoạt động thành công");
     }
 
     /// <summary>
@@ -107,14 +107,14 @@ public class PositionsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest("Dữ liệu yêu cầu không hợp lệ", ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
         }
 
         var position = await _positionService.CreatePositionAsync(request);
-        return Created(position, "Position created successfully");
+        return Created(position, "Tạo chức vụ thành công");
     }
 
     /// <summary>
@@ -126,7 +126,7 @@ public class PositionsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest("Dữ liệu yêu cầu không hợp lệ", ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
@@ -134,7 +134,7 @@ public class PositionsController : BaseApiController
 
         request.Id = id;
         var position = await _positionService.UpdatePositionAsync(request);
-        return Success<PositionResponse>(position, "Position updated successfully");
+        return Success<PositionResponse>(position, "Cập nhật chức vụ thành công");
     }
 
     /// <summary>
@@ -147,10 +147,10 @@ public class PositionsController : BaseApiController
         var result = await _positionService.DeletePositionAsync(id);
         if (!result)
         {
-            return NotFound($"Position with ID {id} not found");
+            return NotFound($"Không tìm thấy chức vụ với ID {id}");
         }
 
-        return Success<object?>(null, "Position deleted successfully");
+        return Success<object?>(null, "Xóa chức vụ thành công");
     }
 
     /// <summary>
@@ -163,10 +163,10 @@ public class PositionsController : BaseApiController
         var result = await _positionService.TogglePositionStatusAsync(id);
         if (!result)
         {
-            return NotFound($"Position with ID {id} not found");
+            return NotFound($"Không tìm thấy chức vụ với ID {id}");
         }
 
-        return Success<object?>(null, "Position status toggled successfully");
+        return Success<object?>(null, "Thay đổi trạng thái chức vụ thành công");
     }
 
     #endregion
@@ -181,7 +181,7 @@ public class PositionsController : BaseApiController
     public async Task<IActionResult> ValidatePositionName(string name, [FromQuery] Guid? excludeId = null)
     {
         var exists = await _positionService.PositionNameExistsAsync(name, excludeId);
-        return Success<object>(new { exists }, "Position name validation completed");
+        return Success<object>(new { exists }, "Kiểm tra tên chức vụ hoàn tất");
     }
 
     #endregion

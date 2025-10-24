@@ -43,6 +43,44 @@ public class DoctorService : BaseService, IDoctorService
         _reviewClient = new Lazy<ReviewService.ReviewServiceClient>(() => _serviceProvider.GetRequiredService<ReviewService.ReviewServiceClient>());
     }
 
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Validate service types for duplicate prevention
+    /// </summary>
+    /// <param name="prices">List of price requests</param>
+    /// <param name="operation">Operation type for error message</param>
+    /// <returns>Task</returns>
+    /// <exception cref="ArgumentException">Thrown when duplicate service types are found</exception>
+    private async Task ValidateServiceTypesForDuplicatesAsync(IEnumerable<DoctorPriceRequest>? prices, string operation)
+    {
+        if (prices == null || !prices.Any()) return;
+
+        // Validate no duplicate service types in request
+        var serviceTypeIds = prices.Select(p => p.ServiceTypeId).ToList();
+        var duplicateServiceTypes = serviceTypeIds.GroupBy(id => id)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicateServiceTypes.Any())
+        {
+            var serviceTypeNames = new List<string>();
+            foreach (var serviceTypeId in duplicateServiceTypes)
+            {
+                var serviceType = await _repository.Value.GetServiceTypeByIdAsync(serviceTypeId);
+                if (serviceType != null)
+                {
+                    serviceTypeNames.Add(serviceType.Name);
+                }
+            }
+            var duplicateNames = string.Join(", ", serviceTypeNames);
+            throw new ArgumentException($"Không thể {operation}: Loại dịch vụ bị trùng lặp ({duplicateNames}). Mỗi bác sĩ chỉ được có một giá cho mỗi loại dịch vụ.");
+        }
+    }
+
+    #endregion
+
     #region Doctor CRUD Operations
 
     /// <summary>
@@ -97,29 +135,10 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task CreateDoctorPricesAsync(Guid doctorId, IEnumerable<DoctorPriceRequest>? prices)
     {
-        if (prices == null || !prices.Any()) return;
-
         // Validate no duplicate service types in request
-        var serviceTypeIds = prices.Select(p => p.ServiceTypeId).ToList();
-        var duplicateServiceTypes = serviceTypeIds.GroupBy(id => id)
-            .Where(g => g.Count() > 1)
-            .Select(g => g.Key)
-            .ToList();
+        await ValidateServiceTypesForDuplicatesAsync(prices, "tạo bác sĩ");
 
-        if (duplicateServiceTypes.Any())
-        {
-            var serviceTypeNames = new List<string>();
-            foreach (var serviceTypeId in duplicateServiceTypes)
-            {
-                var serviceType = await _repository.Value.GetServiceTypeByIdAsync(serviceTypeId);
-                if (serviceType != null)
-                {
-                    serviceTypeNames.Add(serviceType.Name);
-                }
-            }
-            var duplicateNames = string.Join(", ", serviceTypeNames);
-            throw new ArgumentException($"Không thể tạo bác sĩ: Loại dịch vụ bị trùng lặp ({duplicateNames}). Mỗi bác sĩ chỉ được có một giá cho mỗi loại dịch vụ.");
-        }
+        if (prices == null) return;
 
         foreach (var priceRequest in prices)
         {
@@ -318,26 +337,7 @@ public class DoctorService : BaseService, IDoctorService
         }
 
         // Validate no duplicate service types in request
-        var serviceTypeIds = prices.Select(p => p.ServiceTypeId).ToList();
-        var duplicateServiceTypes = serviceTypeIds.GroupBy(id => id)
-            .Where(g => g.Count() > 1)
-            .Select(g => g.Key)
-            .ToList();
-
-        if (duplicateServiceTypes.Any())
-        {
-            var serviceTypeNames = new List<string>();
-            foreach (var serviceTypeId in duplicateServiceTypes)
-            {
-                var serviceType = await _repository.Value.GetServiceTypeByIdAsync(serviceTypeId);
-                if (serviceType != null)
-                {
-                    serviceTypeNames.Add(serviceType.Name);
-                }
-            }
-            var duplicateNames = string.Join(", ", serviceTypeNames);
-            throw new ArgumentException($"Không thể cập nhật: Loại dịch vụ bị trùng lặp ({duplicateNames}). Mỗi bác sĩ chỉ được có một giá cho mỗi loại dịch vụ.");
-        }
+        await ValidateServiceTypesForDuplicatesAsync(prices, "cập nhật");
 
         // Get existing prices
         var existingPrices = await _repository.Value.GetDoctorPricesAsync(doctorId);

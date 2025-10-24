@@ -54,7 +54,7 @@ public class DoctorValidationException : ValidationException
     }
 
     public DoctorValidationException(List<ValidationError> validationErrors)
-        : base("Doctor validation failed", validationErrors, "DOCTOR_VALIDATION_ERROR")
+        : base("Xác thực bác sĩ thất bại", validationErrors, "DOCTOR_VALIDATION_ERROR")
     {
     }
 }
@@ -115,7 +115,7 @@ public class DoctorPriceConflictException : ConflictException
 
     public static DoctorPriceConflictException WithIds(Guid doctorId, Guid priceId)
     {
-        var exception = new DoctorPriceConflictException($"Doctor price relationship already exists for doctor ID '{doctorId}' and price ID '{priceId}'.");
+        var exception = new DoctorPriceConflictException($"Mối quan hệ giá bác sĩ đã tồn tại cho bác sĩ ID '{doctorId}' và giá ID '{priceId}'.");
         exception.Details["DoctorId"] = doctorId;
         exception.Details["PriceId"] = priceId;
         return exception;
@@ -130,7 +130,7 @@ public class DoctorPriceValidationException : ValidationException
     }
 
     public DoctorPriceValidationException(List<ValidationError> validationErrors)
-        : base("Doctor price validation failed", validationErrors, "DOCTOR_PRICE_VALIDATION_ERROR")
+        : base("Xác thực giá bác sĩ thất bại", validationErrors, "DOCTOR_PRICE_VALIDATION_ERROR")
     {
     }
 }
