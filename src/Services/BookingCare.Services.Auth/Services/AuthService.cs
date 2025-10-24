@@ -160,12 +160,11 @@ public class AuthService : BaseService, IAuthService
 
         // Only check phone number uniqueness for roles that require it (Patient and Staff)
         // Doctor role doesn't require phone number, so skip validation
-        if ((role == Role.PATIENT || role == Role.STAFF) && !string.IsNullOrWhiteSpace(request.PhoneNumber))
+        if ((role == Role.PATIENT || role == Role.STAFF)
+            && !string.IsNullOrWhiteSpace(request.PhoneNumber)
+            && await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
         {
-            if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
-            {
-                throw new AccountConflictException(request.PhoneNumber, "PhoneNumber");
-            }
+            throw new AccountConflictException(request.PhoneNumber, "PhoneNumber");
         }
     }
 

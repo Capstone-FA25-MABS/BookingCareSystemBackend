@@ -16,6 +16,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.Common.AppRouting;
 using Microsoft.Extensions.Options;
+using BookingCare.Services.Auth.Configuration;
 
 
 namespace BookingCare.Services.Auth.Controllers;
@@ -35,6 +36,7 @@ public class AuthController : BaseApiController
     private readonly ILogger<AuthController> _logger;
     private readonly IEventBus _eventBus;
     private readonly FrontendOptions _frontendOptions;
+    private readonly DefaultAvatarsOptions _avatarOptions;
 
     public AuthController(
         IAuthService authService,
@@ -42,7 +44,8 @@ public class AuthController : BaseApiController
         ISagaManager sagaManager,
         ILogger<AuthController> logger,
         IEventBus eventBus,
-        IOptions<FrontendOptions> frontendOptions)
+        IOptions<FrontendOptions> frontendOptions,
+        IOptions<DefaultAvatarsOptions> avatarOptions)
     {
         _authService = authService;
         _cookieService = cookieService;
@@ -50,6 +53,7 @@ public class AuthController : BaseApiController
         _logger = logger;
         _eventBus = eventBus;
         _frontendOptions = frontendOptions.Value;
+        _avatarOptions = avatarOptions.Value;
     }
 
     #region Authentication Operations
@@ -313,9 +317,9 @@ public class AuthController : BaseApiController
         sagaContext.SetData("Gender", request.Gender?.ToString());
         sagaContext.SetData("Birthday", request.Birthday?.ToString("yyyy-MM-dd"));
         sagaContext.SetData("Address", request.Address);
-        sagaContext.SetData("AvatarUrl", request.Gender == Gender.MALE ?
-            "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png"
-            : "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/female_20251003_d13e4998.png");
+        sagaContext.SetData("AvatarUrl", request.Gender == Gender.MALE
+            ? _avatarOptions.User.Male
+            : _avatarOptions.User.Female);
 
         // OTP verification fields for Patient registration
         sagaContext.SetData("Purpose", request.Purpose.ToKey());
@@ -403,8 +407,8 @@ public class AuthController : BaseApiController
 
             // Set AvatarUrl - use provided URL or default based on gender
             var avatarUrl = request.Gender == Gender.MALE
-                    ? "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png"
-                    : "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/female_20251003_d13e4998.png";
+                ? _avatarOptions.User.Male
+                : _avatarOptions.User.Female;
             sagaContext.SetData("AvatarUrl", avatarUrl);
 
             // Set LanguageIds
