@@ -11,11 +11,12 @@ public interface IServiceTypeService
     Task<ServiceTypeResponse?> GetServiceTypeByNameAsync(string name);
     Task<ServiceTypeResponse> UpdateServiceTypeAsync(UpdateServiceTypeRequest request);
     Task<bool> DeleteServiceTypeAsync(Guid id);
-    Task<bool> ToggleDoctorServiceTypeStatusAsync(Guid id);
+    Task<bool> ToggleServiceTypeStatusAsync(Guid id);
 
     // ServiceType Query operations
     Task<ServiceTypeListResponse> GetServiceTypesAsync(ServiceTypeQueryRequest query);
     Task<List<ServiceTypeResponse>> GetAllServiceTypesAsync();
+    Task<List<ServiceTypeResponse>> GetActiveServiceTypesAsync();
 
     // Optimized methods for simple responses
     Task<List<ServiceTypeSimpleResponse>> GetActiveServiceTypesSimpleAsync();
@@ -23,4 +24,5 @@ public interface IServiceTypeService
     // Validation operations
     Task<bool> ServiceTypeExistsAsync(Guid id);
     Task<bool> ServiceTypeNameExistsAsync(string name, Guid? excludeId = null);
+    Task<List<ServiceTypeResponse>> GetServiceTypesByIdsAsync(List<Guid> ids);
 }
