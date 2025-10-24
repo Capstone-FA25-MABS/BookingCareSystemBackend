@@ -63,10 +63,17 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 
 // Configure gRPC clients
-var authServiceAddress = builder.Configuration.GetSection("Services:Auth:GrpcUrl").Value ?? "http://localhost:6013";
+var authServiceAddress = builder.Configuration.GetSection("Services:Auth:GrpcUrl").Value ?? "http://localhost:6103";
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
 {
     options.Address = new Uri(authServiceAddress);
+});
+
+// Add UserService gRPC client for optimized patient enrichment
+var userServiceAddress = builder.Configuration.GetSection("Services:User:GrpcUrl").Value ?? "http://localhost:6116";
+builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.UserServiceClient>(options =>
+{
+    options.Address = new Uri(userServiceAddress);
 });
 
 var app = builder.Build();

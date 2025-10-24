@@ -177,17 +177,20 @@ public class AccountEnrichmentService : BaseService, IAccountEnrichmentService
 public class ReviewService : BaseService, IReviewService
 {
     private readonly IReviewRepository _reviewRepository;
-    private readonly IAccountEnrichmentService _accountEnrichmentService;
+    private readonly IUserEnrichmentService _userEnrichmentService;
+    private readonly IReplyEnrichmentService _replyEnrichmentService;
     private readonly IMapper _mapper;
 
     public ReviewService(
         IReviewRepository reviewRepository,
-        IAccountEnrichmentService accountEnrichmentService,
+        IUserEnrichmentService userEnrichmentService,
+        IReplyEnrichmentService replyEnrichmentService,
         IMapper mapper,
         ILogger<ReviewService> logger) : base(logger)
     {
         _reviewRepository = reviewRepository;
-        _accountEnrichmentService = accountEnrichmentService;
+        _userEnrichmentService = userEnrichmentService;
+        _replyEnrichmentService = replyEnrichmentService;
         _mapper = mapper;
     }
 
@@ -342,19 +345,19 @@ public class ReviewService : BaseService, IReviewService
         {
             ValidateGuid(doctorId, nameof(doctorId));
 
-            LogInfo("Getting reviews for doctor: {DoctorId} with account enrichment", null, doctorId);
+            LogInfo("Getting reviews for doctor: {DoctorId} with optimized enrichment", null, doctorId);
 
             // Get reviews from repository
             var pagedReviews = await _reviewRepository.GetReviewsByDoctorAsync(doctorId, page, pageSize);
 
-            // Enrich with account information
-            await EnrichReviewsWithAccountInfo(pagedReviews.Reviews);
+            // Enrich with optimized information (UserService for patients, AuthService for reply authors)
+            await EnrichReviewsWithOptimizedInfo(pagedReviews.Reviews);
 
-            LogInfo("Retrieved {Count} reviews for doctor {DoctorId} with account enrichment",
+            LogInfo("Retrieved {Count} reviews for doctor {DoctorId} with optimized enrichment",
                 null, pagedReviews.Reviews.Count, doctorId);
 
             return pagedReviews;
-        }, "GetReviewsByDoctorWithEnrichment");
+        }, "GetReviewsByDoctorWithOptimizedEnrichment");
     }
 
     /// <summary>
@@ -366,81 +369,91 @@ public class ReviewService : BaseService, IReviewService
         {
             ValidateGuid(serviceId, nameof(serviceId));
 
-            LogInfo("Getting reviews for service: {ServiceId} with account enrichment", null, serviceId);
+            LogInfo("Getting reviews for service: {ServiceId} with optimized enrichment", null, serviceId);
 
             // Get reviews from repository
             var pagedReviews = await _reviewRepository.GetReviewsByServiceAsync(serviceId, page, pageSize);
 
-            // Enrich with account information
-            await EnrichReviewsWithAccountInfo(pagedReviews.Reviews);
+            // Enrich with optimized information (UserService for patients, AuthService for reply authors)
+            await EnrichReviewsWithOptimizedInfo(pagedReviews.Reviews);
 
-            LogInfo("Retrieved {Count} reviews for service {ServiceId} with account enrichment",
+            LogInfo("Retrieved {Count} reviews for service {ServiceId} with optimized enrichment",
                 null, pagedReviews.Reviews.Count, serviceId);
 
             return pagedReviews;
-        }, "GetReviewsByServiceWithEnrichment");
+        }, "GetReviewsByServiceWithOptimizedEnrichment");
     }
 
     /// <summary>
-    /// Enriches a list of reviews with account information for patients and reply authors
+    /// Enriches reviews with optimized approach:
+    /// - Patient info from UserService (direct user data)
+    /// - Reply author info from AuthService (account data with roles)
     /// </summary>
-    private async Task EnrichReviewsWithAccountInfo(List<ReviewResponse> reviews)
+    private async Task EnrichReviewsWithOptimizedInfo(List<ReviewResponse> reviews)
     {
         if (!reviews.Any())
         {
             return;
         }
 
-        // Collect all unique account IDs (patients + reply authors)
-        var accountIds = new HashSet<string>();
-
-        // Add patient IDs
+        // Collect patient IDs (for UserService)
+        var patientIds = new HashSet<string>();
         foreach (var review in reviews)
         {
-            accountIds.Add(review.PatientId.ToString());
+            patientIds.Add(review.PatientId.ToString());
+        }
 
-            // Add reply author IDs
+        // Collect reply author IDs (for AuthService)
+        var replyAuthorIds = new HashSet<string>();
+        foreach (var review in reviews)
+        {
             foreach (var reply in review.Replies)
             {
-                accountIds.Add(reply.AuthorId.ToString());
+                replyAuthorIds.Add(reply.AuthorId.ToString());
             }
         }
 
-        if (!accountIds.Any())
-        {
-            return;
-        }
+        LogInfo("Optimized enrichment: {PatientCount} patients via UserService, {ReplyAuthorCount} reply authors via AuthService",
+            null, patientIds.Count, replyAuthorIds.Count);
 
-        LogInfo("Enriching {ReviewCount} reviews with {AccountCount} unique accounts",
-            null, reviews.Count, accountIds.Count);
+        // Parallel fetch from both services for better performance
+        var patientInfoTask = patientIds.Any() 
+            ? _userEnrichmentService.GetUsersInfoAsync(patientIds.ToList())
+            : Task.FromResult(new Dictionary<string, UserInfo>());
 
-        // Get account details in batch
-        var accountDetails = await _accountEnrichmentService.GetAccountDetailsAsync(accountIds.ToList());
+        var replyAuthorInfoTask = replyAuthorIds.Any()
+            ? _replyEnrichmentService.GetReplyAuthorsInfoAsync(replyAuthorIds.ToList())
+            : Task.FromResult(new Dictionary<string, AccountInfo>());
 
-        // Map account info to reviews and replies
+        await Task.WhenAll(patientInfoTask, replyAuthorInfoTask);
+
+        var patientInfoDict = patientInfoTask.Result;
+        var replyAuthorInfoDict = replyAuthorInfoTask.Result;
+
+        // Map information to reviews
         foreach (var review in reviews)
         {
-            // Enrich patient info
+            // Enrich patient info from UserService
             var patientKey = review.PatientId.ToString();
-            if (accountDetails.TryGetValue(patientKey, out var patientInfo))
+            if (patientInfoDict.TryGetValue(patientKey, out var patientInfo))
             {
                 review.PatientInfo = patientInfo;
             }
             else
             {
                 // Fallback for missing patient info
-                review.PatientInfo = new AccountInfo
+                review.PatientInfo = new UserInfo
                 {
-                    AccountId = patientKey,
+                    UserId = patientKey,
                     Found = false
                 };
             }
 
-            // Enrich reply author info
+            // Enrich reply author info from AuthService
             foreach (var reply in review.Replies)
             {
                 var authorKey = reply.AuthorId.ToString();
-                if (accountDetails.TryGetValue(authorKey, out var authorInfo))
+                if (replyAuthorInfoDict.TryGetValue(authorKey, out var authorInfo))
                 {
                     reply.AuthorInfo = authorInfo;
                 }
@@ -456,7 +469,7 @@ public class ReviewService : BaseService, IReviewService
             }
         }
 
-        LogInfo("Successfully enriched {ReviewCount} reviews with account information",
+        LogInfo("Successfully enriched {ReviewCount} reviews with optimized approach",
             null, reviews.Count);
     }
 

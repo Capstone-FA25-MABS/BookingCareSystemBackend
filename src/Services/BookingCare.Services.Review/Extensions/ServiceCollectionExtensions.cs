@@ -25,7 +25,11 @@ public static class ServiceCollectionExtensions
         // Register repositories
         services.AddScoped<IReviewRepository, ReviewRepository>();
 
-        // Register account enrichment service
+        // Register enrichment services (optimized approach)
+        services.AddScoped<IUserEnrichmentService, UserEnrichmentService>();
+        services.AddScoped<IReplyEnrichmentService, ReplyEnrichmentService>();
+        
+        // Keep old service for backward compatibility if needed
         services.AddScoped<IAccountEnrichmentService, AccountEnrichmentService>();
 
         // Register business services
