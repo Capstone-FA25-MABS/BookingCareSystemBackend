@@ -12,6 +12,11 @@ using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Models;
 using BookingCare.Shared.Saga.SagaDefinition;
 using BookingCare.Shared.Common.Helpers;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.Common.AppRouting;
+using Microsoft.Extensions.Options;
+
 
 namespace BookingCare.Services.Auth.Controllers;
 
@@ -28,17 +33,23 @@ public class AuthController : BaseApiController
     private readonly CookieService _cookieService;
     private readonly ISagaManager _sagaManager;
     private readonly ILogger<AuthController> _logger;
+    private readonly IEventBus _eventBus;
+    private readonly FrontendOptions _frontendOptions;
 
     public AuthController(
         IAuthService authService,
         CookieService cookieService,
         ISagaManager sagaManager,
-        ILogger<AuthController> logger)
+        ILogger<AuthController> logger,
+        IEventBus eventBus,
+        IOptions<FrontendOptions> frontendOptions)
     {
         _authService = authService;
         _cookieService = cookieService;
         _sagaManager = sagaManager;
         _logger = logger;
+        _eventBus = eventBus;
+        _frontendOptions = frontendOptions.Value;
     }
 
     #region Authentication Operations
@@ -370,9 +381,14 @@ public class AuthController : BaseApiController
 
         sagaContext.SetData("Role", Role.DOCTOR.ToString());
         sagaContext.SetData("Email", request.Email);
-        sagaContext.SetData("Password", request.Password);
+
+        // Auto-generate strong password for Doctor (will be sent via email)
+        var generatedPassword = Utils.PasswordHelper.GenerateStrongPassword(16);
+        sagaContext.SetData("Password", generatedPassword);
+        sagaContext.SetData("GeneratedPassword", generatedPassword); // Store for email notification
+        sagaContext.SetData("MustChangePassword", "true"); // Flag to force password change on first login
+
         sagaContext.SetData("FullName", request.FullName);
-        sagaContext.SetData("PhoneNumber", request.PhoneNumber);
         sagaContext.SetData("Gender", request.Gender?.ToString());
         sagaContext.SetData("Address", request.Address);
 
@@ -384,6 +400,31 @@ public class AuthController : BaseApiController
             sagaContext.SetData("SpecialtyId", request.DoctorProfile.SpecialtyId.ToString());
             sagaContext.SetData("PositionId", request.DoctorProfile.PositionId.ToString());
             sagaContext.SetData("HospitalId", request.DoctorProfile.HospitalId.ToString());
+
+            // Set AvatarUrl - use provided URL or default based on gender
+            var avatarUrl = request.Gender == Gender.MALE
+                    ? "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png"
+                    : "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/female_20251003_d13e4998.png";
+            sagaContext.SetData("AvatarUrl", avatarUrl);
+
+            // Set LanguageIds
+            if (request.DoctorProfile.LanguageIds != null && request.DoctorProfile.LanguageIds.Any())
+            {
+                sagaContext.SetData("LanguageIds", string.Join(",", request.DoctorProfile.LanguageIds));
+            }
+
+            // Set ServicePrices
+            if (request.DoctorProfile.ServicePrices != null && request.DoctorProfile.ServicePrices.Any())
+            {
+                var pricesJson = System.Text.Json.JsonSerializer.Serialize(
+                    request.DoctorProfile.ServicePrices.Select(p => new
+                    {
+                        ServiceTypeId = p.ServiceTypeId.ToString(),
+                        Amount = p.Amount
+                    })
+                );
+                sagaContext.SetData("ServicePrices", pricesJson);
+            }
         }
 
         try
@@ -393,6 +434,29 @@ public class AuthController : BaseApiController
 
             if (result.Status == SagaStatus.Completed)
             {
+                _logger.LogInformation("Doctor registration completed. Generated password will be sent to: {Email}", request.Email);
+
+                // Publish event to send credentials via email
+                try
+                {
+                    var credentialsEvent = new DoctorCredentialsGeneratedEvent
+                    {
+                        Email = request.Email,
+                        FullName = request.FullName ?? "Doctor",
+                        GeneratedPassword = generatedPassword,
+                        HospitalId = request.DoctorProfile?.HospitalId,
+                        LoginUrl = $"{_frontendOptions.Admin.BaseUrl}login",
+                    };
+
+                    await _eventBus.PublishAsync(credentialsEvent);
+                    _logger.LogInformation("Published DoctorCredentialsGeneratedEvent for {Email}", request.Email);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to publish DoctorCredentialsGeneratedEvent for {Email}", request.Email);
+                    // Don't fail the registration if event publishing fails
+                }
+
                 return Created(new
                 {
                     SagaId = result.SagaId,
