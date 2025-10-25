@@ -23,4 +23,7 @@ public interface IHospitalRepository
 
     // Optimized methods for simple responses
     Task<List<HospitalEntity>> GetActiveHospitalsSimpleAsync();
+
+    // Optimized method for hospital list with essential fields and filters
+    Task<(List<HospitalEntity> hospitals, int totalCount)> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter);
 }

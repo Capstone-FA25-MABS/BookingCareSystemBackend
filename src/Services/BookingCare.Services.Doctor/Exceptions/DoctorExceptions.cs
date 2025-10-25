@@ -26,21 +26,21 @@ public class DoctorNotFoundException : NotFoundException
 
     public static DoctorNotFoundException WithId(Guid doctorId)
     {
-        var exception = new DoctorNotFoundException($"Doctor with ID '{doctorId}' was not found.");
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với ID '{doctorId}'.");
         exception.Details["DoctorId"] = doctorId;
         return exception;
     }
 
     public static DoctorNotFoundException WithEmail(string email)
     {
-        var exception = new DoctorNotFoundException($"Doctor with email '{email}' was not found.");
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với email '{email}'.");
         exception.Details["Email"] = email;
         return exception;
     }
 
     public static DoctorNotFoundException WithAccountId(Guid accountId)
     {
-        var exception = new DoctorNotFoundException($"Doctor with account ID '{accountId}' was not found.");
+        var exception = new DoctorNotFoundException($"Không tìm thấy bác sĩ với tài khoản ID '{accountId}'.");
         exception.Details["AccountId"] = accountId;
         return exception;
     }
@@ -54,7 +54,7 @@ public class DoctorValidationException : ValidationException
     }
 
     public DoctorValidationException(List<ValidationError> validationErrors)
-        : base("Doctor validation failed", validationErrors, "DOCTOR_VALIDATION_ERROR")
+        : base("Xác thực bác sĩ thất bại", validationErrors, "DOCTOR_VALIDATION_ERROR")
     {
     }
 }
@@ -76,14 +76,14 @@ public class DoctorConflictException : ConflictException
 
     public static DoctorConflictException WithEmail(string email)
     {
-        var exception = new DoctorConflictException($"Doctor with email '{email}' already exists.");
+        var exception = new DoctorConflictException($"Email '{email}' đã tồn tại trong hệ thống. Vui lòng sử dụng email khác.");
         exception.Details["Email"] = email;
         return exception;
     }
 
     public static DoctorConflictException WithAccountId(Guid accountId)
     {
-        var exception = new DoctorConflictException($"Doctor with account ID '{accountId}' already exists.");
+        var exception = new DoctorConflictException($"Tài khoản với ID '{accountId}' đã tồn tại.");
         exception.Details["AccountId"] = accountId;
         return exception;
     }
@@ -115,7 +115,7 @@ public class DoctorPriceConflictException : ConflictException
 
     public static DoctorPriceConflictException WithIds(Guid doctorId, Guid priceId)
     {
-        var exception = new DoctorPriceConflictException($"Doctor price relationship already exists for doctor ID '{doctorId}' and price ID '{priceId}'.");
+        var exception = new DoctorPriceConflictException($"Mối quan hệ giá bác sĩ đã tồn tại cho bác sĩ ID '{doctorId}' và giá ID '{priceId}'.");
         exception.Details["DoctorId"] = doctorId;
         exception.Details["PriceId"] = priceId;
         return exception;
@@ -130,7 +130,7 @@ public class DoctorPriceValidationException : ValidationException
     }
 
     public DoctorPriceValidationException(List<ValidationError> validationErrors)
-        : base("Doctor price validation failed", validationErrors, "DOCTOR_PRICE_VALIDATION_ERROR")
+        : base("Xác thực giá bác sĩ thất bại", validationErrors, "DOCTOR_PRICE_VALIDATION_ERROR")
     {
     }
 }

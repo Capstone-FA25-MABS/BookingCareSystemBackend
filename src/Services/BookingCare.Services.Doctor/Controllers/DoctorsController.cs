@@ -4,6 +4,8 @@ using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Doctor.Controllers;
@@ -15,11 +17,16 @@ namespace BookingCare.Services.Doctor.Controllers;
 public class DoctorsController : BaseApiController
 {
     private readonly IDoctorService _doctorService;
+    private readonly FileUploadOrchestrator _uploadOrchestrator;
     private readonly ILogger<DoctorsController> _logger;
 
-    public DoctorsController(IDoctorService doctorService, ILogger<DoctorsController> logger)
+    public DoctorsController(
+        IDoctorService doctorService,
+        FileUploadOrchestrator uploadOrchestrator,
+        ILogger<DoctorsController> logger)
     {
         _doctorService = doctorService;
+        _uploadOrchestrator = uploadOrchestrator;
         _logger = logger;
     }
 
@@ -377,6 +384,156 @@ public class DoctorsController : BaseApiController
         request.Id = id; // Ensure the ID in the request matches the route parameter
         var doctor = await _doctorService.UpdateDoctorAsync(request);
         return Success<DoctorResponse>(doctor, "Doctor updated successfully");
+    }
+
+    /// <summary>
+    /// Create a new doctor with avatar upload
+    /// </summary>
+    [HttpPost("upload-avatar")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize]
+    public async Task<IActionResult> CreateDoctorWithAvatar(
+        [FromForm] CreateDoctorRequest request,
+        [FromForm] IFormFile? avatarFile,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest("Invalid request data", ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList());
+            }
+
+            // Handle avatar upload if provided
+            if (avatarFile != null)
+            {
+                var config = new FileUploadConfig
+                {
+                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+                    MaxSizeInMB = 5,
+                    Folder = "avatars/doctors",
+                    SuccessMessage = "Doctor avatar uploaded successfully",
+                    EntityType = "doctor-avatar"
+                };
+
+                var uploadResult = await _uploadOrchestrator.UploadFileAsync(avatarFile, config, request.AccountId, _logger, cancellationToken);
+
+                if (!uploadResult.Success)
+                {
+                    return BadRequest($"Avatar upload failed: {uploadResult.ErrorMessage}");
+                }
+
+                // Set the avatar URL from upload result - use CloudFront URL for public access
+                request.AvatarUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+            }
+
+            var doctor = await _doctorService.CreateDoctorAsync(request);
+            return Created(doctor, "Doctor created successfully with avatar");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating doctor with avatar: {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = ex.Message,
+                errors = new[] { ex.GetType().Name },
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
+    /// Update doctor information with avatar upload
+    /// </summary>
+    [HttpPut("{id}/upload-avatar")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize]
+    public async Task<IActionResult> UpdateDoctorWithAvatar(
+        Guid id,
+        [FromForm] UpdateDoctorRequest request,
+        [FromForm] IFormFile? avatarFile,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest("Invalid request data", ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList());
+            }
+
+            request.Id = id; // Ensure the ID in the request matches the route parameter
+
+            // Get current doctor to get account ID for avatar upload
+            var currentDoctor = await _doctorService.GetDoctorByIdAsync(id);
+            if (currentDoctor == null)
+            {
+                return NotFound($"Doctor with ID {id} not found");
+            }
+
+            // Handle avatar upload if provided
+            if (avatarFile != null)
+            {
+                // Delete old avatar if exists (not default avatar)
+                if (!string.IsNullOrEmpty(currentDoctor.AvatarUrl) &&
+                    currentDoctor.AvatarUrl != "https://bookingcaree.com/user-avatar-default.png")
+                {
+                    var deleteConfig = new FileDeletionConfig
+                    {
+                        FileUrl = currentDoctor.AvatarUrl,
+                        ExpectedFolder = "avatars",
+                        SuccessMessage = "Old avatar deleted successfully",
+                        EntityType = "doctor-avatar"
+                    };
+
+                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentDoctor.AccountId, _logger, cancellationToken);
+                    if (!deleteResult.Success)
+                    {
+                        _logger.LogWarning("Failed to delete old avatar for doctor {DoctorId}: {Error}", id, deleteResult.ErrorMessage);
+                        // Continue with upload even if deletion fails
+                    }
+                }
+
+                var config = new FileUploadConfig
+                {
+                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+                    MaxSizeInMB = 5,
+                    Folder = "avatars/doctors",
+                    SuccessMessage = "Doctor avatar uploaded successfully",
+                    EntityType = "doctor-avatar"
+                };
+
+                var uploadResult = await _uploadOrchestrator.UploadFileAsync(avatarFile, config, currentDoctor.AccountId, _logger, cancellationToken);
+
+                if (!uploadResult.Success)
+                {
+                    return BadRequest($"Avatar upload failed: {uploadResult.ErrorMessage}");
+                }
+
+                // Set the avatar URL from upload result - use CloudFront URL for public access
+                request.AvatarUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+            }
+
+            var doctor = await _doctorService.UpdateDoctorAsync(request);
+            return Success<DoctorResponse>(doctor, "Doctor updated successfully with avatar");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating doctor with avatar: {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = ex.Message,
+                errors = new[] { ex.GetType().Name },
+                timestamp = DateTime.UtcNow
+            });
+        }
     }
 
     /// <summary>

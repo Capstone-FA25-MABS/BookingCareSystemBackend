@@ -20,6 +20,9 @@ public class AppointmentResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
+    // Additional IDs for convenience (used for fetching available doctors, etc.)
+    public Guid? SpecialtyId { get; set; }
+
     // Payment information from gRPC call
     public decimal? ConsultationFees { get; set; }
 
@@ -61,6 +64,7 @@ public class DoctorInfo
     public string? SpecialtyName { get; set; }
     public string? AvatarUrl { get; set; }
     public Guid? HospitalId { get; set; }
+    public decimal? ConsultationFee { get; set; } // Consultation fee based on appointment type
 }
 
 /// <summary>
@@ -117,5 +121,91 @@ public class AppointmentListResponse
     /// Counts for each status - only populated when requesting all statuses
     /// </summary>
     public AppointmentStatusCounts? StatusCounts { get; set; }
+}
+
+/// <summary>
+/// Response for reschedule operations with deep links for all 4 options
+/// </summary>
+public class RescheduleResponse
+{
+    public Guid AppointmentId { get; set; }
+    public string RescheduleToken { get; set; } = string.Empty;
+    public DateTime TokenExpiry { get; set; }
+    public string Message { get; set; } = string.Empty;
+
+    // Deep links for patient (4 options)
+    /// <summary>
+    /// Option 1: Reschedule with same doctor
+    /// </summary>
+    public string? SameDoctorRescheduleUrl { get; set; }
+
+    /// <summary>
+    /// Option 2: Confirm new doctor assigned by hospital staff
+    /// URL contains placeholder {newDoctorId} that will be replaced when staff assigns a doctor
+    /// </summary>
+    public string? ConfirmNewDoctorUrl { get; set; }
+
+    /// <summary>
+    /// Option 3: Choose new doctor yourself (redirects to doctors list with filters)
+    /// No API endpoint needed - just redirect to frontend page
+    /// </summary>
+    public string? ChooseNewDoctorUrl { get; set; }
+
+    /// <summary>
+    /// Option 4: Request refund
+    /// </summary>
+    public string? RefundRequestUrl { get; set; }
+}
+
+/// <summary>
+/// Response for available doctors query
+/// Returns doctors from same hospital + specialty that are available at specified date/time
+/// </summary>
+public class AvailableDoctorsResponse
+{
+    public List<AvailableDoctors> Doctors { get; set; } = new();
+    public int TotalCount { get; set; }
+}
+
+/// <summary>
+/// Available doctor information
+/// </summary>
+public class AvailableDoctors
+{
+    public Guid Id { get; set; }
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public string? PositionName { get; set; }
+    public string? SpecialtyName { get; set; }
+    public int YearsOfExperience { get; set; }
+}
+
+/// <summary>
+/// Response for choosing new doctor (Option 3)
+/// Includes action to take based on price comparison
+/// </summary>
+public class ChooseNewDoctorResponse
+{
+    public Guid AppointmentId { get; set; }
+    public string Action { get; set; } = string.Empty; // "direct_update", "payment_required", "refund_created"
+    public decimal OriginalPrice { get; set; }
+    public decimal NewPrice { get; set; }
+    public decimal PriceDifference { get; set; }
+    public string? PaymentUrl { get; set; } // For higher price scenario
+    public string? RefundRequestId { get; set; } // For lower price scenario
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response for lazy reschedule token generation
+/// </summary>
+public class GenerateRescheduleTokenResponse
+{
+    public string RescheduleToken { get; set; } = string.Empty;
+    public DateTime TokenExpiry { get; set; }
+    public string RedirectUrl { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
 }
 

@@ -5,7 +5,7 @@ namespace BookingCare.Services.Hospital.Services.Interfaces;
 
 public interface IHospitalService
 {
-    Task<HospitalDetailResponse?> GetByIdAsync(Guid id);
+    Task<HospitalProfileResponse?> GetByIdAsync(Guid id);
     Task<HospitalResponse?> GetByEmailAsync(string email);
     Task<HospitalListResponse> GetAllAsync();
     Task<HospitalListResponse> GetFilteredAsync(HospitalFilterRequest filter);
@@ -23,4 +23,7 @@ public interface IHospitalService
 
     // Optimized methods for simple responses
     Task<List<HospitalSimpleResponse>> GetActiveHospitalsSimpleAsync();
+
+    // Optimized method for hospital list with essential fields and filters
+    Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter);
 }

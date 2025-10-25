@@ -191,31 +191,53 @@ public class AppointmentRepository : IAppointmentRepository
     }
 
     /// <summary>
-    /// Check if doctor is available
+    /// Check if doctor is available (includes soft reservation check)
+    /// Doctor is NOT available if:
+    /// 1. Has active appointment (PENDING/CONFIRMED)
+    /// 2. OR has soft reservation (AssignedDoctorId with valid SoftReservedUntil)
     /// </summary>
     public async Task<bool> IsDoctorAvailableAsync(Guid doctorId, DateTime appointmentDate,
         AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null)
     {
         try
         {
-            var query = _context.Appointments
+            var now = DateTime.UtcNow;
+
+            // Check 1: Active appointments with this doctor
+            var hasActiveAppointment = await _context.Appointments
                 .Where(a => a.DoctorId == doctorId &&
                            a.AppointmentDate.Date == appointmentDate.Date &&
                            a.AppointmentTimeId == appointmentTimeId &&
-                           a.Status != AppointmentStatus.CANCELLED);
+                           a.Status != AppointmentStatus.CANCELLED &&
+                           (!excludeAppointmentId.HasValue || a.Id != excludeAppointmentId.Value))
+                .AnyAsync();
 
-            if (excludeAppointmentId.HasValue)
-                query = query.Where(a => a.Id != excludeAppointmentId);
-
-            var isAvailable = !await query.AnyAsync();
-
-            if (!isAvailable)
+            if (hasActiveAppointment)
             {
-                _logger.LogWarning("Doctor {DoctorId} is not available on {Date} at time {TimeId}",
+                _logger.LogWarning("Doctor {DoctorId} has active appointment on {Date} at {TimeId}",
                     doctorId, appointmentDate.Date, appointmentTimeId);
+                return false;
             }
 
-            return isAvailable;
+            // Check 2: Soft reservations (pending doctor assignment)
+            var hasSoftReservation = await _context.Appointments
+                .Where(a => a.AssignedDoctorId == doctorId &&
+                           a.AppointmentDate.Date == appointmentDate.Date &&
+                           a.AppointmentTimeId == appointmentTimeId &&
+                           a.Status == AppointmentStatus.CANCELLED &&
+                           a.SoftReservedUntil.HasValue &&
+                           a.SoftReservedUntil.Value > now &&
+                           (!excludeAppointmentId.HasValue || a.Id != excludeAppointmentId.Value))
+                .AnyAsync();
+
+            if (hasSoftReservation)
+            {
+                _logger.LogWarning("Doctor {DoctorId} has soft reservation on {Date} at {TimeId}",
+                    doctorId, appointmentDate.Date, appointmentTimeId);
+                return false;
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
@@ -256,6 +278,46 @@ public class AppointmentRepository : IAppointmentRepository
         {
             _logger.LogError(ex, "Error updating appointment status: {AppointmentId} to {Status}", appointmentId, status);
             throw new AppointmentException("Failed to update appointment status", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Update an existing appointment (for reschedule operations)
+    /// </summary>
+    public async Task<bool> UpdateAppointmentAsync(AppointmentEntity appointment)
+    {
+        try
+        {
+            _context.Appointments.Update(appointment);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully updated appointment: {AppointmentId}", appointment.Id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating appointment: {AppointmentId}", appointment.Id);
+            throw new AppointmentException("Failed to update appointment", innerException: ex);
+        }
+    }
+
+    public async Task<List<AppointmentEntity>> GetAppointmentsWithExpiredTokensAsync(DateTime now)
+    {
+        try
+        {
+            var appointments = await _context.Appointments
+                .Where(a => a.RescheduleToken != null &&
+                           a.RescheduleTokenExpiry != null &&
+                           a.RescheduleTokenExpiry < now)
+                .ToListAsync();
+
+            _logger.LogInformation("Found {Count} appointments with expired tokens", appointments.Count);
+            return appointments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching appointments with expired tokens");
+            throw new AppointmentException("Failed to fetch appointments with expired tokens", innerException: ex);
         }
     }
 
@@ -390,6 +452,41 @@ public class AppointmentRepository : IAppointmentRepository
         {
             _logger.LogError(ex, "Error getting status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId})", patientId, doctorId);
             throw new AppointmentException("Failed to get status counts", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get all booked appointment time IDs for a doctor on a specific date
+    /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
+    /// </summary>
+    public async Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(Guid doctorId, DateOnly appointmentDate)
+    {
+        try
+        {
+            var startOfDay = appointmentDate.ToDateTime(TimeOnly.MinValue);
+            var endOfDay = appointmentDate.ToDateTime(TimeOnly.MaxValue);
+
+            var bookedTimeIds = await _context.Appointments
+                .Where(a => a.DoctorId == doctorId &&
+                           a.AppointmentDate >= startOfDay &&
+                           a.AppointmentDate <= endOfDay &&
+                           (a.Status == AppointmentStatus.PENDING ||
+                            a.Status == AppointmentStatus.CONFIRMED ||
+                            a.Status == AppointmentStatus.COMPLETED))
+                .Select(a => a.AppointmentTimeId)
+                .Distinct()
+                .ToListAsync();
+
+            _logger.LogDebug("Found {Count} booked time slots for doctor {DoctorId} on {Date}",
+                bookedTimeIds.Count, doctorId, appointmentDate);
+
+            return bookedTimeIds;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting booked appointment times for doctor {DoctorId} on {Date}",
+                doctorId, appointmentDate);
+            throw new AppointmentException("Failed to get booked appointment times", innerException: ex);
         }
     }
 

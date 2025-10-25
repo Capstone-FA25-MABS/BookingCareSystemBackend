@@ -22,8 +22,6 @@ public class HospitalRepository : IHospitalRepository
         return await _context.Hospitals
             .Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalImages)
-            .Include(h => h.HospitalSubscriptions.Where(s => s.Status == SubscriptionStatus.ACTIVE))
-                .ThenInclude(s => s.SubscriptionPlan)
             .FirstOrDefaultAsync(h => h.Id == id);
     }
 
@@ -208,6 +206,141 @@ public class HospitalRepository : IHospitalRepository
             })
             .OrderBy(h => h.Name)
             .ToListAsync();
+    }
+
+    public async Task<(List<HospitalEntity> hospitals, int totalCount)> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter)
+    {
+        var query = _context.Hospitals.AsQueryable();
+
+        // 1) Search filter
+        query = ApplyOptimizedSearchFilter(query, filter.Search);
+
+        // 2) Specialty filter (parse + debug + apply)
+        query = await ApplyOptimizedSpecialtyFilterAsync(query, filter.SpecialtyIds);
+
+        // 3) Count before pagination
+        var totalCount = await query.CountAsync();
+        Console.WriteLine($"Total hospitals after database filtering: {totalCount}");
+
+        // 4) Sorting + 5) Projection + Pagination
+        var hospitals = await ProjectSortAndPaginateAsync(query, filter);
+
+        Console.WriteLine($"Returning {hospitals.Count} hospitals from repository");
+        return (hospitals, totalCount);
+    }
+
+    private static IQueryable<HospitalEntity> ApplyOptimizedSearchFilter(IQueryable<HospitalEntity> query, string? search)
+    {
+        if (string.IsNullOrEmpty(search))
+            return query;
+
+        Console.WriteLine($"Applying search filter: '{search}'");
+        return query.Where(h => h.Name.Contains(search) || h.Address.Contains(search));
+    }
+
+    private async Task<IQueryable<HospitalEntity>> ApplyOptimizedSpecialtyFilterAsync(IQueryable<HospitalEntity> query, string[]? specialtyIds)
+    {
+        if (specialtyIds == null || specialtyIds.Length == 0)
+            return query;
+
+        Console.WriteLine($"Applying specialty filter with {specialtyIds.Length} specialty IDs: {string.Join(", ", specialtyIds)}");
+
+        var specialtyGuids = ParseSpecialtyGuids(specialtyIds);
+        if (!specialtyGuids.Any())
+            return query;
+
+        await LogSpecialtyDebugInfoAsync(specialtyGuids);
+        return query.Where(h => h.HospitalSpecialties.Any(hs => specialtyGuids.Contains(hs.SpecialtyId)));
+    }
+
+    private static List<Guid> ParseSpecialtyGuids(IEnumerable<string> specialtyIds)
+    {
+        var specialtyGuids = new List<Guid>();
+        foreach (var specialtyIdStr in specialtyIds)
+        {
+            if (Guid.TryParse(specialtyIdStr, out var specialtyGuid))
+            {
+                specialtyGuids.Add(specialtyGuid);
+            }
+            else
+            {
+                Console.WriteLine($"Invalid specialty ID format: {specialtyIdStr}");
+            }
+        }
+        return specialtyGuids;
+    }
+
+    private async Task LogSpecialtyDebugInfoAsync(List<Guid> specialtyGuids)
+    {
+        var hospitalsWithSpecialties = await _context.Hospitals
+            .Where(h => h.HospitalSpecialties.Any())
+            .CountAsync();
+        Console.WriteLine($"Total hospitals with specialties: {hospitalsWithSpecialties}");
+
+        var hospitalsWithSpecificSpecialty = await _context.Hospitals
+            .Where(h => h.HospitalSpecialties.Any(hs => specialtyGuids.Contains(hs.SpecialtyId)))
+            .CountAsync();
+        Console.WriteLine($"Hospitals with specific specialty: {hospitalsWithSpecificSpecialty}");
+
+        var hospitalSpecialtyCount = await _context.HospitalSpecialties
+            .Where(hs => specialtyGuids.Contains(hs.SpecialtyId))
+            .CountAsync();
+        Console.WriteLine($"Hospital-specialty relationships: {hospitalSpecialtyCount}");
+
+        var totalHospitalSpecialtyRelations = await _context.HospitalSpecialties.CountAsync();
+        Console.WriteLine($"Total hospital-specialty relationships: {totalHospitalSpecialtyRelations}");
+
+        var totalHospitals = await _context.Hospitals.CountAsync();
+        Console.WriteLine($"Total hospitals in database: {totalHospitals}");
+    }
+
+    private async Task<List<HospitalEntity>> ProjectSortAndPaginateAsync(IQueryable<HospitalEntity> query, HospitalListOptimizedFilterRequest filter)
+    {
+        query = filter.SortBy?.ToLower() switch
+        {
+            "name" => filter.SortOrder?.ToLower() == "desc" ? query.OrderByDescending(h => h.Name) : query.OrderBy(h => h.Name),
+            "address" => filter.SortOrder?.ToLower() == "desc" ? query.OrderByDescending(h => h.Address) : query.OrderBy(h => h.Address),
+            _ => query.OrderBy(h => h.Name)
+        };
+
+        return await query
+            .Include(h => h.HospitalSpecialties)
+            .Select(h => new HospitalEntity
+            {
+                Id = h.Id,
+                Name = h.Name,
+                Address = h.Address,
+                AvatarUrl = h.AvatarUrl,
+                HospitalSpecialties = h.HospitalSpecialties.Select(hs => new HospitalSpecialtyEntity
+                {
+                    HospitalId = hs.HospitalId,
+                    SpecialtyId = hs.SpecialtyId
+                }).ToList()
+            })
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get specialty information directly from database for performance optimization
+    /// </summary>
+    public Task<Dictionary<Guid, (string Name, string? ImageUrl)>> GetSpecialtyInfoByIdsAsync(List<Guid> specialtyIds)
+    {
+        if (specialtyIds == null || !specialtyIds.Any())
+        {
+            return Task.FromResult(new Dictionary<Guid, (string Name, string? ImageUrl)>());
+        }
+
+        // This would require a direct connection to Doctor database
+        // For now, we'll return empty dictionary and rely on gRPC
+        // In a real implementation, you might want to:
+        // 1. Use a shared database
+        // 2. Use database federation
+        // 3. Use a data warehouse
+        // 4. Use event sourcing to sync specialty data
+
+        return Task.FromResult(new Dictionary<Guid, (string Name, string? ImageUrl)>());
     }
 
     #endregion

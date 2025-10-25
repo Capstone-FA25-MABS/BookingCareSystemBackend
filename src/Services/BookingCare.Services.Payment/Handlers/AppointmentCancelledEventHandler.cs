@@ -56,7 +56,7 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
             }
 
             // Only process refund for COMPLETED payments
-            if (payment.Status != PaymentStatus.COMPLETED)
+            if (payment.Status != PaymentStatus.COMPLETED && payment.Status != PaymentStatus.REFUNDED)
             {
                 _logger.LogWarning(
                     "Payment {PaymentId} for appointment {AppointmentId} has status {Status}. Skipping refund.",
@@ -87,8 +87,46 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                     @event.PatientId);
             }
 
-            // Step 3: Calculate refund amount based on percentage from event
-            var refundAmount = payment.Amount * (@event.RefundPercentage / 100m);
+            // Step 3: Calculate refund amount and update payment if needed
+            decimal refundAmount;
+            string refundReason;
+
+            // Check if this is a doctor change refund (Option 3: Choose new doctor with lower price)
+            if (@event.CancellationSource == "DOCTOR_CHANGE_REFUND" && @event.RefundAmount.HasValue)
+            {
+                // Use exact refund amount from event (price difference)
+                refundAmount = @event.RefundAmount.Value;
+
+                // Build detailed refund reason for transparency
+                refundReason = $"Hoàn tiền do chuyển bác sĩ: " +
+                               $"Từ {@event.OriginalDoctorName} (Cọc: {@event.OriginalConsultationFee:N0} VND) " +
+                               $"sang {@event.NewDoctorName} (Cọc: {@event.NewConsultationFee:N0} VND). " +
+                               $"Số tiền hoàn lại: {refundAmount:N0} VND";
+
+                _logger.LogInformation(
+                    "Doctor change refund for appointment {AppointmentId}: {OldDoctor} → {NewDoctor}, Refund: {RefundAmount}",
+                    @event.AppointmentId, @event.OriginalDoctorName, @event.NewDoctorName, refundAmount);
+
+                // IMPORTANT: Update payment amount to new doctor's price
+                // This prevents incorrect refund calculation if appointment is cancelled again later
+                var newDoctorPrice = @event.NewConsultationFee ?? 0;
+                if (newDoctorPrice > 0 && payment.Amount != newDoctorPrice)
+                {
+                    var oldAmount = payment.Amount;
+                    payment.Amount = newDoctorPrice;
+                    await _paymentRepository.UpdateAsync(payment);
+
+                    _logger.LogInformation(
+                        "Updated payment amount for appointment {AppointmentId}: {OldAmount} → {NewAmount} VND (doctor change)",
+                        @event.AppointmentId, oldAmount, newDoctorPrice);
+                }
+            }
+            else
+            {
+                // Regular cancellation refund - calculate based on percentage
+                refundAmount = payment.Amount * (@event.RefundPercentage / 100m);
+                refundReason = @event.CancellationReason;
+            }
 
             // Step 4: Create refund history record
             var createRefundRequest = new CreateRefundHistoryRequest
@@ -97,8 +135,8 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                 UserId = @event.PatientId,
                 HospitalId = @event.HospitalId ?? Guid.Empty, // Default to Empty if null
                 BankAccountId = bankAccountId,
-                RefundAmount = refundAmount, // Use calculated refund amount
-                RefundReason = @event.CancellationReason
+                RefundAmount = refundAmount,
+                RefundReason = refundReason
             };
 
             var refundHistory = await _refundHistoryService.CreateAsync(createRefundRequest);
@@ -143,7 +181,7 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                 RefundAmount = refundAmount, // Actual refund amount after percentage
                 OriginalAmount = payment.Amount, // Original payment amount
                 RefundPercentage = @event.RefundPercentage,
-                CancellationReason = @event.CancellationReason,
+                CancellationReason = refundReason, // Use detailed reason for doctor change
                 HasBankAccount = hasBankAccount,
                 BankAccountId = bankAccountId,
                 RefundStatus = initialStatus.ToString(),
@@ -151,7 +189,14 @@ public class AppointmentCancelledEventHandler : IIntegrationEventHandler<Appoint
                 PatientPhone = patientPhone,
                 PatientFullName = patientFullName,
                 HospitalName = null, // Hospital name not required for notification
-                AppointmentDate = @event.AppointmentDate
+                AppointmentDate = @event.AppointmentDate,
+
+                // Doctor change context for notification templates
+                CancellationSource = @event.CancellationSource,
+                OriginalDoctorName = @event.OriginalDoctorName,
+                NewDoctorName = @event.NewDoctorName,
+                OriginalConsultationFee = @event.OriginalConsultationFee,
+                NewConsultationFee = @event.NewConsultationFee
             };
 
             await _eventBus.PublishAsync(refundRequestedEvent, cancellationToken: cancellationToken);

@@ -22,12 +22,30 @@ public class HospitalMappingProfile : Profile
             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
             .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.AvatarUrl));
 
+        // Hospital List Optimized Response mapping for UI display
+        CreateMap<HospitalEntity, HospitalListOptimizedResponse>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
+            .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.Address))
+            .ForMember(dest => dest.AvatarUrl, opt => opt.MapFrom(src => src.AvatarUrl))
+            .ForMember(dest => dest.Specialties, opt => opt.Ignore()) // Will be populated by service layer
+            .ForMember(dest => dest.TotalSpecialties, opt => opt.Ignore()); // Will be populated by service layer
+
         CreateMap<HospitalEntity, HospitalDetailResponse>()
             .ForMember(dest => dest.Specialties, opt => opt.MapFrom(src => src.HospitalSpecialties))
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
             .ForMember(dest => dest.CurrentSubscription, opt => opt.MapFrom(src =>
                 src.HospitalSubscriptions.FirstOrDefault(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)))
             .ForMember(dest => dest.SubscriptionHistory, opt => opt.MapFrom(src => src.HospitalSubscriptions));
+
+        // Hospital Profile mapping (exclude accountId, createdAt, updatedAt)
+        CreateMap<HospitalEntity, HospitalProfileResponse>()
+            .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
+            .ForMember(dest => dest.Specialties, opt => opt.Ignore());
+
+        CreateMap<HospitalImageEntity, HospitalImageSimpleResponse>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom(src => src.ImageUrl));
 
         CreateMap<CreateHospitalRequest, HospitalEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())

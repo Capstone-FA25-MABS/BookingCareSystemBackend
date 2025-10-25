@@ -222,41 +222,41 @@ namespace BookingCare.Services.Payment.Migrations
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
                             Description = "Thanh toán bằng tiền mặt",
                             Name = "CASH",
-                            Status = "ACTIVE"
+                            Status = "INACTIVE"
                         },
                         new
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
                             Description = "Thanh toán bằng thẻ tín dụng",
                             Name = "CREDIT_CARD",
-                            Status = "ACTIVE"
+                            Status = "INACTIVE"
                         },
                         new
                         {
                             Id = new Guid("33333333-3333-3333-3333-333333333333"),
                             Description = "Chuyển khoản ngân hàng",
                             Name = "BANK_TRANSFER",
-                            Status = "ACTIVE"
+                            Status = "INACTIVE"
                         },
                         new
                         {
                             Id = new Guid("44444444-4444-4444-4444-444444444444"),
                             Description = "Thanh toán qua MoMo",
                             Name = "MOMO",
-                            Status = "ACTIVE"
+                            Status = "INACTIVE"
                         },
                         new
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555555"),
                             Description = "Thanh toán qua ZaloPay",
                             Name = "ZALOPAY",
-                            Status = "ACTIVE"
+                            Status = "INACTIVE"
                         },
                         new
                         {
                             Id = new Guid("66666666-6666-6666-6666-666666666666"),
                             Description = "Thanh toán qua VNPay",
-                            ImageUrl = "https://yt3.googleusercontent.com/JM1m2wng0JQUgSg9ZSEvz7G4Rwo7pYb4QBYip4PAhvGRyf1D_YTbL2DdDjOy0qOXssJPdz2r7Q=s900-c-k-c0x00ffffff-no-rj",
+                            ImageUrl = "https://vnpay.vn/s1/statics.vnpay.vn/2023/6/0oxhzjmxbksr1686814746087.png",
                             Name = "VNPAY",
                             Status = "ACTIVE"
                         },
@@ -264,7 +264,7 @@ namespace BookingCare.Services.Payment.Migrations
                         {
                             Id = new Guid("77777777-7777-7777-7777-777777777777"),
                             Description = "Thanh toán qua PayOS",
-                            ImageUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTzyLwczXxezKsQjX4t5uvXGWDvlwwOwuX-1A&s",
+                            ImageUrl = "https://payos.vn/docs/img/logo.svg",
                             Name = "PAYOS",
                             Status = "ACTIVE"
                         });
@@ -337,8 +337,7 @@ namespace BookingCare.Services.Payment.Migrations
 
                     b.HasIndex("BankAccountId");
 
-                    b.HasIndex("PaymentId")
-                        .IsUnique();
+                    b.HasIndex("PaymentId");
 
                     b.ToTable("refund_histories", null, t =>
                         {
@@ -381,8 +380,8 @@ namespace BookingCare.Services.Payment.Migrations
                         .HasConstraintName("FK_refund_histories_bank_account_id");
 
                     b.HasOne("BookingCare.Services.Payment.Models.Entities.PaymentEntity", "Payment")
-                        .WithOne()
-                        .HasForeignKey("BookingCare.Services.Payment.Models.Entities.RefundHistoryEntity", "PaymentId")
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_refund_histories_payment_id");

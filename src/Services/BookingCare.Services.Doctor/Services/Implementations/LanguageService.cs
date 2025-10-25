@@ -27,10 +27,10 @@ public class LanguageService : BaseService, ILanguageService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            // Validate unique name
+            // Validate unique constraint
             if (await _repository.LanguageNameExistsAsync(request.Name))
             {
-                throw new ArgumentException($"Language with name '{request.Name}' already exists");
+                throw LanguageConflictException.WithName(request.Name);
             }
 
             // Create language entity
@@ -63,13 +63,14 @@ public class LanguageService : BaseService, ILanguageService
             var existingLanguage = await _repository.GetLanguageByIdAsync(request.Id);
             if (existingLanguage == null)
             {
-                throw new ArgumentException($"Language with ID {request.Id} not found");
+                throw LanguageNotFoundException.WithId(request.Id);
             }
 
-            // Validate unique name (exclude current language)
-            if (await _repository.LanguageNameExistsAsync(request.Name, request.Id))
+            // Validate unique constraint if name is being updated
+            if (!string.IsNullOrEmpty(request.Name) && request.Name != existingLanguage.Name &&
+                await _repository.LanguageNameExistsAsync(request.Name, request.Id))
             {
-                throw new ArgumentException($"Language with name '{request.Name}' already exists");
+                throw LanguageConflictException.WithName(request.Name);
             }
 
             // Update language entity
@@ -104,7 +105,7 @@ public class LanguageService : BaseService, ILanguageService
             var language = await _repository.GetLanguageByIdAsync(id);
             if (language == null)
             {
-                throw new ArgumentException($"Language with ID {id} not found");
+                throw LanguageNotFoundException.WithId(id);
             }
 
             // Toggle status: ACTIVE -> INACTIVE, INACTIVE -> ACTIVE

@@ -72,7 +72,7 @@ public class PaymentRepository : IPaymentRepository
     {
         var baseQuery = _context.Payments
             .Include(p => p.PaymentMethod)
-            .Where(p => p.PatientId == patientId);
+            .Where(p => p.PatientId == patientId && p.Status == PaymentStatus.COMPLETED);
 
         return await GetPagedResultAsync(baseQuery, request);
     }
@@ -159,6 +159,31 @@ public class PaymentRepository : IPaymentRepository
     public async Task<bool> ExistsAsync(Guid id)
     {
         return await _context.Payments.AnyAsync(p => p.Id == id);
+    }
+
+    public async Task<bool> UpdatePaymentStatusAsync(Guid paymentId, PaymentStatus status, string? failureReason = null)
+    {
+        var payment = await _context.Payments.FindAsync(paymentId);
+        if (payment == null)
+            return false;
+
+        payment.Status = status;
+
+        // Note: PaymentEntity doesn't have UpdatedAt property, so we just update the status
+        // If you need to track updates, consider adding UpdatedAt property to PaymentEntity
+
+        _context.Payments.Update(payment);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<List<PaymentEntity>> GetOverduePendingPaymentsAsync(DateTime cutoffTime)
+    {
+        return await _context.Payments
+            .Include(p => p.PaymentMethod)
+            .Where(p => p.Status == PaymentStatus.PENDING && p.CreatedAt < cutoffTime)
+            .OrderBy(p => p.CreatedAt)
+            .ToListAsync();
     }
 
     public async Task<IEnumerable<PaymentEntity>> GetPaymentStatisticsAsync(GetPaymentStatisticsRequest request)

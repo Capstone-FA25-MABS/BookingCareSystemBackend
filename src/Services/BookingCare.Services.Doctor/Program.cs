@@ -12,6 +12,8 @@ using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Services.Doctor.Services.Grpc;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Extensions;
+using BookingCare.Shared.FileUpload.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,7 +47,7 @@ builder.Services.AddScoped<IServiceTypeService, ServiceTypeService>();
 builder.Services.AddScoped<ILocationApiService, LocationApiService>();
 
 // AutoMapper configuration
-builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(SpecialtyMappingProfile), typeof(SimpleMappingProfile));
+builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(LanguageMappingProfile), typeof(SpecialtyMappingProfile), typeof(SimpleMappingProfile));
 
 // gRPC clients
 var favoritesAddress = builder.Configuration.GetSection("GrpcClients:Favorites:Address").Value ?? "http://localhost:6109";
@@ -82,6 +84,9 @@ builder.Logging.AddCommonLogging();
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
+
+// Add S3 File Upload services
+builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add gRPC
 builder.Services.AddGrpc();

@@ -62,6 +62,27 @@ public class HospitalsController : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Get optimized hospital list with essential fields, filters, and pagination
+    /// </summary>
+    [HttpGet("list")]
+    public async Task<IActionResult> GetOptimizedHospitalList([FromQuery] HospitalListOptimizedFilterRequest filter)
+    {
+        try
+        {
+            _logger.LogInformation("Controller received filter: Search={Search}, SpecialtyIds={SpecialtyIds}, ProvinceId={ProvinceId}, DistrictId={DistrictId}, Page={Page}, PageSize={PageSize}",
+                filter.Search, string.Join(",", filter.SpecialtyIds ?? new string[0]), filter.ProvinceId, filter.DistrictId, filter.Page, filter.PageSize);
+
+            var result = await _hospitalService.GetOptimizedHospitalListAsync(filter);
+            return Success<HospitalListOptimizedPaginatedResponse>(result, "Hospital list retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving optimized hospital list");
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetHospitalById(Guid id)
     {
@@ -80,6 +101,7 @@ public class HospitalsController : BaseApiController
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
+
 
     [HttpGet("email/{email}")]
     public async Task<IActionResult> GetHospitalByEmail(string email)

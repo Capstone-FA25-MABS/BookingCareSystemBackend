@@ -224,6 +224,9 @@ public class DoctorDbContext : DbContext
             entity.Property(e => e.Description)
                 .HasMaxLength(255);
 
+            entity.Property(e => e.ImageUrl)
+                .IsRequired();
+
             // Configure enum properties
             entity.Property(e => e.Status)
                 .HasConversion<string>()
@@ -235,6 +238,7 @@ public class DoctorDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
         });
+
     }
 
     public override int SaveChanges()

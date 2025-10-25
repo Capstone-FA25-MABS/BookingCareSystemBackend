@@ -85,6 +85,7 @@ public class DoctorDetailResponse : DoctorResponse
 public class DoctorByIdResponse
 {
     public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public Gender? Gender { get; set; }

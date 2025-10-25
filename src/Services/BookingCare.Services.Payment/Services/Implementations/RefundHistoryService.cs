@@ -141,15 +141,8 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             // If payment doesn't have HospitalId (appointment payment), we still allow the refund with the provided HospitalId
             // This handles cases where the hospital needs to process refunds for appointments
 
-            // Check if payment already has a refund history
-            var existingRefund = await _refundHistoryRepository.PaymentHasRefundAsync(request.PaymentId);
-            if (existingRefund)
-            {
-                throw new ConflictException($"Payment {request.PaymentId} already has a refund history");
-            }
-
             // Check if payment status is COMPLETED to allow refund
-            if (payment.Status != PaymentStatus.COMPLETED)
+            if (payment.Status != PaymentStatus.COMPLETED && payment.Status != PaymentStatus.REFUNDED)
             {
                 throw new InvalidOperationException($"Only payments with status COMPLETED can be refunded. Current payment status: {payment.Status}");
             }

@@ -50,10 +50,12 @@ builder.Services.AddScoped<IPayOSService, PayOSService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
 builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
+builder.Services.AddScoped<IAppointmentDetailsService, AppointmentDetailsService>();
 
 // Add background services
 builder.Services.AddHostedService<PayOSMappingCleanupService>();
 builder.Services.AddHostedService<RefundHistoryProcessingService>();
+builder.Services.AddHostedService<PendingPaymentCleanupService>();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(PaymentMappingProfile));

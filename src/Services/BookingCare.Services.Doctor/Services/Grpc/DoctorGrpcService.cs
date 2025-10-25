@@ -7,11 +7,13 @@ namespace BookingCare.Services.Doctor.Services.Grpc;
 public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 {
     private readonly IDoctorService _doctorService;
+    private readonly ISpecialtyService _specialtyService;
     private readonly ILogger<DoctorGrpcService> _logger;
 
-    public DoctorGrpcService(IDoctorService doctorService, ILogger<DoctorGrpcService> logger)
+    public DoctorGrpcService(IDoctorService doctorService, ISpecialtyService specialtyService, ILogger<DoctorGrpcService> logger)
     {
         _doctorService = doctorService;
+        _specialtyService = specialtyService;
         _logger = logger;
     }
 
@@ -249,9 +251,24 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             var doctors = await _doctorService.GetDoctorsBasicInfoByIdsAsync(ids);
             var response = new Protos.DoctorsBasicInfoResponse();
 
+            // If service_type_name is provided, get prices for all doctors in batch
+            Dictionary<Guid, decimal>? priceDict = null;
+            if (!string.IsNullOrWhiteSpace(request.ServiceTypeName))
+            {
+                priceDict = await _doctorService.GetDoctorsPricesByServiceTypeAsync(ids, request.ServiceTypeName);
+            }
+
             foreach (var doctor in doctors)
             {
-                response.Doctors.Add(MapToGrpcDoctorBasicInfoResponse(doctor));
+                var grpcDoctor = MapToGrpcDoctorBasicInfoResponse(doctor);
+
+                // Add consultation fee if available
+                if (priceDict != null && priceDict.TryGetValue(doctor.Id, out var price))
+                {
+                    grpcDoctor.ConsultationFee = (double)price;
+                }
+
+                response.Doctors.Add(grpcDoctor);
             }
 
             return response;
@@ -263,6 +280,79 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorsBasicInfo");
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    public override async Task<Protos.SpecialtySimpleResponse> GetSpecialtyById(Protos.GetSpecialtyByIdRequest request, ServerCallContext context)
+    {
+        try
+        {
+            if (!Guid.TryParse(request.Id, out var id))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+            }
+
+            var specialty = await _specialtyService.GetSpecialtyByIdAsync(id);
+            if (specialty == null)
+            {
+                throw new RpcException(new Status(StatusCode.NotFound, $"Specialty with ID {id} not found"));
+            }
+
+            return MapToGrpcSpecialtySimpleResponse(specialty);
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetSpecialtyById for {Id}", request.Id);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    public override async Task<Protos.SpecialtiesBatchResponse> GetSpecialtiesByIds(Protos.GetSpecialtiesByIdsRequest request, ServerCallContext context)
+    {
+        try
+        {
+            var ids = new List<Guid>();
+            var hasValidId = false;
+            foreach (var idStr in request.Ids)
+            {
+                if (Guid.TryParse(idStr, out var id))
+                {
+                    ids.Add(id);
+                    hasValidId = true;
+                }
+                else
+                {
+                    _logger.LogWarning("[DoctorGrpcService] Invalid specialty ID format: {Id}", idStr);
+                }
+            }
+
+            if (!hasValidId)
+            {
+                _logger.LogWarning("[DoctorGrpcService] No valid specialty IDs provided");
+                return new Protos.SpecialtiesBatchResponse();
+            }
+
+            var specialties = await _specialtyService.GetSpecialtiesByIdsAsync(ids);
+            var response = new Protos.SpecialtiesBatchResponse();
+
+            foreach (var specialty in specialties)
+            {
+                response.Specialties.Add(MapToGrpcSpecialtySimpleResponse(specialty));
+            }
+
+            _logger.LogInformation("[DoctorGrpcService] Retrieved {Count} specialties out of {Requested} requested",
+                specialties.Count, request.Ids.Count);
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetSpecialtiesByIds");
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }
     }
@@ -282,6 +372,106 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             HospitalId = doctor.HospitalId?.ToString() ?? string.Empty
         };
     }
+
+    public override async Task<Protos.GetAvailableDoctorsResponse> GetAvailableDoctors(
+        Protos.GetAvailableDoctorsRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[DoctorGrpcService] GetAvailableDoctors called for hospital {HospitalId}, specialty {SpecialtyId}",
+                request.HospitalId, request.SpecialtyId);
+
+            if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            if (!Guid.TryParse(request.SpecialtyId, out var specialtyId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+            }
+
+            // Get doctors by hospital and specialty (without availability check)
+            var doctors = await _doctorService.GetDoctorsByHospitalAndSpecialtyAsync(hospitalId, specialtyId);
+
+            var response = new Protos.GetAvailableDoctorsResponse
+            {
+                TotalCount = doctors.Count
+            };
+
+            foreach (var doctor in doctors)
+            {
+                response.Doctors.Add(new Protos.AvailableDoctorInfo
+                {
+                    Id = doctor.Id.ToString(),
+                    FirstName = doctor.FirstName,
+                    LastName = doctor.LastName,
+                    FullName = $"{doctor.FirstName} {doctor.LastName}".Trim(),
+                    AvatarUrl = doctor.AvatarUrl,
+                    PositionName = doctor.Position?.Name ?? string.Empty,
+                    SpecialtyName = doctor.Specialty?.Name ?? string.Empty,
+                    YearsOfExperience = doctor.YearsOfExperience
+                });
+            }
+
+            _logger.LogInformation("[DoctorGrpcService] Returning {Count} doctors", doctors.Count);
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetAvailableDoctors");
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    public override async Task<Protos.GetDoctorPriceResponse> GetDoctorPrice(
+        Protos.GetDoctorPriceRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[DoctorGrpcService] GetDoctorPrice called for price ID {PriceId}", request.PriceId);
+
+            if (!Guid.TryParse(request.PriceId, out var priceId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid price ID format"));
+            }
+
+            // Get doctor price from service
+            var price = await _doctorService.GetDoctorPriceByIdAsync(priceId);
+            if (price == null)
+            {
+                throw new RpcException(new Status(StatusCode.NotFound, $"Price with ID {priceId} not found"));
+            }
+
+            var response = new Protos.GetDoctorPriceResponse
+            {
+                Id = price.Id.ToString(),
+                DoctorId = price.DoctorId.ToString(),
+                Amount = (double)price.Amount,
+                Currency = "VND"
+            };
+
+            _logger.LogInformation("[DoctorGrpcService] Returning price {Amount} VND for price ID {PriceId}",
+                price.Amount, priceId);
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorPrice for {PriceId}", request.PriceId);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
 
     private static Protos.DoctorResponse MapToGrpcDoctorResponse(DoctorResponse d)
     {
@@ -329,5 +519,57 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             UpdatedAt = string.Empty, // Not available in DoctorByIdResponse
             Status = string.Empty // Not available in DoctorByIdResponse
         };
+    }
+
+    private static Protos.SpecialtySimpleResponse MapToGrpcSpecialtySimpleResponse(SpecialtyResponse specialty)
+    {
+        return new Protos.SpecialtySimpleResponse
+        {
+            Id = specialty.Id.ToString(),
+            Name = specialty.Name,
+            ImageUrl = specialty.ImageUrl ?? string.Empty
+        };
+    }
+
+    public override async Task<Protos.GetDoctorCountsBySpecialtyAndHospitalResponse> GetDoctorCountsBySpecialtyAndHospital(
+        Protos.GetDoctorCountsBySpecialtyAndHospitalRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            var specialtyIds = request.SpecialtyIds
+                .Where(id => Guid.TryParse(id, out _))
+                .Select(Guid.Parse)
+                .ToList();
+
+            if (!specialtyIds.Any())
+            {
+                return new Protos.GetDoctorCountsBySpecialtyAndHospitalResponse();
+            }
+
+            var counts = await _doctorService.GetDoctorCountsBySpecialtyAndHospitalAsync(hospitalId, specialtyIds);
+
+            var response = new Protos.GetDoctorCountsBySpecialtyAndHospitalResponse();
+            foreach (var count in counts)
+            {
+                response.SpecialtyCounts[count.Key.ToString()] = count.Value;
+            }
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorCountsBySpecialtyAndHospital for hospital {HospitalId}", request.HospitalId);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
     }
 }
