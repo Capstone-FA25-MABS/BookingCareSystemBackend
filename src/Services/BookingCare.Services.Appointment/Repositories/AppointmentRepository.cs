@@ -523,5 +523,54 @@ public class AppointmentRepository : IAppointmentRepository
         }
     }
 
+    /// <summary>
+    /// NEW: Get completed appointments by patient with optional doctor or service filter (for Review service validation)
+    /// Returns appointments with COMPLETED status for appointment history validation
+    /// </summary>
+    public async Task<List<AppointmentEntity>> GetCompletedAppointmentsByPatientAsync(
+        Guid patientId,
+        Guid? doctorId = null,
+        Guid? serviceId = null)
+    {
+        try
+        {
+            var query = _context.Appointments
+                .Where(a => a.PatientId == patientId && a.Status == AppointmentStatus.COMPLETED);
+
+            // Filter by doctor if specified
+            if (doctorId.HasValue)
+            {
+                query = query.Where(a => a.DoctorId == doctorId.Value);
+            }
+
+            // Filter by service if specified
+            if (serviceId.HasValue)
+            {
+                query = query.Where(a => a.ServiceId == serviceId.Value);
+            }
+
+            var completedAppointments = await query.ToListAsync();
+
+            var targetInfo = doctorId.HasValue
+                ? $"doctor {doctorId}"
+                : serviceId.HasValue
+                    ? $"service {serviceId}"
+                    : "any target";
+
+            _logger.LogInformation(
+                "Found {Count} completed appointments for patient {PatientId} with {Target}",
+                completedAppointments.Count, patientId, targetInfo);
+
+            return completedAppointments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting completed appointments for patient {PatientId}, doctor {DoctorId}, service {ServiceId}",
+                patientId, doctorId ?? Guid.Empty, serviceId ?? Guid.Empty);
+            throw new AppointmentException("Failed to get completed appointments by patient", innerException: ex);
+        }
+    }
+
     #endregion
 }

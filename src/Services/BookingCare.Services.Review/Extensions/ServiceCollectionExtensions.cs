@@ -28,7 +28,10 @@ public static class ServiceCollectionExtensions
         // Register enrichment services (optimized approach)
         services.AddScoped<IUserEnrichmentService, UserEnrichmentService>();
         services.AddScoped<IReplyEnrichmentService, ReplyEnrichmentService>();
-        
+
+        // Register appointment validation service
+        services.AddScoped<IAppointmentValidationService, AppointmentValidationService>();
+
         // Keep old service for backward compatibility if needed
         services.AddScoped<IAccountEnrichmentService, AccountEnrichmentService>();
 

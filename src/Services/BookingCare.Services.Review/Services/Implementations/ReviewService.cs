@@ -179,18 +179,21 @@ public class ReviewService : BaseService, IReviewService
     private readonly IReviewRepository _reviewRepository;
     private readonly IUserEnrichmentService _userEnrichmentService;
     private readonly IReplyEnrichmentService _replyEnrichmentService;
+    private readonly IAppointmentValidationService _appointmentValidationService;
     private readonly IMapper _mapper;
 
     public ReviewService(
         IReviewRepository reviewRepository,
         IUserEnrichmentService userEnrichmentService,
         IReplyEnrichmentService replyEnrichmentService,
+        IAppointmentValidationService appointmentValidationService,
         IMapper mapper,
         ILogger<ReviewService> logger) : base(logger)
     {
         _reviewRepository = reviewRepository;
         _userEnrichmentService = userEnrichmentService;
         _replyEnrichmentService = replyEnrichmentService;
+        _appointmentValidationService = appointmentValidationService;
         _mapper = mapper;
     }
 
@@ -205,6 +208,9 @@ public class ReviewService : BaseService, IReviewService
 
             // ✅ ValidationFilter đã handle tất cả validation rồi, không cần manual validation nữa
 
+            // NEW: Validate appointment history before allowing review creation
+            await ValidateAppointmentHistoryAsync(request);
+
             // Check for duplicate review (business rule)
             await CheckForDuplicateReviewAsync(request);
 
@@ -215,6 +221,52 @@ public class ReviewService : BaseService, IReviewService
             LogInfo("Review created successfully with ID: {ReviewId}", null, createdReview.Id);
             return _mapper.Map<ReviewResponse>(createdReview);
         }, "CreateReview");
+    }
+
+    /// <summary>
+    /// NEW: Validates that patient has completed appointment with the target before allowing review
+    /// </summary>
+    /// <param name="request">Create review request</param>
+    private async Task ValidateAppointmentHistoryAsync(CreateReviewRequest request)
+    {
+        AppointmentHistoryValidationResult validationResult;
+
+        if (request.TargetType == Enums.TargetType.DOCTOR && request.DoctorId.HasValue)
+        {
+            // Validate appointment history with doctor
+            validationResult = await _appointmentValidationService.HasCompletedAppointmentWithDoctorAsync(
+                request.PatientId, request.DoctorId.Value);
+
+            if (!validationResult.HasCompletedAppointment)
+            {
+                LogWarning("Patient {PatientId} attempted to review doctor {DoctorId} without completed appointment",
+                    null, request.PatientId, request.DoctorId.Value);
+
+                throw new Exceptions.NoAppointmentHistoryException(
+                    request.PatientId, request.DoctorId, null, "DOCTOR");
+            }
+
+            LogInfo("Patient {PatientId} has {Count} completed appointments with doctor {DoctorId} - review allowed",
+                null, request.PatientId, validationResult.TotalCompletedAppointments, request.DoctorId.Value);
+        }
+        else if (request.TargetType == Enums.TargetType.SERVICE && request.ServiceId.HasValue)
+        {
+            // Validate appointment history with service
+            validationResult = await _appointmentValidationService.HasCompletedAppointmentWithServiceAsync(
+                request.PatientId, request.ServiceId.Value);
+
+            if (!validationResult.HasCompletedAppointment)
+            {
+                LogWarning("Patient {PatientId} attempted to review service {ServiceId} without completed appointment",
+                    null, request.PatientId, request.ServiceId.Value);
+
+                throw new Exceptions.NoAppointmentHistoryException(
+                    request.PatientId, null, request.ServiceId, "SERVICE");
+            }
+
+            LogInfo("Patient {PatientId} has {Count} completed appointments with service {ServiceId} - review allowed",
+                null, request.PatientId, validationResult.TotalCompletedAppointments, request.ServiceId.Value);
+        }
     }
 
     /// <summary>
@@ -417,7 +469,7 @@ public class ReviewService : BaseService, IReviewService
             null, patientIds.Count, replyAuthorIds.Count);
 
         // Parallel fetch from both services for better performance
-        var patientInfoTask = patientIds.Any() 
+        var patientInfoTask = patientIds.Any()
             ? _userEnrichmentService.GetUsersInfoAsync(patientIds.ToList())
             : Task.FromResult(new Dictionary<string, UserInfo>());
 

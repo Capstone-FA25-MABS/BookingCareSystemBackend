@@ -329,7 +329,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
             }
 
             var userBasicInfo = await _userService.GetBasicInfoByIdAsync(userId);
-            
+
             if (userBasicInfo == null)
             {
                 _logger.LogInformation("[UserGrpcService] User display info not found: {UserId}", userId);
@@ -436,9 +436,9 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
                 });
             }
 
-            _logger.LogInformation("[UserGrpcService] Retrieved {Count} users display info - Found: {FoundCount}, NotFound: {NotFoundCount}", 
-                request.Ids.Count, 
-                response.Users.Count(u => u.Found), 
+            _logger.LogInformation("[UserGrpcService] Retrieved {Count} users display info - Found: {FoundCount}, NotFound: {NotFoundCount}",
+                request.Ids.Count,
+                response.Users.Count(u => u.Found),
                 response.Users.Count(u => !u.Found));
 
             return response;

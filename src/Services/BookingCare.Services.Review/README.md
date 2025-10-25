@@ -1,142 +1,136 @@
-﻿# BookingCare Review Service - Developer Guide
+﻿# ReviewService API Documentation - Frontend Integration Guide
 
-## 📖 Tổng quan
+## 📖 Overview
+The ReviewService provides a comprehensive API for managing patient reviews and replies for doctors and medical services in the BookingCare system. This service includes **appointment history validation** to ensure only patients who have completed appointments can create reviews.
 
-BookingCare Review Service là microservice chuyên biệt quản lý đánh giá và phản hồi trong hệ thống BookingCare. Service này cung cấp cả REST API và gRPC endpoints để các service khác có thể tương tác hiệu quả.
+## 🚀 Service Information
 
-## 🚀 Thông tin Service
-
-| Thông tin | Giá trị |
-|-----------|---------|
+| Information | Value |
+|-------------|-------|
 | **Service Name** | BookingCare.Services.Review |
 | **Technology** | .NET 8, ASP.NET Core, MongoDB |
 | **REST API Port** | 6012 (HTTP/1.1 + HTTP/2) |
 | **gRPC Port** | 6022 (HTTP/2 only) |
 | **Database** | MongoDB |
-| **Protocol** | REST API + gRPC |
+| **API Version** | v1.0 |
 
-## 🏗️ Kiến trúc
-
+## 🔐 Base URLs
 ```
-BookingCare.Services.Review/
-├── Controllers/                    # REST API Controllers
-├── Grpc/Services/                 # gRPC Service Implementation
-├── Models/
-│   ├── DTOs/                      # Data Transfer Objects
-│   ├── Entities/                  # MongoDB Entities
-│   └── Enums/                     # Enumerations
-├── Services/                      # Business Logic
-├── Repositories/                  # Data Access Layer
-├── Protos/                        # gRPC Proto Definitions
-└── Validators/                    # Request Validation
+Development: http://localhost:6012/api/v1.0/reviews
+Production: https://api.bookingcare.com/api/v1.0/reviews
 ```
-
-## 📊 Core Features
-
-### ✅ Business Rules
-- **One Review Per Target**: Mỗi patient chỉ được review 1 lần cho mỗi doctor/service
-- **Rating Scale**: Đánh giá từ 1-5 sao
-- **Reply System**: Doctor/Admin có thể phản hồi reviews
-- **Comprehensive Statistics**: Thống kê chi tiết với rating distribution
-
-### 🎯 Target Types
-- **DOCTOR**: Đánh giá bác sĩ
-- **SERVICE**: Đánh giá dịch vụ phòng khám
 
 ---
 
-# 🌐 REST API Documentation
+## ⚠️ **Critical Business Rules for Frontend**
 
-## Base URL
-```
-Development: http://localhost:6012/api/reviews
-Production: https://api.bookingcare.com/reviews
-```
+### 🚨 **NEW: Appointment History Validation**
+**Effective immediately, patients can only create reviews for doctors/services they have completed appointments with.**
 
-## 🔧 Authentication
+#### **Validation Rules:**
+1. **Appointment Status Must be COMPLETED**: Only appointments with `COMPLETED` status count
+2. **Target-Specific Validation**: 
+   - For doctor reviews: Must have completed appointment **with that specific doctor**
+ - For service reviews: Must have completed appointment **with that specific service**
+3. **One Review Per Target**: Each patient can create only one review per doctor or service
+4. **No Validation for Replies**: Anyone with appropriate permissions can reply (no appointment history required)
+
+---
+
+## 📋 Complete API Reference for Frontend
+
+### 🔐 Authentication
+All endpoints require JWT Bearer token:
 ```http
-Authorization: Bearer <jwt_token>
+Authorization: Bearer <your-jwt-token>
 Content-Type: application/json
 ```
 
-## 📋 API Endpoints
-
-### 1. Health Check
-```http
-GET /api/reviews/health
-```
-
-**Response:**
-```json
-{
-  "status": "Healthy",
-  "service": "Review",
-  "timestamp": "2025-01-01T10:00:00Z"
-}
-```
-
 ---
 
-### 2. Create Review
+### 1. 🆕 **Create Review** (With Appointment Validation)
+
 ```http
-POST /api/reviews
+POST /api/v1.0/reviews
 ```
 
 **Request Body:**
 ```json
 {
-  "patientId": "550e8400-e29b-41d4-a716-446655440001",
-  "targetType": "DOCTOR",
-  "doctorId": "550e8400-e29b-41d4-a716-446655440003",
-  "serviceId": null,
-  "rating": 5,
-  "comment": "Excellent doctor, very professional!"
+  "patientId": "550e8400-e29b-41d4-a716-446655440000",
+  "targetType": "DOCTOR",  // "DOCTOR" or "SERVICE"
+  "doctorId": "550e8400-e29b-41d4-a716-446655440001",  // Required if targetType = "DOCTOR"
+  "serviceId": null,       // Required if targetType = "SERVICE"
+  "rating": 5,      // 1-5 stars
+  "comment": "Great doctor! Very professional and caring."
 }
 ```
 
-**Success Response (201 Created):**
+**✅ Success Response (201 Created):**
 ```json
 {
   "success": true,
-  "message": "Review created successfully",
   "data": {
     "id": "674a1b2c3d4e5f6789abcdef",
-    "patientId": "550e8400-e29b-41d4-a716-446655440001",
-    "targetType": "DOCTOR",
-    "doctorId": "550e8400-e29b-41d4-a716-446655440003",
+    "patientId": "550e8400-e29b-41d4-a716-446655440000",
+    "patientInfo": {
+      "userId": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "patient@example.com",
+      "fullName": "John Doe",
+      "avatarUrl": "https://example.com/avatar.jpg",
+      "found": true
+    },
+    "doctorId": "550e8400-e29b-41d4-a716-446655440001",
+    "serviceId": null,
     "rating": 5,
-    "comment": "Excellent doctor, very professional!",
+    "comment": "Great doctor! Very professional and caring.",
     "replies": [],
-    "createdAt": "2025-01-01T10:30:00Z",
-    "updatedAt": "2025-01-01T10:30:00Z"
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z"
+  },
+  "message": "Review created successfully"
+}
+```
+
+**❌ Error: No Appointment History (400 Bad Request):**
+```json
+{
+  "success": false,
+  "errors": {
+    "message": "You must complete an appointment with this doctor before creating a review.",
+    "patientId": "550e8400-e29b-41d4-a716-446655440000",
+    "doctorId": "550e8400-e29b-41d4-a716-446655440001",
+    "targetType": "DOCTOR",
+    "suggestedAction": "Complete an appointment with this doctor before creating a review.",
+    "requirementInfo": "Reviews can only be created after completing an appointment with the target doctor or service."
   }
 }
 ```
 
-**Duplicate Review Error (409 Conflict):**
+**❌ Error: Duplicate Review (409 Conflict):**
 ```json
 {
   "success": false,
-  "message": "Patient has already reviewed doctor 550e8400-e29b-41d4-a716-446655440003. Please update the existing review instead of creating a new one.",
-  "data": {
-    "message": "Patient has already reviewed doctor...",
-    "existingReview": {
-      "id": "674a1b2c3d4e5f6789abcdef",
+  "errors": {
+    "message": "Patient has already reviewed doctor 550e8400-e29b-41d4-a716-446655440001. Please update the existing review instead of creating a new one.",
+  "existingReview": {
+      "id": "674a1b2c3d4e5f6789abcde0",
       "rating": 4,
       "comment": "Previous review...",
-      // ... other fields
-    },
+      "createdAt": "2024-01-10T09:00:00Z"
+  },
     "suggestedAction": "Please update the existing review instead of creating a new one.",
-    "updateEndpoint": "/api/reviews"
+    "updateEndpoint": "/api/v1.0/reviews"
   }
 }
 ```
 
 ---
 
-### 3. Update Review
+### 2. **Update Review**
+
 ```http
-PUT /api/reviews
+PUT /api/v1.0/reviews
 ```
 
 **Request Body:**
@@ -144,79 +138,103 @@ PUT /api/reviews
 {
   "id": "674a1b2c3d4e5f6789abcdef",
   "rating": 4,
-  "comment": "Updated: Good doctor, but could be improved."
+  "comment": "Updated: Still a great doctor, very recommended!"
 }
 ```
 
 ---
 
-### 4. Get Review by ID
+### 3. **Get Reviews for Doctor** (With User Info)
+
 ```http
-GET /api/reviews/{id}
+GET /api/v1.0/reviews/doctor/{doctorId}?page=1&pageSize=10
 ```
 
-**Parameters:**
-- `id` (string): Review ID
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "reviews": [
+      {
+        "id": "674a1b2c3d4e5f6789abcdef",
+        "patientId": "550e8400-e29b-41d4-a716-446655440000",
+        "patientInfo": {
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "patient@example.com",
+          "fullName": "John Doe",
+   "avatarUrl": "https://example.com/avatar.jpg",
+          "found": true
+        },
+        "doctorId": "550e8400-e29b-41d4-a716-446655440001",
+   "rating": 5,
+   "comment": "Great doctor! Very professional and caring.",
+        "replies": [
+     {
+      "id": "674a1b2c3d4e5f6789abcdf1",
+      "authorId": "550e8400-e29b-41d4-a716-446655440001",
+"authorInfo": {
+          "accountId": "550e8400-e29b-41d4-a716-446655440001",
+ "email": "doctor@example.com",
+              "fullName": "Dr. Smith",
+   "avatarUrl": "https://example.com/doctor-avatar.jpg",
+              "role": "DOCTOR",
+     "found": true
+  },
+    "content": "Thank you for your feedback!",
+   "createdAt": "2024-01-15T12:00:00Z",
+      "updatedAt": "2024-01-15T12:00:00Z"
+       }
+        ],
+     "createdAt": "2024-01-15T10:30:00Z",
+        "updatedAt": "2024-01-15T10:30:00Z"
+ }
+    ],
+    "totalCount": 25,
+"page": 1,
+  "pageSize": 10,
+    "totalPages": 3,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  },
+  "message": "Doctor reviews retrieved successfully"
+}
+```
 
 ---
 
-### 5. Delete Review
-```http
-DELETE /api/reviews/{id}
-```
+### 4. **Get Reviews for Service**
 
-**Parameters:**
-- `id` (string): Review ID
+```http
+GET /api/v1.0/reviews/service/{serviceId}?page=1&pageSize=10
+```
 
 ---
 
-### 6. Get Reviews by Doctor
-```http
-GET /api/reviews/doctor/{doctorId}?page=1&pageSize=10
-```
+### 5. **Get Reviews by Patient**
 
-**Parameters:**
-- `doctorId` (guid): Doctor ID
-- `page` (int, optional): Page number (default: 1)
-- `pageSize` (int, optional): Page size (default: 10)
+```http
+GET /api/v1.0/reviews/patient/{patientId}?page=1&pageSize=10
+```
 
 ---
 
-### 7. Get Reviews by Service
+### 6. **Search Reviews (Advanced)**
+
 ```http
-GET /api/reviews/service/{clinicServiceId}?page=1&pageSize=10
-```
-
-**Parameters:**
-- `clinicServiceId` (guid): Clinic Service ID
-- `page` (int, optional): Page number (default: 1)
-- `pageSize` (int, optional): Page size (default: 10)
-
----
-
-### 8. Get Reviews by Patient
-```http
-GET /api/reviews/patient/{patientId}?page=1&pageSize=10
-```
-
-**Parameters:**
-- `patientId` (guid): Patient ID
-- `page` (int, optional): Page number (default: 1)
-- `pageSize` (int, optional): Page size (default: 10)
-
----
-
-### 9. Search Reviews (Advanced)
-```http
-POST /api/reviews/search
+POST /api/v1.0/reviews/search
 ```
 
 **Request Body:**
 ```json
 {
-  "doctorId": "550e8400-e29b-41d4-a716-446655440003",
-  "minRating": 4,
-  "maxRating": 5,
+  "patientId": "550e8400-e29b-41d4-a716-446655440000",  // Optional
+  "doctorId": "550e8400-e29b-41d4-a716-446655440001",   // Optional
+  "serviceId": "550e8400-e29b-41d4-a716-446655440002",  // Optional
+  "minRating": 4,    // Optional: 1-5
+  "maxRating": 5,        // Optional: 1-5
+  "fromDate": "2024-01-01T00:00:00Z",  // Optional
+  "toDate": "2024-01-31T23:59:59Z",    // Optional
   "page": 1,
   "pageSize": 10
 }
@@ -224,92 +242,12 @@ POST /api/reviews/search
 
 ---
 
-## 📊 Statistics Endpoints
-
-### 10. Get Doctor Statistics
-```http
-GET /api/reviews/doctor/{doctorId}/statistics
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "targetId": "550e8400-e29b-41d4-a716-446655440003",
-    "targetType": "DOCTOR",
-    "averageRating": 4.32,
-    "totalReviews": 127,
-    "ratingDistribution": {
-      "1": 3,
-      "2": 8,
-      "3": 15,
-      "4": 42,
-      "5": 59
-    }
-  }
-}
-```
-
-### 11. Get Service Statistics
-```http
-GET /api/reviews/service/{clinicServiceId}/statistics
-```
-
-### 12. Batch Doctor Statistics (Performance Optimized)
-```http
-POST /api/reviews/doctors/batch-statistics
-```
-
-**Request Body:**
-```json
-{
-  "doctorIds": [
-    "550e8400-e29b-41d4-a716-446655440001",
-    "550e8400-e29b-41d4-a716-446655440002",
-    "550e8400-e29b-41d4-a716-446655440003"
-  ]
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Batch doctor statistics retrieved successfully - 2/3 doctors with reviews",
-  "data": {
-    "doctorStatistics": {
-      "550e8400-e29b-41d4-a716-446655440001": {
-        "targetId": "550e8400-e29b-41d4-a716-446655440001",
-        "targetType": "DOCTOR",
-        "averageRating": 4.5,
-        "totalReviews": 24,
-        "ratingDistribution": {
-          "1": 1, "2": 2, "3": 5, "4": 8, "5": 8
-        }
-      }
-    },
-    "notFoundDoctorIds": [
-      "550e8400-e29b-41d4-a716-446655440003"
-    ],
-    "totalProcessed": 3,
-    "withStatistics": 2
-  }
-}
-```
-
-### 13. Batch Service Statistics
-```http
-POST /api/reviews/services/batch-statistics
-```
-
----
-
 ## 💬 Reply Management
 
-### 14. Add Reply
+### 7. **Add Reply to Review**
+
 ```http
-POST /api/reviews/reply
+POST /api/v1.0/reviews/reply
 ```
 
 **Request Body:**
@@ -321,552 +259,492 @@ POST /api/reviews/reply
 }
 ```
 
-### 15. Update Reply
+### 8. **Update Reply**
+
 ```http
-PUT /api/reviews/reply
+PUT /api/v1.0/reviews/reply
+```
+
+### 9. **Remove Reply**
+
+```http
+DELETE /api/v1.0/reviews/{reviewId}/reply/{replyId}
+```
+
+---
+
+## 📊 Statistics & Analytics
+
+### 10. **Get Doctor Statistics**
+
+```http
+GET /api/v1.0/reviews/doctor/{doctorId}/statistics
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "targetId": "550e8400-e29b-41d4-a716-446655440001",
+    "averageRating": 4.7,
+    "totalReviews": 45,
+    "ratingDistribution": {
+      "1": 1,
+    "2": 2,
+      "3": 5,
+      "4": 12,
+   "5": 25
+    }
+  },
+  "message": "Doctor statistics retrieved successfully"
+}
+```
+
+### 11. **Batch Doctor Statistics** (Performance Optimized)
+
+```http
+POST /api/v1.0/reviews/doctors/batch-statistics
 ```
 
 **Request Body:**
 ```json
 {
-  "reviewId": "674a1b2c3d4e5f6789abcdef",
-  "replyId": "674a1b2c3d4e5f6789abcdf0",
-  "content": "Updated: Thank you for your valuable feedback!"
-}
-```
-
-### 16. Remove Reply
-```http
-DELETE /api/reviews/{reviewId}/reply/{replyId}
-```
-
----
-
-# 🚀 gRPC Service Documentation
-
-## Connection Information
-```
-Server: localhost:6022 (Development)
-Protocol: HTTP/2
-Package: reviewservice
-Service: ReviewService
-```
-
-## 🔧 Setup gRPC Client
-
-### .NET Client
-```csharp
-// Add package reference
-// <PackageReference Include="Grpc.Net.Client" Version="2.57.0" />
-
-using Grpc.Net.Client;
-using BookingCare.Services.Review.Grpc;
-
-// Create channel
-var channel = GrpcChannel.ForAddress("http://localhost:6022");
-var client = new ReviewService.ReviewServiceClient(channel);
-```
-
-### Node.js Client
-```bash
-npm install @grpc/grpc-js @grpc/proto-loader
-```
-
-### Python Client
-```bash
-pip install grpcio grpcio-tools
-```
-
-## 📋 gRPC Methods
-
-### 1. Health Check
-```csharp
-var request = new HealthCheckRequest();
-var response = await client.HealthCheckAsync(request);
-
-Console.WriteLine($"Status: {response.Status}");
-Console.WriteLine($"Service: {response.Service}");
-```
-
-### 2. Get Doctor Statistics
-```csharp
-var request = new GetDoctorStatisticsRequest 
-{ 
-    DoctorId = "550e8400-e29b-41d4-a716-446655440003" 
-};
-
-var statistics = await client.GetDoctorStatisticsAsync(request);
-
-Console.WriteLine($"Average Rating: {statistics.AverageRating}");
-Console.WriteLine($"Total Reviews: {statistics.TotalReviews}");
-
-// Access rating distribution
-foreach (var kvp in statistics.RatingDistribution)
-{
-    Console.WriteLine($"{kvp.Key} stars: {kvp.Value} reviews");
-}
-```
-
-### 3. Get Service Statistics
-```csharp
-var request = new GetServiceStatisticsRequest 
-{ 
-    ServiceId = "550e8400-e29b-41d4-a716-446655440004" 
-};
-
-var statistics = await client.GetServiceStatisticsAsync(request);
-```
-
-### 4. Batch Doctor Statistics
-```csharp
-var request = new BatchDoctorsStatisticsRequest();
-request.DoctorIds.Add("550e8400-e29b-41d4-a716-446655440001");
-request.DoctorIds.Add("550e8400-e29b-41d4-a716-446655440002");
-request.DoctorIds.Add("550e8400-e29b-41d4-a716-446655440003");
-
-var batchResponse = await client.GetBatchDoctorsStatisticsAsync(request);
-
-Console.WriteLine($"Processed: {batchResponse.TotalProcessed}");
-Console.WriteLine($"With Statistics: {batchResponse.WithStatistics}");
-
-// Access individual statistics
-foreach (var kvp in batchResponse.DoctorStatistics)
-{
-    var doctorId = kvp.Key;
-    var stats = kvp.Value;
-    Console.WriteLine($"Doctor {doctorId}: {stats.AverageRating:F2} stars, {stats.TotalReviews} reviews");
-}
-
-// Check not found doctors
-foreach (var notFoundId in batchResponse.NotFoundDoctorIds)
-{
-    Console.WriteLine($"Doctor {notFoundId}: No reviews found");
-}
-```
-
-### 5. Batch Service Statistics
-```csharp
-var request = new BatchServicesStatisticsRequest();
-request.ServiceIds.Add("550e8400-e29b-41d4-a716-446655440001");
-request.ServiceIds.Add("550e8400-e29b-41d4-a716-446655440002");
-
-var batchResponse = await client.GetBatchServicesStatisticsAsync(request);
-```
-
-### 6. Get Doctor Reviews
-```csharp
-var request = new GetDoctorReviewsRequest 
-{ 
-    DoctorId = "550e8400-e29b-41d4-a716-446655440003",
-    Page = 1,
-    PageSize = 10
-};
-
-var reviews = await client.GetDoctorReviewsAsync(request);
-
-Console.WriteLine($"Total Reviews: {reviews.TotalCount}");
-Console.WriteLine($"Page: {reviews.Page}/{reviews.TotalPages}");
-
-foreach (var review in reviews.Reviews)
-{
-    Console.WriteLine($"Rating: {review.Rating}/5");
-    Console.WriteLine($"Comment: {review.Comment}");
-    Console.WriteLine($"Created: {DateTimeOffset.FromUnixTimeSeconds(review.CreatedAt)}");
-    
-    // Access replies
-    foreach (var reply in review.Replies)
-    {
-        Console.WriteLine($"  Reply: {reply.Content}");
-        Console.WriteLine($"  By: {reply.AuthorId}");
-    }
-}
-```
-
-### 7. Get Service Reviews
-```csharp
-var request = new GetServiceReviewsRequest 
-{ 
-    ServiceId = "550e8400-e29b-41d4-a716-446655440004",
-    Page = 1,
-    PageSize = 10
-};
-
-var reviews = await client.GetServiceReviewsAsync(request);
-```
-
----
-
-# 🔧 Integration Examples
-
-## Doctor Service Integration
-
-```csharp
-// In Doctor Service - Update doctor profile with review stats
-public class DoctorService
-{
-    private readonly ReviewService.ReviewServiceClient _reviewClient;
-    
-    public async Task<DoctorProfileResponse> GetDoctorProfileAsync(Guid doctorId)
-    {
-        // Get doctor basic info
-        var doctor = await _doctorRepository.GetByIdAsync(doctorId);
-        
-        // Get review statistics via gRPC
-        var reviewStats = await _reviewClient.GetDoctorStatisticsAsync(
-            new GetDoctorStatisticsRequest { DoctorId = doctorId.ToString() });
-        
-        return new DoctorProfileResponse
-        {
-            Id = doctor.Id,
-            Name = doctor.Name,
-            Specialty = doctor.Specialty,
-            AverageRating = reviewStats.AverageRating,
-            TotalReviews = reviewStats.TotalReviews,
-            RatingDistribution = reviewStats.RatingDistribution.ToDictionary(
-                kvp => kvp.Key, 
-                kvp => kvp.Value)
-        };
-    }
-    
-    public async Task<List<DoctorSummary>> GetDoctorListWithRatingsAsync(List<Guid> doctorIds)
-    {
-        // Get batch statistics for performance
-        var batchRequest = new BatchDoctorsStatisticsRequest();
-        batchRequest.DoctorIds.AddRange(doctorIds.Select(id => id.ToString()));
-        
-        var batchStats = await _reviewClient.GetBatchDoctorsStatisticsAsync(batchRequest);
-        
-        var doctors = await _doctorRepository.GetByIdsAsync(doctorIds);
-        
-        return doctors.Select(doctor => new DoctorSummary
-        {
-            Id = doctor.Id,
-            Name = doctor.Name,
-            AverageRating = batchStats.DoctorStatistics.TryGetValue(
-                doctor.Id.ToString(), out var stats) ? stats.AverageRating : 0,
-            TotalReviews = stats?.TotalReviews ?? 0
-        }).ToList();
-    }
-}
-```
-
-## Clinic Service Integration
-
-```csharp
-// In Clinic Service - Show clinic services with ratings
-public class ClinicService
-{
-    private readonly ReviewService.ReviewServiceClient _reviewClient;
-    
-    public async Task<ClinicDetailsResponse> GetClinicDetailsAsync(Guid clinicId)
-    {
-        var clinic = await _clinicRepository.GetByIdAsync(clinicId);
-        
-        // Get batch statistics for all services
-        var serviceIds = clinic.Services.Select(s => s.Id.ToString()).ToList();
-        var batchStats = await _reviewClient.GetBatchServicesStatisticsAsync(
-            new BatchServicesStatisticsRequest { ServiceIds = { serviceIds } });
-        
-        var servicesWithRatings = clinic.Services.Select(service =>
-        {
-            var hasStats = batchStats.ServiceStatistics.TryGetValue(
-                service.Id.ToString(), out var stats);
-            
-            return new ServiceSummary
-            {
-                Id = service.Id,
-                Name = service.Name,
-                Price = service.Price,
-                AverageRating = hasStats ? stats.AverageRating : 0,
-                TotalReviews = hasStats ? stats.TotalReviews : 0
-            };
-        }).ToList();
-        
-        return new ClinicDetailsResponse
-        {
-            Id = clinic.Id,
-            Name = clinic.Name,
-            Address = clinic.Address,
-            Services = servicesWithRatings
-        };
-    }
-}
-```
-
-## API Gateway / BFF Integration
-
-```csharp
-// In API Gateway - Aggregate data from multiple services
-public class PatientDashboardController : ControllerBase
-{
-    private readonly ReviewService.ReviewServiceClient _reviewClient;
-    private readonly DoctorServiceClient _doctorClient;
-    
-    [HttpGet("patient/{patientId}/dashboard")]
-    public async Task<IActionResult> GetPatientDashboard(Guid patientId)
-    {
-        // Get patient's recent reviews via gRPC
-        var reviewsRequest = new GetPatientReviewsRequest 
-        { 
-            PatientId = patientId.ToString(),
-            Page = 1,
-            PageSize = 5
-        };
-        
-        var recentReviews = await _reviewClient.GetPatientReviewsAsync(reviewsRequest);
-        
-        // Get doctor information for reviews
-        var doctorIds = recentReviews.Reviews
-            .Where(r => r.TargetType == TargetType.Doctor && !string.IsNullOrEmpty(r.DoctorId))
-            .Select(r => r.DoctorId)
-            .Distinct()
-            .ToList();
-        
-        var doctors = await _doctorClient.GetDoctorsByIdsAsync(doctorIds);
-        
-        var reviewsWithDoctorInfo = recentReviews.Reviews.Select(review =>
-        {
-            var doctor = doctors.FirstOrDefault(d => d.Id == review.DoctorId);
-            return new PatientReviewSummary
-            {
-                Id = review.Id,
-                Rating = review.Rating,
-                Comment = review.Comment,
-                DoctorName = doctor?.Name ?? "Unknown",
-                CreatedAt = DateTimeOffset.FromUnixTimeSeconds(review.CreatedAt),
-                HasReplies = review.Replies.Count > 0
-            };
-        }).ToList();
-        
-        return Ok(new PatientDashboardResponse
-        {
-            PatientId = patientId,
-            RecentReviews = reviewsWithDoctorInfo,
-            TotalReviews = recentReviews.TotalCount
-        });
-    }
-}
-```
-
----
-
-# ⚡ Performance Considerations
-
-## Best Practices
-
-### 1. Use Batch Operations
-```csharp
-// ❌ Bad: Multiple individual calls
-foreach (var doctorId in doctorIds)
-{
-    var stats = await client.GetDoctorStatisticsAsync(
-        new GetDoctorStatisticsRequest { DoctorId = doctorId.ToString() });
-    // Process stats...
-}
-
-// ✅ Good: Single batch call
-var batchRequest = new BatchDoctorsStatisticsRequest();
-batchRequest.DoctorIds.AddRange(doctorIds.Select(id => id.ToString()));
-var batchStats = await client.GetBatchDoctorsStatisticsAsync(batchRequest);
-```
-
-### 2. Connection Management
-```csharp
-// ✅ Reuse gRPC channels
-public class ReviewServiceClient
-{
-    private static readonly GrpcChannel _channel = GrpcChannel.ForAddress("http://review-service:6022");
-    private static readonly ReviewService.ReviewServiceClient _client = new(_channel);
-    
-    public static ReviewService.ReviewServiceClient Instance => _client;
-}
-```
-
-### 3. Error Handling
-```csharp
-try
-{
-    var statistics = await client.GetDoctorStatisticsAsync(request);
-    return statistics;
-}
-catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
-{
-    // Handle not found
-    return new ReviewStatisticsResponse 
-    { 
-        TargetId = request.DoctorId,
-        AverageRating = 0,
-        TotalReviews = 0
-    };
-}
-catch (RpcException ex)
-{
-    _logger.LogError(ex, "gRPC call failed: {Status}", ex.Status);
-    throw;
-}
-```
-
----
-
-# 🐛 Error Handling
-
-## Common HTTP Status Codes
-
-| Status | Description |
-|--------|-------------|
-| `200 OK` | Success |
-| `201 Created` | Resource created |
-| `400 Bad Request` | Invalid request data |
-| `404 Not Found` | Resource not found |
-| `409 Conflict` | Duplicate review attempt |
-| `500 Internal Server Error` | Server error |
-
-## gRPC Status Codes
-
-| Status | Description |
-|--------|-------------|
-| `OK` | Success |
-| `INVALID_ARGUMENT` | Invalid input |
-| `NOT_FOUND` | Resource not found |
-| `INTERNAL` | Server error |
-
-## Example Error Responses
-
-### REST API Error
-```json
-{
-  "success": false,
-  "message": "Rating must be between 1 and 5 stars",
-  "errors": [
-    "Rating must be between 1 and 5 stars"
+  "doctorIds": [
+    "550e8400-e29b-41d4-a716-446655440001",
+ "550e8400-e29b-41d4-a716-446655440002",
+    "550e8400-e29b-41d4-a716-446655440003"
   ]
 }
 ```
 
-### gRPC Error
-```csharp
-catch (RpcException ex)
-{
-    switch (ex.StatusCode)
-    {
-        case StatusCode.InvalidArgument:
-            // Handle validation error
-            break;
-        case StatusCode.NotFound:
-            // Handle not found
-            break;
-        case StatusCode.Internal:
-            // Handle server error
-            break;
-    }
-}
-```
-
 ---
 
-# 📈 Monitoring & Logging
+## 🎨 Frontend Integration Examples
 
-## Health Checks
-```http
-GET /api/reviews/health
-GET grpc://localhost:6022/reviewservice.ReviewService/HealthCheck
+### React/TypeScript Implementation
+
+```typescript
+// types/review.ts
+interface ReviewRequest {
+  patientId: string;
+  targetType: 'DOCTOR' | 'SERVICE';
+  doctorId?: string;
+  serviceId?: string;
+  rating: number; // 1-5
+  comment: string;
+}
+
+interface Review {
+  id: string;
+  patientId: string;
+  patientInfo: {
+    userId: string;
+    email: string;
+    fullName: string;
+    avatarUrl: string;
+    found: boolean;
+  };
+  doctorId?: string;
+  serviceId?: string;
+  rating: number;
+  comment: string;
+  replies: Reply[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// services/reviewService.ts
+class ReviewService {
+  private baseUrl = 'http://localhost:6012/api/v1.0/reviews';
+  
+  async createReview(reviewData: ReviewRequest): Promise<Review> {
+    try {
+      const response = await fetch(`${this.baseUrl}`, {
+        method: 'POST',
+ headers: {
+  'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getAuthToken()}`
+     },
+        body: JSON.stringify(reviewData)
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        if (response.status === 400) {
+          // No appointment history
+throw new NoAppointmentHistoryError(result.errors);
+        } else if (response.status === 409) {
+          // Duplicate review
+     throw new DuplicateReviewError(result.errors);
+     }
+        throw new Error(result.message || 'Failed to create review');
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('Create review error:', error);
+      throw error;
+    }
+  }
+
+  async getDoctorReviews(doctorId: string, page = 1, pageSize = 10) {
+    const response = await fetch(
+      `${this.baseUrl}/doctor/${doctorId}?page=${page}&pageSize=${pageSize}`,
+      {
+   headers: {
+          'Authorization': `Bearer ${getAuthToken()}`
+        }
+      }
+    );
+    
+    const result = await response.json();
+    return result.data;
+  }
+
+  async getDoctorStatistics(doctorId: string) {
+    const response = await fetch(`${this.baseUrl}/doctor/${doctorId}/statistics`, {
+      headers: {
+        'Authorization': `Bearer ${getAuthToken()}`
+      }
+    });
+    
+    const result = await response.json();
+    return result.data;
+  }
+}
+
+// Custom error classes for better error handling
+class NoAppointmentHistoryError extends Error {
+  constructor(public errorDetails: any) {
+    super(errorDetails.message);
+    this.name = 'NoAppointmentHistoryError';
+  }
+}
+
+class DuplicateReviewError extends Error {
+  constructor(public errorDetails: any) {
+    super(errorDetails.message);
+    this.name = 'DuplicateReviewError';
+  }
+}
+
+// React component example
+import React, { useState } from 'react';
+
+const ReviewForm: React.FC<{ doctorId: string; patientId: string }> = ({ doctorId, patientId }) => {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const reviewService = new ReviewService();
+ await reviewService.createReview({
+        patientId,
+targetType: 'DOCTOR',
+        doctorId,
+     rating,
+        comment
+      });
+      
+      // Success - redirect or show success message
+      alert('Review created successfully!');
+    } catch (err) {
+      if (err instanceof NoAppointmentHistoryError) {
+        setError('You need to complete an appointment with this doctor before leaving a review.');
+    // Optionally redirect to booking page
+      } else if (err instanceof DuplicateReviewError) {
+      setError('You have already reviewed this doctor. You can update your existing review instead.');
+        // Optionally show update form
+      } else {
+        setError('Failed to create review. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="review-form">
+      <div className="rating-input">
+   <label>Rating:</label>
+        <select value={rating} onChange={(e) => setRating(Number(e.target.value))}>
+          {[1, 2, 3, 4, 5].map(num => (
+   <option key={num} value={num}>{num} star{num > 1 ? 's' : ''}</option>
+  ))}
+        </select>
+      </div>
+
+      <div className="comment-input">
+        <label>Comment:</label>
+        <textarea
+          value={comment}
+       onChange={(e) => setComment(e.target.value)}
+          required
+          rows={4}
+          placeholder="Share your experience with this doctor..."
+    />
+      </div>
+
+      {error && <div className="error-message">{error}</div>}
+
+      <button type="submit" disabled={loading}>
+  {loading ? 'Creating Review...' : 'Submit Review'}
+      </button>
+    </form>
+  );
+};
 ```
 
-## Logging
-Service sử dụng structured logging với correlation IDs:
+### Vue.js Example
 
-```json
-{
-  "timestamp": "2025-01-01T10:30:00Z",
-  "level": "Information",
-  "message": "Review created successfully",
-  "correlationId": "abc-123-def",
-  "properties": {
-    "reviewId": "674a1b2c3d4e5f6789abcdef",
-    "patientId": "550e8400-e29b-41d4-a716-446655440001",
-    "targetType": "DOCTOR"
+```javascript
+// composables/useReviews.js
+import { ref, reactive } from 'vue'
+
+export function useReviews() {
+  const loading = ref(false)
+  const error = ref(null)
+  
+  const createReview = async (reviewData) => {
+    loading.value = true
+    error.value = null
+    
+    try {
+      const response = await $fetch('/api/v1.0/reviews', {
+        method: 'POST',
+     body: reviewData,
+        headers: {
+  'Authorization': `Bearer ${useAuthStore().token}`
+        }
+      })
+      
+      return response.data
+    } catch (err) {
+    if (err.status === 400) {
+        error.value = {
+  type: 'NO_APPOINTMENT_HISTORY',
+message: err.data.errors.message,
+          suggestion: err.data.errors.suggestedAction
+        }
+      } else if (err.status === 409) {
+        error.value = {
+          type: 'DUPLICATE_REVIEW',
+     message: err.data.errors.message,
+     existingReview: err.data.errors.existingReview
+        }
+      } else {
+        error.value = {
+     type: 'GENERAL_ERROR',
+       message: err.message || 'An error occurred'
+      }
+      }
+    throw error.value
+    } finally {
+      loading.value = false
+    }
+  }
+  
+  return {
+    loading,
+    error,
+    createReview
   }
 }
 ```
 
 ---
 
-# 🔒 Security
+## 🚨 **Error Handling Guide for Frontend**
 
-## Authentication
-- REST API: JWT Bearer tokens
-- gRPC: Metadata headers (trong production)
+### HTTP Status Codes
 
-## Authorization
-- Role-based access control
-- Patient chỉ có thể tạo/sửa review của mình
-- Doctor/Admin có thể reply và xem statistics
+| Status | Description | When it occurs |
+|--------|-------------|----------------|
+| 200 | OK | Successful GET, PUT, DELETE operations |
+| 201 | Created | Successful review creation |
+| 400 | Bad Request | Validation errors, **no appointment history** |
+| 401 | Unauthorized | Missing or invalid JWT token |
+| 404 | Not Found | Review, doctor, or service not found |
+| 409 | Conflict | **Duplicate review attempt** |
+| 500 | Internal Server Error | Unexpected server error |
 
----
+### Error Handling Best Practices
 
-# 🌟 Quick Start Examples
+```javascript
+// 1. Handle Appointment History Validation
+try {
+  await createReview(reviewData);
+} catch (error) {
+  if (error.name === 'NoAppointmentHistoryError') {
+    // Show user-friendly message
+    showToast('Please complete an appointment before leaving a review', 'info');
+    // Optionally redirect to booking page
+    router.push(`/book-appointment?doctorId=${doctorId}`);
+  }
+}
 
-## REST API với cURL
+// 2. Handle Duplicate Reviews Gracefully
+catch (error) {
+  if (error.name === 'DuplicateReviewError') {
+    // Show existing review and offer to update it
+    showUpdateReviewModal(error.errorDetails.existingReview);
+  }
+}
 
-```bash
-# Create review
-curl -X POST http://localhost:6012/api/reviews \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <token>" \
-  -d '{
-    "patientId": "550e8400-e29b-41d4-a716-446655440001",
-    "targetType": "DOCTOR",
-    "doctorId": "550e8400-e29b-41d4-a716-446655440003",
-    "rating": 5,
-    "comment": "Excellent doctor!"
-  }'
+// 3. Implement Proper Loading States
+const [loading, setLoading] = useState(false);
+const [reviews, setReviews] = useState([]);
 
-# Get doctor statistics
-curl http://localhost:6012/api/reviews/doctor/550e8400-e29b-41d4-a716-446655440003/statistics
-
-# Batch statistics
-curl -X POST http://localhost:6012/api/reviews/doctors/batch-statistics \
-  -H "Content-Type: application/json" \
-  -d '{
-    "doctorIds": [
-      "550e8400-e29b-41d4-a716-446655440001",
-      "550e8400-e29b-41d4-a716-446655440002"
-    ]
-  }'
-```
-
-## gRPC với grpcurl
-
-```bash
-# Health check
-grpcurl -plaintext localhost:6022 reviewservice.ReviewService/HealthCheck
-
-# Doctor statistics
-grpcurl -plaintext \
-  -d '{"doctor_id": "550e8400-e29b-41d4-a716-446655440003"}' \
-  localhost:6022 reviewservice.ReviewService/GetDoctorStatistics
-
-# Batch doctor statistics
-grpcurl -plaintext \
-  -d '{"doctor_ids": ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440002"]}' \
-  localhost:6022 reviewservice.ReviewService/GetBatchDoctorsStatistics
+const loadReviews = async () => {
+  setLoading(true);
+  try {
+    const data = await getDoctorReviews(doctorId, page);
+    setReviews(data.reviews);
+  } finally {
+setLoading(false);
+  }
+};
 ```
 
 ---
 
-# 📚 Additional Resources
+## ⚡ Performance Optimization Tips
 
-## API Documentation
-- **Swagger UI**: http://localhost:6012/swagger (Development)
-- **Proto File**: `src/Services/BookingCare.Services.Review/Protos/ReviewService.proto`
+### 1. **Use Batch Statistics for Lists**
+```javascript
+// ❌ Bad: Multiple individual calls
+const doctorIds = ['id1', 'id2', 'id3'];
+for (const doctorId of doctorIds) {
+  const stats = await getDoctorStatistics(doctorId);
+  // Process stats...
+}
 
-## Support
-- **Team**: BookingCare Development Team
-- **Slack**: #bookingcare-development
-- **Repository**: BookingCareSystemRepository
+// ✅ Good: Single batch call
+const statistics = await getBatchDoctorStatistics(doctorIds);
+// Process all statistics at once
+```
+
+### 2. **Implement Pagination Properly**
+```javascript
+const [pagination, setPagination] = useState({
+  page: 1,
+  pageSize: 10,
+  totalPages: 0,
+  hasNextPage: false
+});
+
+const loadMoreReviews = async () => {
+  if (pagination.hasNextPage && !loading) {
+    const nextPage = pagination.page + 1;
+    const data = await getDoctorReviews(doctorId, nextPage);
+    
+    setReviews(prev => [...prev, ...data.reviews]);
+    setPagination({
+      ...pagination,
+      page: nextPage,
+      hasNextPage: data.hasNextPage
+    });
+  }
+};
+```
+
+### 3. **Cache Statistics Data**
+```javascript
+// Cache statistics for 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const statisticsCache = new Map();
+
+const getCachedDoctorStatistics = async (doctorId) => {
+  const cacheKey = `doctor_stats_${doctorId}`;
+  const cached = statisticsCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data;
+  }
+  
+  const stats = await getDoctorStatistics(doctorId);
+  statisticsCache.set(cacheKey, {
+    data: stats,
+    timestamp: Date.now()
+  });
+  
+  return stats;
+};
+```
 
 ---
 
-**Happy Coding! 🚀**
+## 🔍 **User Experience Guidelines**
 
-*Last Updated: January 2025*
+### 1. **Review Creation Flow**
+```
+1. User clicks "Leave Review"
+2. Check if user has completed appointment (frontend validation optional)
+3. Show review form
+4. On submit:
+   - Show loading state
+   - Handle appointment history error gracefully
+   - Handle duplicate review error
+   - Show success message or redirect
+```
+
+### 2. **Error Messages**
+```javascript
+const ERROR_MESSAGES = {
+  NO_APPOINTMENT: 'Complete an appointment first to leave a review',
+  DUPLICATE_REVIEW: 'You\'ve already reviewed this doctor. Update your existing review instead',
+  INVALID_RATING: 'Please select a rating from 1-5 stars',
+  EMPTY_COMMENT: 'Please share your experience in the comment field'
+};
+```
+
+### 3. **Loading States**
+- Show skeleton loaders for reviews list
+- Disable submit button during review creation
+- Show progress indicators for batch operations
+
+---
+
+## 📞 **Support & Troubleshooting**
+
+### Common Issues:
+
+**1. "No appointment history" error**
+- **Cause**: Patient hasn't completed appointments with target doctor/service
+- **Solution**: Guide user to book and complete an appointment first
+
+**2. "Duplicate review" error**
+- **Cause**: Patient already reviewed this doctor/service
+- **Solution**: Offer to update existing review instead
+
+**3. Reviews not loading**
+- **Solution**: Check doctor/service ID validity, verify authentication
+
+**4. Statistics showing 0**
+- **Cause**: No reviews exist yet for the target
+- **Solution**: This is normal for new doctors/services
+
+---
+
+## 🔄 **Changelog**
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2024-01-15 | Initial release with appointment history validation |
+| 1.1 | 2024-01-15 | Enhanced frontend integration documentation |
+
+---
+
+**Last Updated**: January 15, 2024  
+**API Version**: v1.0  
+**Documentation Version**: 1.1
+
+**Frontend Team**: Use this guide for seamless integration with the ReviewService. For questions, contact the backend team or check the #bookingcare-development Slack channel.

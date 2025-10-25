@@ -76,6 +76,13 @@ builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.User
     options.Address = new Uri(userServiceAddress);
 });
 
+// Add AppointmentService gRPC client for appointment history validation
+var appointmentServiceAddress = builder.Configuration.GetSection("Services:Appointment:GrpcUrl").Value ?? "http://localhost:6102";
+builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient>(options =>
+{
+    options.Address = new Uri(appointmentServiceAddress);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline using ProgramExtensions

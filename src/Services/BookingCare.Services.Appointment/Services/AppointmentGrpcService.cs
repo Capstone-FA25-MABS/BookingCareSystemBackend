@@ -14,8 +14,8 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
     private readonly ILogger<AppointmentGrpcService> _logger;
 
     public AppointmentGrpcService(
-        IAppointmentRepository appointmentRepository,
-        ILogger<AppointmentGrpcService> logger)
+      IAppointmentRepository appointmentRepository,
+ILogger<AppointmentGrpcService> logger)
     {
         _appointmentRepository = appointmentRepository;
         _logger = logger;
@@ -263,13 +263,13 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
     /// Returns slots with status PENDING, CONFIRMED, or COMPLETED
     /// </summary>
     public override async Task<CheckBookedSlotsResponse> CheckBookedSlots(
-        CheckBookedSlotsRequest request,
+     CheckBookedSlotsRequest request,
         ServerCallContext context)
     {
         try
         {
             _logger.LogDebug("Checking booked slots for doctor {DoctorId} on {Date}",
-                request.DoctorId, request.AppointmentDate);
+          request.DoctorId, request.AppointmentDate);
 
             // Parse the GUID and date
             if (!Guid.TryParse(request.DoctorId, out var doctorId))
@@ -284,14 +284,14 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
 
             // Get all appointments for this doctor on this date with PENDING, CONFIRMED, or COMPLETED status
             var bookedSlots = await _appointmentRepository.GetBookedAppointmentTimesAsync(
-                doctorId,
+                         doctorId,
                 DateOnly.FromDateTime(appointmentDate));
 
             var response = new CheckBookedSlotsResponse();
             response.BookedAppointmentTimeIds.AddRange(bookedSlots.Select(slot => (int)slot));
 
             _logger.LogDebug("Found {Count} booked slots for doctor {DoctorId} on {Date}",
-                response.BookedAppointmentTimeIds.Count, request.DoctorId, request.AppointmentDate);
+         response.BookedAppointmentTimeIds.Count, request.DoctorId, request.AppointmentDate);
 
             return response;
         }
@@ -302,8 +302,96 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking booked slots for doctor {DoctorId} on {Date}",
-                request.DoctorId, request.AppointmentDate);
+                        request.DoctorId, request.AppointmentDate);
             throw new RpcException(new Status(StatusCode.Internal, "An error occurred while checking booked slots"));
+        }
+    }
+
+    /// <summary>
+    /// NEW: Check if patient has completed appointment history with doctor or service (for Review service validation)
+    /// </summary>
+    public override async Task<CheckPatientAppointmentHistoryResponse> CheckPatientAppointmentHistory(
+      CheckPatientAppointmentHistoryRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[AppointmentGrpcService] CheckPatientAppointmentHistory called - Patient: {PatientId}, Doctor: {DoctorId}, Service: {ServiceId}",
+             request.PatientId, request.DoctorId ?? "null", request.ServiceId ?? "null");
+
+            // Validate patient ID
+            if (!Guid.TryParse(request.PatientId, out var patientId))
+            {
+                _logger.LogWarning("[AppointmentGrpcService] Invalid patient ID format: {PatientId}", request.PatientId);
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid patient ID format"));
+            }
+
+            Guid? doctorId = null;
+            Guid? serviceId = null;
+
+            // Parse doctor ID if provided
+            if (!string.IsNullOrEmpty(request.DoctorId))
+            {
+                if (!Guid.TryParse(request.DoctorId, out var parsedDoctorId))
+                {
+                    _logger.LogWarning("[AppointmentGrpcService] Invalid doctor ID format: {DoctorId}", request.DoctorId);
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid doctor ID format"));
+                }
+                doctorId = parsedDoctorId;
+            }
+
+            // Parse service ID if provided
+            if (!string.IsNullOrEmpty(request.ServiceId))
+            {
+                if (!Guid.TryParse(request.ServiceId, out var parsedServiceId))
+                {
+                    _logger.LogWarning("[AppointmentGrpcService] Invalid service ID format: {ServiceId}", request.ServiceId);
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid service ID format"));
+                }
+                serviceId = parsedServiceId;
+            }
+
+            // Must specify either doctor or service, but not both
+            if ((doctorId.HasValue && serviceId.HasValue) || (!doctorId.HasValue && !serviceId.HasValue))
+            {
+                _logger.LogWarning("[AppointmentGrpcService] Must specify either doctor ID or service ID, but not both or neither");
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Must specify either doctor ID or service ID, but not both"));
+            }
+
+            // Get completed appointments based on the target type
+            var completedAppointments = await _appointmentRepository.GetCompletedAppointmentsByPatientAsync(
+           patientId, doctorId, serviceId);
+
+            var totalCompleted = completedAppointments.Count;
+            var hasCompleted = totalCompleted > 0;
+
+            // Get the most recent completed appointment date
+            var lastCompletedDate = completedAppointments
+                 .OrderByDescending(a => a.AppointmentDate)
+                      .FirstOrDefault()?.AppointmentDate;
+
+            var response = new CheckPatientAppointmentHistoryResponse
+            {
+                HasCompletedAppointment = hasCompleted,
+                TotalCompletedAppointments = totalCompleted,
+                LastCompletedAppointmentDate = lastCompletedDate?.ToString("yyyy-MM-ddTHH:mm:ss") ?? string.Empty
+            };
+
+            var targetInfo = doctorId.HasValue ? $"doctor {doctorId}" : $"service {serviceId}";
+            _logger.LogInformation("[AppointmentGrpcService] Patient {PatientId} has {Count} completed appointments with {Target}",
+  patientId, totalCompleted, targetInfo);
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[AppointmentGrpcService] Error in CheckPatientAppointmentHistory - Patient: {PatientId}, Doctor: {DoctorId}, Service: {ServiceId}",
+      request.PatientId, request.DoctorId ?? "null", request.ServiceId ?? "null");
+            throw new RpcException(new Status(StatusCode.Internal, "An error occurred while checking patient appointment history"));
         }
     }
 }

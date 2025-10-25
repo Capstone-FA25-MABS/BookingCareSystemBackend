@@ -70,6 +70,27 @@ public class UserInfo
 }
 
 /// <summary>
+/// Result of appointment history validation for review creation
+/// </summary>
+public class AppointmentHistoryValidationResult
+{
+    /// <summary>
+    /// Whether patient has completed appointment with the target (doctor/service)
+    /// </summary>
+    public bool HasCompletedAppointment { get; set; }
+
+    /// <summary>
+    /// Total number of completed appointments
+    /// </summary>
+    public int TotalCompletedAppointments { get; set; }
+
+    /// <summary>
+    /// Date of last completed appointment
+    /// </summary>
+    public DateTime? LastCompletedAppointmentDate { get; set; }
+}
+
+/// <summary>
 /// Response DTO for a reply
 /// </summary>
 public class ReplyResponse
