@@ -13,20 +13,16 @@ namespace BookingCare.Services.Doctor.Controllers;
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
 [Produces("application/json")]
-public class SpecialtiesController : BaseApiController
+public class SpecialtiesController : BaseImageUploadController
 {
     private readonly ISpecialtyService _specialtyService;
-    private readonly FileUploadOrchestrator _uploadOrchestrator;
-    private readonly ILogger<SpecialtiesController> _logger;
 
     public SpecialtiesController(
         ISpecialtyService specialtyService,
         FileUploadOrchestrator uploadOrchestrator,
-        ILogger<SpecialtiesController> logger)
+        ILogger<SpecialtiesController> logger) : base(uploadOrchestrator, logger)
     {
         _specialtyService = specialtyService;
-        _uploadOrchestrator = uploadOrchestrator;
-        _logger = logger;
     }
 
     #region Private Helper Methods
@@ -40,27 +36,13 @@ public class SpecialtiesController : BaseApiController
     /// <returns>BadRequest if upload fails, null if successful</returns>
     private async Task<IActionResult?> HandleSpecialtyImageUploadAsync(IFormFile? imageFile, dynamic request, CancellationToken cancellationToken)
     {
-        if (imageFile == null) return null;
-
-        var config = new FileUploadConfig
-        {
-            AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-            MaxSizeInMB = 5,
-            Folder = "specialties",
-            SuccessMessage = "Specialty image uploaded successfully",
-            EntityType = "specialty-image"
-        };
-
-        var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
-
-        if (!uploadResult.Success)
-        {
-            return BadRequest($"Tải lên hình ảnh thất bại: {uploadResult.ErrorMessage}");
-        }
-
-        // Set the image URL from upload result - use CloudFront URL for public access
-        request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
-        return null;
+        return await HandleImageUploadAsync(
+            imageFile,
+            request,
+            "specialties",
+            "specialty-image",
+            "Specialty image uploaded successfully",
+            cancellationToken);
     }
 
     #endregion
@@ -269,22 +251,14 @@ public class SpecialtiesController : BaseApiController
             {
                 // Get current specialty to check for existing image
                 var currentSpecialty = await _specialtyService.GetSpecialtyByIdAsync(id);
-                if (currentSpecialty != null && !string.IsNullOrEmpty(currentSpecialty.ImageUrl))
+                if (currentSpecialty != null)
                 {
                     // Delete old image from S3
-                    var deleteConfig = new FileDeletionConfig
-                    {
-                        FileUrl = currentSpecialty.ImageUrl,
-                        ExpectedFolder = "specialties",
-                        EntityType = "specialty-image"
-                    };
-
-                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, Guid.Empty, _logger, cancellationToken);
-                    if (!deleteResult.Success)
-                    {
-                        _logger.LogWarning("Failed to delete old specialty image: {ErrorMessage}", deleteResult.ErrorMessage);
-                        // Continue with upload even if deletion fails
-                    }
+                    await HandleImageDeletionAsync(
+                        currentSpecialty.ImageUrl,
+                        "specialties",
+                        "specialty-image",
+                        cancellationToken);
                 }
 
                 var uploadError = await HandleSpecialtyImageUploadAsync(imageFile, request, cancellationToken);
@@ -340,22 +314,11 @@ public class SpecialtiesController : BaseApiController
             }
 
             // Delete associated image from S3 if exists
-            if (!string.IsNullOrEmpty(specialty.ImageUrl))
-            {
-                var deleteConfig = new FileDeletionConfig
-                {
-                    FileUrl = specialty.ImageUrl,
-                    ExpectedFolder = "specialties",
-                    EntityType = "specialty-image"
-                };
-
-                var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, Guid.Empty, _logger, CancellationToken.None);
-                if (!deleteResult.Success)
-                {
-                    _logger.LogWarning("Failed to delete specialty image from S3: {ErrorMessage}", deleteResult.ErrorMessage);
-                    // Continue even if image deletion fails
-                }
-            }
+            await HandleImageDeletionAsync(
+                specialty.ImageUrl,
+                "specialties",
+                "specialty-image",
+                CancellationToken.None);
 
             return Success<object?>(null, "Xóa chuyên khoa thành công");
         }

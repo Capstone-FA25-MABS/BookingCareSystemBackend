@@ -13,20 +13,16 @@ namespace BookingCare.Services.Doctor.Controllers;
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
 [Produces("application/json")]
-public class ServiceTypesController : BaseApiController
+public class ServiceTypesController : BaseImageUploadController
 {
     private readonly IServiceTypeService _serviceTypeService;
-    private readonly FileUploadOrchestrator _uploadOrchestrator;
-    private readonly ILogger<ServiceTypesController> _logger;
 
     public ServiceTypesController(
         IServiceTypeService serviceTypeService,
         FileUploadOrchestrator uploadOrchestrator,
-        ILogger<ServiceTypesController> logger)
+        ILogger<ServiceTypesController> logger) : base(uploadOrchestrator, logger)
     {
         _serviceTypeService = serviceTypeService;
-        _uploadOrchestrator = uploadOrchestrator;
-        _logger = logger;
     }
 
     #region Private Helper Methods
@@ -40,27 +36,13 @@ public class ServiceTypesController : BaseApiController
     /// <returns>BadRequest if upload fails, null if successful</returns>
     private async Task<IActionResult?> HandleServiceTypeImageUploadAsync(IFormFile? imageFile, dynamic request, CancellationToken cancellationToken)
     {
-        if (imageFile == null) return null;
-
-        var config = new FileUploadConfig
-        {
-            AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-            MaxSizeInMB = 5,
-            Folder = "service-types",
-            SuccessMessage = "Service type image uploaded successfully",
-            EntityType = "service-type-image"
-        };
-
-        var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, Guid.Empty, _logger, cancellationToken);
-
-        if (!uploadResult.Success)
-        {
-            return BadRequest($"Tải lên hình ảnh thất bại: {uploadResult.ErrorMessage}");
-        }
-
-        // Set the image URL from upload result - use CloudFront URL for public access
-        request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
-        return null;
+        return await HandleImageUploadAsync(
+            imageFile,
+            request,
+            "service-types",
+            "service-type-image",
+            "Service type image uploaded successfully",
+            cancellationToken);
     }
 
     #endregion
@@ -269,22 +251,14 @@ public class ServiceTypesController : BaseApiController
             {
                 // Get current service type to check for existing image
                 var currentServiceType = await _serviceTypeService.GetServiceTypeByIdAsync(id);
-                if (currentServiceType != null && !string.IsNullOrEmpty(currentServiceType.ImageUrl))
+                if (currentServiceType != null)
                 {
                     // Delete old image from S3
-                    var deleteConfig = new FileDeletionConfig
-                    {
-                        FileUrl = currentServiceType.ImageUrl,
-                        ExpectedFolder = "service-types",
-                        EntityType = "service-type-image"
-                    };
-
-                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, Guid.Empty, _logger, cancellationToken);
-                    if (!deleteResult.Success)
-                    {
-                        _logger.LogWarning("Failed to delete old service type image: {ErrorMessage}", deleteResult.ErrorMessage);
-                        // Continue with upload even if deletion fails
-                    }
+                    await HandleImageDeletionAsync(
+                        currentServiceType.ImageUrl,
+                        "service-types",
+                        "service-type-image",
+                        cancellationToken);
                 }
 
                 var uploadError = await HandleServiceTypeImageUploadAsync(imageFile, request, cancellationToken);
