@@ -26,7 +26,7 @@ public class PositionNotFoundException : NotFoundException
 
     public static PositionNotFoundException WithId(Guid positionId)
     {
-        var exception = new PositionNotFoundException($"Position with ID '{positionId}' was not found.");
+        var exception = new PositionNotFoundException($"Không tìm thấy chức vụ với ID '{positionId}'.");
         exception.Details["PositionId"] = positionId;
         return exception;
     }
@@ -40,7 +40,7 @@ public class PositionValidationException : ValidationException
     }
 
     public PositionValidationException(List<ValidationError> validationErrors)
-        : base("Position validation failed", validationErrors, "POSITION_VALIDATION_ERROR")
+        : base("Xác thực chức vụ thất bại", validationErrors, "POSITION_VALIDATION_ERROR")
     {
     }
 }
@@ -54,7 +54,7 @@ public class PositionConflictException : ConflictException
 
     public static PositionConflictException WithName(string name)
     {
-        var exception = new PositionConflictException($"Position with name '{name}' already exists.");
+        var exception = new PositionConflictException($"Chức vụ với tên '{name}' đã tồn tại.");
         exception.Details["Name"] = name;
         return exception;
     }

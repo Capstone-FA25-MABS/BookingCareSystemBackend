@@ -130,6 +130,22 @@ public class ServiceTypeRepository : IServiceTypeRepository
             .ToListAsync();
     }
 
+    public async Task<List<ServiceTypeEntity>> GetActiveServiceTypesAsync()
+    {
+        return await _context.ServiceTypes
+            .Where(st => st.Status == Status.ACTIVE)
+            .OrderBy(st => st.Name)
+            .ToListAsync();
+    }
+
+    public async Task<List<ServiceTypeEntity>> GetServiceTypesByIdsAsync(List<Guid> ids)
+    {
+        return await _context.ServiceTypes
+            .Where(st => ids.Contains(st.Id))
+            .OrderBy(st => st.Name)
+            .ToListAsync();
+    }
+
     public IQueryable<ServiceTypeEntity> GetQueryableServiceTypes()
     {
         return _context.ServiceTypes.AsQueryable();
@@ -143,6 +159,7 @@ public class ServiceTypeRepository : IServiceTypeRepository
             {
                 Id = st.Id,
                 Name = st.Name,
+                ImageUrl = st.ImageUrl,
                 Status = st.Status
             })
             .OrderBy(st => st.Name)

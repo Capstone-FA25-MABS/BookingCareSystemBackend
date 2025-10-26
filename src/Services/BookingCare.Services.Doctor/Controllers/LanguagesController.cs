@@ -54,10 +54,10 @@ public class LanguagesController : BaseApiController
         var language = await _languageService.GetLanguageByIdAsync(id);
         if (language == null)
         {
-            return NotFound($"Language with ID {id} not found");
+            return NotFound($"Không tìm thấy ngôn ngữ với ID {id}");
         }
 
-        return Success<LanguageResponse>(language, "Language retrieved successfully");
+        return Success<LanguageResponse>(language, "Lấy thông tin ngôn ngữ thành công");
     }
 
     /// <summary>
@@ -70,10 +70,10 @@ public class LanguagesController : BaseApiController
         var language = await _languageService.GetLanguageByNameAsync(name);
         if (language == null)
         {
-            return NotFound($"Language with name '{name}' not found");
+            return NotFound($"Không tìm thấy ngôn ngữ với tên '{name}'");
         }
 
-        return Success<LanguageResponse>(language, "Language retrieved successfully");
+        return Success<LanguageResponse>(language, "Lấy thông tin ngôn ngữ thành công");
     }
 
     /// <summary>
@@ -84,7 +84,7 @@ public class LanguagesController : BaseApiController
     public async Task<IActionResult> GetLanguages([FromQuery] LanguageQueryRequest query)
     {
         var result = await _languageService.GetLanguagesAsync(query);
-        return Success<LanguageListResponse>(result, "Languages retrieved successfully");
+        return Success<LanguageListResponse>(result, "Lấy danh sách ngôn ngữ thành công");
     }
 
     /// <summary>
@@ -95,7 +95,7 @@ public class LanguagesController : BaseApiController
     public async Task<IActionResult> GetAllLanguages()
     {
         var languages = await _languageService.GetActiveLanguagesSimpleAsync();
-        return Success<List<LanguageSimpleResponse>>(languages, "All active languages retrieved successfully");
+        return Success<List<LanguageSimpleResponse>>(languages, "Lấy tất cả ngôn ngữ hoạt động thành công");
     }
 
     /// <summary>
@@ -107,14 +107,14 @@ public class LanguagesController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest("Dữ liệu yêu cầu không hợp lệ", ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
         }
 
         var language = await _languageService.CreateLanguageAsync(request);
-        return Created(language, "Language created successfully");
+        return Created(language, "Tạo ngôn ngữ thành công");
     }
 
     /// <summary>
@@ -126,7 +126,7 @@ public class LanguagesController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest("Dữ liệu yêu cầu không hợp lệ", ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
@@ -134,7 +134,7 @@ public class LanguagesController : BaseApiController
 
         request.Id = id;
         var language = await _languageService.UpdateLanguageAsync(request);
-        return Success<LanguageResponse>(language, "Language updated successfully");
+        return Success<LanguageResponse>(language, "Cập nhật ngôn ngữ thành công");
     }
 
     /// <summary>
@@ -147,10 +147,10 @@ public class LanguagesController : BaseApiController
         var result = await _languageService.DeleteLanguageAsync(id);
         if (!result)
         {
-            return NotFound($"Language with ID {id} not found");
+            return NotFound($"Không tìm thấy ngôn ngữ với ID {id}");
         }
 
-        return Success<object?>(null, "Language deleted successfully");
+        return Success<object?>(null, "Xóa ngôn ngữ thành công");
     }
 
     /// <summary>
@@ -163,10 +163,10 @@ public class LanguagesController : BaseApiController
         var result = await _languageService.ToggleLanguageStatusAsync(id);
         if (!result)
         {
-            return NotFound($"Language with ID {id} not found");
+            return NotFound($"Không tìm thấy ngôn ngữ với ID {id}");
         }
 
-        return Success<object?>(null, "Language status toggled successfully");
+        return Success<object?>(null, "Thay đổi trạng thái ngôn ngữ thành công");
     }
 
     #endregion
@@ -181,7 +181,7 @@ public class LanguagesController : BaseApiController
     public async Task<IActionResult> ValidateLanguageName(string name, [FromQuery] Guid? excludeId = null)
     {
         var exists = await _languageService.LanguageNameExistsAsync(name, excludeId);
-        return Success<object>(new { exists }, "Language name validation completed");
+        return Success<object>(new { exists }, "Kiểm tra tên ngôn ngữ hoàn tất");
     }
 
     #endregion

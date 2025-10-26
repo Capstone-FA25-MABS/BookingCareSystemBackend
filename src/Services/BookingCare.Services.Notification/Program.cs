@@ -67,6 +67,7 @@ builder.Services.AddIntegrationEventHandler<AppointmentCancelledWithOptionsNotif
 builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<DoctorCredentialsGeneratedEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -102,6 +103,9 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to appointment booking success notifications for email sending
     eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
+
+    // Subscribe to doctor credentials generated event for sending login credentials
+    eventBus.Subscribe<DoctorCredentialsGeneratedEvent, DoctorCredentialsGeneratedEventHandler>();
 });
 
 await app.RunAsync();

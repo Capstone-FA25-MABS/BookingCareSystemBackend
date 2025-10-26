@@ -48,7 +48,7 @@ public class DoctorMappingProfile : Profile
 
         CreateMap<UpdateDoctorRequest, DoctorEntity>()
             .ForMember(dest => dest.AccountId, opt => opt.Ignore())
-            .ForMember(dest => dest.Email, opt => opt.Ignore())
+            .ForMember(dest => dest.Email, opt => opt.Condition((src, dest, srcMember) => !string.IsNullOrWhiteSpace(src.Email))) // Allow email update if provided
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.Position, opt => opt.Ignore())

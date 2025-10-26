@@ -67,6 +67,7 @@ public class JwtService : BaseService
             // Add custom claims for security
             claims.Add(new Claim("confirmEmail", account.EmailConfirmed.ToString()));
             claims.Add(new Claim("confirmPhone", account.PhoneNumberConfirmed.ToString()));
+            claims.Add(new Claim("mustChangePassword", account.MustChangePassword.ToString()));
 
             // Check if account has external login provider
             var hasExternalProvider = await _authRepository.HasExternalLoginAsync(account);

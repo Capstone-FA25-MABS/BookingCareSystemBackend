@@ -273,6 +273,11 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasColumnType("nvarchar(255)")
                         .HasColumnName("description");
 
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("image_url");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)

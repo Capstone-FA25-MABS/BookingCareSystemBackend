@@ -1,10 +1,11 @@
 using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
+using BookingCare.Shared.Common.Interfaces;
 
 namespace BookingCare.Services.Doctor.Services.Interfaces;
 
-public interface IDoctorService
+public interface IDoctorService : IAvatarService
 {
     // Doctor CRUD operations
     Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request);
@@ -64,4 +65,7 @@ public interface IDoctorService
 
     // Doctor count operations
     Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
+
+    // Avatar operations
+    Task<bool> UpdateDoctorAvatarAsync(Guid accountId, string avatarUrl);
 }
