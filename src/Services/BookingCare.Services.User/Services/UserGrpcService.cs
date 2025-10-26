@@ -426,15 +426,7 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
                 }
             }
 
-            // Add invalid IDs as not found - use Any() for better readability and SonarQube compliance
-            foreach (var invalidId in invalidIds)
-            {
-                response.Users.Add(new Protos.UserDisplayInfoResponse
-                {
-                    Id = invalidId,
-                    Found = false
-                });
-            }
+
 
             _logger.LogInformation("[UserGrpcService] Retrieved {Count} users display info - Found: {FoundCount}, NotFound: {NotFoundCount}",
                        request.Ids.Count,
