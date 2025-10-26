@@ -426,23 +426,20 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
                 }
             }
 
-            // Add invalid IDs as not found - only if there are any invalid IDs
-            if (invalidIds.Count > 0)
+            // Add invalid IDs as not found - use Any() for better readability and SonarQube compliance
+            foreach (var invalidId in invalidIds)
             {
-                foreach (var invalidId in invalidIds)
+                response.Users.Add(new Protos.UserDisplayInfoResponse
                 {
-                    response.Users.Add(new Protos.UserDisplayInfoResponse
-                    {
-                        Id = invalidId,
-                        Found = false
-                    });
-                }
+                    Id = invalidId,
+                    Found = false
+                });
             }
 
             _logger.LogInformation("[UserGrpcService] Retrieved {Count} users display info - Found: {FoundCount}, NotFound: {NotFoundCount}",
-                request.Ids.Count,
-                response.Users.Count(u => u.Found),
-                response.Users.Count(u => !u.Found));
+                       request.Ids.Count,
+              response.Users.Count(u => u.Found),
+                          response.Users.Count(u => !u.Found));
 
             return response;
         }
