@@ -76,6 +76,38 @@ public class DoctorRegisteredEvent : IntegrationEvent
     public DateTime RegisteredAt { get; set; }
 }
 
+/// <summary>
+/// Event published when a doctor account is created with auto-generated password
+/// This event is consumed by Notification Service to send login credentials via email
+/// </summary>
+public class DoctorCredentialsGeneratedEvent : IntegrationEvent
+{
+    /// <summary>
+    /// Doctor's email address
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Doctor's full name
+    /// </summary>
+    public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Auto-generated password
+    /// </summary>
+    public string GeneratedPassword { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Hospital ID
+    /// </summary>
+    public Guid? HospitalId { get; set; }
+
+    /// <summary>
+    /// Login URL for the system
+    /// </summary>
+    public string LoginUrl { get; set; } = string.Empty;
+}
+
 public class DoctorProfileUpdatedEvent : IntegrationEvent
 {
     public Guid DoctorId { get; set; }

@@ -1,3 +1,4 @@
+using BookingCare.Services.Doctor.Constants;
 using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
@@ -342,7 +343,7 @@ public class DoctorsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
@@ -375,7 +376,7 @@ public class DoctorsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
@@ -401,7 +402,7 @@ public class DoctorsController : BaseApiController
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest("Invalid request data", ModelState.Values
+                return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
                     .SelectMany(v => v.Errors)
                     .Select(e => e.ErrorMessage)
                     .ToList());
@@ -462,7 +463,7 @@ public class DoctorsController : BaseApiController
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest("Invalid request data", ModelState.Values
+                return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
                     .SelectMany(v => v.Errors)
                     .Select(e => e.ErrorMessage)
                     .ToList());
@@ -602,7 +603,7 @@ public class DoctorsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
+            return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList());
