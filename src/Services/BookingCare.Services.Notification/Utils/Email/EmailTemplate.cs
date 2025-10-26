@@ -47,6 +47,113 @@ public static class EmailTemplate
 </html>";
     }
 
+    /// <summary>
+    /// Build email content for doctor credentials (auto-generated password)
+    /// </summary>
+    public static string BuildDoctorCredentialsEmailHtml(
+        string fullName,
+        string email,
+        string password,
+        string loginUrl,
+        string? hospitalName = null)
+    {
+        var hospitalInfo = !string.IsNullOrEmpty(hospitalName)
+            ? $"<div class=\"info-item\"><strong>Bệnh viện:</strong> {hospitalName}</div>"
+            : "";
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Chào mừng đến với BookingCare - Thông tin đăng nhập</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#0ea5e9; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .welcome-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .credentials-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
+    .credentials-box strong {{ color:#0369a1; }}
+    .info-item {{ margin:8px 0; }}
+    .credential-value {{ display:inline-block; padding:8px 12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; font-family:'Courier New', monospace; font-weight:600; color:#111827; margin-left:8px; word-break:break-all; }}
+    .password-value {{ background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }}
+    .login-button {{ display:inline-block; padding:14px 28px; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; margin:16px 0; }}
+    .login-button:hover {{ background:#0284c7; }}
+    .warning {{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:16px; margin:20px 0; color:#991b1b; }}
+    .warning-icon {{ font-weight:bold; color:#dc2626; }}
+    .security-tips {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px; margin:20px 0; }}
+    .security-tips strong {{ color:#166534; }}
+    .security-tips ul {{ margin:8px 0; padding-left:20px; }}
+    .security-tips li {{ margin:4px 0; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Hệ thống quản lý khám bệnh</div>
+    </div>
+    <div class=""content"">
+      <div class=""welcome-icon"">🎉</div>
+      <p class=""greeting"">Kính gửi BS. {fullName},</p>
+      <p class=""lead"">Chào mừng bạn đến với hệ thống BookingCare! Tài khoản của bạn đã được tạo thành công.</p>
+      
+      <div class=""credentials-box"">
+        <p><strong>🔐 Thông tin đăng nhập:</strong></p>{hospitalInfo}
+        <div class=""info-item"">
+          <strong>Email:</strong>
+          <span class=""credential-value"">{email}</span>
+        </div>
+        <div class=""info-item"">
+          <strong>Mật khẩu tạm thời:</strong>
+          <span class=""credential-value password-value"">{password}</span>
+        </div>
+      </div>
+      
+      <div style=""text-align:center;"">
+        <a href=""{loginUrl}"" class=""login-button"">Đăng nhập ngay</a>
+      </div>
+      
+      <div class=""warning"">
+        <p><span class=""warning-icon"">⚠️</span> <strong>BẮT BUỘC ĐỔI MẬT KHẨU:</strong></p>
+        <p>Đây là mật khẩu tạm thời được hệ thống tự động tạo. Vì lý do bảo mật, bạn <strong>BẮT BUỘC phải đổi mật khẩu</strong> ngay khi đăng nhập lần đầu tiên.</p>
+      </div>
+      
+      <div class=""security-tips"">
+        <p><strong>🛡️ Hướng dẫn bảo mật:</strong></p>
+        <ul>
+          <li>Không chia sẻ mật khẩu này với bất kỳ ai</li>
+          <li>Đăng nhập và đổi mật khẩu ngay lập tức</li>
+          <li>Mật khẩu mới phải:
+            <ul>
+              <li>Có ít nhất 8 ký tự</li>
+              <li>Bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt</li>
+              <li>Không sử dụng thông tin cá nhân dễ đoán</li>
+            </ul>
+          </li>
+          <li>Xóa email này sau khi đã đổi mật khẩu thành công</li>
+        </ul>
+      </div>
+      
+      <p class=""muted"">Nếu bạn không yêu cầu tạo tài khoản này hoặc có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi ngay:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
+      <strong>📧 Email:</strong> support@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
     public static string BuildPasswordResetEmailHtml(string resetUrl)
     {
         return $@"<!DOCTYPE html>

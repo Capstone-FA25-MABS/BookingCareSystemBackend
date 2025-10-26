@@ -262,7 +262,7 @@ public class CreateDoctorProfileGrpcStep : BaseGrpcStep
             var avatarUrl = context.GetData<string>("AvatarUrl");
             var specialtyId = context.GetData<string>("SpecialtyId");
             var positionId = context.GetData<string>("PositionId");
-            var hospitalId = context.GetData<string>("HospitalId"); // HospitalId from context maps to HospitalId in proto
+            var hospitalId = context.GetData<string>("HospitalId");
 
             // Parse full name into first and last name
             var nameParts = fullName?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new string[0];
@@ -284,6 +284,10 @@ public class CreateDoctorProfileGrpcStep : BaseGrpcStep
             using var grpcChannel = GrpcChannel.ForAddress(doctorGrpcUrl);
             var client = new DoctorService.DoctorServiceClient(grpcChannel);
 
+            // Get languageIds and servicePrices from context
+            var languageIdsStr = context.GetData<string>("LanguageIds");
+            var servicePricesJson = context.GetData<string>("ServicePrices");
+
             // Call CreateDoctor gRPC method
             var request = new CreateDoctorRequest
             {
@@ -300,6 +304,37 @@ public class CreateDoctorProfileGrpcStep : BaseGrpcStep
                 PositionId = positionId ?? "",
                 HospitalId = hospitalId ?? ""
             };
+
+            // Add language IDs if available
+            if (!string.IsNullOrWhiteSpace(languageIdsStr))
+            {
+                var languageIds = languageIdsStr.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                request.LanguageIds.AddRange(languageIds);
+            }
+
+            // Add service prices if available
+            if (!string.IsNullOrWhiteSpace(servicePricesJson))
+            {
+                try
+                {
+                    var prices = System.Text.Json.JsonSerializer.Deserialize<List<PriceData>>(servicePricesJson);
+                    if (prices != null)
+                    {
+                        foreach (var price in prices)
+                        {
+                            request.Prices.Add(new DoctorPriceInput
+                            {
+                                ServiceTypeId = price.ServiceTypeId,
+                                Amount = (double)price.Amount
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[CreateDoctorProfileGrpcStep] Failed to parse ServicePrices JSON");
+                }
+            }
 
             var response = await client.CreateDoctorAsync(request, cancellationToken: cancellationToken);
 
@@ -443,4 +478,13 @@ public class CreateExternalAccountGrpcStep : BaseGrpcStep
     {
         return await CompensateAccountDeletionAsync(context, _configuration, StepName, "deleting external account", SagaConstants.ACCOUNT_ID_KEY, cancellationToken);
     }
+}
+
+/// <summary>
+/// Helper class for deserializing service prices from JSON
+/// </summary>
+internal class PriceData
+{
+    public string ServiceTypeId { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
 }
