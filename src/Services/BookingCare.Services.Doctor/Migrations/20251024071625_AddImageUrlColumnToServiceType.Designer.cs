@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Doctor.Migrations
 {
     [DbContext(typeof(DoctorDbContext))]
-    [Migration("20250926144047_init-database")]
-    partial class InitDatabase
+    [Migration("20251024071625_AddImageUrlColumnToServiceType")]
+    partial class AddImageUrlColumnToServiceType
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -275,6 +275,11 @@ namespace BookingCare.Services.Doctor.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)")
                         .HasColumnName("description");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("image_url");
 
                     b.Property<string>("Name")
                         .IsRequired()
