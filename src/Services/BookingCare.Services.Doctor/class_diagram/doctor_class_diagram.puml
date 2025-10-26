@@ -1,259 +1,352 @@
-@startuml
-!theme plain
-title Doctor Class Diagram
+@startuml Doctor-Class-Diagram
+
+title BookingCare Doctor Service - Class Diagram
+
 hide circle
-' ===== SKIN PARAMETERS =====
-skinparam class {
-    BackgroundColor White
-    BorderColor Black
-    ArrowColor Black
-    ArrowThickness 1
-    FontSize 10
-}
-
-skinparam arrow {
-    Thickness 1
-    Color Black
-}
-
+skinparam classAttributeIconSize 0
 skinparam linetype ortho
-skinparam packageStyle rectangle
+skinparam nodesep 50
+skinparam ranksep 50
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+skinparam wrapWidth 220
+skinparam maxMessageSize 220
 
-' ===== VISIBILITY MODIFIERS =====
-skinparam classAttribute {
-    IconSize 0
-    FontSize 10
+' ========== PRESENTATION LAYER ==========
+class DoctorsController {
+    - _doctorService: IDoctorService
+    - _uploadOrchestrator: FileUploadOrchestrator
+    + FilterDoctors(filter): Task<IActionResult>
+    + GetDoctor(id): Task<IActionResult>
+    + GetDoctors(query): Task<IActionResult>
+    + CreateDoctor(request): Task<IActionResult>
+    + UpdateDoctor(id, request): Task<IActionResult>
+    + DeleteDoctor(id): Task<IActionResult>
+    + ToggleDoctorStatus(id): Task<IActionResult>
 }
 
-skinparam classMethod {
-    IconSize 0
-    FontSize 10
+class AvatarController {
+        - _doctorService: IDoctorService
+        - _uploadOrchestrator: FileUploadOrchestrator
+        + UploadAvatar(doctorId, file): Task<IActionResult>
+        + DeleteAvatar(doctorId): Task<IActionResult>
 }
 
-' ===== CORE ENTITIES =====
+class SpecialtiesController {
+        - _specialtyService: ISpecialtyService
+        + CreateSpecialty(request): Task<IActionResult>
+        + GetSpecialty(id): Task<IActionResult>
+        + UpdateSpecialty(id, request): Task<IActionResult>
+        + DeleteSpecialty(id): Task<IActionResult>
+        + GetSpecialties(query): Task<IActionResult>
+        + ToggleSpecialtyStatus(id): Task<IActionResult>
+}
+
+class PositionsController {
+        - _positionService: IPositionService
+        + CreatePosition(request): Task<IActionResult>
+        + GetPosition(id): Task<IActionResult>
+        + UpdatePosition(id, request): Task<IActionResult>
+        + DeletePosition(id): Task<IActionResult>
+        + GetPositions(query): Task<IActionResult>
+        + TogglePositionStatus(id): Task<IActionResult>
+}
+
+' ========== SERVICE LAYER ==========
+interface IDoctorService {
+    + CreateDoctorAsync(request): Task<DoctorResponse>
+    + GetDoctorByIdAsync(id): Task<DoctorByIdResponse?>
+    + UpdateDoctorAsync(request): Task<DoctorResponse>
+    + DeleteDoctorAsync(id): Task<bool>
+    + GetDoctorsAsync(query): Task<DoctorListResponse>
+    + FilterDoctorsOptimizedAsync(filter): Task<DoctorSearchListResponse>
+}
+
+interface ISpecialtyService {
+        + CreateSpecialtyAsync(request): Task<SpecialtyResponse>
+        + GetSpecialtyByIdAsync(id): Task<SpecialtyResponse?>
+        + UpdateSpecialtyAsync(request): Task<SpecialtyResponse>
+        + GetSpecialtiesAsync(query): Task<SpecialtyListResponse>
+}
+
+interface IPositionService {
+        + CreatePositionAsync(request): Task<PositionResponse>
+        + GetPositionByIdAsync(id): Task<PositionResponse?>
+        + UpdatePositionAsync(request): Task<PositionResponse>
+        + GetPositionsAsync(query): Task<PositionListResponse>
+}
+
+class DoctorService {
+        - _repository: IDoctorRepository
+        - _mapper: IMapper
+        - _favoritesClient: FavoritesServiceClient
+        - _authClient: AuthServiceClient
+        - _hospitalClient: HospitalServiceClient
+        - _reviewClient: ReviewServiceClient
+        + CreateDoctorAsync(request): Task<DoctorResponse>
+        + GetDoctorByIdAsync(id): Task<DoctorByIdResponse?>
+        + UpdateDoctorAsync(request): Task<DoctorResponse>
+        + GetDoctorsAsync(query): Task<DoctorListResponse>
+        + FilterDoctorsOptimizedAsync(filter): Task<DoctorSearchListResponse>
+}
+
+class SpecialtyService {
+        - _specialtyRepository: ISpecialtyRepository
+        - _mapper: IMapper
+        + CreateSpecialtyAsync(request): Task<SpecialtyResponse>
+        + GetSpecialtyByIdAsync(id): Task<SpecialtyResponse?>
+        + UpdateSpecialtyAsync(request): Task<SpecialtyResponse>
+        + DeleteSpecialtyAsync(id): Task<bool>
+        + GetSpecialtiesAsync(query): Task<SpecialtyListResponse>
+}
+
+class PositionService {
+        - _positionRepository: IPositionRepository
+        - _mapper: IMapper
+        + CreatePositionAsync(request): Task<PositionResponse>
+        + GetPositionByIdAsync(id): Task<PositionResponse?>
+        + UpdatePositionAsync(request): Task<PositionResponse>
+        + DeletePositionAsync(id): Task<bool>
+        + GetPositionsAsync(query): Task<PositionListResponse>
+}
+
+' ========== REPOSITORY LAYER ==========
+interface IDoctorRepository {
+    + GetDoctorByIdAsync(id): Task<DoctorEntity?>
+    + CreateDoctorAsync(doctor): Task<DoctorEntity>
+    + UpdateDoctorAsync(doctor): Task<DoctorEntity>
+    + DeleteDoctorAsync(id): Task<bool>
+    + GetDoctorsAsync(query): Task<(List<DoctorEntity>, int)>
+}
+
+interface ISpecialtyRepository {
+        + GetSpecialtyByIdAsync(id): Task<SpecialtyEntity?>
+        + CreateSpecialtyAsync(specialty): Task<SpecialtyEntity>
+        + UpdateSpecialtyAsync(specialty): Task<SpecialtyEntity>
+        + DeleteSpecialtyAsync(id): Task<bool>
+        + GetSpecialtiesAsync(query): Task<(List<SpecialtyEntity>, int)>
+}
+
+interface IPositionRepository {
+        + GetPositionByIdAsync(id): Task<PositionEntity?>
+        + CreatePositionAsync(position): Task<PositionEntity>
+        + UpdatePositionAsync(position): Task<PositionEntity>
+        + DeletePositionAsync(id): Task<bool>
+        + GetPositionsAsync(query): Task<(List<PositionEntity>, int)>
+}
+
+class DoctorRepository {
+        - _context: DoctorDbContext
+        + GetDoctorByIdAsync(id): Task<DoctorEntity?>
+        + CreateDoctorAsync(doctor): Task<DoctorEntity>
+        + UpdateDoctorAsync(doctor): Task<DoctorEntity>
+        + DeleteDoctorAsync(id): Task<bool>
+        + GetDoctorsAsync(query): Task<(List<DoctorEntity>, int)>
+}
+
+class SpecialtyRepository {
+        - _context: DoctorDbContext
+        + GetSpecialtyByIdAsync(id): Task<SpecialtyEntity?>
+        + CreateSpecialtyAsync(specialty): Task<SpecialtyEntity>
+        + UpdateSpecialtyAsync(specialty): Task<SpecialtyEntity>
+        + DeleteSpecialtyAsync(id): Task<bool>
+        + GetSpecialtiesAsync(query): Task<(List<SpecialtyEntity>, int)>
+}
+
+class PositionRepository {
+        - _context: DoctorDbContext
+        + GetPositionByIdAsync(id): Task<PositionEntity?>
+        + CreatePositionAsync(position): Task<PositionEntity>
+        + UpdatePositionAsync(position): Task<PositionEntity>
+        + DeletePositionAsync(id): Task<bool>
+        + GetPositionsAsync(query): Task<(List<PositionEntity>, int)>
+}
+
+' ========== DATA LAYER ==========
+class DoctorDbContext {
+    + Doctors: DbSet<DoctorEntity>
+    + Positions: DbSet<PositionEntity>
+    + Specialties: DbSet<SpecialtyEntity>
+}
+
+' ========== ENTITIES ==========
 class DoctorEntity {
-    + Guid Id
-    + Guid AccountId
-    + string Email
-    + string FirstName
-    + string LastName
-    + Gender? Gender
-    + Guid? PositionId
-    + Guid? SpecialtyId
-    + Guid? HospitalId
-    + int YearsOfExperience
-    + string AvatarUrl
-    + DateTime CreatedAt
-    + DateTime UpdatedAt
+    + Id: Guid
+    + AccountId: Guid
+    + Email: string
+    + FirstName: string
+    + LastName: string
+    + Gender: Gender?
+    + YearsOfExperience: int
+    + AvatarUrl: string
+    + PositionId: Guid?
+    + SpecialtyId: Guid?
+    + HospitalId: Guid?
+    + CreatedAt: DateTime
+    + UpdatedAt: DateTime
+    + Position: PositionEntity?
+    + Specialty: SpecialtyEntity?
 }
 
-class DoctorPriceEntity {
-    + Guid Id
-    + Guid DoctorId
-    + Guid ServiceTypeId
-    + decimal Amount
-    + DateTime CreatedAt
-    + DateTime UpdatedAt
+class PositionEntity {
+    + Id: Guid
+    + Name: string
+    + Status: Status
+    + CreatedAt: DateTime
+    + UpdatedAt: DateTime
 }
 
-' ===== REQUEST DTOs =====
+class SpecialtyEntity {
+    + Id: Guid
+    + Name: string
+    + ImageUrl: string
+    + Status: Status
+    + CreatedAt: DateTime
+    + UpdatedAt: DateTime
+}
+
+' ========== DTOs ==========
 class CreateDoctorRequest {
-    + Guid AccountId
-    + string Email
-    + string FirstName
-    + string LastName
-    + Gender? Gender
-    + Guid? PositionId
-    + Guid? SpecialtyId
-    + Guid? HospitalId
-    + int YearsOfExperience
-    + string AvatarUrl
-}
-
-class UpdateDoctorRequest {
-    + Guid Id
-    + string Email
-    + string FirstName
-    + string LastName
-    + Gender? Gender
-    + Guid? PositionId
-    + Guid? SpecialtyId
-    + Guid? HospitalId
-    + int YearsOfExperience
-    + string AvatarUrl
+    + AccountId: Guid
+    + Email: string
+    + FirstName: string
+    + LastName: string
+    + YearsOfExperience: int
+    + Gender: Gender?
+    + PositionId: Guid?
+    + SpecialtyId: Guid?
+    + HospitalId: Guid?
 }
 
 class DoctorQueryRequest {
-    + string? SearchTerm
-    + Guid? HospitalId
-    + Guid? SpecialtyId
-    + Guid? PositionId
-    + Gender? Gender
-    + int PageNumber
-    + int PageSize
+    + AccountId: Guid?
+    + PositionId: Guid?
+    + SpecialtyId: Guid?
+    + HospitalId: Guid?
+    + Gender: string?
+    + SearchTerm: string?
+    + PageNumber: int
+    + PageSize: int
 }
 
-' ===== RESPONSE DTOs =====
+class DoctorAdvancedFilterRequest {
+    + SpecialtyId: Guid?
+    + PositionId: Guid?
+    + Gender: string?
+    + MinYearsOfExperience: int?
+    + MaxYearsOfExperience: int?
+    + ProvinceId: string?
+    + DistrictId: string?
+    + PageNumber: int
+    + PageSize: int
+}
+
 class DoctorResponse {
-    + Guid Id
-    + string FirstName
-    + string LastName
-    + string FullName
-    + Gender? Gender
-    + string? PositionName
-    + string? SpecialtyName
-    + string? HospitalName
-    + int YearsOfExperience
-    + string AvatarUrl
-    + DateTime CreatedAt
-    + DateTime UpdatedAt
+    + Id: Guid
+    + AccountId: Guid
+    + Email: string
+    + FirstName: string
+    + LastName: string
+    + Gender: Gender?
+    + YearsOfExperience: int
+    + AvatarUrl: string
+    + Position: PositionResponse?
+    + Specialty: SpecialtyResponse?
+    + Hospital: HospitalBasicInfo?
 }
 
-class DoctorListResponse {
-    + List<DoctorResponse> Doctors
-    + int TotalCount
-    + int PageNumber
-    + int PageSize
-    + int TotalPages
+class CreateSpecialtyRequest {
+    + Name: string
+    + ImageUrl: string
+    + Status: Status
 }
 
-' ===== REPOSITORY INTERFACE =====
-interface IDoctorRepository {
-    + GetDoctorByIdAsync(Guid id) : Task<DoctorEntity?>
-    + GetDoctorByEmailAsync(string email) : Task<DoctorEntity?>
-    + CreateDoctorAsync(DoctorEntity doctor) : Task<DoctorEntity>
-    + UpdateDoctorAsync(DoctorEntity doctor) : Task<DoctorEntity>
-    + DeleteDoctorAsync(Guid id) : Task<bool>
-    + GetDoctorsAsync(DoctorQueryRequest query) : Task<(List<DoctorEntity>, int)>
-    + GetDoctorsByHospitalAsync(Guid hospitalId) : Task<List<DoctorEntity>>
-    + GetDoctorsBySpecialtyAsync(Guid specialtyId) : Task<List<DoctorEntity>>
+class SpecialtyResponse {
+    + Id: Guid
+    + Name: string
+    + ImageUrl: string
+    + Status: Status
 }
 
-' ===== REPOSITORY IMPLEMENTATION =====
-class DoctorRepository {
-    - DoctorDbContext _context
-    --
-    + DoctorRepository(DoctorDbContext context)
-    + GetDoctorByIdAsync(Guid id) : Task<DoctorEntity?>
-    + GetDoctorByEmailAsync(string email) : Task<DoctorEntity?>
-    + CreateDoctorAsync(DoctorEntity doctor) : Task<DoctorEntity>
-    + UpdateDoctorAsync(DoctorEntity doctor) : Task<DoctorEntity>
-    + DeleteDoctorAsync(Guid id) : Task<bool>
-    + GetDoctorsAsync(DoctorQueryRequest query) : Task<(List<DoctorEntity>, int)>
-    + GetDoctorsByHospitalAsync(Guid hospitalId) : Task<List<DoctorEntity>>
-    + GetDoctorsBySpecialtyAsync(Guid specialtyId) : Task<List<DoctorEntity>>
+class CreatePositionRequest {
+    + Name: string
+    + Status: Status
 }
 
-' ===== SERVICE INTERFACE =====
-interface IDoctorService {
-    + CreateDoctorAsync(CreateDoctorRequest request) : Task<DoctorResponse>
-    + GetDoctorByIdAsync(Guid id) : Task<DoctorResponse?>
-    + GetDoctorByEmailAsync(string email) : Task<DoctorResponse?>
-    + UpdateDoctorAsync(UpdateDoctorRequest request) : Task<DoctorResponse>
-    + DeleteDoctorAsync(Guid id) : Task<bool>
-    + GetDoctorsAsync(DoctorQueryRequest query) : Task<DoctorListResponse>
-    + GetDoctorsByHospitalAsync(Guid hospitalId) : Task<List<DoctorResponse>>
-    + GetDoctorsBySpecialtyAsync(Guid specialtyId) : Task<List<DoctorResponse>>
+class PositionResponse {
+    + Id: Guid
+    + Name: string
+    + Status: Status
 }
 
-' ===== SERVICE IMPLEMENTATION =====
-class DoctorService {
-    - IDoctorRepository _repository
-    - IMapper _mapper
-    - ILogger _logger
-    --
-    + DoctorService(IDoctorRepository repository, IMapper mapper, ILogger logger)
-    + CreateDoctorAsync(CreateDoctorRequest request) : Task<DoctorResponse>
-    + GetDoctorByIdAsync(Guid id) : Task<DoctorResponse?>
-    + GetDoctorByEmailAsync(string email) : Task<DoctorResponse?>
-    + UpdateDoctorAsync(UpdateDoctorRequest request) : Task<DoctorResponse>
-    + DeleteDoctorAsync(Guid id) : Task<bool>
-    + GetDoctorsAsync(DoctorQueryRequest query) : Task<DoctorListResponse>
-    + GetDoctorsByHospitalAsync(Guid hospitalId) : Task<List<DoctorResponse>>
-    + GetDoctorsBySpecialtyAsync(Guid specialtyId) : Task<List<DoctorResponse>>
-}
+' ========== LAYOUT HINTS ==========
+DoctorsController -[hidden]down- IDoctorService
+IDoctorService -[hidden]down- IDoctorRepository
+IDoctorRepository -[hidden]down- DoctorDbContext
 
-' ===== CONTROLLER =====
-class DoctorsController {
-    - IDoctorService _doctorService
-    --
-    + DoctorsController(IDoctorService doctorService)
-    + GetDoctor(Guid id) : Task<IActionResult>
-    + GetDoctors(DoctorQueryRequest query) : Task<IActionResult>
-    + CreateDoctor(CreateDoctorRequest request) : Task<IActionResult>
-    + UpdateDoctor(Guid id, UpdateDoctorRequest request) : Task<IActionResult>
-    + DeleteDoctor(Guid id) : Task<IActionResult>
-    + GetDoctorsByHospital(Guid hospitalId) : Task<IActionResult>
-    + GetDoctorsBySpecialty(Guid specialtyId) : Task<IActionResult>
-}
+SpecialtiesController -[hidden]down- ISpecialtyService
+ISpecialtyService -[hidden]down- ISpecialtyRepository
+ISpecialtyRepository -[hidden]down- DoctorDbContext
 
-' ===== EXTERNAL DEPENDENCIES =====
-class DoctorDbContext {
-    + DbSet<DoctorEntity> Doctors
-    + DbSet<DoctorPriceEntity> DoctorPrices
-}
+PositionsController -[hidden]down- IPositionService
+IPositionService -[hidden]down- IPositionRepository
+IPositionRepository -[hidden]down- DoctorDbContext
 
-class AutoMapper.IMapper {
-    + Map<TSource, TDestination>(TSource source) : TDestination
-}
+' ========== RELATIONSHIPS ==========
 
-class ILogger {
-    + LogInformation(string message)
-    + LogError(Exception ex, string message)
-}
+' Controller Layer
+DoctorsController *-- IDoctorService
+DoctorsController o-- FileUploadOrchestrator
+AvatarController *-- IDoctorService
+SpecialtiesController *-- ISpecialtyService
+PositionsController *-- IPositionService
 
-' ===== ENUMS =====
-enum Gender {
-    MALE
-    FEMALE
-    OTHER
-}
+' Service Layer
+DoctorService ..|> IDoctorService
+DoctorService *-- IDoctorRepository
+DoctorService o-- IMapper
+DoctorService o-- FavoritesServiceClient
+DoctorService o-- AuthServiceClient
+DoctorService o-- HospitalServiceClient
+DoctorService o-- ReviewServiceClient
 
-' ===== LAYOUT POSITIONING =====
-DoctorEntity -[hidden]- CreateDoctorRequest
-CreateDoctorRequest -[hidden]- UpdateDoctorRequest
-UpdateDoctorRequest -[hidden]- DoctorQueryRequest
+SpecialtyService ..|> ISpecialtyService
+SpecialtyService *-- ISpecialtyRepository
+SpecialtyService o-- IMapper
 
-DoctorResponse -[hidden]- DoctorListResponse
+PositionService ..|> IPositionService
+PositionService *-- IPositionRepository
+PositionService o-- IMapper
 
-IDoctorRepository -[hidden]- DoctorRepository
-DoctorRepository -[hidden]- DoctorDbContext
+' Repository Layer
+DoctorRepository ..|> IDoctorRepository
+DoctorRepository *-- DoctorDbContext
 
-IDoctorService -[hidden]- DoctorService
-DoctorService -[hidden]- DoctorsController
+SpecialtyRepository ..|> ISpecialtyRepository
+SpecialtyRepository *-- DoctorDbContext
 
-IMapper -[hidden]- ILogger
+PositionRepository ..|> IPositionRepository
+PositionRepository *-- DoctorDbContext
 
-' ===== RELATIONSHIPS =====
-IDoctorRepository <|.. DoctorRepository
-IDoctorService <|.. DoctorService
+' Entity Relationships
+DoctorEntity "*" -- "0..1" PositionEntity
+DoctorEntity "*" -- "0..1" SpecialtyEntity
 
-DoctorRepository --> DoctorDbContext
-DoctorRepository --> DoctorEntity
-DoctorRepository --> DoctorPriceEntity
-DoctorRepository --> DoctorQueryRequest
+' Service Uses DTOs
+IDoctorService ..> CreateDoctorRequest
+IDoctorService ..> DoctorQueryRequest
+IDoctorService ..> DoctorAdvancedFilterRequest
+IDoctorService ..> DoctorResponse
 
-DoctorService --> IDoctorRepository
-DoctorService --> IMapper
-DoctorService --> ILogger
-DoctorService --> CreateDoctorRequest
-DoctorService --> UpdateDoctorRequest
-DoctorService --> DoctorQueryRequest
-DoctorService --> DoctorResponse
-DoctorService --> DoctorListResponse
+ISpecialtyService ..> CreateSpecialtyRequest
+ISpecialtyService ..> SpecialtyResponse
 
-DoctorsController --> IDoctorService
-DoctorsController --> CreateDoctorRequest
-DoctorsController --> UpdateDoctorRequest
-DoctorsController --> DoctorQueryRequest
-DoctorsController --> DoctorResponse
-DoctorsController --> DoctorListResponse
+IPositionService ..> CreatePositionRequest
+IPositionService ..> PositionResponse
 
-DoctorEntity --> Gender
-DoctorEntity --> DoctorPriceEntity
-CreateDoctorRequest --> Gender
-UpdateDoctorRequest --> Gender
-DoctorQueryRequest --> Gender
-DoctorResponse --> Gender
+' Repository Uses Entities
+IDoctorRepository ..> DoctorEntity
+ISpecialtyRepository ..> SpecialtyEntity
+IPositionRepository ..> PositionEntity
 
 @enduml

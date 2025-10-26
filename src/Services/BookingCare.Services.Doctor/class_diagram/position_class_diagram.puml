@@ -1,211 +1,132 @@
-@startuml
-!theme plain
-title Position Class Diagram
+@startuml Position-Class-Diagram
+
+title BookingCare Position Service - Class Diagram
+
 hide circle
-
-' ===== SKIN PARAMETERS =====
-skinparam class {
-    BackgroundColor White
-    BorderColor Black
-    ArrowColor Black
-    ArrowThickness 1
-    FontSize 10
-}
-
-skinparam arrow {
-    Thickness 1
-    Color Black
-}
-
+skinparam classAttributeIconSize 0
 skinparam linetype ortho
-skinparam packageStyle rectangle
+skinparam nodesep 50
+skinparam ranksep 50
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+skinparam wrapWidth 220
+skinparam maxMessageSize 220
 
-' ===== VISIBILITY MODIFIERS =====
-skinparam classAttribute {
-    IconSize 0
-    FontSize 10
+' ========== PRESENTATION LAYER ==========
+class PositionsController {
+    - _positionService: IPositionService
+    + GetPosition(id): Task<IActionResult>
+    + CreatePosition(request): Task<IActionResult>
+    + UpdatePosition(id, request): Task<IActionResult>
+    + DeletePosition(id): Task<IActionResult>
+    + GetPositions(query): Task<IActionResult>
+    + TogglePositionStatus(id): Task<IActionResult>
 }
 
-skinparam classMethod {
-    IconSize 0
-    FontSize 10
+' ========== SERVICE LAYER ==========
+interface IPositionService {
+    + CreatePositionAsync(request): Task<PositionResponse>
+    + GetPositionByIdAsync(id): Task<PositionResponse?>
+    + UpdatePositionAsync(request): Task<PositionResponse>
+    + DeletePositionAsync(id): Task<bool>
+    + TogglePositionStatusAsync(id): Task<bool>
+    + GetPositionsAsync(query): Task<PositionListResponse>
 }
 
-' ===== CORE ENTITIES =====
+class PositionService {
+    - _repository: IPositionRepository
+    - _mapper: IMapper
+    - _logger: ILogger
+    + CreatePositionAsync(request): Task<PositionResponse>
+    + GetPositionByIdAsync(id): Task<PositionResponse?>
+    + UpdatePositionAsync(request): Task<PositionResponse>
+    + DeletePositionAsync(id): Task<bool>
+    + GetPositionsAsync(query): Task<PositionListResponse>
+}
+
+' ========== REPOSITORY LAYER ==========
+interface IPositionRepository {
+    + GetPositionByIdAsync(id): Task<PositionEntity?>
+    + CreatePositionAsync(position): Task<PositionEntity>
+    + UpdatePositionAsync(position): Task<PositionEntity>
+    + DeletePositionAsync(id): Task<bool>
+    + GetPositionsAsync(query): Task<(List<PositionEntity>, int)>
+}
+
+class PositionRepository {
+    - _context: DoctorDbContext
+    + GetPositionByIdAsync(id): Task<PositionEntity?>
+    + CreatePositionAsync(position): Task<PositionEntity>
+    + UpdatePositionAsync(position): Task<PositionEntity>
+    + DeletePositionAsync(id): Task<bool>
+}
+
+' ========== DATA LAYER ==========
+class DoctorDbContext {
+    + Positions: DbSet<PositionEntity>
+}
+
+' ========== ENTITIES ==========
 class PositionEntity {
-    + Guid Id
-    + string Name
-    + Status Status
-    + DateTime CreatedAt
-    + DateTime UpdatedAt
+    + Id: Guid
+    + Name: string
+    + Status: Status
+    + CreatedAt: DateTime
+    + UpdatedAt: DateTime
 }
 
-' ===== REQUEST DTOs =====
+' ========== DTOs ==========
 class CreatePositionRequest {
-    + string Name
-    + Status Status
-}
-
-class UpdatePositionRequest {
-    + Guid Id
-    + string Name
-    + Status Status
+    + Name: string
+    + Status: Status
 }
 
 class PositionQueryRequest {
-    + string? SearchTerm
-    + Status? Status
-    + int PageNumber
-    + int PageSize
+    + SearchTerm: string?
+    + Status: string?
+    + PageNumber: int
+    + PageSize: int
 }
 
-' ===== RESPONSE DTOs =====
 class PositionResponse {
-    + Guid Id
-    + string Name
-    + Status Status
-    + int DoctorCount
-    + DateTime CreatedAt
-    + DateTime UpdatedAt
+    + Id: Guid
+    + Name: string
+    + Status: Status
 }
 
 class PositionListResponse {
-    + List<PositionResponse> Positions
-    + int TotalCount
-    + int PageNumber
-    + int PageSize
-    + int TotalPages
+    + Positions: List<PositionResponse>
+    + TotalCount: int
+    + PageNumber: int
+    + PageSize: int
+    + TotalPages: int
 }
 
-' ===== REPOSITORY INTERFACE =====
-interface IPositionRepository {
-    + GetPositionByIdAsync(Guid id) : Task<PositionEntity?>
-    + GetPositionByNameAsync(string name) : Task<PositionEntity?>
-    + CreatePositionAsync(PositionEntity position) : Task<PositionEntity>
-    + UpdatePositionAsync(PositionEntity position) : Task<PositionEntity>
-    + DeletePositionAsync(Guid id) : Task<bool>
-    + GetPositionsAsync(PositionQueryRequest query) : Task<(List<PositionEntity>, int)>
-    + GetAllPositionsAsync() : Task<List<PositionEntity>>
-}
+' ========== LAYOUT HINTS ==========
+PositionsController -[hidden]down- IPositionService
+IPositionService -[hidden]down- IPositionRepository
+IPositionRepository -[hidden]down- DoctorDbContext
 
-' ===== REPOSITORY IMPLEMENTATION =====
-class PositionRepository {
-    - DoctorDbContext _context
-    --
-    + PositionRepository(DoctorDbContext context)
-    + GetPositionByIdAsync(Guid id) : Task<PositionEntity?>
-    + GetPositionByNameAsync(string name) : Task<PositionEntity?>
-    + CreatePositionAsync(PositionEntity position) : Task<PositionEntity>
-    + UpdatePositionAsync(PositionEntity position) : Task<PositionEntity>
-    + DeletePositionAsync(Guid id) : Task<bool>
-    + GetPositionsAsync(PositionQueryRequest query) : Task<(List<PositionEntity>, int)>
-    + GetAllPositionsAsync() : Task<List<PositionEntity>>
-}
+' ========== RELATIONSHIPS ==========
 
-' ===== SERVICE INTERFACE =====
-interface IPositionService {
-    + CreatePositionAsync(CreatePositionRequest request) : Task<PositionResponse>
-    + GetPositionByIdAsync(Guid id) : Task<PositionResponse?>
-    + GetPositionByNameAsync(string name) : Task<PositionResponse?>
-    + UpdatePositionAsync(UpdatePositionRequest request) : Task<PositionResponse>
-    + DeletePositionAsync(Guid id) : Task<bool>
-    + GetPositionsAsync(PositionQueryRequest query) : Task<PositionListResponse>
-    + GetAllPositionsAsync() : Task<List<PositionResponse>>
-}
+' Controller Layer
+PositionsController *-- IPositionService
 
-' ===== SERVICE IMPLEMENTATION =====
-class PositionService {
-    - IPositionRepository _repository
-    - IMapper _mapper
-    - ILogger _logger
-    --
-    + PositionService(IPositionRepository repository, IMapper mapper, ILogger logger)
-    + CreatePositionAsync(CreatePositionRequest request) : Task<PositionResponse>
-    + GetPositionByIdAsync(Guid id) : Task<PositionResponse?>
-    + GetPositionByNameAsync(string name) : Task<PositionResponse?>
-    + UpdatePositionAsync(UpdatePositionRequest request) : Task<PositionResponse>
-    + DeletePositionAsync(Guid id) : Task<bool>
-    + GetPositionsAsync(PositionQueryRequest query) : Task<PositionListResponse>
-    + GetAllPositionsAsync() : Task<List<PositionResponse>>
-}
+' Service Layer
+PositionService ..|> IPositionService
+PositionService *-- IPositionRepository
+PositionService o-- IMapper
 
-' ===== CONTROLLER =====
-class PositionsController {
-    - IPositionService _positionService
-    --
-    + PositionsController(IPositionService positionService)
-    + GetPosition(Guid id) : Task<IActionResult>
-    + GetPositionByName(string name) : Task<IActionResult>
-    + GetPositions(PositionQueryRequest query) : Task<IActionResult>
-    + GetAllPositions() : Task<IActionResult>
-    + CreatePosition(CreatePositionRequest request) : Task<IActionResult>
-    + UpdatePosition(Guid id, UpdatePositionRequest request) : Task<IActionResult>
-    + DeletePosition(Guid id) : Task<IActionResult>
-}
+' Repository Layer
+PositionRepository ..|> IPositionRepository
+PositionRepository *-- DoctorDbContext
 
-' ===== EXTERNAL DEPENDENCIES =====
-class DoctorDbContext {
-    + DbSet<PositionEntity> Positions
-}
+' Service Uses DTOs
+IPositionService ..> CreatePositionRequest
+IPositionService ..> PositionQueryRequest
+IPositionService ..> PositionResponse
 
-class AutoMapper.IMapper {
-    + Map<TSource, TDestination>(TSource source) : TDestination
-}
-
-class ILogger {
-    + LogInformation(string message)
-    + LogError(Exception ex, string message)
-}
-
-' ===== ENUMS =====
-enum Status {
-    ACTIVE
-    INACTIVE
-}
-
-' ===== LAYOUT POSITIONING =====
-PositionEntity -[hidden]- CreatePositionRequest
-CreatePositionRequest -[hidden]- UpdatePositionRequest
-UpdatePositionRequest -[hidden]- PositionQueryRequest
-
-PositionResponse -[hidden]- PositionListResponse
-
-IPositionRepository -[hidden]- PositionRepository
-PositionRepository -[hidden]- DoctorDbContext
-
-IPositionService -[hidden]- PositionService
-PositionService -[hidden]- PositionsController
-
-IMapper -[hidden]- ILogger
-
-' ===== RELATIONSHIPS =====
-IPositionRepository <|.. PositionRepository
-IPositionService <|.. PositionService
-
-PositionRepository --> DoctorDbContext
-PositionRepository --> PositionEntity
-PositionRepository --> PositionQueryRequest
-
-PositionService --> IPositionRepository
-PositionService --> IMapper
-PositionService --> ILogger
-PositionService --> CreatePositionRequest
-PositionService --> UpdatePositionRequest
-PositionService --> PositionQueryRequest
-PositionService --> PositionResponse
-PositionService --> PositionListResponse
-
-PositionsController --> IPositionService
-PositionsController --> CreatePositionRequest
-PositionsController --> UpdatePositionRequest
-PositionsController --> PositionQueryRequest
-PositionsController --> PositionResponse
-PositionsController --> PositionListResponse
-
-PositionEntity --> Status
-CreatePositionRequest --> Status
-UpdatePositionRequest --> Status
-PositionQueryRequest --> Status
-PositionResponse --> Status
+' Repository Uses Entities
+IPositionRepository ..> PositionEntity
 
 @enduml

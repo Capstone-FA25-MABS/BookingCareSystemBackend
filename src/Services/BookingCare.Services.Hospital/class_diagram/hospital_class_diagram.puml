@@ -1,0 +1,231 @@
+@startuml Hospital-Class-Diagram
+
+title BookingCare Hospital Service - Class Diagram
+
+hide circle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 50
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+skinparam wrapWidth 220
+skinparam maxMessageSize 220
+
+' ========== PRESENTATION LAYER ==========
+class HospitalsController {
+    - _hospitalService: IHospitalService
+    - _logger: ILogger
+    + GetAllHospitals(filter): Task<IActionResult>
+    + GetHospitalById(id): Task<IActionResult>
+    + GetOptimizedHospitalList(filter): Task<IActionResult>
+    + CreateHospital(request): Task<IActionResult>
+    + UpdateHospital(id, request): Task<IActionResult>
+    + DeleteHospital(id): Task<IActionResult>
+    + GetHospitalsBySpecialty(specialtyId): Task<IActionResult>
+}
+
+' ========== SERVICE LAYER ==========
+interface IHospitalService {
+    + GetByIdAsync(id): Task<HospitalProfileResponse?>
+    + GetByEmailAsync(email): Task<HospitalResponse?>
+    + GetFilteredAsync(filter): Task<HospitalListResponse>
+    + CreateAsync(request): Task<HospitalDetailResponse>
+    + UpdateAsync(id, request): Task<HospitalResponse>
+    + DeleteAsync(id): Task<bool>
+    + GetOptimizedHospitalListAsync(filter): Task<HospitalListOptimizedPaginatedResponse>
+}
+
+class HospitalService {
+    - _hospitalRepository: IHospitalRepository
+    - _mapper: IMapper
+    - _authClient: AuthServiceClient
+    - _locationApiService: ILocationApiService
+    - _doctorClient: DoctorServiceClient
+    - _logger: ILogger
+    - _cache: IMemoryCache
+    + GetByIdAsync(id): Task<HospitalProfileResponse?>
+    + GetFilteredAsync(filter): Task<HospitalListResponse>
+    + CreateAsync(request): Task<HospitalDetailResponse>
+    + UpdateAsync(id, request): Task<HospitalResponse>
+    + GetOptimizedHospitalListAsync(filter): Task<HospitalListOptimizedPaginatedResponse>
+}
+
+interface ILocationApiService {
+    + GetProvinceByIdAsync(id): Task<string>
+    + GetDistrictByIdAsync(id): Task<string>
+}
+
+class LocationApiService {
+    - _httpClient: HttpClient
+    - _configuration: IConfiguration
+    + GetProvinceByIdAsync(id): Task<string>
+    + GetDistrictByIdAsync(id): Task<string>
+}
+
+' ========== REPOSITORY LAYER ==========
+interface IHospitalRepository {
+    + GetByIdAsync(id): Task<HospitalEntity?>
+    + GetByEmailAsync(email): Task<HospitalEntity?>
+    + GetFilteredAsync(filter): Task<(List<HospitalEntity>, int)>
+    + CreateAsync(hospital): Task<HospitalEntity>
+    + UpdateAsync(hospital): Task<HospitalEntity>
+    + DeleteAsync(id): Task<bool>
+    + GetOptimizedHospitalListAsync(filter): Task<(List<HospitalEntity>, int)>
+}
+
+class HospitalRepository {
+    - _context: HospitalDbContext
+    + GetByIdAsync(id): Task<HospitalEntity?>
+    + CreateAsync(hospital): Task<HospitalEntity>
+    + UpdateAsync(hospital): Task<HospitalEntity>
+    + DeleteAsync(id): Task<bool>
+    + GetFilteredAsync(filter): Task<(List<HospitalEntity>, int)>
+}
+
+' ========== DATA LAYER ==========
+class HospitalDbContext {
+    + Hospitals: DbSet<HospitalEntity>
+    + HospitalSpecialties: DbSet<HospitalSpecialtyEntity>
+    + HospitalImages: DbSet<HospitalImageEntity>
+    + HospitalSubscriptions: DbSet<HospitalSubscriptionEntity>
+}
+
+' ========== ENTITIES ==========
+class HospitalEntity {
+    + Id: Guid
+    + AccountId: Guid
+    + Name: string
+    + Address: string
+    + Phone: string?
+    + Email: string
+    + Description: string
+    + BackgroundUrl: string?
+    + AvatarUrl: string?
+    + CreatedAt: DateTime
+    + UpdatedAt: DateTime
+    + HospitalSpecialties: ICollection<HospitalSpecialtyEntity>
+    + HospitalImages: ICollection<HospitalImageEntity>
+}
+
+class HospitalSpecialtyEntity {
+    + HospitalId: Guid
+    + SpecialtyId: Guid
+    + CreatedAt: DateTime
+    + Hospital: HospitalEntity
+}
+
+class HospitalImageEntity {
+    + Id: Guid
+    + HospitalId: Guid
+    + ImageUrl: string
+    + CreatedAt: DateTime
+    + Hospital: HospitalEntity
+}
+
+' ========== DTOs ==========
+class CreateHospitalRequest {
+    + AccountId: Guid
+    + Name: string
+    + Address: string
+    + Phone: string?
+    + Email: string
+    + Description: string
+    + BackgroundUrl: string?
+    + AvatarUrl: string?
+    + SpecialtyIds: List<Guid>?
+}
+
+class HospitalFilterRequest {
+    + Name: string?
+    + Email: string?
+    + SpecialtyIds: List<Guid>?
+    + Page: int
+    + PageSize: int
+    + SortBy: string?
+    + SortOrder: string?
+}
+
+class HospitalListOptimizedFilterRequest {
+    + Search: string?
+    + SpecialtyIds: string[]?
+    + ProvinceId: string?
+    + DistrictId: string?
+    + Page: int
+    + PageSize: int
+}
+
+class HospitalResponse {
+    + Id: Guid
+    + Name: string
+    + Address: string
+    + Email: string
+    + AvatarUrl: string?
+    + Description: string
+    + Specialties: List<SpecialtyBasicInfo>
+    + Status: Status?
+}
+
+class HospitalDetailResponse {
+    + Id: Guid
+    + AccountId: Guid
+    + Name: string
+    + Address: string
+    + Email: string
+    + Description: string
+    + BackgroundUrl: string?
+    + AvatarUrl: string?
+    + Specialties: List<SpecialtyBasicInfo>
+    + Images: List<ImageInfo>
+    + Status: Status?
+}
+
+class HospitalListOptimizedPaginatedResponse {
+    + Hospitals: List<HospitalOptimizedResponse>
+    + TotalCount: int
+    + Page: int
+    + PageSize: int
+    + TotalPages: int
+}
+
+' ========== LAYOUT HINTS ==========
+HospitalsController -[hidden]down- IHospitalService
+IHospitalService -[hidden]down- IHospitalRepository
+IHospitalRepository -[hidden]down- HospitalDbContext
+
+' ========== RELATIONSHIPS ==========
+
+' Controller Layer
+HospitalsController *-- IHospitalService
+
+' Service Layer
+HospitalService ..|> IHospitalService
+HospitalService *-- IHospitalRepository
+HospitalService o-- IMapper
+HospitalService o-- AuthServiceClient
+HospitalService o-- DoctorServiceClient
+HospitalService o-- ILocationApiService
+HospitalService o-- IMemoryCache
+
+LocationApiService ..|> ILocationApiService
+LocationApiService o-- HttpClient
+
+' Repository Layer
+HospitalRepository ..|> IHospitalRepository
+HospitalRepository *-- HospitalDbContext
+
+' Entity Relationships
+HospitalEntity "1" -- "0..*" HospitalSpecialtyEntity
+HospitalEntity "1" -- "0..*" HospitalImageEntity
+
+' Service Uses DTOs
+IHospitalService ..> CreateHospitalRequest
+IHospitalService ..> HospitalFilterRequest
+IHospitalService ..> HospitalListOptimizedFilterRequest
+IHospitalService ..> HospitalResponse
+IHospitalService ..> HospitalDetailResponse
+
+' Repository Uses Entities
+IHospitalRepository ..> HospitalEntity
+
+@enduml

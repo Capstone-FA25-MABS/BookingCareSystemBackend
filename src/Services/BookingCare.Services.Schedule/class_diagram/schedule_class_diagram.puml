@@ -1,0 +1,176 @@
+@startuml Schedule-Class-Diagram
+
+title BookingCare Schedule Service - Class Diagram
+
+hide circle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 50
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+skinparam wrapWidth 220
+skinparam maxMessageSize 220
+
+' ========== PRESENTATION LAYER ==========
+class DoctorSchedulesController {
+    - _scheduleService: IScheduleService
+    + GetDoctorDailySchedule(doctorId, date): Task<IActionResult>
+    + GetDoctorScheduleRange(request): Task<IActionResult>
+    + CreateOrUpdateDoctorDailySchedule(request): Task<IActionResult>
+    + DeleteDoctorDailySchedule(doctorId, date): Task<IActionResult>
+    + GetAvailableSlots(request): Task<IActionResult>
+}
+
+class DoctorScheduleExceptionsController {
+    - _scheduleService: IScheduleService
+    + GetDoctorExceptions(doctorId, date): Task<IActionResult>
+    + CreateDoctorScheduleException(request): Task<IActionResult>
+    + DeleteDoctorScheduleException(id): Task<IActionResult>
+}
+
+' ========== SERVICE LAYER ==========
+interface IScheduleService {
+    + GetDoctorDailyScheduleAsync(doctorId, date): Task<DoctorDailyScheduleDto?>
+    + GetDoctorScheduleRangeAsync(request): Task<IEnumerable<DoctorDailyScheduleDto>>
+    + CreateOrUpdateDoctorDailyScheduleAsync(request): Task<DoctorDailyScheduleDto>
+    + DeleteDoctorDailyScheduleAsync(doctorId, date): Task
+    + GetAvailableSlotsAsync(request): Task<IEnumerable<AppointmentTimeDto>>
+    + GetServiceSchedulesAsync(serviceId): Task<IEnumerable<ServiceScheduleDto>>
+}
+
+class ScheduleService {
+    - _repository: IScheduleRepository
+    - _cacheService: ICacheService
+    - _mapper: IMapper
+    - _doctorClient: DoctorServiceClient
+    - _serviceMedicalClient: ServiceMedicalServiceClient
+    - _appointmentClient: AppointmentServiceClient
+    - _logger: ILogger
+    + GetDoctorDailyScheduleAsync(doctorId, date): Task<DoctorDailyScheduleDto?>
+    + CreateOrUpdateDoctorDailyScheduleAsync(request): Task<DoctorDailyScheduleDto>
+    + GetAvailableSlotsAsync(request): Task<IEnumerable<AppointmentTimeDto>>
+    + GetServiceSchedulesAsync(serviceId): Task<IEnumerable<ServiceScheduleDto>>
+}
+
+' ========== REPOSITORY LAYER ==========
+interface IScheduleRepository {
+    + GetDoctorDailyScheduleAsync(doctorId, date): Task<DoctorDailyScheduleEntity?>
+    + GetDoctorScheduleRangeAsync(doctorId, startDate, endDate): Task<IEnumerable<DoctorDailyScheduleEntity>>
+    + CreateOrUpdateDoctorDailyScheduleAsync(schedule): Task<DoctorDailyScheduleEntity>
+    + DeleteDoctorDailyScheduleAsync(doctorId, date): Task
+    + GetAvailableSlotsAsync(doctorId, date, serviceId): Task<IEnumerable<AppointmentTime>>
+}
+
+class ScheduleRepository {
+    - _context: ScheduleDbContext
+    + GetDoctorDailyScheduleAsync(doctorId, date): Task<DoctorDailyScheduleEntity?>
+    + CreateOrUpdateDoctorDailyScheduleAsync(schedule): Task<DoctorDailyScheduleEntity>
+    + DeleteDoctorDailyScheduleAsync(doctorId, date): Task
+    + GetAvailableSlotsAsync(doctorId, date, serviceId): Task<IEnumerable<AppointmentTime>>
+}
+
+' ========== DATA LAYER ==========
+class ScheduleDbContext {
+    + DoctorDailySchedules: DbSet<DoctorDailyScheduleEntity>
+    + DoctorScheduleExceptions: DbSet<DoctorScheduleExceptionEntity>
+    + ClinicExceptions: DbSet<ClinicExceptionEntity>
+    + ServiceSchedules: DbSet<ServiceScheduleEntity>
+}
+
+' ========== ENTITIES ==========
+class DoctorDailyScheduleEntity {
+    + Id: Guid
+    + DoctorId: Guid
+    + ScheduleDate: DateOnly
+    + SchedulePatterns: List<SchedulePatterns>
+    + CreatedAt: DateTime
+    + UpdatedAt: DateTime
+}
+
+class DoctorScheduleExceptionEntity {
+    + Id: Guid
+    + DoctorId: Guid
+    + ExceptionDate: DateOnly
+    + ExceptionType: ExceptionType
+    + TimeSlot: AppointmentTime?
+    + CreatedAt: DateTime
+}
+
+class ServiceScheduleEntity {
+    + Id: Guid
+    + ServiceId: Guid
+    + SchedulePatterns: List<SchedulePatterns>
+    + ClinicId: Guid?
+    + CreatedAt: DateTime
+    + UpdatedAt: DateTime
+}
+
+' ========== DTOs ==========
+class DoctorDailyScheduleDto {
+    + Id: Guid
+    + DoctorId: Guid
+    + ScheduleDate: DateOnly
+    + SchedulePatterns: List<SchedulePatterns>
+}
+
+class AppointmentTimeDto {
+    + Time: TimeOnly
+    + IsAvailable: bool
+    + Reason: string?
+}
+
+class ServiceScheduleDto {
+    + Id: Guid
+    + ServiceId: Guid
+    + SchedulePatterns: List<SchedulePatterns>
+}
+
+' ========== REQUESTS ==========
+class CreateDoctorDailyScheduleRequest {
+    + DoctorId: Guid
+    + ScheduleDate: DateOnly
+    + SchedulePatterns: List<SchedulePatterns>
+}
+
+class GetAvailableSlotsRequest {
+    + DoctorId: Guid
+    + Date: DateOnly
+    + ServiceId: Guid?
+}
+
+' ========== LAYOUT HINTS ==========
+DoctorSchedulesController -[hidden]down- IScheduleService
+IScheduleService -[hidden]down- IScheduleRepository
+IScheduleRepository -[hidden]down- ScheduleDbContext
+
+' ========== RELATIONSHIPS ==========
+
+' Controller Layer
+DoctorSchedulesController *-- IScheduleService
+DoctorScheduleExceptionsController *-- IScheduleService
+
+' Service Layer
+ScheduleService ..|> IScheduleService
+ScheduleService *-- IScheduleRepository
+ScheduleService o-- ICacheService
+ScheduleService o-- IMapper
+ScheduleService o-- DoctorServiceClient
+ScheduleService o-- ServiceMedicalServiceClient
+ScheduleService o-- AppointmentServiceClient
+
+' Repository Layer
+ScheduleRepository ..|> IScheduleRepository
+ScheduleRepository *-- ScheduleDbContext
+
+' Service Uses DTOs
+IScheduleService ..> CreateDoctorDailyScheduleRequest
+IScheduleService ..> GetAvailableSlotsRequest
+IScheduleService ..> DoctorDailyScheduleDto
+IScheduleService ..> AppointmentTimeDto
+
+' Repository Uses Entities
+IScheduleRepository ..> DoctorDailyScheduleEntity
+IScheduleRepository ..> ServiceScheduleEntity
+
+@enduml
