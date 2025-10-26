@@ -43,6 +43,44 @@ public class DoctorService : BaseService, IDoctorService
         _reviewClient = new Lazy<ReviewService.ReviewServiceClient>(() => _serviceProvider.GetRequiredService<ReviewService.ReviewServiceClient>());
     }
 
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Validate service types for duplicate prevention
+    /// </summary>
+    /// <param name="prices">List of price requests</param>
+    /// <param name="operation">Operation type for error message</param>
+    /// <returns>Task</returns>
+    /// <exception cref="ArgumentException">Thrown when duplicate service types are found</exception>
+    private async Task ValidateServiceTypesForDuplicatesAsync(IEnumerable<DoctorPriceRequest>? prices, string operation)
+    {
+        if (prices == null || !prices.Any()) return;
+
+        // Validate no duplicate service types in request
+        var serviceTypeIds = prices.Select(p => p.ServiceTypeId).ToList();
+        var duplicateServiceTypes = serviceTypeIds.GroupBy(id => id)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicateServiceTypes.Any())
+        {
+            var serviceTypeNames = new List<string>();
+            foreach (var serviceTypeId in duplicateServiceTypes)
+            {
+                var serviceType = await _repository.Value.GetServiceTypeByIdAsync(serviceTypeId);
+                if (serviceType != null)
+                {
+                    serviceTypeNames.Add(serviceType.Name);
+                }
+            }
+            var duplicateNames = string.Join(", ", serviceTypeNames);
+            throw new ArgumentException($"Không thể {operation}: Loại dịch vụ bị trùng lặp ({duplicateNames}). Mỗi bác sĩ chỉ được có một giá cho mỗi loại dịch vụ.");
+        }
+    }
+
+    #endregion
+
     #region Doctor CRUD Operations
 
     /// <summary>
@@ -84,7 +122,7 @@ public class DoctorService : BaseService, IDoctorService
         // Validate SpecialtyId if provided
         if (request.SpecialtyId.HasValue && !await _specialtyRepository.Value.SpecialtyExistsAsync(request.SpecialtyId.Value))
         {
-            throw new ArgumentException($"Specialty with ID {request.SpecialtyId.Value} not found");
+            throw new ArgumentException($"Không tìm thấy chuyên khoa với ID {request.SpecialtyId.Value}");
         }
     }
 
@@ -97,7 +135,10 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task CreateDoctorPricesAsync(Guid doctorId, IEnumerable<DoctorPriceRequest>? prices)
     {
-        if (prices == null || !prices.Any()) return;
+        // Validate no duplicate service types in request
+        await ValidateServiceTypesForDuplicatesAsync(prices, "tạo bác sĩ");
+
+        if (prices == null) return;
 
         foreach (var priceRequest in prices)
         {
@@ -111,14 +152,14 @@ public class DoctorService : BaseService, IDoctorService
         var serviceType = await _repository.Value.GetServiceTypeByIdAsync(priceRequest.ServiceTypeId);
         if (serviceType == null)
         {
-            throw new ArgumentException($"Service type with ID {priceRequest.ServiceTypeId} not found");
+            throw new ArgumentException($"Không tìm thấy loại dịch vụ với ID {priceRequest.ServiceTypeId}");
         }
 
         // Check if doctor already has a price for this service type
         var existingPrices = await _repository.Value.GetDoctorPricesAsync(doctorId);
         if (existingPrices.Any(p => p.ServiceTypeId == priceRequest.ServiceTypeId))
         {
-            throw new ArgumentException($"Doctor already has a price for service type {serviceType.Name}");
+            throw new ArgumentException($"Bác sĩ đã có giá cho loại dịch vụ {serviceType.Name}");
         }
 
         var doctorPrice = new DoctorPriceEntity
@@ -147,14 +188,14 @@ public class DoctorService : BaseService, IDoctorService
         var language = await _repository.Value.GetLanguageByIdAsync(languageId);
         if (language == null)
         {
-            throw new ArgumentException($"Language with ID {languageId} not found");
+            throw new ArgumentException($"Không tìm thấy ngôn ngữ với ID {languageId}");
         }
 
         // Check if doctor already has this language
         var existingLanguages = await _repository.Value.GetDoctorLanguagesAsync(doctorId);
         if (existingLanguages.Any(l => l.LanguageId == languageId))
         {
-            throw new ArgumentException($"Doctor already has language {language.Name}");
+            throw new ArgumentException($"Bác sĩ đã có ngôn ngữ {language.Name}");
         }
 
         var doctorLanguage = new DoctorLanguageEntity
@@ -258,6 +299,16 @@ public class DoctorService : BaseService, IDoctorService
 
     private async Task ValidateUpdateDoctorRequest(UpdateDoctorRequest request)
     {
+        // Validate email uniqueness if email is being updated
+        if (!string.IsNullOrWhiteSpace(request.Email))
+        {
+            var emailExists = await _repository.Value.DoctorEmailExistsAsync(request.Email, request.Id);
+            if (emailExists)
+            {
+                throw DoctorConflictException.WithEmail(request.Email);
+            }
+        }
+
         if (request.PositionId.HasValue && !await _positionRepository.Value.PositionExistsAsync(request.PositionId.Value))
         {
             throw PositionNotFoundException.WithId(request.PositionId.Value);
@@ -266,7 +317,7 @@ public class DoctorService : BaseService, IDoctorService
         // Validate SpecialtyId if provided
         if (request.SpecialtyId.HasValue && !await _specialtyRepository.Value.SpecialtyExistsAsync(request.SpecialtyId.Value))
         {
-            throw new ArgumentException($"Specialty with ID {request.SpecialtyId.Value} not found");
+            throw new ArgumentException($"Không tìm thấy chuyên khoa với ID {request.SpecialtyId.Value}");
         }
     }
 
@@ -284,6 +335,9 @@ public class DoctorService : BaseService, IDoctorService
             await _repository.Value.DeleteAllDoctorPricesAsync(doctorId);
             return;
         }
+
+        // Validate no duplicate service types in request
+        await ValidateServiceTypesForDuplicatesAsync(prices, "cập nhật");
 
         // Get existing prices
         var existingPrices = await _repository.Value.GetDoctorPricesAsync(doctorId);
@@ -2064,6 +2118,73 @@ public class DoctorService : BaseService, IDoctorService
     public async Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds)
     {
         return await _repository.Value.GetDoctorCountsBySpecialtyAndHospitalAsync(hospitalId, specialtyIds);
+    }
+
+    #endregion
+
+    #region Avatar Operations
+
+    /// <summary>
+    /// Update doctor avatar URL
+    /// </summary>
+    public async Task<bool> UpdateDoctorAvatarAsync(Guid accountId, string avatarUrl)
+    {
+        try
+        {
+            var doctor = await _repository.Value.GetDoctorByAccountIdAsync(accountId);
+            if (doctor == null)
+            {
+                return false;
+            }
+
+            doctor.AvatarUrl = avatarUrl;
+            doctor.UpdatedAt = DateTime.UtcNow;
+
+            await _repository.Value.UpdateDoctorAsync(doctor);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating doctor avatar for account {AccountId}", accountId);
+            return false;
+        }
+    }
+
+    #endregion
+
+    #region IAvatarService Implementation
+
+    public async Task<bool> EntityExistsByAccountIdAsync(Guid accountId)
+    {
+        try
+        {
+            var doctor = await _repository.Value.GetDoctorByAccountIdAsync(accountId);
+            return doctor != null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking if doctor exists for account {AccountId}", accountId);
+            return false;
+        }
+    }
+
+    public async Task<string?> GetAvatarUrlByAccountIdAsync(Guid accountId)
+    {
+        try
+        {
+            var doctor = await _repository.Value.GetDoctorByAccountIdAsync(accountId);
+            return doctor?.AvatarUrl;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error getting doctor avatar URL for account {AccountId}", accountId);
+            return null;
+        }
+    }
+
+    public async Task<bool> UpdateAvatarUrlByAccountIdAsync(Guid accountId, string avatarUrl)
+    {
+        return await UpdateDoctorAvatarAsync(accountId, avatarUrl);
     }
 
     #endregion
