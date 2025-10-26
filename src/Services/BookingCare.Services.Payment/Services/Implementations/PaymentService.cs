@@ -145,13 +145,13 @@ public class PaymentService : BaseService, IPaymentService
                 else
                 {
                     LogWarning("Could not retrieve appointment details for AppointmentId: {AppointmentId}",
-                        null, payment.AppointmentId.Value);
+                        null, payment.AppointmentId!.Value);
                 }
             }
             catch (Exception ex)
             {
                 LogError(ex, "Error enriching payment {PaymentId} with appointment details for AppointmentId: {AppointmentId}",
-                    null, payment.Id, payment.AppointmentId.Value);
+                    null, payment.Id, payment.AppointmentId!.Value);
             }
         });
 
