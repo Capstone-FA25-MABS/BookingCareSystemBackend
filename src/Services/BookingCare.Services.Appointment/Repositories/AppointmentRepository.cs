@@ -523,5 +523,69 @@ public class AppointmentRepository : IAppointmentRepository
         }
     }
 
+    /// <summary>
+    /// NEW: Get completed appointments by patient with optional doctor or service filter (for Review service validation)
+    /// Returns appointments with COMPLETED status for appointment history validation
+    /// </summary>
+    public async Task<List<AppointmentEntity>> GetCompletedAppointmentsByPatientAsync(
+        Guid patientId,
+        Guid? doctorId = null,
+        Guid? serviceId = null)
+    {
+        try
+        {
+            var query = _context.Appointments
+                .Where(a => a.PatientId == patientId && a.Status == AppointmentStatus.COMPLETED);
+
+            // Filter by doctor if specified
+            if (doctorId.HasValue)
+            {
+                query = query.Where(a => a.DoctorId == doctorId.Value);
+            }
+
+            // Filter by service if specified
+            if (serviceId.HasValue)
+            {
+                query = query.Where(a => a.ServiceId == serviceId.Value);
+            }
+
+            var completedAppointments = await query.ToListAsync();
+
+            // Extract nested ternary operation into independent statement
+            var targetInfo = GetTargetInfoForLogging(doctorId, serviceId);
+
+            _logger.LogInformation(
+                "Found {Count} completed appointments for patient {PatientId} with {Target}",
+                completedAppointments.Count, patientId, targetInfo);
+
+            return completedAppointments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting completed appointments for patient {PatientId}, doctor {DoctorId}, service {ServiceId}",
+                patientId, doctorId ?? Guid.Empty, serviceId ?? Guid.Empty);
+            throw new AppointmentException("Failed to get completed appointments by patient", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Helper method to generate target info string for logging purposes
+    /// </summary>
+    private static string GetTargetInfoForLogging(Guid? doctorId, Guid? serviceId)
+    {
+        if (doctorId.HasValue)
+        {
+            return $"doctor {doctorId}";
+        }
+
+        if (serviceId.HasValue)
+        {
+            return $"service {serviceId}";
+        }
+
+        return "any target";
+    }
+
     #endregion
 }

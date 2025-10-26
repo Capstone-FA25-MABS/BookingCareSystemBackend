@@ -67,4 +67,13 @@ public interface IAppointmentRepository
     /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
     /// </summary>
     Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(Guid doctorId, DateOnly appointmentDate);
+
+    /// <summary>
+    /// NEW: Get completed appointments by patient with optional doctor or service filter (for Review service validation)
+    /// Returns appointments with COMPLETED status for appointment history validation
+    /// </summary>
+    Task<List<AppointmentEntity>> GetCompletedAppointmentsByPatientAsync(
+        Guid patientId,
+        Guid? doctorId = null,
+        Guid? serviceId = null);
 }

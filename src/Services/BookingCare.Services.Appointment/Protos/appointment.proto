@@ -17,6 +17,9 @@ service AppointmentService {
 
     // Get appointment details by ID (for Payment service integration)
     rpc GetAppointmentDetails (GetAppointmentDetailsRequest) returns (GetAppointmentDetailsResponse);
+    
+    // Check if patient has completed appointment with doctor/service (for Review service validation)
+    rpc CheckPatientAppointmentHistory (CheckPatientAppointmentHistoryRequest) returns (CheckPatientAppointmentHistoryResponse);
 }
 
 // Request message
@@ -78,5 +81,19 @@ message AppointmentDetails {
     string doctor_id = 4;        // Can be empty if null
     string service_id = 5;       // Can be empty if null
     string hospital_id = 6;      // Can be empty if null
+}
+
+// NEW: Request to check patient appointment history for review validation
+message CheckPatientAppointmentHistoryRequest {
+    string patient_id = 1;  // Patient ID (GUID as string)
+    string doctor_id = 2;   // Doctor ID (GUID as string) - optional, use for doctor reviews
+    string service_id = 3;  // Service ID (GUID as string) - optional, use for service reviews
+}
+
+// NEW: Response for patient appointment history check
+message CheckPatientAppointmentHistoryResponse {
+    bool has_completed_appointment = 1;  // True if patient has at least one COMPLETED appointment
+    int32 total_completed_appointments = 2;  // Total number of completed appointments
+    string last_completed_appointment_date = 3;  // ISO 8601 date-time format of last completed appointment
 }
 

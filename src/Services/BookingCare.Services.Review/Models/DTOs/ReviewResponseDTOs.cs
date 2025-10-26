@@ -39,6 +39,58 @@ public class AccountInfo
 }
 
 /// <summary>
+/// User information for patients (from User service) - matches AuthService AccountInfo format
+/// </summary>
+public class UserInfo
+{
+    /// <summary>
+    /// User ID (same as patient ID)
+    /// </summary>
+    public string UserId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Email address
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Full name
+    /// </summary>
+    public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Avatar URL
+    /// </summary>
+    public string AvatarUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the user was found
+    /// </summary>
+    public bool Found { get; set; } = true;
+}
+
+/// <summary>
+/// Result of appointment history validation for review creation
+/// </summary>
+public class AppointmentHistoryValidationResult
+{
+    /// <summary>
+    /// Whether patient has completed appointment with the target (doctor/service)
+    /// </summary>
+    public bool HasCompletedAppointment { get; set; }
+
+    /// <summary>
+    /// Total number of completed appointments
+    /// </summary>
+    public int TotalCompletedAppointments { get; set; }
+
+    /// <summary>
+    /// Date of last completed appointment
+    /// </summary>
+    public DateTime? LastCompletedAppointmentDate { get; set; }
+}
+
+/// <summary>
 /// Response DTO for a reply
 /// </summary>
 public class ReplyResponse
@@ -54,7 +106,7 @@ public class ReplyResponse
     public Guid AuthorId { get; set; }
 
     /// <summary>
-    /// Author account information
+    /// Author account information (from Auth service)
     /// </summary>
     public AccountInfo? AuthorInfo { get; set; }
 
@@ -90,9 +142,9 @@ public class ReviewResponse
     public Guid PatientId { get; set; }
 
     /// <summary>
-    /// Patient account information
+    /// Patient user information (from User service - optimized for patients)
     /// </summary>
-    public AccountInfo? PatientInfo { get; set; }
+    public UserInfo? PatientInfo { get; set; }
 
     /// <summary>
     /// ID of the doctor being reviewed (null if reviewing service)
