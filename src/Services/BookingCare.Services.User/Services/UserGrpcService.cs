@@ -426,14 +426,17 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
                 }
             }
 
-            // Add invalid IDs as not found
-            foreach (var invalidId in invalidIds)
+            // Add invalid IDs as not found - only if there are any invalid IDs
+            if (invalidIds.Count > 0)
             {
-                response.Users.Add(new Protos.UserDisplayInfoResponse
+                foreach (var invalidId in invalidIds)
                 {
-                    Id = invalidId,
-                    Found = false
-                });
+                    response.Users.Add(new Protos.UserDisplayInfoResponse
+                    {
+                        Id = invalidId,
+                        Found = false
+                    });
+                }
             }
 
             _logger.LogInformation("[UserGrpcService] Retrieved {Count} users display info - Found: {FoundCount}, NotFound: {NotFoundCount}",

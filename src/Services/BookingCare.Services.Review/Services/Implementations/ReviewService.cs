@@ -14,14 +14,11 @@ namespace BookingCare.Services.Review.Services.Implementations;
 /// <summary>
 /// Service for enriching account information from Auth service
 /// </summary>
-public class AccountEnrichmentService : BaseService, IAccountEnrichmentService
+public class AccountEnrichmentService : BaseAuthEnrichmentService, IAccountEnrichmentService
 {
-    private readonly AuthService.AuthServiceClient _authClient;
-
     public AccountEnrichmentService(AuthService.AuthServiceClient authClient, ILogger<AccountEnrichmentService> logger)
-        : base(logger)
+   : base(authClient, logger)
     {
-        _authClient = authClient;
     }
 
     /// <summary>
@@ -31,143 +28,7 @@ public class AccountEnrichmentService : BaseService, IAccountEnrichmentService
     /// <returns>Dictionary mapping account ID to AccountInfo</returns>
     public async Task<Dictionary<string, AccountInfo>> GetAccountDetailsAsync(List<string> accountIds)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            if (!accountIds.Any())
-            {
-                LogInfo("No account IDs provided for enrichment", null);
-                return new Dictionary<string, AccountInfo>();
-            }
-
-            var uniqueAccountIds = GetUniqueAccountIds(accountIds);
-            LogInfo("Fetching account details for {Count} accounts", null, uniqueAccountIds.Count);
-
-            var request = new GetAccountDetailsRequest();
-            request.AccountIds.AddRange(uniqueAccountIds);
-
-            try
-            {
-                var response = await _authClient.GetAccountDetailsAsync(request);
-                return ProcessAuthServiceResponse(response, uniqueAccountIds);
-            }
-            catch (RpcException ex)
-            {
-                return HandleGrpcException(ex, uniqueAccountIds);
-            }
-
-        }, "GetAccountDetails");
-    }
-
-    /// <summary>
-    /// Filters and removes duplicates from account IDs
-    /// </summary>
-    private static List<string> GetUniqueAccountIds(List<string> accountIds)
-    {
-        return accountIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
-    }
-
-    /// <summary>
-    /// Processes the response from Auth service and creates account info dictionary
-    /// </summary>
-    private Dictionary<string, AccountInfo> ProcessAuthServiceResponse(
-        GetAccountDetailsResponse response,
-        List<string> uniqueAccountIds)
-    {
-        if (!response.Success)
-        {
-            LogWarning("Auth service returned unsuccessful response: {Message}", null, response.Message);
-            return CreateEmptyAccountInfos(uniqueAccountIds);
-        }
-
-        var accountInfoDict = MapFoundAccounts(response.AccountDetails);
-        AddMissingAccounts(accountInfoDict, uniqueAccountIds);
-
-        LogInfo("Successfully enriched {Found}/{Total} account details",
-            null, accountInfoDict.Values.Count(a => a.Found), uniqueAccountIds.Count);
-
-        return accountInfoDict;
-    }
-
-    /// <summary>
-    /// Maps found account details to AccountInfo objects
-    /// </summary>
-    private static Dictionary<string, AccountInfo> MapFoundAccounts(
-        IEnumerable<AccountDetail> accountDetails)
-    {
-        var accountInfoDict = new Dictionary<string, AccountInfo>();
-
-        foreach (var accountDetail in accountDetails)
-        {
-            accountInfoDict[accountDetail.AccountId] = new AccountInfo
-            {
-                AccountId = accountDetail.AccountId,
-                Email = accountDetail.Email ?? string.Empty,
-                FullName = accountDetail.FullName ?? string.Empty,
-                AvatarUrl = accountDetail.AvatarUrl ?? string.Empty,
-                Role = accountDetail.Role ?? string.Empty,
-                Found = accountDetail.Found
-            };
-        }
-
-        return accountInfoDict;
-    }
-
-    /// <summary>
-    /// Adds missing account IDs as not found entries
-    /// </summary>
-    private static void AddMissingAccounts(
-        Dictionary<string, AccountInfo> accountInfoDict,
-        List<string> uniqueAccountIds)
-    {
-        foreach (var accountId in uniqueAccountIds)
-        {
-            if (!accountInfoDict.ContainsKey(accountId))
-            {
-                accountInfoDict[accountId] = new AccountInfo
-                {
-                    AccountId = accountId,
-                    Found = false
-                };
-            }
-        }
-    }
-
-    /// <summary>
-    /// Handles gRPC exceptions and returns appropriate fallback response
-    /// </summary>
-    private Dictionary<string, AccountInfo> HandleGrpcException(RpcException ex, List<string> uniqueAccountIds)
-    {
-        var errorMessage = ex.StatusCode switch
-        {
-            StatusCode.DeadlineExceeded => "Auth service call timed out: {Status}",
-            StatusCode.Unavailable => "Auth service is unavailable: {Status}",
-            _ => "gRPC call to Auth service failed: {Status} - {Detail}"
-        };
-
-        if (ex.StatusCode == StatusCode.DeadlineExceeded || ex.StatusCode == StatusCode.Unavailable)
-        {
-            LogWarning(errorMessage, null, ex.StatusCode.ToString());
-        }
-        else
-        {
-            LogWarning(errorMessage, null, ex.StatusCode.ToString(), ex.Status.Detail);
-        }
-
-        return CreateEmptyAccountInfos(uniqueAccountIds);
-    }
-
-    /// <summary>
-    /// Creates empty account info objects for when Auth service is unavailable
-    /// </summary>
-    private static Dictionary<string, AccountInfo> CreateEmptyAccountInfos(List<string> accountIds)
-    {
-        return accountIds.ToDictionary(
-            accountId => accountId,
-            accountId => new AccountInfo
-            {
-                AccountId = accountId,
-                Found = false
-            });
+        return await GetAccountDetailsFromAuthServiceAsync(accountIds, "account enrichment");
     }
 }
 
@@ -448,26 +309,49 @@ public class ReviewService : BaseService, IReviewService
             return;
         }
 
-        // Collect patient IDs (for UserService)
+        // Collect IDs for enrichment
+        var (patientIds, replyAuthorIds) = CollectEnrichmentIds(reviews);
+
+        LogInfo("Optimized enrichment: {PatientCount} patients via UserService, {ReplyAuthorCount} reply authors via AuthService",
+          null, patientIds.Count, replyAuthorIds.Count);
+
+        // Fetch enrichment data in parallel
+        var (patientInfoDict, replyAuthorInfoDict) = await FetchEnrichmentDataAsync(patientIds, replyAuthorIds);
+
+        // Apply enrichment to reviews
+        ApplyEnrichmentToReviews(reviews, patientInfoDict, replyAuthorInfoDict);
+
+        LogInfo("Successfully enriched {ReviewCount} reviews with optimized approach",
+       null, reviews.Count);
+    }
+
+    /// <summary>
+    /// Collects patient IDs and reply author IDs from reviews for enrichment
+    /// </summary>
+    private static (HashSet<string> patientIds, HashSet<string> replyAuthorIds) CollectEnrichmentIds(List<ReviewResponse> reviews)
+    {
         var patientIds = new HashSet<string>();
+        var replyAuthorIds = new HashSet<string>();
+
         foreach (var review in reviews)
         {
             patientIds.Add(review.PatientId.ToString());
-        }
 
-        // Collect reply author IDs (for AuthService)
-        var replyAuthorIds = new HashSet<string>();
-        foreach (var review in reviews)
-        {
             foreach (var reply in review.Replies)
             {
                 replyAuthorIds.Add(reply.AuthorId.ToString());
             }
         }
 
-        LogInfo("Optimized enrichment: {PatientCount} patients via UserService, {ReplyAuthorCount} reply authors via AuthService",
-            null, patientIds.Count, replyAuthorIds.Count);
+        return (patientIds, replyAuthorIds);
+    }
 
+    /// <summary>
+    /// Fetches enrichment data from UserService and AuthService in parallel
+    /// </summary>
+    private async Task<(Dictionary<string, UserInfo> patientInfoDict, Dictionary<string, AccountInfo> replyAuthorInfoDict)>
+        FetchEnrichmentDataAsync(HashSet<string> patientIds, HashSet<string> replyAuthorIds)
+    {
         // Parallel fetch from both services for better performance
         var patientInfoTask = patientIds.Any()
             ? _userEnrichmentService.GetUsersInfoAsync(patientIds.ToList())
@@ -475,54 +359,74 @@ public class ReviewService : BaseService, IReviewService
 
         var replyAuthorInfoTask = replyAuthorIds.Any()
             ? _replyEnrichmentService.GetReplyAuthorsInfoAsync(replyAuthorIds.ToList())
-            : Task.FromResult(new Dictionary<string, AccountInfo>());
+     : Task.FromResult(new Dictionary<string, AccountInfo>());
 
         await Task.WhenAll(patientInfoTask, replyAuthorInfoTask);
 
-        var patientInfoDict = patientInfoTask.Result;
-        var replyAuthorInfoDict = replyAuthorInfoTask.Result;
+        return (patientInfoTask.Result, replyAuthorInfoTask.Result);
+    }
 
-        // Map information to reviews
+    /// <summary>
+    /// Applies enrichment data to reviews and their replies
+    /// </summary>
+    private static void ApplyEnrichmentToReviews(
+        List<ReviewResponse> reviews,
+        Dictionary<string, UserInfo> patientInfoDict,
+ Dictionary<string, AccountInfo> replyAuthorInfoDict)
+    {
         foreach (var review in reviews)
         {
             // Enrich patient info from UserService
-            var patientKey = review.PatientId.ToString();
-            if (patientInfoDict.TryGetValue(patientKey, out var patientInfo))
+            EnrichPatientInfo(review, patientInfoDict);
+
+            // Enrich reply author info from AuthService
+            EnrichReplyAuthorInfo(review.Replies, replyAuthorInfoDict);
+        }
+    }
+
+    /// <summary>
+    /// Enriches patient information for a single review
+    /// </summary>
+    private static void EnrichPatientInfo(ReviewResponse review, Dictionary<string, UserInfo> patientInfoDict)
+    {
+        var patientKey = review.PatientId.ToString();
+        if (patientInfoDict.TryGetValue(patientKey, out var patientInfo))
+        {
+            review.PatientInfo = patientInfo;
+        }
+        else
+        {
+            // Fallback for missing patient info
+            review.PatientInfo = new UserInfo
             {
-                review.PatientInfo = patientInfo;
+                UserId = patientKey,
+                Found = false
+            };
+        }
+    }
+
+    /// <summary>
+    /// Enriches reply author information for all replies
+    /// </summary>
+    private static void EnrichReplyAuthorInfo(List<ReplyResponse> replies, Dictionary<string, AccountInfo> replyAuthorInfoDict)
+    {
+        foreach (var reply in replies)
+        {
+            var authorKey = reply.AuthorId.ToString();
+            if (replyAuthorInfoDict.TryGetValue(authorKey, out var authorInfo))
+            {
+                reply.AuthorInfo = authorInfo;
             }
             else
             {
-                // Fallback for missing patient info
-                review.PatientInfo = new UserInfo
+                // Fallback for missing author info
+                reply.AuthorInfo = new AccountInfo
                 {
-                    UserId = patientKey,
+                    AccountId = authorKey,
                     Found = false
                 };
             }
-
-            // Enrich reply author info from AuthService
-            foreach (var reply in review.Replies)
-            {
-                var authorKey = reply.AuthorId.ToString();
-                if (replyAuthorInfoDict.TryGetValue(authorKey, out var authorInfo))
-                {
-                    reply.AuthorInfo = authorInfo;
-                }
-                else
-                {
-                    // Fallback for missing author info
-                    reply.AuthorInfo = new AccountInfo
-                    {
-                        AccountId = authorKey,
-                        Found = false
-                    };
-                }
-            }
         }
-
-        LogInfo("Successfully enriched {ReviewCount} reviews with optimized approach",
-            null, reviews.Count);
     }
 
     /// <summary>

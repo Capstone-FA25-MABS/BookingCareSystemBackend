@@ -107,16 +107,13 @@ public class UserEnrichmentService : BaseService, IUserEnrichmentService
         Dictionary<string, UserInfo> userInfoDict,
         List<string> uniqueUserIds)
     {
-        foreach (var userId in uniqueUserIds)
+        foreach (var userId in uniqueUserIds.Where(userId => !userInfoDict.ContainsKey(userId)))
         {
-            if (!userInfoDict.ContainsKey(userId))
+            userInfoDict[userId] = new UserInfo
             {
-                userInfoDict[userId] = new UserInfo
-                {
-                    UserId = userId,
-                    Found = false
-                };
-            }
+                UserId = userId,
+                Found = false
+            };
         }
     }
 
