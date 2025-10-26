@@ -13,6 +13,12 @@ public class AccountEntity : IdentityUser<Guid>
 
     public Status Status { get; set; } = Status.ACTIVE;
 
+    /// <summary>
+    /// Flag to indicate if user must change password on first login
+    /// Used for doctor accounts with auto-generated passwords
+    /// </summary>
+    public bool MustChangePassword { get; set; } = false;
+
     // Navigation properties
     public virtual ICollection<AccountRoleEntity> UserRoles { get; set; } = new List<AccountRoleEntity>();
 }

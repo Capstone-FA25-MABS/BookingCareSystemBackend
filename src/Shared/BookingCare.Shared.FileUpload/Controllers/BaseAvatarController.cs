@@ -25,13 +25,13 @@ public abstract class BaseAvatarController<TService, TController> : BaseApiContr
 {
     private readonly FileUploadOrchestrator _uploadOrchestrator;
     private readonly TService _avatarService;
-    private readonly ILogger<TController> _logger;
+    private readonly ILogger _logger;
     private readonly AvatarConfig _config;
 
     protected BaseAvatarController(
         FileUploadOrchestrator uploadOrchestrator,
         TService avatarService,
-        ILogger<TController> logger,
+        ILogger logger,
         AvatarConfig config)
     {
         _uploadOrchestrator = uploadOrchestrator;
