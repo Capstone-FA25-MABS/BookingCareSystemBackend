@@ -99,6 +99,7 @@ message DoctorBasicInfo {
   string email = 2;
   string full_name = 3;
   string avatar_url = 4;
+  string address = 5;
 }
 
 // Response message for batch doctor retrieval
