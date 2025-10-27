@@ -64,6 +64,13 @@ public class ReviewEntity
     public Guid PatientId { get; set; }
 
     /// <summary>
+    /// ID of the hospital that the doctor/service belongs to (GUID from SQL)
+    /// </summary>
+    [BsonElement("hospitalId")]
+    [BsonRepresentation(BsonType.String)]
+    public Guid? HospitalId { get; set; }
+
+    /// <summary>
     /// Type of target being reviewed (DOCTOR or SERVICE)
     /// </summary>
     [BsonElement("targetType")]
