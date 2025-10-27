@@ -226,3 +226,34 @@ public class RolePermissionResponse
 
 #endregion
 
+#region Admin Account Management Response DTOs
+
+/// <summary>
+/// Response DTO for account with detailed profile information (User/Doctor/Hospital)
+/// </summary>
+public class AccountWithProfileResponse
+{
+    public Guid AccountId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public string? Phone { get; set; }
+    public string? Address { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Response DTO for account management list with pagination
+/// </summary>
+public class AccountManagementResponse
+{
+    public List<AccountWithProfileResponse> Accounts { get; set; } = new List<AccountWithProfileResponse>();
+    public int TotalCount { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages { get; set; }
+}
+
+#endregion
+
