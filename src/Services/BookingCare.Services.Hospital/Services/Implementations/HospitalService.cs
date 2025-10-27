@@ -281,6 +281,22 @@ public class HospitalService : IHospitalService
         return hospitalResponses;
     }
 
+    public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(IEnumerable<Guid> accountIds)
+    {
+        try
+        {
+            _logger.LogInformation("Getting hospitals by {Count} account IDs", accountIds.Count());
+            var hospitals = await _hospitalRepository.GetByAccountIdsAsync(accountIds);
+            _logger.LogInformation("Retrieved {Count} hospitals for batch request", hospitals.Count);
+            return hospitals;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetHospitalsByAccountIdsAsync");
+            throw new HospitalOperationException("Failed to retrieve hospitals by account IDs", ex);
+        }
+    }
+
     public Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId)
     {
         // This would need to be implemented properly with a HospitalSpecialty repository
