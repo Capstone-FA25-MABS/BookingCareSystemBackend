@@ -19,6 +19,7 @@ using BookingCare.Shared.Saga.Steps;
 using BookingCare.Shared.Saga.SagaDefinition;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.User.Protos;
+using BookingCare.Services.Hospital;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,6 +115,13 @@ builder.Services.AddGrpcClient<UserService.UserServiceClient>(o =>
 builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(o =>
 {
     var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6018";
+    o.Address = new Uri(endpoint);
+});
+
+// Add gRPC client for Hospital service
+builder.Services.AddGrpcClient<HospitalService.HospitalServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Hospital").GetValue<string>("GrpcUrl") ?? "http://localhost:6104";
     o.Address = new Uri(endpoint);
 });
 
