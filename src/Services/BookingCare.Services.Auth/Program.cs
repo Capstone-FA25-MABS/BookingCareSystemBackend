@@ -3,6 +3,7 @@ using BookingCare.Services.Auth.Handlers;
 using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Repositories;
 using BookingCare.Services.Auth.Services;
+using BookingCare.Services.Auth.Hubs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Auth.Mappings;
@@ -75,6 +76,9 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 
 // Add HttpContextAccessor for cookie management
 builder.Services.AddHttpContextAccessor();
+
+// Add SignalR for real-time account notifications (ban, lock, etc.)
+builder.Services.AddSignalR();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
@@ -247,6 +251,10 @@ app.MapControllers();
 
 // Map gRPC services
 app.MapGrpcService<AuthGrpcService>();
+
+// Map SignalR hubs
+app.MapHub<ChatHub>("/hubs/chat"); // For presence tracking
+app.MapHub<AccountNotificationHub>("/hubs/account-notification"); // For account notifications
 
 // Map health check endpoint
 app.MapCommonHealthCheck("Auth");

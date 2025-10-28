@@ -18,6 +18,11 @@ using BookingCare.Services.Auth.Providers;
 using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Models;
 using BookingCare.Shared.Saga.SagaDefinition;
+using BookingCare.Services.User.Protos;
+using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.Hospital;
+using Microsoft.AspNetCore.SignalR;
+using BookingCare.Services.Auth.Hubs;
 
 namespace BookingCare.Services.Auth.Services;
 
@@ -35,6 +40,10 @@ public class AuthService : BaseService, IAuthService
     private readonly OtpVerifier.OtpVerifierClient _otpClient;
     private readonly ExternalAuthProviderService _externalAuthProviderService;
     private readonly ISagaManager _sagaManager;
+    private readonly UserService.UserServiceClient _userGrpcClient;
+    private readonly DoctorService.DoctorServiceClient _doctorGrpcClient;
+    private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
+    private readonly IHubContext<AccountNotificationHub> _accountNotificationHub;
 
     public AuthService(
         IAuthRepository authRepository,
@@ -46,6 +55,10 @@ public class AuthService : BaseService, IAuthService
         IEventBus eventBus,
         ExternalAuthProviderService externalAuthProviderService,
         ISagaManager sagaManager,
+        UserService.UserServiceClient userGrpcClient,
+        DoctorService.DoctorServiceClient doctorGrpcClient,
+        HospitalService.HospitalServiceClient hospitalGrpcClient,
+        IHubContext<AccountNotificationHub> accountNotificationHub,
         OtpVerifier.OtpVerifierClient? otpClient = null) : base(logger)
     {
         _authRepository = authRepository;
@@ -56,6 +69,10 @@ public class AuthService : BaseService, IAuthService
         _eventBus = eventBus;
         _externalAuthProviderService = externalAuthProviderService;
         _sagaManager = sagaManager;
+        _userGrpcClient = userGrpcClient;
+        _doctorGrpcClient = doctorGrpcClient;
+        _hospitalGrpcClient = hospitalGrpcClient;
+        _accountNotificationHub = accountNotificationHub;
         _otpClient = otpClient!;
     }
 
@@ -610,6 +627,10 @@ public class AuthService : BaseService, IAuthService
             account.Status = account.Status == Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
 
             await _authRepository.UpdateAccountAsync(account);
+
+            // Send SignalR notification to force logout
+            await SendAccountNotificationAsync(id, account.Status == Status.ACTIVE ? "account_activated" : "account_deactivated");
+
             return account.Status;
         }, "ToggleAccountActiveStatus");
     }
@@ -623,7 +644,15 @@ public class AuthService : BaseService, IAuthService
         {
             LogInfo("Locking account: {AccountId}", null, id);
             var account = await _authRepository.GetAccountByIdAsync(id) ?? throw new AccountNotFoundException(id);
-            return await _authRepository.LockAccountAsync(account);
+            var result = await _authRepository.LockAccountAsync(account);
+
+            if (result)
+            {
+                // Send SignalR notification to force logout
+                await SendAccountNotificationAsync(id, "account_locked");
+            }
+
+            return result;
         }, "LockAccount");
     }
 
@@ -636,8 +665,73 @@ public class AuthService : BaseService, IAuthService
         {
             LogInfo("Unlocking account: {AccountId}", null, id);
             var account = await _authRepository.GetAccountByIdAsync(id) ?? throw new AccountNotFoundException(id);
-            return await _authRepository.UnlockAccountAsync(account);
+            var result = await _authRepository.UnlockAccountAsync(account);
+
+            if (result)
+            {
+                // Send SignalR notification (optional - user can login again)
+                await SendAccountNotificationAsync(id, "account_unlocked");
+            }
+
+            return result;
         }, "UnlockAccount");
+    }
+
+    /// <summary>
+    /// Send SignalR notification to user about account status change
+    /// </summary>
+    private async Task SendAccountNotificationAsync(Guid accountId, string eventType)
+    {
+        try
+        {
+            // Get all connection IDs for this user
+            var connectionIds = AccountNotificationHub.GetConnectionIds(accountId);
+
+            if (connectionIds.Any())
+            {
+                LogInfo("Sending {EventType} notification to account {AccountId} with {Count} connections",
+                    null, eventType, accountId, connectionIds.Count());
+
+                // Send notification to all user connections
+                await _accountNotificationHub.Clients
+                    .Clients(connectionIds.ToList())
+                    .SendAsync("AccountStatusChanged", new
+                    {
+                        accountId = accountId.ToString(),
+                        eventType,
+                        timestamp = DateTime.UtcNow,
+                        message = GetNotificationMessage(eventType)
+                    });
+
+                LogInfo("Successfully sent {EventType} notification to account {AccountId}",
+                    null, eventType, accountId);
+            }
+            else
+            {
+                LogInfo("No active connections found for account {AccountId}, skipping notification",
+                    null, accountId);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error sending account notification for {AccountId}", accountId.ToString());
+            // Don't throw - notification failure shouldn't break the main operation
+        }
+    }
+
+    /// <summary>
+    /// Get user-friendly notification message based on event type
+    /// </summary>
+    private static string GetNotificationMessage(string eventType)
+    {
+        return eventType switch
+        {
+            "account_deactivated" => "Your account has been deactivated by an administrator.",
+            "account_activated" => "Your account has been reactivated.",
+            "account_locked" => "Your account has been locked by an administrator.",
+            "account_unlocked" => "Your account has been unlocked.",
+            _ => "Your account status has changed."
+        };
     }
 
     #endregion
@@ -1469,6 +1563,257 @@ public class AuthService : BaseService, IAuthService
             Message = message,
             Token = accessToken
         };
+    }
+
+    #endregion
+
+    #region Admin Account Management Operations
+
+    /// <summary>
+    /// Get accounts by role name with detailed profile information
+    /// </summary>
+    public async Task<AccountManagementResponse> GetAccountsByRoleNameAsync(
+        string roleName,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm = null,
+        string sortBy = "CreatedAt",
+        string sortOrder = "desc")
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Getting accounts by role name: {RoleName}, Page: {PageNumber}, PageSize: {PageSize}, Search: {SearchTerm}, Sort: {SortBy} {SortOrder}",
+                null, roleName, pageNumber, pageSize, searchTerm ?? "None", sortBy, sortOrder);
+
+            // Get role by name
+            var role = await _authRepository.GetRoleByNameAsync(roleName);
+            if (role == null)
+            {
+                throw new ValidationException($"Role '{roleName}' not found");
+            }
+
+            // Get accounts with this role
+            var accounts = await _authRepository.GetAccountsByRoleAsync(role);
+
+            // Create a dictionary for fast lookup of account data (Status, CreatedAt)
+            var accountDict = accounts.ToDictionary(a => a.Id, a => a);
+
+            // Get account IDs for gRPC batch requests
+            var accountIds = accounts.Select(a => a.Id).ToList();
+
+            // Fetch detailed information based on role (passing accountDict for enrichment)
+            var accountsWithProfile = new List<AccountWithProfileResponse>();
+
+            if (roleName.Equals("Patient", StringComparison.OrdinalIgnoreCase))
+            {
+                accountsWithProfile = await GetPatientsDetailsAsync(accountIds, accountDict);
+            }
+            else if (roleName.Equals("Doctor", StringComparison.OrdinalIgnoreCase))
+            {
+                accountsWithProfile = await GetDoctorsDetailsAsync(accountIds, accountDict);
+            }
+            else if (roleName.Equals("Staff", StringComparison.OrdinalIgnoreCase))
+            {
+                accountsWithProfile = await GetHospitalsDetailsAsync(accountIds, accountDict);
+            }
+
+            // Apply search filter
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                accountsWithProfile = accountsWithProfile
+                    .Where(a =>
+                        a.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        a.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        (a.Phone != null && a.Phone.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                        (a.Address != null && a.Address.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+
+            // Apply sorting
+            accountsWithProfile = ApplySorting(accountsWithProfile, sortBy, sortOrder);
+
+            // Get total count after filtering
+            var totalCount = accountsWithProfile.Count;
+
+            // Apply pagination
+            var paginatedAccounts = accountsWithProfile
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            LogInfo("Retrieved {Count} accounts for role {RoleName}", null, paginatedAccounts.Count, roleName);
+
+            return new AccountManagementResponse
+            {
+                Accounts = paginatedAccounts,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+            };
+        }, "GetAccountsByRoleName");
+    }
+
+    /// <summary>
+    /// Apply sorting to accounts list
+    /// </summary>
+    private List<AccountWithProfileResponse> ApplySorting(
+        List<AccountWithProfileResponse> accounts,
+        string sortBy,
+        string sortOrder)
+    {
+        var isDescending = sortOrder.Equals("desc", StringComparison.OrdinalIgnoreCase);
+
+        return sortBy.ToLowerInvariant() switch
+        {
+            "fullname" => isDescending
+                ? accounts.OrderByDescending(a => a.FullName).ToList()
+                : accounts.OrderBy(a => a.FullName).ToList(),
+
+            "email" => isDescending
+                ? accounts.OrderByDescending(a => a.Email).ToList()
+                : accounts.OrderBy(a => a.Email).ToList(),
+
+            "status" => isDescending
+                ? accounts.OrderByDescending(a => a.Status).ToList()
+                : accounts.OrderBy(a => a.Status).ToList(),
+
+            "createdat" or _ => isDescending
+                ? accounts.OrderByDescending(a => a.CreatedAt).ToList()
+                : accounts.OrderBy(a => a.CreatedAt).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// Get patient details via User service gRPC
+    /// </summary>
+    private async Task<List<AccountWithProfileResponse>> GetPatientsDetailsAsync(
+        List<Guid> accountIds,
+        Dictionary<Guid, AccountEntity> accountDict)
+    {
+        try
+        {
+            var request = new GetUsersByAccountIdsRequest();
+            request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
+
+            var response = await _userGrpcClient.GetUsersByAccountIdsAsync(request);
+
+            return response.Users.Select(user =>
+            {
+                var accountId = Guid.Parse(user.AccountId);
+                var account = accountDict.TryGetValue(accountId, out var acc) ? acc : null;
+
+                // Check if account is locked (LockoutEnd > now)
+                var isLocked = account?.LockoutEnd.HasValue == true &&
+                               account.LockoutEnd.Value > DateTimeOffset.UtcNow;
+
+                return new AccountWithProfileResponse
+                {
+                    AccountId = accountId,
+                    Email = user.Email,
+                    FullName = user.FullName,
+                    AvatarUrl = user.AvatarUrl,
+                    Phone = user.Phone,
+                    Address = user.Address,
+                    Status = account?.Status.ToString() ?? "UNKNOWN",
+                    CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
+                    IsLocked = isLocked
+                };
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error calling User service for patient details");
+            return new List<AccountWithProfileResponse>();
+        }
+    }
+
+    /// <summary>
+    /// Get doctor details via Doctor service gRPC
+    /// </summary>
+    private async Task<List<AccountWithProfileResponse>> GetDoctorsDetailsAsync(
+        List<Guid> accountIds,
+        Dictionary<Guid, AccountEntity> accountDict)
+    {
+        try
+        {
+            var request = new GetDoctorsByAccountIdsRequest();
+            request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
+
+            var response = await _doctorGrpcClient.GetDoctorsByAccountIdsAsync(request);
+
+            return response.Doctors.Select(doctor =>
+            {
+                var accountId = Guid.Parse(doctor.AccountId);
+                var account = accountDict.TryGetValue(accountId, out var acc) ? acc : null;
+
+                // Check if account is locked (LockoutEnd > now)
+                var isLocked = account?.LockoutEnd.HasValue == true &&
+                               account.LockoutEnd.Value > DateTimeOffset.UtcNow;
+
+                return new AccountWithProfileResponse
+                {
+                    AccountId = accountId,
+                    Email = doctor.Email,
+                    FullName = doctor.FullName,
+                    AvatarUrl = doctor.AvatarUrl,
+                    Phone = null, // Doctor service doesn't return phone in batch
+                    Address = doctor.Address,
+                    Status = account?.Status.ToString() ?? "UNKNOWN",
+                    CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
+                    IsLocked = isLocked
+                };
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error calling Doctor service for doctor details");
+            return new List<AccountWithProfileResponse>();
+        }
+    }
+
+    /// <summary>
+    /// Get hospital details via Hospital service gRPC
+    /// </summary>
+    private async Task<List<AccountWithProfileResponse>> GetHospitalsDetailsAsync(
+        List<Guid> accountIds,
+        Dictionary<Guid, AccountEntity> accountDict)
+    {
+        try
+        {
+            var request = new GetHospitalsByAccountIdsRequest();
+            request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
+
+            var response = await _hospitalGrpcClient.GetHospitalsByAccountIdsAsync(request);
+
+            return response.Hospitals.Select(hospital =>
+            {
+                var accountId = Guid.Parse(hospital.AccountId);
+                var account = accountDict.TryGetValue(accountId, out var acc) ? acc : null;
+
+                // Check if account is locked (LockoutEnd > now)
+                var isLocked = account?.LockoutEnd.HasValue == true &&
+                               account.LockoutEnd.Value > DateTimeOffset.UtcNow;
+
+                return new AccountWithProfileResponse
+                {
+                    AccountId = accountId,
+                    Email = hospital.Email,
+                    FullName = hospital.FullName,
+                    AvatarUrl = hospital.AvatarUrl,
+                    Phone = hospital.Phone,
+                    Address = hospital.Address,
+                    Status = account?.Status.ToString() ?? "UNKNOWN",
+                    CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
+                    IsLocked = isLocked
+                };
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error calling Hospital service for hospital details");
+            return new List<AccountWithProfileResponse>();
+        }
     }
 
     #endregion

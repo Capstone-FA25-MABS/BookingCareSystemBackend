@@ -241,6 +241,7 @@ public class AccountWithProfileResponse
     public string? Address { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public bool IsLocked { get; set; }
 }
 
 /// <summary>
