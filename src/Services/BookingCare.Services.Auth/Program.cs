@@ -253,7 +253,6 @@ app.MapControllers();
 app.MapGrpcService<AuthGrpcService>();
 
 // Map SignalR hubs
-app.MapHub<ChatHub>("/hubs/chat"); // For presence tracking
 app.MapHub<AccountNotificationHub>("/hubs/account-notification"); // For account notifications
 
 // Map health check endpoint
