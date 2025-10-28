@@ -75,6 +75,8 @@ message UserBasicInfo {
   string email = 2;
   string full_name = 3;
   string avatar_url = 4;
+  string address = 5;
+  string phone = 6;
 }
 
 // Response message for batch user retrieval
