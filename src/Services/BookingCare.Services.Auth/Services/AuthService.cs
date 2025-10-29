@@ -1681,7 +1681,7 @@ public class AuthService : BaseService, IAuthService
     /// <summary>
     /// Apply sorting to accounts list
     /// </summary>
-    private List<AccountWithProfileResponse> ApplySorting(
+    private static List<AccountWithProfileResponse> ApplySorting(
         List<AccountWithProfileResponse> accounts,
         string sortBy,
         string sortOrder)
@@ -1702,7 +1702,7 @@ public class AuthService : BaseService, IAuthService
                 ? accounts.OrderByDescending(a => a.Status).ToList()
                 : accounts.OrderBy(a => a.Status).ToList(),
 
-            "createdat" or _ => isDescending
+            _ => isDescending
                 ? accounts.OrderByDescending(a => a.CreatedAt).ToList()
                 : accounts.OrderBy(a => a.CreatedAt).ToList(),
         };

@@ -765,6 +765,68 @@ public class AuthController : BaseApiController
         return Success(result, "Accounts by role retrieved successfully");
     }
 
+    /// <summary>
+    /// Get accounts by role name with detailed profile information (for admin management)
+    /// </summary>
+    /// <param name="role">Role name (Patient/Doctor/Staff)</param>
+    /// <param name="pageNumber">Page number (default: 1)</param>
+    /// <param name="pageSize">Page size (default: 10)</param>
+    /// <param name="searchTerm">Search term for filtering by name or email</param>
+    /// <param name="sortBy">Sort field (FullName/Email/CreatedAt)</param>
+    /// <param name="sortOrder">Sort order (asc/desc)</param>
+    /// <returns>Paginated list of accounts with profile details</returns>
+    [HttpGet("admin/accounts")]
+    [Authorize(Policy = "Role:Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetAccountsByRole(
+        [FromQuery] string role = "Patient",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string sortBy = "CreatedAt",
+        [FromQuery] string sortOrder = "desc")
+    {
+        // Validate role name
+        var validRoles = new[] { "Patient", "Doctor", "Staff" };
+        if (!validRoles.Contains(role, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest($"Invalid role. Valid roles are: {string.Join(", ", validRoles)}");
+        }
+
+        // Validate pagination parameters
+        if (pageNumber < 1)
+        {
+            return BadRequest("Page number must be greater than 0");
+        }
+
+        if (pageSize < 1 || pageSize > 100)
+        {
+            return BadRequest("Page size must be between 1 and 100");
+        }
+
+        // Validate sort parameters
+        var validSortFields = new[] { "FullName", "Email", "CreatedAt", "Status" };
+        if (!validSortFields.Contains(sortBy, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest($"Invalid sort field. Valid fields are: {string.Join(", ", validSortFields)}");
+        }
+
+        var validSortOrders = new[] { "asc", "desc" };
+        if (!validSortOrders.Contains(sortOrder, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest("Sort order must be 'asc' or 'desc'");
+        }
+
+        var result = await _authService.GetAccountsByRoleNameAsync(
+            role,
+            pageNumber,
+            pageSize,
+            searchTerm,
+            sortBy,
+            sortOrder);
+        return Success(result, $"Retrieved {result.Accounts.Count} accounts with role '{role}'");
+    }
+
     #endregion
 
     #region Role-Permission Operations
@@ -987,72 +1049,5 @@ public class AuthController : BaseApiController
     }
 
     #endregion
-
-    #region Admin Account Management Operations
-
-    /// <summary>
-    /// Get accounts by role name with detailed profile information (for admin management)
-    /// </summary>
-    /// <param name="role">Role name (Patient/Doctor/Staff)</param>
-    /// <param name="pageNumber">Page number (default: 1)</param>
-    /// <param name="pageSize">Page size (default: 10)</param>
-    /// <param name="searchTerm">Search term for filtering by name or email</param>
-    /// <param name="sortBy">Sort field (FullName/Email/CreatedAt)</param>
-    /// <param name="sortOrder">Sort order (asc/desc)</param>
-    /// <returns>Paginated list of accounts with profile details</returns>
-    [HttpGet("admin/accounts")]
-    //[Authorize(Policy = "Role:Admin")]
-    [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetAccountsByRole(
-        [FromQuery] string role = "Patient",
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10,
-        [FromQuery] string? searchTerm = null,
-        [FromQuery] string sortBy = "CreatedAt",
-        [FromQuery] string sortOrder = "desc")
-    {
-        // Validate role name
-        var validRoles = new[] { "Patient", "Doctor", "Staff" };
-        if (!validRoles.Contains(role, StringComparer.OrdinalIgnoreCase))
-        {
-            return BadRequest($"Invalid role. Valid roles are: {string.Join(", ", validRoles)}");
-        }
-
-        // Validate pagination parameters
-        if (pageNumber < 1)
-        {
-            return BadRequest("Page number must be greater than 0");
-        }
-
-        if (pageSize < 1 || pageSize > 100)
-        {
-            return BadRequest("Page size must be between 1 and 100");
-        }
-
-        // Validate sort parameters
-        var validSortFields = new[] { "FullName", "Email", "CreatedAt", "Status" };
-        if (!validSortFields.Contains(sortBy, StringComparer.OrdinalIgnoreCase))
-        {
-            return BadRequest($"Invalid sort field. Valid fields are: {string.Join(", ", validSortFields)}");
-        }
-
-        var validSortOrders = new[] { "asc", "desc" };
-        if (!validSortOrders.Contains(sortOrder, StringComparer.OrdinalIgnoreCase))
-        {
-            return BadRequest("Sort order must be 'asc' or 'desc'");
-        }
-
-        var result = await _authService.GetAccountsByRoleNameAsync(
-            role,
-            pageNumber,
-            pageSize,
-            searchTerm,
-            sortBy,
-            sortOrder);
-        return Success(result, $"Retrieved {result.Accounts.Count} accounts with role '{role}'");
-    }
-
-    #endregion
-
 
 }
