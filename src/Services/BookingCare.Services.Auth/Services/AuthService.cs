@@ -147,7 +147,7 @@ public class AuthService : BaseService, IAuthService
             LogInfo("Registration attempt for email: {Email}", null, request.Email);
 
             // Validate account uniqueness
-            await ValidateAccountUniquenessAsync(request);
+            await ValidateAccountUniquenessAsync(request, role);
 
             // Validate OTP for patient registration
             await ValidatePatientOtpAsync(request, role);
@@ -156,7 +156,7 @@ public class AuthService : BaseService, IAuthService
             var targetRole = await GetAndValidateRoleAsync(role);
 
             // Create and assign account
-            var createdAccount = await CreateAndAssignAccountAsync(request, targetRole);
+            var createdAccount = await CreateAndAssignAccountAsync(request, targetRole, role);
 
             LogInfo("Registration successful for email: {Email}", null, request.Email);
 
@@ -165,16 +165,21 @@ public class AuthService : BaseService, IAuthService
     }
 
     /// <summary>
-    /// Validate account uniqueness (email and phone)
+    /// Validate account uniqueness (email and phone based on role)
     /// </summary>
-    private async Task ValidateAccountUniquenessAsync(RegisterRequest request)
+    private async Task ValidateAccountUniquenessAsync(RegisterRequest request, Role role)
     {
+        // Always check email uniqueness
         if (await _authRepository.EmailExistsAsync(request.Email))
         {
             throw new AccountConflictException(request.Email, "Email");
         }
 
-        if (await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
+        // Only check phone number uniqueness for roles that require it (Patient and Staff)
+        // Doctor role doesn't require phone number, so skip validation
+        if ((role == Role.PATIENT || role == Role.STAFF)
+            && !string.IsNullOrWhiteSpace(request.PhoneNumber)
+            && await _authRepository.PhoneNumberExistsAsync(request.PhoneNumber))
         {
             throw new AccountConflictException(request.PhoneNumber, "PhoneNumber");
         }
@@ -212,7 +217,7 @@ public class AuthService : BaseService, IAuthService
     /// <summary>
     /// Create account and assign role
     /// </summary>
-    private async Task<AccountEntity> CreateAndAssignAccountAsync(RegisterRequest request, RoleEntity targetRole)
+    private async Task<AccountEntity> CreateAndAssignAccountAsync(RegisterRequest request, RoleEntity targetRole, Role role)
     {
         var account = _mapper.Map<AccountEntity>(request);
         if (!string.IsNullOrWhiteSpace(request.Channel))
@@ -227,7 +232,18 @@ public class AuthService : BaseService, IAuthService
                 account.EmailConfirmed = true;
             }
         }
-        var createdAccount = await _authRepository.CreateAccountAsync(account, request.Password);
+
+        // Set MustChangePassword flag for Doctor accounts (password is auto-generated)
+        if (role == Role.DOCTOR)
+        {
+            account.MustChangePassword = true;
+            account.PhoneNumber = null;
+            LogInfo("Setting MustChangePassword=true for doctor account: {Email}", null, request.Email);
+        }
+
+        // Ensure password is provided (will be auto-generated for doctors before calling this method)
+        var passwordToUse = request.Password ?? throw new ValidationException("Password is required");
+        var createdAccount = await _authRepository.CreateAccountAsync(account, passwordToUse);
 
         await _authRepository.AssignRoleToAccountAsync(createdAccount, targetRole);
         LogInfo("Role '{Role}' assigned to account: {Email}", null, targetRole.Name!, request.Email);
@@ -368,6 +384,14 @@ public class AuthService : BaseService, IAuthService
             if (!result)
             {
                 throw new AuthException("Failed to change password");
+            }
+
+            // Clear MustChangePassword flag after first successful password change
+            if (account.MustChangePassword)
+            {
+                account.MustChangePassword = false;
+                await _authRepository.UpdateAccountAsync(account);
+                LogInfo("Cleared MustChangePassword flag for account: {AccountId}", null, accountId);
             }
 
             LogInfo("Password changed successfully for account: {AccountId}", null, accountId);

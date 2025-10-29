@@ -310,6 +310,140 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
         }
     }
 
+    /// <summary>
+    /// NEW: Get user display info in consistent format with AuthService (for review patient info)
+    /// </summary>
+    public override async Task<Protos.UserDisplayInfoResponse> GetUserDisplayInfo(
+        Protos.GetUserDisplayInfoRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[UserGrpcService] gRPC GetUserDisplayInfo called for ID: {UserId}", request.Id);
+
+            if (!Guid.TryParse(request.Id, out var userId))
+            {
+                return new Protos.UserDisplayInfoResponse
+                {
+                    Id = request.Id,
+                    Found = false
+                };
+            }
+
+            var userBasicInfo = await _userService.GetBasicInfoByIdAsync(userId);
+
+            if (userBasicInfo == null)
+            {
+                _logger.LogInformation("[UserGrpcService] User display info not found: {UserId}", userId);
+                return new Protos.UserDisplayInfoResponse
+                {
+                    Id = request.Id,
+                    Found = false
+                };
+            }
+
+            var response = new Protos.UserDisplayInfoResponse
+            {
+                Id = userBasicInfo.Id.ToString(),
+                Email = userBasicInfo.Email,
+                FullName = $"{userBasicInfo.FirstName} {userBasicInfo.LastName}".Trim(),
+                AvatarUrl = userBasicInfo.AvatarUrl,
+                Found = true
+            };
+
+            _logger.LogInformation("[UserGrpcService] User display info retrieved successfully: {UserId}", userId);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[UserGrpcService] Error getting user display info: {UserId}", request.Id);
+            return new Protos.UserDisplayInfoResponse
+            {
+                Id = request.Id,
+                Found = false
+            };
+        }
+    }
+
+    /// <summary>
+    /// NEW: Get multiple users display info in consistent format with AuthService (for review patient info batch)
+    /// </summary>
+    public override async Task<Protos.UsersDisplayInfoResponse> GetUsersDisplayInfo(
+        Protos.GetUsersDisplayInfoRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[UserGrpcService] gRPC GetUsersDisplayInfo called for {Count} user IDs", request.Ids.Count);
+
+            var response = new Protos.UsersDisplayInfoResponse();
+
+            if (!request.Ids.Any())
+            {
+                _logger.LogInformation("[UserGrpcService] No user IDs provided for GetUsersDisplayInfo");
+                return response;
+            }
+
+            var userIds = new List<Guid>();
+            var invalidIds = new List<string>();
+
+            // Parse and validate user IDs
+            foreach (var idStr in request.Ids)
+            {
+                if (Guid.TryParse(idStr, out var id))
+                {
+                    userIds.Add(id);
+                }
+                else
+                {
+                    invalidIds.Add(idStr);
+                }
+            }
+
+            // Get users from service
+            var users = await _userService.GetUsersBasicInfoByIdsAsync(userIds);
+            var userDict = users.ToDictionary(u => u.Id, u => u);
+
+            // Map found users
+            foreach (var userId in userIds)
+            {
+                if (userDict.TryGetValue(userId, out var user))
+                {
+                    response.Users.Add(new Protos.UserDisplayInfoResponse
+                    {
+                        Id = user.Id.ToString(),
+                        Email = user.Email,
+                        FullName = $"{user.FirstName} {user.LastName}".Trim(),
+                        AvatarUrl = user.AvatarUrl,
+                        Found = true
+                    });
+                }
+                else
+                {
+                    response.Users.Add(new Protos.UserDisplayInfoResponse
+                    {
+                        Id = userId.ToString(),
+                        Found = false
+                    });
+                }
+            }
+
+
+
+            _logger.LogInformation("[UserGrpcService] Retrieved {Count} users display info - Found: {FoundCount}, NotFound: {NotFoundCount}",
+                       request.Ids.Count,
+              response.Users.Count(u => u.Found),
+                          response.Users.Count(u => !u.Found));
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[UserGrpcService] Error in GetUsersDisplayInfo");
+            throw new RpcException(new Status(StatusCode.Internal, ErrorMessages.InternalServerError));
+        }
+    }
+
     // Helper methods for mapping
     private static Protos.UserResponse MapToGrpcUserResponse(UserResponse user)
     {

@@ -27,10 +27,10 @@ public class ServiceTypeService : BaseService, IServiceTypeService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            // Validate unique name
+            // Validate unique constraint
             if (await _repository.ServiceTypeNameExistsAsync(request.Name))
             {
-                throw new ArgumentException($"Service type with name '{request.Name}' already exists");
+                throw ServiceTypeConflictException.WithName(request.Name);
             }
 
             // Create service type entity
@@ -38,8 +38,7 @@ public class ServiceTypeService : BaseService, IServiceTypeService
             serviceType.Id = Guid.NewGuid();
 
             var createdServiceType = await _repository.CreateServiceTypeAsync(serviceType);
-            var response = _mapper.Map<ServiceTypeResponse>(createdServiceType);
-            return response;
+            return _mapper.Map<ServiceTypeResponse>(createdServiceType);
         }, nameof(CreateServiceTypeAsync));
     }
 
@@ -63,13 +62,14 @@ public class ServiceTypeService : BaseService, IServiceTypeService
             var existingServiceType = await _repository.GetServiceTypeByIdAsync(request.Id);
             if (existingServiceType == null)
             {
-                throw new ArgumentException($"Service type with ID {request.Id} not found");
+                throw ServiceTypeNotFoundException.WithId(request.Id);
             }
 
-            // Validate unique name (exclude current service type)
-            if (await _repository.ServiceTypeNameExistsAsync(request.Name, request.Id))
+            // Validate unique constraint if name is being updated
+            if (!string.IsNullOrEmpty(request.Name) && request.Name != existingServiceType.Name &&
+                await _repository.ServiceTypeNameExistsAsync(request.Name, request.Id))
             {
-                throw new ArgumentException($"Service type with name '{request.Name}' already exists");
+                throw ServiceTypeConflictException.WithName(request.Name);
             }
 
             // Update service type entity
@@ -77,8 +77,7 @@ public class ServiceTypeService : BaseService, IServiceTypeService
             existingServiceType.UpdatedAt = DateTime.UtcNow;
 
             var updatedServiceType = await _repository.UpdateServiceTypeAsync(existingServiceType);
-            var response = _mapper.Map<ServiceTypeResponse>(updatedServiceType);
-            return response;
+            return _mapper.Map<ServiceTypeResponse>(updatedServiceType);
         }, nameof(UpdateServiceTypeAsync));
     }
 
@@ -100,14 +99,14 @@ public class ServiceTypeService : BaseService, IServiceTypeService
         }, nameof(DeleteServiceTypeAsync));
     }
 
-    public async Task<bool> ToggleDoctorServiceTypeStatusAsync(Guid id)
+    public async Task<bool> ToggleServiceTypeStatusAsync(Guid id)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
             var serviceType = await _repository.GetServiceTypeByIdAsync(id);
             if (serviceType == null)
             {
-                throw new ArgumentException($"Service type with ID {id} not found");
+                throw ServiceTypeNotFoundException.WithId(id);
             }
 
             // Toggle status: ACTIVE -> INACTIVE, INACTIVE -> ACTIVE
@@ -116,7 +115,7 @@ public class ServiceTypeService : BaseService, IServiceTypeService
 
             await _repository.UpdateServiceTypeAsync(serviceType);
             return true;
-        }, nameof(ToggleDoctorServiceTypeStatusAsync));
+        }, nameof(ToggleServiceTypeStatusAsync));
     }
 
     #endregion
@@ -142,6 +141,12 @@ public class ServiceTypeService : BaseService, IServiceTypeService
         return _mapper.Map<List<ServiceTypeResponse>>(serviceTypes);
     }
 
+    public async Task<List<ServiceTypeResponse>> GetActiveServiceTypesAsync()
+    {
+        var serviceTypes = await _repository.GetActiveServiceTypesAsync();
+        return _mapper.Map<List<ServiceTypeResponse>>(serviceTypes);
+    }
+
     public async Task<List<ServiceTypeSimpleResponse>> GetActiveServiceTypesSimpleAsync()
     {
         var serviceTypes = await _repository.GetActiveServiceTypesSimpleAsync();
@@ -160,6 +165,20 @@ public class ServiceTypeService : BaseService, IServiceTypeService
     public async Task<bool> ServiceTypeNameExistsAsync(string name, Guid? excludeId = null)
     {
         return await _repository.ServiceTypeNameExistsAsync(name, excludeId);
+    }
+
+    public async Task<List<ServiceTypeResponse>> GetServiceTypesByIdsAsync(List<Guid> ids)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            if (ids == null || ids.Count == 0)
+            {
+                return new List<ServiceTypeResponse>();
+            }
+
+            var serviceTypes = await _repository.GetServiceTypesByIdsAsync(ids);
+            return _mapper.Map<List<ServiceTypeResponse>>(serviceTypes);
+        }, nameof(GetServiceTypesByIdsAsync));
     }
 
     #endregion

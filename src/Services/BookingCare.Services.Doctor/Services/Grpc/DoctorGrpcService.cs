@@ -103,6 +103,28 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
                 create.Gender = gender;
             }
 
+            // Map language IDs
+            if (request.LanguageIds != null && request.LanguageIds.Count > 0)
+            {
+                create.LanguageIds = request.LanguageIds
+                    .Where(id => Guid.TryParse(id, out _))
+                    .Select(Guid.Parse)
+                    .ToList();
+            }
+
+            // Map prices
+            if (request.Prices != null && request.Prices.Count > 0)
+            {
+                create.Prices = request.Prices
+                    .Where(p => Guid.TryParse(p.ServiceTypeId, out _))
+                    .Select(p => new Models.DTOs.Requests.DoctorPriceRequest
+                    {
+                        ServiceTypeId = Guid.Parse(p.ServiceTypeId),
+                        Amount = (decimal)p.Amount
+                    })
+                    .ToList();
+            }
+
             var doctor = await _doctorService.CreateDoctorAsync(create);
             return MapToGrpcDoctorResponse(doctor);
         }
