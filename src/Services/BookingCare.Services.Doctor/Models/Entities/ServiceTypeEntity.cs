@@ -21,6 +21,10 @@ public class ServiceTypeEntity
     public string? Description { get; set; }
 
     [Required]
+    [Column("image_url")]
+    public string ImageUrl { get; set; } = string.Empty;
+
+    [Required]
     [Column("status")]
     public Status Status { get; set; } = Status.ACTIVE;
 

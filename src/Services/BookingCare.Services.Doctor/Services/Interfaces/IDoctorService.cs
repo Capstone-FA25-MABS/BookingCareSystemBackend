@@ -1,10 +1,11 @@
 using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
+using BookingCare.Shared.Common.Interfaces;
 
 namespace BookingCare.Services.Doctor.Services.Interfaces;
 
-public interface IDoctorService
+public interface IDoctorService : IAvatarService
 {
     // Doctor CRUD operations
     Task<DoctorResponse> CreateDoctorAsync(CreateDoctorRequest request);
@@ -48,4 +49,23 @@ public interface IDoctorService
     // Optimized methods for gRPC performance
     Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
     Task<List<DoctorEntity>> GetDoctorsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
+
+    /// <summary>
+    /// Get consultation fees for multiple doctors by service type (batch operation for performance)
+    /// Returns a dictionary of doctorId -> price, only includes doctors that have the specified service type
+    /// </summary>
+    Task<Dictionary<Guid, decimal>> GetDoctorsPricesByServiceTypeAsync(IEnumerable<Guid> doctorIds, string serviceTypeName);
+
+    // Get available doctors by hospital, specialty (for Appointment Service)
+    // Note: Availability check (appointment conflicts) is done by Appointment Service
+    Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+
+    // Get doctor price by ID (for Appointment Service - Option 3 reschedule)
+    Task<DoctorPriceResponse?> GetDoctorPriceByIdAsync(Guid priceId);
+
+    // Doctor count operations
+    Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
+
+    // Avatar operations
+    Task<bool> UpdateDoctorAvatarAsync(Guid accountId, string avatarUrl);
 }

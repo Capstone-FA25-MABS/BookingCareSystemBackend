@@ -63,9 +63,11 @@ builder.Services.AddRabbitMQEventBus(builder.Configuration, "notification-servic
 builder.Services.AddIntegrationEventHandler<NotificationSendEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentRefundRequestedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentNoRefundNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentCancelledWithOptionsNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<DoctorCredentialsGeneratedEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -95,11 +97,15 @@ app.UseEventBus(eventBus =>
     eventBus.Subscribe<NotificationSendEvent, NotificationSendEventHandler>();
     eventBus.Subscribe<AppointmentRefundRequestedIntegrationEvent, AppointmentRefundRequestedEventHandler>();
     eventBus.Subscribe<AppointmentNoRefundNotificationEvent, AppointmentNoRefundNotificationEventHandler>();
+    eventBus.Subscribe<AppointmentCancelledWithOptionsNotificationEvent, AppointmentCancelledWithOptionsNotificationEventHandler>();
     eventBus.Subscribe<RefundHistoryCompletedIntegrationEvent, RefundHistoryCompletedEventHandler>();
     eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
 
     // Subscribe to appointment booking success notifications for email sending
     eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
+
+    // Subscribe to doctor credentials generated event for sending login credentials
+    eventBus.Subscribe<DoctorCredentialsGeneratedEvent, DoctorCredentialsGeneratedEventHandler>();
 });
 
 await app.RunAsync();

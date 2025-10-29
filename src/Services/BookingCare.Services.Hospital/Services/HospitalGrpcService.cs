@@ -99,6 +99,25 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         };
     }
 
+    private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalProfileResponse hospital)
+    {
+        return new HospitalReply
+        {
+            Id = hospital.Id.ToString(),
+            AccountId = "", // HospitalProfileResponse doesn't include AccountId
+            Name = hospital.Name,
+            Address = hospital.Address,
+            Phone = hospital.Phone ?? "",
+            Email = hospital.Email,
+            Description = hospital.Description,
+            BackgroundUrl = hospital.BackgroundUrl ?? "",
+            AvatarUrl = hospital.AvatarUrl ?? "",
+            Status = "ACTIVE", // Status is now managed by Auth service
+            CreatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), // Default value since not included
+            UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") // Default value since not included
+        };
+    }
+
     public override async Task<HospitalReply> GetHospital(GetHospitalRequest request, ServerCallContext context)
     {
         try

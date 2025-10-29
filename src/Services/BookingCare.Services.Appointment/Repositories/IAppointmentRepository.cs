@@ -21,6 +21,16 @@ public interface IAppointmentRepository
     Task<bool> UpdateAppointmentStatusAsync(Guid appointmentId, AppointmentStatus status, string? result = null);
 
     /// <summary>
+    /// Update an existing appointment (for reschedule operations)
+    /// </summary>
+    Task<bool> UpdateAppointmentAsync(AppointmentEntity appointment);
+
+    /// <summary>
+    /// Get appointments with expired reschedule tokens for cleanup
+    /// </summary>
+    Task<List<AppointmentEntity>> GetAppointmentsWithExpiredTokensAsync(DateTime now);
+
+    /// <summary>
     /// Cancel an appointment with cancellation reason
     /// Optimized method specifically for cancellation that takes the full entity
     /// </summary>
@@ -57,4 +67,13 @@ public interface IAppointmentRepository
     /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
     /// </summary>
     Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(Guid doctorId, DateOnly appointmentDate);
+
+    /// <summary>
+    /// NEW: Get completed appointments by patient with optional doctor or service filter (for Review service validation)
+    /// Returns appointments with COMPLETED status for appointment history validation
+    /// </summary>
+    Task<List<AppointmentEntity>> GetCompletedAppointmentsByPatientAsync(
+        Guid patientId,
+        Guid? doctorId = null,
+        Guid? serviceId = null);
 }

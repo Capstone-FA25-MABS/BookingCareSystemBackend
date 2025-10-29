@@ -50,6 +50,21 @@ public class ReviewsController : BaseApiController
 
             return Conflict(errorResponse);
         }
+        catch (Exceptions.NoAppointmentHistoryException ex)
+        {
+            var errorResponse = new
+            {
+                Message = ex.Message,
+                PatientId = ex.PatientId,
+                DoctorId = ex.DoctorId,
+                ServiceId = ex.ServiceId,
+                TargetType = ex.TargetType,
+                SuggestedAction = $"Complete an appointment with this {ex.TargetType.ToLower()} before creating a review.",
+                RequirementInfo = "Reviews can only be created after completing an appointment with the target doctor or service."
+            };
+
+            return BadRequest(errorResponse);
+        }
     }
 
     /// <summary>

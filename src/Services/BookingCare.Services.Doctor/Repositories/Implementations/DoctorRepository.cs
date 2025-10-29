@@ -667,6 +667,57 @@ public class DoctorRepository : IDoctorRepository
             .ToListAsync();
     }
 
+    public async Task<Dictionary<Guid, decimal>> GetDoctorsPricesByServiceTypeAsync(IEnumerable<Guid> doctorIds, string serviceTypeName)
+    {
+        var idList = doctorIds.ToList();
+
+        var prices = await _context.DoctorPrices
+            .Include(dp => dp.ServiceType)
+            .Where(dp => idList.Contains(dp.DoctorId) &&
+                         dp.ServiceType != null &&
+                         dp.ServiceType.Name == serviceTypeName)
+            .Select(dp => new { dp.DoctorId, dp.Amount })
+            .ToListAsync();
+
+        return prices.ToDictionary(p => p.DoctorId, p => p.Amount);
+    }
+
+    /// <summary>
+    /// Get doctors by hospital and specialty (for Appointment Service via gRPC)
+    /// Returns lightweight doctor entities with Position and Specialty names
+    /// Note: Status check is done in Service layer via Auth Service
+    /// </summary>
+    public async Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId)
+    {
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.Specialty)
+            .Where(d => d.HospitalId == hospitalId
+                     && d.SpecialtyId == specialtyId)
+            .Select(d => new DoctorEntity
+            {
+                Id = d.Id,
+                AccountId = d.AccountId, // Need for status check in Service layer
+                Email = d.Email,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                AvatarUrl = d.AvatarUrl,
+                YearsOfExperience = d.YearsOfExperience,
+                Position = d.Position != null ? new PositionEntity { Name = d.Position.Name } : null,
+                Specialty = d.Specialty != null ? new SpecialtyEntity { Name = d.Specialty.Name } : null
+            })
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get doctor price by ID (for Appointment Service - Option 3 reschedule)
+    /// Returns price with service type name for comparison
+    /// </summary>
+    public async Task<DoctorPriceEntity?> GetDoctorPriceByIdAsync(Guid priceId)
+    {
+        return await _context.DoctorPrices.FirstOrDefaultAsync(p => p.Id == priceId);
+    }
+
     #endregion
 
     #region Common Helper Methods
@@ -906,6 +957,37 @@ public class DoctorRepository : IDoctorRepository
         if (!string.IsNullOrEmpty(query.ProvinceId)) count++;
         if (!string.IsNullOrEmpty(query.DistrictId)) count++;
         return count;
+    }
+
+    #endregion
+
+    #region Doctor Count Operations
+
+    public async Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds)
+    {
+        var specialtyIdsList = specialtyIds.ToList();
+        if (!specialtyIdsList.Any())
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        var counts = await _context.Doctors
+            .Where(d => d.HospitalId.HasValue &&
+                       d.HospitalId.Value == hospitalId &&
+                       d.SpecialtyId.HasValue &&
+                       specialtyIdsList.Contains(d.SpecialtyId.Value))
+            .GroupBy(d => d.SpecialtyId!.Value)
+            .Select(g => new { SpecialtyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SpecialtyId, x => x.Count);
+
+        // Ensure all requested specialty IDs are in the result with count 0 if no doctors found
+        var result = new Dictionary<Guid, int>();
+        foreach (var specialtyId in specialtyIdsList)
+        {
+            result[specialtyId] = counts.GetValueOrDefault(specialtyId, 0);
+        }
+
+        return result;
     }
 
     #endregion

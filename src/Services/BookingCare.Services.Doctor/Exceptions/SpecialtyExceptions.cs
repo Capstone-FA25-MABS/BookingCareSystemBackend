@@ -26,7 +26,7 @@ public class SpecialtyNotFoundException : NotFoundException
 
     public static SpecialtyNotFoundException WithId(Guid specialtyId)
     {
-        var exception = new SpecialtyNotFoundException($"Specialty with ID '{specialtyId}' was not found.");
+        var exception = new SpecialtyNotFoundException($"Không tìm thấy chuyên khoa với ID '{specialtyId}'.");
         exception.Details["SpecialtyId"] = specialtyId;
         return exception;
     }
@@ -40,7 +40,7 @@ public class SpecialtyValidationException : ValidationException
     }
 
     public SpecialtyValidationException(List<ValidationError> validationErrors)
-        : base("Specialty validation failed", validationErrors, "SPECIALTY_VALIDATION_ERROR")
+        : base("Xác thực chuyên khoa thất bại", validationErrors, "SPECIALTY_VALIDATION_ERROR")
     {
     }
 }
@@ -54,7 +54,7 @@ public class SpecialtyConflictException : ConflictException
 
     public static SpecialtyConflictException WithName(string name)
     {
-        var exception = new SpecialtyConflictException($"Specialty with name '{name}' already exists.");
+        var exception = new SpecialtyConflictException($"Chuyên khoa với tên '{name}' đã tồn tại.");
         exception.Details["Name"] = name;
         return exception;
     }

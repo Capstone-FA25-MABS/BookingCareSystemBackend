@@ -35,10 +35,10 @@ namespace BookingCare.Services.ServiceMedical.Data
 
             // Configure check constraints for status fields
             modelBuilder.Entity<ServiceCategoryEntity>()
-                .HasCheckConstraint("CK_ServiceCategory_Status", "status IN ('ACTIVE', 'INACTIVE')");
+                .ToTable(t => t.HasCheckConstraint("CK_ServiceCategory_Status", "status IN ('ACTIVE', 'INACTIVE')"));
 
             modelBuilder.Entity<ServiceEntity>()
-                .HasCheckConstraint("CK_Service_Status", "status IN ('ACTIVE', 'INACTIVE')");
+                .ToTable(t => t.HasCheckConstraint("CK_Service_Status", "status IN ('ACTIVE', 'INACTIVE')"));
 
 
             // Configure default values

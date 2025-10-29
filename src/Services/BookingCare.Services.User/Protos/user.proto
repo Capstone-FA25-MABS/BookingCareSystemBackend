@@ -26,6 +26,12 @@ service UserService {
   
   // Get multiple users basic info (batch operation for performance)
   rpc GetUsersBasicInfo (GetUsersBasicInfoRequest) returns (UsersBasicInfoResponse);
+  
+  // Get user display info for reviews (consistent format with AuthService)
+  rpc GetUserDisplayInfo (GetUserDisplayInfoRequest) returns (UserDisplayInfoResponse);
+  
+  // Get multiple users display info for reviews (batch operation with consistent format)
+  rpc GetUsersDisplayInfo (GetUsersDisplayInfoRequest) returns (UsersDisplayInfoResponse);
 }
 
 // Request messages
@@ -114,4 +120,28 @@ message GetUsersBasicInfoRequest {
 // Response message for multiple users basic info
 message UsersBasicInfoResponse {
   repeated UserBasicInfoResponse users = 1;
+}
+
+// NEW: Request message for user display info (consistent format with AuthService)
+message GetUserDisplayInfoRequest {
+  string id = 1;
+}
+
+// NEW: Response message for user display info (matches AuthService AccountInfo format)
+message UserDisplayInfoResponse {
+  string id = 1;
+  string email = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+  bool found = 5;
+}
+
+// NEW: Request message for getting multiple users display info
+message GetUsersDisplayInfoRequest {
+  repeated string ids = 1;
+}
+
+// NEW: Response message for multiple users display info
+message UsersDisplayInfoResponse {
+  repeated UserDisplayInfoResponse users = 1;
 }

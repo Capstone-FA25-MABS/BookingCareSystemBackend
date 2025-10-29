@@ -3,6 +3,7 @@ using BookingCare.Services.Appointment.Services;
 using BookingCare.Services.Appointment.Repositories;
 using BookingCare.Services.Appointment.Mappings;
 using BookingCare.Services.Appointment.BackgroundServices;
+using BookingCare.Services.Appointment.Configuration;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
@@ -46,8 +47,13 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<DataInitializationService>();
 
+// Add Configuration
+builder.Services.Configure<FrontendConfiguration>(
+    builder.Configuration.GetSection("Frontend"));
+
 // Add Background Services
 builder.Services.AddHostedService<AppointmentStatusUpdateService>();
+builder.Services.AddHostedService<TokenCleanupService>();
 
 // Add S3 File Upload Service
 builder.Services.AddS3FileUpload(builder.Configuration);

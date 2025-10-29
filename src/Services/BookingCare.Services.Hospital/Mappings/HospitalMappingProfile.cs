@@ -38,6 +38,15 @@ public class HospitalMappingProfile : Profile
                 src.HospitalSubscriptions.FirstOrDefault(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)))
             .ForMember(dest => dest.SubscriptionHistory, opt => opt.MapFrom(src => src.HospitalSubscriptions));
 
+        // Hospital Profile mapping (exclude accountId, createdAt, updatedAt)
+        CreateMap<HospitalEntity, HospitalProfileResponse>()
+            .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
+            .ForMember(dest => dest.Specialties, opt => opt.Ignore());
+
+        CreateMap<HospitalImageEntity, HospitalImageSimpleResponse>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom(src => src.ImageUrl));
+
         CreateMap<CreateHospitalRequest, HospitalEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())

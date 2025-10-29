@@ -24,6 +24,11 @@ public class CreateAppointmentPaymentRequest
     public Guid PatientId { get; set; }
 
     /// <summary>
+    /// Hospital ID
+    /// </summary>
+    public Guid? HospitalId { get; set; }
+
+    /// <summary>
     /// Payment amount
     /// </summary>
     [Required]

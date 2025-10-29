@@ -254,7 +254,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="includeInactive">Include inactive services</param>
         /// <returns>List of services in the category with hospital information</returns>
         [HttpGet("category/{categoryId}/with-hospital")]
-        public async Task<ActionResult<ServicesByCategoryWithHospitalResponse>> GetServicesByCategoryWithHospital(
+        public async Task<ActionResult<ServicesByCategoryOptimizedResponse>> GetServicesByCategoryWithHospital(
             Guid categoryId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
@@ -283,6 +283,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
+
 
         #endregion
     }

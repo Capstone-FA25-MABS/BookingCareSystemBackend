@@ -11,9 +11,10 @@ using BookingCare.Services.Favorite;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Extensions;
+using BookingCare.Shared.FileUpload.Services;
 using BookingCare.Shared.EventBus.Extensions;
 using Microsoft.EntityFrameworkCore;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
@@ -83,6 +84,9 @@ builder.Logging.AddCommonLogging();
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
+
+// Add S3 File Upload services
+builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add gRPC
 builder.Services.AddGrpc();
