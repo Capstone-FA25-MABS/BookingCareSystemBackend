@@ -10,7 +10,7 @@ namespace BookingCare.Services.Communication.Services.Implementations;
 /// </summary>
 public class FileTypeDetectionService : IFileTypeDetectionService
 {
-    private readonly FileUploadConfiguration _config;
+
     private readonly ILogger<FileTypeDetectionService> _logger;
 
     // File signature patterns for accurate detection
@@ -36,10 +36,10 @@ public class FileTypeDetectionService : IFileTypeDetectionService
     };
 
     public FileTypeDetectionService(
-        IOptions<FileUploadConfiguration> config,
+
         ILogger<FileTypeDetectionService> logger)
     {
-        _config = config.Value;
+
         _logger = logger;
     }
 
@@ -141,6 +141,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
     public async Task<FileDetectionResult> ValidateAndDetectAsync(IFormFile file)
     {
         var result = new FileDetectionResult();
+        var fileName = file?.FileName ?? "unknown";
 
         try
         {
@@ -189,13 +190,13 @@ public class FileTypeDetectionService : IFileTypeDetectionService
             result.IsValid = !result.ValidationErrors.Any();
 
             _logger.LogInformation("File detection completed: {FileName} -> {DetectedType} (Valid: {IsValid})",
-                file.FileName, detectedType, result.IsValid);
+                fileName, detectedType, result.IsValid);
 
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in file validation and detection for {FileName}", file.FileName);
+            _logger.LogError(ex, "Error in file validation and detection for {FileName}", fileName);
             result.ValidationErrors.Add($"Detection error: {ex.Message}");
             return result;
         }
@@ -203,7 +204,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
 
     #region Private Helper Methods
 
-    private async Task<DetailedMessageType> DetectByFileSignatureAsync(IFormFile file)
+    private static async Task<DetailedMessageType> DetectByFileSignatureAsync(IFormFile file)
     {
         try
         {
@@ -228,7 +229,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         }
     }
 
-    private DetailedMessageType DetectByContentType(string contentType)
+    private static DetailedMessageType DetectByContentType(string contentType)
     {
         if (string.IsNullOrEmpty(contentType)) return DetailedMessageType.Other;
 
@@ -246,7 +247,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         };
     }
 
-    private DetailedMessageType DetectByExtension(string extension)
+    private static DetailedMessageType DetectByExtension(string extension)
     {
         return extension.ToLowerInvariant() switch
         {
@@ -262,7 +263,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         };
     }
 
-    private DetailedMessageType MapMimeTypeToDetailedType(string mimeType)
+    private static DetailedMessageType MapMimeTypeToDetailedType(string mimeType)
     {
         return mimeType switch
         {
@@ -275,7 +276,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         };
     }
 
-    private async Task<string> GetActualMimeTypeAsync(IFormFile file)
+    private async static Task<string> GetActualMimeTypeAsync(IFormFile file)
     {
         // Could implement more sophisticated MIME type detection here
         // For now, return the provided content type
@@ -283,7 +284,7 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         return file.ContentType;
     }
 
-    private long GetMaxSizeForType(DetailedMessageType type)
+    private static long GetMaxSizeForType(DetailedMessageType type)
     {
         return type switch
         {
@@ -297,18 +298,18 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         };
     }
 
-    private bool IsTypeAllowed(DetailedMessageType type)
+    private static bool IsTypeAllowed(DetailedMessageType type)
     {
         // All detected types are allowed for now
         // Could add configuration for restricted types
         return type != DetailedMessageType.Other;
     }
 
-    private string GetDetectionStrategy(IFormFile file, DetailedMessageType detectedType)
+    private static string GetDetectionStrategy(IFormFile file, DetailedMessageType detectedType)
     {
         // Simple heuristic to understand how type was detected
         var contentType = file.ContentType.ToLowerInvariant();
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
 
         if (FileSignatures.Any(sig => contentType.Contains(sig.Key)))
             return "FileSignature";
