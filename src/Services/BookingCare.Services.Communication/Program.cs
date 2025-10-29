@@ -50,7 +50,37 @@ builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
-    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true // Allow self-signed certificates in development
+    ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
+    {
+        // In production, use default certificate validation (secure)
+        if (!builder.Environment.IsDevelopment())
+        {
+            return errors == System.Net.Security.SslPolicyErrors.None;
+        }
+
+        // In development, allow self-signed certificates but still validate hostname
+        if (errors == System.Net.Security.SslPolicyErrors.None)
+        {
+            return true; // Valid certificate
+        }
+
+        // Allow only self-signed certificate errors in development
+        var allowedErrors = System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors;
+        if ((errors & ~allowedErrors) != System.Net.Security.SslPolicyErrors.None)
+        {
+            return false; // Other errors like name mismatch are not allowed
+        }
+
+        // Additional validation for development: check if it's actually a self-signed cert
+        if (cert != null && chain != null)
+        {
+            return chain.ChainStatus.All(status =>
+                status.Status == System.Security.Cryptography.X509Certificates.X509ChainStatusFlags.UntrustedRoot ||
+                status.Status == System.Security.Cryptography.X509Certificates.X509ChainStatusFlags.PartialChain);
+        }
+
+        return false;
+    }
 });
 
 // Register participant enrichment service
@@ -103,7 +133,7 @@ builder.Services.AddGlobalExceptionHandling();
 var app = builder.Build();
 
 // Initialize MongoDB indexes
-// await app.Services.InitializeMongoDbAsync();
+await app.Services.InitializeMongoDbAsync();
 
 // Use global exception handling (early in pipeline)
 app.UseGlobalExceptionHandling();
