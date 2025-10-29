@@ -15,7 +15,7 @@ using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
-using BookingCare.Shared.EventBus.Events;
+
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
 public class DoctorService : BaseService, IDoctorService
