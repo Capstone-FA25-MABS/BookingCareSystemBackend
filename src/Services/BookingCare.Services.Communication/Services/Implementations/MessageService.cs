@@ -307,16 +307,17 @@ public class MessageService : BaseService, IMessageService
             var message = await _messageRepository.GetByIdAsync(id);
             if (message != null && message.Attachments.Any())
             {
-                // Xóa files từ cloud storage
-                foreach (var attachment in message.Attachments)
+                // Xóa files từ cloud storage using LINQ Select
+                var attachmentUrls = message.Attachments.Select(attachment => attachment.Url).ToList();
+                foreach (var url in attachmentUrls)
                 {
                     try
                     {
-                        await _fileUploadService.DeleteFileAsync(attachment.Url);
+                        await _fileUploadService.DeleteFileAsync(url);
                     }
                     catch (Exception ex)
                     {
-                        LogWarning("Failed to delete attachment {Url}: {Error}", null, attachment.Url, ex.Message);
+                        LogWarning("Failed to delete attachment {Url}: {Error}", null, url, ex.Message);
                     }
                 }
             }
@@ -617,13 +618,13 @@ public class MessageService : BaseService, IMessageService
             {
                 if (hasNext)
                 {
-                    var lastItem = sortedItems.Last();
+                    var lastItem = sortedItems[sortedItems.Count - 1];
                     nextCursor = CursorHelper.GenerateCursor(lastItem.Id, lastItem.CreatedAt);
                 }
 
                 if (hasPrevious || !string.IsNullOrEmpty(request.Before))
                 {
-                    var firstItem = sortedItems.First();
+                    var firstItem = sortedItems[0];
                     previousCursor = CursorHelper.GenerateCursor(firstItem.Id, firstItem.CreatedAt);
                 }
             }

@@ -170,85 +170,111 @@ public class ConversationService : BaseService, IConversationService
         // Load unread count
         if (options.IncludeUnreadCount && !string.IsNullOrEmpty(currentUserId))
         {
-            foreach (var conversation in conversationList)
-            {
-                try
-                {
-                    conversation.UnreadCount = await _messageService.GetUnreadCountAsync(conversation.Id, currentUserId);
-                    LogDebug("Loaded unread count {Count} for conversation {ConversationId}", null, conversation.UnreadCount, conversation.Id);
-                }
-                catch (Exception ex)
-                {
-                    LogWarning("Error loading unread count for conversation {ConversationId}: {Error}", correlationId: null, args: new object[] { conversation.Id, ex.Message });
-                    conversation.UnreadCount = 0;
-                }
-            }
+            await LoadUnreadCountsAsync(conversationList, currentUserId);
         }
 
-        // 🎯 OPTIMIZED: Load participant details từ Auth Service - CHỈ OTHER PARTICIPANTS
+        // Load participant details from Auth Service - ONLY OTHER PARTICIPANTS
         if (options.IncludeParticipantDetails)
         {
-            try
-            {
-                if (!string.IsNullOrEmpty(currentUserId))
-                {
-                    LogDebug("Starting enrichment of OTHER participant details for {Count} conversations (exclude current user: {CurrentUserId})",
-                        correlationId: null, args: new object[] { conversationList.Count, currentUserId });
-
-                    // 🎯 OPTIMIZATION: Chỉ enrich OTHER participants (exclude current user)
-                    await _participantEnrichmentService.EnrichOtherParticipantDetailsAsync(conversationList, currentUserId);
-
-                    LogDebug("Completed enrichment of OTHER participant details for {Count} conversations", correlationId: null, args: new object[] { conversationList.Count });
-                }
-                else
-                {
-                    LogDebug("Starting enrichment of ALL participant details for {Count} conversations (no current user specified)",
-                        correlationId: null, args: new object[] { conversationList.Count });
-
-                    // 📝 FALLBACK: Nếu không có currentUserId thì vẫn load all (backward compatibility)
-                    await _participantEnrichmentService.EnrichParticipantDetailsAsync(conversationList);
-
-                    LogDebug("Completed enrichment of ALL participant details for {Count} conversations", correlationId: null, args: new object[] { conversationList.Count });
-                }
-            }
-            catch (Exception ex)
-            {
-                LogError(ex, "Error enriching participant details for conversations", correlationId: null);
-
-                // Fallback: Initialize empty lists để tránh null reference
-                foreach (var conversation in conversationList)
-                {
-                    conversation.ParticipantDetails = new List<ConversationParticipant>();
-                }
-            }
+            await LoadParticipantDetailsAsync(conversationList, currentUserId);
         }
 
         // Load metadata
         if (options.IncludeMetadata)
         {
-            foreach (var conversation in conversationList)
-            {
-                try
-                {
-                    // Initialize basic metadata
-                    conversation.Metadata = new ConversationMetadata
-                    {
-                        TotalMessages = 0, // TODO: Implement repository method to get actual count
-                        TotalFiles = 0,    // TODO: Implement repository method
-                        TotalImages = 0,   // TODO: Implement repository method
-                        FirstMessageDate = null, // TODO: Implement repository method
-                        CommonFiles = new List<string>()
-                    };
+            await LoadMetadataAsync(conversationList);
+        }
+    }
 
-                    LogDebug("Metadata loaded for conversation {ConversationId}", correlationId: null, args: new object[] { conversation.Id });
-                }
-                catch (Exception ex)
-                {
-                    LogWarning("Error loading metadata for conversation {ConversationId}: {Error}", correlationId: null, args: new object[] { conversation.Id, ex.Message });
-                    conversation.Metadata = new ConversationMetadata();
-                }
+    /// <summary>
+    /// Load unread counts for conversations
+    /// </summary>
+    private async Task LoadUnreadCountsAsync(List<ConversationResponse> conversations, string currentUserId)
+    {
+        foreach (var conversation in conversations)
+        {
+            try
+            {
+                conversation.UnreadCount = await _messageService.GetUnreadCountAsync(conversation.Id, currentUserId);
+                LogDebug("Loaded unread count {Count} for conversation {ConversationId}", null, conversation.UnreadCount, conversation.Id);
+            }
+            catch (Exception ex)
+            {
+                LogWarning("Error loading unread count for conversation {ConversationId}: {Error}", correlationId: null, args: new object[] { conversation.Id, ex.Message });
+                conversation.UnreadCount = 0;
             }
         }
+    }
+
+    /// <summary>
+    /// Load participant details from Auth Service with caching
+    /// </summary>
+    private async Task LoadParticipantDetailsAsync(List<ConversationResponse> conversations, string currentUserId)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(currentUserId))
+            {
+                LogDebug("Starting enrichment of OTHER participant details for {Count} conversations (exclude current user: {CurrentUserId})",
+                    correlationId: null, args: new object[] { conversations.Count, currentUserId });
+
+                // OPTIMIZATION: Only enrich OTHER participants (exclude current user)
+                await _participantEnrichmentService.EnrichOtherParticipantDetailsAsync(conversations, currentUserId);
+
+                LogDebug("Completed enrichment of OTHER participant details for {Count} conversations", correlationId: null, args: new object[] { conversations.Count });
+            }
+            else
+            {
+                LogDebug("Starting enrichment of ALL participant details for {Count} conversations (no current user specified)",
+                    correlationId: null, args: new object[] { conversations.Count });
+
+                // FALLBACK: If no currentUserId, load all (backward compatibility)
+                await _participantEnrichmentService.EnrichParticipantDetailsAsync(conversations);
+
+                LogDebug("Completed enrichment of ALL participant details for {Count} conversations", correlationId: null, args: new object[] { conversations.Count });
+            }
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error enriching participant details for conversations", correlationId: null);
+
+            // Fallback: Initialize empty lists to avoid null reference
+            foreach (var conversation in conversations)
+            {
+                conversation.ParticipantDetails = new List<ConversationParticipant>();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Load metadata for conversations
+    /// </summary>
+    private async Task LoadMetadataAsync(List<ConversationResponse> conversations)
+    {
+        foreach (var conversation in conversations)
+        {
+            try
+            {
+                // Initialize basic metadata
+                conversation.Metadata = new ConversationMetadata
+                {
+                    TotalMessages = 0, // TODO: Implement repository method to get actual count
+                    TotalFiles = 0,    // TODO: Implement repository method
+                    TotalImages = 0,   // TODO: Implement repository method
+                    FirstMessageDate = null, // TODO: Implement repository method
+                    CommonFiles = new List<string>()
+                };
+
+                LogDebug("Metadata loaded for conversation {ConversationId}", correlationId: null, args: new object[] { conversation.Id });
+            }
+            catch (Exception ex)
+            {
+                LogWarning("Error loading metadata for conversation {ConversationId}: {Error}", correlationId: null, args: new object[] { conversation.Id, ex.Message });
+                conversation.Metadata = new ConversationMetadata();
+            }
+        }
+
+        await Task.CompletedTask; // Make method async
     }
 
     /// <summary>
@@ -422,13 +448,13 @@ public class ConversationService : BaseService, IConversationService
                 // For cursor-based pagination, we use conversation ID + timestamp for reliable ordering
                 if (hasNext)
                 {
-                    var lastConversation = conversationDtos.Last();
+                    var lastConversation = conversationDtos[conversationDtos.Count - 1];
                     nextCursor = CursorHelper.GenerateCursor(lastConversation.Id, lastConversation.UpdatedAt);
                 }
 
                 if (hasPrevious || !string.IsNullOrEmpty(before))
                 {
-                    var firstConversation = conversationDtos.First();
+                    var firstConversation = conversationDtos[0];
                     previousCursor = CursorHelper.GenerateCursor(firstConversation.Id, firstConversation.UpdatedAt);
                 }
             }

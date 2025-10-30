@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Enums;
+using BookingCare.Services.Communication.Constants;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 using System.Text.Json.Serialization;
@@ -96,9 +97,9 @@ public class EnhancedFileUploadController : BaseApiController
             return Success(new
             {
                 Result = result,
-                Provider = "AWS S3 + CloudFront",
+                Provider = FileUploadConstants.AwsS3CloudFront,
                 Routing = "S3-only mode - all files stored in AWS S3"
-            }, "Smart upload thành công qua AWS S3 + CloudFront!");
+            }, $"Smart upload thành công qua {FileUploadConstants.AwsS3CloudFront}!");
         }
         catch (Exception ex)
         {
@@ -183,7 +184,7 @@ public class EnhancedFileUploadController : BaseApiController
             }
 
             var provider = fileUrl.Contains("cloudfront.net") || fileUrl.Contains("amazonaws.com")
-                ? "AWS S3 + CloudFront"
+                ? FileUploadConstants.AwsS3CloudFront
                 : "Cloudinary";
 
             var info = new
@@ -230,7 +231,7 @@ public class EnhancedFileUploadController : BaseApiController
                     r.FileName,
                     r.Size,
                     Provider = r.Url.Contains("cloudfront.net") || r.Url.Contains("amazonaws.com")
-                        ? "AWS S3 + CloudFront"
+                        ? FileUploadConstants.AwsS3CloudFront
                         : "Cloudinary"
                 })
             };
@@ -258,7 +259,7 @@ public class EnhancedFileUploadController : BaseApiController
             Version = ApiVersions.V1_0,
             Providers = new[]
             {
-                "AWS S3 + CloudFront",
+                FileUploadConstants.AwsS3CloudFront,
                 "Cloudinary"
             },
             Features = new[]

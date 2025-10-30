@@ -131,11 +131,12 @@ public static class CommunicationDataSeeder
         {
             await context.Messages.InsertManyAsync(messages);
 
-            // Cập nhật lastMessage cho conversations
-            foreach (var conversation in conversations.Take(2))
+            // Cập nhật lastMessage cho conversations using LINQ Select
+            var conversationIds = conversations.Take(2).Select(c => c.Id).ToList();
+            foreach (var conversationId in conversationIds)
             {
                 var lastMessage = messages
-                    .Where(m => m.ConversationId == conversation.Id)
+                    .Where(m => m.ConversationId == conversationId)
                     .OrderByDescending(m => m.CreatedAt)
                     .FirstOrDefault();
 
@@ -150,7 +151,7 @@ public static class CommunicationDataSeeder
                     };
 
                     await context.Conversations.UpdateOneAsync(
-                        c => c.Id == conversation.Id,
+                        c => c.Id == conversationId,
                         Builders<ConversationEntity>.Update
                             .Set(c => c.LastMessage, lastMessageInfo)
                             .Set(c => c.UpdatedAt, DateTime.UtcNow)

@@ -14,7 +14,7 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
 {
     private readonly AuthService.AuthServiceClient _authClient;
     private readonly ICacheService _cacheService;
-    private readonly IMapper _mapper;
+
 
     // Cache configuration
     private const string ACCOUNT_CACHE_PREFIX = "account_details";
@@ -23,12 +23,11 @@ public class ParticipantEnrichmentService : BaseService, IParticipantEnrichmentS
     public ParticipantEnrichmentService(
         AuthService.AuthServiceClient authClient,
         ICacheService cacheService,
-        IMapper mapper,
         ILogger<ParticipantEnrichmentService> logger) : base(logger)
     {
         _authClient = authClient;
         _cacheService = cacheService;
-        _mapper = mapper;
+
     }
 
     /// <summary>

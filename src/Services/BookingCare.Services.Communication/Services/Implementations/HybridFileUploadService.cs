@@ -2,6 +2,7 @@ using AutoMapper;
 using BookingCare.Services.Communication.Configuration;
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Services.Interfaces;
+using BookingCare.Services.Communication.Constants;
 using BookingCare.Shared.FileUpload.Models;
 using Microsoft.Extensions.Options;
 // Type aliases to resolve ambiguous references
@@ -328,14 +329,14 @@ public class HybridFileUploadService : IHybridFileUploadService
     {
         return messageType switch
         {
-            MessageType.Image => "images",
-            MessageType.Video => "videos",
-            MessageType.Audio => "audio",
-            MessageType.VoiceNote => "voicenotes",
-            MessageType.Gif => "gifs",
-            MessageType.File => "documents",
-            MessageType.Text => "text",  // For text files
-            _ => "files"  // Default fallback
+            MessageType.Image => FileUploadConstants.Folders.Images,
+            MessageType.Video => FileUploadConstants.Folders.Videos,
+            MessageType.Audio => FileUploadConstants.Folders.Audio,
+            MessageType.VoiceNote => FileUploadConstants.Folders.VoiceNotes,
+            MessageType.Gif => FileUploadConstants.Folders.Gifs,
+            MessageType.File => FileUploadConstants.Folders.Documents,
+            MessageType.Text => FileUploadConstants.Folders.Text,
+            _ => FileUploadConstants.Folders.Files
         };
     }
 
@@ -420,7 +421,7 @@ public class HybridFileUploadService : IHybridFileUploadService
         switch (messageType)
         {
             case MessageType.Image:
-                if (!contentType.StartsWith("image/"))
+                if (!contentType.StartsWith(FileUploadConstants.ImagePrefix))
                 {
                     isValid = false; // HARD REJECT - không ph?i warning
                     errors.Add($"? REJECTED: MessageType is 'Image' but file content type is '{contentType}'. Expected image/* content type.");
@@ -441,7 +442,7 @@ public class HybridFileUploadService : IHybridFileUploadService
 
             case MessageType.Audio:
             case MessageType.VoiceNote:
-                if (!contentType.StartsWith("audio/"))
+                if (!contentType.StartsWith(FileUploadConstants.AudioPrefix))
                 {
                     isValid = false; // HARD REJECT
                     errors.Add($"? REJECTED: MessageType is '{messageType}' but file content type is '{contentType}'. Expected audio/* content type.");
@@ -453,7 +454,7 @@ public class HybridFileUploadService : IHybridFileUploadService
             case MessageType.File:
                 // File type is flexible, can accept any content type
                 // But provide helpful suggestions (INFO only - không reject)
-                if (contentType.StartsWith("image/"))
+                if (contentType.StartsWith(FileUploadConstants.ImagePrefix))
                 {
                     errors.Add($"?? INFO: File '{fileName}' appears to be an image. Consider using MessageType.Image for better optimization.");
                 }
@@ -461,7 +462,7 @@ public class HybridFileUploadService : IHybridFileUploadService
                 {
                     errors.Add($"?? INFO: File '{fileName}' appears to be a video. Consider using MessageType.Video for better processing.");
                 }
-                else if (contentType.StartsWith("audio/"))
+                else if (contentType.StartsWith(FileUploadConstants.AudioPrefix))
                 {
                     errors.Add($"?? INFO: File '{fileName}' appears to be audio. Consider using MessageType.Audio ho?c MessageType.VoiceNote.");
                 }
@@ -488,7 +489,7 @@ public class HybridFileUploadService : IHybridFileUploadService
                 break;
 
             case MessageType.Sticker:
-                if (!contentType.StartsWith("image/"))
+                if (!contentType.StartsWith(FileUploadConstants.ImagePrefix))
                 {
                     isValid = false;
                     errors.Add($"? REJECTED: MessageType is 'Sticker' but content type is '{contentType}'. Expected image/* content type.");
@@ -517,14 +518,14 @@ public class HybridFileUploadService : IHybridFileUploadService
 
             // Strategy 1: File signature detection (most reliable)
             var signatureType = await DetectByFileSignatureAsync(file);
-            if (!string.IsNullOrEmpty(signatureType) && signatureType != "unknown")
+            if (!string.IsNullOrEmpty(signatureType) && signatureType != FileUploadConstants.UnknownType)
             {
                 return signatureType;
             }
 
             // Strategy 2: Content-Type header detection
             var contentTypeResult = DetectByContentTypeHeader(contentType);
-            if (!string.IsNullOrEmpty(contentTypeResult) && contentTypeResult != "unknown")
+            if (!string.IsNullOrEmpty(contentTypeResult) && contentTypeResult != FileUploadConstants.UnknownType)
             {
                 return contentTypeResult;
             }
@@ -535,7 +536,7 @@ public class HybridFileUploadService : IHybridFileUploadService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error in auto file type detection for {FileName}, using fallback", file.FileName);
-            return "document"; // Safe fallback
+            return FileUploadConstants.DocumentType; // Safe fallback
         }
     }
 
@@ -546,13 +547,13 @@ public class HybridFileUploadService : IHybridFileUploadService
     {
         return detectedType.ToLowerInvariant() switch
         {
-            "image" => MessageType.Image,
+            FileUploadConstants.ImageType => MessageType.Image,
             "gif" => MessageType.Gif,
             "video" => MessageType.Video,
-            "audio" => MessageType.Audio,
+            FileUploadConstants.AudioType => MessageType.Audio,
             "voicenote" => MessageType.VoiceNote,
-            "document" => MessageType.File,
-            "archive" => MessageType.File,
+            FileUploadConstants.DocumentType => MessageType.File,
+            FileUploadConstants.ArchiveType => MessageType.File,
             _ => MessageType.File
         };
     }
@@ -621,16 +622,16 @@ public class HybridFileUploadService : IHybridFileUploadService
             // Only check signatures if we read enough bytes
             if (bytesRead < 2)
             {
-                return "unknown";
+                return FileUploadConstants.UnknownType;
             }
 
             // JPEG signature (requires at least 2 bytes)
             if (bytesRead >= 2 && buffer[0] == 0xFF && buffer[1] == 0xD8)
-                return "image";
+                return FileUploadConstants.ImageType;
 
             // PNG signature (requires at least 4 bytes)
             if (bytesRead >= 4 && buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47)
-                return "image";
+                return FileUploadConstants.ImageType;
 
             // GIF signature (requires at least 3 bytes)
             if (bytesRead >= 3 && buffer[0] == 0x47 && buffer[1] == 0x49 && buffer[2] == 0x46)
@@ -638,17 +639,17 @@ public class HybridFileUploadService : IHybridFileUploadService
 
             // PDF signature (requires at least 4 bytes)
             if (bytesRead >= 4 && buffer[0] == 0x25 && buffer[1] == 0x50 && buffer[2] == 0x44 && buffer[3] == 0x46)
-                return "document";
+                return FileUploadConstants.DocumentType;
 
             // ZIP signature (requires at least 4 bytes)
             if (bytesRead >= 4 && buffer[0] == 0x50 && buffer[1] == 0x4B && buffer[2] == 0x03 && buffer[3] == 0x04)
-                return "archive";
+                return FileUploadConstants.ArchiveType;
 
-            return "unknown";
+            return FileUploadConstants.UnknownType;
         }
         catch
         {
-            return "unknown";
+            return FileUploadConstants.UnknownType;
         }
     }
 
@@ -657,19 +658,19 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// </summary>
     private static string DetectByContentTypeHeader(string contentType)
     {
-        if (string.IsNullOrEmpty(contentType)) return "unknown";
+        if (string.IsNullOrEmpty(contentType)) return FileUploadConstants.UnknownType;
 
         return contentType switch
         {
             var ct when ct.StartsWith("image/gif") => "gif",
-            var ct when ct.StartsWith("image/") => "image",
+            var ct when ct.StartsWith(FileUploadConstants.ImagePrefix) => FileUploadConstants.ImageType,
             var ct when ct.StartsWith("video/") => "video",
-            var ct when ct.StartsWith("audio/") => "audio",
-            "application/pdf" => "document",
-            var ct when ct.Contains("word") || ct.Contains("excel") || ct.Contains("powerpoint") => "document",
-            var ct when ct.Contains("zip") || ct.Contains("rar") || ct.Contains("7z") => "archive",
-            "text/plain" => "document",
-            _ => "unknown"
+            var ct when ct.StartsWith(FileUploadConstants.AudioPrefix) => FileUploadConstants.AudioType,
+            "application/pdf" => FileUploadConstants.DocumentType,
+            var ct when ct.Contains("word") || ct.Contains("excel") || ct.Contains("powerpoint") => FileUploadConstants.DocumentType,
+            var ct when ct.Contains("zip") || ct.Contains("rar") || ct.Contains("7z") => FileUploadConstants.ArchiveType,
+            "text/plain" => FileUploadConstants.DocumentType,
+            _ => FileUploadConstants.UnknownType
         };
     }
 
@@ -680,15 +681,15 @@ public class HybridFileUploadService : IHybridFileUploadService
     {
         return extension.ToLowerInvariant() switch
         {
-            ".jpg" or ".jpeg" or ".png" or ".webp" or ".bmp" => "image",
+            ".jpg" or ".jpeg" or ".png" or ".webp" or ".bmp" => FileUploadConstants.ImageType,
             ".gif" => "gif",
             ".mp4" or ".avi" or ".mov" or ".webm" or ".mkv" => "video",
-            ".mp3" or ".wav" or ".ogg" or ".m4a" or ".aac" => "audio",
-            ".pdf" or ".doc" or ".docx" or ".txt" or ".rtf" => "document",
-            ".xls" or ".xlsx" or ".csv" => "document",
-            ".ppt" or ".pptx" => "document",
-            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" => "archive",
-            _ => "document"  // Default to document for unknown types
+            ".mp3" or ".wav" or ".ogg" or ".m4a" or ".aac" => FileUploadConstants.AudioType,
+            ".pdf" or ".doc" or ".docx" or ".txt" or ".rtf" => FileUploadConstants.DocumentType,
+            ".xls" or ".xlsx" or ".csv" => FileUploadConstants.DocumentType,
+            ".ppt" or ".pptx" => FileUploadConstants.DocumentType,
+            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" => FileUploadConstants.ArchiveType,
+            _ => FileUploadConstants.DocumentType  // Default to document for unknown types
         };
     }
     #endregion

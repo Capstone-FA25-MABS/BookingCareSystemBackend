@@ -2,6 +2,7 @@
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Enums;
+using BookingCare.Services.Communication.Constants;
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Authorization;
 
@@ -95,7 +96,7 @@ public class ChatHub : Hub
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
         {
-            await Clients.Caller.SendAsync("Error", "User not authenticated");
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, HubConstants.UserNotAuthenticated);
             return;
         }
 
@@ -105,7 +106,7 @@ public class ChatHub : Hub
             var conversation = await _conversationService.GetByIdAsync(conversationId);
             if (conversation == null || !conversation.Participants.Contains(userId))
             {
-                await Clients.Caller.SendAsync("Error", "Không có quyền truy cập conversation này");
+                await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Không có quyền truy cập conversation này");
                 return;
             }
 
@@ -117,7 +118,7 @@ public class ChatHub : Hub
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error joining conversation {ConversationId} for user {UserId}", conversationId, userId);
-            await Clients.Caller.SendAsync("Error", "Lỗi khi tham gia conversation");
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi tham gia conversation");
         }
     }
 
@@ -141,7 +142,7 @@ public class ChatHub : Hub
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
         {
-            await Clients.Caller.SendAsync("Error", "User not authenticated");
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, HubConstants.UserNotAuthenticated);
             return;
         }
 
@@ -180,7 +181,7 @@ public class ChatHub : Hub
         {
             _logger.LogError(ex, "Error sending message for user {UserId} in conversation {ConversationId}",
                 userId, request.ConversationId);
-            await Clients.Caller.SendAsync("Error", "Lỗi khi gửi tin nhắn");
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi gửi tin nhắn");
         }
     }
 
@@ -192,7 +193,7 @@ public class ChatHub : Hub
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
         {
-            await Clients.Caller.SendAsync("Error", "User not authenticated");
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, HubConstants.UserNotAuthenticated);
             return;
         }
 
@@ -220,7 +221,7 @@ public class ChatHub : Hub
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error marking message as read: {MessageId} by user {UserId}", messageId, userId);
-            await Clients.Caller.SendAsync("Error", "Lỗi khi đánh dấu tin nhắn đã đọc");
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi đánh dấu tin nhắn đã đọc");
         }
     }
 
@@ -232,7 +233,7 @@ public class ChatHub : Hub
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
         {
-            await Clients.Caller.SendAsync("Error", "User not authenticated");
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, HubConstants.UserNotAuthenticated);
             return;
         }
 
@@ -261,7 +262,7 @@ public class ChatHub : Hub
         {
             _logger.LogError(ex, "Error marking all messages as read in conversation {ConversationId} by user {UserId}",
                 conversationId, userId);
-            await Clients.Caller.SendAsync("Error", "Lỗi khi đánh dấu tất cả tin nhắn đã đọc");
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi đánh dấu tất cả tin nhắn đã đọc");
         }
     }
 

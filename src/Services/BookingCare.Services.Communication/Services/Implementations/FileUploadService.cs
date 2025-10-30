@@ -328,7 +328,7 @@ public class FileUploadService : IFileUploadService
         }
     }
 
-    private async Task<(int Width, int Height, int? Duration)> GetImageInfoAsync(IFormFile file)
+    private static async Task<(int Width, int Height, int? Duration)> GetImageInfoAsync(IFormFile file)
     {
         using var stream = file.OpenReadStream();
         using var image = await Image.LoadAsync(stream);

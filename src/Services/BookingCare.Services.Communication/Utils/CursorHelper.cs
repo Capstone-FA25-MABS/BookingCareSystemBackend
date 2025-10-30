@@ -1,4 +1,6 @@
-﻿namespace BookingCare.Services.Communication.Utils;
+﻿using System.Globalization;
+
+namespace BookingCare.Services.Communication.Utils;
 
 /// <summary>
 /// Utility class cho cursor-based pagination operations
@@ -35,7 +37,7 @@ public static class CursorHelper
             if (parts.Length != 2)
                 throw new ArgumentException("Invalid cursor format");
 
-            var timestamp = DateTime.Parse(parts[0]);
+            var timestamp = DateTime.Parse(parts[0], CultureInfo.InvariantCulture);
             var id = parts[1];
 
             return (timestamp, id);

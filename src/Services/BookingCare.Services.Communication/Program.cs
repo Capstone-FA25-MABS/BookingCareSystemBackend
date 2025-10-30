@@ -155,10 +155,6 @@ app.UseCommonSwaggerUI("Communication");
 
 app.UseRouting();
 
-// Add authentication and authorization middleware if needed
-// app.UseAuthentication();
-// app.UseAuthorization();
-
 // Add health check endpoint
 app.MapHealthChecks("/health");
 
