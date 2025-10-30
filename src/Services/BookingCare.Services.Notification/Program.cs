@@ -68,6 +68,9 @@ builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>(
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<DoctorCredentialsGeneratedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalRegistrationSubmittedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalRegistrationStatusUpdatedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalAccountCreatedEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -106,6 +109,13 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to doctor credentials generated event for sending login credentials
     eventBus.Subscribe<DoctorCredentialsGeneratedEvent, DoctorCredentialsGeneratedEventHandler>();
+
+    // Subscribe to hospital registration events for sending confirmation/status emails
+    eventBus.Subscribe<HospitalRegistrationSubmittedEvent, HospitalRegistrationSubmittedEventHandler>();
+    eventBus.Subscribe<HospitalRegistrationStatusUpdatedEvent, HospitalRegistrationStatusUpdatedEventHandler>();
+
+    // Subscribe to hospital account created event for sending credentials email
+    eventBus.Subscribe<HospitalAccountCreatedEvent, HospitalAccountCreatedEventHandler>();
 });
 
 await app.RunAsync();
