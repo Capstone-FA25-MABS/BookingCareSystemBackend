@@ -99,7 +99,7 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/v{version}/hospitals/{everything}",
+      "DownstreamPathTemplate": "/api/v{version}/HospitalRegistrations/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -107,7 +107,7 @@
           "Port": 6004
         }
       ],
-      "UpstreamPathTemplate": "/api/v{version}/hospitals/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/hospital-registrations/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
