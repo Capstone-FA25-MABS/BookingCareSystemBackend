@@ -5,9 +5,13 @@ using BookingCare.Services.Hospital.Services.Implementations;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Repositories.Implementations;
 using BookingCare.Services.Hospital.Mappings;
+using BookingCare.Services.Hospital.Handlers;
+using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.EventBus.Extensions;
+using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Protos;
 
@@ -35,14 +39,27 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IHospitalRepository, HospitalRepository>();
 builder.Services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanRepository>();
 builder.Services.AddScoped<IHospitalSubscriptionRepository, HospitalSubscriptionRepository>();
+builder.Services.AddScoped<IHospitalRegistrationRepository, HospitalRegistrationRepository>();
 
 // Register services
 builder.Services.AddScoped<IHospitalService, HospitalService>();
 builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionService>();
 builder.Services.AddScoped<ILocationApiService, LocationApiService>();
+builder.Services.AddScoped<IHospitalRegistrationService, HospitalRegistrationService>();
 
 // Add HttpClient for LocationApiService
 builder.Services.AddHttpClient<ILocationApiService, LocationApiService>();
+
+// Add Event Bus (RabbitMQ) for message queue
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "hospital-service-queue");
+
+// Register Event Handlers
+builder.Services.AddIntegrationEventHandler<HospitalRegistrationFilesUploadEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalAccountCreationFailedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalRegistrationAccountLinkedEventHandler>();
+
+// Add S3 File Upload services
+builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -90,6 +107,14 @@ app.MapGet("/", () => "BookingCare Hospital Service is running. REST API: /swagg
 
 // Health check endpoint
 app.MapCommonHealthCheck("Hospital");
+
+// Configure EventBus subscriptions
+app.UseEventBus(eventBus =>
+{
+    eventBus.Subscribe<HospitalRegistrationFilesUploadEvent, HospitalRegistrationFilesUploadEventHandler>();
+    eventBus.Subscribe<HospitalAccountCreationFailedEvent, HospitalAccountCreationFailedEventHandler>();
+    eventBus.Subscribe<HospitalRegistrationAccountLinkedEvent, HospitalRegistrationAccountLinkedEventHandler>();
+});
 
 // Database migration and seeding (development only)
 if (app.Environment.IsDevelopment())
