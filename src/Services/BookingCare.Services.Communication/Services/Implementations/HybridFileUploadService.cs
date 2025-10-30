@@ -1,8 +1,8 @@
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.Communication.Configuration;
+using BookingCare.Services.Communication.Constants;
 using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Services.Interfaces;
-using BookingCare.Services.Communication.Constants;
 using BookingCare.Shared.FileUpload.Models;
 using Microsoft.Extensions.Options;
 // Type aliases to resolve ambiguous references
@@ -62,7 +62,10 @@ public class HybridFileUploadService : IHybridFileUploadService
 
             _logger.LogInformation(
                 "Smart file type analysis: Client={ClientType}, Detected={DetectedType}, Final={FinalType}, File={FileName}",
-                messageType, detectedType, finalMessageType, file.FileName
+                messageType,
+                detectedType,
+                finalMessageType,
+                file.FileName
             );
 
             // All files go to S3 in S3-only mode
@@ -81,7 +84,10 @@ public class HybridFileUploadService : IHybridFileUploadService
                 userId,
                 file.FileName
             );
-            throw new InvalidOperationException($"Failed to upload file '{file.FileName}' for user '{userId}': {ex.Message}", ex);
+            throw new InvalidOperationException(
+                $"Failed to upload file '{file.FileName}' for user '{userId}': {ex.Message}",
+                ex
+            );
         }
     }
 
@@ -153,7 +159,9 @@ public class HybridFileUploadService : IHybridFileUploadService
     {
         // In S3-only mode, we don't have auto thumbnail generation like Cloudinary
         // Return original URL or implement Lambda-based thumbnail generation
-        _logger.LogInformation("S3-only mode: thumbnail generation not implemented, returning original URL");
+        _logger.LogInformation(
+            "S3-only mode: thumbnail generation not implemented, returning original URL"
+        );
         await Task.CompletedTask;
         return originalUrl; // Simple fallback - return original URL
     }
@@ -176,7 +184,11 @@ public class HybridFileUploadService : IHybridFileUploadService
         }
 
         // Validate MessageType consistency with file content
-        var contentTypeValidation = ValidateMessageTypeConsistency(messageType, file.ContentType, file.FileName);
+        var contentTypeValidation = ValidateMessageTypeConsistency(
+            messageType,
+            file.ContentType,
+            file.FileName
+        );
         if (!contentTypeValidation.IsValid)
         {
             errors.AddRange(contentTypeValidation.Errors);
@@ -297,7 +309,10 @@ public class HybridFileUploadService : IHybridFileUploadService
         }
         else
         {
-            _logger.LogWarning("Cannot check existence of non-S3 URL in S3-only mode: {FileUrl}", fileUrl);
+            _logger.LogWarning(
+                "Cannot check existence of non-S3 URL in S3-only mode: {FileUrl}",
+                fileUrl
+            );
             return false;
         }
     }
@@ -336,11 +351,9 @@ public class HybridFileUploadService : IHybridFileUploadService
             MessageType.Gif => FileUploadConstants.Folders.Gifs,
             MessageType.File => FileUploadConstants.Folders.Documents,
             MessageType.Text => FileUploadConstants.Folders.Text,
-            _ => FileUploadConstants.Folders.Files
+            _ => FileUploadConstants.Folders.Files,
         };
     }
-
-
 
     private static bool ShouldGenerateS3Thumbnail(MessageType messageType, string contentType)
     {
@@ -374,11 +387,12 @@ public class HybridFileUploadService : IHybridFileUploadService
         }
     }
 
-    private static async Task<(int? width, int? height, int? duration)> GetBasicMediaInfoAsync(IFormFile file)
+    private static async Task<(int? width, int? height, int? duration)> GetBasicMediaInfoAsync(
+        IFormFile file
+    )
     {
         try
         {
-
             // For S3-only mode, we don't do complex media analysis
             // Just return basic info if it's an image
             if (file.ContentType.StartsWith("image/"))
@@ -395,12 +409,9 @@ public class HybridFileUploadService : IHybridFileUploadService
             await Task.Delay(1);
             return (null, null, null);
         }
-
     }
 
-    private static async Task ValidateMediaFileAsync(
-
-    )
+    private static async Task ValidateMediaFileAsync()
     {
         // IFormFile file,
         //MessageTypeConstraints constraints,
@@ -412,7 +423,11 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// <summary>
     /// Validate that MessageType is consistent with file content type
     /// </summary>
-    private FileValidationResult ValidateMessageTypeConsistency(MessageType messageType, string contentType, string fileName)
+    private FileValidationResult ValidateMessageTypeConsistency(
+        MessageType messageType,
+        string contentType,
+        string fileName
+    )
     {
         var errors = new List<string>();
         var fileExtension = Path.GetExtension(fileName).ToLowerInvariant();
@@ -421,88 +436,192 @@ public class HybridFileUploadService : IHybridFileUploadService
         switch (messageType)
         {
             case MessageType.Image:
-                if (!contentType.StartsWith(FileUploadConstants.ImagePrefix))
-                {
-                    isValid = false; // HARD REJECT - kh�ng ph?i warning
-                    errors.Add($"? REJECTED: MessageType is 'Image' but file content type is '{contentType}'. Expected image/* content type.");
-                    errors.Add($"?? SOLUTION: Use MessageType.File for document files like '{fileName}'");
-                    errors.Add($"?? FILE INFO: Extension '{fileExtension}', ContentType '{contentType}'");
-                }
+                isValid = ValidateImageType(contentType, fileName, fileExtension, errors);
                 break;
 
             case MessageType.Video:
-                if (!contentType.StartsWith("video/"))
-                {
-                    isValid = false; // HARD REJECT
-                    errors.Add($"? REJECTED: MessageType is 'Video' but file content type is '{contentType}'. Expected video/* content type.");
-                    errors.Add($"?? SOLUTION: Use MessageType.File for document files like '{fileName}'");
-                    errors.Add($"?? FILE INFO: Extension '{fileExtension}', ContentType '{contentType}'");
-                }
+                isValid = ValidateVideoType(contentType, fileName, fileExtension, errors);
                 break;
 
             case MessageType.Audio:
             case MessageType.VoiceNote:
-                if (!contentType.StartsWith(FileUploadConstants.AudioPrefix))
-                {
-                    isValid = false; // HARD REJECT
-                    errors.Add($"? REJECTED: MessageType is '{messageType}' but file content type is '{contentType}'. Expected audio/* content type.");
-                    errors.Add($"?? SOLUTION: Use MessageType.File for document files like '{fileName}'");
-                    errors.Add($"?? FILE INFO: Extension '{fileExtension}', ContentType '{contentType}'");
-                }
+                isValid = ValidateAudioType(
+                    messageType,
+                    contentType,
+                    fileName,
+                    fileExtension,
+                    errors
+                );
                 break;
 
             case MessageType.File:
-                // File type is flexible, can accept any content type
-                // But provide helpful suggestions (INFO only - kh�ng reject)
-                if (contentType.StartsWith(FileUploadConstants.ImagePrefix))
-                {
-                    errors.Add($"?? INFO: File '{fileName}' appears to be an image. Consider using MessageType.Image for better optimization.");
-                }
-                else if (contentType.StartsWith("video/"))
-                {
-                    errors.Add($"?? INFO: File '{fileName}' appears to be a video. Consider using MessageType.Video for better processing.");
-                }
-                else if (contentType.StartsWith(FileUploadConstants.AudioPrefix))
-                {
-                    errors.Add($"?? INFO: File '{fileName}' appears to be audio. Consider using MessageType.Audio ho?c MessageType.VoiceNote.");
-                }
+                ValidateFileType(contentType, fileName, errors);
                 break;
 
             case MessageType.Text:
-                if (contentType != "text/plain" && !fileExtension.Equals(".txt"))
-                {
-                    isValid = false; // HARD REJECT
-                    errors.Add($"? REJECTED: MessageType is 'Text' but file is not a text file. Content type: '{contentType}'");
-                    errors.Add($"?? SOLUTION: Use MessageType.File for non-text files like '{fileName}'");
-                    errors.Add($"?? FILE INFO: Extension '{fileExtension}', ContentType '{contentType}'");
-                }
+                isValid = ValidateTextType(contentType, fileName, fileExtension, errors);
                 break;
 
-            // Handle other message types
             case MessageType.Gif:
-                if (contentType != "image/gif")
-                {
-                    isValid = false;
-                    errors.Add($"? REJECTED: MessageType is 'Gif' but content type is '{contentType}'. Expected 'image/gif'.");
-                    errors.Add($"?? SOLUTION: Use MessageType.Image for other image types or MessageType.File for documents.");
-                }
+                isValid = ValidateGifType(contentType, errors);
                 break;
 
             case MessageType.Sticker:
-                if (!contentType.StartsWith(FileUploadConstants.ImagePrefix))
-                {
-                    isValid = false;
-                    errors.Add($"? REJECTED: MessageType is 'Sticker' but content type is '{contentType}'. Expected image/* content type.");
-                    errors.Add($"?? SOLUTION: Use MessageType.File for non-image files.");
-                }
+                isValid = ValidateStickerType(contentType, errors);
                 break;
         }
 
-        return new FileValidationResult
+        return new FileValidationResult { IsValid = isValid, Errors = errors };
+    }
+
+    /// <summary>
+    /// Validate image message type
+    /// </summary>
+    private static bool ValidateImageType(
+        string contentType,
+        string fileName,
+        string fileExtension,
+        List<string> errors
+    )
+    {
+        if (!contentType.StartsWith(FileUploadConstants.ImagePrefix))
         {
-            IsValid = isValid, // S? d?ng isValid thay v� check error messages
-            Errors = errors
-        };
+            errors.Add(
+                $"❌ REJECTED: MessageType is 'Image' but file content type is '{contentType}'. Expected image/* content type."
+            );
+            errors.Add($"💡 SOLUTION: Use MessageType.File for document files like '{fileName}'");
+            errors.Add($"📋 FILE INFO: Extension '{fileExtension}', ContentType '{contentType}'");
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Validate video message type
+    /// </summary>
+    private static bool ValidateVideoType(
+        string contentType,
+        string fileName,
+        string fileExtension,
+        List<string> errors
+    )
+    {
+        if (!contentType.StartsWith("video/"))
+        {
+            errors.Add(
+                $"❌ REJECTED: MessageType is 'Video' but file content type is '{contentType}'. Expected video/* content type."
+            );
+            errors.Add($"💡 SOLUTION: Use MessageType.File for document files like '{fileName}'");
+            errors.Add($"📋 FILE INFO: Extension '{fileExtension}', ContentType '{contentType}'");
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Validate audio message type
+    /// </summary>
+    private static bool ValidateAudioType(
+        MessageType messageType,
+        string contentType,
+        string fileName,
+        string fileExtension,
+        List<string> errors
+    )
+    {
+        if (!contentType.StartsWith(FileUploadConstants.AudioPrefix))
+        {
+            errors.Add(
+                $"❌ REJECTED: MessageType is '{messageType}' but file content type is '{contentType}'. Expected audio/* content type."
+            );
+            errors.Add($"💡 SOLUTION: Use MessageType.File for document files like '{fileName}'");
+            errors.Add($"📋 FILE INFO: Extension '{fileExtension}', ContentType '{contentType}'");
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Validate file message type (flexible, provides suggestions only)
+    /// </summary>
+    private static void ValidateFileType(string contentType, string fileName, List<string> errors)
+    {
+        // File type is flexible, can accept any content type
+        // But provide helpful suggestions (INFO only - không reject)
+        if (contentType.StartsWith(FileUploadConstants.ImagePrefix))
+        {
+            errors.Add(
+                $"ℹ️ INFO: File '{fileName}' appears to be an image. Consider using MessageType.Image for better optimization."
+            );
+        }
+        else if (contentType.StartsWith("video/"))
+        {
+            errors.Add(
+                $"ℹ️ INFO: File '{fileName}' appears to be a video. Consider using MessageType.Video for better processing."
+            );
+        }
+        else if (contentType.StartsWith(FileUploadConstants.AudioPrefix))
+        {
+            errors.Add(
+                $"ℹ️ INFO: File '{fileName}' appears to be audio. Consider using MessageType.Audio hoặc MessageType.VoiceNote."
+            );
+        }
+    }
+
+    /// <summary>
+    /// Validate text message type
+    /// </summary>
+    private static bool ValidateTextType(
+        string contentType,
+        string fileName,
+        string fileExtension,
+        List<string> errors
+    )
+    {
+        if (contentType != "text/plain" && !fileExtension.Equals(".txt"))
+        {
+            errors.Add(
+                $"❌ REJECTED: MessageType is 'Text' but file is not a text file. Content type: '{contentType}'"
+            );
+            errors.Add($"💡 SOLUTION: Use MessageType.File for non-text files like '{fileName}'");
+            errors.Add($"📋 FILE INFO: Extension '{fileExtension}', ContentType '{contentType}'");
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Validate GIF message type
+    /// </summary>
+    private static bool ValidateGifType(string contentType, List<string> errors)
+    {
+        if (contentType != "image/gif")
+        {
+            errors.Add(
+                $"❌ REJECTED: MessageType is 'Gif' but content type is '{contentType}'. Expected 'image/gif'."
+            );
+            errors.Add(
+                $"💡 SOLUTION: Use MessageType.Image for other image types or MessageType.File for documents."
+            );
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Validate Sticker message type
+    /// </summary>
+    private static bool ValidateStickerType(string contentType, List<string> errors)
+    {
+        if (!contentType.StartsWith(FileUploadConstants.ImagePrefix))
+        {
+            errors.Add(
+                $"❌ REJECTED: MessageType is 'Sticker' but content type is '{contentType}'. Expected image/* content type."
+            );
+            errors.Add($"💡 SOLUTION: Use MessageType.File for non-image files.");
+            return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -518,14 +637,20 @@ public class HybridFileUploadService : IHybridFileUploadService
 
             // Strategy 1: File signature detection (most reliable)
             var signatureType = await DetectByFileSignatureAsync(file);
-            if (!string.IsNullOrEmpty(signatureType) && signatureType != FileUploadConstants.UnknownType)
+            if (
+                !string.IsNullOrEmpty(signatureType)
+                && signatureType != FileUploadConstants.UnknownType
+            )
             {
                 return signatureType;
             }
 
             // Strategy 2: Content-Type header detection
             var contentTypeResult = DetectByContentTypeHeader(contentType);
-            if (!string.IsNullOrEmpty(contentTypeResult) && contentTypeResult != FileUploadConstants.UnknownType)
+            if (
+                !string.IsNullOrEmpty(contentTypeResult)
+                && contentTypeResult != FileUploadConstants.UnknownType
+            )
             {
                 return contentTypeResult;
             }
@@ -535,7 +660,11 @@ public class HybridFileUploadService : IHybridFileUploadService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error in auto file type detection for {FileName}, using fallback", file.FileName);
+            _logger.LogWarning(
+                ex,
+                "Error in auto file type detection for {FileName}, using fallback",
+                file.FileName
+            );
             return FileUploadConstants.DocumentType; // Safe fallback
         }
     }
@@ -554,19 +683,26 @@ public class HybridFileUploadService : IHybridFileUploadService
             "voicenote" => MessageType.VoiceNote,
             FileUploadConstants.DocumentType => MessageType.File,
             FileUploadConstants.ArchiveType => MessageType.File,
-            _ => MessageType.File
+            _ => MessageType.File,
         };
     }
 
     /// <summary>
     /// Determine optimal message type with smart override logic
     /// </summary>
-    private MessageType DetermineOptimalMessageType(MessageType clientType, MessageType detectedType, IFormFile file)
+    private MessageType DetermineOptimalMessageType(
+        MessageType clientType,
+        MessageType detectedType,
+        IFormFile file
+    )
     {
         // Rule 1: If client is generic "File", always use detected type
         if (clientType == MessageType.File)
         {
-            _logger.LogDebug("Client used generic 'File' type, always using detected type: {DetectedType}", detectedType);
+            _logger.LogDebug(
+                "Client used generic 'File' type, always using detected type: {DetectedType}",
+                detectedType
+            );
             return detectedType;
         }
 
@@ -582,13 +718,19 @@ public class HybridFileUploadService : IHybridFileUploadService
         {
             _logger.LogWarning(
                 "Smart override: Client specified {ClientType} but file {FileName} detected as {DetectedType}. Using detected type for better organization.",
-                clientType, file.FileName, detectedType
+                clientType,
+                file.FileName,
+                detectedType
             );
             return detectedType;
         }
 
         // Rule 4: Respect client preference if no strong reason to override
-        _logger.LogDebug("Respecting client preference: {ClientType} for file {FileName}", clientType, file.FileName);
+        _logger.LogDebug(
+            "Respecting client preference: {ClientType} for file {FileName}",
+            clientType,
+            file.FileName
+        );
         return clientType;
     }
 
@@ -600,10 +742,12 @@ public class HybridFileUploadService : IHybridFileUploadService
         // Only override if detected type provides better organization/storage
         return detectedType switch
         {
-            MessageType.Image when clientType != MessageType.Image => true,  // Images should go to Cloudinary
-            MessageType.Video when clientType != MessageType.Video => true,  // Videos should go to Cloudinary  
-            MessageType.Gif when clientType != MessageType.Gif => true,      // GIFs need special handling
-            _ => false  // Don't override otherwise
+            MessageType.Image when clientType != MessageType.Image => true, // Images should go to Cloudinary
+            MessageType.Video when clientType != MessageType.Video => true, // Videos should go to Cloudinary
+            MessageType.Gif when clientType != MessageType.Gif => true, // GIFs need special handling
+            _ =>
+                false // Don't override otherwise
+            ,
         };
     }
 
@@ -630,7 +774,13 @@ public class HybridFileUploadService : IHybridFileUploadService
                 return FileUploadConstants.ImageType;
 
             // PNG signature (requires at least 4 bytes)
-            if (bytesRead >= 4 && buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47)
+            if (
+                bytesRead >= 4
+                && buffer[0] == 0x89
+                && buffer[1] == 0x50
+                && buffer[2] == 0x4E
+                && buffer[3] == 0x47
+            )
                 return FileUploadConstants.ImageType;
 
             // GIF signature (requires at least 3 bytes)
@@ -638,11 +788,23 @@ public class HybridFileUploadService : IHybridFileUploadService
                 return "gif";
 
             // PDF signature (requires at least 4 bytes)
-            if (bytesRead >= 4 && buffer[0] == 0x25 && buffer[1] == 0x50 && buffer[2] == 0x44 && buffer[3] == 0x46)
+            if (
+                bytesRead >= 4
+                && buffer[0] == 0x25
+                && buffer[1] == 0x50
+                && buffer[2] == 0x44
+                && buffer[3] == 0x46
+            )
                 return FileUploadConstants.DocumentType;
 
             // ZIP signature (requires at least 4 bytes)
-            if (bytesRead >= 4 && buffer[0] == 0x50 && buffer[1] == 0x4B && buffer[2] == 0x03 && buffer[3] == 0x04)
+            if (
+                bytesRead >= 4
+                && buffer[0] == 0x50
+                && buffer[1] == 0x4B
+                && buffer[2] == 0x03
+                && buffer[3] == 0x04
+            )
                 return FileUploadConstants.ArchiveType;
 
             return FileUploadConstants.UnknownType;
@@ -658,19 +820,24 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// </summary>
     private static string DetectByContentTypeHeader(string contentType)
     {
-        if (string.IsNullOrEmpty(contentType)) return FileUploadConstants.UnknownType;
+        if (string.IsNullOrEmpty(contentType))
+            return FileUploadConstants.UnknownType;
 
         return contentType switch
         {
             var ct when ct.StartsWith("image/gif") => "gif",
-            var ct when ct.StartsWith(FileUploadConstants.ImagePrefix) => FileUploadConstants.ImageType,
+            var ct when ct.StartsWith(FileUploadConstants.ImagePrefix) =>
+                FileUploadConstants.ImageType,
             var ct when ct.StartsWith("video/") => "video",
-            var ct when ct.StartsWith(FileUploadConstants.AudioPrefix) => FileUploadConstants.AudioType,
+            var ct when ct.StartsWith(FileUploadConstants.AudioPrefix) =>
+                FileUploadConstants.AudioType,
             "application/pdf" => FileUploadConstants.DocumentType,
-            var ct when ct.Contains("word") || ct.Contains("excel") || ct.Contains("powerpoint") => FileUploadConstants.DocumentType,
-            var ct when ct.Contains("zip") || ct.Contains("rar") || ct.Contains("7z") => FileUploadConstants.ArchiveType,
+            var ct when ct.Contains("word") || ct.Contains("excel") || ct.Contains("powerpoint") =>
+                FileUploadConstants.DocumentType,
+            var ct when ct.Contains("zip") || ct.Contains("rar") || ct.Contains("7z") =>
+                FileUploadConstants.ArchiveType,
             "text/plain" => FileUploadConstants.DocumentType,
-            _ => FileUploadConstants.UnknownType
+            _ => FileUploadConstants.UnknownType,
         };
     }
 
@@ -689,8 +856,11 @@ public class HybridFileUploadService : IHybridFileUploadService
             ".xls" or ".xlsx" or ".csv" => FileUploadConstants.DocumentType,
             ".ppt" or ".pptx" => FileUploadConstants.DocumentType,
             ".zip" or ".rar" or ".7z" or ".tar" or ".gz" => FileUploadConstants.ArchiveType,
-            _ => FileUploadConstants.DocumentType  // Default to document for unknown types
+            _ =>
+                FileUploadConstants.DocumentType // Default to document for unknown types
+            ,
         };
     }
+
     #endregion
 }

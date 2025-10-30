@@ -266,3 +266,44 @@ public class TestSignalRRequest
     /// </summary>
     public string Message { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Query parameters cho endpoint GetConversationsByUserId
+/// </summary>
+public class GetConversationsQueryParameters
+{
+    /// <summary>
+    /// Cursor để load conversations cũ hơn
+    /// </summary>
+    public string? Before { get; set; }
+
+    /// <summary>
+    /// Cursor để load conversations mới hơn
+    /// </summary>
+    public string? After { get; set; }
+
+    /// <summary>
+    /// Số lượng conversations cần load (default: 20)
+    /// </summary>
+    public int Limit { get; set; } = 20;
+
+    /// <summary>
+    /// Enable participant enrichment (load participant details from Auth Service)
+    /// </summary>
+    public bool IncludeParticipantDetails { get; set; } = false;
+
+    /// <summary>
+    /// Include unread message count
+    /// </summary>
+    public bool IncludeUnreadCount { get; set; } = true;
+
+    /// <summary>
+    /// Include metadata
+    /// </summary>
+    public bool IncludeMetadata { get; set; } = false;
+
+    /// <summary>
+    /// Include online status
+    /// </summary>
+    public bool IncludeOnlineStatus { get; set; } = false;
+}

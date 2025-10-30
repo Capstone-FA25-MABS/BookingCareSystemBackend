@@ -171,3 +171,59 @@ public class MessageEnrichmentInfo
     /// </summary>
     public int MessagesWithReceiverInfo { get; set; }
 }
+
+/// <summary>
+/// Query parameters cho endpoint GetMessagesByConversationId
+/// </summary>
+public class GetMessagesQueryParameters
+{
+    /// <summary>
+    /// Cursor để load items cũ hơn
+    /// </summary>
+    public string? Before { get; set; }
+
+    /// <summary>
+    /// Cursor để load items mới hơn
+    /// </summary>
+    public string? After { get; set; }
+
+    /// <summary>
+    /// Số lượng items cần load (default: 50)
+    /// </summary>
+    public int Limit { get; set; } = 50;
+
+    /// <summary>
+    /// Chỉ lấy messages (bỏ qua call logs)
+    /// </summary>
+    public bool MessagesOnly { get; set; } = false;
+
+    /// <summary>
+    /// Chỉ lấy call logs (bỏ qua messages)
+    /// </summary>
+    public bool CallLogsOnly { get; set; } = false;
+
+    /// <summary>
+    /// Lọc theo loại call (Video/Audio)
+    /// </summary>
+    public CallType? CallTypeFilter { get; set; }
+
+    /// <summary>
+    /// Lọc theo loại message
+    /// </summary>
+    public MessageType? MessageTypeFilter { get; set; }
+
+    /// <summary>
+    /// Include sender user info
+    /// </summary>
+    public bool IncludeSenderInfo { get; set; } = false;
+
+    /// <summary>
+    /// Include receiver user info
+    /// </summary>
+    public bool IncludeReceiverInfo { get; set; } = false;
+
+    /// <summary>
+    /// Include online status
+    /// </summary>
+    public bool IncludeOnlineStatus { get; set; } = false;
+}

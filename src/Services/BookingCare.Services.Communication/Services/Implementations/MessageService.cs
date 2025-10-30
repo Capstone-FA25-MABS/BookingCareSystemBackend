@@ -1,11 +1,11 @@
 ﻿using AutoMapper;
+using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
 using BookingCare.Services.Communication.Services.Interfaces;
-using BookingCare.Services.Communication.Enums;
-using BookingCare.Shared.Common.Services;
 using BookingCare.Services.Communication.Utils;
+using BookingCare.Shared.Common.Services;
 
 namespace BookingCare.Services.Communication.Services.Implementations;
 
@@ -30,7 +30,9 @@ public class MessageService : BaseService, IMessageService
         ISignalRNotificationService signalRNotificationService,
         IParticipantEnrichmentService participantEnrichmentService,
         IMapper mapper,
-        ILogger<MessageService> logger) : base(logger)
+        ILogger<MessageService> logger
+    )
+        : base(logger)
     {
         _messageRepository = messageRepository;
         _conversationRepository = conversationRepository;
@@ -46,108 +48,204 @@ public class MessageService : BaseService, IMessageService
     /// </summary>
     public async Task<MessageResponse> CreateAsync(CreateMessageRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Starting creation of message for conversation: {ConversationId}", null, request.ConversationId);
-
-            // Validation
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
-            ValidateRequiredString(request.SenderId, nameof(request.SenderId));
-            ValidateRequiredString(request.Content, nameof(request.Content));
-
-            // Check if conversation exists
-            var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId);
-            if (conversation == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new ArgumentException($"Conversation with ID {request.ConversationId} does not exist");
-            }
+                LogInfo(
+                    "Starting creation of message for conversation: {ConversationId}",
+                    null,
+                    request.ConversationId
+                );
 
-            // Check if user is in the conversation
-            if (!conversation.Participants.Contains(request.SenderId))
-            {
-                throw new UnauthorizedAccessException("User is not authorized to send messages in this conversation");
-            }
+                // Validation
+                ValidateRequired(request, nameof(request));
+                ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
+                ValidateRequiredString(request.SenderId, nameof(request.SenderId));
+                ValidateRequiredString(request.Content, nameof(request.Content));
 
-            // Tạo entity từ request
-            var messageEntity = _mapper.Map<MessageEntity>(request);
-            var createdMessage = await _messageRepository.CreateAsync(messageEntity);
-
-            // Cập nhật last message cho conversation
-            var lastMessage = new LastMessage
-            {
-                MessageId = createdMessage.Id,
-                Content = createdMessage.Content.Length > 100 ?
-                    createdMessage.Content.Substring(0, 100) + "..." : createdMessage.Content,
-                SenderId = createdMessage.SenderId,
-                CreatedAt = createdMessage.CreatedAt
-            };
-            await _conversationRepository.UpdateLastMessageAsync(request.ConversationId, lastMessage);
-
-            var result = _mapper.Map<MessageResponse>(createdMessage);
-
-            // Gửi thông báo real-time qua SignalR (fire and forget)
-            _ = Task.Run(async () =>
-            {
-                try
+                // Check if conversation exists
+                var conversation = await _conversationRepository.GetByIdAsync(
+                    request.ConversationId
+                );
+                if (conversation == null)
                 {
-                    await _signalRNotificationService.SendMessageToConversationAsync(request.ConversationId, result);
+                    throw new ArgumentException(
+                        $"Conversation with ID {request.ConversationId} does not exist"
+                    );
                 }
-                catch (Exception ex)
-                {
-                    LogWarning("Error sending SignalR notification for message {MessageId}: {Error}",
-                        null, result.Id, ex.Message);
-                }
-            });
 
-            LogInfo("Message created successfully with ID: {MessageId}", null, createdMessage.Id);
-            return result;
-        }, "CreateMessage");
+                // Check if user is in the conversation
+                if (!conversation.Participants.Contains(request.SenderId))
+                {
+                    throw new UnauthorizedAccessException(
+                        "User is not authorized to send messages in this conversation"
+                    );
+                }
+
+                // Tạo entity từ request
+                var messageEntity = _mapper.Map<MessageEntity>(request);
+                var createdMessage = await _messageRepository.CreateAsync(messageEntity);
+
+                // Cập nhật last message cho conversation
+                var lastMessage = new LastMessage
+                {
+                    MessageId = createdMessage.Id,
+                    Content =
+                        createdMessage.Content.Length > 100
+                            ? createdMessage.Content.Substring(0, 100) + "..."
+                            : createdMessage.Content,
+                    SenderId = createdMessage.SenderId,
+                    CreatedAt = createdMessage.CreatedAt,
+                };
+                await _conversationRepository.UpdateLastMessageAsync(
+                    request.ConversationId,
+                    lastMessage
+                );
+
+                var result = _mapper.Map<MessageResponse>(createdMessage);
+
+                // Gửi thông báo real-time qua SignalR (fire and forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _signalRNotificationService.SendMessageToConversationAsync(
+                            request.ConversationId,
+                            result
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        LogWarning(
+                            "Error sending SignalR notification for message {MessageId}: {Error}",
+                            null,
+                            result.Id,
+                            ex.Message
+                        );
+                    }
+                });
+
+                LogInfo(
+                    "Message created successfully with ID: {MessageId}",
+                    null,
+                    createdMessage.Id
+                );
+                return result;
+            },
+            "CreateMessage"
+        );
     }
 
     /// <summary>
     /// Tạo tin nhắn với file upload (Complete Flow)
     /// </summary>
-    public async Task<MessageResponse> CreateMessageWithFilesAsync(CreateMessageWithFilesRequest request)
+    public async Task<MessageResponse> CreateMessageWithFilesAsync(
+        CreateMessageWithFilesRequest request
+    )
     {
-        return await ExecuteWithErrorHandling(async () =>
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo(
+                    "Starting creation of message with files for conversation: {ConversationId}",
+                    null,
+                    request.ConversationId
+                );
+
+                // Validation
+                ValidateCreateMessageWithFilesRequest(request);
+
+                // Kiểm tra conversation và authorization
+                await ValidateConversationAccessAsync(request.ConversationId, request.SenderId);
+
+                // Upload files và tạo attachments
+                var attachments = await ProcessFileUploadsAsync(request);
+
+                // Create message entity
+                var messageEntity = CreateMessageEntity(request, attachments);
+                var createdMessage = await _messageRepository.CreateAsync(messageEntity);
+
+                // Cập nhật last message
+                await UpdateConversationLastMessageAsync(
+                    request.ConversationId,
+                    createdMessage,
+                    attachments
+                );
+
+                var result = _mapper.Map<MessageResponse>(createdMessage);
+
+                // Gửi thông báo real-time qua SignalR (fire and forget)
+                SendSignalRNotification(request.ConversationId, result);
+
+                LogInfo(
+                    "Message with files created successfully with ID: {MessageId}",
+                    null,
+                    createdMessage.Id
+                );
+                return result;
+            },
+            "CreateMessageWithFiles"
+        );
+    }
+
+    /// <summary>
+    /// Validate request cho CreateMessageWithFiles
+    /// </summary>
+    private static void ValidateCreateMessageWithFilesRequest(CreateMessageWithFilesRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
+        ValidateRequiredString(request.SenderId, nameof(request.SenderId));
+
+        if (request.Type == MessageType.Text && request.Files.Any())
         {
-            LogInfo("Starting creation of message with files for conversation: {ConversationId}", null, request.ConversationId);
+            throw new ArgumentException("Text messages must not include files");
+        }
 
-            // Validation
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
-            ValidateRequiredString(request.SenderId, nameof(request.SenderId));
+        if (request.Type != MessageType.Text && !request.Files.Any())
+        {
+            throw new ArgumentException($"Messages of type {request.Type} require files");
+        }
+    }
 
-            if (request.Type == MessageType.Text && request.Files.Any())
-            {
-                throw new ArgumentException("Text messages must not include files");
-            }
+    /// <summary>
+    /// Validate conversation existence và user authorization
+    /// </summary>
+    private async Task ValidateConversationAccessAsync(string conversationId, string senderId)
+    {
+        var conversation = await _conversationRepository.GetByIdAsync(conversationId);
+        if (conversation == null)
+        {
+            throw new ArgumentException($"Conversation with ID {conversationId} does not exist");
+        }
 
-            if (request.Type != MessageType.Text && !request.Files.Any())
-            {
-                throw new ArgumentException($"Messages of type {request.Type} require files");
-            }
+        if (!conversation.Participants.Contains(senderId))
+        {
+            throw new UnauthorizedAccessException(
+                "User is not authorized to send messages in this conversation"
+            );
+        }
+    }
 
-            // Kiểm tra conversation
-            var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId);
-            if (conversation == null)
-            {
-                throw new ArgumentException($"Conversation with ID {request.ConversationId} does not exist");
-            }
+    /// <summary>
+    /// Process file uploads và tạo message attachments
+    /// </summary>
+    private async Task<List<MessageAttachment>> ProcessFileUploadsAsync(
+        CreateMessageWithFilesRequest request
+    )
+    {
+        var attachments = new List<MessageAttachment>();
 
-            if (!conversation.Participants.Contains(request.SenderId))
-            {
-                throw new UnauthorizedAccessException("User is not authorized to send messages in this conversation");
-            }
+        if (request.Files.Any())
+        {
+            var uploadResults = await _fileUploadService.UploadMultipleFilesAsync(
+                request.Files,
+                request.SenderId,
+                request.Type
+            );
 
-            // Upload files
-            var attachments = new List<MessageAttachment>();
-            if (request.Files.Any())
-            {
-                var uploadResults = await _fileUploadService.UploadMultipleFilesAsync(request.Files, request.SenderId, request.Type);
-
-                attachments = uploadResults.Select(result => new MessageAttachment
+            attachments = uploadResults
+                .Select(result => new MessageAttachment
                 {
                     Url = result.Url,
                     Name = result.FileName,
@@ -156,55 +254,82 @@ public class MessageService : BaseService, IMessageService
                     ThumbnailUrl = result.ThumbnailUrl,
                     Width = result.Width,
                     Height = result.Height,
-                    Duration = result.Duration
-                }).ToList();
+                    Duration = result.Duration,
+                })
+                .ToList();
+        }
+
+        return attachments;
+    }
+
+    /// <summary>
+    /// Create message entity từ request và attachments
+    /// </summary>
+    private static MessageEntity CreateMessageEntity(
+        CreateMessageWithFilesRequest request,
+        List<MessageAttachment> attachments
+    )
+    {
+        return new MessageEntity
+        {
+            ConversationId = request.ConversationId,
+            SenderId = request.SenderId,
+            ReceiverId = request.ReceiverId,
+            Content = request.Content,
+            Type = request.Type,
+            Attachments = attachments,
+            Status = MessageStatus.SENT,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+    }
+
+    /// <summary>
+    /// Update last message cho conversation
+    /// </summary>
+    private async Task UpdateConversationLastMessageAsync(
+        string conversationId,
+        MessageEntity createdMessage,
+        List<MessageAttachment> attachments
+    )
+    {
+        var lastMessage = new LastMessage
+        {
+            MessageId = createdMessage.Id,
+            Content = attachments.Any()
+                ? $"Sent {attachments.Count} file(s)"
+                : createdMessage.Content,
+            SenderId = createdMessage.SenderId,
+            CreatedAt = createdMessage.CreatedAt,
+        };
+
+        await _conversationRepository.UpdateLastMessageAsync(conversationId, lastMessage);
+    }
+
+    /// <summary>
+    /// Send SignalR notification (fire and forget)
+    /// </summary>
+    private void SendSignalRNotification(string conversationId, MessageResponse result)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _signalRNotificationService.SendMessageToConversationAsync(
+                    conversationId,
+                    result
+                );
             }
-
-            // Create message entity
-            var messageEntity = new MessageEntity
+            catch (Exception ex)
             {
-                ConversationId = request.ConversationId,
-                SenderId = request.SenderId,
-                ReceiverId = request.ReceiverId,
-                Content = request.Content,
-                Type = request.Type,
-                Attachments = attachments,
-                Status = MessageStatus.SENT,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            var createdMessage = await _messageRepository.CreateAsync(messageEntity);
-
-            // Cập nhật last message
-            var lastMessage = new LastMessage
-            {
-                MessageId = createdMessage.Id,
-                Content = attachments.Any() ? $"Sent {attachments.Count} file(s)" : createdMessage.Content,
-                SenderId = createdMessage.SenderId,
-                CreatedAt = createdMessage.CreatedAt
-            };
-            await _conversationRepository.UpdateLastMessageAsync(request.ConversationId, lastMessage);
-
-            var result = _mapper.Map<MessageResponse>(createdMessage);
-
-            // Gửi thông báo real-time qua SignalR (fire and forget)
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _signalRNotificationService.SendMessageToConversationAsync(request.ConversationId, result);
-                }
-                catch (Exception ex)
-                {
-                    LogWarning("Error sending SignalR notification for message with files {MessageId}: {Error}",
-                        null, result.Id, ex.Message);
-                }
-            });
-
-            LogInfo("Message with files created successfully with ID: {MessageId}", null, createdMessage.Id);
-            return result;
-        }, "CreateMessageWithFiles");
+                LogWarning(
+                    "Error sending SignalR notification for message with files {MessageId}: {Error}",
+                    null,
+                    result.Id,
+                    ex.Message
+                );
+            }
+        });
     }
 
     /// <summary>
@@ -212,39 +337,48 @@ public class MessageService : BaseService, IMessageService
     /// </summary>
     public async Task<MessageResponse> UpdateAsync(UpdateMessageRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Starting update of message with ID: {MessageId}", null, request.Id);
-
-            // Validation
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.Id, nameof(request.Id));
-            ValidateRequiredString(request.Content, nameof(request.Content));
-
-            // Lấy tin nhắn hiện tại
-            var existingMessage = await _messageRepository.GetByIdAsync(request.Id);
-            if (existingMessage == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new ArgumentException($"Message with ID {request.Id} does not exist");
-            }
+                LogInfo("Starting update of message with ID: {MessageId}", null, request.Id);
 
-            // Cập nhật thông tin
-            existingMessage.Content = request.Content;
-            existingMessage.Type = request.Type;
-            existingMessage.UpdatedAt = DateTime.UtcNow;
-            existingMessage.Attachments = request.Attachments.Select(a => new MessageAttachment
-            {
-                Url = a.Url,
-                Name = a.Name,
-                Size = a.Size,
-                MimeType = a.MimeType
-            }).ToList();
+                // Validation
+                ValidateRequired(request, nameof(request));
+                ValidateRequiredString(request.Id, nameof(request.Id));
+                ValidateRequiredString(request.Content, nameof(request.Content));
 
-            var updatedMessage = await _messageRepository.UpdateAsync(existingMessage);
+                // Lấy tin nhắn hiện tại
+                var existingMessage = await _messageRepository.GetByIdAsync(request.Id);
+                if (existingMessage == null)
+                {
+                    throw new ArgumentException($"Message with ID {request.Id} does not exist");
+                }
 
-            LogInfo("Message updated successfully with ID: {MessageId}", null, updatedMessage.Id);
-            return _mapper.Map<MessageResponse>(updatedMessage);
-        }, "UpdateMessage");
+                // Cập nhật thông tin
+                existingMessage.Content = request.Content;
+                existingMessage.Type = request.Type;
+                existingMessage.UpdatedAt = DateTime.UtcNow;
+                existingMessage.Attachments = request
+                    .Attachments.Select(a => new MessageAttachment
+                    {
+                        Url = a.Url,
+                        Name = a.Name,
+                        Size = a.Size,
+                        MimeType = a.MimeType,
+                    })
+                    .ToList();
+
+                var updatedMessage = await _messageRepository.UpdateAsync(existingMessage);
+
+                LogInfo(
+                    "Message updated successfully with ID: {MessageId}",
+                    null,
+                    updatedMessage.Id
+                );
+                return _mapper.Map<MessageResponse>(updatedMessage);
+            },
+            "UpdateMessage"
+        );
     }
 
     /// <summary>
@@ -259,39 +393,68 @@ public class MessageService : BaseService, IMessageService
     /// <summary>
     /// Lấy danh sách tin nhắn theo conversation ID
     /// </summary>
-    public async Task<IEnumerable<MessageResponse>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50)
+    public async Task<IEnumerable<MessageResponse>> GetByConversationIdAsync(
+        string conversationId,
+        int page = 1,
+        int pageSize = 50
+    )
     {
-        var messages = await _messageRepository.GetByConversationIdAsync(conversationId, page, pageSize);
+        var messages = await _messageRepository.GetByConversationIdAsync(
+            conversationId,
+            page,
+            pageSize
+        );
         return _mapper.Map<IEnumerable<MessageResponse>>(messages);
     }
 
     /// <summary>
     /// 🎯 NEW: Lấy danh sách tin nhắn theo conversation ID với user info enrichment
     /// </summary>
-    public async Task<IEnumerable<MessageResponse>> GetByConversationIdWithUserInfoAsync(string conversationId, int page = 1, int pageSize = 50, MessageLoadOptions? options = null)
+    public async Task<IEnumerable<MessageResponse>> GetByConversationIdWithUserInfoAsync(
+        string conversationId,
+        int page = 1,
+        int pageSize = 50,
+        MessageLoadOptions? options = null
+    )
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Fetching messages with user info for conversation: {ConversationId}, page: {Page}, pageSize: {PageSize}",
-                null, conversationId, page, pageSize);
-
-            ValidateRequiredString(conversationId, nameof(conversationId));
-
-            // Lấy messages từ repository
-            var messages = await _messageRepository.GetByConversationIdAsync(conversationId, page, pageSize);
-            var messageResponses = _mapper.Map<List<MessageResponse>>(messages);
-
-            // Apply user info enrichment nếu options provided
-            if (options != null && (options.IncludeSenderInfo || options.IncludeReceiverInfo))
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                await EnrichMessageUserInfoAsync(messageResponses, options);
-            }
+                LogInfo(
+                    "Fetching messages with user info for conversation: {ConversationId}, page: {Page}, pageSize: {PageSize}",
+                    null,
+                    conversationId,
+                    page,
+                    pageSize
+                );
 
-            LogInfo("Successfully fetched {Count} messages with user info for conversation: {ConversationId}",
-                null, messageResponses.Count, conversationId);
+                ValidateRequiredString(conversationId, nameof(conversationId));
 
-            return messageResponses;
-        }, "GetByConversationIdWithUserInfo");
+                // Lấy messages từ repository
+                var messages = await _messageRepository.GetByConversationIdAsync(
+                    conversationId,
+                    page,
+                    pageSize
+                );
+                var messageResponses = _mapper.Map<List<MessageResponse>>(messages);
+
+                // Apply user info enrichment nếu options provided
+                if (options != null && (options.IncludeSenderInfo || options.IncludeReceiverInfo))
+                {
+                    await EnrichMessageUserInfoAsync(messageResponses, options);
+                }
+
+                LogInfo(
+                    "Successfully fetched {Count} messages with user info for conversation: {ConversationId}",
+                    null,
+                    messageResponses.Count,
+                    conversationId
+                );
+
+                return messageResponses;
+            },
+            "GetByConversationIdWithUserInfo"
+        );
     }
 
     /// <summary>
@@ -299,42 +462,52 @@ public class MessageService : BaseService, IMessageService
     /// </summary>
     public async Task<bool> DeleteAsync(string id)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Starting deletion of message with ID: {MessageId}", null, id);
-
-            // Lấy tin nhắn để xóa attachments
-            var message = await _messageRepository.GetByIdAsync(id);
-            if (message != null && message.Attachments.Any())
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                // Xóa files từ cloud storage using LINQ Select
-                var attachmentUrls = message.Attachments.Select(attachment => attachment.Url).ToList();
-                foreach (var url in attachmentUrls)
+                LogInfo("Starting deletion of message with ID: {MessageId}", null, id);
+
+                // Lấy tin nhắn để xóa attachments
+                var message = await _messageRepository.GetByIdAsync(id);
+                if (message != null && message.Attachments.Any())
                 {
-                    try
+                    // Xóa files từ cloud storage using LINQ Select
+                    var attachmentUrls = message
+                        .Attachments.Select(attachment => attachment.Url)
+                        .ToList();
+                    foreach (var url in attachmentUrls)
                     {
-                        await _fileUploadService.DeleteFileAsync(url);
-                    }
-                    catch (Exception ex)
-                    {
-                        LogWarning("Failed to delete attachment {Url}: {Error}", null, url, ex.Message);
+                        try
+                        {
+                            await _fileUploadService.DeleteFileAsync(url);
+                        }
+                        catch (Exception ex)
+                        {
+                            LogWarning(
+                                "Failed to delete attachment {Url}: {Error}",
+                                null,
+                                url,
+                                ex.Message
+                            );
+                        }
                     }
                 }
-            }
 
-            var result = await _messageRepository.DeleteAsync(id);
+                var result = await _messageRepository.DeleteAsync(id);
 
-            if (result)
-            {
-                LogInfo("Message deleted successfully with ID: {MessageId}", null, id);
-            }
-            else
-            {
-                LogWarning("Failed to delete message with ID: {MessageId}", null, id);
-            }
+                if (result)
+                {
+                    LogInfo("Message deleted successfully with ID: {MessageId}", null, id);
+                }
+                else
+                {
+                    LogWarning("Failed to delete message with ID: {MessageId}", null, id);
+                }
 
-            return result;
-        }, "DeleteMessage");
+                return result;
+            },
+            "DeleteMessage"
+        );
     }
 
     /// <summary>
@@ -342,44 +515,63 @@ public class MessageService : BaseService, IMessageService
     /// </summary>
     public async Task<bool> MarkAsReadAsync(MarkMessageAsReadRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Marking message as read: {MessageId}", null, request.MessageId);
-
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.MessageId, nameof(request.MessageId));
-
-            // Get message để lấy conversation ID
-            var message = await _messageRepository.GetByIdAsync(request.MessageId);
-            if (message == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new ArgumentException($"Message with ID {request.MessageId} does not exist");
-            }
+                LogInfo("Marking message as read: {MessageId}", null, request.MessageId);
 
-            var result = await _messageRepository.MarkAsReadAsync(request.MessageId, DateTime.UtcNow);
+                ValidateRequired(request, nameof(request));
+                ValidateRequiredString(request.MessageId, nameof(request.MessageId));
 
-            if (result)
-            {
-                LogInfo("Đánh dấu tin nhắn đã đọc thành công: {MessageId}", null, request.MessageId);
-
-                // Gửi thông báo real-time qua SignalR (fire and forget)
-                _ = Task.Run(async () =>
+                // Get message để lấy conversation ID
+                var message = await _messageRepository.GetByIdAsync(request.MessageId);
+                if (message == null)
                 {
-                    try
-                    {
-                        await _signalRNotificationService.SendMessageReadNotificationAsync(
-                            message.ConversationId, request.MessageId, message.ReceiverId ?? "");
-                    }
-                    catch (Exception ex)
-                    {
-                        LogWarning("Error sending SignalR read notification for {MessageId}: {Error}",
-                            null, request.MessageId, ex.Message);
-                    }
-                });
-            }
+                    throw new ArgumentException(
+                        $"Message with ID {request.MessageId} does not exist"
+                    );
+                }
 
-            return result;
-        }, "MarkMessageAsRead");
+                var result = await _messageRepository.MarkAsReadAsync(
+                    request.MessageId,
+                    DateTime.UtcNow
+                );
+
+                if (result)
+                {
+                    LogInfo(
+                        "Đánh dấu tin nhắn đã đọc thành công: {MessageId}",
+                        null,
+                        request.MessageId
+                    );
+
+                    // Gửi thông báo real-time qua SignalR (fire and forget)
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _signalRNotificationService.SendMessageReadNotificationAsync(
+                                message.ConversationId,
+                                request.MessageId,
+                                message.ReceiverId ?? ""
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            LogWarning(
+                                "Error sending SignalR read notification for {MessageId}: {Error}",
+                                null,
+                                request.MessageId,
+                                ex.Message
+                            );
+                        }
+                    });
+                }
+
+                return result;
+            },
+            "MarkMessageAsRead"
+        );
     }
 
     /// <summary>
@@ -387,58 +579,89 @@ public class MessageService : BaseService, IMessageService
     /// </summary>
     public async Task<bool> MarkAllAsReadAsync(MarkAllMessagesAsReadRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Marking all messages as read for conversation: {ConversationId}, user: {UserId}",
-                null, request.ConversationId, request.UserId);
-
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
-            ValidateRequiredString(request.UserId, nameof(request.UserId));
-
-            // Kiểm tra conversation có tồn tại không
-            var conversation = await _conversationRepository.GetByIdAsync(request.ConversationId);
-            if (conversation == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new ArgumentException($"Conversation with ID {request.ConversationId} does not exist");
-            }
+                LogInfo(
+                    "Marking all messages as read for conversation: {ConversationId}, user: {UserId}",
+                    null,
+                    request.ConversationId,
+                    request.UserId
+                );
 
-            // Kiểm tra user có trong conversation không
-            if (!conversation.Participants.Contains(request.UserId))
-            {
-                throw new UnauthorizedAccessException("User is not authorized to read messages in this conversation");
-            }
+                ValidateRequired(request, nameof(request));
+                ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
+                ValidateRequiredString(request.UserId, nameof(request.UserId));
 
-            var result = await _messageRepository.MarkAllAsReadAsync(request.ConversationId, request.UserId, DateTime.UtcNow);
-
-            if (result)
-            {
-                LogInfo("Đánh dấu tất cả tin nhắn đã đọc thành công cho conversation: {ConversationId}, user: {UserId}",
-                    null, request.ConversationId, request.UserId);
-
-                // Gửi thông báo real-time qua SignalR (fire and forget)
-                _ = Task.Run(async () =>
+                // Kiểm tra conversation có tồn tại không
+                var conversation = await _conversationRepository.GetByIdAsync(
+                    request.ConversationId
+                );
+                if (conversation == null)
                 {
-                    try
-                    {
-                        await _signalRNotificationService.SendAllMessagesReadNotificationAsync(
-                            request.ConversationId, request.UserId);
-                    }
-                    catch (Exception ex)
-                    {
-                        LogWarning("Error sending SignalR all-messages-read notification for conversation {ConversationId}: {Error}",
-                            null, request.ConversationId, ex.Message);
-                    }
-                });
-            }
-            else
-            {
-                LogInfo("No messages were marked as read (may already be read) for conversation: {ConversationId}, user: {UserId}",
-                    null, request.ConversationId, request.UserId);
-            }
+                    throw new ArgumentException(
+                        $"Conversation with ID {request.ConversationId} does not exist"
+                    );
+                }
 
-            return result;
-        }, "MarkAllMessagesAsRead");
+                // Kiểm tra user có trong conversation không
+                if (!conversation.Participants.Contains(request.UserId))
+                {
+                    throw new UnauthorizedAccessException(
+                        "User is not authorized to read messages in this conversation"
+                    );
+                }
+
+                var result = await _messageRepository.MarkAllAsReadAsync(
+                    request.ConversationId,
+                    request.UserId,
+                    DateTime.UtcNow
+                );
+
+                if (result)
+                {
+                    LogInfo(
+                        "Đánh dấu tất cả tin nhắn đã đọc thành công cho conversation: {ConversationId}, user: {UserId}",
+                        null,
+                        request.ConversationId,
+                        request.UserId
+                    );
+
+                    // Gửi thông báo real-time qua SignalR (fire and forget)
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _signalRNotificationService.SendAllMessagesReadNotificationAsync(
+                                request.ConversationId,
+                                request.UserId
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            LogWarning(
+                                "Error sending SignalR all-messages-read notification for conversation {ConversationId}: {Error}",
+                                null,
+                                request.ConversationId,
+                                ex.Message
+                            );
+                        }
+                    });
+                }
+                else
+                {
+                    LogInfo(
+                        "No messages were marked as read (may already be read) for conversation: {ConversationId}, user: {UserId}",
+                        null,
+                        request.ConversationId,
+                        request.UserId
+                    );
+                }
+
+                return result;
+            },
+            "MarkAllMessagesAsRead"
+        );
     }
 
     /// <summary>
@@ -454,30 +677,51 @@ public class MessageService : BaseService, IMessageService
     /// </summary>
     public async Task<IEnumerable<MessageResponse>> SearchAsync(SearchMessageRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Searching messages in conversation: {ConversationId} with term: {SearchTerm}",
-                null, request.ConversationId, request.SearchTerm);
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo(
+                    "Searching messages in conversation: {ConversationId} with term: {SearchTerm}",
+                    null,
+                    request.ConversationId,
+                    request.SearchTerm
+                );
 
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
-            ValidateRequiredString(request.SearchTerm, nameof(request.SearchTerm));
+                ValidateRequired(request, nameof(request));
+                ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
+                ValidateRequiredString(request.SearchTerm, nameof(request.SearchTerm));
 
-            var messages = await _messageRepository.SearchAsync(request.ConversationId, request.SearchTerm, request.Page, request.PageSize);
+                var messages = await _messageRepository.SearchAsync(
+                    request.ConversationId,
+                    request.SearchTerm,
+                    request.Page,
+                    request.PageSize
+                );
 
-            LogInfo("Found {Count} messages", null, messages.Count());
-            return _mapper.Map<IEnumerable<MessageResponse>>(messages);
-        }, "SearchMessages");
+                LogInfo("Found {Count} messages", null, messages.Count());
+                return _mapper.Map<IEnumerable<MessageResponse>>(messages);
+            },
+            "SearchMessages"
+        );
     }
 
     /// <summary>
     /// Lấy tin nhắn theo loại (simplified implementation using existing methods)
     /// </summary>
-    public async Task<IEnumerable<MessageResponse>> GetMessagesByTypeAsync(String conversationId, MessageType messageType, int page = 1, int pageSize = 20)
+    public async Task<IEnumerable<MessageResponse>> GetMessagesByTypeAsync(
+        String conversationId,
+        MessageType messageType,
+        int page = 1,
+        int pageSize = 20
+    )
     {
         // Lấy tất cả tin nhắn cho conversation và lọc theo loại trong bộ nhớ
         // Không tối ưu cho production nhưng tạm thời sử dụng
-        var allMessages = await _messageRepository.GetByConversationIdAsync(conversationId, 1, 1000);
+        var allMessages = await _messageRepository.GetByConversationIdAsync(
+            conversationId,
+            1,
+            1000
+        );
         var filteredMessages = allMessages
             .Where(m => m.Type == messageType)
             .Skip((page - 1) * pageSize)
@@ -489,10 +733,19 @@ public class MessageService : BaseService, IMessageService
     /// <summary>
     /// Lấy tất cả file attachments trong conversation (simplified implementation)
     /// </summary>
-    public async Task<IEnumerable<MessageAttachmentResponse>> GetConversationAttachmentsAsync(string conversationId, MessageType? messageType = null, int page = 1, int pageSize = 50)
+    public async Task<IEnumerable<MessageAttachmentResponse>> GetConversationAttachmentsAsync(
+        string conversationId,
+        MessageType? messageType = null,
+        int page = 1,
+        int pageSize = 50
+    )
     {
         // Lấy tất cả tin nhắn và lọc những tin có attachments
-        var allMessages = await _messageRepository.GetByConversationIdAsync(conversationId, 1, 1000);
+        var allMessages = await _messageRepository.GetByConversationIdAsync(
+            conversationId,
+            1,
+            1000
+        );
 
         var messagesWithAttachments = messageType.HasValue
             ? allMessages.Where(m => m.Type == messageType.Value && m.Attachments.Any())
@@ -507,198 +760,373 @@ public class MessageService : BaseService, IMessageService
         return _mapper.Map<IEnumerable<MessageAttachmentResponse>>(attachments);
     }
 
-
     /// <summary>
     /// Lấy mixed timeline (messages + call logs) cho conversation
     /// </summary>
     public async Task<MixedTimelineResponse> GetMixedTimelineAsync(GetMixedTimelineRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo(
+                    "Fetching mixed timeline for conversation: {ConversationId}, before: {Before}, after: {After}, limit: {Limit}",
+                    null,
+                    request.ConversationId,
+                    request.Before,
+                    request.After,
+                    request.Limit
+                );
+
+                // Validation
+                ValidateMixedTimelineRequest(request);
+
+                // Parse cursors để lấy timestamp filter
+                var (beforeTimestamp, afterTimestamp) = ParseTimelineCursors(
+                    request.Before,
+                    request.After
+                );
+
+                // Fetch timeline items (messages + call logs)
+                var timelineItems = await FetchTimelineItemsAsync(
+                    request,
+                    beforeTimestamp,
+                    afterTimestamp
+                );
+
+                // Sort and paginate items
+                var sortedItems = SortAndLimitTimelineItems(timelineItems, request.Limit);
+
+                // Determine pagination info
+                var paginationInfo = CalculatePaginationInfo(
+                    sortedItems,
+                    request.Limit,
+                    request.Before,
+                    request.After
+                );
+
+                // Remove extra item if exists
+                if (paginationInfo.HasNext)
+                {
+                    sortedItems.RemoveAt(sortedItems.Count - 1);
+                }
+
+                // Generate cursors
+                var cursors = GenerateTimelineCursors(
+                    sortedItems,
+                    paginationInfo.HasNext,
+                    paginationInfo.HasPrevious,
+                    request.Before
+                );
+
+                var result = new MixedTimelineResponse
+                {
+                    Items = sortedItems,
+                    NextCursor = cursors.NextCursor,
+                    PreviousCursor = cursors.PreviousCursor,
+                    HasNext = paginationInfo.HasNext,
+                    HasPrevious = paginationInfo.HasPrevious,
+                    Limit = request.Limit,
+                };
+
+                LogInfo(
+                    "Successfully fetched mixed timeline with {Count} items for conversation: {ConversationId}",
+                    null,
+                    sortedItems.Count,
+                    request.ConversationId
+                );
+
+                return result;
+            },
+            "GetMixedTimeline"
+        );
+    }
+
+    /// <summary>
+    /// Validate mixed timeline request
+    /// </summary>
+    private static void ValidateMixedTimelineRequest(GetMixedTimelineRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
+
+        if (request.Limit <= 0 || request.Limit > 200)
         {
-            LogInfo("Fetching mixed timeline for conversation: {ConversationId}, before: {Before}, after: {After}, limit: {Limit}",
-                null, request.ConversationId, request.Before, request.After, request.Limit);
+            throw new ArgumentException("Limit must be between 1 and 200");
+        }
 
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.ConversationId, nameof(request.ConversationId));
+        if (request.MessagesOnly && request.CallLogsOnly)
+        {
+            throw new ArgumentException("Cannot select both MessagesOnly and CallLogsOnly");
+        }
+    }
 
-            if (request.Limit <= 0 || request.Limit > 200)
+    /// <summary>
+    /// Parse timeline cursors to get timestamp filters
+    /// </summary>
+    private static (DateTime? beforeTimestamp, DateTime? afterTimestamp) ParseTimelineCursors(
+        string? before,
+        string? after
+    )
+    {
+        DateTime? beforeTimestamp = null;
+        DateTime? afterTimestamp = null;
+
+        if (!string.IsNullOrEmpty(before))
+        {
+            var (timestamp, _) = CursorHelper.ParseCursor(before);
+            beforeTimestamp = timestamp;
+        }
+
+        if (!string.IsNullOrEmpty(after))
+        {
+            var (timestamp, _) = CursorHelper.ParseCursor(after);
+            afterTimestamp = timestamp;
+        }
+
+        return (beforeTimestamp, afterTimestamp);
+    }
+
+    /// <summary>
+    /// Fetch timeline items (messages and/or call logs)
+    /// </summary>
+    private async Task<List<TimelineItem>> FetchTimelineItemsAsync(
+        GetMixedTimelineRequest request,
+        DateTime? beforeTimestamp,
+        DateTime? afterTimestamp
+    )
+    {
+        var timelineItems = new List<TimelineItem>();
+
+        // Lấy messages (nếu không chỉ lấy call logs)
+        if (!request.CallLogsOnly)
+        {
+            var messageItems = await FetchMessageTimelineItemsAsync(
+                request.ConversationId,
+                beforeTimestamp,
+                afterTimestamp,
+                request.Limit + 50,
+                request.MessageTypeFilter
+            );
+
+            timelineItems.AddRange(messageItems);
+        }
+
+        // Lấy call logs (nếu không chỉ lấy messages)
+        if (!request.MessagesOnly)
+        {
+            var callLogItems = await FetchCallLogTimelineItemsAsync(
+                request.ConversationId,
+                beforeTimestamp,
+                afterTimestamp,
+                request.Limit + 50,
+                request.CallTypeFilter
+            );
+
+            timelineItems.AddRange(callLogItems);
+        }
+
+        return timelineItems;
+    }
+
+    /// <summary>
+    /// Fetch message timeline items
+    /// </summary>
+    private async Task<List<TimelineItem>> FetchMessageTimelineItemsAsync(
+        string conversationId,
+        DateTime? beforeTimestamp,
+        DateTime? afterTimestamp,
+        int limit,
+        MessageType? messageTypeFilter
+    )
+    {
+        var messages = await _messageRepository.GetByConversationIdForTimelineAsync(
+            conversationId,
+            beforeTimestamp,
+            afterTimestamp,
+            limit,
+            messageTypeFilter
+        );
+
+        return messages
+            .Select(m => new TimelineItem
             {
-                throw new ArgumentException("Limit must be between 1 and 200");
-            }
+                Id = m.Id,
+                ConversationId = m.ConversationId,
+                CreatedAt = m.CreatedAt,
+                ItemType = TimelineItemType.Message,
+                Message = _mapper.Map<MessageResponse>(m),
+                CallLog = null,
+            })
+            .ToList();
+    }
 
-            if (request.MessagesOnly && request.CallLogsOnly)
+    /// <summary>
+    /// Fetch call log timeline items
+    /// </summary>
+    private async Task<List<TimelineItem>> FetchCallLogTimelineItemsAsync(
+        string conversationId,
+        DateTime? beforeTimestamp,
+        DateTime? afterTimestamp,
+        int limit,
+        CallType? callTypeFilter
+    )
+    {
+        var callLogs = await _callLogRepository.GetByConversationIdForTimelineAsync(
+            conversationId,
+            beforeTimestamp,
+            afterTimestamp,
+            limit,
+            callTypeFilter
+        );
+
+        return callLogs
+            .Select(c => new TimelineItem
             {
-                throw new ArgumentException("Cannot select both MessagesOnly and CallLogsOnly");
-            }
+                Id = c.Id,
+                ConversationId = c.ConversationId,
+                CreatedAt = c.StartedAt,
+                ItemType = TimelineItemType.CallLog,
+                Message = null,
+                CallLog = _mapper.Map<CallLogResponse>(c),
+            })
+            .ToList();
+    }
 
-            // Parse cursors để lấy timestamp filter
-            DateTime? beforeTimestamp = null;
-            DateTime? afterTimestamp = null;
+    /// <summary>
+    /// Sort and limit timeline items
+    /// </summary>
+    private static List<TimelineItem> SortAndLimitTimelineItems(
+        List<TimelineItem> timelineItems,
+        int limit
+    )
+    {
+        return timelineItems
+            .OrderByDescending(item => item.CreatedAt)
+            .ThenByDescending(item => item.Id)
+            .Take(limit + 1) // +1 để check hasNext
+            .ToList();
+    }
 
-            if (!string.IsNullOrEmpty(request.Before))
-            {
-                var (timestamp, _) = CursorHelper.ParseCursor(request.Before);
-                beforeTimestamp = timestamp;
-            }
+    /// <summary>
+    /// Calculate pagination info
+    /// </summary>
+    private static (bool HasNext, bool HasPrevious) CalculatePaginationInfo(
+        List<TimelineItem> sortedItems,
+        int limit,
+        string? before,
+        string? after
+    )
+    {
+        var hasNext = sortedItems.Count > limit;
+        var hasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after);
 
-            if (!string.IsNullOrEmpty(request.After))
-            {
-                var (timestamp, _) = CursorHelper.ParseCursor(request.After);
-                afterTimestamp = timestamp;
-            }
+        return (hasNext, hasPrevious);
+    }
 
-            var timelineItems = new List<TimelineItem>();
+    /// <summary>
+    /// Generate timeline cursors
+    /// </summary>
+    private static (string? NextCursor, string? PreviousCursor) GenerateTimelineCursors(
+        List<TimelineItem> sortedItems,
+        bool hasNext,
+        bool hasPrevious,
+        string? before
+    )
+    {
+        if (!sortedItems.Any())
+        {
+            return (null, null);
+        }
 
-            // Lấy messages (nếu không chỉ lấy call logs)
-            if (!request.CallLogsOnly)
-            {
-                var messages = await _messageRepository.GetByConversationIdForTimelineAsync(
-                    request.ConversationId,
-                    beforeTimestamp,
-                    afterTimestamp,
-                    request.Limit + 50, // Lấy thêm để đảm bảo có đủ khi merge
-                    request.MessageTypeFilter
-                );
+        string? nextCursor = null;
+        string? previousCursor = null;
 
-                timelineItems.AddRange(messages.Select(m => new TimelineItem
-                {
-                    Id = m.Id,
-                    ConversationId = m.ConversationId,
-                    CreatedAt = m.CreatedAt,
-                    ItemType = TimelineItemType.Message,
-                    Message = _mapper.Map<MessageResponse>(m),
-                    CallLog = null
-                }));
-            }
+        if (hasNext)
+        {
+            var lastItem = sortedItems[sortedItems.Count - 1];
+            nextCursor = CursorHelper.GenerateCursor(lastItem.Id, lastItem.CreatedAt);
+        }
 
-            // Lấy call logs (nếu không chỉ lấy messages)
-            if (!request.MessagesOnly)
-            {
-                var callLogs = await _callLogRepository.GetByConversationIdForTimelineAsync(
-                    request.ConversationId,
-                    beforeTimestamp,
-                    afterTimestamp,
-                    request.Limit + 50, // Lấy thêm để đảm bảo có đủ khi merge
-                    request.CallTypeFilter
-                );
+        if (hasPrevious || !string.IsNullOrEmpty(before))
+        {
+            var firstItem = sortedItems[0];
+            previousCursor = CursorHelper.GenerateCursor(firstItem.Id, firstItem.CreatedAt);
+        }
 
-                timelineItems.AddRange(callLogs.Select(c => new TimelineItem
-                {
-                    Id = c.Id,
-                    ConversationId = c.ConversationId,
-                    CreatedAt = c.StartedAt,
-                    ItemType = TimelineItemType.CallLog,
-                    Message = null,
-                    CallLog = _mapper.Map<CallLogResponse>(c)
-                }));
-            }
-
-            // Sort by time descending and take the required number
-            var sortedItems = timelineItems
-                .OrderByDescending(item => item.CreatedAt)
-                .ThenByDescending(item => item.Id)
-                .Take(request.Limit + 1) // +1 để check hasNext
-                .ToList();
-
-            // Determine pagination info
-            var hasNext = sortedItems.Count > request.Limit;
-            var hasPrevious = !string.IsNullOrEmpty(request.Before) || !string.IsNullOrEmpty(request.After);
-
-            // Remove extra item if exists
-            if (hasNext)
-            {
-                sortedItems.RemoveAt(sortedItems.Count - 1);
-            }
-
-            // Generate cursors
-            string? nextCursor = null;
-            string? previousCursor = null;
-
-            if (sortedItems.Any())
-            {
-                if (hasNext)
-                {
-                    var lastItem = sortedItems[sortedItems.Count - 1];
-                    nextCursor = CursorHelper.GenerateCursor(lastItem.Id, lastItem.CreatedAt);
-                }
-
-                if (hasPrevious || !string.IsNullOrEmpty(request.Before))
-                {
-                    var firstItem = sortedItems[0];
-                    previousCursor = CursorHelper.GenerateCursor(firstItem.Id, firstItem.CreatedAt);
-                }
-            }
-
-            var result = new MixedTimelineResponse
-            {
-                Items = sortedItems,
-                NextCursor = nextCursor,
-                PreviousCursor = previousCursor,
-                HasNext = hasNext,
-                HasPrevious = hasPrevious,
-                Limit = request.Limit
-            };
-
-            LogInfo("Successfully fetched mixed timeline with {Count} items for conversation: {ConversationId}",
-                null, sortedItems.Count, request.ConversationId);
-
-            return result;
-        }, "GetMixedTimeline");
+        return (nextCursor, previousCursor);
     }
 
     /// <summary>
     /// 🎯 NEW: Lấy mixed timeline với user info enrichment
     /// </summary>
-    public async Task<MixedTimelineResponse> GetMixedTimelineWithUserInfoAsync(GetMixedTimelineRequest request, MessageLoadOptions? options = null)
+    public async Task<MixedTimelineResponse> GetMixedTimelineWithUserInfoAsync(
+        GetMixedTimelineRequest request,
+        MessageLoadOptions? options = null
+    )
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Fetching mixed timeline with user info for conversation: {ConversationId}, options: {Options}",
-                null, request.ConversationId, options?.IncludeSenderInfo);
-
-            // Lấy mixed timeline bình thường
-            var result = await GetMixedTimelineAsync(request);
-
-            // Apply user info enrichment nếu options provided
-            if (options != null && (options.IncludeSenderInfo || options.IncludeReceiverInfo))
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                // Extract messages from timeline items
-                var messages = result.Items
-                    .Where(item => item.ItemType == TimelineItemType.Message && item.Message != null)
-                    .Select(item => item.Message!)
-                    .ToList();
+                LogInfo(
+                    "Fetching mixed timeline with user info for conversation: {ConversationId}, options: {Options}",
+                    null,
+                    request.ConversationId,
+                    options?.IncludeSenderInfo
+                );
 
-                if (messages.Any())
+                // Lấy mixed timeline bình thường
+                var result = await GetMixedTimelineAsync(request);
+
+                // Apply user info enrichment nếu options provided
+                if (options != null && (options.IncludeSenderInfo || options.IncludeReceiverInfo))
                 {
-                    await EnrichMessageUserInfoAsync(messages, options);
+                    // Extract messages from timeline items
+                    var messages = result
+                        .Items.Where(item =>
+                            item.ItemType == TimelineItemType.Message && item.Message != null
+                        )
+                        .Select(item => item.Message!)
+                        .ToList();
 
-                    // Count enrichment statistics
-                    var messagesWithSenderInfo = messages.Count(m => m.SenderInfo != null);
-                    var messagesWithReceiverInfo = messages.Count(m => m.ReceiverInfo != null);
-                    var totalUsersEnriched = messages.SelectMany(m => new[] { m.SenderInfo, m.ReceiverInfo })
-                        .Where(info => info != null)
-                        .Select(info => info!.Id)
-                        .Distinct()
-                        .Count();
-
-                    // Add enrichment info
-                    result.EnrichmentInfo = new MessageEnrichmentInfo
+                    if (messages.Any())
                     {
-                        SenderInfoLoaded = options.IncludeSenderInfo,
-                        ReceiverInfoLoaded = options.IncludeReceiverInfo,
-                        OnlineStatusLoaded = options.IncludeOnlineStatus,
-                        TotalUsersEnriched = totalUsersEnriched,
-                        MessagesWithSenderInfo = messagesWithSenderInfo,
-                        MessagesWithReceiverInfo = messagesWithReceiverInfo
-                    };
+                        await EnrichMessageUserInfoAsync(messages, options);
 
-                    LogInfo("Enriched mixed timeline with {TotalUsers} users, {SenderCount} sender info, {ReceiverCount} receiver info",
-                        null, totalUsersEnriched, messagesWithSenderInfo, messagesWithReceiverInfo);
+                        // Count enrichment statistics
+                        var messagesWithSenderInfo = messages.Count(m => m.SenderInfo != null);
+                        var messagesWithReceiverInfo = messages.Count(m => m.ReceiverInfo != null);
+                        var totalUsersEnriched = messages
+                            .SelectMany(m => new[] { m.SenderInfo, m.ReceiverInfo })
+                            .Where(info => info != null)
+                            .Select(info => info!.Id)
+                            .Distinct()
+                            .Count();
+
+                        // Add enrichment info
+                        result.EnrichmentInfo = new MessageEnrichmentInfo
+                        {
+                            SenderInfoLoaded = options.IncludeSenderInfo,
+                            ReceiverInfoLoaded = options.IncludeReceiverInfo,
+                            OnlineStatusLoaded = options.IncludeOnlineStatus,
+                            TotalUsersEnriched = totalUsersEnriched,
+                            MessagesWithSenderInfo = messagesWithSenderInfo,
+                            MessagesWithReceiverInfo = messagesWithReceiverInfo,
+                        };
+
+                        LogInfo(
+                            "Enriched mixed timeline with {TotalUsers} users, {SenderCount} sender info, {ReceiverCount} receiver info",
+                            null,
+                            totalUsersEnriched,
+                            messagesWithSenderInfo,
+                            messagesWithReceiverInfo
+                        );
+                    }
                 }
-            }
 
-            return result;
-        }, "GetMixedTimelineWithUserInfo");
+                return result;
+            },
+            "GetMixedTimelineWithUserInfo"
+        );
     }
 
     #region Private Helper Methods
@@ -706,37 +1134,19 @@ public class MessageService : BaseService, IMessageService
     /// <summary>
     /// Enrichment user info cho danh sách messages
     /// </summary>
-    private async Task EnrichMessageUserInfoAsync(IEnumerable<MessageResponse> messages, MessageLoadOptions options)
+    private async Task EnrichMessageUserInfoAsync(
+        IEnumerable<MessageResponse> messages,
+        MessageLoadOptions options
+    )
     {
         var messageList = messages.ToList();
-        if (!messageList.Any()) return;
+        if (!messageList.Any())
+            return;
 
         LogDebug("Starting enrichment of user info for {Count} messages", null, messageList.Count);
 
         // Collect unique user IDs cần enrichment
-        var userIds = new HashSet<string>();
-
-        if (options.IncludeSenderInfo)
-        {
-            foreach (var message in messageList)
-            {
-                if (!string.IsNullOrEmpty(message.SenderId))
-                {
-                    userIds.Add(message.SenderId.ToLowerInvariant());
-                }
-            }
-        }
-
-        if (options.IncludeReceiverInfo)
-        {
-            foreach (var message in messageList)
-            {
-                if (!string.IsNullOrEmpty(message.ReceiverId))
-                {
-                    userIds.Add(message.ReceiverId.ToLowerInvariant());
-                }
-            }
-        }
+        var userIds = CollectUserIdsForEnrichment(messageList, options);
 
         if (!userIds.Any())
         {
@@ -744,8 +1154,12 @@ public class MessageService : BaseService, IMessageService
             return;
         }
 
-        LogDebug("Enriching user info for {Count} unique users: {UserIds}",
-            null, userIds.Count, string.Join(", ", userIds.Take(5)));
+        LogDebug(
+            "Enriching user info for {Count} unique users: {UserIds}",
+            null,
+            userIds.Count,
+            string.Join(", ", userIds.Take(5))
+        );
 
         try
         {
@@ -753,56 +1167,159 @@ public class MessageService : BaseService, IMessageService
             var userDetails = await _participantEnrichmentService.GetAccountDetailsAsync(userIds);
 
             // Apply user info cho từng message
-            foreach (var message in messageList)
-            {
-                // Enrich sender info
-                if (options.IncludeSenderInfo && !string.IsNullOrEmpty(message.SenderId))
-                {
-                    var normalizedSenderId = message.SenderId.ToLowerInvariant();
-                    if (userDetails.TryGetValue(normalizedSenderId, out var senderDetail))
-                    {
-                        message.SenderInfo = new MessageSenderInfo
-                        {
-                            Id = senderDetail.Id,
-                            FullName = senderDetail.FullName,
-                            Email = senderDetail.Email,
-                            AvatarUrl = senderDetail.AvatarUrl,
-                            Role = senderDetail.Role,
-                            IsOnline = senderDetail.IsOnline
-                        };
-                    }
-                }
+            ApplyUserInfoToMessages(messageList, userDetails, options);
 
-                // Enrich receiver info
-                if (options.IncludeReceiverInfo && !string.IsNullOrEmpty(message.ReceiverId))
-                {
-                    var normalizedReceiverId = message.ReceiverId.ToLowerInvariant();
-                    if (userDetails.TryGetValue(normalizedReceiverId, out var receiverDetail))
-                    {
-                        message.ReceiverInfo = new MessageSenderInfo
-                        {
-                            Id = receiverDetail.Id,
-                            FullName = receiverDetail.FullName,
-                            Email = receiverDetail.Email,
-                            AvatarUrl = receiverDetail.AvatarUrl,
-                            Role = receiverDetail.Role,
-                            IsOnline = receiverDetail.IsOnline
-                        };
-                    }
-                }
-            }
-
-            var enrichedSenders = messageList.Count(m => m.SenderInfo != null);
-            var enrichedReceivers = messageList.Count(m => m.ReceiverInfo != null);
-
-            LogDebug("Completed enrichment of user info: {Senders} sender info, {Receivers} receiver info",
-                null, enrichedSenders, enrichedReceivers);
+            LogEnrichmentCompletion(messageList);
         }
         catch (Exception ex)
         {
             LogError(ex, "Error enriching user info for messages", null);
             // Continue without user enrichment
         }
+    }
+
+    /// <summary>
+    /// Collect unique user IDs cần enrichment
+    /// </summary>
+    private static HashSet<string> CollectUserIdsForEnrichment(
+        List<MessageResponse> messageList,
+        MessageLoadOptions options
+    )
+    {
+        var userIds = new HashSet<string>();
+
+        if (options.IncludeSenderInfo)
+        {
+            CollectSenderIds(messageList, userIds);
+        }
+
+        if (options.IncludeReceiverInfo)
+        {
+            CollectReceiverIds(messageList, userIds);
+        }
+
+        return userIds;
+    }
+
+    /// <summary>
+    /// Collect sender IDs từ messages
+    /// </summary>
+    private static void CollectSenderIds(List<MessageResponse> messageList, HashSet<string> userIds)
+    {
+        foreach (var message in messageList)
+        {
+            if (!string.IsNullOrEmpty(message.SenderId))
+            {
+                userIds.Add(message.SenderId.ToLowerInvariant());
+            }
+        }
+    }
+
+    /// <summary>
+    /// Collect receiver IDs từ messages
+    /// </summary>
+    private static void CollectReceiverIds(List<MessageResponse> messageList, HashSet<string> userIds)
+    {
+        foreach (var message in messageList)
+        {
+            if (!string.IsNullOrEmpty(message.ReceiverId))
+            {
+                userIds.Add(message.ReceiverId.ToLowerInvariant());
+            }
+        }
+    }
+
+    /// <summary>
+    /// Apply user info cho từng message
+    /// </summary>
+    private static void ApplyUserInfoToMessages(
+        List<MessageResponse> messageList,
+        Dictionary<string, ConversationParticipant> userDetails,
+        MessageLoadOptions options
+    )
+    {
+        foreach (var message in messageList)
+        {
+            // Enrich sender info
+            if (options.IncludeSenderInfo)
+            {
+                EnrichSenderInfo(message, userDetails);
+            }
+
+            // Enrich receiver info
+            if (options.IncludeReceiverInfo)
+            {
+                EnrichReceiverInfo(message, userDetails);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enrich sender info cho message
+    /// </summary>
+    private static void EnrichSenderInfo(
+        MessageResponse message,
+        Dictionary<string, ConversationParticipant> userDetails
+    )
+    {
+        if (string.IsNullOrEmpty(message.SenderId))
+            return;
+
+        var normalizedSenderId = message.SenderId.ToLowerInvariant();
+        if (userDetails.TryGetValue(normalizedSenderId, out var senderDetail))
+        {
+            message.SenderInfo = CreateMessageSenderInfo(senderDetail);
+        }
+    }
+
+    /// <summary>
+    /// Enrich receiver info cho message
+    /// </summary>
+    private static void EnrichReceiverInfo(
+        MessageResponse message,
+        Dictionary<string, ConversationParticipant> userDetails
+    )
+    {
+        if (string.IsNullOrEmpty(message.ReceiverId))
+            return;
+
+        var normalizedReceiverId = message.ReceiverId.ToLowerInvariant();
+        if (userDetails.TryGetValue(normalizedReceiverId, out var receiverDetail))
+        {
+            message.ReceiverInfo = CreateMessageSenderInfo(receiverDetail);
+        }
+    }
+
+    /// <summary>
+    /// Create MessageSenderInfo từ ConversationParticipant
+    /// </summary>
+    private static MessageSenderInfo CreateMessageSenderInfo(ConversationParticipant participant)
+    {
+        return new MessageSenderInfo
+        {
+            Id = participant.Id,
+            FullName = participant.FullName,
+            Email = participant.Email,
+            AvatarUrl = participant.AvatarUrl,
+            Role = participant.Role,
+            IsOnline = participant.IsOnline,
+        };
+    }
+
+    /// <summary>
+    /// Log enrichment completion statistics
+    /// </summary>
+    private void LogEnrichmentCompletion(List<MessageResponse> messageList)
+    {
+        var enrichedSenders = messageList.Count(m => m.SenderInfo != null);
+        var enrichedReceivers = messageList.Count(m => m.ReceiverInfo != null);
+
+        LogDebug(
+            "Completed enrichment of user info: {Senders} sender info, {Receivers} receiver info",
+            null,
+            enrichedSenders,
+            enrichedReceivers
+        );
     }
 
     #endregion

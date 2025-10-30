@@ -1,11 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using BookingCare.Services.Communication.Data;
+using BookingCare.Services.Communication.Data.Seeding;
+using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Services.Interfaces;
-using BookingCare.Services.Communication.Data.Seeding;
-using BookingCare.Services.Communication.Data;
-using BookingCare.Services.Communication.Enums;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Communication.Controllers;
 
@@ -27,7 +27,8 @@ public class CommunicationsController : BaseApiController
         IMessageService messageService,
         IConversationService conversationService,
         ICallLogService callLogService,
-        CommunicationDbContext dbContext)
+        CommunicationDbContext dbContext
+    )
     {
         _messageService = messageService;
         _conversationService = conversationService;
@@ -54,8 +55,8 @@ public class CommunicationsController : BaseApiController
                 "File upload with S3-CloudFront",
                 "Voice/Video call logging",
                 "Mixed timeline (messages + calls)",
-                "Conversation management"
-            }
+                "Conversation management",
+            },
         };
         return Success(healthData, "Communication service đang hoạt động bình thường");
     }
@@ -70,7 +71,10 @@ public class CommunicationsController : BaseApiController
         try
         {
             await CommunicationDataSeeder.SeedAsync(_dbContext);
-            return Success(new { Message = "Dữ liệu mẫu đã được tạo thành công!" }, "Dữ liệu mẫu đã được tạo thành công!");
+            return Success(
+                new { Message = "Dữ liệu mẫu đã được tạo thành công!" },
+                "Dữ liệu mẫu đã được tạo thành công!"
+            );
         }
         catch (Exception ex)
         {
@@ -96,7 +100,9 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpPost("messages/with-files")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> CreateMessageWithFiles([FromForm] CreateMessageWithFilesRequest request)
+    public async Task<IActionResult> CreateMessageWithFiles(
+        [FromForm] CreateMessageWithFilesRequest request
+    )
     {
         try
         {
@@ -127,31 +133,42 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpPost("messages/with-attachments")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> CreateMessageWithAttachments([FromBody] CreateMessageWithAttachmentsRequest request)
+    public async Task<IActionResult> CreateMessageWithAttachments(
+        [FromBody] CreateMessageWithAttachmentsRequest request
+    )
     {
         try
         {
             // Validate attachments cho non-text messages
-            if (request.Type != MessageType.Text && request.Type != MessageType.System && !request.Attachments.Any())
+            if (
+                request.Type != MessageType.Text
+                && request.Type != MessageType.System
+                && !request.Attachments.Any()
+            )
             {
                 return BadRequest($"Tin nhắn loại {request.Type} yêu cầu phải có attachments");
             }
 
-            if ((request.Type == MessageType.Text || request.Type == MessageType.System) && request.Attachments.Any())
+            if (
+                (request.Type == MessageType.Text || request.Type == MessageType.System)
+                && request.Attachments.Any()
+            )
             {
                 return BadRequest($"Tin nhắn loại {request.Type} không được có attachments");
             }
 
             // Create message với attachments
-            var result = await _messageService.CreateAsync(new CreateMessageRequest
-            {
-                ConversationId = request.ConversationId,
-                SenderId = request.SenderId,
-                ReceiverId = request.ReceiverId,
-                Content = request.Content,
-                Type = request.Type,
-                Attachments = request.Attachments
-            });
+            var result = await _messageService.CreateAsync(
+                new CreateMessageRequest
+                {
+                    ConversationId = request.ConversationId,
+                    SenderId = request.SenderId,
+                    ReceiverId = request.ReceiverId,
+                    Content = request.Content,
+                    Type = request.Type,
+                    Attachments = request.Attachments,
+                }
+            );
 
             return Created(result, "Tin nhắn với attachments đã được tạo thành công!");
         }
@@ -166,7 +183,10 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpPut("messages/{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> UpdateMessage(string id, [FromBody] UpdateMessageRequest request)
+    public async Task<IActionResult> UpdateMessage(
+        string id,
+        [FromBody] UpdateMessageRequest request
+    )
     {
         if (id != request.Id)
         {
@@ -199,40 +219,35 @@ public class CommunicationsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetMessagesByConversationId(
         string conversationId,
-        [FromQuery] string? before = null,
-        [FromQuery] string? after = null,
-        [FromQuery] int limit = 50,
-        [FromQuery] bool messagesOnly = false,
-        [FromQuery] bool callLogsOnly = false,
-        [FromQuery] CallType? callTypeFilter = null,
-        [FromQuery] MessageType? messageTypeFilter = null,
-        [FromQuery] bool includeSenderInfo = false,        // 🎯 NEW: Include sender user info
-        [FromQuery] bool includeReceiverInfo = false,      // 🎯 NEW: Include receiver user info
-        [FromQuery] bool includeOnlineStatus = false)      // 🎯 NEW: Include online status
+        [FromQuery] GetMessagesQueryParameters queryParams
+    )
     {
         var request = new GetMixedTimelineRequest
         {
             ConversationId = conversationId,
-            Before = before,
-            After = after,
-            Limit = limit,
-            MessagesOnly = messagesOnly,
-            CallLogsOnly = callLogsOnly,
-            CallTypeFilter = callTypeFilter,
-            MessageTypeFilter = messageTypeFilter
+            Before = queryParams.Before,
+            After = queryParams.After,
+            Limit = queryParams.Limit,
+            MessagesOnly = queryParams.MessagesOnly,
+            CallLogsOnly = queryParams.CallLogsOnly,
+            CallTypeFilter = queryParams.CallTypeFilter,
+            MessageTypeFilter = queryParams.MessageTypeFilter,
         };
 
         // 🎯 Check if user info enrichment is requested
-        if (includeSenderInfo || includeReceiverInfo)
+        if (queryParams.IncludeSenderInfo || queryParams.IncludeReceiverInfo)
         {
             var messageOptions = new MessageLoadOptions
             {
-                IncludeSenderInfo = includeSenderInfo,
-                IncludeReceiverInfo = includeReceiverInfo,
-                IncludeOnlineStatus = includeOnlineStatus
+                IncludeSenderInfo = queryParams.IncludeSenderInfo,
+                IncludeReceiverInfo = queryParams.IncludeReceiverInfo,
+                IncludeOnlineStatus = queryParams.IncludeOnlineStatus,
             };
 
-            var result = await _messageService.GetMixedTimelineWithUserInfoAsync(request, messageOptions);
+            var result = await _messageService.GetMixedTimelineWithUserInfoAsync(
+                request,
+                messageOptions
+            );
             return Success(result, "Lấy mixed timeline với user info thành công!");
         }
         else
@@ -251,9 +266,10 @@ public class CommunicationsController : BaseApiController
         string conversationId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
-        [FromQuery] bool includeSenderInfo = false,        // 🎯 NEW: Include sender user info
-        [FromQuery] bool includeReceiverInfo = false,      // 🎯 NEW: Include receiver user info 
-        [FromQuery] bool includeOnlineStatus = false)      // 🎯 NEW: Include online status
+        [FromQuery] bool includeSenderInfo = false, // 🎯 NEW: Include sender user info
+        [FromQuery] bool includeReceiverInfo = false, // 🎯 NEW: Include receiver user info
+        [FromQuery] bool includeOnlineStatus = false
+    ) // 🎯 NEW: Include online status
     {
         // 🎯 Check if user info enrichment is requested
         if (includeSenderInfo || includeReceiverInfo)
@@ -262,27 +278,39 @@ public class CommunicationsController : BaseApiController
             {
                 IncludeSenderInfo = includeSenderInfo,
                 IncludeReceiverInfo = includeReceiverInfo,
-                IncludeOnlineStatus = includeOnlineStatus
+                IncludeOnlineStatus = includeOnlineStatus,
             };
 
-            var result = await _messageService.GetByConversationIdWithUserInfoAsync(conversationId, page, pageSize, messageOptions);
-            return Success(new
-            {
-                Messages = result,
-                EnrichmentInfo = new
+            var result = await _messageService.GetByConversationIdWithUserInfoAsync(
+                conversationId,
+                page,
+                pageSize,
+                messageOptions
+            );
+            return Success(
+                new
                 {
-                    SenderInfoLoaded = includeSenderInfo,
-                    ReceiverInfoLoaded = includeReceiverInfo,
-                    OnlineStatusLoaded = includeOnlineStatus,
-                    TotalMessages = result.Count(),
-                    MessagesWithSenderInfo = result.Count(m => m.SenderInfo != null),
-                    MessagesWithReceiverInfo = result.Count(m => m.ReceiverInfo != null)
-                }
-            }, "Lấy tin nhắn với user info thành công!");
+                    Messages = result,
+                    EnrichmentInfo = new
+                    {
+                        SenderInfoLoaded = includeSenderInfo,
+                        ReceiverInfoLoaded = includeReceiverInfo,
+                        OnlineStatusLoaded = includeOnlineStatus,
+                        TotalMessages = result.Count(),
+                        MessagesWithSenderInfo = result.Count(m => m.SenderInfo != null),
+                        MessagesWithReceiverInfo = result.Count(m => m.ReceiverInfo != null),
+                    },
+                },
+                "Lấy tin nhắn với user info thành công!"
+            );
         }
         else
         {
-            var result = await _messageService.GetByConversationIdAsync(conversationId, page, pageSize);
+            var result = await _messageService.GetByConversationIdAsync(
+                conversationId,
+                page,
+                pageSize
+            );
             return Success(result, "Lấy tin nhắn thành công!");
         }
     }
@@ -322,14 +350,21 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpPost("messages/mark-all-as-read")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> MarkAllMessagesAsRead([FromBody] MarkAllMessagesAsReadRequest request)
+    public async Task<IActionResult> MarkAllMessagesAsRead(
+        [FromBody] MarkAllMessagesAsReadRequest request
+    )
     {
         var result = await _messageService.MarkAllAsReadAsync(request);
         if (!result)
         {
-            return BadRequest("Không thể đánh dấu tất cả tin nhắn là đã đọc hoặc không có tin nhắn chưa đọc");
+            return BadRequest(
+                "Không thể đánh dấu tất cả tin nhắn là đã đọc hoặc không có tin nhắn chưa đọc"
+            );
         }
-        return Success(new { MarkedAllAsRead = true }, "Đánh dấu tất cả tin nhắn đã đọc thành công!");
+        return Success(
+            new { MarkedAllAsRead = true },
+            "Đánh dấu tất cả tin nhắn đã đọc thành công!"
+        );
     }
 
     /// <summary>
@@ -337,7 +372,10 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpGet("conversations/{conversationId}/unread-count")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetUnreadCount(string conversationId, [FromQuery] string userId)
+    public async Task<IActionResult> GetUnreadCount(
+        string conversationId,
+        [FromQuery] string userId
+    )
     {
         var count = await _messageService.GetUnreadCountAsync(conversationId, userId);
 
@@ -389,18 +427,22 @@ public class CommunicationsController : BaseApiController
     {
         try
         {
-            var signalRService = HttpContext.RequestServices.GetRequiredService<ISignalRNotificationService>();
+            var signalRService =
+                HttpContext.RequestServices.GetRequiredService<ISignalRNotificationService>();
 
-            await signalRService.SendMessageToConversationAsync(request.ConversationId, new MessageResponse
-            {
-                Id = Guid.NewGuid().ToString(),
-                ConversationId = request.ConversationId,
-                SenderId = "system",
-                Content = request.Message,
-                Type = MessageType.System,
-                CreatedAt = DateTime.UtcNow,
-                Status = MessageStatus.SENT
-            });
+            await signalRService.SendMessageToConversationAsync(
+                request.ConversationId,
+                new MessageResponse
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    ConversationId = request.ConversationId,
+                    SenderId = "system",
+                    Content = request.Message,
+                    Type = MessageType.System,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = MessageStatus.SENT,
+                }
+            );
 
             return Success(new { Sent = true }, "Test SignalR message sent successfully!");
         }
@@ -419,9 +461,15 @@ public class CommunicationsController : BaseApiController
         string conversationId,
         MessageType messageType,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20
+    )
     {
-        var result = await _messageService.GetMessagesByTypeAsync(conversationId, messageType, page, pageSize);
+        var result = await _messageService.GetMessagesByTypeAsync(
+            conversationId,
+            messageType,
+            page,
+            pageSize
+        );
         return Success(result, "Lấy tin nhắn theo loại thành công!");
     }
 
@@ -434,13 +482,17 @@ public class CommunicationsController : BaseApiController
         string conversationId,
         [FromQuery] MessageType? messageType = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] int pageSize = 50
+    )
     {
-        var result = await _messageService.GetConversationAttachmentsAsync(conversationId, messageType, page, pageSize);
+        var result = await _messageService.GetConversationAttachmentsAsync(
+            conversationId,
+            messageType,
+            page,
+            pageSize
+        );
         return Success(result, "Lấy attachments thành công!");
     }
-
-
 
     #endregion
 
@@ -451,7 +503,9 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpPost("conversations")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
+    public async Task<IActionResult> CreateConversation(
+        [FromBody] CreateConversationRequest request
+    )
     {
         var result = await _conversationService.CreateAsync(request);
         return Created(result, "Cuộc hội thoại đã được tạo thành công!");
@@ -472,8 +526,6 @@ public class CommunicationsController : BaseApiController
         return Success(result, "Lấy cuộc hội thoại thành công!");
     }
 
-
-
     /// <summary>
     /// Lấy cuộc hội thoại theo user ID - phiên bản performance cao cho mobile
     /// </summary>
@@ -481,8 +533,9 @@ public class CommunicationsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversationsForMobile(
         string userId,
-        [FromQuery] string? before = null,      // Cursor cho mobile cũng dùng cursor-based
-        [FromQuery] int limit = 10)             // Mobile dùng limit nhỏ hơn
+        [FromQuery] string? before = null, // Cursor cho mobile cũng dùng cursor-based
+        [FromQuery] int limit = 10
+    ) // Mobile dùng limit nhỏ hơn
     {
         // Mobile version chỉ load những thông tin cần thiết nhất
         var options = new ConversationLoadOptions
@@ -490,27 +543,36 @@ public class CommunicationsController : BaseApiController
             IncludeParticipantDetails = false,
             IncludeUnreadCount = true,
             IncludeMetadata = false,
-            IncludeOnlineStatus = false
+            IncludeOnlineStatus = false,
         };
 
-        var result = await _conversationService.GetByUserIdWithCursorAsync(userId, before, null, limit, options);
+        var result = await _conversationService.GetByUserIdWithCursorAsync(
+            userId,
+            before,
+            null,
+            limit,
+            options
+        );
 
-        return Success(new
-        {
-            Conversations = result.Data.Select(c => new
+        return Success(
+            new
             {
-                c.Id,
-                c.Participants,
-                c.LastMessage,
-                c.UpdatedAt,
-                c.UnreadCount,
-                IsBlocked = c.Blocked != null
-            }),
-            NextCursor = result.NextCursor,
-            HasNext = result.HasNext,
-            Limit = limit,
-            OptimizedForMobile = true
-        }, "Lấy cuộc hội thoại mobile thành công!");
+                Conversations = result.Data.Select(c => new
+                {
+                    c.Id,
+                    c.Participants,
+                    c.LastMessage,
+                    c.UpdatedAt,
+                    c.UnreadCount,
+                    IsBlocked = c.Blocked != null,
+                }),
+                NextCursor = result.NextCursor,
+                HasNext = result.HasNext,
+                Limit = limit,
+                OptimizedForMobile = true,
+            },
+            "Lấy cuộc hội thoại mobile thành công!"
+        );
     }
 
     /// <summary>
@@ -520,31 +582,34 @@ public class CommunicationsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetConversationsByUserId(
         string userId,
-        [FromQuery] string? before = null,              // Cursor để load conversations cũ hơn
-        [FromQuery] string? after = null,               // Cursor để load conversations mới hơn  
-        [FromQuery] int limit = 20,                     // Số lượng conversations cần load
-        [FromQuery] bool includeParticipantDetails = false,  // NEW: Enable participant enrichment
-        [FromQuery] bool includeUnreadCount = true,
-        [FromQuery] bool includeMetadata = false,
-        [FromQuery] bool includeOnlineStatus = false)
+        [FromQuery] GetConversationsQueryParameters queryParams
+    )
     {
         var options = new ConversationLoadOptions
         {
-            IncludeParticipantDetails = includeParticipantDetails,  // Enable gRPC + caching
-            IncludeUnreadCount = includeUnreadCount,
-            IncludeMetadata = includeMetadata,
-            IncludeOnlineStatus = includeOnlineStatus
+            IncludeParticipantDetails = queryParams.IncludeParticipantDetails, // Enable gRPC + caching
+            IncludeUnreadCount = queryParams.IncludeUnreadCount,
+            IncludeMetadata = queryParams.IncludeMetadata,
+            IncludeOnlineStatus = queryParams.IncludeOnlineStatus,
         };
 
-        var result = await _conversationService.GetByUserIdWithCursorAsync(userId, before, after, limit, options);
+        var result = await _conversationService.GetByUserIdWithCursorAsync(
+            userId,
+            queryParams.Before,
+            queryParams.After,
+            queryParams.Limit,
+            options
+        );
 
         // 🎯 Enhanced response với optimization info
-        var totalOtherParticipantsEnriched = includeParticipantDetails
-            ? result.Data.Sum(c => c.ParticipantDetails?.Count ?? 0) : 0;
+        var totalOtherParticipantsEnriched = queryParams.IncludeParticipantDetails
+            ? result.Data.Sum(c => c.ParticipantDetails?.Count ?? 0)
+            : 0;
 
         var totalOriginalParticipants = result.Data.Sum(c => c.Participants.Count);
-        var totalConversationsWithOtherParticipants = includeParticipantDetails
-            ? result.Data.Count(c => c.ParticipantDetails?.Any() == true) : 0;
+        var totalConversationsWithOtherParticipants = queryParams.IncludeParticipantDetails
+            ? result.Data.Count(c => c.ParticipantDetails?.Any() == true)
+            : 0;
 
         var response = new
         {
@@ -556,27 +621,32 @@ public class CommunicationsController : BaseApiController
             result.Limit,
             EnrichmentInfo = new
             {
-                ParticipantDetailsLoaded = includeParticipantDetails,
-                UnreadCountLoaded = includeUnreadCount,
-                MetadataLoaded = includeMetadata,
-                OnlineStatusLoaded = includeOnlineStatus,
+                ParticipantDetailsLoaded = queryParams.IncludeParticipantDetails,
+                UnreadCountLoaded = queryParams.IncludeUnreadCount,
+                MetadataLoaded = queryParams.IncludeMetadata,
+                OnlineStatusLoaded = queryParams.IncludeOnlineStatus,
                 TotalConversations = result.Data.Count,
 
                 // 🎯 OPTIMIZATION METRICS
-                OptimizationMode = includeParticipantDetails ? "OtherParticipantsOnly" : "Disabled",
+                OptimizationMode = queryParams.IncludeParticipantDetails
+                    ? "OtherParticipantsOnly"
+                    : "Disabled",
                 TotalOriginalParticipants = totalOriginalParticipants,
                 TotalOtherParticipantsEnriched = totalOtherParticipantsEnriched,
                 ConversationsWithOtherParticipants = totalConversationsWithOtherParticipants,
                 PerformanceBenefit = new
                 {
-                    ParticipantsSkipped = includeParticipantDetails ? result.Data.Count : 0, // Current user skipped per conversation
-                    CacheCallsOptimized = includeParticipantDetails,
-                    NetworkCallsReduced = includeParticipantDetails
+                    ParticipantsSkipped = queryParams.IncludeParticipantDetails
+                        ? result.Data.Count
+                        : 0, // Current user skipped per conversation
+                    CacheCallsOptimized = queryParams.IncludeParticipantDetails,
+                    NetworkCallsReduced = queryParams.IncludeParticipantDetails,
                 },
 
                 // Backward compatibility metric
                 TotalParticipantsEnriched = totalOtherParticipantsEnriched // Legacy field name
-            }
+                ,
+            },
         };
 
         return Success(response, "Lấy cuộc hội thoại thành công!");
@@ -594,14 +664,15 @@ public class CommunicationsController : BaseApiController
         [FromQuery] bool includeParticipantDetails = false,
         [FromQuery] bool includeUnreadCount = true,
         [FromQuery] bool includeMetadata = false,
-        [FromQuery] bool includeOnlineStatus = false)
+        [FromQuery] bool includeOnlineStatus = false
+    )
     {
         var options = new ConversationLoadOptions
         {
             IncludeParticipantDetails = includeParticipantDetails,
             IncludeUnreadCount = includeUnreadCount,
             IncludeMetadata = includeMetadata,
-            IncludeOnlineStatus = includeOnlineStatus
+            IncludeOnlineStatus = includeOnlineStatus,
         };
 
         var result = await _conversationService.GetByUserIdAsync(userId, page, pageSize, options);
@@ -617,14 +688,18 @@ public class CommunicationsController : BaseApiController
         string id,
         [FromQuery] bool includeParticipantDetails = true,
         [FromQuery] bool includeUnreadCount = true,
-        [FromQuery] bool includeMetadata = false)
+        [FromQuery] bool includeMetadata = false
+    )
     {
-        var result = await _conversationService.GetConversationDetailsAsync(id, new ConversationLoadOptions
-        {
-            IncludeParticipantDetails = includeParticipantDetails,
-            IncludeUnreadCount = includeUnreadCount,
-            IncludeMetadata = includeMetadata
-        });
+        var result = await _conversationService.GetConversationDetailsAsync(
+            id,
+            new ConversationLoadOptions
+            {
+                IncludeParticipantDetails = includeParticipantDetails,
+                IncludeUnreadCount = includeUnreadCount,
+                IncludeMetadata = includeMetadata,
+            }
+        );
 
         if (result == null)
         {
@@ -638,7 +713,10 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpGet("conversations/between")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetConversationBetweenUsers([FromQuery] string userId1, [FromQuery] string userId2)
+    public async Task<IActionResult> GetConversationBetweenUsers(
+        [FromQuery] string userId1,
+        [FromQuery] string userId2
+    )
     {
         var result = await _conversationService.GetConversationBetweenUsersAsync(userId1, userId2);
         if (result == null)
@@ -668,7 +746,9 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpPost("conversations/unblock")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> UnblockConversation([FromBody] UnblockConversationRequest request)
+    public async Task<IActionResult> UnblockConversation(
+        [FromBody] UnblockConversationRequest request
+    )
     {
         var result = await _conversationService.UnblockConversationAsync(request);
         if (!result)
@@ -698,7 +778,10 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpPut("call-logs/{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> UpdateCallLog(string id, [FromBody] UpdateCallLogRequest request)
+    public async Task<IActionResult> UpdateCallLog(
+        string id,
+        [FromBody] UpdateCallLogRequest request
+    )
     {
         if (id != request.Id)
         {
@@ -732,7 +815,8 @@ public class CommunicationsController : BaseApiController
     public async Task<IActionResult> GetCallLogsByUserId(
         string userId,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20
+    )
     {
         var result = await _callLogService.GetByUserIdAsync(userId, page, pageSize);
         return Success(result, "Lấy call logs thành công!");
@@ -760,9 +844,15 @@ public class CommunicationsController : BaseApiController
     {
         try
         {
-            var conversationCount = await _dbContext.Conversations.CountDocumentsAsync(MongoDB.Driver.FilterDefinition<Models.Entities.ConversationEntity>.Empty);
-            var messageCount = await _dbContext.Messages.CountDocumentsAsync(MongoDB.Driver.FilterDefinition<Models.Entities.MessageEntity>.Empty);
-            var callLogCount = await _dbContext.CallLogs.CountDocumentsAsync(MongoDB.Driver.FilterDefinition<Models.Entities.CallLogEntity>.Empty);
+            var conversationCount = await _dbContext.Conversations.CountDocumentsAsync(
+                MongoDB.Driver.FilterDefinition<Models.Entities.ConversationEntity>.Empty
+            );
+            var messageCount = await _dbContext.Messages.CountDocumentsAsync(
+                MongoDB.Driver.FilterDefinition<Models.Entities.MessageEntity>.Empty
+            );
+            var callLogCount = await _dbContext.CallLogs.CountDocumentsAsync(
+                MongoDB.Driver.FilterDefinition<Models.Entities.CallLogEntity>.Empty
+            );
 
             var data = new
             {
@@ -772,7 +862,7 @@ public class CommunicationsController : BaseApiController
                 DatabaseName = "BookingCare_Communication",
                 ConnectionStatus = "Connected",
                 Version = ApiVersions.V1_0,
-                Timestamp = DateTime.UtcNow
+                Timestamp = DateTime.UtcNow,
             };
 
             return Success(data, "Kết nối database thành công!");
@@ -794,11 +884,14 @@ public class CommunicationsController : BaseApiController
     {
         try
         {
-            var participantEnrichmentService = HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
+            var participantEnrichmentService =
+                HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
             await participantEnrichmentService.ClearAccountCacheAsync(accountId);
 
-            return Success(new { AccountId = accountId, ClearedAt = DateTime.UtcNow },
-                $"Cache đã được clear cho account {accountId}");
+            return Success(
+                new { AccountId = accountId, ClearedAt = DateTime.UtcNow },
+                $"Cache đã được clear cho account {accountId}"
+            );
         }
         catch (Exception ex)
         {
@@ -811,7 +904,9 @@ public class CommunicationsController : BaseApiController
     /// </summary>
     [HttpPost("cache/accounts/clear-multiple")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> ClearMultipleAccountsCache([FromBody] ClearMultipleAccountsCacheRequest request)
+    public async Task<IActionResult> ClearMultipleAccountsCache(
+        [FromBody] ClearMultipleAccountsCacheRequest request
+    )
     {
         try
         {
@@ -820,15 +915,19 @@ public class CommunicationsController : BaseApiController
                 return BadRequest("AccountIds không được để trống");
             }
 
-            var participantEnrichmentService = HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
+            var participantEnrichmentService =
+                HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
             await participantEnrichmentService.ClearAccountCacheAsync(request.AccountIds);
 
-            return Success(new
-            {
-                AccountIds = request.AccountIds,
-                Count = request.AccountIds.Count(),
-                ClearedAt = DateTime.UtcNow
-            }, $"Cache đã được clear cho {request.AccountIds.Count()} accounts");
+            return Success(
+                new
+                {
+                    AccountIds = request.AccountIds,
+                    Count = request.AccountIds.Count(),
+                    ClearedAt = DateTime.UtcNow,
+                },
+                $"Cache đã được clear cho {request.AccountIds.Count()} accounts"
+            );
         }
         catch (Exception ex)
         {
@@ -845,7 +944,8 @@ public class CommunicationsController : BaseApiController
     {
         try
         {
-            var participantEnrichmentService = HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
+            var participantEnrichmentService =
+                HttpContext.RequestServices.GetRequiredService<IParticipantEnrichmentService>();
             var accountDetail = await participantEnrichmentService.GetAccountDetailAsync(accountId);
 
             if (accountDetail == null)

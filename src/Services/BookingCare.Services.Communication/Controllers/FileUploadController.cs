@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Services.Interfaces;
-using BookingCare.Services.Communication.Enums;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Communication.Controllers;
 
@@ -20,7 +20,8 @@ public class FileUploadController : BaseApiController
 
     public FileUploadController(
         IFileUploadService fileUploadService,
-        ILogger<FileUploadController> logger)
+        ILogger<FileUploadController> logger
+    )
     {
         _fileUploadService = fileUploadService;
         _logger = logger;
@@ -34,7 +35,8 @@ public class FileUploadController : BaseApiController
     public async Task<IActionResult> UploadFile(
         [FromForm] IFormFile file,
         [FromForm] string userId,
-        [FromForm] MessageType messageType)
+        [FromForm] MessageType messageType
+    )
     {
         if (file == null || file.Length == 0)
         {
@@ -70,7 +72,8 @@ public class FileUploadController : BaseApiController
     public async Task<IActionResult> UploadMultipleFiles(
         [FromForm] IEnumerable<IFormFile> files,
         [FromForm] string userId,
-        [FromForm] MessageType messageType)
+        [FromForm] MessageType messageType
+    )
     {
         if (!files.Any())
         {
@@ -79,7 +82,11 @@ public class FileUploadController : BaseApiController
 
         try
         {
-            var results = await _fileUploadService.UploadMultipleFilesAsync(files, userId, messageType);
+            var results = await _fileUploadService.UploadMultipleFilesAsync(
+                files,
+                userId,
+                messageType
+            );
             return Success(results, "Upload files thành công!");
         }
         catch (Exception ex)
@@ -102,7 +109,8 @@ public class FileUploadController : BaseApiController
                 request.FileName,
                 request.ContentType,
                 request.UserId,
-                request.MessageType);
+                request.MessageType
+            );
 
             return Success(result, "Tạo presigned URL thành công!");
         }
@@ -169,10 +177,10 @@ public class FileUploadController : BaseApiController
 /// </summary>
 public class PresignedUrlRequest
 {
-    public string FileName { get; set; } = string.Empty;
-    public string ContentType { get; set; } = string.Empty;
-    public string UserId { get; set; } = string.Empty;
-    public MessageType MessageType { get; set; }
+    public required string FileName { get; set; } = string.Empty;
+    public required string ContentType { get; set; } = string.Empty;
+    public required string UserId { get; set; } = string.Empty;
+    public required MessageType MessageType { get; set; }
 }
 
 /// <summary>
@@ -180,7 +188,7 @@ public class PresignedUrlRequest
 /// </summary>
 public class ThumbnailRequest
 {
-    public string OriginalUrl { get; set; } = string.Empty;
+    public required string OriginalUrl { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -188,5 +196,5 @@ public class ThumbnailRequest
 /// </summary>
 public class DeleteFileRequest
 {
-    public string FileUrl { get; set; } = string.Empty;
+    public required string FileUrl { get; set; } = string.Empty;
 }

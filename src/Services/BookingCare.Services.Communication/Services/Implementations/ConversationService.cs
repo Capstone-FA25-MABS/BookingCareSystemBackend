@@ -258,10 +258,10 @@ public class ConversationService : BaseService, IConversationService
                 // Initialize basic metadata
                 conversation.Metadata = new ConversationMetadata
                 {
-                    TotalMessages = 0, // TODO: Implement repository method to get actual count
-                    TotalFiles = 0,    // TODO: Implement repository method
-                    TotalImages = 0,   // TODO: Implement repository method
-                    FirstMessageDate = null, // TODO: Implement repository method
+                    TotalMessages = 0, //  Implement repository method to get actual count
+                    TotalFiles = 0,    //  Implement repository method
+                    TotalImages = 0,   //  Implement repository method
+                    FirstMessageDate = null, //  Implement repository method
                     CommonFiles = new List<string>()
                 };
 
@@ -410,69 +410,120 @@ public class ConversationService : BaseService, IConversationService
                 correlationId: null, args: new object[] { userId, before ?? string.Empty, after ?? string.Empty, limit });
 
             ValidateRequiredString(userId, nameof(userId));
-
-            if (limit <= 0 || limit > 100)
-            {
-                throw new ArgumentException("Limit must be between 1 and 100");
-            }
+            ValidatePaginationLimit(limit);
 
             // Lấy conversations từ repository với cursor
-            var conversations = await _conversationRepository.GetByUserIdWithCursorAsync(userId, before, after, limit + 1); // +1 để check hasNext
+            var conversations = await _conversationRepository.GetByUserIdWithCursorAsync(userId, before, after, limit + 1);
             var conversationList = conversations.ToList();
 
-            // Determine pagination info
-            var hasNext = conversationList.Count > limit;
-            var hasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after);
+            // Xử lý pagination và convert to DTOs
+            var paginationResult = ProcessPaginationResult(conversationList, limit, before, after);
 
-            // Remove extra item if exists
-            if (hasNext)
-            {
-                conversationList.RemoveAt(conversationList.Count - 1);
-            }
-
-            // Convert to DTOs
-            var conversationDtos = _mapper.Map<List<ConversationResponse>>(conversationList);
-
-            // Apply lazy loading if options provided (including participant enrichment)
+            // Apply lazy loading if options provided
             if (options != null)
             {
-                await LoadConversationDataAsync(conversationDtos, userId, options);
+                await LoadConversationDataAsync(paginationResult.ConversationDtos, userId, options);
             }
 
             // Generate cursors
-            string? nextCursor = null;
-            string? previousCursor = null;
-
-            if (conversationDtos.Any())
-            {
-                // For cursor-based pagination, we use conversation ID + timestamp for reliable ordering
-                if (hasNext)
-                {
-                    var lastConversation = conversationDtos[conversationDtos.Count - 1];
-                    nextCursor = CursorHelper.GenerateCursor(lastConversation.Id, lastConversation.UpdatedAt);
-                }
-
-                if (hasPrevious || !string.IsNullOrEmpty(before))
-                {
-                    var firstConversation = conversationDtos[0];
-                    previousCursor = CursorHelper.GenerateCursor(firstConversation.Id, firstConversation.UpdatedAt);
-                }
-            }
+            var cursors = GeneratePaginationCursors(paginationResult.ConversationDtos, paginationResult.HasNext, before);
 
             var result = new CursorPaginatedResponse<ConversationResponse>
             {
-                Data = conversationDtos,
-                NextCursor = nextCursor,
-                PreviousCursor = previousCursor,
-                HasNext = hasNext,
-                HasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after),
+                Data = paginationResult.ConversationDtos,
+                NextCursor = cursors.NextCursor,
+                PreviousCursor = cursors.PreviousCursor,
+                HasNext = paginationResult.HasNext,
+                HasPrevious = paginationResult.HasPrevious,
                 Limit = limit
             };
 
             LogInfo("Successfully fetched {Count} conversations with cursor pagination and participant enrichment for user: {UserId}",
-                correlationId: null, args: new object[] { conversationDtos.Count, userId });
+                correlationId: null, args: new object[] { paginationResult.ConversationDtos.Count, userId });
 
             return result;
         }, "GetConversationsByUserIdWithCursor");
+    }
+
+    /// <summary>
+    /// Validate pagination limit
+    /// </summary>
+    private static void ValidatePaginationLimit(int limit)
+    {
+        if (limit <= 0 || limit > 100)
+        {
+            throw new ArgumentException("Limit must be between 1 and 100");
+        }
+    }
+
+    /// <summary>
+    /// Process pagination result and convert to DTOs
+    /// </summary>
+    private (List<ConversationResponse> ConversationDtos, bool HasNext, bool HasPrevious) ProcessPaginationResult(
+        List<ConversationEntity> conversationList,
+        int limit,
+        string? before,
+        string? after)
+    {
+        var hasNext = conversationList.Count > limit;
+        var hasPrevious = !string.IsNullOrEmpty(before) || !string.IsNullOrEmpty(after);
+
+        // Remove extra item if exists
+        if (hasNext)
+        {
+            conversationList.RemoveAt(conversationList.Count - 1);
+        }
+
+        // Convert to DTOs
+        var conversationDtos = _mapper.Map<List<ConversationResponse>>(conversationList);
+
+        return (conversationDtos, hasNext, hasPrevious);
+    }
+
+    /// <summary>
+    /// Generate pagination cursors
+    /// </summary>
+    private static (string? NextCursor, string? PreviousCursor) GeneratePaginationCursors(
+        List<ConversationResponse> conversationDtos,
+        bool hasNext,
+        string? before)
+    {
+        if (!conversationDtos.Any())
+        {
+            return (null, null);
+        }
+
+        string? nextCursor = GenerateNextCursor(conversationDtos, hasNext);
+        string? previousCursor = GeneratePreviousCursor(conversationDtos, before);
+
+        return (nextCursor, previousCursor);
+    }
+
+    /// <summary>
+    /// Generate next cursor if available
+    /// </summary>
+    private static string? GenerateNextCursor(List<ConversationResponse> conversationDtos, bool hasNext)
+    {
+        if (!hasNext)
+        {
+            return null;
+        }
+
+        var lastConversation = conversationDtos[conversationDtos.Count - 1];
+        return CursorHelper.GenerateCursor(lastConversation.Id, lastConversation.UpdatedAt);
+    }
+
+    /// <summary>
+    /// Generate previous cursor if available
+    /// </summary>
+    private static string? GeneratePreviousCursor(List<ConversationResponse> conversationDtos, string? before)
+    {
+        if (string.IsNullOrEmpty(before))
+        {
+            return null;
+        }
+
+        var firstConversation = conversationDtos[0];
+        return CursorHelper.GenerateCursor(firstConversation.Id, firstConversation.UpdatedAt);
     }
 }
