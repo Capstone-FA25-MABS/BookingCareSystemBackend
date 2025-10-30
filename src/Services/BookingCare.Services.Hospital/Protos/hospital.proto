@@ -18,6 +18,9 @@ service HospitalService {
   // Creates a hospital
   rpc CreateHospital (CreateHospitalGrpcRequest) returns (HospitalReply);
 
+  // Deletes a hospital
+  rpc DeleteHospital (DeleteHospitalRequest) returns (DeleteHospitalReply);
+
   // Get hospital basic info (optimized for performance)
   rpc GetHospitalBasicInfo (GetHospitalBasicInfoRequest) returns (HospitalBasicInfoResponse);
 
@@ -114,4 +117,15 @@ message HospitalBasicInfoResponse {
 // Response message for multiple hospitals basic info
 message HospitalsBasicInfoResponse {
   repeated HospitalBasicInfoResponse hospitals = 1;
+}
+
+// The request message for deleting a hospital
+message DeleteHospitalRequest {
+  string id = 1; // Guid as string
+}
+
+// The response message for delete operation
+message DeleteHospitalReply {
+  bool success = 1;
+  string message = 2;
 }
