@@ -78,7 +78,7 @@ public class FileUploadService : IFileUploadService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error uploading file {FileName} for user {UserId}", file.FileName, userId);
-            throw;
+            throw new InvalidOperationException($"Failed to upload file '{file.FileName}' for user '{userId}': {ex.Message}", ex);
         }
     }
 
@@ -128,7 +128,7 @@ public class FileUploadService : IFileUploadService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating presigned URL for {FileName}", fileName);
-            throw;
+            throw new InvalidOperationException($"Failed to generate presigned URL for file '{fileName}': {ex.Message}", ex);
         }
     }
 
@@ -311,7 +311,7 @@ public class FileUploadService : IFileUploadService
         };
     }
 
-    private async Task<(int? Width, int? Height, int? Duration)> GetFileInfoAsync(IFormFile file)
+    private static async Task<(int? Width, int? Height, int? Duration)> GetFileInfoAsync(IFormFile file)
     {
         try
         {

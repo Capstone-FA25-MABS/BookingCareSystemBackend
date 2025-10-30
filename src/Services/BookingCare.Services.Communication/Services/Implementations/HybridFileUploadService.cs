@@ -81,7 +81,7 @@ public class HybridFileUploadService : IHybridFileUploadService
                 userId,
                 file.FileName
             );
-            throw;
+            throw new InvalidOperationException($"Failed to upload file '{file.FileName}' for user '{userId}': {ex.Message}", ex);
         }
     }
 
