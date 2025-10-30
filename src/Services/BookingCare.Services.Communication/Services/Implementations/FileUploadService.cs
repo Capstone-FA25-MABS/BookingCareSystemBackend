@@ -185,6 +185,7 @@ public class FileUploadService : IFileUploadService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating thumbnail for: {OriginalUrl}", originalUrl);
+            await Task.Delay(1);
             return null;
         }
     }
@@ -256,13 +257,13 @@ public class FileUploadService : IFileUploadService
             : new MessageTypeConstraints { MaxSizeBytes = 10 * 1024 * 1024 }; // Default 10MB
     }
 
-    private bool IsContentTypeAllowed(string contentType, MessageTypeConstraints constraints)
+    private static bool IsContentTypeAllowed(string contentType, MessageTypeConstraints constraints)
     {
         if (!constraints.AllowedMimeTypes.Any()) return true;
         return constraints.AllowedMimeTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase);
     }
 
-    private string GenerateFolder(string userId, MessageType messageType)
+    private static string GenerateFolder(string userId, MessageType messageType)
     {
         return $"communication/{messageType.ToString().ToLower()}/{DateTime.UtcNow:yyyy/MM}/{userId}";
     }
@@ -274,7 +275,7 @@ public class FileUploadService : IFileUploadService
                (contentType.StartsWith("image/") || contentType.StartsWith("video/"));
     }
 
-    private async Task<string> DetectMimeTypeAsync(IFormFile file)
+    private static async Task<string> DetectMimeTypeAsync(IFormFile file)
     {
         // Simple MIME type detection based on file extension and content
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -282,14 +283,14 @@ public class FileUploadService : IFileUploadService
         // Read first few bytes to detect file signature
         using var stream = file.OpenReadStream();
         var buffer = new byte[8];
-        await stream.ReadAsync(buffer, 0, 8);
+        var bytesRead = await stream.ReadAsync(buffer, 0, 8);
         stream.Position = 0;
 
-        // Detect by file signature
-        if (IsJpeg(buffer)) return "image/jpeg";
-        if (IsPng(buffer)) return "image/png";
-        if (IsGif(buffer)) return "image/gif";
-        if (IsPdf(buffer)) return "application/pdf";
+        // Detect by file signature - only if we read enough bytes
+        if (bytesRead >= 2 && IsJpeg(buffer)) return "image/jpeg";
+        if (bytesRead >= 8 && IsPng(buffer)) return "image/png";
+        if (bytesRead >= 6 && IsGif(buffer)) return "image/gif";
+        if (bytesRead >= 4 && IsPdf(buffer)) return "application/pdf";
 
         // Fallback to file extension
         return extension switch
@@ -334,7 +335,7 @@ public class FileUploadService : IFileUploadService
         return (image.Width, image.Height, null);
     }
 
-    private string GenerateCloudinaryThumbnailUrl(string originalUrl)
+    private static string GenerateCloudinaryThumbnailUrl(string originalUrl)
     {
         // Transform Cloudinary URL to add thumbnail transformation
         // Example: add w_300,h_300,c_fill to the URL

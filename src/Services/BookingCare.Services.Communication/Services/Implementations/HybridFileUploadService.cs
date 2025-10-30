@@ -210,7 +210,7 @@ public class HybridFileUploadService : IHybridFileUploadService
         // Additional validation for images/videos
         if (messageType == MessageType.Image || messageType == MessageType.Video)
         {
-            await ValidateMediaFileAsync(file, constraints, errors);
+            await ValidateMediaFileAsync();
         }
 
         return new FileValidationResult
@@ -303,19 +303,19 @@ public class HybridFileUploadService : IHybridFileUploadService
 
     #region Private Helper Methods
 
-    private bool IsS3Url(string url)
+    private static bool IsS3Url(string url)
     {
         return url.Contains("cloudfront.net") || url.Contains("amazonaws.com");
     }
 
-    private string ExtractS3KeyFromUrl(string url)
+    private static string ExtractS3KeyFromUrl(string url)
     {
         // Implementation to extract S3 key from CloudFront or S3 URL
         var uri = new Uri(url);
         return uri.AbsolutePath.TrimStart('/');
     }
 
-    private string GenerateS3Folder(string userId, MessageType messageType)
+    private static string GenerateS3Folder(string userId, MessageType messageType)
     {
         var folderName = GetSmartFolderName(messageType);
         return $"communication/{userId}/{folderName}";
@@ -324,7 +324,7 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// <summary>
     /// Get appropriate folder name based on message type for better organization
     /// </summary>
-    private string GetSmartFolderName(MessageType messageType)
+    private static string GetSmartFolderName(MessageType messageType)
     {
         return messageType switch
         {
@@ -339,18 +339,9 @@ public class HybridFileUploadService : IHybridFileUploadService
         };
     }
 
-    private bool ShouldGenerateThumbnail(MessageType messageType, string contentType)
-    {
-        if (messageType != MessageType.Image && messageType != MessageType.Video)
-            return false;
 
-        if (!_config.Constraints.TryGetValue(messageType.ToString(), out var constraints))
-            return false;
 
-        return constraints.GenerateThumbnail;
-    }
-
-    private bool ShouldGenerateS3Thumbnail(MessageType messageType, string contentType)
+    private static bool ShouldGenerateS3Thumbnail(MessageType messageType, string contentType)
     {
         // In S3 mode, we only generate simple thumbnail URLs for images
         return messageType == MessageType.Image && contentType.StartsWith("image/");
@@ -382,10 +373,11 @@ public class HybridFileUploadService : IHybridFileUploadService
         }
     }
 
-    private async Task<(int? width, int? height, int? duration)> GetBasicMediaInfoAsync(IFormFile file)
+    private static async Task<(int? width, int? height, int? duration)> GetBasicMediaInfoAsync(IFormFile file)
     {
         try
         {
+
             // For S3-only mode, we don't do complex media analysis
             // Just return basic info if it's an image
             if (file.ContentType.StartsWith("image/"))
@@ -399,16 +391,19 @@ public class HybridFileUploadService : IHybridFileUploadService
         }
         catch
         {
+            await Task.Delay(1);
             return (null, null, null);
         }
+
     }
 
-    private async Task ValidateMediaFileAsync(
-        IFormFile file,
-        MessageTypeConstraints constraints,
-        List<string> errors
+    private static async Task ValidateMediaFileAsync(
+
     )
     {
+        // IFormFile file,
+        //MessageTypeConstraints constraints,
+        // List<string> errors
         // Enhanced media validation could be added here
         await Task.CompletedTask;
     }
@@ -547,7 +542,7 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// <summary>
     /// Map detected file type to MessageType enum
     /// </summary>
-    private MessageType MapDetectedToMessageType(string detectedType)
+    private static MessageType MapDetectedToMessageType(string detectedType)
     {
         return detectedType.ToLowerInvariant() switch
         {
@@ -582,7 +577,7 @@ public class HybridFileUploadService : IHybridFileUploadService
         }
 
         // Rule 3: If detection suggests more specific type, use it but log
-        if (ShouldOverrideClientType(clientType, detectedType, file))
+        if (ShouldOverrideClientType(clientType, detectedType))
         {
             _logger.LogWarning(
                 "Smart override: Client specified {ClientType} but file {FileName} detected as {DetectedType}. Using detected type for better organization.",
@@ -599,7 +594,7 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// <summary>
     /// Determine if client type should be overridden for better organization
     /// </summary>
-    private bool ShouldOverrideClientType(MessageType clientType, MessageType detectedType, IFormFile file)
+    private static bool ShouldOverrideClientType(MessageType clientType, MessageType detectedType)
     {
         // Only override if detected type provides better organization/storage
         return detectedType switch
@@ -614,33 +609,39 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// <summary>
     /// Detect file type by signature analysis
     /// </summary>
-    private async Task<string> DetectByFileSignatureAsync(IFormFile file)
+    private static async Task<string> DetectByFileSignatureAsync(IFormFile file)
     {
         try
         {
             using var stream = file.OpenReadStream();
             var buffer = new byte[8];
-            await stream.ReadAsync(buffer, 0, buffer.Length);
+            var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
             stream.Position = 0;
 
-            // JPEG signature
-            if (buffer.Length >= 2 && buffer[0] == 0xFF && buffer[1] == 0xD8)
+            // Only check signatures if we read enough bytes
+            if (bytesRead < 2)
+            {
+                return "unknown";
+            }
+
+            // JPEG signature (requires at least 2 bytes)
+            if (bytesRead >= 2 && buffer[0] == 0xFF && buffer[1] == 0xD8)
                 return "image";
 
-            // PNG signature  
-            if (buffer.Length >= 4 && buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47)
+            // PNG signature (requires at least 4 bytes)
+            if (bytesRead >= 4 && buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47)
                 return "image";
 
-            // GIF signature
-            if (buffer.Length >= 3 && buffer[0] == 0x47 && buffer[1] == 0x49 && buffer[2] == 0x46)
+            // GIF signature (requires at least 3 bytes)
+            if (bytesRead >= 3 && buffer[0] == 0x47 && buffer[1] == 0x49 && buffer[2] == 0x46)
                 return "gif";
 
-            // PDF signature
-            if (buffer.Length >= 4 && buffer[0] == 0x25 && buffer[1] == 0x50 && buffer[2] == 0x44 && buffer[3] == 0x46)
+            // PDF signature (requires at least 4 bytes)
+            if (bytesRead >= 4 && buffer[0] == 0x25 && buffer[1] == 0x50 && buffer[2] == 0x44 && buffer[3] == 0x46)
                 return "document";
 
-            // ZIP signature
-            if (buffer.Length >= 4 && buffer[0] == 0x50 && buffer[1] == 0x4B && buffer[2] == 0x03 && buffer[3] == 0x04)
+            // ZIP signature (requires at least 4 bytes)
+            if (bytesRead >= 4 && buffer[0] == 0x50 && buffer[1] == 0x4B && buffer[2] == 0x03 && buffer[3] == 0x04)
                 return "archive";
 
             return "unknown";
@@ -654,7 +655,7 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// <summary>
     /// Detect file type by Content-Type header
     /// </summary>
-    private string DetectByContentTypeHeader(string contentType)
+    private static string DetectByContentTypeHeader(string contentType)
     {
         if (string.IsNullOrEmpty(contentType)) return "unknown";
 
@@ -675,7 +676,7 @@ public class HybridFileUploadService : IHybridFileUploadService
     /// <summary>
     /// Detect file type by extension (fallback)
     /// </summary>
-    private string DetectByFileExtension(string extension)
+    private static string DetectByFileExtension(string extension)
     {
         return extension.ToLowerInvariant() switch
         {

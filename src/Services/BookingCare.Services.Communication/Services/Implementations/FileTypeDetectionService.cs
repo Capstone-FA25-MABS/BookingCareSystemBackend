@@ -210,12 +210,20 @@ public class FileTypeDetectionService : IFileTypeDetectionService
         {
             using var stream = file.OpenReadStream();
             var buffer = new byte[8];
-            await stream.ReadAsync(buffer, 0, buffer.Length);
+            var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
             stream.Position = 0;
+
+            // Only check signatures if we have enough bytes
+            if (bytesRead < 2)
+            {
+                return DetailedMessageType.Other;
+            }
 
             foreach (var signature in FileSignatures)
             {
-                if (buffer.Take(signature.Value.Length).SequenceEqual(signature.Value))
+                // Check if we read enough bytes for this signature
+                if (bytesRead >= signature.Value.Length &&
+                    buffer.Take(signature.Value.Length).SequenceEqual(signature.Value))
                 {
                     return MapMimeTypeToDetailedType(signature.Key);
                 }
