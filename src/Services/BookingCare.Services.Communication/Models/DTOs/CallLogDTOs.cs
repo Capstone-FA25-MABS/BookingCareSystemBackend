@@ -10,22 +10,22 @@ public class CreateCallLogRequest
     /// <summary>
     /// ID của cuộc hội thoại
     /// </summary>
-    public string ConversationId { get; set; } = string.Empty;
+    public required string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
     /// ID của người gọi
     /// </summary>
-    public string CallerId { get; set; } = string.Empty;
+    public required string CallerId { get; set; } = string.Empty;
 
     /// <summary>
     /// ID của người nhận
     /// </summary>
-    public string ReceiverId { get; set; } = string.Empty;
+    public required string ReceiverId { get; set; } = string.Empty;
 
     /// <summary>
     /// Loại cuộc gọi
     /// </summary>
-    public CallType Type { get; set; } = CallType.Audio;
+    public required CallType Type { get; set; } = CallType.Audio;
 }
 
 /// <summary>
@@ -36,12 +36,12 @@ public class UpdateCallLogRequest
     /// <summary>
     /// ID của call log
     /// </summary>
-    public string Id { get; set; } = string.Empty;
+    public required string Id { get; set; } = string.Empty;
 
     /// <summary>
     /// Thời lượng cuộc gọi (phút)
     /// </summary>
-    public int Duration { get; set; }
+    public required int Duration { get; set; }
 
     /// <summary>
     /// Thời gian kết thúc
@@ -51,7 +51,7 @@ public class UpdateCallLogRequest
     /// <summary>
     /// Trạng thái cuộc gọi
     /// </summary>
-    public CallStatus Status { get; set; }
+    public required CallStatus Status { get; set; }
 }
 
 /// <summary>
@@ -113,17 +113,17 @@ public class GetCallStatisticsRequest
     /// <summary>
     /// ID của user
     /// </summary>
-    public string UserId { get; set; } = string.Empty;
+    public required string UserId { get; set; } = string.Empty;
 
     /// <summary>
     /// Ngày bắt đầu
     /// </summary>
-    public DateTime FromDate { get; set; }
+    public required DateTime FromDate { get; set; }
 
     /// <summary>
     /// Ngày kết thúc
     /// </summary>
-    public DateTime ToDate { get; set; }
+    public required DateTime ToDate { get; set; }
 }
 
 /// <summary>

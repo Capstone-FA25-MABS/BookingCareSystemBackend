@@ -238,7 +238,7 @@ class ChatClient {
 }
 
 // Usage example
-/*
+
 const chatClient = new ChatClient("https://localhost:6005/chatHub", "your-jwt-token");
 
 // Connect
@@ -264,6 +264,6 @@ chatClient.onUserStartedTyping = (userId, conversationId) => {
 chatClient.onUserStoppedTyping = (userId, conversationId) => {
     // Hide typing indicator for user
 };
-*/
+
 
 export default ChatClient;

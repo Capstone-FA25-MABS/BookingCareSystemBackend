@@ -46,13 +46,6 @@ public class HybridFileUploadService : IHybridFileUploadService
     {
         try
         {
-            _logger.LogInformation(
-                "Starting S3-only file upload for user {UserId}, file {FileName}, client type {MessageType}",
-                userId,
-                file.FileName,
-                messageType
-            );
-
             // ?? SMART ENHANCEMENT: Auto-detect actual file type
             var detectedType = await AutoDetectFileTypeAsync(file);
             var smartMessageType = MapDetectedToMessageType(detectedType);
@@ -61,20 +54,24 @@ public class HybridFileUploadService : IHybridFileUploadService
             var finalMessageType = DetermineOptimalMessageType(messageType, smartMessageType, file);
 
             _logger.LogInformation(
-                "Smart file type analysis: Client={ClientType}, Detected={DetectedType}, Final={FinalType}, File={FileName}",
+                "S3-only file upload started - User={UserId}, File={FileName}, ClientType={ClientType}, Detected={DetectedType}, Final={FinalType}",
+                userId,
+                file.FileName,
                 messageType,
                 detectedType,
-                finalMessageType,
-                file.FileName
+                finalMessageType
             );
 
             // All files go to S3 in S3-only mode
+            var result = await UploadToS3Async(file, userId, finalMessageType);
+
             _logger.LogInformation(
-                "S3-only mode: routing to AWS S3 for {FinalType} with content type {ContentType}",
-                finalMessageType,
-                file.ContentType
+                "S3 upload completed successfully - File={FileName}, FinalType={FinalType}",
+                file.FileName,
+                finalMessageType
             );
-            return await UploadToS3Async(file, userId, finalMessageType);
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -770,7 +767,8 @@ public class HybridFileUploadService : IHybridFileUploadService
             }
 
             // JPEG signature (requires at least 2 bytes)
-            if (bytesRead >= 2 && buffer[0] == 0xFF && buffer[1] == 0xD8)
+            // Note: bytesRead >= 2 is guaranteed by the check above
+            if (buffer[0] == 0xFF && buffer[1] == 0xD8)
                 return FileUploadConstants.ImageType;
 
             // PNG signature (requires at least 4 bytes)

@@ -1,12 +1,14 @@
 ﻿using AutoMapper;
+using BookingCare.Services.User.Configuration;
 using BookingCare.Services.User.Exceptions;
 using BookingCare.Services.User.Models.DTOs;
 using BookingCare.Services.User.Models.Entities;
 using BookingCare.Services.User.Repositories;
+using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
-using BookingCare.Shared.Common.Enums;
+using Microsoft.Extensions.Options;
 
 namespace BookingCare.Services.User.Services;
 
@@ -15,16 +17,19 @@ public class UserService : BaseService, IUserService
     private readonly IUserRepository _userRepository;
     private readonly IMapper _mapper;
     private readonly IEventBus _eventBus;
+    private readonly UserServiceConfiguration _config;
 
     public UserService(
-        IUserRepository userRepository,
-        IMapper mapper,
-        IEventBus eventBus,
-        ILogger<UserService> logger) : base(logger)
+          IUserRepository userRepository,
+          IMapper mapper,
+          IEventBus eventBus,
+     IOptions<UserServiceConfiguration> config,
+          ILogger<UserService> logger) : base(logger)
     {
         _userRepository = userRepository;
         _mapper = mapper;
         _eventBus = eventBus;
+        _config = config.Value;
     }
 
     public async Task<UserResponse?> GetByIdAsync(Guid id)
@@ -414,7 +419,7 @@ public class UserService : BaseService, IUserService
                 null, updatedUser.Id, correlationId);
 
             // Determine which fields were updated
-            var updatedFields = DetermineUpdatedFields(originalUser, updatedUser, request);
+            var updatedFields = DetermineUpdatedFields(originalUser, updatedUser);
 
             var userUpdatedEvent = new UserProfileUpdatedEvent
             {
@@ -425,7 +430,7 @@ public class UserService : BaseService, IUserService
                 FullName = $"{updatedUser.FirstName} {updatedUser.LastName}".Trim(),
                 FirstName = updatedUser.FirstName,
                 LastName = updatedUser.LastName,
-                AvatarUrl = updatedUser.AvatarUrl ?? "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png",
+                AvatarUrl = updatedUser.AvatarUrl ?? _config.DefaultAvatarUrl,
                 Phone = updatedUser.Phone,
                 Role = "PATIENT", // Default role, could be enhanced to get from Auth Service
                 Gender = updatedUser.Gender?.ToString(),
@@ -452,7 +457,7 @@ public class UserService : BaseService, IUserService
     /// <summary>
     /// Determine which fields were updated for selective cache invalidation
     /// </summary>
-    private static List<string> DetermineUpdatedFields(UserEntity original, UserEntity updated, UpdateUserRequest request)
+    private static List<string> DetermineUpdatedFields(UserEntity original, UserEntity updated)
     {
         var updatedFields = new List<string>();
 

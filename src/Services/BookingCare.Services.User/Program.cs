@@ -1,3 +1,4 @@
+using BookingCare.Services.User.Configuration;
 using BookingCare.Services.User.Data;
 using BookingCare.Services.User.Handlers;
 using BookingCare.Services.User.Mappings;
@@ -18,6 +19,10 @@ builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environmen
 // Add DbContext
 builder.Services.AddDbContext<UserDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register UserService Configuration
+builder.Services.Configure<UserServiceConfiguration>(
+    builder.Configuration.GetSection(UserServiceConfiguration.SectionName));
 
 // Register AutoMapper
 builder.Services.AddAutoMapper(typeof(UserMappingProfile));

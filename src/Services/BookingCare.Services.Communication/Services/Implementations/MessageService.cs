@@ -1206,27 +1206,26 @@ public class MessageService : BaseService, IMessageService
     /// </summary>
     private static void CollectSenderIds(List<MessageResponse> messageList, HashSet<string> userIds)
     {
-        foreach (var message in messageList)
-        {
-            if (!string.IsNullOrEmpty(message.SenderId))
-            {
-                userIds.Add(message.SenderId.ToLowerInvariant());
-            }
-        }
+        var senderIds = messageList
+            .Where(m => !string.IsNullOrEmpty(m.SenderId))
+            .Select(m => m.SenderId.ToLowerInvariant());
+
+        userIds.UnionWith(senderIds);
     }
 
     /// <summary>
     /// Collect receiver IDs từ messages
     /// </summary>
-    private static void CollectReceiverIds(List<MessageResponse> messageList, HashSet<string> userIds)
+    private static void CollectReceiverIds(
+        List<MessageResponse> messageList,
+        HashSet<string> userIds
+    )
     {
-        foreach (var message in messageList)
-        {
-            if (!string.IsNullOrEmpty(message.ReceiverId))
-            {
-                userIds.Add(message.ReceiverId.ToLowerInvariant());
-            }
-        }
+        var receiverIds = messageList
+            .Where(m => !string.IsNullOrEmpty(m.ReceiverId))
+            .Select(m => m.ReceiverId.ToLowerInvariant());
+
+        userIds.UnionWith(receiverIds);
     }
 
     /// <summary>

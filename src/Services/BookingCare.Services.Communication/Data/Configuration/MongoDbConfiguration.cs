@@ -23,15 +23,13 @@ public class MongoDbConfiguration
 /// </summary>
 public class MongoDbConnection
 {
-    private readonly MongoDbConfiguration _configuration;
     private readonly IMongoClient _client;
     private readonly IMongoDatabase _database;
 
     public MongoDbConnection(MongoDbConfiguration configuration)
     {
-        _configuration = configuration;
-        _client = new MongoClient(_configuration.ConnectionString);
-        _database = _client.GetDatabase(_configuration.DatabaseName);
+        _client = new MongoClient(configuration.ConnectionString);
+        _database = _client.GetDatabase(configuration.DatabaseName);
     }
 
     /// <summary>
