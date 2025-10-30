@@ -190,7 +190,7 @@ public class UserService : BaseService, IUserService
         var correlationId = Guid.NewGuid().ToString();
         _ = Task.Run(async () =>
         {
-            await PublishUserProfileUpdatedEventAsync(originalUser, updatedUser, updateUserRequest, correlationId);
+            await PublishUserProfileUpdatedEventAsync(originalUser, updatedUser, correlationId);
         });
 
         LogInfo("User updated successfully with ID: {UserId}", null, existingUser.Id);
@@ -411,7 +411,7 @@ public class UserService : BaseService, IUserService
     /// <summary>
     /// 🎯 Publish detailed UserProfileUpdatedEvent for cache invalidation
     /// </summary>
-    private async Task PublishUserProfileUpdatedEventAsync(UserEntity originalUser, UserEntity updatedUser, UpdateUserRequest request, string correlationId)
+    private async Task PublishUserProfileUpdatedEventAsync(UserEntity originalUser, UserEntity updatedUser, string correlationId)
     {
         try
         {
