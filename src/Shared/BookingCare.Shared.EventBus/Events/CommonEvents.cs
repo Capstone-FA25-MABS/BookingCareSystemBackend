@@ -847,3 +847,113 @@ public class AppointmentCancelledWithOptionsNotificationEvent : IntegrationEvent
     public decimal? PotentialRefundAmount { get; set; }
 }
 
+/// <summary>
+/// Event published when a new hospital partnership registration is submitted
+/// This event is consumed by Communication Service to send confirmation email
+/// </summary>
+public class HospitalRegistrationSubmittedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public string HospitalName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string TaxCode { get; set; } = string.Empty;
+    public DateTime SubmittedAt { get; set; }
+}
+
+/// <summary>
+/// Event published when hospital registration status is updated by admin
+/// This event is consumed by Communication Service to send status update email
+/// </summary>
+public class HospitalRegistrationStatusUpdatedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public string HospitalName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public int Status { get; set; } // 0=PENDING, 1=CONFIRMED, 2=CANCELLED
+    public string StatusText { get; set; } = string.Empty;
+    public string? Reason { get; set; }
+    public string? ContractFileUrl { get; set; }
+    public Guid? HospitalId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Event published to upload hospital registration files asynchronously to S3
+/// This event is consumed by Hospital Service itself to process file uploads in background
+/// </summary>
+public class HospitalRegistrationFilesUploadEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public FileUploadData LicenseFile { get; set; } = null!;
+    public FileUploadData BusinessCertificateFile { get; set; } = null!;
+    public FileUploadData IdentityCardFile { get; set; } = null!;
+}
+
+/// <summary>
+/// Event published when hospital account creation is requested (triggers Saga)
+/// </summary>
+public class HospitalAccountCreationRequestedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public string HospitalName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string TaxCode { get; set; } = string.Empty;
+    public string ContractFileUrl { get; set; } = string.Empty;
+    public string GeneratedPassword { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Event published when hospital account is successfully created
+/// </summary>
+public class HospitalAccountCreatedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public Guid AccountId { get; set; }
+    public Guid HospitalId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string HospitalName { get; set; } = string.Empty;
+    public string GeneratedPassword { get; set; } = string.Empty;
+    public string LoginUrl { get; set; } = string.Empty;
+    public string ContractFileUrl { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Event published when hospital account creation failed (Saga compensation)
+/// </summary>
+public class HospitalAccountCreationFailedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string ErrorMessage { get; set; } = string.Empty;
+    public DateTime FailedAt { get; set; }
+}
+
+/// <summary>
+/// Event published to update hospital registration with created hospital account details
+/// This event is consumed by Hospital Service to link the registration with the created hospital account
+/// </summary>
+public class HospitalRegistrationAccountLinkedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public Guid HospitalId { get; set; }
+    public Guid AccountId { get; set; }
+    public DateTime LinkedAt { get; set; }
+}
+
+/// <summary>
+/// File upload data container for event
+/// </summary>
+public class FileUploadData
+{
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public byte[] FileData { get; set; } = Array.Empty<byte>();
+    public string Folder { get; set; } = string.Empty;
+    public string EntityType { get; set; } = string.Empty;
+}
+

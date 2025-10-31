@@ -1,4 +1,3 @@
-using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Core;
 using BookingCare.Shared.Saga.Steps;
 using Microsoft.Extensions.DependencyInjection;
@@ -56,6 +55,24 @@ public class ExternalUserRegistrationSaga : SagaDefinitionBase
 
         // Step 2: Create User Profile in User Service
         AddStep(serviceProvider.GetRequiredService<CreateUserProfileGrpcStep>());
+    }
+}
+
+/// <summary>
+/// Saga definition for Hospital Account registration process
+/// </summary>
+public class HospitalAccountRegistrationSaga : SagaDefinitionBase
+{
+    public override string SagaName => "HospitalAccountRegistration";
+    public override TimeSpan GlobalTimeout => TimeSpan.FromMinutes(15);
+
+    public HospitalAccountRegistrationSaga(IServiceProvider serviceProvider)
+    {
+        // Step 1: Create Account in Auth Service (reuse CreateAccountGrpcStep with Role.STAFF)
+        AddStep(serviceProvider.GetRequiredService<CreateAccountGrpcStep>());
+
+        // Step 2: Create Hospital Profile in Hospital Service
+        AddStep(serviceProvider.GetRequiredService<CreateHospitalProfileGrpcStep>());
     }
 }
 

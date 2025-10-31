@@ -26,6 +26,7 @@
     <Protobuf Include="../../Services/BookingCare.Services.Auth/Protos/auth.proto" GrpcServices="Client" />
     <Protobuf Include="../../Services/BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" />
     <Protobuf Include="../../Services/BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" />
+    <Protobuf Include="../../Services/BookingCare.Services.Hospital/Protos/hospital.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>
