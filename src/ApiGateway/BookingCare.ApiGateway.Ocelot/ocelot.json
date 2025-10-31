@@ -83,6 +83,18 @@
       "FileCacheOptions": { "TtlSeconds": 0 }
     },
     {
+      "DownstreamPathTemplate": "/hubs/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6003
+        }
+      ],
+      "UpstreamPathTemplate": "/api/hubs/{everything}",
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    },
+    {
       "DownstreamPathTemplate": "/api/v1/hospitals/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
