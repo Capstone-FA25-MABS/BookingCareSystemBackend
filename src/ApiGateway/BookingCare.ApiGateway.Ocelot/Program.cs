@@ -19,23 +19,8 @@ builder.Configuration.AddJsonFile("ocelot.json", optional: false, reloadOnChange
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer("Bearer", options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
-            ClockSkew = TimeSpan.Zero
-        };
-    });
+// Add JWT Authentication using shared extension (includes SignalR support)
+builder.Services.AddJwtAuthAndAuthorization();
 
 // Add Ocelot
 builder.Services.AddOcelot();
@@ -60,9 +45,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseStandardAuthPipeline();
+// Enable WebSocket support for SignalR
+app.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromMinutes(2)
+});
 
 app.UseCors("AllowFrontEnd");
-app.UseAuthentication();
 app.UseOcelot().Wait();
 
 app.Run();

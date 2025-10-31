@@ -162,7 +162,8 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
                     AccountId = d.AccountId.ToString(),
                     Email = d.Email,
                     FullName = d.FullName,
-                    AvatarUrl = d.AvatarUrl
+                    AvatarUrl = d.AvatarUrl,
+                    Address = d.Address,
                 });
             }
             return resp;

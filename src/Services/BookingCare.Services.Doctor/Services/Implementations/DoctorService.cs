@@ -12,6 +12,8 @@ using BookingCare.Services.Hospital;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
+using BookingCare.Services.Hospital;
+using HospitalBasicInfo = BookingCare.Services.Doctor.Models.DTOs.Responses.HospitalBasicInfo;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using Microsoft.EntityFrameworkCore;
@@ -1004,6 +1006,7 @@ public class DoctorService : BaseService, IDoctorService
                 AccountId = d.AccountId,
                 Email = d.Email,
                 FullName = $"{d.FirstName} {d.LastName}".Trim(),
+                Address = d.Address ?? string.Empty,
                 AvatarUrl = d.AvatarUrl ?? string.Empty
             });
         }
