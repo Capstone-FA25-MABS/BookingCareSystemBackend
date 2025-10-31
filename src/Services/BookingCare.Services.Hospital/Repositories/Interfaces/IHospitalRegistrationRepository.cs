@@ -1,5 +1,5 @@
 using BookingCare.Services.Hospital.Models.Entities;
-using BookingCare.Services.Hospital.Enums;
+using BookingCare.Services.Hospital.Models.DTOs.Requests;
 
 namespace BookingCare.Services.Hospital.Repositories.Interfaces;
 
@@ -10,14 +10,7 @@ public interface IHospitalRegistrationRepository
     Task<HospitalRegistrationEntity?> GetByEmailAsync(string email);
     Task<HospitalRegistrationEntity?> GetByTaxCodeAsync(string taxCode);
     Task<(List<HospitalRegistrationEntity> Registrations, int TotalCount)> GetAllAsync(
-        string? searchTerm,
-        RegistrationStatus? status,
-        DateTime? fromDate,
-        DateTime? toDate,
-        int page,
-        int pageSize,
-        string sortBy,
-        string sortOrder);
+        HospitalRegistrationQueryParameters parameters);
     Task<HospitalRegistrationEntity> UpdateAsync(HospitalRegistrationEntity registration);
     Task<bool> DeleteAsync(Guid id);
     Task<bool> ExistsAsync(Guid id);

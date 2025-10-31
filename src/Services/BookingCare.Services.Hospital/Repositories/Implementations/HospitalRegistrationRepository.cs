@@ -80,14 +80,7 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
     }
 
     public async Task<(List<HospitalRegistrationEntity> Registrations, int TotalCount)> GetAllAsync(
-        string? searchTerm,
-        RegistrationStatus? status,
-        DateTime? fromDate,
-        DateTime? toDate,
-        int page,
-        int pageSize,
-        string sortBy,
-        string sortOrder)
+        HospitalRegistrationQueryParameters parameters)
     {
         try
         {
@@ -96,20 +89,20 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
                 .AsQueryable();
 
             // Apply filters
-            query = ApplyFilters(query, searchTerm, status, fromDate, toDate);
+            query = ApplyFilters(query, parameters.SearchTerm, parameters.Status, parameters.FromDate, parameters.ToDate);
 
             // Get total count before pagination
             var totalCount = await query.CountAsync();
 
             // Apply sorting and pagination
-            query = ApplySorting(query, sortBy, sortOrder);
+            query = ApplySorting(query, parameters.SortBy, parameters.SortOrder);
             var registrations = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
+                .Skip((parameters.Page - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
                 .ToListAsync();
 
             _logger.LogInformation("Retrieved {Count} hospital registrations (Page {Page}, PageSize {PageSize})",
-                registrations.Count, page, pageSize);
+                registrations.Count, parameters.Page, parameters.PageSize);
 
             return (registrations, totalCount);
         }

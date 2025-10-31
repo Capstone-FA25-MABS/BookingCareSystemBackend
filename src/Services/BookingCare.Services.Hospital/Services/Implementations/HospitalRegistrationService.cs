@@ -149,15 +149,19 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 ? filter.Status.Value
                 : null;
 
-            var (registrations, totalCount) = await _registrationRepository.GetAllAsync(
-                filter.SearchTerm,
-                status,
-                filter.FromDate,
-                filter.ToDate,
-                filter.Page,
-                filter.PageSize,
-                filter.SortBy,
-                filter.SortOrder);
+            var queryParameters = new HospitalRegistrationQueryParameters
+            {
+                SearchTerm = filter.SearchTerm,
+                Status = status,
+                FromDate = filter.FromDate,
+                ToDate = filter.ToDate,
+                Page = filter.Page,
+                PageSize = filter.PageSize,
+                SortBy = filter.SortBy,
+                SortOrder = filter.SortOrder
+            };
+
+            var (registrations, totalCount) = await _registrationRepository.GetAllAsync(queryParameters);
 
             var registrationDtos = registrations.Select(MapToResponseDto).ToList();
 

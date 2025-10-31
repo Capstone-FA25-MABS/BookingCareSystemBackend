@@ -167,25 +167,25 @@ public class HospitalDbContext : DbContext
             switch (entry.Entity)
             {
                 case HospitalEntity hospital:
-                    UpdateEntityTimestamp(hospital, isAdded, currentTime,
+                    UpdateEntityTimestamp(isAdded,
                         () => hospital.CreatedAt = currentTime,
                         () => hospital.UpdatedAt = currentTime);
                     break;
 
                 case SubscriptionPlanEntity subscription:
-                    UpdateEntityTimestamp(subscription, isAdded, currentTime,
+                    UpdateEntityTimestamp(isAdded,
                         () => subscription.CreatedAt = currentTime,
                         () => subscription.UpdatedAt = currentTime);
                     break;
 
                 case HospitalSubscriptionEntity hospitalSubscription:
-                    UpdateEntityTimestamp(hospitalSubscription, isAdded, currentTime,
+                    UpdateEntityTimestamp(isAdded,
                         () => hospitalSubscription.CreatedAt = currentTime,
                         () => hospitalSubscription.UpdatedAt = currentTime);
                     break;
 
                 case HospitalRegistrationEntity registration:
-                    UpdateEntityTimestamp(registration, isAdded, currentTime,
+                    UpdateEntityTimestamp(isAdded,
                         () => registration.CreatedAt = currentTime,
                         () => registration.UpdatedAt = currentTime);
                     break;
@@ -193,10 +193,8 @@ public class HospitalDbContext : DbContext
         }
     }
 
-    private static void UpdateEntityTimestamp<T>(
-        T entity,
+    private static void UpdateEntityTimestamp(
         bool isAdded,
-        DateTime timestamp,
         Action setCreatedAt,
         Action setUpdatedAt)
     {
