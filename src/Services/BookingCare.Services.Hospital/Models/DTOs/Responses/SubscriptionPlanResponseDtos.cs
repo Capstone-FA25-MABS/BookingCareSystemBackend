@@ -9,8 +9,9 @@ public class SubscriptionPlanResponse
     public string? Description { get; set; }
     public decimal Price { get; set; }
     public string BillingCycle { get; set; } = string.Empty;
-    public int MaxDoctors { get; set; }
-    public int MaxSpecialties { get; set; }
+    public int? MaxDoctors { get; set; } // null = unlimited
+    public int? MaxSpecialties { get; set; } // null = unlimited
+    public int? MaxAppointments { get; set; } // null = unlimited
     public string? Features { get; set; }
     public Status Status { get; set; }
     public DateTime CreatedAt { get; set; }

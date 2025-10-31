@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace BookingCare.Services.Hospital.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class AddSubscriptionPlanFields : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -24,14 +24,12 @@ namespace BookingCare.Services.Hospital.Migrations
                     description = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     background_url = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     avatar_url = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    status = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "ACTIVE"),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_hospitals", x => x.id);
-                    table.CheckConstraint("CK_hospitals_status", "status IN ('ACTIVE', 'INACTIVE')");
                 });
 
             migrationBuilder.CreateTable(
@@ -46,7 +44,9 @@ namespace BookingCare.Services.Hospital.Migrations
                     max_doctors = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
                     max_specialties = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
                     features = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    status = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "ACTIVE"),
+                    auto_renew = table.Column<bool>(type: "bit", nullable: false),
+                    max_appointments = table.Column<int>(type: "int", nullable: false),
+                    status = table.Column<int>(type: "int", nullable: false),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
@@ -54,6 +54,9 @@ namespace BookingCare.Services.Hospital.Migrations
                 {
                     table.PrimaryKey("PK_subscription_plans", x => x.id);
                     table.CheckConstraint("CK_subscription_plans_billing_cycle", "billing_cycle IN ('MONTHLY', 'QUARTERLY', 'YEARLY')");
+                    table.CheckConstraint("CK_subscription_plans_max_doctors", "max_doctors >= 0");
+                    table.CheckConstraint("CK_subscription_plans_max_specialties", "max_specialties >= 0");
+                    table.CheckConstraint("CK_subscription_plans_price", "price >= 0");
                     table.CheckConstraint("CK_subscription_plans_status", "status IN ('ACTIVE', 'INACTIVE')");
                 });
 
@@ -106,13 +109,14 @@ namespace BookingCare.Services.Hospital.Migrations
                     subscription_id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     start_date = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     end_date = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
-                    status = table.Column<string>(type: "nvarchar(max)", nullable: false, defaultValue: "ACTIVE"),
+                    status = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()"),
                     updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETDATE()")
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_hospital_subscriptions", x => x.hospital_subscription_id);
+                    table.CheckConstraint("CK_hospital_subscriptions_end_date", "end_date > start_date");
                     table.CheckConstraint("CK_hospital_subscriptions_status", "status IN ('ACTIVE', 'EXPIRED', 'CANCELLED', 'PENDING', 'TRIAL')");
                     table.ForeignKey(
                         name: "FK_hospital_subscriptions_hospitals_hospital_id",
@@ -125,7 +129,7 @@ namespace BookingCare.Services.Hospital.Migrations
                         column: x => x.subscription_id,
                         principalTable: "subscription_plans",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(
@@ -134,9 +138,10 @@ namespace BookingCare.Services.Hospital.Migrations
                 column: "hospital_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_hospital_subscriptions_hospital_id",
+                name: "IX_hospital_subscriptions_hospital_active_unique",
                 table: "hospital_subscriptions",
-                column: "hospital_id");
+                columns: new[] { "hospital_id", "status" },
+                filter: "status IN ('ACTIVE', 'TRIAL')");
 
             migrationBuilder.CreateIndex(
                 name: "IX_hospital_subscriptions_subscription_id",

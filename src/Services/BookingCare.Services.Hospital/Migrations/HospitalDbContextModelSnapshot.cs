@@ -57,11 +57,6 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
-                    b.Property<string>("DistrictId")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasColumnName("district_id");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -78,11 +73,6 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("phone");
-
-                    b.Property<string>("ProvinceId")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasColumnName("province_id");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -186,9 +176,7 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("ACTIVE")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("status");
 
                     b.Property<Guid>("SubscriptionId")
@@ -203,12 +191,16 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.HasKey("HospitalSubscriptionId");
 
-                    b.HasIndex("HospitalId");
-
                     b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("HospitalId", "Status")
+                        .HasDatabaseName("IX_hospital_subscriptions_hospital_active_unique")
+                        .HasFilter("status IN ('ACTIVE', 'TRIAL')");
 
                     b.ToTable("hospital_subscriptions", t =>
                         {
+                            t.HasCheckConstraint("CK_hospital_subscriptions_end_date", "end_date > start_date");
+
                             t.HasCheckConstraint("CK_hospital_subscriptions_status", "status IN ('ACTIVE', 'EXPIRED', 'CANCELLED', 'PENDING', 'TRIAL')");
                         });
                 });
@@ -235,12 +227,17 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasDefaultValueSql("GETDATE()");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
                         .HasColumnName("description");
 
                     b.Property<string>("Features")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("features");
+
+                    b.Property<int>("MaxAppointments")
+                        .HasColumnType("int")
+                        .HasColumnName("max_appointments");
 
                     b.Property<int>("MaxDoctors")
                         .ValueGeneratedOnAdd()
@@ -279,12 +276,21 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
-                        .IsUnique();
+                    b.HasIndex("Name", "BillingCycle")
+                        .IsUnique()
+                        .HasDatabaseName("IX_subscription_plans_name_billing_cycle_unique");
 
                     b.ToTable("subscription_plans", t =>
                         {
                             t.HasCheckConstraint("CK_subscription_plans_billing_cycle", "billing_cycle IN ('MONTHLY', 'QUARTERLY', 'YEARLY')");
+
+                            t.HasCheckConstraint("CK_subscription_plans_max_doctors", "max_doctors >= 0");
+
+                            t.HasCheckConstraint("CK_subscription_plans_max_specialties", "max_specialties >= 0");
+
+                            t.HasCheckConstraint("CK_subscription_plans_max_appointments", "max_appointments >= 0");
+
+                            t.HasCheckConstraint("CK_subscription_plans_price", "price >= 0");
 
                             t.HasCheckConstraint("CK_subscription_plans_status", "status IN ('ACTIVE', 'INACTIVE')");
                         });
@@ -323,7 +329,7 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.HasOne("BookingCare.Services.Hospital.Models.Entities.SubscriptionPlanEntity", "SubscriptionPlan")
                         .WithMany("HospitalSubscriptions")
                         .HasForeignKey("SubscriptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Hospital");

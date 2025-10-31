@@ -44,17 +44,38 @@ public class HospitalDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
-            entity.HasIndex(e => e.Name).IsUnique();
+            // Unique constraint on (Name, BillingCycle) to allow same name with different billing cycles
+            entity.HasIndex(e => new { e.Name, e.BillingCycle })
+                .IsUnique()
+                .HasDatabaseName("IX_subscription_plans_name_billing_cycle_unique");
+            entity.Property(e => e.Description).HasMaxLength(1000);
             entity.Property(e => e.Price).IsRequired().HasColumnType("decimal(10,2)");
             entity.Property(e => e.BillingCycle).HasMaxLength(20).HasDefaultValue("MONTHLY");
             entity.Property(e => e.MaxDoctors).HasDefaultValue(0);
             entity.Property(e => e.MaxSpecialties).HasDefaultValue(0);
+            entity.Property(e => e.MaxAppointments).HasDefaultValue(0);
+
+            // Allow null for unlimited (use -1 to represent null in database)
+            entity.Property(e => e.MaxDoctors).IsRequired(false);
+            entity.Property(e => e.MaxSpecialties).IsRequired(false);
+            entity.Property(e => e.MaxAppointments).IsRequired(false);
+            entity.Property(e => e.Features).HasColumnType("NVARCHAR(MAX)");
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
 
-            // Check constraints
+            // Convert Status enum to string in database
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasDefaultValue(Status.ACTIVE);
+
+            // Enhanced check constraints
             entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_billing_cycle", "billing_cycle IN ('MONTHLY', 'QUARTERLY', 'YEARLY')"));
-            // Note: Status is now managed by Auth service, not stored in subscription plan table
+            entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_price", "price >= 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_max_doctors", "(max_doctors IS NULL OR max_doctors >= 0)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_max_specialties", "(max_specialties IS NULL OR max_specialties >= 0)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_max_appointments", "(max_appointments IS NULL OR max_appointments >= 0)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_status", "status IN ('ACTIVE', 'INACTIVE')"));
         });
 
         // Configure HospitalSubscription entity
@@ -64,6 +85,9 @@ public class HospitalDbContext : DbContext
             entity.Property(e => e.HospitalSubscriptionId).ValueGeneratedOnAdd();
             entity.Property(e => e.StartDate).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.EndDate).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasConversion<string>(); // Convert enum to string in database
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
 
@@ -76,11 +100,18 @@ public class HospitalDbContext : DbContext
             entity.HasOne(e => e.SubscriptionPlan)
                   .WithMany(s => s.HospitalSubscriptions)
                   .HasForeignKey(e => e.SubscriptionId)
-                  .OnDelete(DeleteBehavior.Cascade);
+                  .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete of subscription plans
 
-            // Check constraints for new subscription status values
+            // Enhanced check constraints
             entity.ToTable(t => t.HasCheckConstraint("CK_hospital_subscriptions_status",
                 "status IN ('ACTIVE', 'EXPIRED', 'CANCELLED', 'PENDING', 'TRIAL')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_hospital_subscriptions_end_date",
+                "end_date > start_date"));
+
+            // Unique constraint: Only one active subscription per hospital
+            entity.HasIndex(e => new { e.HospitalId, e.Status })
+                .HasFilter("status IN ('ACTIVE', 'TRIAL')") // Only one active or trial subscription per hospital
+                .HasDatabaseName("IX_hospital_subscriptions_hospital_active_unique");
         });
 
         // Configure HospitalSpecialty entity (Many-to-Many)

@@ -38,7 +38,9 @@ builder.Services.AddScoped<IHospitalSubscriptionRepository, HospitalSubscription
 
 // Register services
 builder.Services.AddScoped<IHospitalService, HospitalService>();
+builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionService>();
+builder.Services.AddScoped<ISubscriptionUsageService, SubscriptionUsageService>();
 builder.Services.AddScoped<ILocationApiService, LocationApiService>();
 
 // Add HttpClient for LocationApiService

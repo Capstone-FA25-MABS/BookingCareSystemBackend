@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Hospital.Migrations
 {
     [DbContext(typeof(HospitalDbContext))]
-    [Migration("20251009031222_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251028011631_AddSubscriptionPlanFields")]
+    partial class AddSubscriptionPlanFields
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -77,13 +77,6 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("phone");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("ACTIVE")
-                        .HasColumnName("status");
-
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -95,10 +88,7 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("hospitals", t =>
-                        {
-                            t.HasCheckConstraint("CK_hospitals_status", "status IN ('ACTIVE', 'INACTIVE')");
-                        });
+                    b.ToTable("hospitals");
                 });
 
             modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.HospitalImageEntity", b =>
@@ -189,9 +179,7 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("ACTIVE")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("status");
 
                     b.Property<Guid>("SubscriptionId")
@@ -206,12 +194,16 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.HasKey("HospitalSubscriptionId");
 
-                    b.HasIndex("HospitalId");
-
                     b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("HospitalId", "Status")
+                        .HasDatabaseName("IX_hospital_subscriptions_hospital_active_unique")
+                        .HasFilter("status IN ('ACTIVE', 'TRIAL')");
 
                     b.ToTable("hospital_subscriptions", t =>
                         {
+                            t.HasCheckConstraint("CK_hospital_subscriptions_end_date", "end_date > start_date");
+
                             t.HasCheckConstraint("CK_hospital_subscriptions_status", "status IN ('ACTIVE', 'EXPIRED', 'CANCELLED', 'PENDING', 'TRIAL')");
                         });
                 });
@@ -222,6 +214,10 @@ namespace BookingCare.Services.Hospital.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
+
+                    b.Property<bool>("AutoRenew")
+                        .HasColumnType("bit")
+                        .HasColumnName("auto_renew");
 
                     b.Property<string>("BillingCycle")
                         .IsRequired()
@@ -245,6 +241,10 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("features");
 
+                    b.Property<int>("MaxAppointments")
+                        .HasColumnType("int")
+                        .HasColumnName("max_appointments");
+
                     b.Property<int>("MaxDoctors")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -267,11 +267,8 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("price");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("ACTIVE")
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
                         .HasColumnName("status");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -288,6 +285,12 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.ToTable("subscription_plans", t =>
                         {
                             t.HasCheckConstraint("CK_subscription_plans_billing_cycle", "billing_cycle IN ('MONTHLY', 'QUARTERLY', 'YEARLY')");
+
+                            t.HasCheckConstraint("CK_subscription_plans_max_doctors", "max_doctors >= 0");
+
+                            t.HasCheckConstraint("CK_subscription_plans_max_specialties", "max_specialties >= 0");
+
+                            t.HasCheckConstraint("CK_subscription_plans_price", "price >= 0");
 
                             t.HasCheckConstraint("CK_subscription_plans_status", "status IN ('ACTIVE', 'INACTIVE')");
                         });
@@ -326,7 +329,7 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.HasOne("BookingCare.Services.Hospital.Models.Entities.SubscriptionPlanEntity", "SubscriptionPlan")
                         .WithMany("HospitalSubscriptions")
                         .HasForeignKey("SubscriptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Hospital");
