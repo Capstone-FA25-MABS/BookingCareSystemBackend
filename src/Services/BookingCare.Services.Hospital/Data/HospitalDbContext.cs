@@ -16,6 +16,7 @@ public class HospitalDbContext : DbContext
     public DbSet<HospitalSubscriptionEntity> HospitalSubscriptions { get; set; }
     public DbSet<HospitalSpecialtyEntity> HospitalSpecialties { get; set; }
     public DbSet<HospitalImageEntity> HospitalImages { get; set; }
+    public DbSet<HospitalRegistrationEntity> HospitalRegistrations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -112,6 +113,33 @@ public class HospitalDbContext : DbContext
                   .HasForeignKey(e => e.HospitalId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // Configure HospitalRegistration entity
+        modelBuilder.Entity<HospitalRegistrationEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.HospitalName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.Email);
+            entity.Property(e => e.Phone).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Address).IsRequired();
+            entity.Property(e => e.LicenseFile).IsRequired();
+            entity.Property(e => e.BusinessCertificateFile).IsRequired();
+            entity.Property(e => e.IdentityCardFile).IsRequired();
+            entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.TaxCode);
+            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
+
+            // Foreign key relationship (optional)
+            entity.HasOne(e => e.Hospital)
+                  .WithMany()
+                  .HasForeignKey(e => e.HospitalId)
+                  .OnDelete(DeleteBehavior.SetNull)
+                  .IsRequired(false);
+        });
     }
 
     public override int SaveChanges()
@@ -133,30 +161,47 @@ public class HospitalDbContext : DbContext
 
         foreach (var entry in entries)
         {
-            if (entry.Entity is HospitalEntity hospital)
+            var isAdded = entry.State == EntityState.Added;
+            var currentTime = DateTime.Now;
+
+            switch (entry.Entity)
             {
-                if (entry.State == EntityState.Added)
-                {
-                    hospital.CreatedAt = DateTime.Now;
-                }
-                hospital.UpdatedAt = DateTime.Now;
-            }
-            else if (entry.Entity is SubscriptionPlanEntity subscription)
-            {
-                if (entry.State == EntityState.Added)
-                {
-                    subscription.CreatedAt = DateTime.Now;
-                }
-                subscription.UpdatedAt = DateTime.Now;
-            }
-            else if (entry.Entity is HospitalSubscriptionEntity hospitalSubscription)
-            {
-                if (entry.State == EntityState.Added)
-                {
-                    hospitalSubscription.CreatedAt = DateTime.Now;
-                }
-                hospitalSubscription.UpdatedAt = DateTime.Now;
+                case HospitalEntity hospital:
+                    UpdateEntityTimestamp(isAdded,
+                        () => hospital.CreatedAt = currentTime,
+                        () => hospital.UpdatedAt = currentTime);
+                    break;
+
+                case SubscriptionPlanEntity subscription:
+                    UpdateEntityTimestamp(isAdded,
+                        () => subscription.CreatedAt = currentTime,
+                        () => subscription.UpdatedAt = currentTime);
+                    break;
+
+                case HospitalSubscriptionEntity hospitalSubscription:
+                    UpdateEntityTimestamp(isAdded,
+                        () => hospitalSubscription.CreatedAt = currentTime,
+                        () => hospitalSubscription.UpdatedAt = currentTime);
+                    break;
+
+                case HospitalRegistrationEntity registration:
+                    UpdateEntityTimestamp(isAdded,
+                        () => registration.CreatedAt = currentTime,
+                        () => registration.UpdatedAt = currentTime);
+                    break;
             }
         }
+    }
+
+    private static void UpdateEntityTimestamp(
+        bool isAdded,
+        Action setCreatedAt,
+        Action setUpdatedAt)
+    {
+        if (isAdded)
+        {
+            setCreatedAt();
+        }
+        setUpdatedAt();
     }
 }

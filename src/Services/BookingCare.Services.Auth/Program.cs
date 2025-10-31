@@ -153,15 +153,18 @@ builder.Services.AddSagaOrchestration(builder.Configuration);
 builder.Services.AddSaga<UserRegistrationSaga>();
 builder.Services.AddSaga<DoctorRegistrationSaga>();
 builder.Services.AddSaga<ExternalUserRegistrationSaga>();
+builder.Services.AddSaga<HospitalAccountRegistrationSaga>();
 
 // Register Saga Steps
 builder.Services.AddSagaStep<CreateAccountGrpcStep>();
 builder.Services.AddSagaStep<CreateExternalAccountGrpcStep>();
 builder.Services.AddSagaStep<CreateUserProfileGrpcStep>();
 builder.Services.AddSagaStep<CreateDoctorProfileGrpcStep>();
+builder.Services.AddSagaStep<CreateHospitalProfileGrpcStep>();
 
 // Register Event Handlers
 builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalAccountCreationRequestedEventHandler>();
 
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth-service-queue");
@@ -267,6 +270,9 @@ app.UseEventBus(eventBus =>
 {
     // Subscribe to User Service sync requests
     eventBus.Subscribe<UserEmailPhoneSyncRequestedEvent, UserEmailPhoneSyncEventHandler>();
+
+    // Subscribe to Hospital Account Creation requests
+    eventBus.Subscribe<HospitalAccountCreationRequestedEvent, HospitalAccountCreationRequestedEventHandler>();
 });
 
 app.Run();

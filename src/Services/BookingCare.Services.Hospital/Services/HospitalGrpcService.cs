@@ -255,6 +255,34 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
     }
 
+    public override async Task<DeleteHospitalReply> DeleteHospital(DeleteHospitalRequest request, ServerCallContext context)
+    {
+        try
+        {
+            if (!Guid.TryParse(request.Id, out var hospitalId))
+            {
+                throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            var result = await _hospitalService.DeleteAsync(hospitalId);
+
+            return new DeleteHospitalReply
+            {
+                Success = result,
+                Message = result ? "Hospital deleted successfully" : "Failed to delete hospital"
+            };
+        }
+        catch (HospitalNotFoundException ex)
+        {
+            throw new RpcException(new GrpcStatus(StatusCode.NotFound, ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting hospital with ID {HospitalId}", request.Id);
+            throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
     public override async Task<HospitalBasicInfoResponse> GetHospitalBasicInfo(GetHospitalBasicInfoRequest request, ServerCallContext context)
     {
         try

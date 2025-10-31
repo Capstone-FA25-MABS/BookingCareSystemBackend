@@ -374,7 +374,7 @@ public class AuthController : BaseApiController
         var roleValidation = ValidateRoleSpecificRequirements(request, Role.DOCTOR);
         if (roleValidation != null) return roleValidation;
 
-        var generatedPassword = Utils.PasswordHelper.GenerateStrongPassword(16);
+        var generatedPassword = PasswordHelper.GenerateStrongPassword(16);
         var sagaContext = PrepareDoctorSagaContext(request, generatedPassword);
 
         try
