@@ -175,7 +175,7 @@ public class HospitalRegistrationFilesUploadEventHandler : IIntegrationEventHand
 /// Wrapper class to convert Stream to IFormFile for FileUploadOrchestrator
 /// Owns the stream and will dispose it when this wrapper is disposed
 /// </summary>
-internal class FormFileWrapper : IFormFile, IDisposable
+internal sealed class FormFileWrapper : IFormFile, IDisposable
 {
     private readonly Stream _stream;
     private readonly string _fileName;
@@ -198,7 +198,7 @@ internal class FormFileWrapper : IFormFile, IDisposable
 
     public void CopyTo(Stream target)
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(FormFileWrapper));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _stream.Position = 0; // Reset position before copying
         _stream.CopyTo(target);
         _stream.Position = 0; // Reset for potential reuse
@@ -206,7 +206,7 @@ internal class FormFileWrapper : IFormFile, IDisposable
 
     public async Task CopyToAsync(Stream target, CancellationToken cancellationToken = default)
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(FormFileWrapper));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _stream.Position = 0; // Reset position before copying
         await _stream.CopyToAsync(target, cancellationToken);
         _stream.Position = 0; // Reset for potential reuse
@@ -214,14 +214,20 @@ internal class FormFileWrapper : IFormFile, IDisposable
 
     public Stream OpenReadStream()
     {
-        if (_disposed) throw new ObjectDisposedException(nameof(FormFileWrapper));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _stream.Position = 0; // Reset position
         return _stream;
     }
 
     public void Dispose()
     {
-        if (!_disposed)
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (!_disposed && disposing)
         {
             _stream?.Dispose();
             _disposed = true;

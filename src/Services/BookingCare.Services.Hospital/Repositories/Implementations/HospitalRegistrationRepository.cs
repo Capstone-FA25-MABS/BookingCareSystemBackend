@@ -96,55 +96,13 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
                 .AsQueryable();
 
             // Apply filters
-            if (!string.IsNullOrWhiteSpace(searchTerm))
-            {
-                var lowerSearchTerm = searchTerm.ToLower();
-                query = query.Where(r =>
-                    r.HospitalName.ToLower().Contains(lowerSearchTerm) ||
-                    r.Email.ToLower().Contains(lowerSearchTerm) ||
-                    r.Phone.Contains(searchTerm) ||
-                    r.TaxCode.Contains(searchTerm));
-            }
-
-            if (status.HasValue)
-            {
-                query = query.Where(r => r.Status == status.Value);
-            }
-
-            if (fromDate.HasValue)
-            {
-                query = query.Where(r => r.CreatedAt >= fromDate.Value);
-            }
-
-            if (toDate.HasValue)
-            {
-                query = query.Where(r => r.CreatedAt <= toDate.Value);
-            }
+            query = ApplyFilters(query, searchTerm, status, fromDate, toDate);
 
             // Get total count before pagination
             var totalCount = await query.CountAsync();
 
-            // Apply sorting
-            query = sortBy.ToLower() switch
-            {
-                "hospitalname" => sortOrder.ToUpper() == "ASC"
-                    ? query.OrderBy(r => r.HospitalName)
-                    : query.OrderByDescending(r => r.HospitalName),
-                "email" => sortOrder.ToUpper() == "ASC"
-                    ? query.OrderBy(r => r.Email)
-                    : query.OrderByDescending(r => r.Email),
-                "status" => sortOrder.ToUpper() == "ASC"
-                    ? query.OrderBy(r => r.Status)
-                    : query.OrderByDescending(r => r.Status),
-                "updatedat" => sortOrder.ToUpper() == "ASC"
-                    ? query.OrderBy(r => r.UpdatedAt)
-                    : query.OrderByDescending(r => r.UpdatedAt),
-                _ => sortOrder.ToUpper() == "ASC"
-                    ? query.OrderBy(r => r.CreatedAt)
-                    : query.OrderByDescending(r => r.CreatedAt)
-            };
-
-            // Apply pagination
+            // Apply sorting and pagination
+            query = ApplySorting(query, sortBy, sortOrder);
             var registrations = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -160,6 +118,68 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
             _logger.LogError(ex, "Error getting all hospital registrations");
             throw new HospitalRegistrationException("Failed to get all hospital registrations", ex);
         }
+    }
+
+    private static IQueryable<HospitalRegistrationEntity> ApplyFilters(
+        IQueryable<HospitalRegistrationEntity> query,
+        string? searchTerm,
+        RegistrationStatus? status,
+        DateTime? fromDate,
+        DateTime? toDate)
+    {
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var lowerSearchTerm = searchTerm.ToLower();
+            query = query.Where(r =>
+                r.HospitalName.ToLower().Contains(lowerSearchTerm) ||
+                r.Email.ToLower().Contains(lowerSearchTerm) ||
+                r.Phone.Contains(searchTerm) ||
+                r.TaxCode.Contains(searchTerm));
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(r => r.Status == status.Value);
+        }
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(r => r.CreatedAt >= fromDate.Value);
+        }
+
+        if (toDate.HasValue)
+        {
+            query = query.Where(r => r.CreatedAt <= toDate.Value);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<HospitalRegistrationEntity> ApplySorting(
+        IQueryable<HospitalRegistrationEntity> query,
+        string sortBy,
+        string sortOrder)
+    {
+        var isAscending = sortOrder.ToUpper() == "ASC";
+
+        return sortBy.ToLower() switch
+        {
+            "hospitalname" => isAscending
+                ? query.OrderBy(r => r.HospitalName)
+                : query.OrderByDescending(r => r.HospitalName),
+            "email" => isAscending
+                ? query.OrderBy(r => r.Email)
+                : query.OrderByDescending(r => r.Email),
+            "status" => isAscending
+                ? query.OrderBy(r => r.Status)
+                : query.OrderByDescending(r => r.Status),
+            "updatedat" => isAscending
+                ? query.OrderBy(r => r.UpdatedAt)
+                : query.OrderByDescending(r => r.UpdatedAt),
+            _ => isAscending
+                ? query.OrderBy(r => r.CreatedAt)
+                : query.OrderByDescending(r => r.CreatedAt)
+        };
     }
 
     public async Task<HospitalRegistrationEntity> UpdateAsync(HospitalRegistrationEntity registration)

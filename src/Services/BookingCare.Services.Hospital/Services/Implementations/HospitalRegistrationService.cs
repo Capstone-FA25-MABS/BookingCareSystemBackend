@@ -10,6 +10,7 @@ using BookingCare.Shared.FileUpload.Models;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.Common.Services;
+using System.Security.Cryptography;
 
 namespace BookingCare.Services.Hospital.Services.Implementations;
 
@@ -416,7 +417,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         };
     }
 
-    private string GetStatusText(RegistrationStatus status)
+    private static string GetStatusText(RegistrationStatus status)
     {
         return status switch
         {
@@ -451,14 +452,14 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         return (uploadResult.Success, uploadResult.UploadResult, uploadResult.ErrorMessage);
     }
 
-    private async Task<byte[]> ConvertFormFileToByteArray(IFormFile file)
+    private static async Task<byte[]> ConvertFormFileToByteArray(IFormFile file)
     {
         using var memoryStream = new MemoryStream();
         await file.CopyToAsync(memoryStream);
         return memoryStream.ToArray();
     }
 
-    private string GenerateStrongPassword(int length)
+    private static string GenerateStrongPassword(int length)
     {
         const string upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         const string lowerCase = "abcdefghijklmnopqrstuvwxyz";
@@ -466,29 +467,37 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         const string specialChars = "@#$%^&*()_+-=[]{}|;:,.<>?";
         const string allChars = upperCase + lowerCase + digits + specialChars;
 
-        var random = new Random();
+        using var rng = RandomNumberGenerator.Create();
         var password = new char[length];
 
         // Ensure at least one character from each category
-        password[0] = upperCase[random.Next(upperCase.Length)];
-        password[1] = lowerCase[random.Next(lowerCase.Length)];
-        password[2] = digits[random.Next(digits.Length)];
-        password[3] = specialChars[random.Next(specialChars.Length)];
+        password[0] = upperCase[GetSecureRandomNumber(rng, upperCase.Length)];
+        password[1] = lowerCase[GetSecureRandomNumber(rng, lowerCase.Length)];
+        password[2] = digits[GetSecureRandomNumber(rng, digits.Length)];
+        password[3] = specialChars[GetSecureRandomNumber(rng, specialChars.Length)];
 
         // Fill the rest with random characters
         for (int i = 4; i < length; i++)
         {
-            password[i] = allChars[random.Next(allChars.Length)];
+            password[i] = allChars[GetSecureRandomNumber(rng, allChars.Length)];
         }
 
         // Shuffle the password
         for (int i = password.Length - 1; i > 0; i--)
         {
-            int j = random.Next(i + 1);
+            int j = GetSecureRandomNumber(rng, i + 1);
             (password[i], password[j]) = (password[j], password[i]);
         }
 
         return new string(password);
+    }
+
+    private static int GetSecureRandomNumber(RandomNumberGenerator rng, int max)
+    {
+        var bytes = new byte[4];
+        rng.GetBytes(bytes);
+        var randomValue = BitConverter.ToUInt32(bytes, 0);
+        return (int)(randomValue % (uint)max);
     }
 }
 

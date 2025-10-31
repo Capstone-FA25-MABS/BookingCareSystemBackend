@@ -486,6 +486,8 @@ public class CreateExternalAccountGrpcStep : BaseGrpcStep
 /// </summary>
 public class CreateHospitalProfileGrpcStep : BaseGrpcStep
 {
+    private const string HospitalIdKey = "HospitalId";
+
     private readonly IConfiguration _configuration;
 
     public override string StepName => "CreateHospitalProfile";
@@ -543,13 +545,13 @@ public class CreateHospitalProfileGrpcStep : BaseGrpcStep
 
             if (!string.IsNullOrEmpty(response.Id))
             {
-                context.SetData("HospitalId", response.Id);
+                context.SetData(HospitalIdKey, response.Id);
 
                 _logger.LogInformation("[CreateHospitalProfileGrpcStep] Hospital profile created successfully: {HospitalId}", response.Id);
 
                 return Success(new Dictionary<string, object>
                 {
-                    { "HospitalId", response.Id }
+                    { HospitalIdKey, response.Id }
                 });
             }
             else
@@ -569,10 +571,10 @@ public class CreateHospitalProfileGrpcStep : BaseGrpcStep
         {
             LogCompensationStart(StepName, context.SagaId, "deleting hospital profile");
 
-            var hospitalId = context.GetData<string>("HospitalId");
+            var hospitalId = context.GetData<string>(HospitalIdKey);
             if (string.IsNullOrEmpty(hospitalId))
             {
-                return LogCompensationWarning(StepName, "HospitalId");
+                return LogCompensationWarning(StepName, HospitalIdKey);
             }
 
             // Create gRPC client for Hospital Service

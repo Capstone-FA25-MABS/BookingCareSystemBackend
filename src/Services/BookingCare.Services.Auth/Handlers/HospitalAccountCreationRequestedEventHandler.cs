@@ -13,6 +13,8 @@ namespace BookingCare.Services.Auth.Handlers;
 public class HospitalAccountCreationRequestedEventHandler
     : IIntegrationEventHandler<HospitalAccountCreationRequestedEvent>
 {
+    private const string AdminFrontendUrl = "http://localhost:5173";
+
     private readonly ISagaManager _sagaManager;
     private readonly IEventBus _eventBus;
     private readonly ILogger<HospitalAccountCreationRequestedEventHandler> _logger;
@@ -61,10 +63,6 @@ public class HospitalAccountCreationRequestedEventHandler
 
             if (result.Status == SagaStatus.Completed)
             {
-                _logger.LogInformation(
-                    "[HospitalAccountCreationRequestedEventHandler] Hospital account creation saga completed successfully for {Email}",
-                    @event.Email);
-
                 // Get AccountId and HospitalId from saga context
                 var accountId = sagaContext.GetData<string>("AccountId");
                 var hospitalId = sagaContext.GetData<string>("HospitalId");
@@ -80,7 +78,6 @@ public class HospitalAccountCreationRequestedEventHandler
                     LinkedAt = DateTime.UtcNow
                 };
                 await _eventBus.PublishAsync(linkedEvent);
-                _logger.LogInformation("[HospitalAccountCreationRequestedEventHandler] HospitalRegistrationAccountLinkedEvent published for RegistrationId {RegistrationId}", @event.RegistrationId);
 
                 // Publish success event for notification service
                 var successEvent = new HospitalAccountCreatedEvent
@@ -91,13 +88,17 @@ public class HospitalAccountCreationRequestedEventHandler
                     Email = @event.Email,
                     HospitalName = @event.HospitalName,
                     GeneratedPassword = @event.GeneratedPassword,
-                    LoginUrl = $"{GetAdminFrontendUrl()}/login",
+                    LoginUrl = $"{AdminFrontendUrl}/login",
                     ContractFileUrl = @event.ContractFileUrl,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 await _eventBus.PublishAsync(successEvent);
-                _logger.LogInformation("[HospitalAccountCreationRequestedEventHandler] HospitalAccountCreatedEvent published for notification");
+
+                _logger.LogInformation(
+                    "[HospitalAccountCreationRequestedEventHandler] Hospital account creation saga completed for {Email}. Events published: HospitalRegistrationAccountLinkedEvent (RegistrationId: {RegistrationId}), HospitalAccountCreatedEvent",
+                    @event.Email,
+                    @event.RegistrationId);
             }
             else
             {
@@ -136,12 +137,6 @@ public class HospitalAccountCreationRequestedEventHandler
 
             await _eventBus.PublishAsync(failureEvent);
         }
-    }
-
-    private string GetAdminFrontendUrl()
-    {
-        // TODO: Get from configuration
-        return "http://localhost:3001";
     }
 }
 

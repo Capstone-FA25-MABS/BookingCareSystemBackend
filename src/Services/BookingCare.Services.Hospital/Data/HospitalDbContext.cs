@@ -161,38 +161,49 @@ public class HospitalDbContext : DbContext
 
         foreach (var entry in entries)
         {
-            if (entry.Entity is HospitalEntity hospital)
+            var isAdded = entry.State == EntityState.Added;
+            var currentTime = DateTime.Now;
+
+            switch (entry.Entity)
             {
-                if (entry.State == EntityState.Added)
-                {
-                    hospital.CreatedAt = DateTime.Now;
-                }
-                hospital.UpdatedAt = DateTime.Now;
-            }
-            else if (entry.Entity is SubscriptionPlanEntity subscription)
-            {
-                if (entry.State == EntityState.Added)
-                {
-                    subscription.CreatedAt = DateTime.Now;
-                }
-                subscription.UpdatedAt = DateTime.Now;
-            }
-            else if (entry.Entity is HospitalSubscriptionEntity hospitalSubscription)
-            {
-                if (entry.State == EntityState.Added)
-                {
-                    hospitalSubscription.CreatedAt = DateTime.Now;
-                }
-                hospitalSubscription.UpdatedAt = DateTime.Now;
-            }
-            else if (entry.Entity is HospitalRegistrationEntity registration)
-            {
-                if (entry.State == EntityState.Added)
-                {
-                    registration.CreatedAt = DateTime.Now;
-                }
-                registration.UpdatedAt = DateTime.Now;
+                case HospitalEntity hospital:
+                    UpdateEntityTimestamp(hospital, isAdded, currentTime,
+                        () => hospital.CreatedAt = currentTime,
+                        () => hospital.UpdatedAt = currentTime);
+                    break;
+
+                case SubscriptionPlanEntity subscription:
+                    UpdateEntityTimestamp(subscription, isAdded, currentTime,
+                        () => subscription.CreatedAt = currentTime,
+                        () => subscription.UpdatedAt = currentTime);
+                    break;
+
+                case HospitalSubscriptionEntity hospitalSubscription:
+                    UpdateEntityTimestamp(hospitalSubscription, isAdded, currentTime,
+                        () => hospitalSubscription.CreatedAt = currentTime,
+                        () => hospitalSubscription.UpdatedAt = currentTime);
+                    break;
+
+                case HospitalRegistrationEntity registration:
+                    UpdateEntityTimestamp(registration, isAdded, currentTime,
+                        () => registration.CreatedAt = currentTime,
+                        () => registration.UpdatedAt = currentTime);
+                    break;
             }
         }
+    }
+
+    private static void UpdateEntityTimestamp<T>(
+        T entity,
+        bool isAdded,
+        DateTime timestamp,
+        Action setCreatedAt,
+        Action setUpdatedAt)
+    {
+        if (isAdded)
+        {
+            setCreatedAt();
+        }
+        setUpdatedAt();
     }
 }
