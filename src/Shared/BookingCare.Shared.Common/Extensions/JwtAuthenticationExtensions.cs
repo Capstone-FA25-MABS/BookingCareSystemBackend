@@ -22,21 +22,8 @@ public static class JwtAuthenticationExtensions
     /// <returns>Service collection for chaining</returns>
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration? configuration = null, bool requireHttpsMetadata = false)
     {
-        // Get JWT configuration from centralized source
-        var (secretKey, issuer, audience, _, _) = configuration != null
-            ? JwtConfiguration.GetConfiguration(configuration)
-            : JwtConfiguration.GetConfiguration();
+        var (secretKey, issuer, audience) = GetAndValidateJwtConfiguration(configuration);
 
-        if (string.IsNullOrEmpty(secretKey))
-            throw new InvalidOperationException("JWT SecretKey is not configured. Please set JWT_SECRET_KEY environment variable or configure in appsettings.json");
-
-        if (string.IsNullOrEmpty(issuer))
-            throw new InvalidOperationException("JWT Issuer is not configured. Please set JWT_ISSUER environment variable or configure in appsettings.json");
-
-        if (string.IsNullOrEmpty(audience))
-            throw new InvalidOperationException("JWT Audience is not configured. Please set JWT_AUDIENCE environment variable or configure in appsettings.json");
-
-        // Add Authentication
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -45,19 +32,7 @@ public static class JwtAuthenticationExtensions
         .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
         {
             options.RequireHttpsMetadata = requireHttpsMetadata;
-
-            // Configure token validation
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
-                ValidateAudience = true,
-                ValidAudience = audience,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero,
-            };
+            ConfigureJwtBearerOptions(options, secretKey, issuer, audience);
         });
 
         return services;
@@ -72,21 +47,8 @@ public static class JwtAuthenticationExtensions
     /// <returns>Service collection for chaining</returns>
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration? configuration, Action<JwtBearerOptions> configureOptions)
     {
-        // Get JWT configuration from centralized source
-        var (secretKey, issuer, audience, _, _) = configuration != null
-            ? JwtConfiguration.GetConfiguration(configuration)
-            : JwtConfiguration.GetConfiguration();
+        var (secretKey, issuer, audience) = GetAndValidateJwtConfiguration(configuration);
 
-        if (string.IsNullOrEmpty(secretKey))
-            throw new InvalidOperationException("JWT SecretKey is not configured. Please set JWT_SECRET_KEY environment variable or configure in appsettings.json");
-
-        if (string.IsNullOrEmpty(issuer))
-            throw new InvalidOperationException("JWT Issuer is not configured. Please set JWT_ISSUER environment variable or configure in appsettings.json");
-
-        if (string.IsNullOrEmpty(audience))
-            throw new InvalidOperationException("JWT Audience is not configured. Please set JWT_AUDIENCE environment variable or configure in appsettings.json");
-
-        // Add Authentication
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -94,20 +56,7 @@ public static class JwtAuthenticationExtensions
         })
         .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
         {
-            // Set default validation parameters
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
-                ValidateAudience = true,
-                ValidAudience = audience,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero,
-            };
-
-            // Apply custom configuration
+            ConfigureJwtBearerOptions(options, secretKey, issuer, audience);
             configureOptions(options);
         });
 
@@ -125,6 +74,62 @@ public static class JwtAuthenticationExtensions
     {
         var requireHttpsMetadata = !environment.IsDevelopment();
         return services.AddJwtAuthentication(configuration, requireHttpsMetadata);
+    }
+
+    /// <summary>
+    /// Get and validate JWT configuration from centralized source
+    /// </summary>
+    private static (string secretKey, string issuer, string audience) GetAndValidateJwtConfiguration(IConfiguration? configuration)
+    {
+        var (secretKey, issuer, audience, _, _) = configuration != null
+            ? JwtConfiguration.GetConfiguration(configuration)
+            : JwtConfiguration.GetConfiguration();
+
+        if (string.IsNullOrEmpty(secretKey))
+            throw new InvalidOperationException("JWT SecretKey is not configured. Please set JWT_SECRET_KEY environment variable or configure in appsettings.json");
+
+        if (string.IsNullOrEmpty(issuer))
+            throw new InvalidOperationException("JWT Issuer is not configured. Please set JWT_ISSUER environment variable or configure in appsettings.json");
+
+        if (string.IsNullOrEmpty(audience))
+            throw new InvalidOperationException("JWT Audience is not configured. Please set JWT_AUDIENCE environment variable or configure in appsettings.json");
+
+        return (secretKey, issuer, audience);
+    }
+
+    /// <summary>
+    /// Configure JWT Bearer options with token validation and SignalR support
+    /// </summary>
+    private static void ConfigureJwtBearerOptions(JwtBearerOptions options, string secretKey, string issuer, string audience)
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+            ValidateIssuer = true,
+            ValidIssuer = issuer,
+            ValidateAudience = true,
+            ValidAudience = audience,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+        };
+
+        // Allow SignalR to receive token from query string
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                // If request is for SignalR hub, get token from query string
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     }
 }
 

@@ -1,16 +1,22 @@
-using AutoMapper;
+﻿using AutoMapper;
+using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Exceptions;
+using BookingCare.Services.Doctor.Models.ApiModels;
 using BookingCare.Services.Doctor.Models.DTOs.Requests;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Services.Favorite;
-using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Hospital;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Services.Hospital;
+using HospitalBasicInfo = BookingCare.Services.Doctor.Models.DTOs.Responses.HospitalBasicInfo;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
+using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
@@ -27,8 +33,9 @@ public class DoctorService : BaseService, IDoctorService
     private readonly Lazy<HospitalService.HospitalServiceClient> _hospitalClient;
     private readonly Lazy<ReviewService.ReviewServiceClient> _reviewClient;
 
+    private readonly IEventBus _eventBus;
     public DoctorService(
-        IServiceProvider serviceProvider,
+        IServiceProvider serviceProvider, IEventBus eventBus,
         ILogger<DoctorService> logger) : base(logger)
     {
         _serviceProvider = serviceProvider;
@@ -41,6 +48,7 @@ public class DoctorService : BaseService, IDoctorService
         _authClient = new Lazy<AuthService.AuthServiceClient>(() => _serviceProvider.GetRequiredService<AuthService.AuthServiceClient>());
         _hospitalClient = new Lazy<HospitalService.HospitalServiceClient>(() => _serviceProvider.GetRequiredService<HospitalService.HospitalServiceClient>());
         _reviewClient = new Lazy<ReviewService.ReviewServiceClient>(() => _serviceProvider.GetRequiredService<ReviewService.ReviewServiceClient>());
+        _eventBus = eventBus;
     }
 
     #region Private Helper Methods
@@ -276,15 +284,97 @@ public class DoctorService : BaseService, IDoctorService
             var existingDoctor = await ValidateAndGetExistingDoctor(request.Id);
 
             await ValidateUpdateDoctorRequest(request);
-
+            var originalDoctor = new DoctorEntity
+            {
+                Id = existingDoctor.Id,
+                AccountId = existingDoctor.AccountId,
+                Email = existingDoctor.Email,
+                FirstName = existingDoctor.FirstName,
+                LastName = existingDoctor.LastName,
+                Gender = existingDoctor.Gender,
+                Address = existingDoctor.Address,
+                AvatarUrl = existingDoctor.AvatarUrl
+            };
             UpdateDoctorEntity(existingDoctor, request);
 
             await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
             await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
 
             var updatedDoctor = await _repository.Value.UpdateDoctorAsync(existingDoctor);
+
+            // 🎯 Publish UserProfileUpdatedEvent for cache invalidation (fire and forget) - tương tự UserService
+            var correlationId = Guid.NewGuid().ToString();
+            _ = Task.Run(async () =>
+            {
+                await PublishUserProfileUpdatedEventAsync(originalDoctor, updatedDoctor, correlationId);
+            });
+
+            LogInfo("Doctor updated successfully with ID: {DoctorId}", null, existingDoctor.Id);
             return _mapper.Value.Map<DoctorResponse>(updatedDoctor);
         }, nameof(UpdateDoctorAsync));
+    }
+    /// <summary>
+    /// 🎯 Publish detailed UserProfileUpdatedEvent for cache invalidation
+    /// </summary>
+    private async Task PublishUserProfileUpdatedEventAsync(DoctorEntity originalUser, DoctorEntity updatedUser, string correlationId)
+    {
+        try
+        {
+            LogInfo("Publishing UserProfileUpdatedEvent for user: {UserId}, CorrelationId: {CorrelationId}",
+                null, updatedUser.Id, correlationId);
+
+            // Determine which fields were updated
+            var updatedFields = DetermineUpdatedFields(originalUser, updatedUser);
+
+            var userUpdatedEvent = new UserProfileUpdatedEvent
+            {
+                UserId = updatedUser.Id,
+                AccountId = updatedUser.AccountId,
+                Email = updatedUser.Email,
+                PreviousEmail = originalUser.Email != updatedUser.Email ? originalUser.Email : null,
+                FullName = $"{updatedUser.FirstName} {updatedUser.LastName}".Trim(),
+                FirstName = updatedUser.FirstName,
+                LastName = updatedUser.LastName,
+                AvatarUrl = updatedUser.AvatarUrl ?? "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png",
+
+                Role = "DOCTOR", // Default role, could be enhanced to get from Auth Service
+                Gender = updatedUser.Gender?.ToString(),
+
+                Address = updatedUser.Address,
+                UpdatedAt = DateTime.UtcNow,
+                CorrelationId = correlationId,
+                UpdatedFields = updatedFields
+            };
+
+            await _eventBus.PublishAsync(userUpdatedEvent);
+
+            LogInfo("UserProfileUpdatedEvent published successfully for user: {UserId}, Fields: {Fields}",
+                null, updatedUser.Id, string.Join(", ", updatedFields));
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the user update if event publishing fails
+            LogError(ex, "Failed to publish UserProfileUpdatedEvent for user: {UserId}, CorrelationId: {CorrelationId}",
+                null, updatedUser.Id, correlationId);
+        }
+    }
+    /// <summary>
+    /// Determine which fields were updated for selective cache invalidation
+    /// </summary>
+    private static List<string> DetermineUpdatedFields(DoctorEntity original, DoctorEntity updated)
+    {
+        var updatedFields = new List<string>();
+
+        if (original.FirstName != updated.FirstName) updatedFields.Add("FirstName");
+        if (original.LastName != updated.LastName) updatedFields.Add("LastName");
+        if (original.Email != updated.Email) updatedFields.Add("Email");
+
+        if (original.Gender != updated.Gender) updatedFields.Add("Gender");
+
+        if (original.Address != updated.Address) updatedFields.Add("Address");
+        if (original.AvatarUrl != updated.AvatarUrl) updatedFields.Add("AvatarUrl");
+
+        return updatedFields;
     }
 
     private async Task<DoctorEntity> ValidateAndGetExistingDoctor(Guid id)
@@ -916,6 +1006,7 @@ public class DoctorService : BaseService, IDoctorService
                 AccountId = d.AccountId,
                 Email = d.Email,
                 FullName = $"{d.FirstName} {d.LastName}".Trim(),
+                Address = d.Address ?? string.Empty,
                 AvatarUrl = d.AvatarUrl ?? string.Empty
             });
         }

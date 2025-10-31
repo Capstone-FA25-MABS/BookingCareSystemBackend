@@ -3,6 +3,7 @@ using BookingCare.Services.Auth.Handlers;
 using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Repositories;
 using BookingCare.Services.Auth.Services;
+using BookingCare.Services.Auth.Hubs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Auth.Mappings;
@@ -19,6 +20,7 @@ using BookingCare.Shared.Saga.Steps;
 using BookingCare.Shared.Saga.SagaDefinition;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.User.Protos;
+using BookingCare.Services.Hospital;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,6 +77,9 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 // Add HttpContextAccessor for cookie management
 builder.Services.AddHttpContextAccessor();
 
+// Add SignalR for real-time account notifications (ban, lock, etc.)
+builder.Services.AddSignalR();
+
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
 
@@ -114,6 +119,13 @@ builder.Services.AddGrpcClient<UserService.UserServiceClient>(o =>
 builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(o =>
 {
     var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6018";
+    o.Address = new Uri(endpoint);
+});
+
+// Add gRPC client for Hospital service
+builder.Services.AddGrpcClient<HospitalService.HospitalServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Hospital").GetValue<string>("GrpcUrl") ?? "http://localhost:6104";
     o.Address = new Uri(endpoint);
 });
 
@@ -246,6 +258,9 @@ app.MapControllers();
 
 // Map gRPC services
 app.MapGrpcService<AuthGrpcService>();
+
+// Map SignalR hubs
+app.MapHub<AccountNotificationHub>("/hubs/account-notification"); // For account notifications
 
 // Map health check endpoint
 app.MapCommonHealthCheck("Auth");

@@ -1,20 +1,20 @@
+using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Data;
-using BookingCare.Services.Doctor.Repositories.Interfaces;
-using BookingCare.Services.Doctor.Repositories.Implementations;
-using BookingCare.Services.Doctor.Services.Interfaces;
-using BookingCare.Services.Doctor.Services.Implementations;
 using BookingCare.Services.Doctor.Mappings;
 using BookingCare.Services.Doctor.Middlewares;
-using Microsoft.EntityFrameworkCore;
-using BookingCare.Shared.Common.Extensions;
-using BookingCare.Services.Favorite;
-using BookingCare.Services.Auth.Protos;
-using BookingCare.Services.Review.Grpc;
+using BookingCare.Services.Doctor.Repositories.Implementations;
+using BookingCare.Services.Doctor.Repositories.Interfaces;
 using BookingCare.Services.Doctor.Services.Grpc;
+using BookingCare.Services.Doctor.Services.Implementations;
+using BookingCare.Services.Doctor.Services.Interfaces;
+using BookingCare.Services.Favorite;
+using BookingCare.Services.Review.Grpc;
+using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Shared.FileUpload.Services;
-
+using BookingCare.Shared.EventBus.Extensions;
+using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
@@ -90,7 +90,8 @@ builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add gRPC
 builder.Services.AddGrpc();
-
+// Add Event Bus (RabbitMQ)
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "doctor-service-queue");
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

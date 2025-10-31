@@ -59,4 +59,13 @@ public interface IAuthService
     Task<bool> RemovePermissionFromRoleAsync(RemovePermissionRequest request);
     Task<List<PermissionResponse>> GetRolePermissionsAsync(Guid roleId);
     Task<List<RoleResponse>> GetRolesByPermissionAsync(Guid permissionId);
+
+    // Admin account management operations
+    Task<AccountManagementResponse> GetAccountsByRoleNameAsync(
+        string roleName,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm = null,
+        string sortBy = "CreatedAt",
+        string sortOrder = "desc");
 }

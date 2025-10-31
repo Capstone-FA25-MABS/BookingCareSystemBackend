@@ -26,4 +26,7 @@ public interface IHospitalService
 
     // Optimized method for hospital list with essential fields and filters
     Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter);
+
+    // Get hospitals by account IDs (batch operation for admin management)
+    Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(IEnumerable<Guid> accountIds);
 }

@@ -26,6 +26,9 @@ service HospitalService {
 
   // Get multiple hospitals basic info (batch operation for performance)
   rpc GetHospitalsBasicInfo (GetHospitalsBasicInfoRequest) returns (HospitalsBasicInfoResponse);
+  
+  // Get hospitals by account IDs (batch operation for admin management)
+  rpc GetHospitalsByAccountIds (GetHospitalsByAccountIdsRequest) returns (HospitalBatchResponse);
 }
 
 // The request message for getting a hospital by ID
@@ -117,6 +120,26 @@ message HospitalBasicInfoResponse {
 // Response message for multiple hospitals basic info
 message HospitalsBasicInfoResponse {
   repeated HospitalBasicInfoResponse hospitals = 1;
+}
+
+// Request message for getting hospitals by account IDs
+message GetHospitalsByAccountIdsRequest {
+  repeated string account_ids = 1;
+}
+
+// Basic info for hospital in batch response
+message HospitalBasicInfo {
+  string account_id = 1;
+  string email = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+  string phone = 5;
+  string address = 6;
+}
+
+// Response message for hospitals batch (by account IDs)
+message HospitalBatchResponse {
+  repeated HospitalBasicInfo hospitals = 1;
 }
 
 // The request message for deleting a hospital
