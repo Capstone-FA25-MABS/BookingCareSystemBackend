@@ -163,6 +163,8 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
                     AccountId = user.AccountId.ToString(),
                     Email = user.Email,
                     FullName = user.FullName,
+                    Phone = user.Phone,
+                    Address = user.Address,
                     AvatarUrl = user.AvatarUrl
                 });
             }

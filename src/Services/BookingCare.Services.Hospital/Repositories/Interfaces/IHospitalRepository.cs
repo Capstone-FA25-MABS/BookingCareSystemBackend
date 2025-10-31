@@ -26,4 +26,7 @@ public interface IHospitalRepository
 
     // Optimized method for hospital list with essential fields and filters
     Task<(List<HospitalEntity> hospitals, int totalCount)> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter);
+
+    // Get hospitals by account IDs (batch operation for admin management)
+    Task<List<HospitalEntity>> GetByAccountIdsAsync(IEnumerable<Guid> accountIds);
 }

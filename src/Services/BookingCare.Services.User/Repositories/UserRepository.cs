@@ -189,6 +189,8 @@ public class UserRepository : IUserRepository
                     AccountId = u.AccountId,
                     Email = u.Email,
                     FullName = (u.FirstName + " " + u.LastName).Trim(),
+                    Phone = u.Phone ?? string.Empty,
+                    Address = u.Address ?? string.Empty,
                     AvatarUrl = u.AvatarUrl
                 })
                 .ToListAsync();
