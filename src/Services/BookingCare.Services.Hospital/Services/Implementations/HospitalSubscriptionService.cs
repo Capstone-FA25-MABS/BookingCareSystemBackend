@@ -7,6 +7,8 @@ using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Enums;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Services.Hospital.Services.Implementations;
 
@@ -16,17 +18,23 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
     private readonly IHospitalRepository _hospitalRepository;
     private readonly ISubscriptionPlanRepository _subscriptionPlanRepository;
     private readonly IMapper _mapper;
+    private readonly IEventBus _eventBus;
+    private readonly ILogger<HospitalSubscriptionService> _logger;
 
     public HospitalSubscriptionService(
         IHospitalSubscriptionRepository hospitalSubscriptionRepository,
         IHospitalRepository hospitalRepository,
         ISubscriptionPlanRepository subscriptionPlanRepository,
-        IMapper mapper)
+        IMapper mapper,
+        IEventBus eventBus,
+        ILogger<HospitalSubscriptionService> logger)
     {
         _hospitalSubscriptionRepository = hospitalSubscriptionRepository;
         _hospitalRepository = hospitalRepository;
         _subscriptionPlanRepository = subscriptionPlanRepository;
         _mapper = mapper;
+        _eventBus = eventBus;
+        _logger = logger;
     }
 
     public async Task<HospitalSubscriptionResponse?> GetByIdAsync(Guid id)
@@ -168,7 +176,53 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         try
         {
             var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(subscription);
-            return _mapper.Map<HospitalSubscriptionResponse>(createdSubscription);
+            var response = _mapper.Map<HospitalSubscriptionResponse>(createdSubscription);
+
+            // Publish event for email notification
+            try
+            {
+                // Get hospital information for email
+                var hospital = await _hospitalRepository.GetByIdAsync(request.HospitalId);
+                if (hospital != null && !string.IsNullOrWhiteSpace(hospital.Email))
+                {
+                    var subscriptionCreatedEvent = new HospitalSubscriptionCreatedEvent
+                    {
+                        HospitalSubscriptionId = createdSubscription.HospitalSubscriptionId,
+                        HospitalId = createdSubscription.HospitalId,
+                        HospitalName = hospital.Name,
+                        HospitalEmail = hospital.Email,
+                        ContactPersonName = "Quý bệnh viện",
+                        SubscriptionPlanId = subscriptionPlan.Id,
+                        PlanName = subscriptionPlan.Name,
+                        BillingCycle = subscriptionPlan.BillingCycle,
+                        Price = subscriptionPlan.Price,
+                        StartDate = createdSubscription.StartDate,
+                        EndDate = createdSubscription.EndDate,
+                        MaxDoctors = subscriptionPlan.MaxDoctors,
+                        MaxAppointmentsPerMonth = subscriptionPlan.MaxAppointments,
+                        Features = subscriptionPlan.Features,
+                        CreatedAt = createdSubscription.CreatedAt
+                    };
+
+                    await _eventBus.PublishAsync(subscriptionCreatedEvent);
+                    _logger.LogInformation(
+                        "Published HospitalSubscriptionCreatedEvent for HospitalId: {HospitalId}, SubscriptionId: {SubscriptionId}",
+                        createdSubscription.HospitalId,
+                        createdSubscription.HospitalSubscriptionId
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the subscription creation
+                _logger.LogError(
+                    ex,
+                    "Failed to publish HospitalSubscriptionCreatedEvent for HospitalId: {HospitalId}",
+                    request.HospitalId
+                );
+            }
+
+            return response;
         }
         catch (Exception ex)
         {
@@ -453,8 +507,58 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         {
             await _hospitalSubscriptionRepository.UpdateAsync(currentSubscription);
             var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(newSubscription);
+            var response = _mapper.Map<HospitalSubscriptionResponse>(createdSubscription);
 
-            return _mapper.Map<HospitalSubscriptionResponse>(createdSubscription);
+            // Publish event for email notification
+            try
+            {
+                // Get hospital information for email
+                var hospital = await _hospitalRepository.GetByIdAsync(currentSubscription.HospitalId);
+                if (hospital != null && !string.IsNullOrWhiteSpace(hospital.Email))
+                {
+                    var subscriptionUpgradedEvent = new HospitalSubscriptionUpgradedEvent
+                    {
+                        NewHospitalSubscriptionId = createdSubscription.HospitalSubscriptionId,
+                        PreviousHospitalSubscriptionId = currentSubscription.HospitalSubscriptionId,
+                        HospitalId = createdSubscription.HospitalId,
+                        HospitalName = hospital.Name,
+                        HospitalEmail = hospital.Email,
+                        ContactPersonName = "Quý bệnh viện",
+                        PreviousPlanName = currentPlan.Name,
+                        PreviousBillingCycle = currentPlan.BillingCycle,
+                        PreviousPrice = currentPlan.Price,
+                        NewSubscriptionPlanId = newPlan.Id,
+                        NewPlanName = newPlan.Name,
+                        NewBillingCycle = newPlan.BillingCycle,
+                        NewPrice = newPlan.Price,
+                        NewStartDate = createdSubscription.StartDate,
+                        NewEndDate = createdSubscription.EndDate,
+                        BonusDays = additionalDaysForNewPlan,
+                        NewMaxDoctors = newPlan.MaxDoctors,
+                        NewMaxAppointmentsPerMonth = newPlan.MaxAppointments,
+                        NewFeatures = newPlan.Features,
+                        UpgradedAt = now
+                    };
+
+                    await _eventBus.PublishAsync(subscriptionUpgradedEvent);
+                    _logger.LogInformation(
+                        "Published HospitalSubscriptionUpgradedEvent for HospitalId: {HospitalId}, NewSubscriptionId: {NewSubscriptionId}",
+                        createdSubscription.HospitalId,
+                        createdSubscription.HospitalSubscriptionId
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail the subscription upgrade
+                _logger.LogError(
+                    ex,
+                    "Failed to publish HospitalSubscriptionUpgradedEvent for HospitalId: {HospitalId}",
+                    currentSubscription.HospitalId
+                );
+            }
+
+            return response;
         }
         catch (Exception ex)
         {

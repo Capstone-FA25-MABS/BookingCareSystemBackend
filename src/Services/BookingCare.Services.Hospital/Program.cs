@@ -10,6 +10,7 @@ using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Protos;
+using BookingCare.Shared.EventBus.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +57,9 @@ builder.Logging.AddCommonLogging();
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
+
+// Add EventBus for publishing events (e.g., subscription created/upgraded)
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "hospital-service-queue");
 
 // Add gRPC
 builder.Services.AddGrpc();
