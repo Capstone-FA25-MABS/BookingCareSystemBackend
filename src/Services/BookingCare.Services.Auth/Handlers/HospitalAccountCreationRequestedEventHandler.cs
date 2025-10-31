@@ -82,8 +82,7 @@ public class HospitalAccountCreationRequestedEventHandler
                 await _eventBus.PublishAsync(linkedEvent);
 
                 // Publish success event for notification service
-                var adminFrontendUrl = _configuration["FrontendOptions:Admin:BaseUrl"]?.TrimEnd('/')
-                    ?? "http://localhost:5173";
+                var adminFrontendUrl = _configuration["FrontendOptions:Admin:BaseUrl"]?.TrimEnd('/');
 
                 var successEvent = new HospitalAccountCreatedEvent
                 {

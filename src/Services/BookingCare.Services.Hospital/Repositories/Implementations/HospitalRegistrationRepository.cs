@@ -4,6 +4,7 @@ using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Enums;
 using BookingCare.Services.Hospital.Exceptions;
 using Microsoft.EntityFrameworkCore;
+using BookingCare.Services.Hospital.Models.DTOs.Requests;
 
 namespace BookingCare.Services.Hospital.Repositories.Implementations;
 
