@@ -13,7 +13,7 @@ using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Shared.FileUpload.Services;
-using BookingCare.Shared.EventBus.Extensions;
+
 using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
@@ -90,8 +90,8 @@ builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add gRPC
 builder.Services.AddGrpc();
-// Add Event Bus (RabbitMQ)
-builder.Services.AddRabbitMQEventBus(builder.Configuration, "doctor-service-queue");
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
