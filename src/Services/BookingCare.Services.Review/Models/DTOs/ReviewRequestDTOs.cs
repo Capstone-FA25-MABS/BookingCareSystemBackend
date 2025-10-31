@@ -1,6 +1,6 @@
-using BookingCare.Services.Review.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using BookingCare.Services.Review.Enums;
 
 namespace BookingCare.Services.Review.Models.DTOs;
 
@@ -32,6 +32,11 @@ public class CreateReviewRequest
     /// ID of the service being reviewed (required if TargetType is SERVICE)
     /// </summary>
     public Guid? ServiceId { get; set; }
+
+    /// <summary>
+    /// ID of the hospital being reviewed
+    /// </summary>
+    public Guid? HospitalId { get; set; }
 
     /// <summary>
     /// Rating from 1 to 5 stars
