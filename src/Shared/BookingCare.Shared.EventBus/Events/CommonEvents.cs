@@ -14,12 +14,91 @@ public class UserRegisteredEvent : IntegrationEvent
     public DateTime RegisteredAt { get; set; }
 }
 
+/// <summary>
+/// ?? Enhanced User Profile Updated Event with detailed info for cache invalidation
+/// Used by both User Service and Doctor Service (with Role = "DOCTOR")
+/// </summary>
 public class UserProfileUpdatedEvent : IntegrationEvent
 {
+    /// <summary>
+    /// User ID (primary identifier)
+    /// </summary>
     public Guid UserId { get; set; }
+
+    /// <summary>
+    /// Account ID (for cache key lookups)
+    /// </summary>
+    public Guid AccountId { get; set; }
+
+    /// <summary>
+    /// Email address (for cache invalidation by email)
+    /// </summary>
     public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Previous email (if changed, for old cache key cleanup)
+    /// </summary>
+    public string? PreviousEmail { get; set; }
+
+    /// <summary>
+    /// Full name for cache updates
+    /// </summary>
     public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// First name
+    /// </summary>
+    public string FirstName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Last name
+    /// </summary>
+    public string LastName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Avatar URL for cache updates
+    /// </summary>
+    public string AvatarUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Phone number
+    /// </summary>
+    public string? Phone { get; set; }
+
+    /// <summary>
+    /// User role (PATIENT, DOCTOR, etc.) for cache updates
+    /// </summary>
+    public string Role { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gender
+    /// </summary>
+    public string? Gender { get; set; }
+
+    /// <summary>
+    /// Date of birth
+    /// </summary>
+    public DateTime? DateOfBirth { get; set; }
+
+    /// <summary>
+    /// Address
+    /// </summary>
+    public string? Address { get; set; }
+
+    /// <summary>
+    /// Update timestamp
+    /// </summary>
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// List of fields that were updated (for selective cache invalidation)
+    /// </summary>
+    public List<string> UpdatedFields { get; set; } = new();
 }
 
 public class UserEmailPhoneSyncRequestedEvent : IntegrationEvent
