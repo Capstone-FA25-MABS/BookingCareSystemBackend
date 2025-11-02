@@ -9,7 +9,7 @@ public static class JwtConfiguration
     /// Default JWT Secret Key for all services
     /// In production, this should be stored in environment variables or secure key vault
     /// </summary>
-    public const string DefaultSecretKey = "bb554b190dc1a795006a961f7bd81e28";
+    public const string DefaultSecretKey = "***";
 
     /// <summary>
     /// Default JWT Issuer for all services
