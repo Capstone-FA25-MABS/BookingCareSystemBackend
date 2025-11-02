@@ -825,24 +825,12 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// CASE 1: Publish notification event for staff cancellation WITH reschedule options
-    /// Patient will receive email/SMS and choose: reschedule (Option 1/2/3) or refund (Option 4)
-    /// This does NOT trigger Payment Service - just notification
+    /// Get doctor and hospital names for notification context
+    /// Extracted to avoid code duplication across notification methods
     /// </summary>
-    private async Task PublishStaffCancellationWithOptionsNotificationAsync(
-        AppointmentEntity appointment,
-        CancelAppointmentRequest request,
-        CancellationDetails details,
-        RescheduleResponse rescheduleResponse,
-        PatientNotificationInfo patientInfo)
+    private async Task<(string? doctorName, string? hospitalName)> GetDoctorAndHospitalNamesForNotificationAsync(
+        AppointmentEntity appointment)
     {
-        // Get payment amount to calculate potential refund
-        var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
-        var potentialRefundAmount = paymentAmount.HasValue
-            ? paymentAmount.Value * details.RefundPercentage / 100
-            : (decimal?)null;
-
-        // Get doctor and hospital info for notification context
         string? doctorName = null;
         string? hospitalName = null;
 
@@ -873,6 +861,30 @@ public class AppointmentService : BaseService, IAppointmentService
                 LogWarning("Failed to get hospital name for notification: {Error}", null, ex.Message);
             }
         }
+
+        return (doctorName, hospitalName);
+    }
+
+    /// <summary>
+    /// CASE 1: Publish notification event for staff cancellation WITH reschedule options
+    /// Patient will receive email/SMS and choose: reschedule (Option 1/2/3) or refund (Option 4)
+    /// This does NOT trigger Payment Service - just notification
+    /// </summary>
+    private async Task PublishStaffCancellationWithOptionsNotificationAsync(
+        AppointmentEntity appointment,
+        CancelAppointmentRequest request,
+        CancellationDetails details,
+        RescheduleResponse rescheduleResponse,
+        PatientNotificationInfo patientInfo)
+    {
+        // Get payment amount to calculate potential refund
+        var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
+        var potentialRefundAmount = paymentAmount.HasValue
+            ? paymentAmount.Value * details.RefundPercentage / 100
+            : (decimal?)null;
+
+        // Get doctor and hospital info for notification context
+        var (doctorName, hospitalName) = await GetDoctorAndHospitalNamesForNotificationAsync(appointment);
 
         var notificationEvent = new AppointmentCancelledWithOptionsNotificationEvent
         {
@@ -1031,37 +1043,8 @@ public class AppointmentService : BaseService, IAppointmentService
         CancelAppointmentRequest request,
         PatientNotificationInfo patientInfo)
     {
-        // Get doctor and hospital info for notification context
-        string? doctorName = null;
-        string? hospitalName = null;
-
-        if (appointment.DoctorId.HasValue)
-        {
-            try
-            {
-                var doctorRequest = new GetDoctorBasicInfoRequest { Id = appointment.DoctorId.Value.ToString() };
-                var doctorResponse = await _grpcClients.DoctorClient.GetDoctorBasicInfoAsync(doctorRequest);
-                doctorName = doctorResponse.FullName;
-            }
-            catch (Exception ex)
-            {
-                LogWarning("Failed to get doctor name for notification: {Error}", null, ex.Message);
-            }
-        }
-
-        if (appointment.HospitalId.HasValue)
-        {
-            try
-            {
-                var hospitalRequest = new GetHospitalBasicInfoRequest { Id = appointment.HospitalId.Value.ToString() };
-                var hospitalResponse = await _grpcClients.HospitalClient.GetHospitalBasicInfoAsync(hospitalRequest);
-                hospitalName = hospitalResponse.Name;
-            }
-            catch (Exception ex)
-            {
-                LogWarning("Failed to get hospital name for notification: {Error}", null, ex.Message);
-            }
-        }
+        // Get doctor and hospital info for notification context using extracted method
+        var (doctorName, hospitalName) = await GetDoctorAndHospitalNamesForNotificationAsync(appointment);
 
         var successEvent = new AppointmentCancelledSuccessNotificationEvent
         {

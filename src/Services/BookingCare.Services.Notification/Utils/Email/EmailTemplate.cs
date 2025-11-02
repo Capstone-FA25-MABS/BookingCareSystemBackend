@@ -4,6 +4,9 @@ namespace BookingCare.Services.Notification.Utils.Email;
 
 public static class EmailTemplate
 {
+    // Date format constants to avoid code duplication (SonarQube S1192)
+    private const string DateTimeFormat = "dd/MM/yyyy HH:mm";
+
     public static string BuildOtpEmailHtml(string otpCode, string purpose)
     {
         var safePurpose = string.IsNullOrWhiteSpace(purpose) ? "xác thực" : purpose;
@@ -510,7 +513,7 @@ public static class EmailTemplate
     /// </summary>
     public static string BuildNoRefundEmailHtml(string patientName, DateTime appointmentDate, string cancellationReason)
     {
-        var appointmentDateStr = appointmentDate.ToString("dd/MM/yyyy HH:mm");
+        var appointmentDateStr = appointmentDate.ToString(DateTimeFormat);
 
         return $@"<!DOCTYPE html>
 <html>
@@ -575,10 +578,10 @@ public static class EmailTemplate
         string? doctorName = null,
         string? hospitalName = null)
     {
-        var appointmentDateStr = appointmentDate.ToString("dd/MM/yyyy HH:mm");
+        var appointmentDateStr = appointmentDate.ToString(DateTimeFormat);
 
         var doctorInfoHtml = !string.IsNullOrEmpty(doctorName)
-            ? $"<p><strong>👨‍⚕️ Bác sĩ:</strong> {doctorName}</p>"
+            ? $"<p><strong>&#x1F468;&#x200D;&#x2695;&#xFE0F; Bác sĩ:</strong> {doctorName}</p>"
             : "";
 
         var hospitalInfoHtml = !string.IsNullOrEmpty(hospitalName)
@@ -770,7 +773,7 @@ public static class EmailTemplate
         }
 
         var expiryInfo = data.TokenExpiry.HasValue
-            ? $"<p class=\"warning\">⏰ <strong>Lưu ý:</strong> Các tùy chọn đổi lịch có hiệu lực đến <strong>{data.TokenExpiry.Value.ToString("dd/MM/yyyy HH:mm")}</strong> (trước ngày hẹn gốc)</p>"
+            ? $"<p class=\"warning\">⏰ <strong>Lưu ý:</strong> Các tùy chọn đổi lịch có hiệu lực đến <strong>{data.TokenExpiry.Value.ToString(DateTimeFormat)}</strong> (trước ngày hẹn gốc)</p>"
             : "";
 
         return $@"<!DOCTYPE html>
@@ -830,7 +833,7 @@ public static class EmailTemplate
       
       <div class=""cancel-box"">
         <p><strong>📅 Thông tin lịch hẹn bị hủy:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString("dd/MM/yyyy HH:mm")}</div>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString(DateTimeFormat)}</div>
         <div class=""info-item""><strong>Lý do hủy:</strong> {data.CancellationReason}</div>
       </div>
       {refundInfo}
