@@ -2300,8 +2300,9 @@ public class DoctorService : BaseService, IDoctorService
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting doctor account IDs for hospital {HospitalId}", hospitalId);
-            throw;
+            var errorMessage = $"Error getting doctor account IDs for hospital {hospitalId}";
+            Logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
         }
     }
 

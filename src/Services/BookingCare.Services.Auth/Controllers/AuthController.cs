@@ -310,9 +310,9 @@ public class AuthController : BaseApiController
         };
 
         sagaContext.SetData("Role", Role.PATIENT.ToString());
-        sagaContext.SetData("Email", request.Email);
+        sagaContext.SetData(AuthConstants.SAGA_KEY_EMAIL, request.Email);
         sagaContext.SetData("Password", request.Password);
-        sagaContext.SetData("FullName", request.FullName);
+        sagaContext.SetData(AuthConstants.SAGA_KEY_FULLNAME, request.FullName);
         sagaContext.SetData("PhoneNumber", request.PhoneNumber);
         sagaContext.SetData("Gender", request.Gender?.ToString());
         sagaContext.SetData("Birthday", request.Birthday?.ToString("yyyy-MM-dd"));
@@ -783,7 +783,7 @@ public class AuthController : BaseApiController
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? searchTerm = null,
-        [FromQuery] string sortBy = "CreatedAt",
+        [FromQuery] string sortBy = AuthConstants.SORT_FIELD_CREATED_AT,
         [FromQuery] string sortOrder = "desc")
     {
         // Validate role name
@@ -793,29 +793,9 @@ public class AuthController : BaseApiController
             return BadRequest($"Invalid role. Valid roles are: {string.Join(", ", validRoles)}");
         }
 
-        // Validate pagination parameters
-        if (pageNumber < 1)
-        {
-            return BadRequest("Page number must be greater than 0");
-        }
-
-        if (pageSize < 1 || pageSize > 100)
-        {
-            return BadRequest("Page size must be between 1 and 100");
-        }
-
-        // Validate sort parameters
-        var validSortFields = new[] { "FullName", "Email", "CreatedAt", "Status" };
-        if (!validSortFields.Contains(sortBy, StringComparer.OrdinalIgnoreCase))
-        {
-            return BadRequest($"Invalid sort field. Valid fields are: {string.Join(", ", validSortFields)}");
-        }
-
-        var validSortOrders = new[] { "asc", "desc" };
-        if (!validSortOrders.Contains(sortOrder, StringComparer.OrdinalIgnoreCase))
-        {
-            return BadRequest("Sort order must be 'asc' or 'desc'");
-        }
+        // Validate pagination and sorting parameters
+        var validation = ValidatePaginationAndSorting(pageNumber, pageSize, sortBy, sortOrder);
+        if (validation != null) return validation;
 
         var result = await _authService.GetAccountsByRoleNameAsync(
             role,
@@ -845,32 +825,12 @@ public class AuthController : BaseApiController
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? searchTerm = null,
-        [FromQuery] string sortBy = "CreatedAt",
+        [FromQuery] string sortBy = AuthConstants.SORT_FIELD_CREATED_AT,
         [FromQuery] string sortOrder = "desc")
     {
-        // Validate pagination parameters
-        if (pageNumber < 1)
-        {
-            return BadRequest("Page number must be greater than 0");
-        }
-
-        if (pageSize < 1 || pageSize > 100)
-        {
-            return BadRequest("Page size must be between 1 and 100");
-        }
-
-        // Validate sort parameters
-        var validSortFields = new[] { "FullName", "Email", "CreatedAt", "Status" };
-        if (!validSortFields.Contains(sortBy, StringComparer.OrdinalIgnoreCase))
-        {
-            return BadRequest($"Invalid sort field. Valid fields are: {string.Join(", ", validSortFields)}");
-        }
-
-        var validSortOrders = new[] { "asc", "desc" };
-        if (!validSortOrders.Contains(sortOrder, StringComparer.OrdinalIgnoreCase))
-        {
-            return BadRequest("Sort order must be 'asc' or 'desc'");
-        }
+        // Validate pagination and sorting parameters
+        var validation = ValidatePaginationAndSorting(pageNumber, pageSize, sortBy, sortOrder);
+        if (validation != null) return validation;
 
         var result = await _authService.GetDoctorsByHospitalAsync(
             hospitalId,
@@ -1027,11 +987,11 @@ public class AuthController : BaseApiController
         };
 
         sagaContext.SetData("Role", Role.DOCTOR.ToString());
-        sagaContext.SetData("Email", request.Email);
+        sagaContext.SetData(AuthConstants.SAGA_KEY_EMAIL, request.Email);
         sagaContext.SetData("Password", generatedPassword);
         sagaContext.SetData("GeneratedPassword", generatedPassword);
         sagaContext.SetData("MustChangePassword", "true");
-        sagaContext.SetData("FullName", request.FullName);
+        sagaContext.SetData(AuthConstants.SAGA_KEY_FULLNAME, request.FullName);
         sagaContext.SetData("Gender", request.Gender?.ToString());
         sagaContext.SetData("Address", request.Address);
 
@@ -1102,6 +1062,43 @@ public class AuthController : BaseApiController
             _logger.LogError(ex, "Failed to publish DoctorCredentialsGeneratedEvent for {Email}", request.Email);
             // Don't throw - registration is successful even if notification fails
         }
+    }
+
+    /// <summary>
+    /// Validate pagination and sorting parameters
+    /// </summary>
+    /// <param name="pageNumber">Page number</param>
+    /// <param name="pageSize">Page size</param>
+    /// <param name="sortBy">Sort field</param>
+    /// <param name="sortOrder">Sort order (asc/desc)</param>
+    /// <returns>BadRequest if validation fails, null if valid</returns>
+    private IActionResult? ValidatePaginationAndSorting(int pageNumber, int pageSize, string sortBy, string sortOrder)
+    {
+        // Validate pagination parameters
+        if (pageNumber < 1)
+        {
+            return BadRequest("Page number must be greater than 0");
+        }
+
+        if (pageSize < 1 || pageSize > 100)
+        {
+            return BadRequest("Page size must be between 1 and 100");
+        }
+
+        // Validate sort parameters
+        var validSortFields = new[] { AuthConstants.SAGA_KEY_FULLNAME, AuthConstants.SAGA_KEY_EMAIL, AuthConstants.SORT_FIELD_CREATED_AT, "Status" };
+        if (!validSortFields.Contains(sortBy, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest($"Invalid sort field. Valid fields are: {string.Join(", ", validSortFields)}");
+        }
+
+        var validSortOrders = new[] { "asc", "desc" };
+        if (!validSortOrders.Contains(sortOrder, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest("Sort order must be 'asc' or 'desc'");
+        }
+
+        return null; // Validation passed
     }
 
     #endregion

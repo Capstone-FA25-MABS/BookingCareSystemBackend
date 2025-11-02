@@ -1739,7 +1739,7 @@ public class AuthService : BaseService, IAuthService
                     AvatarUrl = user.AvatarUrl,
                     Phone = user.Phone,
                     Address = user.Address,
-                    Status = account?.Status.ToString() ?? "UNKNOWN",
+                    Status = account?.Status.ToString() ?? AuthConstants.UNKNOWN_STATUS,
                     CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
                     IsLocked = isLocked
                 };
@@ -1766,28 +1766,7 @@ public class AuthService : BaseService, IAuthService
 
             var response = await _doctorGrpcClient.GetDoctorsByAccountIdsAsync(request);
 
-            return response.Doctors.Select(doctor =>
-            {
-                var accountId = Guid.Parse(doctor.AccountId);
-                var account = accountDict.TryGetValue(accountId, out var acc) ? acc : null;
-
-                // Check if account is locked (LockoutEnd > now)
-                var isLocked = account?.LockoutEnd.HasValue == true &&
-                               account.LockoutEnd.Value > DateTimeOffset.UtcNow;
-
-                return new AccountWithProfileResponse
-                {
-                    AccountId = accountId,
-                    Email = doctor.Email,
-                    FullName = doctor.FullName,
-                    AvatarUrl = doctor.AvatarUrl,
-                    Phone = null, // Doctor service doesn't return phone in batch
-                    Address = doctor.Address,
-                    Status = account?.Status.ToString() ?? "UNKNOWN",
-                    CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
-                    IsLocked = isLocked
-                };
-            }).ToList();
+            return response.Doctors.Select(doctor => MapDoctorToAccountResponse(doctor, accountDict)).ToList();
         }
         catch (Exception ex)
         {
@@ -1827,7 +1806,7 @@ public class AuthService : BaseService, IAuthService
                     AvatarUrl = hospital.AvatarUrl,
                     Phone = hospital.Phone,
                     Address = hospital.Address,
-                    Status = account?.Status.ToString() ?? "UNKNOWN",
+                    Status = account?.Status.ToString() ?? AuthConstants.UNKNOWN_STATUS,
                     CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
                     IsLocked = isLocked
                 };
@@ -1898,28 +1877,7 @@ public class AuthService : BaseService, IAuthService
             var accountDict = accounts.ToDictionary(a => a.Id, a => a);
 
             // Map gRPC response to AccountWithProfileResponse
-            var doctorsWithProfile = response.Doctors.Select(doctor =>
-            {
-                var accountId = Guid.Parse(doctor.AccountId);
-                var account = accountDict.TryGetValue(accountId, out var acc) ? acc : null;
-
-                // Check if account is locked (LockoutEnd > now)
-                var isLocked = account?.LockoutEnd.HasValue == true &&
-                               account.LockoutEnd.Value > DateTimeOffset.UtcNow;
-
-                return new AccountWithProfileResponse
-                {
-                    AccountId = accountId,
-                    Email = doctor.Email,
-                    FullName = doctor.FullName,
-                    AvatarUrl = doctor.AvatarUrl,
-                    Phone = null, // Doctor service doesn't return phone in batch
-                    Address = doctor.Address,
-                    Status = account?.Status.ToString() ?? "UNKNOWN",
-                    CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
-                    IsLocked = isLocked
-                };
-            }).ToList();
+            var doctorsWithProfile = response.Doctors.Select(doctor => MapDoctorToAccountResponse(doctor, accountDict)).ToList();
 
             // Apply search filter
             if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -1955,6 +1913,37 @@ public class AuthService : BaseService, IAuthService
                 TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
             };
         }, "GetDoctorsByHospital");
+    }
+
+    /// <summary>
+    /// Map doctor gRPC response to AccountWithProfileResponse
+    /// </summary>
+    /// <param name="doctor">Doctor gRPC response</param>
+    /// <param name="accountDict">Dictionary of account entities for enrichment</param>
+    /// <returns>Mapped AccountWithProfileResponse</returns>
+    private static AccountWithProfileResponse MapDoctorToAccountResponse(
+        DoctorBasicInfo doctor,
+        Dictionary<Guid, AccountEntity> accountDict)
+    {
+        var accountId = Guid.Parse(doctor.AccountId);
+        var account = accountDict.TryGetValue(accountId, out var acc) ? acc : null;
+
+        // Check if account is locked (LockoutEnd > now)
+        var isLocked = account?.LockoutEnd.HasValue == true &&
+                       account.LockoutEnd.Value > DateTimeOffset.UtcNow;
+
+        return new AccountWithProfileResponse
+        {
+            AccountId = accountId,
+            Email = doctor.Email,
+            FullName = doctor.FullName,
+            AvatarUrl = doctor.AvatarUrl,
+            Phone = null, // Doctor service doesn't return phone in batch
+            Address = doctor.Address,
+            Status = account?.Status.ToString() ?? "UNKNOWN",
+            CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
+            IsLocked = isLocked
+        };
     }
 
     #endregion
