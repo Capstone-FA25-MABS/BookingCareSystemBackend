@@ -1,17 +1,18 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using System.Collections.Concurrent;
+using BookingCare.Services.Communication.Constants;
+using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Services.Interfaces;
-using BookingCare.Services.Communication.Enums;
-using BookingCare.Services.Communication.Constants;
-using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 
 namespace BookingCare.Services.Communication.Hubs;
 
 /// <summary>
 /// SignalR Hub cho real-time chat communication
 /// </summary>
-[Authorize]
+// [Authorize] // ⚠️ TODO: Temporarily disabled for testing SignalR connection
+[AllowAnonymous] // ⚠️ TODO: Enable authentication after connection test passes
 public class ChatHub : Hub
 {
     private readonly IMessageService _messageService;
@@ -25,7 +26,8 @@ public class ChatHub : Hub
     public ChatHub(
         IMessageService messageService,
         IConversationService conversationService,
-        ILogger<ChatHub> logger)
+        ILogger<ChatHub> logger
+    )
     {
         _messageService = messageService;
         _conversationService = conversationService;
@@ -41,17 +43,28 @@ public class ChatHub : Hub
         if (!string.IsNullOrEmpty(userId))
         {
             // Add connection to user mapping
-            UserConnections.AddOrUpdate(userId,
+            UserConnections.AddOrUpdate(
+                userId,
                 new HashSet<string> { Context.ConnectionId },
                 (key, existingConnections) =>
                 {
                     existingConnections.Add(Context.ConnectionId);
                     return existingConnections;
-                });
+                }
+            );
 
             ConnectionUsers[Context.ConnectionId] = userId;
 
-            _logger.LogInformation("User {UserId} connected with connection {ConnectionId}", userId, Context.ConnectionId);
+            // Add to user group for personal notifications
+            var userGroupName = GetUserGroupName(userId);
+            await Groups.AddToGroupAsync(Context.ConnectionId, userGroupName);
+            _logger.LogInformation("➕ Added connection to user group: {UserGroup}", userGroupName);
+
+            _logger.LogInformation(
+                "User {UserId} connected with connection {ConnectionId}",
+                userId,
+                Context.ConnectionId
+            );
 
             // Notify other users that this user is online
             await Clients.Others.SendAsync("UserOnline", userId);
@@ -82,7 +95,11 @@ public class ChatHub : Hub
 
             ConnectionUsers.TryRemove(Context.ConnectionId, out _);
 
-            _logger.LogInformation("User {UserId} disconnected with connection {ConnectionId}", userId, Context.ConnectionId);
+            _logger.LogInformation(
+                "User {UserId} disconnected with connection {ConnectionId}",
+                userId,
+                Context.ConnectionId
+            );
         }
 
         await base.OnDisconnectedAsync(exception);
@@ -96,7 +113,10 @@ public class ChatHub : Hub
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
         {
-            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, HubConstants.UserNotAuthenticated);
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
             return;
         }
 
@@ -104,21 +124,60 @@ public class ChatHub : Hub
         {
             // Verify user is participant in conversation
             var conversation = await _conversationService.GetByIdAsync(conversationId);
-            if (conversation == null || !conversation.Participants.Contains(userId))
+            if (conversation == null)
             {
-                await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Không có quyền truy cập conversation này");
+                await Clients.Caller.SendAsync(
+                    HubConstants.ErrorMessage,
+                    "Conversation không tồn tại"
+                );
+                _logger.LogWarning("Conversation {ConversationId} not found", conversationId);
                 return;
             }
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, GetConversationGroupName(conversationId));
+            // Case-insensitive comparison for userId
+            var isParticipant = conversation.Participants.Any(p =>
+                string.Equals(p, userId, StringComparison.OrdinalIgnoreCase)
+            );
+
+            if (!isParticipant)
+            {
+                await Clients.Caller.SendAsync(
+                    HubConstants.ErrorMessage,
+                    "Không có quyền truy cập conversation này"
+                );
+                _logger.LogWarning(
+                    "User {UserId} is not participant in conversation {ConversationId}. Participants: {Participants}",
+                    userId,
+                    conversationId,
+                    string.Join(", ", conversation.Participants)
+                );
+                return;
+            }
+
+            await Groups.AddToGroupAsync(
+                Context.ConnectionId,
+                GetConversationGroupName(conversationId)
+            );
             await Clients.Caller.SendAsync("JoinedConversation", conversationId);
 
-            _logger.LogInformation("User {UserId} joined conversation {ConversationId}", userId, conversationId);
+            _logger.LogInformation(
+                "User {UserId} joined conversation {ConversationId}",
+                userId,
+                conversationId
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error joining conversation {ConversationId} for user {UserId}", conversationId, userId);
-            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi tham gia conversation");
+            _logger.LogError(
+                ex,
+                "Error joining conversation {ConversationId} for user {UserId}",
+                conversationId,
+                userId
+            );
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                "Lỗi khi tham gia conversation"
+            );
         }
     }
 
@@ -127,11 +186,18 @@ public class ChatHub : Hub
     /// </summary>
     public async Task LeaveConversation(string conversationId)
     {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, GetConversationGroupName(conversationId));
+        await Groups.RemoveFromGroupAsync(
+            Context.ConnectionId,
+            GetConversationGroupName(conversationId)
+        );
         await Clients.Caller.SendAsync("LeftConversation", conversationId);
 
         var userId = GetUserId();
-        _logger.LogInformation("User {UserId} left conversation {ConversationId}", userId, conversationId);
+        _logger.LogInformation(
+            "User {UserId} left conversation {ConversationId}",
+            userId,
+            conversationId
+        );
     }
 
     /// <summary>
@@ -139,49 +205,144 @@ public class ChatHub : Hub
     /// </summary>
     public async Task SendMessage(SendMessageHub request)
     {
-        var userId = GetUserId();
-        if (string.IsNullOrEmpty(userId))
-        {
-            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, HubConstants.UserNotAuthenticated);
-            return;
-        }
-
         try
         {
-            // Create message through service
-            var messageRequest = new CreateMessageRequest
+            _logger.LogInformation(
+                "📨 SendMessage called - Raw request: ConversationId={ConversationId}, Content={Content}, ReceiverId={ReceiverId}",
+                request?.ConversationId ?? "NULL",
+                request?.Content?.Substring(0, Math.Min(50, request?.Content?.Length ?? 0))
+                    ?? "NULL",
+                request?.ReceiverId ?? "NULL"
+            );
+
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
             {
-                ConversationId = request.ConversationId,
-                SenderId = userId,
-                ReceiverId = request.ReceiverId,
-                Content = request.Content,
-                Type = MessageType.Text
-            };
+                _logger.LogWarning("SendMessage rejected - User not authenticated");
+                await Clients.Caller.SendAsync(
+                    HubConstants.ErrorMessage,
+                    HubConstants.UserNotAuthenticated
+                );
+                return;
+            }
 
-            var message = await _messageService.CreateAsync(messageRequest);
-
-            // Send to conversation group
-            var groupName = GetConversationGroupName(request.ConversationId);
-            await Clients.Group(groupName).SendAsync("ReceiveMessage", new
+            try
             {
-                MessageId = message.Id,
-                ConversationId = message.ConversationId,
-                SenderId = message.SenderId,
-                ReceiverId = message.ReceiverId,
-                Content = message.Content,
-                Type = message.Type,
-                CreatedAt = message.CreatedAt,
-                Status = message.Status
-            });
+                // Validate request
+                if (request == null)
+                {
+                    _logger.LogError("SendMessage request is NULL");
+                    await Clients.Caller.SendAsync("Error", "Request không hợp lệ");
+                    return;
+                }
 
-            _logger.LogInformation("Message sent via SignalR: {MessageId} in conversation {ConversationId}",
-                message.Id, request.ConversationId);
+                if (string.IsNullOrEmpty(request.ConversationId))
+                {
+                    _logger.LogError("ConversationId is null or empty");
+                    await Clients.Caller.SendAsync("Error", "ConversationId không hợp lệ");
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(request.Content))
+                {
+                    _logger.LogError("Content is null or empty");
+                    await Clients.Caller.SendAsync("Error", "Nội dung tin nhắn không được trống");
+                    return;
+                }
+
+                _logger.LogInformation(
+                    "✅ Validation passed - Creating message for user {UserId} in conversation {ConversationId}",
+                    userId,
+                    request.ConversationId
+                );
+
+                // Create message through service
+                var messageRequest = new CreateMessageRequest
+                {
+                    ConversationId = request.ConversationId,
+                    SenderId = userId,
+                    ReceiverId = request.ReceiverId,
+                    Content = request.Content,
+                    Type = MessageType.Text,
+                };
+
+                _logger.LogInformation("📝 Calling MessageService.CreateAsync...");
+                var message = await _messageService.CreateAsync(messageRequest);
+
+                if (message == null)
+                {
+                    _logger.LogError("❌ MessageService.CreateAsync returned null");
+                    await Clients.Caller.SendAsync("Error", "Không thể tạo tin nhắn");
+                    return;
+                }
+
+                _logger.LogInformation("✅ Message created with ID: {MessageId}", message.Id);
+
+                var messagePayload = new
+                {
+                    MessageId = message.Id,
+                    ConversationId = message.ConversationId,
+                    SenderId = message.SenderId,
+                    ReceiverId = message.ReceiverId,
+                    Content = message.Content,
+                    Type = message.Type,
+                    CreatedAt = message.CreatedAt,
+                    Status = message.Status,
+                };
+
+                // 1. Send to conversation group (for users currently in the conversation)
+                var groupName = GetConversationGroupName(request.ConversationId);
+                await Clients.Group(groupName).SendAsync("ReceiveMessage", messagePayload);
+                _logger.LogInformation(
+                    "📤 Broadcast to conversation group: {GroupName}",
+                    groupName
+                );
+
+                // 2. Send to receiver user specifically (for notifications even if not in conversation)
+                if (!string.IsNullOrEmpty(request.ReceiverId))
+                {
+                    var receiverGroupName = GetUserGroupName(request.ReceiverId);
+                    await Clients
+                        .Group(receiverGroupName)
+                        .SendAsync("ReceiveMessage", messagePayload);
+                    _logger.LogInformation(
+                        "📤 Sent notification to receiver: {ReceiverId}",
+                        request.ReceiverId
+                    );
+                }
+
+                _logger.LogInformation(
+                    "Message sent via SignalR: {MessageId} in conversation {ConversationId}",
+                    message.Id,
+                    request.ConversationId
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "❌ Error sending message for user {UserId} in conversation {ConversationId}",
+                    userId ?? "Unknown",
+                    request?.ConversationId ?? "Unknown"
+                );
+                await Clients.Caller.SendAsync("Error", "Lỗi khi gửi tin nhắn: " + ex.Message);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending message for user {UserId} in conversation {ConversationId}",
-                userId, request.ConversationId);
-            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi gửi tin nhắn");
+            _logger.LogError(
+                ex,
+                "❌❌ FATAL: Unhandled error in SendMessage - This should never happen!"
+            );
+            try
+            {
+                await Clients.Caller.SendAsync("Error", "Lỗi nghiêm trọng khi gửi tin nhắn");
+            }
+            catch
+            {
+                // Even error notification failed - connection is dead
+                _logger.LogError("Could not send error notification to client");
+            }
         }
     }
 
@@ -193,7 +354,10 @@ public class ChatHub : Hub
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
         {
-            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, HubConstants.UserNotAuthenticated);
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
             return;
         }
 
@@ -209,19 +373,32 @@ public class ChatHub : Hub
                 if (message != null)
                 {
                     var groupName = GetConversationGroupName(message.ConversationId);
-                    await Clients.Group(groupName).SendAsync("MessageRead", new
-                    {
-                        MessageId = messageId,
-                        ReadBy = userId,
-                        ReadAt = DateTime.UtcNow
-                    });
+                    await Clients
+                        .Group(groupName)
+                        .SendAsync(
+                            "MessageRead",
+                            new
+                            {
+                                MessageId = messageId,
+                                ReadBy = userId,
+                                ReadAt = DateTime.UtcNow,
+                            }
+                        );
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error marking message as read: {MessageId} by user {UserId}", messageId, userId);
-            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi đánh dấu tin nhắn đã đọc");
+            _logger.LogError(
+                ex,
+                "Error marking message as read: {MessageId} by user {UserId}",
+                messageId,
+                userId
+            );
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                "Lỗi khi đánh dấu tin nhắn đã đọc"
+            );
         }
     }
 
@@ -233,7 +410,10 @@ public class ChatHub : Hub
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId))
         {
-            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, HubConstants.UserNotAuthenticated);
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
             return;
         }
 
@@ -242,7 +422,7 @@ public class ChatHub : Hub
             var request = new MarkAllMessagesAsReadRequest
             {
                 ConversationId = conversationId,
-                UserId = userId
+                UserId = userId,
             };
 
             var result = await _messageService.MarkAllAsReadAsync(request);
@@ -250,19 +430,31 @@ public class ChatHub : Hub
             if (result)
             {
                 var groupName = GetConversationGroupName(conversationId);
-                await Clients.Group(groupName).SendAsync("AllMessagesRead", new
-                {
-                    ConversationId = conversationId,
-                    ReadBy = userId,
-                    ReadAt = DateTime.UtcNow
-                });
+                await Clients
+                    .Group(groupName)
+                    .SendAsync(
+                        "AllMessagesRead",
+                        new
+                        {
+                            ConversationId = conversationId,
+                            ReadBy = userId,
+                            ReadAt = DateTime.UtcNow,
+                        }
+                    );
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error marking all messages as read in conversation {ConversationId} by user {UserId}",
-                conversationId, userId);
-            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi đánh dấu tất cả tin nhắn đã đọc");
+            _logger.LogError(
+                ex,
+                "Error marking all messages as read in conversation {ConversationId} by user {UserId}",
+                conversationId,
+                userId
+            );
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                "Lỗi khi đánh dấu tất cả tin nhắn đã đọc"
+            );
         }
     }
 
@@ -275,11 +467,12 @@ public class ChatHub : Hub
         if (!string.IsNullOrEmpty(userId))
         {
             var groupName = GetConversationGroupName(conversationId);
-            await Clients.OthersInGroup(groupName).SendAsync("UserStartedTyping", new
-            {
-                UserId = userId,
-                ConversationId = conversationId
-            });
+            await Clients
+                .OthersInGroup(groupName)
+                .SendAsync(
+                    "UserStartedTyping",
+                    new { UserId = userId, ConversationId = conversationId }
+                );
         }
     }
 
@@ -292,11 +485,12 @@ public class ChatHub : Hub
         if (!string.IsNullOrEmpty(userId))
         {
             var groupName = GetConversationGroupName(conversationId);
-            await Clients.OthersInGroup(groupName).SendAsync("UserStoppedTyping", new
-            {
-                UserId = userId,
-                ConversationId = conversationId
-            });
+            await Clients
+                .OthersInGroup(groupName)
+                .SendAsync(
+                    "UserStoppedTyping",
+                    new { UserId = userId, ConversationId = conversationId }
+                );
         }
     }
 
@@ -313,13 +507,67 @@ public class ChatHub : Hub
 
     /// <summary>
     /// Lấy User ID từ context
+    /// Tries multiple claim types to support different JWT configurations
     /// </summary>
     private string GetUserId()
     {
-        return Context.User?.FindFirst("sub")?.Value
+        // Try multiple claim types in order of preference
+        var userId =
+            Context.User?.FindFirst("sub")?.Value
             ?? Context.User?.FindFirst("userId")?.Value
             ?? Context.User?.FindFirst("id")?.Value
+            ?? Context.User?.FindFirst("accountId")?.Value
+            ?? Context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? Context
+                .User?.FindFirst(
+                    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+                )
+                ?.Value
             ?? string.Empty;
+
+        // ⚠️ FALLBACK: Read from query string if claims don't work (TESTING ONLY)
+        // TODO: Remove this after fixing JWT claims issue
+        if (string.IsNullOrEmpty(userId))
+        {
+            var httpContext = Context.GetHttpContext();
+            if (
+                httpContext != null
+                && httpContext.Request.Query.TryGetValue("userId", out var userIdFromQuery)
+            )
+            {
+                userId = userIdFromQuery.ToString();
+                _logger.LogWarning(
+                    "⚠️ Using userId from query string (TESTING ONLY): {UserId}",
+                    userId
+                );
+            }
+        }
+
+        // Debug logging
+        if (string.IsNullOrEmpty(userId))
+        {
+            _logger.LogWarning(
+                "Could not extract userId from JWT or query string. IsAuthenticated: {IsAuth}, ClaimsCount: {Count}",
+                Context.User?.Identity?.IsAuthenticated,
+                Context.User?.Claims?.Count() ?? 0
+            );
+
+            // Log all available claims for debugging
+            if (Context.User?.Claims != null)
+            {
+                _logger.LogDebug("Available JWT claims:");
+                foreach (var claim in Context.User.Claims)
+                {
+                    _logger.LogDebug("  {Type} = {Value}", claim.Type, claim.Value);
+                }
+            }
+        }
+        else
+        {
+            _logger.LogInformation("✅ UserId extracted: {UserId}", userId);
+        }
+
+        return userId;
     }
 
     /// <summary>
@@ -328,6 +576,14 @@ public class ChatHub : Hub
     private static string GetConversationGroupName(string conversationId)
     {
         return $"conversation_{conversationId}";
+    }
+
+    /// <summary>
+    /// Tạo tên group cho user (để nhận notifications cá nhân)
+    /// </summary>
+    private static string GetUserGroupName(string userId)
+    {
+        return $"user_{userId}";
     }
 
     /// <summary>

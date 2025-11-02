@@ -74,8 +74,12 @@ public class MessageService : BaseService, IMessageService
                     );
                 }
 
-                // Check if user is in the conversation
-                if (!conversation.Participants.Contains(request.SenderId))
+                // Check if user is in the conversation (case-insensitive)
+                var isParticipant = conversation.Participants.Any(p =>
+                    string.Equals(p, request.SenderId, StringComparison.OrdinalIgnoreCase)
+                );
+
+                if (!isParticipant)
                 {
                     throw new UnauthorizedAccessException(
                         "User is not authorized to send messages in this conversation"
@@ -219,7 +223,12 @@ public class MessageService : BaseService, IMessageService
             throw new ArgumentException($"Conversation with ID {conversationId} does not exist");
         }
 
-        if (!conversation.Participants.Contains(senderId))
+        // Case-insensitive participant check
+        var isParticipant = conversation.Participants.Any(p =>
+            string.Equals(p, senderId, StringComparison.OrdinalIgnoreCase)
+        );
+
+        if (!isParticipant)
         {
             throw new UnauthorizedAccessException(
                 "User is not authorized to send messages in this conversation"
@@ -604,8 +613,12 @@ public class MessageService : BaseService, IMessageService
                     );
                 }
 
-                // Kiểm tra user có trong conversation không
-                if (!conversation.Participants.Contains(request.UserId))
+                // Kiểm tra user có trong conversation không (case-insensitive)
+                var isParticipant = conversation.Participants.Any(p =>
+                    string.Equals(p, request.UserId, StringComparison.OrdinalIgnoreCase)
+                );
+
+                if (!isParticipant)
                 {
                     throw new UnauthorizedAccessException(
                         "User is not authorized to read messages in this conversation"
