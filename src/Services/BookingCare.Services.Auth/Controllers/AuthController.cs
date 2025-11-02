@@ -827,6 +827,62 @@ public class AuthController : BaseApiController
         return Success(result, $"Retrieved {result.Accounts.Count} accounts with role '{role}'");
     }
 
+    /// <summary>
+    /// Get doctors by hospital ID (for Staff role to manage their hospital's doctors)
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="pageNumber">Page number (default: 1)</param>
+    /// <param name="pageSize">Page size (default: 10)</param>
+    /// <param name="searchTerm">Search term for filtering by name or email</param>
+    /// <param name="sortBy">Sort field (FullName/Email/CreatedAt)</param>
+    /// <param name="sortOrder">Sort order (asc/desc)</param>
+    /// <returns>Paginated list of doctors for the hospital</returns>
+    [HttpGet("hospital/{hospitalId}/doctors")]
+    [Authorize(Policy = "Role:Staff")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetDoctorsByHospital(
+        Guid hospitalId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string sortBy = "CreatedAt",
+        [FromQuery] string sortOrder = "desc")
+    {
+        // Validate pagination parameters
+        if (pageNumber < 1)
+        {
+            return BadRequest("Page number must be greater than 0");
+        }
+
+        if (pageSize < 1 || pageSize > 100)
+        {
+            return BadRequest("Page size must be between 1 and 100");
+        }
+
+        // Validate sort parameters
+        var validSortFields = new[] { "FullName", "Email", "CreatedAt", "Status" };
+        if (!validSortFields.Contains(sortBy, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest($"Invalid sort field. Valid fields are: {string.Join(", ", validSortFields)}");
+        }
+
+        var validSortOrders = new[] { "asc", "desc" };
+        if (!validSortOrders.Contains(sortOrder, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest("Sort order must be 'asc' or 'desc'");
+        }
+
+        var result = await _authService.GetDoctorsByHospitalAsync(
+            hospitalId,
+            pageNumber,
+            pageSize,
+            searchTerm,
+            sortBy,
+            sortOrder);
+
+        return Success(result, $"Retrieved {result.Accounts.Count} doctors for hospital {hospitalId}");
+    }
+
     #endregion
 
     #region Role-Permission Operations
