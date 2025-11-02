@@ -679,6 +679,29 @@ public class AppointmentNoRefundNotificationEvent : IntegrationEvent
 }
 
 /// <summary>
+/// Integration event for successful appointment cancellation without payment
+/// Used when appointment is cancelled (eligible for refund) but no payment record exists
+/// This event is published directly to Notification Service to send simple cancellation confirmation
+/// </summary>
+public class AppointmentCancelledSuccessNotificationEvent : IntegrationEvent
+{
+    public Guid AppointmentId { get; set; }
+    public Guid PatientId { get; set; }
+    public DateTime AppointmentDate { get; set; }
+    public string CancellationReason { get; set; } = string.Empty;
+    public DateTime CancelledAt { get; set; }
+
+    // Patient information for notification
+    public string? PatientEmail { get; set; }
+    public string? PatientPhone { get; set; }
+    public string? PatientFullName { get; set; }
+
+    // Doctor and Hospital info (for context in notification)
+    public string? DoctorName { get; set; }
+    public string? HospitalName { get; set; }
+}
+
+/// <summary>
 /// Bank account information included in refund events
 /// </summary>
 public class BankAccountInfo

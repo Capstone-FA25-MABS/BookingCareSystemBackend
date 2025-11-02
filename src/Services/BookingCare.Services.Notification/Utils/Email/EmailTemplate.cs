@@ -563,6 +563,77 @@ public static class EmailTemplate
 </body>
 </html>";
     }
+
+    /// <summary>
+    /// Build email content for successful appointment cancellation without payment
+    /// Used when appointment is cancelled but no payment record exists
+    /// </summary>
+    public static string BuildCancellationSuccessEmailHtml(
+        string patientName,
+        DateTime appointmentDate,
+        string cancellationReason,
+        string? doctorName = null,
+        string? hospitalName = null)
+    {
+        var appointmentDateStr = appointmentDate.ToString("dd/MM/yyyy HH:mm");
+
+        var doctorInfoHtml = !string.IsNullOrEmpty(doctorName)
+            ? $"<p><strong>👨‍⚕️ Bác sĩ:</strong> {doctorName}</p>"
+            : "";
+
+        var hospitalInfoHtml = !string.IsNullOrEmpty(hospitalName)
+            ? $"<p><strong>🏥 Bệnh viện:</strong> {hospitalName}</p>"
+            : "";
+
+        return $@"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""utf-8"">
+    <title>Thông báo hủy lịch hẹn thành công</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .container {{ background: #f9f9f9; padding: 30px; border-radius: 10px; }}
+        .header {{ background: #22c55e; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; }}
+        .content {{ background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+        .info-box {{ background: #f0fdf4; padding: 15px; border-left: 4px solid #22c55e; margin: 15px 0; }}
+        .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+        .success-icon {{ color: #22c55e; font-size: 18px; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""header"">
+            <h2>✅ Hủy lịch hẹn thành công</h2>
+        </div>
+        
+        <div class=""content"">
+            <p>Xin chào <strong>{patientName}</strong>,</p>
+            
+            <p>Chúng tôi xin xác nhận rằng lịch hẹn của bạn đã được hủy thành công.</p>
+            
+            <div class=""info-box"">
+                <p><strong>📅 Thời gian hẹn đã hủy:</strong> {appointmentDateStr}</p>
+                {doctorInfoHtml}
+                {hospitalInfoHtml}
+                <p><strong>📝 Lý do hủy:</strong> {cancellationReason}</p>
+            </div>
+            
+            <p>Nếu bạn muốn đặt lịch hẹn mới, vui lòng truy cập website của chúng tôi hoặc liên hệ trực tiếp với chúng tôi.</p>
+            
+            <p>Chúng tôi mong được phục vụ bạn trong tương lai!</p>
+            
+            <p>Trân trọng,<br/>
+            <strong>Đội ngũ BookingCare</strong></p>
+        </div>
+        
+        <div class=""footer"">
+            Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
+        </div>
+    </div>
+</body>
+</html>";
+    }
+
     /// <summary>
     /// Build email content for successful appointment booking
     /// Fixed SonarQube issue: Reduced from 10 parameters to 1 parameter object
