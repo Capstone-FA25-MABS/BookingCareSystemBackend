@@ -300,39 +300,24 @@ public class SubscriptionPlanService : ISubscriptionPlanService
             throw new SubscriptionPlanAlreadyExistsException($"{request.Name} ({request.BillingCycle})");
         }
 
-        // Validate billing cycle
         ValidateBillingCycle(request.BillingCycle);
+        ValidateDescriptionLength(request.Description);
+        ValidateFeaturesJson(request.Features);
+        ValidateCreationLimits(request);
+        ValidatePrice(request.Price);
+        ValidateCreationName(request.Name);
+    }
 
-        // Validate description length
-        if (!string.IsNullOrWhiteSpace(request.Description) && request.Description.Length > 1000)
+    private static void ValidateDescriptionLength(string? description)
+    {
+        if (!string.IsNullOrWhiteSpace(description) && description.Length > 1000)
         {
             throw new InvalidSubscriptionPlanDataException("Description cannot exceed 1000 characters");
         }
+    }
 
-        // Validate features JSON if provided
-        if (!string.IsNullOrWhiteSpace(request.Features))
-        {
-            if (request.Features.Length > 5000)
-            {
-                throw new InvalidSubscriptionPlanDataException("Features JSON cannot exceed 5000 characters");
-            }
-
-            // Try to parse JSON to validate format
-            try
-            {
-                var featuresArray = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(request.Features);
-                if (featuresArray.ValueKind != System.Text.Json.JsonValueKind.Array)
-                {
-                    throw new InvalidSubscriptionPlanDataException("Features must be a valid JSON array");
-                }
-            }
-            catch (System.Text.Json.JsonException)
-            {
-                throw new InvalidSubscriptionPlanDataException("Features must be a valid JSON format");
-            }
-        }
-
-        // Validate limits consistency
+    private static void ValidateCreationLimits(CreateSubscriptionPlanRequest request)
+    {
         if (request.MaxDoctors < 0)
         {
             throw new InvalidSubscriptionPlanDataException("Max doctors must be non-negative");
@@ -347,25 +332,29 @@ public class SubscriptionPlanService : ISubscriptionPlanService
         {
             throw new InvalidSubscriptionPlanDataException("Max appointments must be non-negative");
         }
+    }
 
-        // Validate price
-        if (request.Price < 0)
+    private static void ValidatePrice(decimal price)
+    {
+        if (price < 0)
         {
             throw new InvalidSubscriptionPlanDataException("Price must be non-negative");
         }
+    }
 
-        // Validate name length
-        if (string.IsNullOrWhiteSpace(request.Name))
+    private static void ValidateCreationName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
         {
             throw new InvalidSubscriptionPlanDataException("Plan name is required");
         }
 
-        if (request.Name.Length < 2)
+        if (name.Length < 2)
         {
             throw new InvalidSubscriptionPlanDataException("Plan name must be at least 2 characters");
         }
 
-        if (request.Name.Length > 100)
+        if (name.Length > 100)
         {
             throw new InvalidSubscriptionPlanDataException("Plan name cannot exceed 100 characters");
         }
