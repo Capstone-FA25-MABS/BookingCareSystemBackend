@@ -68,4 +68,7 @@ public interface IDoctorService : IAvatarService
 
     // Avatar operations
     Task<bool> UpdateDoctorAvatarAsync(Guid accountId, string avatarUrl);
+
+    // Hospital staff management operations (optimized for performance)
+    Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId);
 }
