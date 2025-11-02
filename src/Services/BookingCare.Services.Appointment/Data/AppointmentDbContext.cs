@@ -46,15 +46,19 @@ public class AppointmentDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
-            // 1. Check trùng lịch bệnh nhân
+            // 1. Check trùng lịch bệnh nhân (chỉ áp dụng cho PENDING và CONFIRMED)
+            // Filtered index: exclude CANCELLED và COMPLETED để cho phép đặt lại slot
             entity.HasIndex(e => new { e.PatientId, e.AppointmentDate, e.AppointmentTimeId })
                 .IsUnique()
-                .HasDatabaseName("IX_Patient_Date_Time_Unique");
+                .HasDatabaseName("IX_Patient_Date_Time_Unique")
+                .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
 
-            // 2. Check trùng lịch bác sĩ (nếu cần rule không cho 2 lịch cùng lúc)
+            // 2. Check trùng lịch bác sĩ (chỉ áp dụng cho PENDING và CONFIRMED)
+            // Filtered index: exclude CANCELLED và COMPLETED để cho phép đặt lại slot
             entity.HasIndex(e => new { e.DoctorId, e.AppointmentDate, e.AppointmentTimeId })
                 .IsUnique()
-                .HasDatabaseName("IX_Doctor_Date_Time_Unique");
+                .HasDatabaseName("IX_Doctor_Date_Time_Unique")
+                .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
 
             // 3. Lấy lịch theo bệnh nhân (lọc theo ngày & trạng thái)
             entity.HasIndex(e => new { e.PatientId, e.AppointmentDate, e.Status })
