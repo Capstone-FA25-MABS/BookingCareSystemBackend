@@ -14,12 +14,91 @@ public class UserRegisteredEvent : IntegrationEvent
     public DateTime RegisteredAt { get; set; }
 }
 
+/// <summary>
+/// ?? Enhanced User Profile Updated Event with detailed info for cache invalidation
+/// Used by both User Service and Doctor Service (with Role = "DOCTOR")
+/// </summary>
 public class UserProfileUpdatedEvent : IntegrationEvent
 {
+    /// <summary>
+    /// User ID (primary identifier)
+    /// </summary>
     public Guid UserId { get; set; }
+
+    /// <summary>
+    /// Account ID (for cache key lookups)
+    /// </summary>
+    public Guid AccountId { get; set; }
+
+    /// <summary>
+    /// Email address (for cache invalidation by email)
+    /// </summary>
     public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Previous email (if changed, for old cache key cleanup)
+    /// </summary>
+    public string? PreviousEmail { get; set; }
+
+    /// <summary>
+    /// Full name for cache updates
+    /// </summary>
     public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// First name
+    /// </summary>
+    public string FirstName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Last name
+    /// </summary>
+    public string LastName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Avatar URL for cache updates
+    /// </summary>
+    public string AvatarUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Phone number
+    /// </summary>
+    public string? Phone { get; set; }
+
+    /// <summary>
+    /// User role (PATIENT, DOCTOR, etc.) for cache updates
+    /// </summary>
+    public string Role { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gender
+    /// </summary>
+    public string? Gender { get; set; }
+
+    /// <summary>
+    /// Date of birth
+    /// </summary>
+    public DateTime? DateOfBirth { get; set; }
+
+    /// <summary>
+    /// Address
+    /// </summary>
+    public string? Address { get; set; }
+
+    /// <summary>
+    /// Update timestamp
+    /// </summary>
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Correlation ID for tracking
+    /// </summary>
+    public string CorrelationId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// List of fields that were updated (for selective cache invalidation)
+    /// </summary>
+    public List<string> UpdatedFields { get; set; } = new();
 }
 
 public class UserEmailPhoneSyncRequestedEvent : IntegrationEvent
@@ -931,6 +1010,83 @@ public class HospitalSubscriptionCreatedEvent : IntegrationEvent
     public DateTime CreatedAt { get; set; }
 }
 
+// Hospital Registration-related events
+
+/// <summary>
+/// Event published when a new hospital partnership registration is submitted
+/// This event is consumed by Communication Service to send confirmation email
+/// </summary>
+public class HospitalRegistrationSubmittedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public string HospitalName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string TaxCode { get; set; } = string.Empty;
+    public DateTime SubmittedAt { get; set; }
+}
+
+/// <summary>
+/// Event published when hospital registration status is updated by admin
+/// This event is consumed by Communication Service to send status update email
+/// </summary>
+public class HospitalRegistrationStatusUpdatedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public string HospitalName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public int Status { get; set; } // 0=PENDING, 1=CONFIRMED, 2=CANCELLED
+    public string StatusText { get; set; } = string.Empty;
+    public string? Reason { get; set; }
+    public string? ContractFileUrl { get; set; }
+    public Guid? HospitalId { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Event published to upload hospital registration files asynchronously to S3
+/// This event is consumed by Hospital Service itself to process file uploads in background
+/// </summary>
+public class HospitalRegistrationFilesUploadEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public FileUploadData LicenseFile { get; set; } = null!;
+    public FileUploadData BusinessCertificateFile { get; set; } = null!;
+    public FileUploadData IdentityCardFile { get; set; } = null!;
+}
+
+/// <summary>
+/// Event published when hospital account creation is requested (triggers Saga)
+/// </summary>
+public class HospitalAccountCreationRequestedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public string HospitalName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public string TaxCode { get; set; } = string.Empty;
+    public string ContractFileUrl { get; set; } = string.Empty;
+    public string GeneratedPassword { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Event published when hospital account is successfully created
+/// </summary>
+public class HospitalAccountCreatedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public Guid AccountId { get; set; }
+    public Guid HospitalId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string HospitalName { get; set; } = string.Empty;
+    public string GeneratedPassword { get; set; } = string.Empty;
+    public string LoginUrl { get; set; } = string.Empty;
+    public string ContractFileUrl { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
 /// <summary>
 /// Event published when a hospital successfully upgrades their subscription plan
 /// This event is consumed by Notification Service to send upgrade confirmation email to hospital
@@ -1036,5 +1192,40 @@ public class HospitalSubscriptionUpgradedEvent : IntegrationEvent
     /// When the upgrade was completed
     /// </summary>
     public DateTime UpgradedAt { get; set; }
+}
+
+/// <summary>
+/// Event published when hospital account creation failed (Saga compensation)
+/// </summary>
+public class HospitalAccountCreationFailedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string ErrorMessage { get; set; } = string.Empty;
+    public DateTime FailedAt { get; set; }
+}
+
+/// <summary>
+/// Event published to update hospital registration with created hospital account details
+/// This event is consumed by Hospital Service to link the registration with the created hospital account
+/// </summary>
+public class HospitalRegistrationAccountLinkedEvent : IntegrationEvent
+{
+    public Guid RegistrationId { get; set; }
+    public Guid HospitalId { get; set; }
+    public Guid AccountId { get; set; }
+    public DateTime LinkedAt { get; set; }
+}
+
+/// <summary>
+/// File upload data container for event
+/// </summary>
+public class FileUploadData
+{
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public byte[] FileData { get; set; } = Array.Empty<byte>();
+    public string Folder { get; set; } = string.Empty;
+    public string EntityType { get; set; } = string.Empty;
 }
 

@@ -255,6 +255,34 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
     }
 
+    public override async Task<DeleteHospitalReply> DeleteHospital(DeleteHospitalRequest request, ServerCallContext context)
+    {
+        try
+        {
+            if (!Guid.TryParse(request.Id, out var hospitalId))
+            {
+                throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            var result = await _hospitalService.DeleteAsync(hospitalId);
+
+            return new DeleteHospitalReply
+            {
+                Success = result,
+                Message = result ? "Hospital deleted successfully" : "Failed to delete hospital"
+            };
+        }
+        catch (HospitalNotFoundException ex)
+        {
+            throw new RpcException(new GrpcStatus(StatusCode.NotFound, ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting hospital with ID {HospitalId}", request.Id);
+            throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
     public override async Task<HospitalBasicInfoResponse> GetHospitalBasicInfo(GetHospitalBasicInfoRequest request, ServerCallContext context)
     {
         try
@@ -329,5 +357,55 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             Email = hospital.Email,
             AvatarUrl = hospital.AvatarUrl ?? string.Empty
         };
+    }
+
+    public override async Task<HospitalBatchResponse> GetHospitalsByAccountIds(GetHospitalsByAccountIdsRequest request, ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[HospitalGrpcService] gRPC GetHospitalsByAccountIds called for {Count} account IDs", request.AccountIds.Count);
+
+            // Validate account IDs
+            var accountIds = new List<Guid>();
+            foreach (var accountIdString in request.AccountIds)
+            {
+                if (!Guid.TryParse(accountIdString, out var accountId))
+                {
+                    throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, $"Invalid account ID format: {accountIdString}"));
+                }
+                accountIds.Add(accountId);
+            }
+
+            // Get hospitals batch
+            var hospitals = await _hospitalService.GetHospitalsByAccountIdsAsync(accountIds);
+
+            // Map to gRPC response
+            var grpcResponse = new HospitalBatchResponse();
+
+            foreach (var hospital in hospitals)
+            {
+                grpcResponse.Hospitals.Add(new HospitalBasicInfo
+                {
+                    AccountId = hospital.AccountId.ToString(),
+                    Email = hospital.Email,
+                    FullName = hospital.Name,
+                    AvatarUrl = hospital.AvatarUrl ?? string.Empty,
+                    Phone = hospital.Phone ?? string.Empty,
+                    Address = hospital.Address
+                });
+            }
+
+            _logger.LogInformation("[HospitalGrpcService] Retrieved {Count} hospitals for batch request", hospitals.Count);
+            return grpcResponse;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[HospitalGrpcService] Error getting hospitals by account IDs batch");
+            throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
+        }
     }
 }

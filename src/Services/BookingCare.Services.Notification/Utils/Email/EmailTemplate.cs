@@ -1188,6 +1188,170 @@ public static class EmailTemplate
     }
 
     /// <summary>
+    /// Build email content for hospital partnership registration submission confirmation
+    /// </summary>
+    public static string BuildHospitalRegistrationSubmittedEmailHtml(
+        string hospitalName,
+        string email,
+        string phone,
+        string address,
+        string taxCode)
+    {
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Xác nhận đăng ký hợp tác - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#0ea5e9; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .info-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
+    .info-box strong {{ color:#0369a1; }}
+    .info-item {{ margin:8px 0; }}
+    .next-steps {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px; margin:20px 0; }}
+    .next-steps strong {{ color:#166534; }}
+    .next-steps ul {{ margin:8px 0; padding-left:20px; }}
+    .next-steps li {{ margin:4px 0; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Đăng ký hợp tác</div>
+    </div>
+    <div class=""content"">
+      <div class=""success-icon"">✅</div>
+      <p class=""greeting"">Kính gửi đại diện {hospitalName},</p>
+      <p class=""lead"">Chúng tôi đã nhận được đơn đăng ký hợp tác của quý bệnh viện. Cảm ơn quý bệnh viện đã quan tâm đến nền tảng BookingCare!</p>
+      
+      <div class=""info-box"">
+        <p><strong>📋 Thông tin đăng ký:</strong></p>
+        <div class=""info-item""><strong>Tên bệnh viện:</strong> {hospitalName}</div>
+        <div class=""info-item""><strong>Email:</strong> {email}</div>
+        <div class=""info-item""><strong>Số điện thoại:</strong> {phone}</div>
+        <div class=""info-item""><strong>Địa chỉ:</strong> {address}</div>
+        <div class=""info-item""><strong>Mã số thuế:</strong> {taxCode}</div>
+      </div>
+      
+      <div class=""next-steps"">
+        <p><strong>📌 Các bước tiếp theo:</strong></p>
+        <ul>
+          <li>Đội ngũ của chúng tôi sẽ xem xét hồ sơ đăng ký trong vòng <strong>2-3 ngày làm việc</strong></li>
+          <li>Chúng tôi sẽ kiểm tra tính xác thực của các tài liệu đã gửi</li>
+          <li>Sau khi hoàn tất kiểm tra, chúng tôi sẽ liên hệ lại qua email hoặc điện thoại</li>
+          <li>Nếu được chấp thuận, chúng tôi sẽ tiến hành ký kết hợp đồng hợp tác</li>
+        </ul>
+      </div>
+      
+      <p class=""muted"">Nếu quý bệnh viện có bất kỳ thắc mắc nào trong thời gian chờ đợi, vui lòng liên hệ với chúng tôi qua:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> +84 236 3 822 888<br/>
+      <strong>📧 Email:</strong> partnership@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for hospital partnership registration approval
+    /// </summary>
+    public static string BuildHospitalRegistrationApprovedEmailHtml(
+        string hospitalName,
+        string? contractFileUrl)
+    {
+        var contractSection = !string.IsNullOrEmpty(contractFileUrl)
+            ? $@"<p class=""lead"">Hợp đồng hợp tác đã được đính kèm. Quý bệnh viện có thể tải về tại đây:</p>
+      <div style=""text-align:center; margin:20px 0;"">
+        <a href=""{contractFileUrl}"" class=""download-button"">📄 Tải hợp đồng</a>
+      </div>"
+            : @"<p class=""lead"">Chúng tôi sẽ liên hệ trực tiếp để hoàn tất thủ tục ký kết hợp đồng.</p>";
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Chúc mừng - Đăng ký được chấp thuận - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .approved-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
+    .approved-box strong {{ color:#047857; }}
+    .download-button {{ display:inline-block; padding:14px 28px; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; }}
+    .download-button:hover {{ background:#0284c7; }}
+    .next-steps {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
+    .next-steps strong {{ color:#0369a1; }}
+    .next-steps ul {{ margin:8px 0; padding-left:20px; }}
+    .next-steps li {{ margin:4px 0; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Chúc mừng đối tác mới</div>
+    </div>
+    <div class=""content"">
+      <div class=""success-icon"">🎉</div>
+      <p class=""greeting"">Kính gửi đại diện {hospitalName},</p>
+      <p class=""lead""><strong>Chúc mừng!</strong> Đơn đăng ký hợp tác của quý bệnh viện đã được chấp thuận. Chúng tôi rất vui mừng được chào đón {hospitalName} trở thành đối tác của BookingCare!</p>
+      
+      <div class=""approved-box"">
+        <p><strong>✅ Trạng thái: ĐÃ CHẤP THUẬN</strong></p>
+        <p>Đơn đăng ký của quý bệnh viện đã vượt qua tất cả các bước kiểm tra và đánh giá của chúng tôi.</p>
+      </div>
+      
+      {contractSection}
+      
+      <div class=""next-steps"">
+        <p><strong>🚀 Các bước tiếp theo:</strong></p>
+        <ul>
+          <li>Đội ngũ của chúng tôi sẽ liên hệ trong vòng <strong>24 giờ</strong> để hướng dẫn chi tiết</li>
+          <li>Thiết lập tài khoản quản trị cho bệnh viện</li>
+          <li>Hướng dẫn sử dụng hệ thống quản lý</li>
+          <li>Cung cấp tài liệu đào tạo và hỗ trợ kỹ thuật</li>
+          <li>Triển khai chính thức trên nền tảng BookingCare</li>
+        </ul>
+      </div>
+      
+      <p class=""lead"">Chúng tôi mong muốn được hợp tác lâu dài và cùng phát triển với {hospitalName}!</p>
+      
+      <p class=""muted"">Nếu có bất kỳ câu hỏi nào, vui lòng liên hệ:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> +84 236 3 822 888<br/>
+      <strong>📧 Email:</strong> partnership@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
     /// Build email content for successful hospital subscription upgrade
     /// </summary>
     public static string BuildHospitalSubscriptionUpgradedEmailHtml(
@@ -1314,6 +1478,184 @@ public static class EmailTemplate
       <div class=""divider""></div>
       <p class=""muted"">Cảm ơn quý bệnh viện đã tin tưởng và sử dụng dịch vụ BookingCare.<br/><br/>
       Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for hospital partnership registration rejection
+    /// </summary>
+    public static string BuildHospitalRegistrationRejectedEmailHtml(
+        string hospitalName,
+        string reason)
+    {
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Thông báo về đơn đăng ký hợp tác - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#ef4444; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .rejected-box {{ background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:16px; margin:20px 0; }}
+    .rejected-box strong {{ color:#dc2626; }}
+    .reason-box {{ background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
+    .reason-box strong {{ color:#92400e; }}
+    .reapply-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
+    .reapply-box strong {{ color:#0369a1; }}
+    .reapply-box ul {{ margin:8px 0; padding-left:20px; }}
+    .reapply-box li {{ margin:4px 0; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Thông báo đơn đăng ký</div>
+    </div>
+    <div class=""content"">
+      <p class=""greeting"">Kính gửi đại diện {hospitalName},</p>
+      <p class=""lead"">Cảm ơn quý bệnh viện đã quan tâm và gửi đơn đăng ký hợp tác với BookingCare. Sau khi xem xét kỹ lưỡng, chúng tôi rất tiếc phải thông báo rằng đơn đăng ký của quý bệnh viện chưa được chấp thuận trong thời điểm này.</p>
+      
+      <div class=""rejected-box"">
+        <p><strong>❌ Trạng thái: CHƯA CHẤP THUẬN</strong></p>
+      </div>
+      
+      <div class=""reason-box"">
+        <p><strong>📝 Lý do:</strong></p>
+        <p>{reason}</p>
+      </div>
+      
+      <div class=""reapply-box"">
+        <p><strong>🔄 Đăng ký lại:</strong></p>
+        <p>Quý bệnh viện có thể đăng ký lại sau khi:</p>
+        <ul>
+          <li>Khắc phục các vấn đề được nêu trong phần lý do</li>
+          <li>Chuẩn bị đầy đủ các tài liệu cần thiết theo yêu cầu</li>
+          <li>Liên hệ với chúng tôi để được tư vấn thêm</li>
+        </ul>
+        <p>Chúng tôi luôn chào đón quý bệnh viện nộp đơn đăng ký lại khi đã đáp ứng đầy đủ các tiêu chí.</p>
+      </div>
+      
+      <p class=""muted"">Nếu có bất kỳ thắc mắc hoặc cần hỗ trợ thêm, vui lòng liên hệ:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> +84 236 3 822 888<br/>
+      <strong>📧 Email:</strong> partnership@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for hospital account credentials
+    /// </summary>
+    public static string BuildHospitalAccountCredentialsEmailHtml(
+        string hospitalName,
+        string email,
+        string generatedPassword,
+        string loginUrl,
+        string? contractFileUrl)
+    {
+        var contractSection = !string.IsNullOrEmpty(contractFileUrl)
+            ? $@"<div class=""contract-box"">
+        <p><strong>📄 Hợp đồng hợp tác:</strong></p>
+        <p>Hợp đồng hợp tác đã được đính kèm. Quý bệnh viện có thể tải về tại đây:</p>
+        <div style=""text-align:center; margin:12px 0;"">
+          <a href=""{contractFileUrl}"" class=""download-button"">📄 Tải hợp đồng</a>
+        </div>
+      </div>"
+            : "";
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Thông tin tài khoản bệnh viện - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .success-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
+    .success-box strong {{ color:#047857; }}
+    .credentials-box {{ background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:16px; margin:20px 0; }}
+    .credentials-box strong {{ color:#1e40af; }}
+    .credentials-box p {{ margin:8px 0; }}
+    .contract-box {{ background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
+    .contract-box strong {{ color:#92400e; }}
+    .download-button {{ display:inline-block; background:#10b981; color:#fff; padding:10px 24px; border-radius:6px; text-decoration:none; font-weight:500; }}
+    .login-button {{ display:inline-block; background:#3b82f6; color:#fff; padding:12px 28px; border-radius:6px; text-decoration:none; font-weight:500; margin:20px 0; }}
+    .warning-box {{ background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
+    .warning-box strong {{ color:#92400e; }}
+    .warning-box ul {{ margin:8px 0; padding-left:20px; }}
+    .warning-box li {{ margin:4px 0; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Tài khoản bệnh viện</div>
+    </div>
+    <div class=""content"">
+      <p class=""greeting"">Kính gửi đại diện {hospitalName},</p>
+      <p class=""lead"">Chúng tôi rất vui mừng thông báo rằng đơn đăng ký hợp tác của quý bệnh viện với BookingCare đã được <strong>PHÊ DUYỆT</strong>. Tài khoản quản lý bệnh viện đã được tạo thành công!</p>
+      
+      <div class=""success-box"">
+        <p><strong>✅ Trạng thái: ĐÃ PHÊ DUYỆT</strong></p>
+        <p>Tài khoản của quý bệnh viện đã sẵn sàng để sử dụng.</p>
+      </div>
+      
+      <div class=""credentials-box"">
+        <p><strong>🔐 Thông tin đăng nhập:</strong></p>
+        <p><strong>Email:</strong> {email}</p>
+        <p><strong>Mật khẩu tạm thời:</strong> {generatedPassword}</p>
+        <p style=""color:#dc2626; font-size:13px; margin-top:12px;"">⚠️ Đây là mật khẩu tạm thời. Vui lòng đổi mật khẩu ngay sau khi đăng nhập lần đầu.</p>
+      </div>
+      
+      {contractSection}
+      
+      <div style=""text-align:center;"">
+        <a href=""{loginUrl}"" class=""login-button"">🚀 Đăng nhập ngay</a>
+      </div>
+      
+      <div class=""warning-box"">
+        <p><strong>📌 Lưu ý quan trọng:</strong></p>
+        <ul>
+          <li>Vui lòng bảo mật thông tin đăng nhập</li>
+          <li>Đổi mật khẩu ngay sau khi đăng nhập lần đầu</li>
+          <li>Không chia sẻ thông tin tài khoản với người không có thẩm quyền</li>
+          <li>Liên hệ với chúng tôi nếu gặp bất kỳ vấn đề nào</li>
+        </ul>
+      </div>
+      
+      <p class=""muted"">Nếu có bất kỳ thắc mắc hoặc cần hỗ trợ thêm, vui lòng liên hệ:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> +84 236 3 822 888<br/>
+      <strong>📧 Email:</strong> support@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
     </div>
     <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
   </div>

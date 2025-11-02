@@ -3,6 +3,7 @@ using BookingCare.Services.Auth.Handlers;
 using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Repositories;
 using BookingCare.Services.Auth.Services;
+using BookingCare.Services.Auth.Hubs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Auth.Mappings;
@@ -19,6 +20,7 @@ using BookingCare.Shared.Saga.Steps;
 using BookingCare.Shared.Saga.SagaDefinition;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.User.Protos;
+using BookingCare.Services.Hospital;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,6 +77,9 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 // Add HttpContextAccessor for cookie management
 builder.Services.AddHttpContextAccessor();
 
+// Add SignalR for real-time account notifications (ban, lock, etc.)
+builder.Services.AddSignalR();
+
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(AuthMappingProfile));
 
@@ -117,6 +122,13 @@ builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(o =>
     o.Address = new Uri(endpoint);
 });
 
+// Add gRPC client for Hospital service
+builder.Services.AddGrpcClient<HospitalService.HospitalServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Hospital").GetValue<string>("GrpcUrl") ?? "http://localhost:6104";
+    o.Address = new Uri(endpoint);
+});
+
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
@@ -141,15 +153,18 @@ builder.Services.AddSagaOrchestration(builder.Configuration);
 builder.Services.AddSaga<UserRegistrationSaga>();
 builder.Services.AddSaga<DoctorRegistrationSaga>();
 builder.Services.AddSaga<ExternalUserRegistrationSaga>();
+builder.Services.AddSaga<HospitalAccountRegistrationSaga>();
 
 // Register Saga Steps
 builder.Services.AddSagaStep<CreateAccountGrpcStep>();
 builder.Services.AddSagaStep<CreateExternalAccountGrpcStep>();
 builder.Services.AddSagaStep<CreateUserProfileGrpcStep>();
 builder.Services.AddSagaStep<CreateDoctorProfileGrpcStep>();
+builder.Services.AddSagaStep<CreateHospitalProfileGrpcStep>();
 
 // Register Event Handlers
 builder.Services.AddIntegrationEventHandler<UserEmailPhoneSyncEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalAccountCreationRequestedEventHandler>();
 
 // Add Event Bus (RabbitMQ)
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "auth-service-queue");
@@ -244,6 +259,9 @@ app.MapControllers();
 // Map gRPC services
 app.MapGrpcService<AuthGrpcService>();
 
+// Map SignalR hubs
+app.MapHub<AccountNotificationHub>("/hubs/account-notification"); // For account notifications
+
 // Map health check endpoint
 app.MapCommonHealthCheck("Auth");
 
@@ -252,6 +270,9 @@ app.UseEventBus(eventBus =>
 {
     // Subscribe to User Service sync requests
     eventBus.Subscribe<UserEmailPhoneSyncRequestedEvent, UserEmailPhoneSyncEventHandler>();
+
+    // Subscribe to Hospital Account Creation requests
+    eventBus.Subscribe<HospitalAccountCreationRequestedEvent, HospitalAccountCreationRequestedEventHandler>();
 });
 
 app.Run();

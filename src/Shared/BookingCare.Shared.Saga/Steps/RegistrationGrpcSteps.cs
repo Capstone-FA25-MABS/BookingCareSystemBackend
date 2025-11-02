@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.User.Protos;
 using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.Hospital;
 
 namespace BookingCare.Shared.Saga.Steps;
 
@@ -477,6 +478,137 @@ public class CreateExternalAccountGrpcStep : BaseGrpcStep
     public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
     {
         return await CompensateAccountDeletionAsync(context, _configuration, StepName, "deleting external account", SagaConstants.ACCOUNT_ID_KEY, cancellationToken);
+    }
+}
+
+/// <summary>
+/// Step 2: Create Hospital Profile in Hospital Service
+/// </summary>
+public class CreateHospitalProfileGrpcStep : BaseGrpcStep
+{
+    private const string HospitalIdKey = "HospitalId";
+
+    private readonly IConfiguration _configuration;
+
+    public override string StepName => "CreateHospitalProfile";
+    public override int Order => 2;
+    public override TimeSpan Timeout => TimeSpan.FromMinutes(2);
+
+    public CreateHospitalProfileGrpcStep(ILogger<CreateHospitalProfileGrpcStep> logger, IConfiguration configuration)
+        : base(logger)
+    {
+        _configuration = configuration;
+    }
+
+    public override async Task<SagaStepResult> ExecuteAsync(SagaContext context, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("[CreateHospitalProfileGrpcStep] Creating hospital profile for saga {SagaId}", context.SagaId);
+
+            // Get data from context
+            var accountId = context.GetData<string>(SagaConstants.ACCOUNT_ID_KEY);
+            var email = context.GetData<string>("Email");
+            var hospitalName = context.GetData<string>("HospitalName");
+            var phone = context.GetData<string>("PhoneNumber");
+            var address = context.GetData<string>("Address");
+
+            if (string.IsNullOrEmpty(accountId) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(hospitalName))
+            {
+                return Failure("Missing required hospital data: AccountId, Email, or HospitalName");
+            }
+
+            // Create gRPC client for Hospital Service
+            var hospitalGrpcUrl = _configuration["Services:Hospital:GrpcUrl"];
+            if (string.IsNullOrEmpty(hospitalGrpcUrl))
+            {
+                return Failure("Hospital service gRPC URL not configured");
+            }
+
+            using var grpcChannel = GrpcChannel.ForAddress(hospitalGrpcUrl);
+            var client = new HospitalService.HospitalServiceClient(grpcChannel);
+
+            // Call CreateHospital gRPC method
+            var request = new CreateHospitalGrpcRequest
+            {
+                AccountId = accountId,
+                Name = hospitalName,
+                Address = address ?? "",
+                Phone = phone ?? "",
+                Email = email,
+                Description = $"Bệnh viện {hospitalName}",
+                BackgroundUrl = "",
+                AvatarUrl = ""
+            };
+
+            var response = await client.CreateHospitalAsync(request, cancellationToken: cancellationToken);
+
+            if (!string.IsNullOrEmpty(response.Id))
+            {
+                context.SetData(HospitalIdKey, response.Id);
+
+                _logger.LogInformation("[CreateHospitalProfileGrpcStep] Hospital profile created successfully: {HospitalId}", response.Id);
+
+                return Success(new Dictionary<string, object>
+                {
+                    { HospitalIdKey, response.Id }
+                });
+            }
+            else
+            {
+                return Failure("Failed to create hospital profile: No hospital ID returned");
+            }
+        }
+        catch (Exception ex)
+        {
+            return HandleGrpcException(ex, "creating hospital profile", StepName);
+        }
+    }
+
+    public override async Task<SagaStepResult> CompensateAsync(SagaContext context, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            LogCompensationStart(StepName, context.SagaId, "deleting hospital profile");
+
+            var hospitalId = context.GetData<string>(HospitalIdKey);
+            if (string.IsNullOrEmpty(hospitalId))
+            {
+                return LogCompensationWarning(StepName, HospitalIdKey);
+            }
+
+            // Create gRPC client for Hospital Service
+            var hospitalGrpcUrl = _configuration["Services:Hospital:GrpcUrl"];
+            if (string.IsNullOrEmpty(hospitalGrpcUrl))
+            {
+                return Failure("Hospital service gRPC URL not configured for compensation");
+            }
+
+            using var grpcChannel = GrpcChannel.ForAddress(hospitalGrpcUrl);
+            var client = new HospitalService.HospitalServiceClient(grpcChannel);
+
+            // Call DeleteHospital gRPC method
+            var request = new DeleteHospitalRequest
+            {
+                Id = hospitalId
+            };
+
+            var response = await client.DeleteHospitalAsync(request, cancellationToken: cancellationToken);
+
+            if (response.Success)
+            {
+                _logger.LogInformation("[CreateHospitalProfileGrpcStep] Hospital profile compensated successfully: {HospitalId}", hospitalId);
+                return Success();
+            }
+            else
+            {
+                return Failure($"Failed to compensate hospital profile: {response.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            return HandleGrpcException(ex, "compensating hospital profile", StepName);
+        }
     }
 }
 

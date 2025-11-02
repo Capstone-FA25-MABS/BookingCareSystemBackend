@@ -49,6 +49,9 @@ public class S3FileUploadService : IFileUploadService
             // Generate S3 key
             var s3Key = GenerateS3Key(request.FileName, request.Folder, request.GenerateUniqueFileName);
 
+            // Save stream length BEFORE upload (AWS SDK may dispose/close the stream)
+            var fileSize = request.FileStream.Length;
+
             // Create S3 request
             var s3Request = new PutObjectRequest
             {
@@ -83,7 +86,7 @@ public class S3FileUploadService : IFileUploadService
                     CloudFrontUrl = cloudFrontUrl,
                     FileName = request.FileName,
                     S3Key = s3Key,
-                    FileSize = request.FileStream.Length,
+                    FileSize = fileSize, // Use saved value instead of accessing disposed stream
                     ContentType = request.ContentType
                 };
             }
