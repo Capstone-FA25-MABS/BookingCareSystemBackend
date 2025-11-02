@@ -301,11 +301,7 @@ public class SubscriptionPlanService : ISubscriptionPlanService
         }
 
         // Validate billing cycle
-        if (!IsValidBillingCycle(request.BillingCycle))
-        {
-            throw new InvalidSubscriptionPlanDataException(
-                $"Invalid billing cycle: {request.BillingCycle}. Must be MONTHLY, QUARTERLY, or YEARLY");
-        }
+        ValidateBillingCycle(request.BillingCycle);
 
         // Validate description length
         if (!string.IsNullOrWhiteSpace(request.Description) && request.Description.Length > 1000)
@@ -397,10 +393,9 @@ public class SubscriptionPlanService : ISubscriptionPlanService
         }
 
         // Validate billing cycle if provided
-        if (!string.IsNullOrEmpty(request.BillingCycle) && !IsValidBillingCycle(request.BillingCycle))
+        if (!string.IsNullOrEmpty(request.BillingCycle))
         {
-            throw new InvalidSubscriptionPlanDataException(
-                $"Invalid billing cycle: {request.BillingCycle}. Must be MONTHLY, QUARTERLY, or YEARLY");
+            ValidateBillingCycle(request.BillingCycle);
         }
 
         // Validate description length if provided
@@ -466,6 +461,15 @@ public class SubscriptionPlanService : ISubscriptionPlanService
             {
                 throw new InvalidSubscriptionPlanDataException("Plan name cannot exceed 100 characters");
             }
+        }
+    }
+
+    private static void ValidateBillingCycle(string billingCycle)
+    {
+        if (!IsValidBillingCycle(billingCycle))
+        {
+            throw new InvalidSubscriptionPlanDataException(
+                $"Invalid billing cycle: {billingCycle}. Must be MONTHLY, QUARTERLY, or YEARLY");
         }
     }
 
