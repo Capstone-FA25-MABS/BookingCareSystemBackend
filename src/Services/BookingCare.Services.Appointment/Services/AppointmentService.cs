@@ -185,12 +185,12 @@ public class AppointmentService : BaseService, IAppointmentService
 
     #region Appointment Operations
 
-    public async Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request)
+    public async Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request, bool skipPayment = false)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Creating appointment for patient {PatientId} on {AppointmentDate}",
-                null, request.PatientId, request.AppointmentDate);
+            LogInfo("Creating appointment for patient {PatientId} on {AppointmentDate}, SkipPayment: {SkipPayment}",
+                null, request.PatientId, request.AppointmentDate, skipPayment);
 
             // Validate the appointment
             await ValidateAppointmentAsync(request);
@@ -229,6 +229,15 @@ public class AppointmentService : BaseService, IAppointmentService
                     request.DoctorId.Value,
                     request.AppointmentDate,
                     request.ServiceId);
+            }
+
+            // If no payment (skipPayment = true), send booking success email immediately
+            // For payment flow, email will be sent by AppointmentPaymentSuccessEventHandler after payment
+            if (skipPayment)
+            {
+                LogInfo("No payment flow - sending booking success email immediately for appointment {AppointmentId}",
+                    null, appointmentEntity.Id);
+                await SendAppointmentBookingSuccessEmailAsync(appointmentEntity.Id, request.PatientId, 0);
             }
 
             LogInfo("Successfully created appointment {AppointmentId}", null, appointmentEntity.Id);
@@ -788,15 +797,28 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             await PublishStaffCancellationWithOptionsNotificationAsync(appointment, request, details, rescheduleResponse, patientInfo);
         }
-        // CASE 2: Patient cancellation OR staff cancellation WITHOUT options → Immediate refund processing
+        // CASE 2: Patient cancellation OR staff cancellation WITHOUT options → Check payment before processing
         else
         {
             if (details.RefundPercentage > 0)
             {
-                await PublishImmediateRefundEventAsync(appointment, request, details, patientInfo);
+                // Check if appointment has payment by trying to get payment amount
+                var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
+
+                if (paymentAmount.HasValue)
+                {
+                    // Has payment → Process refund via Payment Service
+                    await PublishImmediateRefundEventAsync(appointment, request, details, patientInfo);
+                }
+                else
+                {
+                    // No payment → Send cancellation success notification directly
+                    await PublishCancellationSuccessNotificationAsync(appointment, request, patientInfo);
+                }
             }
             else
             {
+                // No refund (late cancellation) → Send no-refund notification
                 await PublishNoRefundNotificationAsync(appointment, request, patientInfo);
             }
         }
@@ -997,6 +1019,66 @@ public class AppointmentService : BaseService, IAppointmentService
 
         await _eventBus.PublishAsync(noRefundEvent);
         LogInfo("Published no-refund notification event for appointment {AppointmentId} - no refund due to late cancellation",
+            null, appointment.Id);
+    }
+
+    /// <summary>
+    /// Publish cancellation success notification for appointments without payment
+    /// Used when appointment is eligible for refund but no payment record exists
+    /// </summary>
+    private async Task PublishCancellationSuccessNotificationAsync(
+        AppointmentEntity appointment,
+        CancelAppointmentRequest request,
+        PatientNotificationInfo patientInfo)
+    {
+        // Get doctor and hospital info for notification context
+        string? doctorName = null;
+        string? hospitalName = null;
+
+        if (appointment.DoctorId.HasValue)
+        {
+            try
+            {
+                var doctorRequest = new GetDoctorBasicInfoRequest { Id = appointment.DoctorId.Value.ToString() };
+                var doctorResponse = await _grpcClients.DoctorClient.GetDoctorBasicInfoAsync(doctorRequest);
+                doctorName = doctorResponse.FullName;
+            }
+            catch (Exception ex)
+            {
+                LogWarning("Failed to get doctor name for notification: {Error}", null, ex.Message);
+            }
+        }
+
+        if (appointment.HospitalId.HasValue)
+        {
+            try
+            {
+                var hospitalRequest = new GetHospitalBasicInfoRequest { Id = appointment.HospitalId.Value.ToString() };
+                var hospitalResponse = await _grpcClients.HospitalClient.GetHospitalBasicInfoAsync(hospitalRequest);
+                hospitalName = hospitalResponse.Name;
+            }
+            catch (Exception ex)
+            {
+                LogWarning("Failed to get hospital name for notification: {Error}", null, ex.Message);
+            }
+        }
+
+        var successEvent = new AppointmentCancelledSuccessNotificationEvent
+        {
+            AppointmentId = appointment.Id,
+            PatientId = appointment.PatientId,
+            AppointmentDate = appointment.AppointmentDate,
+            CancellationReason = request.CancellationReason,
+            CancelledAt = DateTime.UtcNow,
+            PatientEmail = patientInfo.Email,
+            PatientPhone = patientInfo.Phone,
+            PatientFullName = patientInfo.FullName,
+            DoctorName = doctorName,
+            HospitalName = hospitalName
+        };
+
+        await _eventBus.PublishAsync(successEvent);
+        LogInfo("Published cancellation success notification for appointment {AppointmentId} - no payment record found",
             null, appointment.Id);
     }
 
@@ -1770,7 +1852,7 @@ public class AppointmentService : BaseService, IAppointmentService
             if (entitiesByType.Count == 1)
             {
                 var appointmentType = entitiesByType[0].Key;
-                doctorRequest.ServiceTypeName = appointmentType.ToString();
+                doctorRequest.ServiceTypeName = appointmentType == AppointmentType.IN_PERSON ? "Khám trực tiếp" : "Tư vấn online";
             }
 
             var doctorsResponse = await _grpcClients.DoctorClient.GetDoctorsBasicInfoAsync(doctorRequest);

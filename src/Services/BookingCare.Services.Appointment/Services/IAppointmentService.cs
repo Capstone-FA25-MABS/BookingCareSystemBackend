@@ -9,7 +9,7 @@ namespace BookingCare.Services.Appointment.Services;
 public interface IAppointmentService
 {
     // Appointment operations
-    Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request);
+    Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request, bool skipPayment = false);
     /// <summary>
     /// Get appointment by ID with enriched data for patient view
     /// </summary>
