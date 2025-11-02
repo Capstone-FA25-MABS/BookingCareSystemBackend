@@ -1840,5 +1840,122 @@ public class AuthService : BaseService, IAuthService
         }
     }
 
+    /// <summary>
+    /// Get doctors by hospital ID (for Staff role to manage their hospital's doctors)
+    /// ULTRA-OPTIMIZED: Single gRPC call to get all doctor details by hospital ID
+    /// </summary>
+    public async Task<AccountManagementResponse> GetDoctorsByHospitalAsync(
+        Guid hospitalId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm = null,
+        string sortBy = "CreatedAt",
+        string sortOrder = "desc")
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Getting doctors by hospital ID: {HospitalId}, Page: {PageNumber}, PageSize: {PageSize}",
+                null, hospitalId, pageNumber, pageSize);
+
+            // ULTRA-OPTIMIZED: Single gRPC call to get all doctor details
+            // Combines: GetDoctorAccountIdsByHospitalId + GetDoctorsByAccountIds into one call
+            var request = new GetDoctorsByHospitalIdRequest
+            {
+                HospitalId = hospitalId.ToString()
+            };
+
+            var response = await _doctorGrpcClient.GetDoctorsByHospitalIdAsync(request);
+
+            if (!response.Doctors.Any())
+            {
+                LogInfo("No doctors found for hospital {HospitalId}", null, hospitalId);
+                return new AccountManagementResponse
+                {
+                    Accounts = new List<AccountWithProfileResponse>(),
+                    TotalCount = 0,
+                    PageNumber = pageNumber,
+                    PageSize = pageSize,
+                    TotalPages = 0
+                };
+            }
+
+            // Parse account IDs and get account entities from Auth DB
+            var accountIds = response.Doctors
+                .Select(d => Guid.Parse(d.AccountId))
+                .ToList();
+
+            var accounts = new List<AccountEntity>();
+            foreach (var accountId in accountIds)
+            {
+                var account = await _authRepository.GetAccountByIdAsync(accountId);
+                if (account != null)
+                {
+                    accounts.Add(account);
+                }
+            }
+
+            // Create account dictionary for fast lookup
+            var accountDict = accounts.ToDictionary(a => a.Id, a => a);
+
+            // Map gRPC response to AccountWithProfileResponse
+            var doctorsWithProfile = response.Doctors.Select(doctor =>
+            {
+                var accountId = Guid.Parse(doctor.AccountId);
+                var account = accountDict.TryGetValue(accountId, out var acc) ? acc : null;
+
+                // Check if account is locked (LockoutEnd > now)
+                var isLocked = account?.LockoutEnd.HasValue == true &&
+                               account.LockoutEnd.Value > DateTimeOffset.UtcNow;
+
+                return new AccountWithProfileResponse
+                {
+                    AccountId = accountId,
+                    Email = doctor.Email,
+                    FullName = doctor.FullName,
+                    AvatarUrl = doctor.AvatarUrl,
+                    Phone = null, // Doctor service doesn't return phone in batch
+                    Address = doctor.Address,
+                    Status = account?.Status.ToString() ?? "UNKNOWN",
+                    CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
+                    IsLocked = isLocked
+                };
+            }).ToList();
+
+            // Apply search filter
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                doctorsWithProfile = doctorsWithProfile
+                    .Where(d =>
+                        d.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        d.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        (d.Address != null && d.Address.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+
+            // Apply sorting
+            doctorsWithProfile = ApplySorting(doctorsWithProfile, sortBy, sortOrder);
+
+            // Get total count after filtering
+            var totalCount = doctorsWithProfile.Count;
+
+            // Apply pagination
+            var paginatedDoctors = doctorsWithProfile
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            LogInfo("Retrieved {Count} doctors for hospital {HospitalId}", null, paginatedDoctors.Count, hospitalId);
+
+            return new AccountManagementResponse
+            {
+                Accounts = paginatedDoctors,
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling((double)totalCount / pageSize)
+            };
+        }, "GetDoctorsByHospital");
+    }
+
     #endregion
 }

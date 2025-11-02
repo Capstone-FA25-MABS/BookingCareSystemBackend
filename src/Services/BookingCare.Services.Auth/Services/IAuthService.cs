@@ -68,4 +68,13 @@ public interface IAuthService
         string? searchTerm = null,
         string sortBy = "CreatedAt",
         string sortOrder = "desc");
+
+    // Hospital (Staff) doctor management operations  
+    Task<AccountManagementResponse> GetDoctorsByHospitalAsync(
+        Guid hospitalId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm = null,
+        string sortBy = "CreatedAt",
+        string sortOrder = "desc");
 }
