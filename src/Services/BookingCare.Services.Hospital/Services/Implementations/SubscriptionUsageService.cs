@@ -42,9 +42,9 @@ public class SubscriptionUsageService : ISubscriptionUsageService
             var plan = activeSubscription.SubscriptionPlan;
 
             // Get current usage counts
-            var currentDoctorCount = await GetCurrentDoctorCountAsync(hospitalId);
-            var currentSpecialtyCount = await GetCurrentSpecialtyCountAsync(hospitalId);
-            var currentAppointmentCount = await GetCurrentAppointmentCountAsync(hospitalId);
+            var currentDoctorCount = await GetCurrentDoctorCountAsync();
+            var currentSpecialtyCount = await GetCurrentSpecialtyCountAsync();
+            var currentAppointmentCount = await GetCurrentAppointmentCountAsync();
 
             // Handle nullable limits (null = unlimited)
             var maxDoctors = plan.MaxDoctors ?? int.MaxValue; // null = unlimited
@@ -95,7 +95,7 @@ public class SubscriptionUsageService : ISubscriptionUsageService
             // null means unlimited
             if (plan.MaxDoctors == null) return true;
 
-            var currentDoctorCount = await GetCurrentDoctorCountAsync(hospitalId);
+            var currentDoctorCount = await GetCurrentDoctorCountAsync();
             return currentDoctorCount < plan.MaxDoctors;
         }
         catch (Exception ex)
@@ -119,7 +119,7 @@ public class SubscriptionUsageService : ISubscriptionUsageService
             // null means unlimited
             if (plan.MaxSpecialties == null) return true;
 
-            var currentSpecialtyCount = await GetCurrentSpecialtyCountAsync(hospitalId);
+            var currentSpecialtyCount = await GetCurrentSpecialtyCountAsync();
             return currentSpecialtyCount < plan.MaxSpecialties;
         }
         catch (Exception ex)
@@ -145,7 +145,7 @@ public class SubscriptionUsageService : ISubscriptionUsageService
             // null means unlimited
             if (plan.MaxAppointments == null) return true;
 
-            var currentAppointmentCount = await GetCurrentAppointmentCountAsync(hospitalId);
+            var currentAppointmentCount = await GetCurrentAppointmentCountAsync();
             return (currentAppointmentCount + additionalAppointments) <= plan.MaxAppointments;
         }
         catch (Exception ex)
@@ -247,7 +247,7 @@ public class SubscriptionUsageService : ISubscriptionUsageService
         }
     }
 
-    private async Task<int> GetCurrentDoctorCountAsync(Guid hospitalId)
+    private async Task<int> GetCurrentDoctorCountAsync()
     {
         // This would need to be implemented based on your doctor service
         // For now, we'll return a mock value
@@ -255,7 +255,7 @@ public class SubscriptionUsageService : ISubscriptionUsageService
         return 0; // Placeholder
     }
 
-    private async Task<int> GetCurrentSpecialtyCountAsync(Guid hospitalId)
+    private async Task<int> GetCurrentSpecialtyCountAsync()
     {
         // This would need to be implemented based on your specialty service
         // For now, we'll return a mock value
@@ -263,7 +263,7 @@ public class SubscriptionUsageService : ISubscriptionUsageService
         return 0; // Placeholder
     }
 
-    private async Task<int> GetCurrentAppointmentCountAsync(Guid hospitalId)
+    private async Task<int> GetCurrentAppointmentCountAsync()
     {
         // This would need to be implemented based on your appointment service
         // For now, we'll return a mock value

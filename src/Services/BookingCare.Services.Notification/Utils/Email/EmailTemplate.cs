@@ -1090,19 +1090,9 @@ public static class EmailTemplate
     /// <summary>
     /// Build email content for successful hospital subscription registration
     /// </summary>
-    public static string BuildHospitalSubscriptionCreatedEmailHtml(
-        string hospitalName,
-        string contactPersonName,
-        string planName,
-        string billingCycle,
-        decimal price,
-        DateTime startDate,
-        DateTime endDate,
-        int? maxDoctors,
-        int? maxAppointmentsPerMonth,
-        string? features)
+    public static string BuildHospitalSubscriptionCreatedEmailHtml(HospitalSubscriptionCreatedEmailData data)
     {
-        var billingCycleDisplay = billingCycle?.ToUpper() switch
+        var billingCycleDisplay = data.BillingCycle?.ToUpper() switch
         {
             "MONTHLY" => "Tháng",
             "QUARTERLY" => "Quý",
@@ -1110,13 +1100,13 @@ public static class EmailTemplate
             _ => "Tháng"
         };
 
-        var maxDoctorsInfo = maxDoctors.HasValue ? $@"
-        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {maxDoctors} bác sĩ</div>" : "";
+        var maxDoctorsInfo = data.MaxDoctors.HasValue ? $@"
+        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.MaxDoctors} bác sĩ</div>" : "";
 
-        var maxAppointmentsInfo = maxAppointmentsPerMonth.HasValue ? $@"
-        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {maxAppointmentsPerMonth} lịch hẹn</div>" : "";
+        var maxAppointmentsInfo = data.MaxAppointmentsPerMonth.HasValue ? $@"
+        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.MaxAppointmentsPerMonth} lịch hẹn</div>" : "";
 
-        var featuresInfo = BuildFeaturesHtml(features);
+        var featuresInfo = BuildFeaturesHtml(data.Features);
 
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -1151,16 +1141,16 @@ public static class EmailTemplate
     </div>
     <div class=""content"">
       <div class=""success-icon"">🎉</div>
-      <p class=""greeting"">Kính gửi {contactPersonName},</p>
-      <p class=""lead"">Chúc mừng! Bệnh viện <strong>{hospitalName}</strong> đã đăng ký gói dịch vụ <strong>{planName}</strong> thành công.</p>
+      <p class=""greeting"">Kính gửi {data.ContactPersonName},</p>
+      <p class=""lead"">Chúc mừng! Bệnh viện <strong>{data.HospitalName}</strong> đã đăng ký gói dịch vụ <strong>{data.PlanName}</strong> thành công.</p>
       
       <div class=""success-box"">
         <p><strong>📦 Thông tin gói dịch vụ:</strong></p>
-        <div class=""info-item""><strong>Tên gói:</strong> {planName}</div>
+        <div class=""info-item""><strong>Tên gói:</strong> {data.PlanName}</div>
         <div class=""info-item""><strong>Chu kỳ thanh toán:</strong> {billingCycleDisplay}</div>
-        <div class=""info-item""><strong>Giá gói:</strong> <span class=""plan-price"">{price:N0} VNĐ/{billingCycleDisplay}</span></div>
-        <div class=""info-item""><strong>Ngày bắt đầu:</strong> {startDate:dd/MM/yyyy HH:mm}</div>
-        <div class=""info-item""><strong>Ngày hết hạn:</strong> {endDate:dd/MM/yyyy HH:mm}</div>{maxDoctorsInfo}{maxAppointmentsInfo}{featuresInfo}
+        <div class=""info-item""><strong>Giá gói:</strong> <span class=""plan-price"">{data.Price:N0} VNĐ/{billingCycleDisplay}</span></div>
+        <div class=""info-item""><strong>Ngày bắt đầu:</strong> {data.StartDate:dd/MM/yyyy HH:mm}</div>
+        <div class=""info-item""><strong>Ngày hết hạn:</strong> {data.EndDate:dd/MM/yyyy HH:mm}</div>{maxDoctorsInfo}{maxAppointmentsInfo}{featuresInfo}
       </div>
       
       <div class=""reminder"">
@@ -1354,23 +1344,9 @@ public static class EmailTemplate
     /// <summary>
     /// Build email content for successful hospital subscription upgrade
     /// </summary>
-    public static string BuildHospitalSubscriptionUpgradedEmailHtml(
-        string hospitalName,
-        string contactPersonName,
-        string previousPlanName,
-        string previousBillingCycle,
-        decimal previousPrice,
-        string newPlanName,
-        string newBillingCycle,
-        decimal newPrice,
-        DateTime newStartDate,
-        DateTime newEndDate,
-        double bonusDays,
-        int? newMaxDoctors,
-        int? newMaxAppointmentsPerMonth,
-        string? newFeatures)
+    public static string BuildHospitalSubscriptionUpgradedEmailHtml(HospitalSubscriptionUpgradedEmailData data)
     {
-        var previousBillingCycleDisplay = previousBillingCycle?.ToUpper() switch
+        var previousBillingCycleDisplay = data.PreviousBillingCycle?.ToUpper() switch
         {
             "MONTHLY" => "Tháng",
             "QUARTERLY" => "Quý",
@@ -1378,7 +1354,7 @@ public static class EmailTemplate
             _ => "Tháng"
         };
 
-        var newBillingCycleDisplay = newBillingCycle?.ToUpper() switch
+        var newBillingCycleDisplay = data.NewBillingCycle?.ToUpper() switch
         {
             "MONTHLY" => "Tháng",
             "QUARTERLY" => "Quý",
@@ -1386,16 +1362,16 @@ public static class EmailTemplate
             _ => "Tháng"
         };
 
-        var bonusDaysInfo = bonusDays > 0 ? $@"
-        <div class=""info-item""><strong>Số ngày thưởng (từ gói cũ):</strong> {bonusDays:N0} ngày</div>" : "";
+        var bonusDaysInfo = data.BonusDays > 0 ? $@"
+        <div class=""info-item""><strong>Số ngày thưởng (từ gói cũ):</strong> {data.BonusDays:N0} ngày</div>" : "";
 
-        var maxDoctorsInfo = newMaxDoctors.HasValue ? $@"
-        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {newMaxDoctors} bác sĩ</div>" : "";
+        var maxDoctorsInfo = data.NewMaxDoctors.HasValue ? $@"
+        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.NewMaxDoctors} bác sĩ</div>" : "";
 
-        var maxAppointmentsInfo = newMaxAppointmentsPerMonth.HasValue ? $@"
-        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {newMaxAppointmentsPerMonth} lịch hẹn</div>" : "";
+        var maxAppointmentsInfo = data.NewMaxAppointmentsPerMonth.HasValue ? $@"
+        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.NewMaxAppointmentsPerMonth} lịch hẹn</div>" : "";
 
-        var featuresInfo = BuildFeaturesHtml(newFeatures);
+        var featuresInfo = BuildFeaturesHtml(data.NewFeatures);
 
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -1435,30 +1411,30 @@ public static class EmailTemplate
     </div>
     <div class=""content"">
       <div class=""success-icon"">🚀</div>
-      <p class=""greeting"">Kính gửi {contactPersonName},</p>
-      <p class=""lead"">Chúc mừng! Bệnh viện <strong>{hospitalName}</strong> đã nâng cấp gói dịch vụ thành công.</p>
+      <p class=""greeting"">Kính gửi {data.ContactPersonName},</p>
+      <p class=""lead"">Chúc mừng! Bệnh viện <strong>{data.HospitalName}</strong> đã nâng cấp gói dịch vụ thành công.</p>
       
       <div class=""comparison-box"">
         <p><strong>📦 Gói dịch vụ trước đây:</strong></p>
-        <div class=""info-item""><strong>Tên gói:</strong> {previousPlanName}</div>
+        <div class=""info-item""><strong>Tên gói:</strong> {data.PreviousPlanName}</div>
         <div class=""info-item""><strong>Chu kỳ:</strong> {previousBillingCycleDisplay}</div>
-        <div class=""info-item""><strong>Giá:</strong> {previousPrice:N0} VNĐ/{previousBillingCycleDisplay}</div>
+        <div class=""info-item""><strong>Giá:</strong> {data.PreviousPrice:N0} VNĐ/{previousBillingCycleDisplay}</div>
       </div>
       
       <div class=""upgrade-arrow"">⬇️</div>
       
       <div class=""new-plan-box"">
         <p><strong>🎁 Gói dịch vụ mới:</strong></p>
-        <div class=""info-item""><strong>Tên gói:</strong> {newPlanName}</div>
+        <div class=""info-item""><strong>Tên gói:</strong> {data.NewPlanName}</div>
         <div class=""info-item""><strong>Chu kỳ thanh toán:</strong> {newBillingCycleDisplay}</div>
-        <div class=""info-item""><strong>Giá gói:</strong> <span class=""plan-price"">{newPrice:N0} VNĐ/{newBillingCycleDisplay}</span></div>
-        <div class=""info-item""><strong>Ngày bắt đầu:</strong> {newStartDate:dd/MM/yyyy HH:mm}</div>
-        <div class=""info-item""><strong>Ngày hết hạn:</strong> {newEndDate:dd/MM/yyyy HH:mm}</div>{bonusDaysInfo}{maxDoctorsInfo}{maxAppointmentsInfo}{featuresInfo}
+        <div class=""info-item""><strong>Giá gói:</strong> <span class=""plan-price"">{data.NewPrice:N0} VNĐ/{newBillingCycleDisplay}</span></div>
+        <div class=""info-item""><strong>Ngày bắt đầu:</strong> {data.NewStartDate:dd/MM/yyyy HH:mm}</div>
+        <div class=""info-item""><strong>Ngày hết hạn:</strong> {data.NewEndDate:dd/MM/yyyy HH:mm}</div>{bonusDaysInfo}{maxDoctorsInfo}{maxAppointmentsInfo}{featuresInfo}
       </div>
       
-      {(bonusDays > 0 ? $@"<div class=""bonus-highlight"">
+      {(data.BonusDays > 0 ? $@"<div class=""bonus-highlight"">
         <p><strong>🎉 Ưu đãi đặc biệt:</strong></p>
-        <p>Quý bệnh viện được cộng thêm <strong>{bonusDays:N0} ngày</strong> miễn phí từ giá trị còn lại của gói cũ!</p>
+        <p>Quý bệnh viện được cộng thêm <strong>{data.BonusDays:N0} ngày</strong> miễn phí từ giá trị còn lại của gói cũ!</p>
       </div>" : "")}
       
       <div class=""reminder"">

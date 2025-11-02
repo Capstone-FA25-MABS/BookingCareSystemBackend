@@ -373,61 +373,81 @@ public class SubscriptionPlanService : ISubscriptionPlanService
 
     private async Task ValidateSubscriptionPlanUpdateAsync(Guid id, UpdateSubscriptionPlanRequest request)
     {
-        // Check name and billing cycle combination uniqueness if being updated
-        if (!string.IsNullOrEmpty(request.Name) && !string.IsNullOrEmpty(request.BillingCycle))
-        {
-            if (await _subscriptionPlanRepository.NameAndBillingCycleExistsAsync(request.Name, request.BillingCycle, id))
-            {
-                throw new SubscriptionPlanAlreadyExistsException($"{request.Name} ({request.BillingCycle})");
-            }
-        }
-        else if (!string.IsNullOrEmpty(request.Name))
-        {
-            // If only name is being updated, get current plan to check with its billing cycle
-            var existingPlan = await _subscriptionPlanRepository.GetByIdAsync(id);
-            if (existingPlan != null &&
-                await _subscriptionPlanRepository.NameAndBillingCycleExistsAsync(request.Name, existingPlan.BillingCycle, id))
-            {
-                throw new SubscriptionPlanAlreadyExistsException($"{request.Name} ({existingPlan.BillingCycle})");
-            }
-        }
+        await ValidateNameUniquenessAsync(id, request);
 
-        // Validate billing cycle if provided
         if (!string.IsNullOrEmpty(request.BillingCycle))
         {
             ValidateBillingCycle(request.BillingCycle);
         }
 
-        // Validate description length if provided
         if (!string.IsNullOrWhiteSpace(request.Description) && request.Description.Length > 1000)
         {
             throw new InvalidSubscriptionPlanDataException("Description cannot exceed 1000 characters");
         }
 
-        // Validate features JSON if provided
-        if (!string.IsNullOrWhiteSpace(request.Features))
-        {
-            if (request.Features.Length > 5000)
-            {
-                throw new InvalidSubscriptionPlanDataException("Features JSON cannot exceed 5000 characters");
-            }
+        ValidateFeaturesJson(request.Features);
+        ValidateLimits(request);
 
-            // Try to parse JSON to validate format
-            try
-            {
-                var featuresArray = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(request.Features);
-                if (featuresArray.ValueKind != System.Text.Json.JsonValueKind.Array)
-                {
-                    throw new InvalidSubscriptionPlanDataException("Features must be a valid JSON array");
-                }
-            }
-            catch (System.Text.Json.JsonException)
-            {
-                throw new InvalidSubscriptionPlanDataException("Features must be a valid JSON format");
-            }
+        if (request.Price.HasValue && request.Price.Value < 0)
+        {
+            throw new InvalidSubscriptionPlanDataException("Price must be non-negative");
         }
 
-        // Validate limits if provided (-1 is allowed and represents unlimited)
+        ValidateNameLength(request.Name);
+    }
+
+    private async Task ValidateNameUniquenessAsync(Guid id, UpdateSubscriptionPlanRequest request)
+    {
+        if (string.IsNullOrEmpty(request.Name))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(request.BillingCycle))
+        {
+            if (await _subscriptionPlanRepository.NameAndBillingCycleExistsAsync(request.Name, request.BillingCycle, id))
+            {
+                throw new SubscriptionPlanAlreadyExistsException($"{request.Name} ({request.BillingCycle})");
+            }
+            return;
+        }
+
+        var existingPlan = await _subscriptionPlanRepository.GetByIdAsync(id);
+        if (existingPlan != null &&
+            await _subscriptionPlanRepository.NameAndBillingCycleExistsAsync(request.Name, existingPlan.BillingCycle, id))
+        {
+            throw new SubscriptionPlanAlreadyExistsException($"{request.Name} ({existingPlan.BillingCycle})");
+        }
+    }
+
+    private static void ValidateFeaturesJson(string? features)
+    {
+        if (string.IsNullOrWhiteSpace(features))
+        {
+            return;
+        }
+
+        if (features.Length > 5000)
+        {
+            throw new InvalidSubscriptionPlanDataException("Features JSON cannot exceed 5000 characters");
+        }
+
+        try
+        {
+            var featuresArray = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(features);
+            if (featuresArray.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                throw new InvalidSubscriptionPlanDataException("Features must be a valid JSON array");
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            throw new InvalidSubscriptionPlanDataException("Features must be a valid JSON format");
+        }
+    }
+
+    private static void ValidateLimits(UpdateSubscriptionPlanRequest request)
+    {
         if (request.MaxDoctors.HasValue && request.MaxDoctors.Value < -1)
         {
             throw new InvalidSubscriptionPlanDataException("Max doctors value is invalid (use -1 for unlimited)");
@@ -442,25 +462,23 @@ public class SubscriptionPlanService : ISubscriptionPlanService
         {
             throw new InvalidSubscriptionPlanDataException("Max appointments value is invalid (use -1 for unlimited)");
         }
+    }
 
-        // Validate price if provided
-        if (request.Price.HasValue && request.Price.Value < 0)
+    private static void ValidateNameLength(string? name)
+    {
+        if (string.IsNullOrEmpty(name))
         {
-            throw new InvalidSubscriptionPlanDataException("Price must be non-negative");
+            return;
         }
 
-        // Validate name length if provided
-        if (!string.IsNullOrEmpty(request.Name))
+        if (name.Length < 2)
         {
-            if (request.Name.Length < 2)
-            {
-                throw new InvalidSubscriptionPlanDataException("Plan name must be at least 2 characters");
-            }
+            throw new InvalidSubscriptionPlanDataException("Plan name must be at least 2 characters");
+        }
 
-            if (request.Name.Length > 100)
-            {
-                throw new InvalidSubscriptionPlanDataException("Plan name cannot exceed 100 characters");
-            }
+        if (name.Length > 100)
+        {
+            throw new InvalidSubscriptionPlanDataException("Plan name cannot exceed 100 characters");
         }
     }
 

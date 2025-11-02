@@ -2,6 +2,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Exceptions;
+using BookingCare.Services.Notification.Models.DTOs;
 
 namespace BookingCare.Services.Notification.Handlers;
 
@@ -43,22 +44,24 @@ public class HospitalSubscriptionUpgradedEventHandler : IIntegrationEventHandler
             }
 
             // Build email content using template
-            var emailHtml = EmailTemplate.BuildHospitalSubscriptionUpgradedEmailHtml(
-                hospitalName: @event.HospitalName,
-                contactPersonName: @event.ContactPersonName,
-                previousPlanName: @event.PreviousPlanName,
-                previousBillingCycle: @event.PreviousBillingCycle,
-                previousPrice: @event.PreviousPrice,
-                newPlanName: @event.NewPlanName,
-                newBillingCycle: @event.NewBillingCycle,
-                newPrice: @event.NewPrice,
-                newStartDate: @event.NewStartDate,
-                newEndDate: @event.NewEndDate,
-                bonusDays: @event.BonusDays,
-                newMaxDoctors: @event.NewMaxDoctors,
-                newMaxAppointmentsPerMonth: @event.NewMaxAppointmentsPerMonth,
-                newFeatures: @event.NewFeatures
-            );
+            var emailData = new HospitalSubscriptionUpgradedEmailData
+            {
+                HospitalName = @event.HospitalName,
+                ContactPersonName = @event.ContactPersonName,
+                PreviousPlanName = @event.PreviousPlanName,
+                PreviousBillingCycle = @event.PreviousBillingCycle,
+                PreviousPrice = @event.PreviousPrice,
+                NewPlanName = @event.NewPlanName,
+                NewBillingCycle = @event.NewBillingCycle,
+                NewPrice = @event.NewPrice,
+                NewStartDate = @event.NewStartDate,
+                NewEndDate = @event.NewEndDate,
+                BonusDays = @event.BonusDays,
+                NewMaxDoctors = @event.NewMaxDoctors,
+                NewMaxAppointmentsPerMonth = @event.NewMaxAppointmentsPerMonth,
+                NewFeatures = @event.NewFeatures
+            };
+            var emailHtml = EmailTemplate.BuildHospitalSubscriptionUpgradedEmailHtml(emailData);
 
             var subject = $"Nâng cấp lên {@event.NewPlanName} thành công - BookingCare";
 

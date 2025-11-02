@@ -163,7 +163,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             now.Hour,
             now.Minute,
             now.Second,
-            now.Millisecond
+            now.Millisecond,
+            DateTimeKind.Utc
         );
 
         // Calculate EndDate based on billing cycle months (not days to avoid timezone issues)
@@ -368,135 +369,31 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             throw new SubscriptionPlanNotFoundException(newSubscriptionPlanId);
         }
 
-        // Validate that new plan is different and active
-        if (currentSubscription.SubscriptionId == newSubscriptionPlanId)
-        {
-            throw new HospitalOperationException("Cannot upgrade to the same subscription plan");
-        }
-
-        if (newPlan.Status != Status.ACTIVE)
-        {
-            throw new HospitalOperationException("Target subscription plan is not active");
-        }
-
-        // Get current subscription plan to calculate remaining value
         var currentPlan = await _subscriptionPlanRepository.GetByIdAsync(currentSubscription.SubscriptionId);
         if (currentPlan == null)
         {
             throw new SubscriptionPlanNotFoundException(currentSubscription.SubscriptionId);
         }
 
-        // Prevent downgrading: Cannot downgrade from higher billing cycle to lower billing cycle
-        // Allowed: MONTHLY -> QUARTERLY -> YEARLY
-        // Not allowed: QUARTERLY -> MONTHLY, YEARLY -> QUARTERLY, YEARLY -> MONTHLY
-        var currentBillingCycleValue = GetBillingCycleValue(currentPlan.BillingCycle);
-        var newBillingCycleValue = GetBillingCycleValue(newPlan.BillingCycle);
+        await ValidateUpgradeRequestAsync(currentSubscription, currentPlan, newPlan);
 
-        if (currentBillingCycleValue > newBillingCycleValue)
-        {
-            throw new HospitalOperationException(
-                $"Không thể chuyển từ gói {GetBillingCycleDisplayName(currentPlan.BillingCycle)} xuống gói {GetBillingCycleDisplayName(newPlan.BillingCycle)}. " +
-                $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới.");
-        }
-
-        // Prevent downgrading within same billing cycle: Cannot downgrade from higher price plan to lower price plan
-        // Example: Cannot go from "Gói nâng cao" QUARTERLY to "Gói cơ bản" QUARTERLY if price decreases
-        if (currentBillingCycleValue == newBillingCycleValue && currentPlan.Price > newPlan.Price)
-        {
-            throw new HospitalOperationException(
-                $"Không thể chuyển từ gói {currentPlan.Name} ({GetBillingCycleDisplayName(currentPlan.BillingCycle)}) " +
-                $"xuống gói {newPlan.Name} ({GetBillingCycleDisplayName(newPlan.BillingCycle)}). " +
-                $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới.");
-        }
-
-        // Calculate remaining value from current subscription and convert to equivalent days in new plan
         var now = DateTime.Now;
-        var remainingDaysDecimal = 0.0;
-        var additionalDaysForNewPlan = 0.0;
+        var additionalDaysForNewPlan = CalculateBonusDaysForUpgrade(
+            currentSubscription, currentPlan, newPlan, now);
 
-        if (currentSubscription.EndDate > now)
-        {
-            // Use TotalDays to get precise decimal days including hours/minutes
-            var timeSpan = currentSubscription.EndDate - now;
-            remainingDaysDecimal = timeSpan.TotalDays;
+        var newSubscriptionEndDate = CalculateNewSubscriptionEndDate(
+            newPlan, additionalDaysForNewPlan, now);
 
-            if (remainingDaysDecimal > 0)
-            {
-                // Calculate the monetary value of remaining days in current subscription
-                // Use billing cycle days instead of actual subscription days
-                var billingCycleDaysForCurrentPlan = GetBillingCycleDays(currentPlan.BillingCycle);
-                if (billingCycleDaysForCurrentPlan > 0)
-                {
-                    // Calculate daily rate for current plan based on billing cycle
-                    var dailyRateForCurrentPlan = currentPlan.Price / billingCycleDaysForCurrentPlan;
+        ValidateSubscriptionEndDate(newSubscriptionEndDate, newPlan, additionalDaysForNewPlan, now);
 
-                    // Calculate remaining monetary value: daily rate * remaining days (decimal)
-                    var remainingValue = (decimal)dailyRateForCurrentPlan * (decimal)remainingDaysDecimal;
-
-                    // Calculate equivalent days in new plan based on the remaining value
-                    var billingCycleDaysForNewPlan = GetBillingCycleDays(newPlan.BillingCycle);
-                    var dailyRateForNewPlan = billingCycleDaysForNewPlan > 0 ? newPlan.Price / billingCycleDaysForNewPlan : 0;
-
-                    if (dailyRateForNewPlan > 0)
-                    {
-                        // Round UP to give customer credit (Math.Ceiling)
-                        var calculatedDays = (double)(remainingValue / dailyRateForNewPlan);
-                        additionalDaysForNewPlan = Math.Ceiling(calculatedDays);
-                        // Ensure we don't add negative days
-                        if (additionalDaysForNewPlan < 0)
-                        {
-                            additionalDaysForNewPlan = 0;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Calculate new subscription end date
-        // Start from now (current date and time), add billing cycle months, then add bonus days
-        var billingCycleMonths = GetBillingCycleMonths(newPlan.BillingCycle);
-        var newSubscriptionEndDate = now.AddMonths(billingCycleMonths);
-
-        // Add equivalent days from remaining value (as double to preserve precision)
-        if (additionalDaysForNewPlan > 0)
-        {
-            newSubscriptionEndDate = newSubscriptionEndDate.AddDays(additionalDaysForNewPlan);
-        }
-
-        // Validate: End date should be significantly later than start date for quarterly/yearly plans
-        // For QUARTERLY: minimum should be around 85-95 days (3 months minus some tolerance)
-        // For YEARLY: minimum should be around 360-370 days
-        var actualDays = (newSubscriptionEndDate - now).TotalDays;
-        var expectedMinDays = billingCycleMonths switch
-        {
-            3 => 85,  // QUARTERLY: at least ~85 days
-            12 => 360, // YEARLY: at least ~360 days
-            _ => 25   // MONTHLY: at least ~25 days
-        };
-
-        if (actualDays < expectedMinDays)
-        {
-            // This indicates a calculation error - log warning but continue
-            // The end date might be incorrect, but we'll still create the subscription
-            // In production, you might want to throw an exception here
-            System.Diagnostics.Debug.WriteLine(
-                $"WARNING: Calculated subscription duration seems incorrect. " +
-                $"Start: {now:yyyy-MM-dd HH:mm:ss}, End: {newSubscriptionEndDate:yyyy-MM-dd HH:mm:ss}, " +
-                $"Days: {actualDays:F2}, Expected min: {expectedMinDays}, " +
-                $"BillingCycle: {newPlan.BillingCycle}, BonusDays: {additionalDaysForNewPlan}");
-        }
-
-        // Cancel current subscription
         currentSubscription.Status = SubscriptionStatus.CANCELLED;
         currentSubscription.UpdatedAt = now;
 
-        // Create new subscription with properly calculated end date
-        // StartDate should be current date and time (now)
         var newSubscription = new HospitalSubscriptionEntity
         {
             HospitalId = currentSubscription.HospitalId,
             SubscriptionId = newSubscriptionPlanId,
-            StartDate = now, // Use exact current date and time
+            StartDate = now,
             EndDate = newSubscriptionEndDate,
             Status = SubscriptionStatus.ACTIVE,
             CreatedAt = now,
@@ -509,60 +406,188 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(newSubscription);
             var response = _mapper.Map<HospitalSubscriptionResponse>(createdSubscription);
 
-            // Publish event for email notification
-            try
-            {
-                // Get hospital information for email
-                var hospital = await _hospitalRepository.GetByIdAsync(currentSubscription.HospitalId);
-                if (hospital != null && !string.IsNullOrWhiteSpace(hospital.Email))
-                {
-                    var subscriptionUpgradedEvent = new HospitalSubscriptionUpgradedEvent
-                    {
-                        NewHospitalSubscriptionId = createdSubscription.HospitalSubscriptionId,
-                        PreviousHospitalSubscriptionId = currentSubscription.HospitalSubscriptionId,
-                        HospitalId = createdSubscription.HospitalId,
-                        HospitalName = hospital.Name,
-                        HospitalEmail = hospital.Email,
-                        ContactPersonName = "Quý bệnh viện",
-                        PreviousPlanName = currentPlan.Name,
-                        PreviousBillingCycle = currentPlan.BillingCycle,
-                        PreviousPrice = currentPlan.Price,
-                        NewSubscriptionPlanId = newPlan.Id,
-                        NewPlanName = newPlan.Name,
-                        NewBillingCycle = newPlan.BillingCycle,
-                        NewPrice = newPlan.Price,
-                        NewStartDate = createdSubscription.StartDate,
-                        NewEndDate = createdSubscription.EndDate,
-                        BonusDays = additionalDaysForNewPlan,
-                        NewMaxDoctors = newPlan.MaxDoctors,
-                        NewMaxAppointmentsPerMonth = newPlan.MaxAppointments,
-                        NewFeatures = newPlan.Features,
-                        UpgradedAt = now
-                    };
-
-                    await _eventBus.PublishAsync(subscriptionUpgradedEvent);
-                    _logger.LogInformation(
-                        "Published HospitalSubscriptionUpgradedEvent for HospitalId: {HospitalId}, NewSubscriptionId: {NewSubscriptionId}",
-                        createdSubscription.HospitalId,
-                        createdSubscription.HospitalSubscriptionId
-                    );
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't fail the subscription upgrade
-                _logger.LogError(
-                    ex,
-                    "Failed to publish HospitalSubscriptionUpgradedEvent for HospitalId: {HospitalId}",
-                    currentSubscription.HospitalId
-                );
-            }
+            await PublishUpgradeEventAsync(
+                createdSubscription, currentSubscription, currentPlan, newPlan, additionalDaysForNewPlan, now);
 
             return response;
         }
         catch (Exception ex)
         {
             throw new HospitalOperationException("Failed to upgrade subscription", ex);
+        }
+    }
+
+    private async Task ValidateUpgradeRequestAsync(
+        HospitalSubscriptionEntity currentSubscription,
+        SubscriptionPlanEntity currentPlan,
+        SubscriptionPlanEntity newPlan)
+    {
+        if (currentSubscription.SubscriptionId == newPlan.Id)
+        {
+            throw new HospitalOperationException("Cannot upgrade to the same subscription plan");
+        }
+
+        if (newPlan.Status != Status.ACTIVE)
+        {
+            throw new HospitalOperationException("Target subscription plan is not active");
+        }
+
+        var currentBillingCycleValue = GetBillingCycleValue(currentPlan.BillingCycle);
+        var newBillingCycleValue = GetBillingCycleValue(newPlan.BillingCycle);
+
+        if (currentBillingCycleValue > newBillingCycleValue)
+        {
+            throw new HospitalOperationException(
+                $"Không thể chuyển từ gói {GetBillingCycleDisplayName(currentPlan.BillingCycle)} xuống gói {GetBillingCycleDisplayName(newPlan.BillingCycle)}. " +
+                $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới.");
+        }
+
+        if (currentBillingCycleValue == newBillingCycleValue && currentPlan.Price > newPlan.Price)
+        {
+            throw new HospitalOperationException(
+                $"Không thể chuyển từ gói {currentPlan.Name} ({GetBillingCycleDisplayName(currentPlan.BillingCycle)}) " +
+                $"xuống gói {newPlan.Name} ({GetBillingCycleDisplayName(newPlan.BillingCycle)}). " +
+                $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới.");
+        }
+    }
+
+    private double CalculateBonusDaysForUpgrade(
+        HospitalSubscriptionEntity currentSubscription,
+        SubscriptionPlanEntity currentPlan,
+        SubscriptionPlanEntity newPlan,
+        DateTime now)
+    {
+        if (currentSubscription.EndDate <= now)
+        {
+            return 0.0;
+        }
+
+        var timeSpan = currentSubscription.EndDate - now;
+        var remainingDaysDecimal = timeSpan.TotalDays;
+
+        if (remainingDaysDecimal <= 0)
+        {
+            return 0.0;
+        }
+
+        var billingCycleDaysForCurrentPlan = GetBillingCycleDays(currentPlan.BillingCycle);
+        if (billingCycleDaysForCurrentPlan <= 0)
+        {
+            return 0.0;
+        }
+
+        var dailyRateForCurrentPlan = currentPlan.Price / billingCycleDaysForCurrentPlan;
+        var remainingValue = (decimal)dailyRateForCurrentPlan * (decimal)remainingDaysDecimal;
+
+        var billingCycleDaysForNewPlan = GetBillingCycleDays(newPlan.BillingCycle);
+        var dailyRateForNewPlan = billingCycleDaysForNewPlan > 0 ? newPlan.Price / billingCycleDaysForNewPlan : 0;
+
+        if (dailyRateForNewPlan <= 0)
+        {
+            return 0.0;
+        }
+
+        var calculatedDays = (double)(remainingValue / dailyRateForNewPlan);
+        var additionalDaysForNewPlan = Math.Ceiling(calculatedDays);
+
+        return additionalDaysForNewPlan < 0 ? 0.0 : additionalDaysForNewPlan;
+    }
+
+    private DateTime CalculateNewSubscriptionEndDate(
+        SubscriptionPlanEntity newPlan,
+        double additionalDaysForNewPlan,
+        DateTime now)
+    {
+        var billingCycleMonths = GetBillingCycleMonths(newPlan.BillingCycle);
+        var newSubscriptionEndDate = now.AddMonths(billingCycleMonths);
+
+        if (additionalDaysForNewPlan > 0)
+        {
+            newSubscriptionEndDate = newSubscriptionEndDate.AddDays(additionalDaysForNewPlan);
+        }
+
+        return newSubscriptionEndDate;
+    }
+
+    private void ValidateSubscriptionEndDate(
+        DateTime newSubscriptionEndDate,
+        SubscriptionPlanEntity newPlan,
+        double additionalDaysForNewPlan,
+        DateTime now)
+    {
+        var billingCycleMonths = GetBillingCycleMonths(newPlan.BillingCycle);
+        var actualDays = (newSubscriptionEndDate - now).TotalDays;
+        var expectedMinDays = billingCycleMonths switch
+        {
+            3 => 85,  // QUARTERLY: at least ~85 days
+            12 => 360, // YEARLY: at least ~360 days
+            _ => 25   // MONTHLY: at least ~25 days
+        };
+
+        if (actualDays < expectedMinDays)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"WARNING: Calculated subscription duration seems incorrect. " +
+                $"Start: {now:yyyy-MM-dd HH:mm:ss}, End: {newSubscriptionEndDate:yyyy-MM-dd HH:mm:ss}, " +
+                $"Days: {actualDays:F2}, Expected min: {expectedMinDays}, " +
+                $"BillingCycle: {newPlan.BillingCycle}, BonusDays: {additionalDaysForNewPlan}");
+        }
+    }
+
+    private async Task PublishUpgradeEventAsync(
+        HospitalSubscriptionEntity createdSubscription,
+        HospitalSubscriptionEntity currentSubscription,
+        SubscriptionPlanEntity currentPlan,
+        SubscriptionPlanEntity newPlan,
+        double additionalDaysForNewPlan,
+        DateTime now)
+    {
+        try
+        {
+            var hospital = await _hospitalRepository.GetByIdAsync(currentSubscription.HospitalId);
+            if (hospital == null || string.IsNullOrWhiteSpace(hospital.Email))
+            {
+                return;
+            }
+
+            var subscriptionUpgradedEvent = new HospitalSubscriptionUpgradedEvent
+            {
+                NewHospitalSubscriptionId = createdSubscription.HospitalSubscriptionId,
+                PreviousHospitalSubscriptionId = currentSubscription.HospitalSubscriptionId,
+                HospitalId = createdSubscription.HospitalId,
+                HospitalName = hospital.Name,
+                HospitalEmail = hospital.Email,
+                ContactPersonName = "Quý bệnh viện",
+                PreviousPlanName = currentPlan.Name,
+                PreviousBillingCycle = currentPlan.BillingCycle,
+                PreviousPrice = currentPlan.Price,
+                NewSubscriptionPlanId = newPlan.Id,
+                NewPlanName = newPlan.Name,
+                NewBillingCycle = newPlan.BillingCycle,
+                NewPrice = newPlan.Price,
+                NewStartDate = createdSubscription.StartDate,
+                NewEndDate = createdSubscription.EndDate,
+                BonusDays = additionalDaysForNewPlan,
+                NewMaxDoctors = newPlan.MaxDoctors,
+                NewMaxAppointmentsPerMonth = newPlan.MaxAppointments,
+                NewFeatures = newPlan.Features,
+                UpgradedAt = now
+            };
+
+            await _eventBus.PublishAsync(subscriptionUpgradedEvent);
+            _logger.LogInformation(
+                "Published HospitalSubscriptionUpgradedEvent for HospitalId: {HospitalId}, NewSubscriptionId: {NewSubscriptionId}",
+                createdSubscription.HospitalId,
+                createdSubscription.HospitalSubscriptionId
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to publish HospitalSubscriptionUpgradedEvent for HospitalId: {HospitalId}",
+                currentSubscription.HospitalId
+            );
         }
     }
 
@@ -688,7 +713,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         if (remainingDays <= 0) return 0;
 
         // Calculate daily rate based on new plan's billing cycle using actual date calculation
-        var baseDate = new DateTime(2024, 1, 1); // Use a reference date
+        var baseDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc); // Use a reference date
         var billingCycleEndDate = baseDate.AddMonths(GetBillingCycleMonths(newPlan.BillingCycle));
         var billingCycleDays = (billingCycleEndDate - baseDate).Days;
 

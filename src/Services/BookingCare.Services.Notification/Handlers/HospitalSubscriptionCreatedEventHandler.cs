@@ -2,6 +2,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Exceptions;
+using BookingCare.Services.Notification.Models.DTOs;
 
 namespace BookingCare.Services.Notification.Handlers;
 
@@ -43,18 +44,20 @@ public class HospitalSubscriptionCreatedEventHandler : IIntegrationEventHandler<
             }
 
             // Build email content using template
-            var emailHtml = EmailTemplate.BuildHospitalSubscriptionCreatedEmailHtml(
-                hospitalName: @event.HospitalName,
-                contactPersonName: @event.ContactPersonName,
-                planName: @event.PlanName,
-                billingCycle: @event.BillingCycle,
-                price: @event.Price,
-                startDate: @event.StartDate,
-                endDate: @event.EndDate,
-                maxDoctors: @event.MaxDoctors,
-                maxAppointmentsPerMonth: @event.MaxAppointmentsPerMonth,
-                features: @event.Features
-            );
+            var emailData = new HospitalSubscriptionCreatedEmailData
+            {
+                HospitalName = @event.HospitalName,
+                ContactPersonName = @event.ContactPersonName,
+                PlanName = @event.PlanName,
+                BillingCycle = @event.BillingCycle,
+                Price = @event.Price,
+                StartDate = @event.StartDate,
+                EndDate = @event.EndDate,
+                MaxDoctors = @event.MaxDoctors,
+                MaxAppointmentsPerMonth = @event.MaxAppointmentsPerMonth,
+                Features = @event.Features
+            };
+            var emailHtml = EmailTemplate.BuildHospitalSubscriptionCreatedEmailHtml(emailData);
 
             var subject = $"Đăng ký gói dịch vụ {@event.PlanName} thành công - BookingCare";
 
