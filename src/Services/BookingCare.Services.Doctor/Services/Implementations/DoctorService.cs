@@ -1119,7 +1119,8 @@ public class DoctorService : BaseService, IDoctorService
         return doctors.Where(d =>
             d.FirstName.ToLower().Contains(searchLower) ||
             d.LastName.ToLower().Contains(searchLower) ||
-            (d.FirstName + " " + d.LastName).ToLower().Contains(searchLower)
+            (d.FirstName + " " + d.LastName).ToLower().Contains(searchLower) ||
+            (d.LastName + " " + d.FirstName).ToLower().Contains(searchLower)
         ).ToList();
     }
 
@@ -1765,6 +1766,7 @@ public class DoctorService : BaseService, IDoctorService
     {
         return new DoctorQueryRequest
         {
+            SearchTerm = filter.SearchTerm,
             SpecialtyId = filter.SpecialtyId,
             SpecialtyIds = filter.SpecialtyIds,
             PositionId = filter.PositionId,

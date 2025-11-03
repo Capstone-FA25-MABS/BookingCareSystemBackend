@@ -132,6 +132,7 @@ public class ExperienceRange
 
 public class DoctorAdvancedFilterRequest : BaseDoctorQueryRequest
 {
+    public string? SearchTerm { get; set; }
     public Guid? SpecialtyId { get; set; }
     [JsonPropertyName("specialtyIds")]
     public List<Guid>? SpecialtyIds { get; set; } // Support multiple specialty filters
