@@ -1,7 +1,8 @@
-using Amazon.CloudFront;
+﻿using Amazon.CloudFront;
 using Amazon.CloudFront.Model;
 using Amazon.S3;
 using Amazon.S3.Model;
+using BookingCare.Shared.FileUpload.Helpers;
 using BookingCare.Shared.FileUpload.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -52,22 +53,35 @@ public class S3FileUploadService : IFileUploadService
             // Save stream length BEFORE upload (AWS SDK may dispose/close the stream)
             var fileSize = request.FileStream.Length;
 
+            // Determine proper Content-Type with charset for text files
+            var contentTypeWithCharset = GetContentTypeWithCharset(request.ContentType, request.FileName);
+
             // Create S3 request
             var s3Request = new PutObjectRequest
             {
                 BucketName = _s3Config.BucketName,
                 Key = s3Key,
                 InputStream = request.FileStream,
-                ContentType = request.ContentType,
+                ContentType = contentTypeWithCharset,  // Include charset
                 ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256,
                 CannedACL = S3CannedACL.Private
             };
+
+            // Add Content-Encoding header for text files
+            if (IsTextBasedFile(request.ContentType, request.FileName))
+            {
+                s3Request.Headers.ContentEncoding = "utf-8";
+            }
 
             // Add metadata
             foreach (var metadata in request.Metadata)
             {
                 s3Request.Metadata.Add(metadata.Key, metadata.Value);
             }
+
+            // Add encoding metadata
+            s3Request.Metadata.Add("x-amz-meta-encoding", "utf-8");
+            s3Request.Metadata.Add("x-amz-meta-original-filename", request.FileName);
 
             // Upload to S3
             var response = await _s3Client.PutObjectAsync(s3Request, cancellationToken);
@@ -87,7 +101,7 @@ public class S3FileUploadService : IFileUploadService
                     FileName = request.FileName,
                     S3Key = s3Key,
                     FileSize = fileSize, // Use saved value instead of accessing disposed stream
-                    ContentType = request.ContentType
+                    ContentType = contentTypeWithCharset
                 };
             }
 
@@ -106,6 +120,72 @@ public class S3FileUploadService : IFileUploadService
                 ErrorMessage = ex.Message
             };
         }
+    }
+
+    /// <summary>
+    /// Get Content-Type with proper charset for text-based files
+    /// </summary>
+    private static string GetContentTypeWithCharset(string contentType, string fileName)
+    {
+        // If already has charset, return as-is
+        if (contentType.Contains("charset=", StringComparison.OrdinalIgnoreCase))
+        {
+            return contentType;
+        }
+
+        // Add UTF-8 charset for text-based files
+        if (IsTextBasedFile(contentType, fileName))
+        {
+            return $"{contentType}; charset=utf-8";
+        }
+
+        return contentType;
+    }
+
+    /// <summary>
+    /// Check if file is text-based and needs UTF-8 encoding
+    /// </summary>
+    private static bool IsTextBasedFile(string contentType, string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+
+        // Check by Content-Type
+        if (contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Check common text-based content types
+        var textBasedContentTypes = new[]
+        {
+            "application/json",
+            "application/xml",
+            "application/javascript",
+            "application/x-javascript",
+            "application/ecmascript",
+            "application/xhtml+xml",
+            "application/rss+xml",
+            "application/atom+xml",
+            "application/x-httpd-php",
+            "application/x-sh",
+            "application/x-csh"
+        };
+
+        if (textBasedContentTypes.Any(t => contentType.Equals(t, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        // Check by file extension
+        var textExtensions = new[]
+        {
+            ".txt", ".html", ".htm", ".css", ".js", ".json", ".xml",
+            ".csv", ".md", ".log", ".sql", ".sh", ".bat", ".ps1",
+            ".php", ".py", ".rb", ".java", ".cs", ".cpp", ".h",
+            ".yaml", ".yml", ".toml", ".ini", ".conf", ".config"
+        };
+
+        return textExtensions.Contains(extension);
     }
 
     public async Task<MultipleFileUploadResult> UploadMultipleFilesAsync(IEnumerable<FileUploadRequest> requests, CancellationToken cancellationToken = default)
@@ -431,11 +511,13 @@ public class S3FileUploadService : IFileUploadService
 
         if (generateUnique)
         {
-            var extension = Path.GetExtension(fileName);
-            var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
-            var uniqueId = Guid.NewGuid().ToString("N")[..8];
-            var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd");
-            fileName = $"{nameWithoutExtension}_{timestamp}_{uniqueId}{extension}";
+            // ✅ FIX: Use helper to generate URL-safe unique filename
+    fileName = FileNameHelper.GenerateUniqueFileName(fileName);
+        }
+        else
+        {
+     // ✅ FIX: Sanitize filename even when not generating unique
+          fileName = FileNameHelper.SanitizeFileName(fileName);
         }
 
         return $"{cleanFolder}{fileName}";

@@ -298,6 +298,7 @@ public class ChatHub : Hub
                     Type = message.Type,
                     CreatedAt = message.CreatedAt,
                     Status = message.Status,
+                    Attachments = message.Attachments, // ✅ Include attachments for real-time updates
                 };
 
                 // 1. Send to conversation group (for users currently in the conversation)
