@@ -63,11 +63,14 @@ builder.Services.AddRabbitMQEventBus(builder.Configuration, "notification-servic
 builder.Services.AddIntegrationEventHandler<NotificationSendEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentRefundRequestedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentNoRefundNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentCancelledSuccessNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentCancelledWithOptionsNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<DoctorCredentialsGeneratedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalSubscriptionCreatedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalSubscriptionUpgradedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationSubmittedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationStatusUpdatedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalAccountCreatedEventHandler>();
@@ -100,6 +103,7 @@ app.UseEventBus(eventBus =>
     eventBus.Subscribe<NotificationSendEvent, NotificationSendEventHandler>();
     eventBus.Subscribe<AppointmentRefundRequestedIntegrationEvent, AppointmentRefundRequestedEventHandler>();
     eventBus.Subscribe<AppointmentNoRefundNotificationEvent, AppointmentNoRefundNotificationEventHandler>();
+    eventBus.Subscribe<AppointmentCancelledSuccessNotificationEvent, AppointmentCancelledSuccessNotificationEventHandler>();
     eventBus.Subscribe<AppointmentCancelledWithOptionsNotificationEvent, AppointmentCancelledWithOptionsNotificationEventHandler>();
     eventBus.Subscribe<RefundHistoryCompletedIntegrationEvent, RefundHistoryCompletedEventHandler>();
     eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
@@ -109,6 +113,10 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to doctor credentials generated event for sending login credentials
     eventBus.Subscribe<DoctorCredentialsGeneratedEvent, DoctorCredentialsGeneratedEventHandler>();
+
+    // Subscribe to hospital subscription events for sending confirmation emails
+    eventBus.Subscribe<HospitalSubscriptionCreatedEvent, HospitalSubscriptionCreatedEventHandler>();
+    eventBus.Subscribe<HospitalSubscriptionUpgradedEvent, HospitalSubscriptionUpgradedEventHandler>();
 
     // Subscribe to hospital registration events for sending confirmation/status emails
     eventBus.Subscribe<HospitalRegistrationSubmittedEvent, HospitalRegistrationSubmittedEventHandler>();

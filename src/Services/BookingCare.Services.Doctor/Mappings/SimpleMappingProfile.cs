@@ -12,7 +12,8 @@ public class SimpleMappingProfile : Profile
         CreateMap<SpecialtyEntity, SpecialtySimpleResponse>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
             .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name))
-            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom(src => src.ImageUrl));
+            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom(src => src.ImageUrl))
+            .ForMember(dest => dest.DoctorCount, opt => opt.Ignore()); // Will be set manually in service
 
         // Position Entity to Simple Response mappings
         CreateMap<PositionEntity, PositionSimpleResponse>()
