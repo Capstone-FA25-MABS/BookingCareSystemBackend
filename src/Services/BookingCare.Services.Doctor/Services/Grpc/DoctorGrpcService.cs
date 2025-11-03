@@ -595,4 +595,62 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }
     }
+
+    /// <summary>
+    /// Get doctors with full details by hospital ID (OPTIMIZED - single gRPC call)
+    /// Combines GetDoctorAccountIdsByHospitalId + GetDoctorsByAccountIds into one call
+    /// </summary>
+    public override async Task<Protos.DoctorBatchResponse> GetDoctorsByHospitalId(
+        Protos.GetDoctorsByHospitalIdRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[DoctorGrpcService] GetDoctorsByHospitalId called for hospital {HospitalId}", request.HospitalId);
+
+            if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            // Get doctor account IDs for this hospital (optimized query)
+            var accountIds = await _doctorService.GetDoctorAccountIdsByHospitalIdAsync(hospitalId);
+
+            if (!accountIds.Any())
+            {
+                _logger.LogInformation("[DoctorGrpcService] No doctors found for hospital {HospitalId}", hospitalId);
+                return new Protos.DoctorBatchResponse();
+            }
+
+            // Get doctor details by account IDs (reuse existing optimized method)
+            var doctors = await _doctorService.GetDoctorsByAccountIdsAsync(accountIds);
+
+            var response = new Protos.DoctorBatchResponse();
+            foreach (var doctor in doctors)
+            {
+                response.Doctors.Add(new Protos.DoctorBasicInfo
+                {
+                    AccountId = doctor.AccountId.ToString(),
+                    Email = doctor.Email,
+                    FullName = doctor.FullName,
+                    AvatarUrl = doctor.AvatarUrl,
+                    Address = doctor.Address
+                });
+            }
+
+            _logger.LogInformation("[DoctorGrpcService] Returning {Count} doctors for hospital {HospitalId}",
+                doctors.Count, hospitalId);
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorsByHospitalId for hospital {HospitalId}", request.HospitalId);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
 }

@@ -29,11 +29,23 @@ public class DynamicAuthorizationPolicyProvider : IAuthorizationPolicyProvider
         }
         if (policyName.StartsWith(RolePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            var role = policyName.Substring(RolePrefix.Length);
-            var policy = new AuthorizationPolicyBuilder()
-                .AddRequirements(new RoleRequirement(role))
+            var rolesString = policyName.Substring(RolePrefix.Length);
+
+            // Support multiple roles separated by comma: "Role:Admin,Patient" (OR logic)
+            if (rolesString.Contains(','))
+            {
+                var roles = rolesString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var policy = new AuthorizationPolicyBuilder()
+                    .RequireRole(roles) // OR logic - user must have at least ONE of these roles
+                    .Build();
+                return Task.FromResult<AuthorizationPolicy?>(policy);
+            }
+
+            // Single role
+            var singleRolePolicy = new AuthorizationPolicyBuilder()
+                .AddRequirements(new RoleRequirement(rolesString))
                 .Build();
-            return Task.FromResult<AuthorizationPolicy?>(policy);
+            return Task.FromResult<AuthorizationPolicy?>(singleRolePolicy);
         }
         return _fallback.GetPolicyAsync(policyName);
     }
