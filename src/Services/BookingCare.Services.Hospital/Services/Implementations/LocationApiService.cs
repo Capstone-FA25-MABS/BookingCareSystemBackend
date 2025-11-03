@@ -1,57 +1,61 @@
 using BookingCare.Services.Hospital.Models.DTOs.Responses;
 using BookingCare.Services.Hospital.Services.Interfaces;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace BookingCare.Services.Hospital.Services.Implementations;
 
 /// <summary>
-/// Service for handling location-related API calls to provinces.open-api.vn
+/// Service for handling location data from local JSON files
 /// </summary>
 public class LocationApiService : ILocationApiService
 {
-    private readonly HttpClient _httpClient;
+    private readonly IHostEnvironment _hostEnvironment;
     private readonly ILogger<LocationApiService> _logger;
-    private readonly string _provincesApiBaseUrl = "https://provinces.open-api.vn/api/";
+    private readonly string _dataFolderPath;
 
     public LocationApiService(
-        HttpClient httpClient,
+        IHostEnvironment hostEnvironment,
         ILogger<LocationApiService> logger)
     {
-        _httpClient = httpClient;
+        _hostEnvironment = hostEnvironment;
         _logger = logger;
+        _dataFolderPath = Path.Combine(_hostEnvironment.ContentRootPath, "Data");
     }
 
-    private async Task<T?> CallApiAsync<T>(string endpoint, string operationName)
+    private async Task<T?> LoadJsonFileAsync<T>(string fileName, string operationName)
     {
         try
         {
-            var url = $"{_provincesApiBaseUrl}{endpoint}";
-            _logger.LogInformation("Calling external API: {Url} for {OperationName}", url, operationName);
+            var filePath = Path.Combine(_dataFolderPath, fileName);
 
-            var response = await _httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("File not found: {FilePath} for {OperationName}", filePath, operationName);
+                return default;
+            }
 
-            var jsonContent = await response.Content.ReadAsStringAsync();
-            _logger.LogInformation("API response received for {OperationName}, content length: {ContentLength}", operationName, jsonContent.Length);
+            var jsonContent = await File.ReadAllTextAsync(filePath);
+            _logger.LogInformation("File loaded for {OperationName}, content length: {ContentLength}", operationName, jsonContent.Length);
 
             var result = JsonSerializer.Deserialize<T>(jsonContent, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _logger.LogInformation("API call successful for {OperationName}", operationName);
+            _logger.LogInformation("File loaded successfully for {OperationName}", operationName);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling API for {OperationName}", operationName);
+            _logger.LogError(ex, "Error loading file for {OperationName}", operationName);
             return default;
         }
     }
 
     /// <summary>
-    /// Get province name from ID using provinces.open-api.vn
+    /// Get province name from ID using local JSON file
     /// </summary>
     public async Task<string?> GetProvinceNameByIdAsync(string? provinceId)
     {
@@ -60,31 +64,33 @@ public class LocationApiService : ILocationApiService
 
         _logger.LogInformation("Getting province name for ID: {ProvinceId}", provinceId);
 
-        // Fallback hardcoded data for testing
-        var fallbackProvinces = new Dictionary<string, string>
-        {
-            { "79", "Thành phố Hồ Chí Minh" },
-            { "01", "Thành phố Hà Nội" },
-            { "35", "Tỉnh Hà Nam" }
-        };
-
-        if (fallbackProvinces.ContainsKey(provinceId))
-        {
-            var fallbackResult = fallbackProvinces[provinceId];
-            _logger.LogInformation("Using fallback data - Retrieved province name: {ProvinceName} for ID: {ProvinceId}", fallbackResult, provinceId);
-            return fallbackResult;
-        }
-
-        var provinces = await CallApiAsync<List<ProvinceApiModel>>("?depth=1", "GetProvinceNameById");
+        // Use flexible model to handle both int and string code types
+        var provinces = await LoadJsonFileAsync<List<ProvinceApiModelFlexible>>("provinces.json", "GetProvinceNameById");
         if (provinces == null)
         {
-            _logger.LogWarning("Failed to get provinces from API for ID: {ProvinceId}", provinceId);
+            _logger.LogWarning("Failed to get provinces from local file for ID: {ProvinceId}", provinceId);
             return null;
         }
 
-        _logger.LogInformation("Retrieved {ProvinceCount} provinces from API", provinces.Count);
+        _logger.LogInformation("Retrieved {ProvinceCount} provinces from local file", provinces.Count);
 
-        var province = provinces.FirstOrDefault(p => p.Code.ToString() == provinceId);
+        // Try to match province by code - handle both int and string formats
+        var province = provinces.FirstOrDefault(p =>
+        {
+            var codeStr = p.GetCodeAsString();
+            // Try direct match first
+            if (codeStr == provinceId)
+                return true;
+
+            // Try parsing provinceId as int and comparing
+            if (int.TryParse(provinceId, out var provinceIdInt))
+            {
+                if (int.TryParse(codeStr, out var codeInt) && codeInt == provinceIdInt)
+                    return true;
+            }
+
+            return false;
+        });
         var result = province?.Name;
 
         _logger.LogInformation("Retrieved province name: {ProvinceName} for ID: {ProvinceId}", result, provinceId);
@@ -92,7 +98,7 @@ public class LocationApiService : ILocationApiService
     }
 
     /// <summary>
-    /// Get district name from ID using provinces.open-api.vn
+    /// Get district name from ID using local JSON file
     /// </summary>
     public async Task<string?> GetDistrictNameByIdAsync(string? districtId)
     {
@@ -101,8 +107,7 @@ public class LocationApiService : ILocationApiService
 
         try
         {
-            // Try with flexible model first to handle JSON deserialization issues
-            var provinces = await CallApiAsync<List<ProvinceWithDistrictsApiModelFlexible>>("?depth=2", "GetDistrictNameById");
+            var provinces = await LoadJsonFileAsync<List<ProvinceWithDistrictsApiModelFlexible>>("districts.json", "GetDistrictNameById");
             if (provinces == null)
                 return null;
 
@@ -127,7 +132,7 @@ public class LocationApiService : ILocationApiService
     }
 
     /// <summary>
-    /// Get province ID from district ID using provinces.open-api.vn
+    /// Get province ID from district ID using local JSON file
     /// </summary>
     public async Task<string?> GetProvinceIdFromDistrictIdAsync(string? districtId)
     {
@@ -136,8 +141,7 @@ public class LocationApiService : ILocationApiService
 
         try
         {
-            // Try with flexible model first to handle JSON deserialization issues
-            var provinces = await CallApiAsync<List<ProvinceWithDistrictsApiModelFlexible>>("?depth=2", "GetProvinceIdFromDistrictId");
+            var provinces = await LoadJsonFileAsync<List<ProvinceWithDistrictsApiModelFlexible>>("districts.json", "GetProvinceIdFromDistrictId");
             if (provinces == null)
                 return null;
 
@@ -220,12 +224,26 @@ public class LocationApiService : ILocationApiService
         var locationInfo = await GetLocationInfoAsync(provinceId, districtId);
         if (locationInfo == null)
         {
-            _logger.LogWarning("Location info not found for ProvinceId: {ProvinceId}, DistrictId: {DistrictId}", provinceId, districtId);
+            _logger.LogWarning("Location info not found for ProvinceId: {ProvinceId}, DistrictId: {DistrictId}. Returning all hospitals.", provinceId, districtId);
             return hospitals;
         }
 
-        _logger.LogInformation("Location info retrieved - Province: {ProvinceName}, District: {DistrictName}",
-            locationInfo.ProvinceName, locationInfo.DistrictName);
+        // Validate that we have at least province name when filtering by province
+        if (!string.IsNullOrEmpty(provinceId) && string.IsNullOrEmpty(locationInfo.ProvinceName))
+        {
+            _logger.LogWarning("ProvinceId provided ({ProvinceId}) but ProvinceName is empty. Cannot filter by location.", provinceId);
+            return hospitals;
+        }
+
+        // Validate that we have district name when filtering by district
+        if (!string.IsNullOrEmpty(districtId) && string.IsNullOrEmpty(locationInfo.DistrictName))
+        {
+            _logger.LogWarning("DistrictId provided ({DistrictId}) but DistrictName is empty. Cannot filter by location.", districtId);
+            return hospitals;
+        }
+
+        _logger.LogInformation("Location info retrieved - Province: {ProvinceName} (ID: {ProvinceId}), District: {DistrictName} (ID: {DistrictId})",
+            locationInfo.ProvinceName, locationInfo.ProvinceId, locationInfo.DistrictName, locationInfo.DistrictId);
 
         var filteredHospitals = hospitals.Where(hospital =>
             IsHospitalInLocation(hospital, locationInfo)).ToList();
@@ -292,10 +310,31 @@ public class LocationApiService : ILocationApiService
         else
         {
             // Filter by province only
-            result = hospitalAddress.Contains(provinceName) ||
-                    hospitalAddress.Contains(cleanProvinceName) ||
-                    hospitalAddress.Contains(locationInfo.ProvinceName?.ToLowerInvariant() ?? "");
-            _logger.LogInformation("Province filter result: {Result}", result);
+            // Ensure we have a valid province name to match against
+            if (string.IsNullOrEmpty(provinceName))
+            {
+                _logger.LogWarning("Province name is empty, cannot filter by province. Hospital: {HospitalId}", hospital.Id);
+                return false;
+            }
+
+            // Check multiple variations: full name and clean name
+            result = (!string.IsNullOrEmpty(provinceName) && hospitalAddress.Contains(provinceName)) ||
+                    (!string.IsNullOrEmpty(cleanProvinceName) && hospitalAddress.Contains(cleanProvinceName));
+
+            // Additional check: try with normalized Vietnamese characters (đ -> d)
+            if (!result && !string.IsNullOrEmpty(cleanProvinceName))
+            {
+                var normalizedAddress = hospitalAddress
+                    .Replace("đ", "d")
+                    .Replace("Đ", "d");
+                var normalizedProvince = cleanProvinceName
+                    .Replace("đ", "d")
+                    .Replace("Đ", "d");
+                result = normalizedAddress.Contains(normalizedProvince);
+            }
+
+            _logger.LogInformation("Province filter result: {Result} - Address='{Address}', ProvinceName='{ProvinceName}', CleanProvinceName='{CleanProvinceName}'",
+                result, hospitalAddress, locationInfo.ProvinceName, cleanProvinceName);
         }
 
         return result;
