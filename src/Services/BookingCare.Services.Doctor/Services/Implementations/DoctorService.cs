@@ -2282,4 +2282,32 @@ public class DoctorService : BaseService, IDoctorService
 
     #endregion
 
+    #region Hospital Staff Management Operations
+
+    /// <summary>
+    /// Get list of doctor account IDs by hospital ID (ultra-optimized for hospital staff management)
+    /// This only queries AccountId field from DB, no JOINs, minimal memory and network usage
+    /// </summary>
+    public async Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId)
+    {
+        try
+        {
+            Logger.LogInformation("Getting doctor account IDs for hospital: {HospitalId}", hospitalId);
+
+            // ULTRA-OPTIMIZED: Direct query for AccountIds only, no entity loading, no JOINs
+            var accountIds = await _repository.Value.GetDoctorAccountIdsByHospitalIdAsync(hospitalId);
+
+            Logger.LogInformation("Found {Count} doctors for hospital {HospitalId}", accountIds.Count, hospitalId);
+            return accountIds;
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = $"Error getting doctor account IDs for hospital {hospitalId}";
+            Logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
+        }
+    }
+
+    #endregion
+
 }

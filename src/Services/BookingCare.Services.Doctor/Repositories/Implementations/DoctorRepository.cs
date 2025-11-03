@@ -361,6 +361,19 @@ public class DoctorRepository : IDoctorRepository
             .ToListAsync();
     }
 
+    /// <summary>
+    /// Get only AccountIds of doctors by hospital ID (ultra-optimized for hospital staff management)
+    /// This query only selects AccountId field, no JOINs, minimal memory and network usage
+    /// </summary>
+    public async Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId)
+    {
+        return await _context.Doctors
+            .AsNoTracking() // Read-only operation
+            .Where(d => d.HospitalId == hospitalId)
+            .Select(d => d.AccountId) // Only select AccountId - no JOINs, minimal data
+            .ToListAsync();
+    }
+
     public async Task<List<DoctorEntity>> GetDoctorsBySpecialtyAsync(Guid specialtyId)
     {
         return await _context.Doctors
