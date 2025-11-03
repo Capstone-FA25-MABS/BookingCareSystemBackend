@@ -66,8 +66,18 @@ public class ChatHub : Hub
                 Context.ConnectionId
             );
 
-            // Notify other users that this user is online
+            // 1. Send list of currently online users to the newly connected user
+            var onlineUsers = UserConnections.Keys.ToList();
+            await Clients.Caller.SendAsync("OnlineUsers", onlineUsers);
+            _logger.LogInformation(
+                "📤 Sent online users list to {UserId}: {Count} users",
+                userId,
+                onlineUsers.Count
+            );
+
+            // 2. Notify other users that this user is now online
             await Clients.Others.SendAsync("UserOnline", userId);
+            _logger.LogInformation("📤 Notified others that {UserId} is online", userId);
         }
 
         await base.OnConnectedAsync();
@@ -567,7 +577,9 @@ public class ChatHub : Hub
             _logger.LogInformation("✅ UserId extracted: {UserId}", userId);
         }
 
-        return userId;
+        // ⚠️ IMPORTANT: Normalize to UPPERCASE for case-insensitive matching
+        // This ensures consistent group names and dictionary lookups
+        return userId?.ToUpperInvariant() ?? string.Empty;
     }
 
     /// <summary>
@@ -580,10 +592,11 @@ public class ChatHub : Hub
 
     /// <summary>
     /// Tạo tên group cho user (để nhận notifications cá nhân)
+    /// ⚠️ IMPORTANT: Normalize to UPPERCASE to handle case-insensitive userId matching
     /// </summary>
     private static string GetUserGroupName(string userId)
     {
-        return $"user_{userId}";
+        return $"user_{userId?.ToUpperInvariant() ?? string.Empty}";
     }
 
     /// <summary>
