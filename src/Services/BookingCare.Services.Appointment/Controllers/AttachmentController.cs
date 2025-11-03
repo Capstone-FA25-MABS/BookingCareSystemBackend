@@ -54,7 +54,22 @@ public class AttachmentController : BaseApiController
                 return BadRequest(result.ErrorMessage!);
             }
 
-            return Success(result.UploadResult, config.SuccessMessage);
+            // Return CloudFront URL for better performance and public access
+            // Fallback to FileUrl if CloudFront is not available
+            var publicUrl = result.UploadResult?.CloudFrontUrl ??
+                           result.UploadResult?.FileUrl ??
+                           string.Empty;
+
+            var response = new
+            {
+                fileUrl = publicUrl,
+                fileName = result.UploadResult?.FileName,
+                fileSize = result.UploadResult?.FileSize ?? 0,
+                contentType = result.UploadResult?.ContentType,
+                uploadedAt = result.UploadResult?.UploadedAt ?? DateTime.UtcNow
+            };
+
+            return Success(response, config.SuccessMessage);
         }
         catch (UnauthorizedAccessException ex)
         {
