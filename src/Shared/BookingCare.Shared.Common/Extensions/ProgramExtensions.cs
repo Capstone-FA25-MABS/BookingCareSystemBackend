@@ -21,6 +21,9 @@ public static class ProgramExtensions
             .AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                // Handle reference loops to prevent circular reference errors
+                options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                options.JsonSerializerOptions.MaxDepth = 32;
             });
         return services;
     }

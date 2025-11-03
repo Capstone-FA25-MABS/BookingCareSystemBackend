@@ -172,5 +172,11 @@ public class SpecialtyRepository : ISpecialtyRepository
             .ToListAsync();
     }
 
+    public async Task<int> GetDoctorCountBySpecialtyIdAsync(Guid specialtyId)
+    {
+        return await _context.Doctors
+            .CountAsync(d => d.SpecialtyId == specialtyId);
+    }
+
     #endregion
 }
