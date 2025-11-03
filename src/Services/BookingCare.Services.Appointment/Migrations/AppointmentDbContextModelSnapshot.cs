@@ -125,14 +125,15 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.HasIndex("DoctorId", "AppointmentDate", "AppointmentTimeId")
                         .IsUnique()
                         .HasDatabaseName("IX_Doctor_Date_Time_Unique")
-                        .HasFilter("[DoctorId] IS NOT NULL");
+                        .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
 
                     b.HasIndex("DoctorId", "AppointmentDate", "Status")
                         .HasDatabaseName("IX_Doctor_Date_Status");
 
                     b.HasIndex("PatientId", "AppointmentDate", "AppointmentTimeId")
                         .IsUnique()
-                        .HasDatabaseName("IX_Patient_Date_Time_Unique");
+                        .HasDatabaseName("IX_Patient_Date_Time_Unique")
+                        .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
 
                     b.HasIndex("PatientId", "AppointmentDate", "Status")
                         .HasDatabaseName("IX_Patient_Date_Status");

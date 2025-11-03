@@ -51,7 +51,7 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateAppointment([FromBody] CreateAppointmentRequest request)
     {
-        var appointmentId = await _appointmentService.CreateAppointmentAsync(request);
+        var appointmentId = await _appointmentService.CreateAppointmentAsync(request, request.SkipPayment);
 
         if (appointmentId == Guid.Empty)
             return BadRequest("Failed to create appointment");
@@ -170,9 +170,6 @@ public class AppointmentsController : BaseApiController
             return BadRequest(IdMismatchErrorMessage);
 
         var result = await _appointmentService.CancelAppointmentAsync(request);
-
-        if (result == null)
-            return BadRequest("Failed to cancel appointment");
 
         return Success(result, "Appointment cancelled successfully");
     }

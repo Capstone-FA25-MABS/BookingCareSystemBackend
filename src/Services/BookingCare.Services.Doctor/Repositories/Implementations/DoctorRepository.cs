@@ -268,7 +268,8 @@ public class DoctorRepository : IDoctorRepository
             queryable = queryable.Where(d =>
                 d.FirstName.ToLower().Contains(searchTerm) ||
                 d.LastName.ToLower().Contains(searchTerm) ||
-                (d.FirstName + " " + d.LastName).ToLower().Contains(searchTerm));
+                (d.FirstName + " " + d.LastName).ToLower().Contains(searchTerm) ||
+                (d.LastName + " " + d.FirstName).ToLower().Contains(searchTerm));
         }
 
         // Language filters - optimized with joins instead of subqueries
@@ -357,6 +358,19 @@ public class DoctorRepository : IDoctorRepository
             .Include(d => d.DoctorLanguages)
                 .ThenInclude(dl => dl.Language)
             .Where(d => d.HospitalId == hospitalId)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get only AccountIds of doctors by hospital ID (ultra-optimized for hospital staff management)
+    /// This query only selects AccountId field, no JOINs, minimal memory and network usage
+    /// </summary>
+    public async Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId)
+    {
+        return await _context.Doctors
+            .AsNoTracking() // Read-only operation
+            .Where(d => d.HospitalId == hospitalId)
+            .Select(d => d.AccountId) // Only select AccountId - no JOINs, minimal data
             .ToListAsync();
     }
 

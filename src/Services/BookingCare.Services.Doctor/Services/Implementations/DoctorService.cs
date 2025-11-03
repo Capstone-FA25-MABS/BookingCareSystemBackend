@@ -1119,7 +1119,8 @@ public class DoctorService : BaseService, IDoctorService
         return doctors.Where(d =>
             d.FirstName.ToLower().Contains(searchLower) ||
             d.LastName.ToLower().Contains(searchLower) ||
-            (d.FirstName + " " + d.LastName).ToLower().Contains(searchLower)
+            (d.FirstName + " " + d.LastName).ToLower().Contains(searchLower) ||
+            (d.LastName + " " + d.FirstName).ToLower().Contains(searchLower)
         ).ToList();
     }
 
@@ -1765,6 +1766,7 @@ public class DoctorService : BaseService, IDoctorService
     {
         return new DoctorQueryRequest
         {
+            SearchTerm = filter.SearchTerm,
             SpecialtyId = filter.SpecialtyId,
             SpecialtyIds = filter.SpecialtyIds,
             PositionId = filter.PositionId,
@@ -2276,6 +2278,34 @@ public class DoctorService : BaseService, IDoctorService
     public async Task<bool> UpdateAvatarUrlByAccountIdAsync(Guid accountId, string avatarUrl)
     {
         return await UpdateDoctorAvatarAsync(accountId, avatarUrl);
+    }
+
+    #endregion
+
+    #region Hospital Staff Management Operations
+
+    /// <summary>
+    /// Get list of doctor account IDs by hospital ID (ultra-optimized for hospital staff management)
+    /// This only queries AccountId field from DB, no JOINs, minimal memory and network usage
+    /// </summary>
+    public async Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId)
+    {
+        try
+        {
+            Logger.LogInformation("Getting doctor account IDs for hospital: {HospitalId}", hospitalId);
+
+            // ULTRA-OPTIMIZED: Direct query for AccountIds only, no entity loading, no JOINs
+            var accountIds = await _repository.Value.GetDoctorAccountIdsByHospitalIdAsync(hospitalId);
+
+            Logger.LogInformation("Found {Count} doctors for hospital {HospitalId}", accountIds.Count, hospitalId);
+            return accountIds;
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = $"Error getting doctor account IDs for hospital {hospitalId}";
+            Logger.LogError(ex, errorMessage);
+            throw new InvalidOperationException(errorMessage, ex);
+        }
     }
 
     #endregion

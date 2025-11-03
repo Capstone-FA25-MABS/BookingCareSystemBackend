@@ -2,6 +2,7 @@ using BookingCare.Services.Doctor.Models.ApiModels;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Services;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
@@ -10,52 +11,58 @@ using System.Text.Json;
 namespace BookingCare.Services.Doctor.Services.Implementations;
 
 /// <summary>
-/// Service for handling location-related API calls to provinces.open-api.vn
+/// Service for handling location data from local JSON files
 /// </summary>
 public class LocationApiService : BaseService, ILocationApiService
 {
-    private readonly HttpClient _httpClient;
-    private readonly string _provincesApiBaseUrl = "https://provinces.open-api.vn/api/";
+    private readonly IHostEnvironment _hostEnvironment;
+    private readonly string _dataFolderPath;
 
     public LocationApiService(
-        HttpClient httpClient,
+        IHostEnvironment hostEnvironment,
         ILogger<LocationApiService> logger) : base(logger)
     {
-        _httpClient = httpClient;
+        _hostEnvironment = hostEnvironment;
+        _dataFolderPath = Path.Combine(_hostEnvironment.ContentRootPath, "Data");
     }
 
-    private async Task<T?> CallApiAsync<T>(string endpoint, string operationName)
+    private async Task<T?> LoadJsonFileAsync<T>(string fileName, string operationName)
     {
         try
         {
-            var response = await _httpClient.GetAsync($"{_provincesApiBaseUrl}{endpoint}");
-            response.EnsureSuccessStatusCode();
+            var filePath = Path.Combine(_dataFolderPath, fileName);
 
-            var jsonContent = await response.Content.ReadAsStringAsync();
+            if (!File.Exists(filePath))
+            {
+                Logger.LogWarning("File not found: {FilePath} for {OperationName}", filePath, operationName);
+                return default;
+            }
+
+            var jsonContent = await File.ReadAllTextAsync(filePath);
             var result = JsonSerializer.Deserialize<T>(jsonContent, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            Logger.LogDebug("API call successful for {OperationName}", operationName);
+            Logger.LogDebug("File loaded successfully: {FilePath} for {OperationName}", filePath, operationName);
             return result;
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error calling API for {OperationName}", operationName);
+            Logger.LogError(ex, "Error loading file for {OperationName}", operationName);
             return default;
         }
     }
 
     /// <summary>
-    /// Get province name from ID using provinces.open-api.vn
+    /// Get province name from ID using local JSON file
     /// </summary>
     public async Task<string?> GetProvinceNameByIdAsync(string? provinceId)
     {
         if (string.IsNullOrEmpty(provinceId))
             return null;
 
-        var provinces = await CallApiAsync<List<ProvinceApiModel>>("?depth=1", "GetProvinceNameById");
+        var provinces = await LoadJsonFileAsync<List<ProvinceApiModel>>("provinces.json", "GetProvinceNameById");
         if (provinces == null)
             return null;
 
@@ -67,14 +74,14 @@ public class LocationApiService : BaseService, ILocationApiService
     }
 
     /// <summary>
-    /// Get district name from ID using provinces.open-api.vn
+    /// Get district name from ID using local JSON file
     /// </summary>
     public async Task<string?> GetDistrictNameByIdAsync(string? districtId)
     {
         if (string.IsNullOrEmpty(districtId))
             return null;
 
-        var provinces = await CallApiAsync<List<ProvinceWithDistrictsApiModel>>("?depth=2", "GetDistrictNameById");
+        var provinces = await LoadJsonFileAsync<List<ProvinceWithDistrictsApiModel>>("districts.json", "GetDistrictNameById");
         if (provinces == null)
             return null;
 
@@ -93,7 +100,7 @@ public class LocationApiService : BaseService, ILocationApiService
     }
 
     /// <summary>
-    /// Get province ID from district ID using provinces.open-api.vn
+    /// Get province ID from district ID using local JSON file
     /// </summary>
     public async Task<string?> GetProvinceIdFromDistrictIdAsync(string? districtId)
     {
@@ -102,16 +109,11 @@ public class LocationApiService : BaseService, ILocationApiService
 
         try
         {
-            var response = await _httpClient.GetAsync($"{_provincesApiBaseUrl}?depth=2");
-            response.EnsureSuccessStatusCode();
+            var provinces = await LoadJsonFileAsync<List<ProvinceWithDistrictsApiModel>>("districts.json", "GetProvinceIdFromDistrictId");
+            if (provinces == null)
+                return null;
 
-            var jsonContent = await response.Content.ReadAsStringAsync();
-            var provinces = JsonSerializer.Deserialize<List<ProvinceWithDistrictsApiModel>>(jsonContent, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            foreach (var province in provinces ?? new List<ProvinceWithDistrictsApiModel>())
+            foreach (var province in provinces)
             {
                 var district = province.Districts?.FirstOrDefault(d => d.Code.ToString() == districtId);
                 if (district != null)
@@ -132,53 +134,37 @@ public class LocationApiService : BaseService, ILocationApiService
     }
 
     /// <summary>
-    /// Get all provinces from provinces.open-api.vn
+    /// Get all provinces from local JSON file
     /// </summary>
     public async Task<List<ProvinceApiModel>> GetAllProvincesAsync()
     {
         try
         {
-            var response = await _httpClient.GetAsync($"{_provincesApiBaseUrl}?depth=1");
-            response.EnsureSuccessStatusCode();
-
-            var jsonContent = await response.Content.ReadAsStringAsync();
-            var provinces = JsonSerializer.Deserialize<List<ProvinceApiModel>>(jsonContent, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            Logger.LogDebug("Retrieved {Count} provinces from API", provinces?.Count ?? 0);
+            var provinces = await LoadJsonFileAsync<List<ProvinceApiModel>>("provinces.json", "GetAllProvinces");
+            Logger.LogDebug("Retrieved {Count} provinces from local file", provinces?.Count ?? 0);
             return provinces ?? new List<ProvinceApiModel>();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting all provinces from API");
+            Logger.LogError(ex, "Error getting all provinces from local file");
             return new List<ProvinceApiModel>();
         }
     }
 
     /// <summary>
-    /// Get all districts from provinces.open-api.vn
+    /// Get all districts from local JSON file
     /// </summary>
     public async Task<List<ProvinceWithDistrictsApiModel>> GetAllDistrictsAsync()
     {
         try
         {
-            var response = await _httpClient.GetAsync($"{_provincesApiBaseUrl}?depth=2");
-            response.EnsureSuccessStatusCode();
-
-            var jsonContent = await response.Content.ReadAsStringAsync();
-            var provinces = JsonSerializer.Deserialize<List<ProvinceWithDistrictsApiModel>>(jsonContent, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            Logger.LogDebug("Retrieved {Count} provinces with districts from API", provinces?.Count ?? 0);
+            var provinces = await LoadJsonFileAsync<List<ProvinceWithDistrictsApiModel>>("districts.json", "GetAllDistricts");
+            Logger.LogDebug("Retrieved {Count} provinces with districts from local file", provinces?.Count ?? 0);
             return provinces ?? new List<ProvinceWithDistrictsApiModel>();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error getting all districts from API");
+            Logger.LogError(ex, "Error getting all districts from local file");
             return new List<ProvinceWithDistrictsApiModel>();
         }
     }

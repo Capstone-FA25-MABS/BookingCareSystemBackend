@@ -1,0 +1,3164 @@
+[
+  {
+    "code": 1,
+    "name": "Thành phố Hà Nội",
+    "districts": [
+      {
+        "code": 1001,
+        "name": "Quận Ba Đình"
+      },
+      {
+        "code": 1002,
+        "name": "Quận Hoàn Kiếm"
+      },
+      {
+        "code": 1003,
+        "name": "Quận Tây Hồ"
+      },
+      {
+        "code": 1004,
+        "name": "Quận Long Biên"
+      },
+      {
+        "code": 1005,
+        "name": "Quận Cầu Giấy"
+      },
+      {
+        "code": 1006,
+        "name": "Quận Đống Đa"
+      },
+      {
+        "code": 1007,
+        "name": "Quận Hai Bà Trưng"
+      },
+      {
+        "code": 1008,
+        "name": "Quận Hoàng Mai"
+      },
+      {
+        "code": 1009,
+        "name": "Quận Thanh Xuân"
+      },
+      {
+        "code": 1016,
+        "name": "Huyện Sóc Sơn"
+      },
+      {
+        "code": 1017,
+        "name": "Huyện Đông Anh"
+      },
+      {
+        "code": 1018,
+        "name": "Huyện Gia Lâm"
+      },
+      {
+        "code": 1019,
+        "name": "Quận Nam Từ Liêm"
+      },
+      {
+        "code": 1020,
+        "name": "Huyện Thanh Trì"
+      },
+      {
+        "code": 1021,
+        "name": "Quận Bắc Từ Liêm"
+      },
+      {
+        "code": 1250,
+        "name": "Huyện Mê Linh"
+      },
+      {
+        "code": 1268,
+        "name": "Quận Hà Đông"
+      },
+      {
+        "code": 1269,
+        "name": "Thị xã Sơn Tây"
+      },
+      {
+        "code": 1271,
+        "name": "Huyện Ba Vì"
+      },
+      {
+        "code": 1272,
+        "name": "Huyện Phúc Thọ"
+      },
+      {
+        "code": 1273,
+        "name": "Huyện Đan Phượng"
+      },
+      {
+        "code": 1274,
+        "name": "Huyện Hoài Đức"
+      },
+      {
+        "code": 1275,
+        "name": "Huyện Quốc Oai"
+      },
+      {
+        "code": 1276,
+        "name": "Huyện Thạch Thất"
+      },
+      {
+        "code": 1277,
+        "name": "Huyện Chương Mỹ"
+      },
+      {
+        "code": 1278,
+        "name": "Huyện Thanh Oai"
+      },
+      {
+        "code": 1279,
+        "name": "Huyện Thường Tín"
+      },
+      {
+        "code": 1280,
+        "name": "Huyện Phú Xuyên"
+      },
+      {
+        "code": 1281,
+        "name": "Huyện Ứng Hòa"
+      },
+      {
+        "code": 1282,
+        "name": "Huyện Mỹ Đức"
+      }
+    ]
+  },
+  {
+    "code": 2,
+    "name": "Tỉnh Hà Giang",
+    "districts": [
+      {
+        "code": 2024,
+        "name": "Thành phố Hà Giang"
+      },
+      {
+        "code": 2026,
+        "name": "Huyện Đồng Văn"
+      },
+      {
+        "code": 2027,
+        "name": "Huyện Mèo Vạc"
+      },
+      {
+        "code": 2028,
+        "name": "Huyện Yên Minh"
+      },
+      {
+        "code": 2029,
+        "name": "Huyện Quản Bạ"
+      },
+      {
+        "code": 2030,
+        "name": "Huyện Vị Xuyên"
+      },
+      {
+        "code": 2031,
+        "name": "Huyện Bắc Mê"
+      },
+      {
+        "code": 2032,
+        "name": "Huyện Hoàng Su Phì"
+      },
+      {
+        "code": 2033,
+        "name": "Huyện Xín Mần"
+      },
+      {
+        "code": 2034,
+        "name": "Huyện Bắc Quang"
+      },
+      {
+        "code": 2035,
+        "name": "Huyện Quang Bình"
+      }
+    ]
+  },
+  {
+    "code": 4,
+    "name": "Tỉnh Cao Bằng",
+    "districts": [
+      {
+        "code": 4040,
+        "name": "Thành phố Cao Bằng"
+      },
+      {
+        "code": 4042,
+        "name": "Huyện Bảo Lâm"
+      },
+      {
+        "code": 4043,
+        "name": "Huyện Bảo Lạc"
+      },
+      {
+        "code": 4045,
+        "name": "Huyện Hà Quảng"
+      },
+      {
+        "code": 4047,
+        "name": "Huyện Trùng Khánh"
+      },
+      {
+        "code": 4048,
+        "name": "Huyện Hạ Lang"
+      },
+      {
+        "code": 4049,
+        "name": "Huyện Quảng Hòa"
+      },
+      {
+        "code": 4051,
+        "name": "Huyện Hoà An"
+      },
+      {
+        "code": 4052,
+        "name": "Huyện Nguyên Bình"
+      },
+      {
+        "code": 4053,
+        "name": "Huyện Thạch An"
+      }
+    ]
+  },
+  {
+    "code": 6,
+    "name": "Tỉnh Bắc Kạn",
+    "districts": [
+      {
+        "code": 6058,
+        "name": "Thành Phố Bắc Kạn"
+      },
+      {
+        "code": 6060,
+        "name": "Huyện Pác Nặm"
+      },
+      {
+        "code": 6061,
+        "name": "Huyện Ba Bể"
+      },
+      {
+        "code": 6062,
+        "name": "Huyện Ngân Sơn"
+      },
+      {
+        "code": 6063,
+        "name": "Huyện Bạch Thông"
+      },
+      {
+        "code": 6064,
+        "name": "Huyện Chợ Đồn"
+      },
+      {
+        "code": 6065,
+        "name": "Huyện Chợ Mới"
+      },
+      {
+        "code": 6066,
+        "name": "Huyện Na Rì"
+      }
+    ]
+  },
+  {
+    "code": 8,
+    "name": "Tỉnh Tuyên Quang",
+    "districts": [
+      {
+        "code": 8070,
+        "name": "Thành phố Tuyên Quang"
+      },
+      {
+        "code": 8071,
+        "name": "Huyện Lâm Bình"
+      },
+      {
+        "code": 8072,
+        "name": "Huyện Na Hang"
+      },
+      {
+        "code": 8073,
+        "name": "Huyện Chiêm Hóa"
+      },
+      {
+        "code": 8074,
+        "name": "Huyện Hàm Yên"
+      },
+      {
+        "code": 8075,
+        "name": "Huyện Yên Sơn"
+      },
+      {
+        "code": 8076,
+        "name": "Huyện Sơn Dương"
+      }
+    ]
+  },
+  {
+    "code": 10,
+    "name": "Tỉnh Lào Cai",
+    "districts": [
+      {
+        "code": 10080,
+        "name": "Thành phố Lào Cai"
+      },
+      {
+        "code": 10082,
+        "name": "Huyện Bát Xát"
+      },
+      {
+        "code": 10083,
+        "name": "Huyện Mường Khương"
+      },
+      {
+        "code": 10084,
+        "name": "Huyện Si Ma Cai"
+      },
+      {
+        "code": 10085,
+        "name": "Huyện Bắc Hà"
+      },
+      {
+        "code": 10086,
+        "name": "Huyện Bảo Thắng"
+      },
+      {
+        "code": 10087,
+        "name": "Huyện Bảo Yên"
+      },
+      {
+        "code": 10088,
+        "name": "Thị xã Sa Pa"
+      },
+      {
+        "code": 10089,
+        "name": "Huyện Văn Bàn"
+      }
+    ]
+  },
+  {
+    "code": 11,
+    "name": "Tỉnh Điện Biên",
+    "districts": [
+      {
+        "code": 11094,
+        "name": "Thành phố Điện Biên Phủ"
+      },
+      {
+        "code": 11095,
+        "name": "Thị Xã Mường Lay"
+      },
+      {
+        "code": 11096,
+        "name": "Huyện Mường Nhé"
+      },
+      {
+        "code": 11097,
+        "name": "Huyện Mường Chà"
+      },
+      {
+        "code": 11098,
+        "name": "Huyện Tủa Chùa"
+      },
+      {
+        "code": 11099,
+        "name": "Huyện Tuần Giáo"
+      },
+      {
+        "code": 11100,
+        "name": "Huyện Điện Biên"
+      },
+      {
+        "code": 11101,
+        "name": "Huyện Điện Biên Đông"
+      },
+      {
+        "code": 11102,
+        "name": "Huyện Mường Ảng"
+      },
+      {
+        "code": 11103,
+        "name": "Huyện Nậm Pồ"
+      }
+    ]
+  },
+  {
+    "code": 12,
+    "name": "Tỉnh Lai Châu",
+    "districts": [
+      {
+        "code": 12105,
+        "name": "Thành phố Lai Châu"
+      },
+      {
+        "code": 12106,
+        "name": "Huyện Tam Đường"
+      },
+      {
+        "code": 12107,
+        "name": "Huyện Mường Tè"
+      },
+      {
+        "code": 12108,
+        "name": "Huyện Sìn Hồ"
+      },
+      {
+        "code": 12109,
+        "name": "Huyện Phong Thổ"
+      },
+      {
+        "code": 12110,
+        "name": "Huyện Than Uyên"
+      },
+      {
+        "code": 12111,
+        "name": "Huyện Tân Uyên"
+      },
+      {
+        "code": 12112,
+        "name": "Huyện Nậm Nhùn"
+      }
+    ]
+  },
+  {
+    "code": 14,
+    "name": "Tỉnh Sơn La",
+    "districts": [
+      {
+        "code": 14116,
+        "name": "Thành phố Sơn La"
+      },
+      {
+        "code": 14118,
+        "name": "Huyện Quỳnh Nhai"
+      },
+      {
+        "code": 14119,
+        "name": "Huyện Thuận Châu"
+      },
+      {
+        "code": 14120,
+        "name": "Huyện Mường La"
+      },
+      {
+        "code": 14121,
+        "name": "Huyện Bắc Yên"
+      },
+      {
+        "code": 14122,
+        "name": "Huyện Phù Yên"
+      },
+      {
+        "code": 14123,
+        "name": "Thị xã Mộc Châu"
+      },
+      {
+        "code": 14124,
+        "name": "Huyện Yên Châu"
+      },
+      {
+        "code": 14125,
+        "name": "Huyện Mai Sơn"
+      },
+      {
+        "code": 14126,
+        "name": "Huyện Sông Mã"
+      },
+      {
+        "code": 14127,
+        "name": "Huyện Sốp Cộp"
+      },
+      {
+        "code": 14128,
+        "name": "Huyện Vân Hồ"
+      }
+    ]
+  },
+  {
+    "code": 15,
+    "name": "Tỉnh Yên Bái",
+    "districts": [
+      {
+        "code": 15132,
+        "name": "Thành phố Yên Bái"
+      },
+      {
+        "code": 15133,
+        "name": "Thị xã Nghĩa Lộ"
+      },
+      {
+        "code": 15135,
+        "name": "Huyện Lục Yên"
+      },
+      {
+        "code": 15136,
+        "name": "Huyện Văn Yên"
+      },
+      {
+        "code": 15137,
+        "name": "Huyện Mù Căng Chải"
+      },
+      {
+        "code": 15138,
+        "name": "Huyện Trấn Yên"
+      },
+      {
+        "code": 15139,
+        "name": "Huyện Trạm Tấu"
+      },
+      {
+        "code": 15140,
+        "name": "Huyện Văn Chấn"
+      },
+      {
+        "code": 15141,
+        "name": "Huyện Yên Bình"
+      }
+    ]
+  },
+  {
+    "code": 17,
+    "name": "Tỉnh Hoà Bình",
+    "districts": [
+      {
+        "code": 17148,
+        "name": "Thành phố Hòa Bình"
+      },
+      {
+        "code": 17150,
+        "name": "Huyện Đà Bắc"
+      },
+      {
+        "code": 17152,
+        "name": "Huyện Lương Sơn"
+      },
+      {
+        "code": 17153,
+        "name": "Huyện Kim Bôi"
+      },
+      {
+        "code": 17154,
+        "name": "Huyện Cao Phong"
+      },
+      {
+        "code": 17155,
+        "name": "Huyện Tân Lạc"
+      },
+      {
+        "code": 17156,
+        "name": "Huyện Mai Châu"
+      },
+      {
+        "code": 17157,
+        "name": "Huyện Lạc Sơn"
+      },
+      {
+        "code": 17158,
+        "name": "Huyện Yên Thủy"
+      },
+      {
+        "code": 17159,
+        "name": "Huyện Lạc Thủy"
+      }
+    ]
+  },
+  {
+    "code": 19,
+    "name": "Tỉnh Thái Nguyên",
+    "districts": [
+      {
+        "code": 19164,
+        "name": "Thành phố Thái Nguyên"
+      },
+      {
+        "code": 19165,
+        "name": "Thành phố Sông Công"
+      },
+      {
+        "code": 19167,
+        "name": "Huyện Định Hóa"
+      },
+      {
+        "code": 19168,
+        "name": "Huyện Phú Lương"
+      },
+      {
+        "code": 19169,
+        "name": "Huyện Đồng Hỷ"
+      },
+      {
+        "code": 19170,
+        "name": "Huyện Võ Nhai"
+      },
+      {
+        "code": 19171,
+        "name": "Huyện Đại Từ"
+      },
+      {
+        "code": 19172,
+        "name": "Thành phố Phổ Yên"
+      },
+      {
+        "code": 19173,
+        "name": "Huyện Phú Bình"
+      }
+    ]
+  },
+  {
+    "code": 20,
+    "name": "Tỉnh Lạng Sơn",
+    "districts": [
+      {
+        "code": 20178,
+        "name": "Thành phố Lạng Sơn"
+      },
+      {
+        "code": 20180,
+        "name": "Huyện Tràng Định"
+      },
+      {
+        "code": 20181,
+        "name": "Huyện Bình Gia"
+      },
+      {
+        "code": 20182,
+        "name": "Huyện Văn Lãng"
+      },
+      {
+        "code": 20183,
+        "name": "Huyện Cao Lộc"
+      },
+      {
+        "code": 20184,
+        "name": "Huyện Văn Quan"
+      },
+      {
+        "code": 20185,
+        "name": "Huyện Bắc Sơn"
+      },
+      {
+        "code": 20186,
+        "name": "Huyện Hữu Lũng"
+      },
+      {
+        "code": 20187,
+        "name": "Huyện Chi Lăng"
+      },
+      {
+        "code": 20188,
+        "name": "Huyện Lộc Bình"
+      },
+      {
+        "code": 20189,
+        "name": "Huyện Đình Lập"
+      }
+    ]
+  },
+  {
+    "code": 22,
+    "name": "Tỉnh Quảng Ninh",
+    "districts": [
+      {
+        "code": 22193,
+        "name": "Thành phố Hạ Long"
+      },
+      {
+        "code": 22194,
+        "name": "Thành phố Móng Cái"
+      },
+      {
+        "code": 22195,
+        "name": "Thành phố Cẩm Phả"
+      },
+      {
+        "code": 22196,
+        "name": "Thành phố Uông Bí"
+      },
+      {
+        "code": 22198,
+        "name": "Huyện Bình Liêu"
+      },
+      {
+        "code": 22199,
+        "name": "Huyện Tiên Yên"
+      },
+      {
+        "code": 22200,
+        "name": "Huyện Đầm Hà"
+      },
+      {
+        "code": 22201,
+        "name": "Huyện Hải Hà"
+      },
+      {
+        "code": 22202,
+        "name": "Huyện Ba Chẽ"
+      },
+      {
+        "code": 22203,
+        "name": "Huyện Vân Đồn"
+      },
+      {
+        "code": 22205,
+        "name": "Thành phố Đông Triều"
+      },
+      {
+        "code": 22206,
+        "name": "Thị xã Quảng Yên"
+      },
+      {
+        "code": 22207,
+        "name": "Huyện Cô Tô"
+      }
+    ]
+  },
+  {
+    "code": 24,
+    "name": "Tỉnh Bắc Giang",
+    "districts": [
+      {
+        "code": 24213,
+        "name": "Thành phố Bắc Giang"
+      },
+      {
+        "code": 24215,
+        "name": "Huyện Yên Thế"
+      },
+      {
+        "code": 24216,
+        "name": "Huyện Tân Yên"
+      },
+      {
+        "code": 24217,
+        "name": "Huyện Lạng Giang"
+      },
+      {
+        "code": 24218,
+        "name": "Huyện Lục Nam"
+      },
+      {
+        "code": 24219,
+        "name": "Huyện Lục Ngạn"
+      },
+      {
+        "code": 24220,
+        "name": "Huyện Sơn Động"
+      },
+      {
+        "code": 24222,
+        "name": "Thị Xã Việt Yên"
+      },
+      {
+        "code": 24223,
+        "name": "Huyện Hiệp Hòa"
+      },
+      {
+        "code": 24224,
+        "name": "Thị xã Chũ"
+      }
+    ]
+  },
+  {
+    "code": 25,
+    "name": "Tỉnh Phú Thọ",
+    "districts": [
+      {
+        "code": 25227,
+        "name": "Thành phố Việt Trì"
+      },
+      {
+        "code": 25228,
+        "name": "Thị xã Phú Thọ"
+      },
+      {
+        "code": 25230,
+        "name": "Huyện Đoan Hùng"
+      },
+      {
+        "code": 25231,
+        "name": "Huyện Hạ Hoà"
+      },
+      {
+        "code": 25232,
+        "name": "Huyện Thanh Ba"
+      },
+      {
+        "code": 25233,
+        "name": "Huyện Phù Ninh"
+      },
+      {
+        "code": 25234,
+        "name": "Huyện Yên Lập"
+      },
+      {
+        "code": 25235,
+        "name": "Huyện Cẩm Khê"
+      },
+      {
+        "code": 25236,
+        "name": "Huyện Tam Nông"
+      },
+      {
+        "code": 25237,
+        "name": "Huyện Lâm Thao"
+      },
+      {
+        "code": 25238,
+        "name": "Huyện Thanh Sơn"
+      },
+      {
+        "code": 25239,
+        "name": "Huyện Thanh Thuỷ"
+      },
+      {
+        "code": 25240,
+        "name": "Huyện Tân Sơn"
+      }
+    ]
+  },
+  {
+    "code": 26,
+    "name": "Tỉnh Vĩnh Phúc",
+    "districts": [
+      {
+        "code": 26243,
+        "name": "Thành phố Vĩnh Yên"
+      },
+      {
+        "code": 26244,
+        "name": "Thành phố Phúc Yên"
+      },
+      {
+        "code": 26246,
+        "name": "Huyện Lập Thạch"
+      },
+      {
+        "code": 26247,
+        "name": "Huyện Tam Dương"
+      },
+      {
+        "code": 26248,
+        "name": "Huyện Tam Đảo"
+      },
+      {
+        "code": 26249,
+        "name": "Huyện Bình Xuyên"
+      },
+      {
+        "code": 26251,
+        "name": "Huyện Yên Lạc"
+      },
+      {
+        "code": 26252,
+        "name": "Huyện Vĩnh Tường"
+      },
+      {
+        "code": 26253,
+        "name": "Huyện Sông Lô"
+      }
+    ]
+  },
+  {
+    "code": 27,
+    "name": "Tỉnh Bắc Ninh",
+    "districts": [
+      {
+        "code": 27256,
+        "name": "Thành phố Bắc Ninh"
+      },
+      {
+        "code": 27258,
+        "name": "Huyện Yên Phong"
+      },
+      {
+        "code": 27259,
+        "name": "Thị xã Quế Võ"
+      },
+      {
+        "code": 27260,
+        "name": "Huyện Tiên Du"
+      },
+      {
+        "code": 27261,
+        "name": "Thành phố Từ Sơn"
+      },
+      {
+        "code": 27262,
+        "name": "Thị xã Thuận Thành"
+      },
+      {
+        "code": 27263,
+        "name": "Huyện Gia Bình"
+      },
+      {
+        "code": 27264,
+        "name": "Huyện Lương Tài"
+      }
+    ]
+  },
+  {
+    "code": 30,
+    "name": "Tỉnh Hải Dương",
+    "districts": [
+      {
+        "code": 30288,
+        "name": "Thành phố Hải Dương"
+      },
+      {
+        "code": 30290,
+        "name": "Thành phố Chí Linh"
+      },
+      {
+        "code": 30291,
+        "name": "Huyện Nam Sách"
+      },
+      {
+        "code": 30292,
+        "name": "Thị xã Kinh Môn"
+      },
+      {
+        "code": 30293,
+        "name": "Huyện Kim Thành"
+      },
+      {
+        "code": 30294,
+        "name": "Huyện Thanh Hà"
+      },
+      {
+        "code": 30295,
+        "name": "Huyện Cẩm Giàng"
+      },
+      {
+        "code": 30296,
+        "name": "Huyện Bình Giang"
+      },
+      {
+        "code": 30297,
+        "name": "Huyện Gia Lộc"
+      },
+      {
+        "code": 30298,
+        "name": "Huyện Tứ Kỳ"
+      },
+      {
+        "code": 30299,
+        "name": "Huyện Ninh Giang"
+      },
+      {
+        "code": 30300,
+        "name": "Huyện Thanh Miện"
+      }
+    ]
+  },
+  {
+    "code": 31,
+    "name": "Thành phố Hải Phòng",
+    "districts": [
+      {
+        "code": 31303,
+        "name": "Quận Hồng Bàng"
+      },
+      {
+        "code": 31304,
+        "name": "Quận Ngô Quyền"
+      },
+      {
+        "code": 31305,
+        "name": "Quận Lê Chân"
+      },
+      {
+        "code": 31306,
+        "name": "Quận Hải An"
+      },
+      {
+        "code": 31307,
+        "name": "Quận Kiến An"
+      },
+      {
+        "code": 31308,
+        "name": "Quận Đồ Sơn"
+      },
+      {
+        "code": 31309,
+        "name": "Quận Dương Kinh"
+      },
+      {
+        "code": 31311,
+        "name": "Thành phố Thuỷ Nguyên"
+      },
+      {
+        "code": 31312,
+        "name": "Quận An Dương"
+      },
+      {
+        "code": 31313,
+        "name": "Huyện An Lão"
+      },
+      {
+        "code": 31314,
+        "name": "Huyện Kiến Thuỵ"
+      },
+      {
+        "code": 31315,
+        "name": "Huyện Tiên Lãng"
+      },
+      {
+        "code": 31316,
+        "name": "Huyện Vĩnh Bảo"
+      },
+      {
+        "code": 31317,
+        "name": "Huyện Cát Hải"
+      },
+      {
+        "code": 31318,
+        "name": "Huyện Bạch Long Vĩ"
+      }
+    ]
+  },
+  {
+    "code": 33,
+    "name": "Tỉnh Hưng Yên",
+    "districts": [
+      {
+        "code": 33323,
+        "name": "Thành phố Hưng Yên"
+      },
+      {
+        "code": 33325,
+        "name": "Huyện Văn Lâm"
+      },
+      {
+        "code": 33326,
+        "name": "Huyện Văn Giang"
+      },
+      {
+        "code": 33327,
+        "name": "Huyện Yên Mỹ"
+      },
+      {
+        "code": 33328,
+        "name": "Thị xã Mỹ Hào"
+      },
+      {
+        "code": 33329,
+        "name": "Huyện Ân Thi"
+      },
+      {
+        "code": 33330,
+        "name": "Huyện Khoái Châu"
+      },
+      {
+        "code": 33331,
+        "name": "Huyện Kim Động"
+      },
+      {
+        "code": 33332,
+        "name": "Huyện Tiên Lữ"
+      },
+      {
+        "code": 33333,
+        "name": "Huyện Phù Cừ"
+      }
+    ]
+  },
+  {
+    "code": 34,
+    "name": "Tỉnh Thái Bình",
+    "districts": [
+      {
+        "code": 34336,
+        "name": "Thành phố Thái Bình"
+      },
+      {
+        "code": 34338,
+        "name": "Huyện Quỳnh Phụ"
+      },
+      {
+        "code": 34339,
+        "name": "Huyện Hưng Hà"
+      },
+      {
+        "code": 34340,
+        "name": "Huyện Đông Hưng"
+      },
+      {
+        "code": 34341,
+        "name": "Huyện Thái Thụy"
+      },
+      {
+        "code": 34342,
+        "name": "Huyện Tiền Hải"
+      },
+      {
+        "code": 34343,
+        "name": "Huyện Kiến Xương"
+      },
+      {
+        "code": 34344,
+        "name": "Huyện Vũ Thư"
+      }
+    ]
+  },
+  {
+    "code": 35,
+    "name": "Tỉnh Hà Nam",
+    "districts": [
+      {
+        "code": 35347,
+        "name": "Thành phố Phủ Lý"
+      },
+      {
+        "code": 35349,
+        "name": "Thị xã Duy Tiên"
+      },
+      {
+        "code": 35350,
+        "name": "Thị xã Kim Bảng"
+      },
+      {
+        "code": 35351,
+        "name": "Huyện Thanh Liêm"
+      },
+      {
+        "code": 35352,
+        "name": "Huyện Bình Lục"
+      },
+      {
+        "code": 35353,
+        "name": "Huyện Lý Nhân"
+      }
+    ]
+  },
+  {
+    "code": 36,
+    "name": "Tỉnh Nam Định",
+    "districts": [
+      {
+        "code": 36356,
+        "name": "Thành phố Nam Định"
+      },
+      {
+        "code": 36359,
+        "name": "Huyện Vụ Bản"
+      },
+      {
+        "code": 36360,
+        "name": "Huyện Ý Yên"
+      },
+      {
+        "code": 36361,
+        "name": "Huyện Nghĩa Hưng"
+      },
+      {
+        "code": 36362,
+        "name": "Huyện Nam Trực"
+      },
+      {
+        "code": 36363,
+        "name": "Huyện Trực Ninh"
+      },
+      {
+        "code": 36364,
+        "name": "Huyện Xuân Trường"
+      },
+      {
+        "code": 36365,
+        "name": "Huyện Giao Thủy"
+      },
+      {
+        "code": 36366,
+        "name": "Huyện Hải Hậu"
+      }
+    ]
+  },
+  {
+    "code": 37,
+    "name": "Tỉnh Ninh Bình",
+    "districts": [
+      {
+        "code": 37370,
+        "name": "Thành phố Tam Điệp"
+      },
+      {
+        "code": 37372,
+        "name": "Huyện Nho Quan"
+      },
+      {
+        "code": 37373,
+        "name": "Huyện Gia Viễn"
+      },
+      {
+        "code": 37374,
+        "name": "Thành phố Hoa Lư"
+      },
+      {
+        "code": 37375,
+        "name": "Huyện Yên Khánh"
+      },
+      {
+        "code": 37376,
+        "name": "Huyện Kim Sơn"
+      },
+      {
+        "code": 37377,
+        "name": "Huyện Yên Mô"
+      }
+    ]
+  },
+  {
+    "code": 38,
+    "name": "Tỉnh Thanh Hóa",
+    "districts": [
+      {
+        "code": 38380,
+        "name": "Thành phố Thanh Hóa"
+      },
+      {
+        "code": 38381,
+        "name": "Thị xã Bỉm Sơn"
+      },
+      {
+        "code": 38382,
+        "name": "Thành phố Sầm Sơn"
+      },
+      {
+        "code": 38384,
+        "name": "Huyện Mường Lát"
+      },
+      {
+        "code": 38385,
+        "name": "Huyện Quan Hóa"
+      },
+      {
+        "code": 38386,
+        "name": "Huyện Bá Thước"
+      },
+      {
+        "code": 38387,
+        "name": "Huyện Quan Sơn"
+      },
+      {
+        "code": 38388,
+        "name": "Huyện Lang Chánh"
+      },
+      {
+        "code": 38389,
+        "name": "Huyện Ngọc Lặc"
+      },
+      {
+        "code": 38390,
+        "name": "Huyện Cẩm Thủy"
+      },
+      {
+        "code": 38391,
+        "name": "Huyện Thạch Thành"
+      },
+      {
+        "code": 38392,
+        "name": "Huyện Hà Trung"
+      },
+      {
+        "code": 38393,
+        "name": "Huyện Vĩnh Lộc"
+      },
+      {
+        "code": 38394,
+        "name": "Huyện Yên Định"
+      },
+      {
+        "code": 38395,
+        "name": "Huyện Thọ Xuân"
+      },
+      {
+        "code": 38396,
+        "name": "Huyện Thường Xuân"
+      },
+      {
+        "code": 38397,
+        "name": "Huyện Triệu Sơn"
+      },
+      {
+        "code": 38398,
+        "name": "Huyện Thiệu Hóa"
+      },
+      {
+        "code": 38399,
+        "name": "Huyện Hoằng Hóa"
+      },
+      {
+        "code": 38400,
+        "name": "Huyện Hậu Lộc"
+      },
+      {
+        "code": 38401,
+        "name": "Huyện Nga Sơn"
+      },
+      {
+        "code": 38402,
+        "name": "Huyện Như Xuân"
+      },
+      {
+        "code": 38403,
+        "name": "Huyện Như Thanh"
+      },
+      {
+        "code": 38404,
+        "name": "Huyện Nông Cống"
+      },
+      {
+        "code": 38406,
+        "name": "Huyện Quảng Xương"
+      },
+      {
+        "code": 38407,
+        "name": "Thị xã Nghi Sơn"
+      }
+    ]
+  },
+  {
+    "code": 40,
+    "name": "Tỉnh Nghệ An",
+    "districts": [
+      {
+        "code": 40412,
+        "name": "Thành phố Vinh"
+      },
+      {
+        "code": 40414,
+        "name": "Thị xã Thái Hoà"
+      },
+      {
+        "code": 40415,
+        "name": "Huyện Quế Phong"
+      },
+      {
+        "code": 40416,
+        "name": "Huyện Quỳ Châu"
+      },
+      {
+        "code": 40417,
+        "name": "Huyện Kỳ Sơn"
+      },
+      {
+        "code": 40418,
+        "name": "Huyện Tương Dương"
+      },
+      {
+        "code": 40419,
+        "name": "Huyện Nghĩa Đàn"
+      },
+      {
+        "code": 40420,
+        "name": "Huyện Quỳ Hợp"
+      },
+      {
+        "code": 40421,
+        "name": "Huyện Quỳnh Lưu"
+      },
+      {
+        "code": 40422,
+        "name": "Huyện Con Cuông"
+      },
+      {
+        "code": 40423,
+        "name": "Huyện Tân Kỳ"
+      },
+      {
+        "code": 40424,
+        "name": "Huyện Anh Sơn"
+      },
+      {
+        "code": 40425,
+        "name": "Huyện Diễn Châu"
+      },
+      {
+        "code": 40426,
+        "name": "Huyện Yên Thành"
+      },
+      {
+        "code": 40427,
+        "name": "Huyện Đô Lương"
+      },
+      {
+        "code": 40428,
+        "name": "Huyện Thanh Chương"
+      },
+      {
+        "code": 40429,
+        "name": "Huyện Nghi Lộc"
+      },
+      {
+        "code": 40430,
+        "name": "Huyện Nam Đàn"
+      },
+      {
+        "code": 40431,
+        "name": "Huyện Hưng Nguyên"
+      },
+      {
+        "code": 40432,
+        "name": "Thị xã Hoàng Mai"
+      }
+    ]
+  },
+  {
+    "code": 42,
+    "name": "Tỉnh Hà Tĩnh",
+    "districts": [
+      {
+        "code": 42436,
+        "name": "Thành phố Hà Tĩnh"
+      },
+      {
+        "code": 42437,
+        "name": "Thị xã Hồng Lĩnh"
+      },
+      {
+        "code": 42439,
+        "name": "Huyện Hương Sơn"
+      },
+      {
+        "code": 42440,
+        "name": "Huyện Đức Thọ"
+      },
+      {
+        "code": 42441,
+        "name": "Huyện Vũ Quang"
+      },
+      {
+        "code": 42442,
+        "name": "Huyện Nghi Xuân"
+      },
+      {
+        "code": 42443,
+        "name": "Huyện Can Lộc"
+      },
+      {
+        "code": 42444,
+        "name": "Huyện Hương Khê"
+      },
+      {
+        "code": 42445,
+        "name": "Huyện Thạch Hà"
+      },
+      {
+        "code": 42446,
+        "name": "Huyện Cẩm Xuyên"
+      },
+      {
+        "code": 42447,
+        "name": "Huyện Kỳ Anh"
+      },
+      {
+        "code": 42449,
+        "name": "Thị xã Kỳ Anh"
+      }
+    ]
+  },
+  {
+    "code": 44,
+    "name": "Tỉnh Quảng Bình",
+    "districts": [
+      {
+        "code": 44450,
+        "name": "Thành Phố Đồng Hới"
+      },
+      {
+        "code": 44452,
+        "name": "Huyện Minh Hóa"
+      },
+      {
+        "code": 44453,
+        "name": "Huyện Tuyên Hóa"
+      },
+      {
+        "code": 44454,
+        "name": "Huyện Quảng Trạch"
+      },
+      {
+        "code": 44455,
+        "name": "Huyện Bố Trạch"
+      },
+      {
+        "code": 44456,
+        "name": "Huyện Quảng Ninh"
+      },
+      {
+        "code": 44457,
+        "name": "Huyện Lệ Thủy"
+      },
+      {
+        "code": 44458,
+        "name": "Thị xã Ba Đồn"
+      }
+    ]
+  },
+  {
+    "code": 45,
+    "name": "Tỉnh Quảng Trị",
+    "districts": [
+      {
+        "code": 45461,
+        "name": "Thành phố Đông Hà"
+      },
+      {
+        "code": 45462,
+        "name": "Thị xã Quảng Trị"
+      },
+      {
+        "code": 45464,
+        "name": "Huyện Vĩnh Linh"
+      },
+      {
+        "code": 45465,
+        "name": "Huyện Hướng Hóa"
+      },
+      {
+        "code": 45466,
+        "name": "Huyện Gio Linh"
+      },
+      {
+        "code": 45467,
+        "name": "Huyện Đa Krông"
+      },
+      {
+        "code": 45468,
+        "name": "Huyện Cam Lộ"
+      },
+      {
+        "code": 45469,
+        "name": "Huyện Triệu Phong"
+      },
+      {
+        "code": 45470,
+        "name": "Huyện Hải Lăng"
+      },
+      {
+        "code": 45471,
+        "name": "Huyện Cồn Cỏ"
+      }
+    ]
+  },
+  {
+    "code": 46,
+    "name": "Thành phố Huế",
+    "districts": [
+      {
+        "code": 46474,
+        "name": "Quận Thuận Hóa"
+      },
+      {
+        "code": 46475,
+        "name": "Quận Phú Xuân"
+      },
+      {
+        "code": 46476,
+        "name": "Thị xã Phong Điền"
+      },
+      {
+        "code": 46477,
+        "name": "Huyện Quảng Điền"
+      },
+      {
+        "code": 46478,
+        "name": "Huyện Phú Vang"
+      },
+      {
+        "code": 46479,
+        "name": "Thị xã Hương Thủy"
+      },
+      {
+        "code": 46480,
+        "name": "Thị xã Hương Trà"
+      },
+      {
+        "code": 46481,
+        "name": "Huyện A Lưới"
+      },
+      {
+        "code": 46482,
+        "name": "Huyện Phú Lộc"
+      }
+    ]
+  },
+  {
+    "code": 48,
+    "name": "Thành phố Đà Nẵng",
+    "districts": [
+      {
+        "code": 48490,
+        "name": "Quận Liên Chiểu"
+      },
+      {
+        "code": 48491,
+        "name": "Quận Thanh Khê"
+      },
+      {
+        "code": 48492,
+        "name": "Quận Hải Châu"
+      },
+      {
+        "code": 48493,
+        "name": "Quận Sơn Trà"
+      },
+      {
+        "code": 48494,
+        "name": "Quận Ngũ Hành Sơn"
+      },
+      {
+        "code": 48495,
+        "name": "Quận Cẩm Lệ"
+      },
+      {
+        "code": 48497,
+        "name": "Huyện Hòa Vang"
+      },
+      {
+        "code": 48498,
+        "name": "Huyện Hoàng Sa"
+      }
+    ]
+  },
+  {
+    "code": 49,
+    "name": "Tỉnh Quảng Nam",
+    "districts": [
+      {
+        "code": 49502,
+        "name": "Thành phố Tam Kỳ"
+      },
+      {
+        "code": 49503,
+        "name": "Thành phố Hội An"
+      },
+      {
+        "code": 49504,
+        "name": "Huyện Tây Giang"
+      },
+      {
+        "code": 49505,
+        "name": "Huyện Đông Giang"
+      },
+      {
+        "code": 49506,
+        "name": "Huyện Đại Lộc"
+      },
+      {
+        "code": 49507,
+        "name": "Thị xã Điện Bàn"
+      },
+      {
+        "code": 49508,
+        "name": "Huyện Duy Xuyên"
+      },
+      {
+        "code": 49509,
+        "name": "Huyện Quế Sơn"
+      },
+      {
+        "code": 49510,
+        "name": "Huyện Nam Giang"
+      },
+      {
+        "code": 49511,
+        "name": "Huyện Phước Sơn"
+      },
+      {
+        "code": 49512,
+        "name": "Huyện Hiệp Đức"
+      },
+      {
+        "code": 49513,
+        "name": "Huyện Thăng Bình"
+      },
+      {
+        "code": 49514,
+        "name": "Huyện Tiên Phước"
+      },
+      {
+        "code": 49515,
+        "name": "Huyện Bắc Trà My"
+      },
+      {
+        "code": 49516,
+        "name": "Huyện Nam Trà My"
+      },
+      {
+        "code": 49517,
+        "name": "Huyện Núi Thành"
+      },
+      {
+        "code": 49518,
+        "name": "Huyện Phú Ninh"
+      }
+    ]
+  },
+  {
+    "code": 51,
+    "name": "Tỉnh Quảng Ngãi",
+    "districts": [
+      {
+        "code": 51522,
+        "name": "Thành phố Quảng Ngãi"
+      },
+      {
+        "code": 51524,
+        "name": "Huyện Bình Sơn"
+      },
+      {
+        "code": 51525,
+        "name": "Huyện Trà Bồng"
+      },
+      {
+        "code": 51527,
+        "name": "Huyện Sơn Tịnh"
+      },
+      {
+        "code": 51528,
+        "name": "Huyện Tư Nghĩa"
+      },
+      {
+        "code": 51529,
+        "name": "Huyện Sơn Hà"
+      },
+      {
+        "code": 51530,
+        "name": "Huyện Sơn Tây"
+      },
+      {
+        "code": 51531,
+        "name": "Huyện Minh Long"
+      },
+      {
+        "code": 51532,
+        "name": "Huyện Nghĩa Hành"
+      },
+      {
+        "code": 51533,
+        "name": "Huyện Mộ Đức"
+      },
+      {
+        "code": 51534,
+        "name": "Thị xã Đức Phổ"
+      },
+      {
+        "code": 51535,
+        "name": "Huyện Ba Tơ"
+      },
+      {
+        "code": 51536,
+        "name": "Huyện Lý Sơn"
+      }
+    ]
+  },
+  {
+    "code": 52,
+    "name": "Tỉnh Bình Định",
+    "districts": [
+      {
+        "code": 52540,
+        "name": "Thành phố Quy Nhơn"
+      },
+      {
+        "code": 52542,
+        "name": "Huyện An Lão"
+      },
+      {
+        "code": 52543,
+        "name": "Thị xã Hoài Nhơn"
+      },
+      {
+        "code": 52544,
+        "name": "Huyện Hoài Ân"
+      },
+      {
+        "code": 52545,
+        "name": "Huyện Phù Mỹ"
+      },
+      {
+        "code": 52546,
+        "name": "Huyện Vĩnh Thạnh"
+      },
+      {
+        "code": 52547,
+        "name": "Huyện Tây Sơn"
+      },
+      {
+        "code": 52548,
+        "name": "Huyện Phù Cát"
+      },
+      {
+        "code": 52549,
+        "name": "Thị xã An Nhơn"
+      },
+      {
+        "code": 52550,
+        "name": "Huyện Tuy Phước"
+      },
+      {
+        "code": 52551,
+        "name": "Huyện Vân Canh"
+      }
+    ]
+  },
+  {
+    "code": 54,
+    "name": "Tỉnh Phú Yên",
+    "districts": [
+      {
+        "code": 54555,
+        "name": "Thành phố Tuy Hoà"
+      },
+      {
+        "code": 54557,
+        "name": "Thị xã Sông Cầu"
+      },
+      {
+        "code": 54558,
+        "name": "Huyện Đồng Xuân"
+      },
+      {
+        "code": 54559,
+        "name": "Huyện Tuy An"
+      },
+      {
+        "code": 54560,
+        "name": "Huyện Sơn Hòa"
+      },
+      {
+        "code": 54561,
+        "name": "Huyện Sông Hinh"
+      },
+      {
+        "code": 54562,
+        "name": "Huyện Tây Hoà"
+      },
+      {
+        "code": 54563,
+        "name": "Huyện Phú Hoà"
+      },
+      {
+        "code": 54564,
+        "name": "Thị xã Đông Hòa"
+      }
+    ]
+  },
+  {
+    "code": 56,
+    "name": "Tỉnh Khánh Hòa",
+    "districts": [
+      {
+        "code": 56568,
+        "name": "Thành phố Nha Trang"
+      },
+      {
+        "code": 56569,
+        "name": "Thành phố Cam Ranh"
+      },
+      {
+        "code": 56570,
+        "name": "Huyện Cam Lâm"
+      },
+      {
+        "code": 56571,
+        "name": "Huyện Vạn Ninh"
+      },
+      {
+        "code": 56572,
+        "name": "Thị xã Ninh Hòa"
+      },
+      {
+        "code": 56573,
+        "name": "Huyện Khánh Vĩnh"
+      },
+      {
+        "code": 56574,
+        "name": "Huyện Diên Khánh"
+      },
+      {
+        "code": 56575,
+        "name": "Huyện Khánh Sơn"
+      },
+      {
+        "code": 56576,
+        "name": "Huyện Trường Sa"
+      }
+    ]
+  },
+  {
+    "code": 58,
+    "name": "Tỉnh Ninh Thuận",
+    "districts": [
+      {
+        "code": 58582,
+        "name": "Thành phố Phan Rang-Tháp Chàm"
+      },
+      {
+        "code": 58584,
+        "name": "Huyện Bác Ái"
+      },
+      {
+        "code": 58585,
+        "name": "Huyện Ninh Sơn"
+      },
+      {
+        "code": 58586,
+        "name": "Huyện Ninh Hải"
+      },
+      {
+        "code": 58587,
+        "name": "Huyện Ninh Phước"
+      },
+      {
+        "code": 58588,
+        "name": "Huyện Thuận Bắc"
+      },
+      {
+        "code": 58589,
+        "name": "Huyện Thuận Nam"
+      }
+    ]
+  },
+  {
+    "code": 60,
+    "name": "Tỉnh Bình Thuận",
+    "districts": [
+      {
+        "code": 60593,
+        "name": "Thành phố Phan Thiết"
+      },
+      {
+        "code": 60594,
+        "name": "Thị xã La Gi"
+      },
+      {
+        "code": 60595,
+        "name": "Huyện Tuy Phong"
+      },
+      {
+        "code": 60596,
+        "name": "Huyện Bắc Bình"
+      },
+      {
+        "code": 60597,
+        "name": "Huyện Hàm Thuận Bắc"
+      },
+      {
+        "code": 60598,
+        "name": "Huyện Hàm Thuận Nam"
+      },
+      {
+        "code": 60599,
+        "name": "Huyện Tánh Linh"
+      },
+      {
+        "code": 60600,
+        "name": "Huyện Đức Linh"
+      },
+      {
+        "code": 60601,
+        "name": "Huyện Hàm Tân"
+      },
+      {
+        "code": 60602,
+        "name": "Huyện Phú Quí"
+      }
+    ]
+  },
+  {
+    "code": 62,
+    "name": "Tỉnh Kon Tum",
+    "districts": [
+      {
+        "code": 62608,
+        "name": "Thành phố Kon Tum"
+      },
+      {
+        "code": 62610,
+        "name": "Huyện Đắk Glei"
+      },
+      {
+        "code": 62611,
+        "name": "Huyện Ngọc Hồi"
+      },
+      {
+        "code": 62612,
+        "name": "Huyện Đắk Tô"
+      },
+      {
+        "code": 62613,
+        "name": "Huyện Kon Plông"
+      },
+      {
+        "code": 62614,
+        "name": "Huyện Kon Rẫy"
+      },
+      {
+        "code": 62615,
+        "name": "Huyện Đắk Hà"
+      },
+      {
+        "code": 62616,
+        "name": "Huyện Sa Thầy"
+      },
+      {
+        "code": 62617,
+        "name": "Huyện Tu Mơ Rông"
+      },
+      {
+        "code": 62618,
+        "name": "Huyện Ia H' Drai"
+      }
+    ]
+  },
+  {
+    "code": 64,
+    "name": "Tỉnh Gia Lai",
+    "districts": [
+      {
+        "code": 64622,
+        "name": "Thành phố Pleiku"
+      },
+      {
+        "code": 64623,
+        "name": "Thị xã An Khê"
+      },
+      {
+        "code": 64624,
+        "name": "Thị xã Ayun Pa"
+      },
+      {
+        "code": 64625,
+        "name": "Huyện KBang"
+      },
+      {
+        "code": 64626,
+        "name": "Huyện Đăk Đoa"
+      },
+      {
+        "code": 64627,
+        "name": "Huyện Chư Păh"
+      },
+      {
+        "code": 64628,
+        "name": "Huyện Ia Grai"
+      },
+      {
+        "code": 64629,
+        "name": "Huyện Mang Yang"
+      },
+      {
+        "code": 64630,
+        "name": "Huyện Kông Chro"
+      },
+      {
+        "code": 64631,
+        "name": "Huyện Đức Cơ"
+      },
+      {
+        "code": 64632,
+        "name": "Huyện Chư Prông"
+      },
+      {
+        "code": 64633,
+        "name": "Huyện Chư Sê"
+      },
+      {
+        "code": 64634,
+        "name": "Huyện Đăk Pơ"
+      },
+      {
+        "code": 64635,
+        "name": "Huyện Ia Pa"
+      },
+      {
+        "code": 64637,
+        "name": "Huyện Krông Pa"
+      },
+      {
+        "code": 64638,
+        "name": "Huyện Phú Thiện"
+      },
+      {
+        "code": 64639,
+        "name": "Huyện Chư Pưh"
+      }
+    ]
+  },
+  {
+    "code": 66,
+    "name": "Tỉnh Đắk Lắk",
+    "districts": [
+      {
+        "code": 66643,
+        "name": "Thành phố Buôn Ma Thuột"
+      },
+      {
+        "code": 66644,
+        "name": "Thị Xã Buôn Hồ"
+      },
+      {
+        "code": 66645,
+        "name": "Huyện Ea H'leo"
+      },
+      {
+        "code": 66646,
+        "name": "Huyện Ea Súp"
+      },
+      {
+        "code": 66647,
+        "name": "Huyện Buôn Đôn"
+      },
+      {
+        "code": 66648,
+        "name": "Huyện Cư M'gar"
+      },
+      {
+        "code": 66649,
+        "name": "Huyện Krông Búk"
+      },
+      {
+        "code": 66650,
+        "name": "Huyện Krông Năng"
+      },
+      {
+        "code": 66651,
+        "name": "Huyện Ea Kar"
+      },
+      {
+        "code": 66652,
+        "name": "Huyện M'Đrắk"
+      },
+      {
+        "code": 66653,
+        "name": "Huyện Krông Bông"
+      },
+      {
+        "code": 66654,
+        "name": "Huyện Krông Pắc"
+      },
+      {
+        "code": 66655,
+        "name": "Huyện Krông A Na"
+      },
+      {
+        "code": 66656,
+        "name": "Huyện Lắk"
+      },
+      {
+        "code": 66657,
+        "name": "Huyện Cư Kuin"
+      }
+    ]
+  },
+  {
+    "code": 67,
+    "name": "Tỉnh Đắk Nông",
+    "districts": [
+      {
+        "code": 67660,
+        "name": "Thành phố Gia Nghĩa"
+      },
+      {
+        "code": 67661,
+        "name": "Huyện Đăk Glong"
+      },
+      {
+        "code": 67662,
+        "name": "Huyện Cư Jút"
+      },
+      {
+        "code": 67663,
+        "name": "Huyện Đắk Mil"
+      },
+      {
+        "code": 67664,
+        "name": "Huyện Krông Nô"
+      },
+      {
+        "code": 67665,
+        "name": "Huyện Đắk Song"
+      },
+      {
+        "code": 67666,
+        "name": "Huyện Đắk R'Lấp"
+      },
+      {
+        "code": 67667,
+        "name": "Huyện Tuy Đức"
+      }
+    ]
+  },
+  {
+    "code": 68,
+    "name": "Tỉnh Lâm Đồng",
+    "districts": [
+      {
+        "code": 68672,
+        "name": "Thành phố Đà Lạt"
+      },
+      {
+        "code": 68673,
+        "name": "Thành phố Bảo Lộc"
+      },
+      {
+        "code": 68674,
+        "name": "Huyện Đam Rông"
+      },
+      {
+        "code": 68675,
+        "name": "Huyện Lạc Dương"
+      },
+      {
+        "code": 68676,
+        "name": "Huyện Lâm Hà"
+      },
+      {
+        "code": 68677,
+        "name": "Huyện Đơn Dương"
+      },
+      {
+        "code": 68678,
+        "name": "Huyện Đức Trọng"
+      },
+      {
+        "code": 68679,
+        "name": "Huyện Di Linh"
+      },
+      {
+        "code": 68680,
+        "name": "Huyện Bảo Lâm"
+      },
+      {
+        "code": 68682,
+        "name": "Huyện Đạ Huoai"
+      }
+    ]
+  },
+  {
+    "code": 70,
+    "name": "Tỉnh Bình Phước",
+    "districts": [
+      {
+        "code": 70688,
+        "name": "Thị xã Phước Long"
+      },
+      {
+        "code": 70689,
+        "name": "Thành phố Đồng Xoài"
+      },
+      {
+        "code": 70690,
+        "name": "Thị xã Bình Long"
+      },
+      {
+        "code": 70691,
+        "name": "Huyện Bù Gia Mập"
+      },
+      {
+        "code": 70692,
+        "name": "Huyện Lộc Ninh"
+      },
+      {
+        "code": 70693,
+        "name": "Huyện Bù Đốp"
+      },
+      {
+        "code": 70694,
+        "name": "Huyện Hớn Quản"
+      },
+      {
+        "code": 70695,
+        "name": "Huyện Đồng Phú"
+      },
+      {
+        "code": 70696,
+        "name": "Huyện Bù Đăng"
+      },
+      {
+        "code": 70697,
+        "name": "Thị xã Chơn Thành"
+      },
+      {
+        "code": 70698,
+        "name": "Huyện Phú Riềng"
+      }
+    ]
+  },
+  {
+    "code": 72,
+    "name": "Tỉnh Tây Ninh",
+    "districts": [
+      {
+        "code": 72703,
+        "name": "Thành phố Tây Ninh"
+      },
+      {
+        "code": 72705,
+        "name": "Huyện Tân Biên"
+      },
+      {
+        "code": 72706,
+        "name": "Huyện Tân Châu"
+      },
+      {
+        "code": 72707,
+        "name": "Huyện Dương Minh Châu"
+      },
+      {
+        "code": 72708,
+        "name": "Huyện Châu Thành"
+      },
+      {
+        "code": 72709,
+        "name": "Thị xã Hòa Thành"
+      },
+      {
+        "code": 72710,
+        "name": "Huyện Gò Dầu"
+      },
+      {
+        "code": 72711,
+        "name": "Huyện Bến Cầu"
+      },
+      {
+        "code": 72712,
+        "name": "Thị xã Trảng Bàng"
+      }
+    ]
+  },
+  {
+    "code": 74,
+    "name": "Tỉnh Bình Dương",
+    "districts": [
+      {
+        "code": 74718,
+        "name": "Thành phố Thủ Dầu Một"
+      },
+      {
+        "code": 74719,
+        "name": "Huyện Bàu Bàng"
+      },
+      {
+        "code": 74720,
+        "name": "Huyện Dầu Tiếng"
+      },
+      {
+        "code": 74721,
+        "name": "Thành phố Bến Cát"
+      },
+      {
+        "code": 74722,
+        "name": "Huyện Phú Giáo"
+      },
+      {
+        "code": 74723,
+        "name": "Thành phố Tân Uyên"
+      },
+      {
+        "code": 74724,
+        "name": "Thành phố Dĩ An"
+      },
+      {
+        "code": 74725,
+        "name": "Thành phố Thuận An"
+      },
+      {
+        "code": 74726,
+        "name": "Huyện Bắc Tân Uyên"
+      }
+    ]
+  },
+  {
+    "code": 75,
+    "name": "Tỉnh Đồng Nai",
+    "districts": [
+      {
+        "code": 75731,
+        "name": "Thành phố Biên Hòa"
+      },
+      {
+        "code": 75732,
+        "name": "Thành phố Long Khánh"
+      },
+      {
+        "code": 75734,
+        "name": "Huyện Tân Phú"
+      },
+      {
+        "code": 75735,
+        "name": "Huyện Vĩnh Cửu"
+      },
+      {
+        "code": 75736,
+        "name": "Huyện Định Quán"
+      },
+      {
+        "code": 75737,
+        "name": "Huyện Trảng Bom"
+      },
+      {
+        "code": 75738,
+        "name": "Huyện Thống Nhất"
+      },
+      {
+        "code": 75739,
+        "name": "Huyện Cẩm Mỹ"
+      },
+      {
+        "code": 75740,
+        "name": "Huyện Long Thành"
+      },
+      {
+        "code": 75741,
+        "name": "Huyện Xuân Lộc"
+      },
+      {
+        "code": 75742,
+        "name": "Huyện Nhơn Trạch"
+      }
+    ]
+  },
+  {
+    "code": 77,
+    "name": "Tỉnh Bà Rịa - Vũng Tàu",
+    "districts": [
+      {
+        "code": 77747,
+        "name": "Thành phố Vũng Tàu"
+      },
+      {
+        "code": 77748,
+        "name": "Thành phố Bà Rịa"
+      },
+      {
+        "code": 77750,
+        "name": "Huyện Châu Đức"
+      },
+      {
+        "code": 77751,
+        "name": "Huyện Xuyên Mộc"
+      },
+      {
+        "code": 77753,
+        "name": "Huyện Long Đất"
+      },
+      {
+        "code": 77754,
+        "name": "Thành phố Phú Mỹ"
+      },
+      {
+        "code": 77755,
+        "name": "Huyện Côn Đảo"
+      }
+    ]
+  },
+  {
+    "code": 79,
+    "name": "Thành phố Hồ Chí Minh",
+    "districts": [
+      {
+        "code": 79760,
+        "name": "Quận 1"
+      },
+      {
+        "code": 79761,
+        "name": "Quận 12"
+      },
+      {
+        "code": 79764,
+        "name": "Quận Gò Vấp"
+      },
+      {
+        "code": 79765,
+        "name": "Quận Bình Thạnh"
+      },
+      {
+        "code": 79766,
+        "name": "Quận Tân Bình"
+      },
+      {
+        "code": 79767,
+        "name": "Quận Tân Phú"
+      },
+      {
+        "code": 79768,
+        "name": "Quận Phú Nhuận"
+      },
+      {
+        "code": 79769,
+        "name": "Thành phố Thủ Đức"
+      },
+      {
+        "code": 79770,
+        "name": "Quận 3"
+      },
+      {
+        "code": 79771,
+        "name": "Quận 10"
+      },
+      {
+        "code": 79772,
+        "name": "Quận 11"
+      },
+      {
+        "code": 79773,
+        "name": "Quận 4"
+      },
+      {
+        "code": 79774,
+        "name": "Quận 5"
+      },
+      {
+        "code": 79775,
+        "name": "Quận 6"
+      },
+      {
+        "code": 79776,
+        "name": "Quận 8"
+      },
+      {
+        "code": 79777,
+        "name": "Quận Bình Tân"
+      },
+      {
+        "code": 79778,
+        "name": "Quận 7"
+      },
+      {
+        "code": 79783,
+        "name": "Huyện Củ Chi"
+      },
+      {
+        "code": 79784,
+        "name": "Huyện Hóc Môn"
+      },
+      {
+        "code": 79785,
+        "name": "Huyện Bình Chánh"
+      },
+      {
+        "code": 79786,
+        "name": "Huyện Nhà Bè"
+      },
+      {
+        "code": 79787,
+        "name": "Huyện Cần Giờ"
+      }
+    ]
+  },
+  {
+    "code": 80,
+    "name": "Tỉnh Long An",
+    "districts": [
+      {
+        "code": 80794,
+        "name": "Thành phố Tân An"
+      },
+      {
+        "code": 80795,
+        "name": "Thị xã Kiến Tường"
+      },
+      {
+        "code": 80796,
+        "name": "Huyện Tân Hưng"
+      },
+      {
+        "code": 80797,
+        "name": "Huyện Vĩnh Hưng"
+      },
+      {
+        "code": 80798,
+        "name": "Huyện Mộc Hóa"
+      },
+      {
+        "code": 80799,
+        "name": "Huyện Tân Thạnh"
+      },
+      {
+        "code": 80800,
+        "name": "Huyện Thạnh Hóa"
+      },
+      {
+        "code": 80801,
+        "name": "Huyện Đức Huệ"
+      },
+      {
+        "code": 80802,
+        "name": "Huyện Đức Hòa"
+      },
+      {
+        "code": 80803,
+        "name": "Huyện Bến Lức"
+      },
+      {
+        "code": 80804,
+        "name": "Huyện Thủ Thừa"
+      },
+      {
+        "code": 80805,
+        "name": "Huyện Tân Trụ"
+      },
+      {
+        "code": 80806,
+        "name": "Huyện Cần Đước"
+      },
+      {
+        "code": 80807,
+        "name": "Huyện Cần Giuộc"
+      },
+      {
+        "code": 80808,
+        "name": "Huyện Châu Thành"
+      }
+    ]
+  },
+  {
+    "code": 82,
+    "name": "Tỉnh Tiền Giang",
+    "districts": [
+      {
+        "code": 82815,
+        "name": "Thành phố Mỹ Tho"
+      },
+      {
+        "code": 82816,
+        "name": "Thành phố Gò Công"
+      },
+      {
+        "code": 82817,
+        "name": "Thị xã Cai Lậy"
+      },
+      {
+        "code": 82818,
+        "name": "Huyện Tân Phước"
+      },
+      {
+        "code": 82819,
+        "name": "Huyện Cái Bè"
+      },
+      {
+        "code": 82820,
+        "name": "Huyện Cai Lậy"
+      },
+      {
+        "code": 82821,
+        "name": "Huyện Châu Thành"
+      },
+      {
+        "code": 82822,
+        "name": "Huyện Chợ Gạo"
+      },
+      {
+        "code": 82823,
+        "name": "Huyện Gò Công Tây"
+      },
+      {
+        "code": 82824,
+        "name": "Huyện Gò Công Đông"
+      },
+      {
+        "code": 82825,
+        "name": "Huyện Tân Phú Đông"
+      }
+    ]
+  },
+  {
+    "code": 83,
+    "name": "Tỉnh Bến Tre",
+    "districts": [
+      {
+        "code": 83829,
+        "name": "Thành phố Bến Tre"
+      },
+      {
+        "code": 83831,
+        "name": "Huyện Châu Thành"
+      },
+      {
+        "code": 83832,
+        "name": "Huyện Chợ Lách"
+      },
+      {
+        "code": 83833,
+        "name": "Huyện Mỏ Cày Nam"
+      },
+      {
+        "code": 83834,
+        "name": "Huyện Giồng Trôm"
+      },
+      {
+        "code": 83835,
+        "name": "Huyện Bình Đại"
+      },
+      {
+        "code": 83836,
+        "name": "Huyện Ba Tri"
+      },
+      {
+        "code": 83837,
+        "name": "Huyện Thạnh Phú"
+      },
+      {
+        "code": 83838,
+        "name": "Huyện Mỏ Cày Bắc"
+      }
+    ]
+  },
+  {
+    "code": 84,
+    "name": "Tỉnh Trà Vinh",
+    "districts": [
+      {
+        "code": 84842,
+        "name": "Thành phố Trà Vinh"
+      },
+      {
+        "code": 84844,
+        "name": "Huyện Càng Long"
+      },
+      {
+        "code": 84845,
+        "name": "Huyện Cầu Kè"
+      },
+      {
+        "code": 84846,
+        "name": "Huyện Tiểu Cần"
+      },
+      {
+        "code": 84847,
+        "name": "Huyện Châu Thành"
+      },
+      {
+        "code": 84848,
+        "name": "Huyện Cầu Ngang"
+      },
+      {
+        "code": 84849,
+        "name": "Huyện Trà Cú"
+      },
+      {
+        "code": 84850,
+        "name": "Huyện Duyên Hải"
+      },
+      {
+        "code": 84851,
+        "name": "Thị xã Duyên Hải"
+      }
+    ]
+  },
+  {
+    "code": 86,
+    "name": "Tỉnh Vĩnh Long",
+    "districts": [
+      {
+        "code": 86855,
+        "name": "Thành phố Vĩnh Long"
+      },
+      {
+        "code": 86857,
+        "name": "Huyện Long Hồ"
+      },
+      {
+        "code": 86858,
+        "name": "Huyện Mang Thít"
+      },
+      {
+        "code": 86859,
+        "name": "Huyện  Vũng Liêm"
+      },
+      {
+        "code": 86860,
+        "name": "Huyện Tam Bình"
+      },
+      {
+        "code": 86861,
+        "name": "Thị xã Bình Minh"
+      },
+      {
+        "code": 86862,
+        "name": "Huyện Trà Ôn"
+      },
+      {
+        "code": 86863,
+        "name": "Huyện Bình Tân"
+      }
+    ]
+  },
+  {
+    "code": 87,
+    "name": "Tỉnh Đồng Tháp",
+    "districts": [
+      {
+        "code": 87866,
+        "name": "Thành phố Cao Lãnh"
+      },
+      {
+        "code": 87867,
+        "name": "Thành phố Sa Đéc"
+      },
+      {
+        "code": 87868,
+        "name": "Thành phố Hồng Ngự"
+      },
+      {
+        "code": 87869,
+        "name": "Huyện Tân Hồng"
+      },
+      {
+        "code": 87870,
+        "name": "Huyện Hồng Ngự"
+      },
+      {
+        "code": 87871,
+        "name": "Huyện Tam Nông"
+      },
+      {
+        "code": 87872,
+        "name": "Huyện Tháp Mười"
+      },
+      {
+        "code": 87873,
+        "name": "Huyện Cao Lãnh"
+      },
+      {
+        "code": 87874,
+        "name": "Huyện Thanh Bình"
+      },
+      {
+        "code": 87875,
+        "name": "Huyện Lấp Vò"
+      },
+      {
+        "code": 87876,
+        "name": "Huyện Lai Vung"
+      },
+      {
+        "code": 87877,
+        "name": "Huyện Châu Thành"
+      }
+    ]
+  },
+  {
+    "code": 89,
+    "name": "Tỉnh An Giang",
+    "districts": [
+      {
+        "code": 89883,
+        "name": "Thành phố Long Xuyên"
+      },
+      {
+        "code": 89884,
+        "name": "Thành phố Châu Đốc"
+      },
+      {
+        "code": 89886,
+        "name": "Huyện An Phú"
+      },
+      {
+        "code": 89887,
+        "name": "Thị xã Tân Châu"
+      },
+      {
+        "code": 89888,
+        "name": "Huyện Phú Tân"
+      },
+      {
+        "code": 89889,
+        "name": "Huyện Châu Phú"
+      },
+      {
+        "code": 89890,
+        "name": "Thị xã Tịnh Biên"
+      },
+      {
+        "code": 89891,
+        "name": "Huyện Tri Tôn"
+      },
+      {
+        "code": 89892,
+        "name": "Huyện Châu Thành"
+      },
+      {
+        "code": 89893,
+        "name": "Huyện Chợ Mới"
+      },
+      {
+        "code": 89894,
+        "name": "Huyện Thoại Sơn"
+      }
+    ]
+  },
+  {
+    "code": 91,
+    "name": "Tỉnh Kiên Giang",
+    "districts": [
+      {
+        "code": 91899,
+        "name": "Thành phố Rạch Giá"
+      },
+      {
+        "code": 91900,
+        "name": "Thành phố Hà Tiên"
+      },
+      {
+        "code": 91902,
+        "name": "Huyện Kiên Lương"
+      },
+      {
+        "code": 91903,
+        "name": "Huyện Hòn Đất"
+      },
+      {
+        "code": 91904,
+        "name": "Huyện Tân Hiệp"
+      },
+      {
+        "code": 91905,
+        "name": "Huyện Châu Thành"
+      },
+      {
+        "code": 91906,
+        "name": "Huyện Giồng Riềng"
+      },
+      {
+        "code": 91907,
+        "name": "Huyện Gò Quao"
+      },
+      {
+        "code": 91908,
+        "name": "Huyện An Biên"
+      },
+      {
+        "code": 91909,
+        "name": "Huyện An Minh"
+      },
+      {
+        "code": 91910,
+        "name": "Huyện Vĩnh Thuận"
+      },
+      {
+        "code": 91911,
+        "name": "Thành phố Phú Quốc"
+      },
+      {
+        "code": 91912,
+        "name": "Huyện Kiên Hải"
+      },
+      {
+        "code": 91913,
+        "name": "Huyện U Minh Thượng"
+      },
+      {
+        "code": 91914,
+        "name": "Huyện Giang Thành"
+      }
+    ]
+  },
+  {
+    "code": 92,
+    "name": "Thành phố Cần Thơ",
+    "districts": [
+      {
+        "code": 92916,
+        "name": "Quận Ninh Kiều"
+      },
+      {
+        "code": 92917,
+        "name": "Quận Ô Môn"
+      },
+      {
+        "code": 92918,
+        "name": "Quận Bình Thuỷ"
+      },
+      {
+        "code": 92919,
+        "name": "Quận Cái Răng"
+      },
+      {
+        "code": 92923,
+        "name": "Quận Thốt Nốt"
+      },
+      {
+        "code": 92924,
+        "name": "Huyện Vĩnh Thạnh"
+      },
+      {
+        "code": 92925,
+        "name": "Huyện Cờ Đỏ"
+      },
+      {
+        "code": 92926,
+        "name": "Huyện Phong Điền"
+      },
+      {
+        "code": 92927,
+        "name": "Huyện Thới Lai"
+      }
+    ]
+  },
+  {
+    "code": 93,
+    "name": "Tỉnh Hậu Giang",
+    "districts": [
+      {
+        "code": 93930,
+        "name": "Thành phố Vị Thanh"
+      },
+      {
+        "code": 93931,
+        "name": "Thành phố Ngã Bảy"
+      },
+      {
+        "code": 93932,
+        "name": "Huyện Châu Thành A"
+      },
+      {
+        "code": 93933,
+        "name": "Huyện Châu Thành"
+      },
+      {
+        "code": 93934,
+        "name": "Huyện Phụng Hiệp"
+      },
+      {
+        "code": 93935,
+        "name": "Huyện Vị Thuỷ"
+      },
+      {
+        "code": 93936,
+        "name": "Huyện Long Mỹ"
+      },
+      {
+        "code": 93937,
+        "name": "Thị xã Long Mỹ"
+      }
+    ]
+  },
+  {
+    "code": 94,
+    "name": "Tỉnh Sóc Trăng",
+    "districts": [
+      {
+        "code": 94941,
+        "name": "Thành phố Sóc Trăng"
+      },
+      {
+        "code": 94942,
+        "name": "Huyện Châu Thành"
+      },
+      {
+        "code": 94943,
+        "name": "Huyện Kế Sách"
+      },
+      {
+        "code": 94944,
+        "name": "Huyện Mỹ Tú"
+      },
+      {
+        "code": 94945,
+        "name": "Huyện Cù Lao Dung"
+      },
+      {
+        "code": 94946,
+        "name": "Huyện Long Phú"
+      },
+      {
+        "code": 94947,
+        "name": "Huyện Mỹ Xuyên"
+      },
+      {
+        "code": 94948,
+        "name": "Thị xã Ngã Năm"
+      },
+      {
+        "code": 94949,
+        "name": "Huyện Thạnh Trị"
+      },
+      {
+        "code": 94950,
+        "name": "Thị xã Vĩnh Châu"
+      },
+      {
+        "code": 94951,
+        "name": "Huyện Trần Đề"
+      }
+    ]
+  },
+  {
+    "code": 95,
+    "name": "Tỉnh Bạc Liêu",
+    "districts": [
+      {
+        "code": 95954,
+        "name": "Thành phố Bạc Liêu"
+      },
+      {
+        "code": 95956,
+        "name": "Huyện Hồng Dân"
+      },
+      {
+        "code": 95957,
+        "name": "Huyện Phước Long"
+      },
+      {
+        "code": 95958,
+        "name": "Huyện Vĩnh Lợi"
+      },
+      {
+        "code": 95959,
+        "name": "Thị xã Giá Rai"
+      },
+      {
+        "code": 95960,
+        "name": "Huyện Đông Hải"
+      },
+      {
+        "code": 95961,
+        "name": "Huyện Hoà Bình"
+      }
+    ]
+  },
+  {
+    "code": 96,
+    "name": "Tỉnh Cà Mau",
+    "districts": [
+      {
+        "code": 96964,
+        "name": "Thành phố Cà Mau"
+      },
+      {
+        "code": 96966,
+        "name": "Huyện U Minh"
+      },
+      {
+        "code": 96967,
+        "name": "Huyện Thới Bình"
+      },
+      {
+        "code": 96968,
+        "name": "Huyện Trần Văn Thời"
+      },
+      {
+        "code": 96969,
+        "name": "Huyện Cái Nước"
+      },
+      {
+        "code": 96970,
+        "name": "Huyện Đầm Dơi"
+      },
+      {
+        "code": 96971,
+        "name": "Huyện Năm Căn"
+      },
+      {
+        "code": 96972,
+        "name": "Huyện Phú Tân"
+      },
+      {
+        "code": 96973,
+        "name": "Huyện Ngọc Hiển"
+      }
+    ]
+  }
+]

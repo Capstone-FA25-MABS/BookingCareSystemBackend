@@ -185,12 +185,12 @@ public class AppointmentService : BaseService, IAppointmentService
 
     #region Appointment Operations
 
-    public async Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request)
+    public async Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request, bool skipPayment = false)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Creating appointment for patient {PatientId} on {AppointmentDate}",
-                null, request.PatientId, request.AppointmentDate);
+            LogInfo("Creating appointment for patient {PatientId} on {AppointmentDate}, SkipPayment: {SkipPayment}",
+                null, request.PatientId, request.AppointmentDate, skipPayment);
 
             // Validate the appointment
             await ValidateAppointmentAsync(request);
@@ -229,6 +229,15 @@ public class AppointmentService : BaseService, IAppointmentService
                     request.DoctorId.Value,
                     request.AppointmentDate,
                     request.ServiceId);
+            }
+
+            // If no payment (skipPayment = true), send booking success email immediately
+            // For payment flow, email will be sent by AppointmentPaymentSuccessEventHandler after payment
+            if (skipPayment)
+            {
+                LogInfo("No payment flow - sending booking success email immediately for appointment {AppointmentId}",
+                    null, appointmentEntity.Id);
+                await SendAppointmentBookingSuccessEmailAsync(appointmentEntity.Id, request.PatientId, 0);
             }
 
             LogInfo("Successfully created appointment {AppointmentId}", null, appointmentEntity.Id);
@@ -804,39 +813,40 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             await PublishStaffCancellationWithOptionsNotificationAsync(appointment, request, details, rescheduleResponse, patientInfo);
         }
-        // CASE 2: Patient cancellation OR staff cancellation WITHOUT options → Immediate refund processing
+        // CASE 2: Patient cancellation OR staff cancellation WITHOUT options → Check payment before processing
         else
         {
             if (details.RefundPercentage > 0)
             {
-                await PublishImmediateRefundEventAsync(appointment, request, details, patientInfo);
+                // Check if appointment has payment by trying to get payment amount
+                var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
+
+                if (paymentAmount.HasValue)
+                {
+                    // Has payment → Process refund via Payment Service
+                    await PublishImmediateRefundEventAsync(appointment, request, details, patientInfo);
+                }
+                else
+                {
+                    // No payment → Send cancellation success notification directly
+                    await PublishCancellationSuccessNotificationAsync(appointment, request, patientInfo);
+                }
             }
             else
             {
+                // No refund (late cancellation) → Send no-refund notification
                 await PublishNoRefundNotificationAsync(appointment, request, patientInfo);
             }
         }
     }
 
     /// <summary>
-    /// CASE 1: Publish notification event for staff cancellation WITH reschedule options
-    /// Patient will receive email/SMS and choose: reschedule (Option 1/2/3) or refund (Option 4)
-    /// This does NOT trigger Payment Service - just notification
+    /// Get doctor and hospital names for notification context
+    /// Extracted to avoid code duplication across notification methods
     /// </summary>
-    private async Task PublishStaffCancellationWithOptionsNotificationAsync(
-        AppointmentEntity appointment,
-        CancelAppointmentRequest request,
-        CancellationDetails details,
-        RescheduleResponse rescheduleResponse,
-        PatientNotificationInfo patientInfo)
+    private async Task<(string? doctorName, string? hospitalName)> GetDoctorAndHospitalNamesForNotificationAsync(
+        AppointmentEntity appointment)
     {
-        // Get payment amount to calculate potential refund
-        var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
-        var potentialRefundAmount = paymentAmount.HasValue
-            ? paymentAmount.Value * details.RefundPercentage / 100
-            : (decimal?)null;
-
-        // Get doctor and hospital info for notification context
         string? doctorName = null;
         string? hospitalName = null;
 
@@ -867,6 +877,30 @@ public class AppointmentService : BaseService, IAppointmentService
                 LogWarning("Failed to get hospital name for notification: {Error}", null, ex.Message);
             }
         }
+
+        return (doctorName, hospitalName);
+    }
+
+    /// <summary>
+    /// CASE 1: Publish notification event for staff cancellation WITH reschedule options
+    /// Patient will receive email/SMS and choose: reschedule (Option 1/2/3) or refund (Option 4)
+    /// This does NOT trigger Payment Service - just notification
+    /// </summary>
+    private async Task PublishStaffCancellationWithOptionsNotificationAsync(
+        AppointmentEntity appointment,
+        CancelAppointmentRequest request,
+        CancellationDetails details,
+        RescheduleResponse rescheduleResponse,
+        PatientNotificationInfo patientInfo)
+    {
+        // Get payment amount to calculate potential refund
+        var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
+        var potentialRefundAmount = paymentAmount.HasValue
+            ? paymentAmount.Value * details.RefundPercentage / 100
+            : (decimal?)null;
+
+        // Get doctor and hospital info for notification context
+        var (doctorName, hospitalName) = await GetDoctorAndHospitalNamesForNotificationAsync(appointment);
 
         var notificationEvent = new AppointmentCancelledWithOptionsNotificationEvent
         {
@@ -1003,6 +1037,37 @@ public class AppointmentService : BaseService, IAppointmentService
 
         await _eventBus.PublishAsync(noRefundEvent);
         LogInfo("Published no-refund notification event for appointment {AppointmentId} - no refund due to late cancellation",
+            null, appointment.Id);
+    }
+
+    /// <summary>
+    /// Publish cancellation success notification for appointments without payment
+    /// Used when appointment is eligible for refund but no payment record exists
+    /// </summary>
+    private async Task PublishCancellationSuccessNotificationAsync(
+        AppointmentEntity appointment,
+        CancelAppointmentRequest request,
+        PatientNotificationInfo patientInfo)
+    {
+        // Get doctor and hospital info for notification context using extracted method
+        var (doctorName, hospitalName) = await GetDoctorAndHospitalNamesForNotificationAsync(appointment);
+
+        var successEvent = new AppointmentCancelledSuccessNotificationEvent
+        {
+            AppointmentId = appointment.Id,
+            PatientId = appointment.PatientId,
+            AppointmentDate = appointment.AppointmentDate,
+            CancellationReason = request.CancellationReason,
+            CancelledAt = DateTime.UtcNow,
+            PatientEmail = patientInfo.Email,
+            PatientPhone = patientInfo.Phone,
+            PatientFullName = patientInfo.FullName,
+            DoctorName = doctorName,
+            HospitalName = hospitalName
+        };
+
+        await _eventBus.PublishAsync(successEvent);
+        LogInfo("Published cancellation success notification for appointment {AppointmentId} - no payment record found",
             null, appointment.Id);
     }
 

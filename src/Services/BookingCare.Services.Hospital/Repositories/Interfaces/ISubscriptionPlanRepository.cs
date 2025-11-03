@@ -14,5 +14,6 @@ public interface ISubscriptionPlanRepository
     Task<bool> DeleteAsync(Guid id);
     Task<bool> ExistsAsync(Guid id);
     Task<bool> NameExistsAsync(string name, Guid? excludeId = null);
+    Task<bool> NameAndBillingCycleExistsAsync(string name, string billingCycle, Guid? excludeId = null);
     Task<List<SubscriptionPlanEntity>> GetActiveAsync();
 }

@@ -56,7 +56,7 @@ public class UsersController : BaseApiController
     /// <returns>Current user details</returns>
     [HttpGet("profile")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    //[Authorize]
+    [Authorize(Policy = "Role:Admin,Patient")]
     public async Task<IActionResult> GetCurrentUserProfile()
     {
         try
@@ -78,13 +78,13 @@ public class UsersController : BaseApiController
     }
 
     /// <summary>
-    /// Update current user profile (requires authentication)
+    /// Update current user profile (Admin or Patient only)
     /// </summary>
     /// <param name="updateUserRequest">User update data</param>
     /// <returns>Updated user profile</returns>
     [HttpPut("profile")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    //[Authorize]
+    [Authorize(Policy = "Role:Admin,Patient")] // OR logic - Admin OR Patient
     public async Task<IActionResult> UpdateCurrentUserProfile([FromBody] UpdateUserRequest updateUserRequest)
     {
         if (!ModelState.IsValid)
@@ -139,7 +139,7 @@ public class UsersController : BaseApiController
     /// <returns>Updated user</returns>
     [HttpPut("{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest updateUserRequest)
     {
         if (!ModelState.IsValid)

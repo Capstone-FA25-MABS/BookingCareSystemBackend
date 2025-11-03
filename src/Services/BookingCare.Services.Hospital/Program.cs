@@ -43,12 +43,11 @@ builder.Services.AddScoped<IHospitalRegistrationRepository, HospitalRegistration
 
 // Register services
 builder.Services.AddScoped<IHospitalService, HospitalService>();
+builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionService>();
+builder.Services.AddScoped<ISubscriptionUsageService, SubscriptionUsageService>();
 builder.Services.AddScoped<ILocationApiService, LocationApiService>();
 builder.Services.AddScoped<IHospitalRegistrationService, HospitalRegistrationService>();
-
-// Add HttpClient for LocationApiService
-builder.Services.AddHttpClient<ILocationApiService, LocationApiService>();
 
 // Add Event Bus (RabbitMQ) for message queue
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "hospital-service-queue");

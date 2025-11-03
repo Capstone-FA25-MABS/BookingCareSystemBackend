@@ -38,14 +38,21 @@ public class SubscriptionPlanRepository : ISubscriptionPlanRepository
 
     public async Task<(List<SubscriptionPlanEntity> plans, int totalCount)> GetFilteredAsync(SubscriptionPlanFilterRequest filter)
     {
-        var query = _context.SubscriptionPlans.AsQueryable();
+        try
+        {
+            var query = _context.SubscriptionPlans.AsQueryable();
 
-        query = ApplyFilters(query, filter);
-        var totalCount = await query.CountAsync();
-        query = ApplySorting(query, filter);
-        var plans = await ApplyPagination(query, filter).ToListAsync();
+            query = ApplyFilters(query, filter);
+            var totalCount = await query.CountAsync();
+            query = ApplySorting(query, filter);
+            var plans = await ApplyPagination(query, filter).ToListAsync();
 
-        return (plans, totalCount);
+            return (plans, totalCount);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Error executing filtered query: {ex.Message}", ex);
+        }
     }
 
     private IQueryable<SubscriptionPlanEntity> ApplyFilters(IQueryable<SubscriptionPlanEntity> query, SubscriptionPlanFilterRequest filter)
@@ -90,9 +97,12 @@ public class SubscriptionPlanRepository : ISubscriptionPlanRepository
 
     private IQueryable<SubscriptionPlanEntity> ApplyPagination(IQueryable<SubscriptionPlanEntity> query, SubscriptionPlanFilterRequest filter)
     {
+        var page = Math.Max(1, filter.Page); // Ensure page is at least 1
+        var pageSize = Math.Max(1, Math.Min(100, filter.PageSize)); // Ensure pageSize is between 1 and 100
+
         return query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize);
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
     }
 
     public async Task<SubscriptionPlanEntity> CreateAsync(SubscriptionPlanEntity plan)
@@ -128,6 +138,17 @@ public class SubscriptionPlanRepository : ISubscriptionPlanRepository
     public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
         var query = _context.SubscriptionPlans.Where(s => s.Name == name);
+        if (excludeId.HasValue)
+        {
+            query = query.Where(s => s.Id != excludeId.Value);
+        }
+        return await query.AnyAsync();
+    }
+
+    public async Task<bool> NameAndBillingCycleExistsAsync(string name, string billingCycle, Guid? excludeId = null)
+    {
+        var query = _context.SubscriptionPlans
+            .Where(s => s.Name == name && s.BillingCycle == billingCycle);
         if (excludeId.HasValue)
         {
             query = query.Where(s => s.Id != excludeId.Value);

@@ -41,6 +41,9 @@ service DoctorService {
 
   // Get doctor counts by specialty and hospital
   rpc GetDoctorCountsBySpecialtyAndHospital (GetDoctorCountsBySpecialtyAndHospitalRequest) returns (GetDoctorCountsBySpecialtyAndHospitalResponse);
+
+  // Get doctors with full details by hospital ID (optimized for hospital staff management - single call)
+  rpc GetDoctorsByHospitalId (GetDoctorsByHospitalIdRequest) returns (DoctorBatchResponse);
 }
 
 // Request messages
@@ -230,4 +233,9 @@ message GetDoctorCountsBySpecialtyAndHospitalRequest {
 // Response message for doctor counts by specialty and hospital
 message GetDoctorCountsBySpecialtyAndHospitalResponse {
   map<string, int32> specialty_counts = 1;
+}
+
+// Request message for getting doctors with full details by hospital ID
+message GetDoctorsByHospitalIdRequest {
+  string hospital_id = 1;
 }

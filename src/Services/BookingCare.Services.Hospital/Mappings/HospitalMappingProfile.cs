@@ -14,7 +14,16 @@ public class HospitalMappingProfile : Profile
             .ForMember(dest => dest.Specialties, opt => opt.MapFrom(src => src.HospitalSpecialties))
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
             .ForMember(dest => dest.CurrentSubscription, opt => opt.MapFrom(src =>
-                src.HospitalSubscriptions.FirstOrDefault(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)));
+                src.HospitalSubscriptions.FirstOrDefault(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)))
+            .AfterMap((src, dest, context) =>
+            {
+                // Break circular reference: set Hospital to null in CurrentSubscription
+                // because we already have the Hospital context (dest)
+                if (dest.CurrentSubscription != null)
+                {
+                    dest.CurrentSubscription.Hospital = null;
+                }
+            });
 
         // Hospital Simple Response mapping for performance optimization
         CreateMap<HospitalEntity, HospitalSimpleResponse>()
@@ -36,7 +45,27 @@ public class HospitalMappingProfile : Profile
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
             .ForMember(dest => dest.CurrentSubscription, opt => opt.MapFrom(src =>
                 src.HospitalSubscriptions.FirstOrDefault(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)))
-            .ForMember(dest => dest.SubscriptionHistory, opt => opt.MapFrom(src => src.HospitalSubscriptions));
+            .ForMember(dest => dest.SubscriptionHistory, opt => opt.MapFrom(src => src.HospitalSubscriptions))
+            .AfterMap((src, dest, context) =>
+            {
+                // Break circular reference: set Hospital to null in CurrentSubscription
+                // because we already have the Hospital context (dest)
+                if (dest.CurrentSubscription != null)
+                {
+                    dest.CurrentSubscription.Hospital = null;
+                }
+                // Ensure all subscription history Hospital properties are null
+                if (dest.SubscriptionHistory != null)
+                {
+                    foreach (var sub in dest.SubscriptionHistory)
+                    {
+                        if (sub != null)
+                        {
+                            sub.Hospital = null;
+                        }
+                    }
+                }
+            });
 
         // Hospital Profile mapping (exclude accountId, createdAt, updatedAt)
         CreateMap<HospitalEntity, HospitalProfileResponse>()
@@ -84,10 +113,10 @@ public class HospitalMappingProfile : Profile
 
         // Subscription Plan mappings
         CreateMap<SubscriptionPlanEntity, SubscriptionPlanResponse>();
+
         CreateMap<SubscriptionPlanEntity, SubscriptionPlanDetailResponse>()
             .ForMember(dest => dest.HospitalSubscriptions, opt => opt.MapFrom(src => src.HospitalSubscriptions))
-            .ForMember(dest => dest.ActiveSubscriptionsCount, opt => opt.MapFrom(src =>
-                src.HospitalSubscriptions.Count(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)));
+            .ForMember(dest => dest.ActiveSubscriptionsCount, opt => opt.Ignore());
 
         CreateMap<CreateSubscriptionPlanRequest, SubscriptionPlanEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -104,7 +133,15 @@ public class HospitalMappingProfile : Profile
 
         // Hospital Subscription mappings
         CreateMap<HospitalSubscriptionEntity, HospitalSubscriptionResponse>()
-            .ForMember(dest => dest.Hospital, opt => opt.MapFrom(src => src.Hospital))
+            // Don't map Hospital property by default to avoid circular references
+            // Hospital will be set to null - hospitalId is already available in the response
+            .ForMember(dest => dest.Hospital, opt => opt.Ignore())
+            .AfterMap((src, dest) =>
+            {
+                // Always set Hospital to null to break circular reference
+                // The hospitalId property is sufficient for most use cases
+                dest.Hospital = null;
+            })
             .ForMember(dest => dest.SubscriptionPlan, opt => opt.MapFrom(src => src.SubscriptionPlan));
 
         CreateMap<CreateHospitalSubscriptionRequest, HospitalSubscriptionEntity>()

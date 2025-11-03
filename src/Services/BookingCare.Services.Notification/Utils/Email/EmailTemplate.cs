@@ -1,9 +1,103 @@
 ﻿using BookingCare.Services.Notification.Models.DTOs;
+using System.Text.Json;
 
 namespace BookingCare.Services.Notification.Utils.Email;
 
 public static class EmailTemplate
 {
+    /// <summary>
+    /// Parse and build HTML for features from JSON string
+    /// Returns HTML for features to be included in the same card
+    /// </summary>
+    private static string BuildFeaturesHtml(string? featuresJson)
+    {
+        if (string.IsNullOrWhiteSpace(featuresJson))
+        {
+            return "";
+        }
+
+        try
+        {
+            // Try to parse as JSON array
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            var features = JsonSerializer.Deserialize<List<FeatureItem>>(featuresJson, options);
+
+            if (features == null || features.Count == 0)
+            {
+                // If parsing succeeds but list is empty, show debug info
+                return $@"
+        <div style=""height:1px; background:#e5e7eb; margin:12px 0;""></div>
+        <div style=""margin-top:12px;"">
+          <strong style=""color:#047857;"">✨ Tính năng của gói:</strong>
+        </div>
+        <div class=""info-item"" style=""color:#ef4444;"">(Không có tính năng nào được cấu hình)</div>";
+            }
+
+            // Build feature items as simple div rows (no list)
+            var featuresHtml = string.Join("", features.Select(f =>
+            {
+                var icon = GetFeatureIcon(f.IconType);
+                var text = string.IsNullOrWhiteSpace(f.Text) ? "(Không có mô tả)" : f.Text;
+                var subtext = !string.IsNullOrWhiteSpace(f.Subtext)
+                    ? $"<div style=\"font-size:11px; color:#6b7280; margin-left:24px; margin-top:2px;\">{f.Subtext}</div>"
+                    : "";
+                return $@"
+        <div class=""info-item"">{icon} {text}{subtext}</div>";
+            }));
+
+            // Return as part of the same card with a separator
+            return $@"
+        <div style=""height:1px; background:#e5e7eb; margin:12px 0;""></div>
+        <div style=""margin-top:12px;"">
+          <strong style=""color:#047857;"">✨ Tính năng của gói:</strong>
+        </div>{featuresHtml}";
+        }
+        catch (Exception ex)
+        {
+            // If JSON parsing fails, show the raw data for debugging
+            return $@"
+        <div style=""height:1px; background:#e5e7eb; margin:12px 0;""></div>
+        <div style=""margin-top:12px;"">
+          <strong style=""color:#047857;"">✨ Tính năng của gói:</strong>
+        </div>
+        <div class=""info-item"" style=""color:#6b7280; font-size:12px; word-break:break-all;"">{featuresJson}</div>
+        <div class=""info-item"" style=""color:#ef4444; font-size:11px;"">(Lỗi parse: {ex.Message})</div>";
+        }
+    }
+
+    /// <summary>
+    /// Get icon for feature based on iconType
+    /// </summary>
+    private static string GetFeatureIcon(string? iconType)
+    {
+        return iconType?.ToLower() switch
+        {
+            "check" => "✅",
+            "plus" => "➕",
+            "star" => "⭐",
+            "heart" => "❤️",
+            "shield" => "🛡️",
+            "rocket" => "🚀",
+            _ => "✅"
+        };
+    }
+
+    /// <summary>
+    /// Feature item model for JSON parsing
+    /// </summary>
+    private class FeatureItem
+    {
+        public string Text { get; set; } = string.Empty;
+        public string? IconType { get; set; }
+        public string? Subtext { get; set; }
+    }
+
+    // Date format constants to avoid code duplication (SonarQube S1192)
+    private const string DateTimeFormat = "dd/MM/yyyy HH:mm";
+
     public static string BuildOtpEmailHtml(string otpCode, string purpose)
     {
         var safePurpose = string.IsNullOrWhiteSpace(purpose) ? "xác thực" : purpose;
@@ -510,7 +604,7 @@ public static class EmailTemplate
     /// </summary>
     public static string BuildNoRefundEmailHtml(string patientName, DateTime appointmentDate, string cancellationReason)
     {
-        var appointmentDateStr = appointmentDate.ToString("dd/MM/yyyy HH:mm");
+        var appointmentDateStr = appointmentDate.ToString(DateTimeFormat);
 
         return $@"<!DOCTYPE html>
 <html>
@@ -563,6 +657,77 @@ public static class EmailTemplate
 </body>
 </html>";
     }
+
+    /// <summary>
+    /// Build email content for successful appointment cancellation without payment
+    /// Used when appointment is cancelled but no payment record exists
+    /// </summary>
+    public static string BuildCancellationSuccessEmailHtml(
+        string patientName,
+        DateTime appointmentDate,
+        string cancellationReason,
+        string? doctorName = null,
+        string? hospitalName = null)
+    {
+        var appointmentDateStr = appointmentDate.ToString(DateTimeFormat);
+
+        var doctorInfoHtml = !string.IsNullOrEmpty(doctorName)
+            ? $"<p><strong>&#x1F468;&#x200D;&#x2695;&#xFE0F; Bác sĩ:</strong> {doctorName}</p>"
+            : "";
+
+        var hospitalInfoHtml = !string.IsNullOrEmpty(hospitalName)
+            ? $"<p><strong>🏥 Bệnh viện:</strong> {hospitalName}</p>"
+            : "";
+
+        return $@"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""utf-8"">
+    <title>Thông báo hủy lịch hẹn thành công</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .container {{ background: #f9f9f9; padding: 30px; border-radius: 10px; }}
+        .header {{ background: #22c55e; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; }}
+        .content {{ background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+        .info-box {{ background: #f0fdf4; padding: 15px; border-left: 4px solid #22c55e; margin: 15px 0; }}
+        .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+        .success-icon {{ color: #22c55e; font-size: 18px; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""header"">
+            <h2>✅ Hủy lịch hẹn thành công</h2>
+        </div>
+        
+        <div class=""content"">
+            <p>Xin chào <strong>{patientName}</strong>,</p>
+            
+            <p>Chúng tôi xin xác nhận rằng lịch hẹn của bạn đã được hủy thành công.</p>
+            
+            <div class=""info-box"">
+                <p><strong>📅 Thời gian hẹn đã hủy:</strong> {appointmentDateStr}</p>
+                {doctorInfoHtml}
+                {hospitalInfoHtml}
+                <p><strong>📝 Lý do hủy:</strong> {cancellationReason}</p>
+            </div>
+            
+            <p>Nếu bạn muốn đặt lịch hẹn mới, vui lòng truy cập website của chúng tôi hoặc liên hệ trực tiếp với chúng tôi.</p>
+            
+            <p>Chúng tôi mong được phục vụ bạn trong tương lai!</p>
+            
+            <p>Trân trọng,<br/>
+            <strong>Đội ngũ BookingCare</strong></p>
+        </div>
+        
+        <div class=""footer"">
+            Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
+        </div>
+    </div>
+</body>
+</html>";
+    }
+
     /// <summary>
     /// Build email content for successful appointment booking
     /// Fixed SonarQube issue: Reduced from 10 parameters to 1 parameter object
@@ -699,7 +864,7 @@ public static class EmailTemplate
         }
 
         var expiryInfo = data.TokenExpiry.HasValue
-            ? $"<p class=\"warning\">⏰ <strong>Lưu ý:</strong> Các tùy chọn đổi lịch có hiệu lực đến <strong>{data.TokenExpiry.Value.ToString("dd/MM/yyyy HH:mm")}</strong> (trước ngày hẹn gốc)</p>"
+            ? $"<p class=\"warning\">⏰ <strong>Lưu ý:</strong> Các tùy chọn đổi lịch có hiệu lực đến <strong>{data.TokenExpiry.Value.ToString(DateTimeFormat)}</strong> (trước ngày hẹn gốc)</p>"
             : "";
 
         return $@"<!DOCTYPE html>
@@ -759,7 +924,7 @@ public static class EmailTemplate
       
       <div class=""cancel-box"">
         <p><strong>📅 Thông tin lịch hẹn bị hủy:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString("dd/MM/yyyy HH:mm")}</div>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString(DateTimeFormat)}</div>
         <div class=""info-item""><strong>Lý do hủy:</strong> {data.CancellationReason}</div>
       </div>
       {refundInfo}
@@ -997,6 +1162,96 @@ public static class EmailTemplate
     }
 
     /// <summary>
+    /// Build email content for successful hospital subscription registration
+    /// </summary>
+    public static string BuildHospitalSubscriptionCreatedEmailHtml(HospitalSubscriptionCreatedEmailData data)
+    {
+        var billingCycleDisplay = data.BillingCycle?.ToUpper() switch
+        {
+            "MONTHLY" => "Tháng",
+            "QUARTERLY" => "Quý",
+            "YEARLY" => "Năm",
+            _ => "Tháng"
+        };
+
+        var maxDoctorsInfo = data.MaxDoctors.HasValue ? $@"
+        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.MaxDoctors} bác sĩ</div>" : "";
+
+        var maxAppointmentsInfo = data.MaxAppointmentsPerMonth.HasValue ? $@"
+        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.MaxAppointmentsPerMonth} lịch hẹn</div>" : "";
+
+        var featuresInfo = BuildFeaturesHtml(data.Features);
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Đăng ký gói dịch vụ thành công - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .success-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
+    .success-box strong {{ color:#047857; }}
+    .info-item {{ margin:8px 0; }}
+    .plan-price {{ font-size:24px; font-weight:700; color:#10b981; }}
+    .reminder {{ background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:16px; margin:20px 0; }}
+    .reminder strong {{ color:#c2410c; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Đăng ký gói dịch vụ thành công</div>
+    </div>
+    <div class=""content"">
+      <div class=""success-icon"">🎉</div>
+      <p class=""greeting"">Kính gửi {data.ContactPersonName},</p>
+      <p class=""lead"">Chúc mừng! Bệnh viện <strong>{data.HospitalName}</strong> đã đăng ký gói dịch vụ <strong>{data.PlanName}</strong> thành công.</p>
+      
+      <div class=""success-box"">
+        <p><strong>📦 Thông tin gói dịch vụ:</strong></p>
+        <div class=""info-item""><strong>Tên gói:</strong> {data.PlanName}</div>
+        <div class=""info-item""><strong>Chu kỳ thanh toán:</strong> {billingCycleDisplay}</div>
+        <div class=""info-item""><strong>Giá gói:</strong> <span class=""plan-price"">{data.Price:N0} VNĐ/{billingCycleDisplay}</span></div>
+        <div class=""info-item""><strong>Ngày bắt đầu:</strong> {data.StartDate:dd/MM/yyyy HH:mm}</div>
+        <div class=""info-item""><strong>Ngày hết hạn:</strong> {data.EndDate:dd/MM/yyyy HH:mm}</div>{maxDoctorsInfo}{maxAppointmentsInfo}{featuresInfo}
+      </div>
+      
+      <div class=""reminder"">
+        <p><strong>📋 Lưu ý quan trọng:</strong></p>
+        <ul style=""margin:8px 0; padding-left:20px;"">
+          <li>Gói dịch vụ của quý bệnh viện đã được kích hoạt và có hiệu lực ngay</li>
+          <li>Vui lòng quản lý số lượng bác sĩ và lịch hẹn theo giới hạn của gói đã đăng ký</li>
+          <li>Để nâng cấp gói dịch vụ, vui lòng truy cập vào phần Quản lý Gói dịch vụ</li>
+          <li>Trước khi hết hạn 7 ngày, hệ thống sẽ gửi thông báo nhắc nhở gia hạn</li>
+        </ul>
+      </div>
+      
+      <p class=""muted"">Nếu quý bệnh viện có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
+      <strong>📧 Email:</strong> support@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Cảm ơn quý bệnh viện đã tin tưởng và sử dụng dịch vụ BookingCare.<br/><br/>
+      Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
     /// Build email content for hospital partnership registration submission confirmation
     /// </summary>
     public static string BuildHospitalRegistrationSubmittedEmailHtml(
@@ -1153,6 +1408,126 @@ public static class EmailTemplate
       
       <div class=""divider""></div>
       <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for successful hospital subscription upgrade
+    /// </summary>
+    public static string BuildHospitalSubscriptionUpgradedEmailHtml(HospitalSubscriptionUpgradedEmailData data)
+    {
+        var previousBillingCycleDisplay = data.PreviousBillingCycle?.ToUpper() switch
+        {
+            "MONTHLY" => "Tháng",
+            "QUARTERLY" => "Quý",
+            "YEARLY" => "Năm",
+            _ => "Tháng"
+        };
+
+        var newBillingCycleDisplay = data.NewBillingCycle?.ToUpper() switch
+        {
+            "MONTHLY" => "Tháng",
+            "QUARTERLY" => "Quý",
+            "YEARLY" => "Năm",
+            _ => "Tháng"
+        };
+
+        var bonusDaysInfo = data.BonusDays > 0 ? $@"
+        <div class=""info-item""><strong>Số ngày thưởng (từ gói cũ):</strong> {data.BonusDays:N0} ngày</div>" : "";
+
+        var maxDoctorsInfo = data.NewMaxDoctors.HasValue ? $@"
+        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.NewMaxDoctors} bác sĩ</div>" : "";
+
+        var maxAppointmentsInfo = data.NewMaxAppointmentsPerMonth.HasValue ? $@"
+        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.NewMaxAppointmentsPerMonth} lịch hẹn</div>" : "";
+
+        var featuresInfo = BuildFeaturesHtml(data.NewFeatures);
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Nâng cấp gói dịch vụ thành công - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#8b5cf6; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .comparison-box {{ background:#f3f4f6; border:1px solid #d1d5db; border-radius:8px; padding:16px; margin:20px 0; }}
+    .comparison-box strong {{ color:#6b7280; }}
+    .upgrade-arrow {{ text-align:center; font-size:28px; color:#8b5cf6; margin:12px 0; }}
+    .new-plan-box {{ background:#ede9fe; border:1px solid #c4b5fd; border-radius:8px; padding:16px; margin:20px 0; }}
+    .new-plan-box strong {{ color:#6d28d9; }}
+    .info-item {{ margin:8px 0; }}
+    .plan-price {{ font-size:24px; font-weight:700; color:#8b5cf6; }}
+    .bonus-highlight {{ background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
+    .bonus-highlight strong {{ color:#92400e; }}
+    .reminder {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px; margin:20px 0; }}
+    .reminder strong {{ color:#166534; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Nâng cấp gói dịch vụ thành công</div>
+    </div>
+    <div class=""content"">
+      <div class=""success-icon"">🚀</div>
+      <p class=""greeting"">Kính gửi {data.ContactPersonName},</p>
+      <p class=""lead"">Chúc mừng! Bệnh viện <strong>{data.HospitalName}</strong> đã nâng cấp gói dịch vụ thành công.</p>
+      
+      <div class=""comparison-box"">
+        <p><strong>📦 Gói dịch vụ trước đây:</strong></p>
+        <div class=""info-item""><strong>Tên gói:</strong> {data.PreviousPlanName}</div>
+        <div class=""info-item""><strong>Chu kỳ:</strong> {previousBillingCycleDisplay}</div>
+        <div class=""info-item""><strong>Giá:</strong> {data.PreviousPrice:N0} VNĐ/{previousBillingCycleDisplay}</div>
+      </div>
+      
+      <div class=""upgrade-arrow"">⬇️</div>
+      
+      <div class=""new-plan-box"">
+        <p><strong>🎁 Gói dịch vụ mới:</strong></p>
+        <div class=""info-item""><strong>Tên gói:</strong> {data.NewPlanName}</div>
+        <div class=""info-item""><strong>Chu kỳ thanh toán:</strong> {newBillingCycleDisplay}</div>
+        <div class=""info-item""><strong>Giá gói:</strong> <span class=""plan-price"">{data.NewPrice:N0} VNĐ/{newBillingCycleDisplay}</span></div>
+        <div class=""info-item""><strong>Ngày bắt đầu:</strong> {data.NewStartDate:dd/MM/yyyy HH:mm}</div>
+        <div class=""info-item""><strong>Ngày hết hạn:</strong> {data.NewEndDate:dd/MM/yyyy HH:mm}</div>{bonusDaysInfo}{maxDoctorsInfo}{maxAppointmentsInfo}{featuresInfo}
+      </div>
+      
+      {(data.BonusDays > 0 ? $@"<div class=""bonus-highlight"">
+        <p><strong>🎉 Ưu đãi đặc biệt:</strong></p>
+        <p>Quý bệnh viện được cộng thêm <strong>{data.BonusDays:N0} ngày</strong> miễn phí từ giá trị còn lại của gói cũ!</p>
+      </div>" : "")}
+      
+      <div class=""reminder"">
+        <p><strong>✨ Quyền lợi mới:</strong></p>
+        <ul style=""margin:8px 0; padding-left:20px;"">
+          <li>Gói dịch vụ mới đã được kích hoạt ngay lập tức</li>
+          <li>Toàn bộ tính năng và giới hạn mới đã có hiệu lực</li>
+          <li>Giá trị còn lại của gói cũ đã được quy đổi thành ngày thưởng</li>
+          <li>Hệ thống sẽ nhắc nhở gia hạn trước khi hết hạn 7 ngày</li>
+        </ul>
+      </div>
+      
+      <p class=""muted"">Nếu quý bệnh viện có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
+      <strong>📧 Email:</strong> support@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Cảm ơn quý bệnh viện đã tin tưởng và sử dụng dịch vụ BookingCare.<br/><br/>
+      Trân trọng,<br/>Đội ngũ BookingCare</p>
     </div>
     <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
   </div>

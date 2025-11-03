@@ -1,0 +1,43 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "src\\Services\\BookingCare.Services.Auth\\BookingCare.Services.Auth.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\BookingCare.Services.Hospital\\BookingCare.Services.Hospital.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\BookingCare.Services.Doctor\\BookingCare.Services.Doctor.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\BookingCare.Services.Review\\BookingCare.Services.Review.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\BookingCare.Services.Favorites\\BookingCare.Services.Favorites.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\ApiGateway\\BookingCare.ApiGateway.Ocelot\\BookingCare.ApiGateway.Ocelot.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\BookingCare.Services.User\\BookingCare.Services.User.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\BookingCare.Services.ServiceMedical\\BookingCare.Services.ServiceMedical.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\Services\\BookingCare.Services.Notification\\BookingCare.Services.Notification.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

@@ -42,6 +42,13 @@ public class CreateAppointmentRequest
     /// </summary>
     [MaxLength(4000, ErrorMessage = "Attachment URLs cannot exceed 4000 characters")]
     public string? AttachmentUrls { get; set; }
+
+    /// <summary>
+    /// Indicates whether to skip payment and send booking confirmation email immediately.
+    /// If true, no payment will be required and email notification will be sent right after appointment creation.
+    /// If false (default), payment will be required and email will be sent after successful payment.
+    /// </summary>
+    public bool SkipPayment { get; set; } = false;
 }
 
 /// <summary>
