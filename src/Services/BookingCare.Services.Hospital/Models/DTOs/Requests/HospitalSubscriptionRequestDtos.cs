@@ -44,3 +44,10 @@ public class HospitalSubscriptionFilterRequest
     public string? SortBy { get; set; }
     public string? SortOrder { get; set; } = "asc";
 }
+
+public class UpgradeHospitalSubscriptionRequest
+{
+    [Required]
+    [JsonRequired]
+    public Guid NewSubscriptionPlanId { get; set; }
+}

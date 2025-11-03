@@ -16,6 +16,7 @@ public class SubscriptionPlanEntity
     [Column("name")]
     public string Name { get; set; } = string.Empty;
 
+    [MaxLength(1000)]
     [Column("description")]
     public string? Description { get; set; }
 
@@ -28,10 +29,13 @@ public class SubscriptionPlanEntity
     public string BillingCycle { get; set; } = "MONTHLY";
 
     [Column("max_doctors")]
-    public int MaxDoctors { get; set; } = 0;
+    public int? MaxDoctors { get; set; } = 0; // null = unlimited
 
     [Column("max_specialties")]
-    public int MaxSpecialties { get; set; } = 0;
+    public int? MaxSpecialties { get; set; } = 0; // null = unlimited
+
+    [Column("max_appointments")]
+    public int? MaxAppointments { get; set; } = 0; // null = unlimited
 
     [Column("features")]
     public string? Features { get; set; }

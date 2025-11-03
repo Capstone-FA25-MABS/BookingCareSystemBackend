@@ -679,6 +679,38 @@ public class AppointmentNoRefundNotificationEvent : IntegrationEvent
 }
 
 /// <summary>
+/// Base class for appointment notification events to reduce code duplication
+/// Contains common properties shared across different cancellation notification types
+/// </summary>
+public abstract class AppointmentNotificationEventBase : IntegrationEvent
+{
+    public Guid AppointmentId { get; set; }
+    public Guid PatientId { get; set; }
+    public DateTime AppointmentDate { get; set; }
+    public string CancellationReason { get; set; } = string.Empty;
+    public DateTime CancelledAt { get; set; }
+
+    // Patient information for notification
+    public string? PatientEmail { get; set; }
+    public string? PatientPhone { get; set; }
+    public string? PatientFullName { get; set; }
+
+    // Doctor and Hospital info (for context in notification)
+    public string? DoctorName { get; set; }
+    public string? HospitalName { get; set; }
+}
+
+/// <summary>
+/// Integration event for successful appointment cancellation without payment
+/// Used when appointment is cancelled (eligible for refund) but no payment record exists
+/// This event is published directly to Notification Service to send simple cancellation confirmation
+/// </summary>
+public class AppointmentCancelledSuccessNotificationEvent : AppointmentNotificationEventBase
+{
+    // All common properties inherited from base class
+}
+
+/// <summary>
 /// Bank account information included in refund events
 /// </summary>
 public class BankAccountInfo
@@ -888,22 +920,9 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
 /// This is a NOTIFICATION-ONLY event consumed by Notification Service
 /// Does NOT trigger refund - patient must explicitly choose refund option
 /// </summary>
-public class AppointmentCancelledWithOptionsNotificationEvent : IntegrationEvent
+public class AppointmentCancelledWithOptionsNotificationEvent : AppointmentNotificationEventBase
 {
-    public Guid AppointmentId { get; set; }
-    public Guid PatientId { get; set; }
-    public DateTime AppointmentDate { get; set; }
-    public string CancellationReason { get; set; } = string.Empty;
-    public DateTime CancelledAt { get; set; }
-
-    // Patient contact information
-    public string? PatientEmail { get; set; }
-    public string? PatientPhone { get; set; }
-    public string? PatientFullName { get; set; }
-
-    // Doctor and Hospital info (for context in notification)
-    public string? DoctorName { get; set; }
-    public string? HospitalName { get; set; }
+    // Common properties inherited from base class
 
     // Reschedule options with deep links (4 options)
     public string? RescheduleToken { get; set; }
@@ -925,6 +944,92 @@ public class AppointmentCancelledWithOptionsNotificationEvent : IntegrationEvent
     public decimal? PotentialRefundPercentage { get; set; }
     public decimal? PotentialRefundAmount { get; set; }
 }
+
+// Hospital Subscription-related events
+
+/// <summary>
+/// Event published when a hospital successfully subscribes to a subscription plan
+/// This event is consumed by Notification Service to send confirmation email to hospital
+/// </summary>
+public class HospitalSubscriptionCreatedEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the hospital subscription
+    /// </summary>
+    public Guid HospitalSubscriptionId { get; set; }
+
+    /// <summary>
+    /// ID of the hospital
+    /// </summary>
+    public Guid HospitalId { get; set; }
+
+    /// <summary>
+    /// Hospital name
+    /// </summary>
+    public string HospitalName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Hospital email for notification
+    /// </summary>
+    public string HospitalEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Contact person name
+    /// </summary>
+    public string ContactPersonName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID of the subscription plan
+    /// </summary>
+    public Guid SubscriptionPlanId { get; set; }
+
+    /// <summary>
+    /// Subscription plan name (e.g., "Gói cơ bản", "Gói nâng cao")
+    /// </summary>
+    public string PlanName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Billing cycle (MONTHLY, QUARTERLY, YEARLY)
+    /// </summary>
+    public string BillingCycle { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Subscription price
+    /// </summary>
+    public decimal Price { get; set; }
+
+    /// <summary>
+    /// Start date of subscription
+    /// </summary>
+    public DateTime StartDate { get; set; }
+
+    /// <summary>
+    /// End date of subscription
+    /// </summary>
+    public DateTime EndDate { get; set; }
+
+    /// <summary>
+    /// Maximum number of doctors allowed
+    /// </summary>
+    public int? MaxDoctors { get; set; }
+
+    /// <summary>
+    /// Maximum number of appointments allowed per month
+    /// </summary>
+    public int? MaxAppointmentsPerMonth { get; set; }
+
+    /// <summary>
+    /// Features included in the plan (comma-separated or JSON string)
+    /// </summary>
+    public string? Features { get; set; }
+
+    /// <summary>
+    /// When the subscription was created
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
+}
+
+// Hospital Registration-related events
 
 /// <summary>
 /// Event published when a new hospital partnership registration is submitted
@@ -999,6 +1104,113 @@ public class HospitalAccountCreatedEvent : IntegrationEvent
     public string LoginUrl { get; set; } = string.Empty;
     public string ContractFileUrl { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
+/// Event published when a hospital successfully upgrades their subscription plan
+/// This event is consumed by Notification Service to send upgrade confirmation email to hospital
+/// </summary>
+public class HospitalSubscriptionUpgradedEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the new hospital subscription
+    /// </summary>
+    public Guid NewHospitalSubscriptionId { get; set; }
+
+    /// <summary>
+    /// ID of the previous hospital subscription (now cancelled)
+    /// </summary>
+    public Guid PreviousHospitalSubscriptionId { get; set; }
+
+    /// <summary>
+    /// ID of the hospital
+    /// </summary>
+    public Guid HospitalId { get; set; }
+
+    /// <summary>
+    /// Hospital name
+    /// </summary>
+    public string HospitalName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Hospital email for notification
+    /// </summary>
+    public string HospitalEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Contact person name
+    /// </summary>
+    public string ContactPersonName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Previous subscription plan name
+    /// </summary>
+    public string PreviousPlanName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Previous billing cycle
+    /// </summary>
+    public string PreviousBillingCycle { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Previous subscription price
+    /// </summary>
+    public decimal PreviousPrice { get; set; }
+
+    /// <summary>
+    /// New subscription plan ID
+    /// </summary>
+    public Guid NewSubscriptionPlanId { get; set; }
+
+    /// <summary>
+    /// New subscription plan name
+    /// </summary>
+    public string NewPlanName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// New billing cycle
+    /// </summary>
+    public string NewBillingCycle { get; set; } = string.Empty;
+
+    /// <summary>
+    /// New subscription price
+    /// </summary>
+    public decimal NewPrice { get; set; }
+
+    /// <summary>
+    /// New start date
+    /// </summary>
+    public DateTime NewStartDate { get; set; }
+
+    /// <summary>
+    /// New end date (includes bonus days from previous subscription)
+    /// </summary>
+    public DateTime NewEndDate { get; set; }
+
+    /// <summary>
+    /// Bonus days credited from previous subscription
+    /// </summary>
+    public double BonusDays { get; set; }
+
+    /// <summary>
+    /// New maximum number of doctors allowed
+    /// </summary>
+    public int? NewMaxDoctors { get; set; }
+
+    /// <summary>
+    /// New maximum number of appointments allowed per month
+    /// </summary>
+    public int? NewMaxAppointmentsPerMonth { get; set; }
+
+    /// <summary>
+    /// New features included in the plan
+    /// </summary>
+    public string? NewFeatures { get; set; }
+
+    /// <summary>
+    /// When the upgrade was completed
+    /// </summary>
+    public DateTime UpgradedAt { get; set; }
 }
 
 /// <summary>

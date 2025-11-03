@@ -22,4 +22,5 @@ public interface ISpecialtyRepository
 
     // Optimized methods for simple responses
     Task<List<SpecialtyEntity>> GetActiveSpecialtiesSimpleAsync();
+    Task<int> GetDoctorCountBySpecialtyIdAsync(Guid specialtyId);
 }

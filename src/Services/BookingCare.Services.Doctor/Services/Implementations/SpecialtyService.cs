@@ -140,7 +140,15 @@ public class SpecialtyService : BaseService, ISpecialtyService
     public async Task<List<SpecialtySimpleResponse>> GetActiveSpecialtiesSimpleAsync()
     {
         var specialties = await _repository.GetActiveSpecialtiesSimpleAsync();
-        return _mapper.Map<List<SpecialtySimpleResponse>>(specialties);
+        var specialtyResponses = _mapper.Map<List<SpecialtySimpleResponse>>(specialties);
+
+        // Calculate doctor count for each specialty
+        foreach (var specialty in specialtyResponses)
+        {
+            specialty.DoctorCount = await _repository.GetDoctorCountBySpecialtyIdAsync(specialty.Id);
+        }
+
+        return specialtyResponses;
     }
 
     #endregion

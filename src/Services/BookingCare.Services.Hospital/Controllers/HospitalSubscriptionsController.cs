@@ -8,6 +8,8 @@ namespace BookingCare.Services.Hospital.Controllers;
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Route("api/[controller]")]
+[Route("api/v{version:apiVersion}/hospital-subscriptions")]
+[Route("api/hospital-subscriptions")]
 public class HospitalSubscriptionsController : ControllerBase
 {
     private readonly IHospitalSubscriptionService _subscriptionService;
@@ -67,17 +69,37 @@ public class HospitalSubscriptionsController : ControllerBase
     {
         try
         {
+            _logger.LogInformation("Attempting to get active subscription for hospital {HospitalId}", hospitalId);
             var subscription = await _subscriptionService.GetActiveByHospitalIdAsync(hospitalId);
             if (subscription == null)
             {
-                return NotFound(new { Message = $"No active subscription found for hospital {hospitalId}" });
+                _logger.LogInformation("No active subscription found for hospital {HospitalId}", hospitalId);
+                return NotFound(new
+                {
+                    success = false,
+                    message = $"No active subscription found for hospital {hospitalId}",
+                    data = (object?)null
+                });
             }
-            return Ok(subscription);
+            _logger.LogInformation("Successfully retrieved active subscription for hospital {HospitalId}", hospitalId);
+            return Ok(new
+            {
+                success = true,
+                message = "Active subscription retrieved successfully",
+                data = subscription
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving active subscription for hospital {HospitalId}", hospitalId);
-            return StatusCode(500, new { Message = "Internal server error" });
+            _logger.LogError(ex, "Error retrieving active subscription for hospital {HospitalId}. Exception: {ExceptionMessage}. StackTrace: {StackTrace}",
+                hospitalId, ex.Message, ex.StackTrace);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An unexpected error occurred. Please try again later.",
+                data = (object?)null,
+                timestamp = DateTime.UtcNow
+            });
         }
     }
 
@@ -165,6 +187,49 @@ public class HospitalSubscriptionsController : ControllerBase
         {
             _logger.LogError(ex, "Error cancelling hospital subscription with ID {SubscriptionId}", id);
             return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
+    [HttpPost("{id}/upgrade")]
+    public async Task<IActionResult> UpgradeSubscription(Guid id, [FromBody] UpgradeHospitalSubscriptionRequest request)
+    {
+        try
+        {
+            var subscription = await _subscriptionService.UpgradeSubscriptionAsync(id, request.NewSubscriptionPlanId);
+            return Ok(new
+            {
+                success = true,
+                message = "Subscription upgraded successfully",
+                data = subscription
+            });
+        }
+        catch (HospitalOperationException ex)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message,
+                data = (object?)null
+            });
+        }
+        catch (SubscriptionPlanNotFoundException ex)
+        {
+            return NotFound(new
+            {
+                success = false,
+                message = ex.Message,
+                data = (object?)null
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error upgrading hospital subscription with ID {SubscriptionId}", id);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "Internal server error",
+                data = (object?)null
+            });
         }
     }
 }
