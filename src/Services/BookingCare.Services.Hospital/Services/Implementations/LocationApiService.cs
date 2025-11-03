@@ -83,11 +83,8 @@ public class LocationApiService : ILocationApiService
                 return true;
 
             // Try parsing provinceId as int and comparing
-            if (int.TryParse(provinceId, out var provinceIdInt))
-            {
-                if (int.TryParse(codeStr, out var codeInt) && codeInt == provinceIdInt)
-                    return true;
-            }
+            if (int.TryParse(provinceId, out var provinceIdInt) && int.TryParse(codeStr, out var codeInt) && codeInt == provinceIdInt)
+                return true;
 
             return false;
         });
