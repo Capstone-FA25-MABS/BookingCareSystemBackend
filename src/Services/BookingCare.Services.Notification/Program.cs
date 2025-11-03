@@ -69,6 +69,8 @@ builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>(
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<DoctorCredentialsGeneratedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalSubscriptionCreatedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalSubscriptionUpgradedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationSubmittedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationStatusUpdatedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalAccountCreatedEventHandler>();
@@ -111,6 +113,10 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to doctor credentials generated event for sending login credentials
     eventBus.Subscribe<DoctorCredentialsGeneratedEvent, DoctorCredentialsGeneratedEventHandler>();
+
+    // Subscribe to hospital subscription events for sending confirmation emails
+    eventBus.Subscribe<HospitalSubscriptionCreatedEvent, HospitalSubscriptionCreatedEventHandler>();
+    eventBus.Subscribe<HospitalSubscriptionUpgradedEvent, HospitalSubscriptionUpgradedEventHandler>();
 
     // Subscribe to hospital registration events for sending confirmation/status emails
     eventBus.Subscribe<HospitalRegistrationSubmittedEvent, HospitalRegistrationSubmittedEventHandler>();

@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Hospital.Migrations
 {
     [DbContext(typeof(HospitalDbContext))]
-    [Migration("20251009002200_AddProvinceDistrictRemoveStatus")]
-    partial class AddProvinceDistrictRemoveStatus
+    [Migration("20251102042755_init-database")]
+    partial class initdatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -60,11 +60,6 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
-                    b.Property<string>("DistrictId")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasColumnName("district_id");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -81,11 +76,6 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("phone");
-
-                    b.Property<string>("ProvinceId")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasColumnName("province_id");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -141,6 +131,96 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.ToTable("hospital_images");
                 });
 
+            modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.HospitalRegistrationEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("address");
+
+                    b.Property<string>("BusinessCertificateFile")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("business_certificate_file");
+
+                    b.Property<string>("ContractFile")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("contract_file");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("email");
+
+                    b.Property<Guid?>("HospitalId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("hospital_id");
+
+                    b.Property<string>("HospitalName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("hospital_name");
+
+                    b.Property<string>("IdentityCardFile")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("identity_card_file");
+
+                    b.Property<string>("LicenseFile")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("license_file");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("phone");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TaxCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("tax_code");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("HospitalId");
+
+                    b.HasIndex("TaxCode");
+
+                    b.ToTable("hospital_registrations");
+                });
+
             modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.HospitalSpecialtyEntity", b =>
                 {
                     b.Property<Guid>("HospitalId")
@@ -189,9 +269,7 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("ACTIVE")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("status");
 
                     b.Property<Guid>("SubscriptionId")
@@ -206,12 +284,16 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.HasKey("HospitalSubscriptionId");
 
-                    b.HasIndex("HospitalId");
-
                     b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("HospitalId", "Status")
+                        .HasDatabaseName("IX_hospital_subscriptions_hospital_active_unique")
+                        .HasFilter("status IN ('ACTIVE', 'TRIAL')");
 
                     b.ToTable("hospital_subscriptions", t =>
                         {
+                            t.HasCheckConstraint("CK_hospital_subscriptions_end_date", "end_date > start_date");
+
                             t.HasCheckConstraint("CK_hospital_subscriptions_status", "status IN ('ACTIVE', 'EXPIRED', 'CANCELLED', 'PENDING', 'TRIAL')");
                         });
                 });
@@ -238,20 +320,27 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasDefaultValueSql("GETDATE()");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
                         .HasColumnName("description");
 
                     b.Property<string>("Features")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("NVARCHAR(MAX)")
                         .HasColumnName("features");
 
-                    b.Property<int>("MaxDoctors")
+                    b.Property<int?>("MaxAppointments")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("max_appointments");
+
+                    b.Property<int?>("MaxDoctors")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0)
                         .HasColumnName("max_doctors");
 
-                    b.Property<int>("MaxSpecialties")
+                    b.Property<int?>("MaxSpecialties")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0)
@@ -282,12 +371,21 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
-                        .IsUnique();
+                    b.HasIndex("Name", "BillingCycle")
+                        .IsUnique()
+                        .HasDatabaseName("IX_subscription_plans_name_billing_cycle_unique");
 
                     b.ToTable("subscription_plans", t =>
                         {
                             t.HasCheckConstraint("CK_subscription_plans_billing_cycle", "billing_cycle IN ('MONTHLY', 'QUARTERLY', 'YEARLY')");
+
+                            t.HasCheckConstraint("CK_subscription_plans_max_appointments", "(max_appointments IS NULL OR max_appointments >= 0)");
+
+                            t.HasCheckConstraint("CK_subscription_plans_max_doctors", "(max_doctors IS NULL OR max_doctors >= 0)");
+
+                            t.HasCheckConstraint("CK_subscription_plans_max_specialties", "(max_specialties IS NULL OR max_specialties >= 0)");
+
+                            t.HasCheckConstraint("CK_subscription_plans_price", "price >= 0");
 
                             t.HasCheckConstraint("CK_subscription_plans_status", "status IN ('ACTIVE', 'INACTIVE')");
                         });
@@ -300,6 +398,16 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasForeignKey("HospitalId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Hospital");
+                });
+
+            modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.HospitalRegistrationEntity", b =>
+                {
+                    b.HasOne("BookingCare.Services.Hospital.Models.Entities.HospitalEntity", "Hospital")
+                        .WithMany()
+                        .HasForeignKey("HospitalId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Hospital");
                 });
@@ -326,7 +434,7 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.HasOne("BookingCare.Services.Hospital.Models.Entities.SubscriptionPlanEntity", "SubscriptionPlan")
                         .WithMany("HospitalSubscriptions")
                         .HasForeignKey("SubscriptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Hospital");
