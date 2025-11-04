@@ -3,6 +3,7 @@ using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Auth.Repositories;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.User.Protos;
+using BookingCare.Services.Hospital;
 using BookingCare.Shared.Common.Enums;
 using Grpc.Core;
 
@@ -18,13 +19,15 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
     private readonly ILogger<AuthGrpcService> _logger;
     private readonly UserService.UserServiceClient _userGrpcClient;
     private readonly DoctorService.DoctorServiceClient _doctorGrpcClient;
+    private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
 
     public AuthGrpcService(
         IAuthRepository authRepository,
         IAuthService authService,
         ILogger<AuthGrpcService> logger,
         UserService.UserServiceClient userGrpcClient,
-        DoctorService.DoctorServiceClient doctorGrpcClient
+        DoctorService.DoctorServiceClient doctorGrpcClient,
+        HospitalService.HospitalServiceClient hospitalGrpcClient
     )
     {
         _authRepository = authRepository;
@@ -32,6 +35,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         _logger = logger;
         _userGrpcClient = userGrpcClient;
         _doctorGrpcClient = doctorGrpcClient;
+        _hospitalGrpcClient = hospitalGrpcClient;
     }
 
     public override async Task<CheckAccountExistsResponse> CheckAccountExists(
@@ -331,13 +335,14 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
             var accounts = await _authRepository.GetAccountsWithRolesAsync(validAccountIds);
             var accountDict = accounts.ToDictionary(a => a.AccountId, a => a);
 
-            var (userDetails, doctorDetails) = await FetchUserAndDoctorDetailsAsync(accounts);
+            var (userDetails, doctorDetails, hospitalDetails) = await FetchUserDoctorAndHospitalDetailsAsync(accounts);
 
             BuildAccountDetailsResponse(
                 validAccountIds,
                 accountDict,
                 userDetails,
                 doctorDetails,
+                hospitalDetails,
                 response
             );
 
@@ -392,8 +397,9 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
 
     private async Task<(
         Dictionary<string, (string Email, string FullName, string AvatarUrl)> userDetails,
-        Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails
-    )> FetchUserAndDoctorDetailsAsync(List<(Guid AccountId, List<string> Roles)> accounts)
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> hospitalDetails
+    )> FetchUserDoctorAndHospitalDetailsAsync(List<(Guid AccountId, List<string> Roles)> accounts)
     {
 
         var patientAccountIds = accounts
@@ -406,10 +412,17 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
             .Select(a => a.AccountId.ToString())
             .ToList();
 
+        var hospitalAccountIds = accounts
+            .Where(a => a.Roles.Any(r => r.Equals(Role.STAFF.ToString(), StringComparison.OrdinalIgnoreCase)))
+            .Select(a => a.AccountId.ToString())
+            .ToList();
+
         var userDetails = await FetchUserDetailsAsync(patientAccountIds);
         var doctorDetails = await FetchDoctorDetailsAsync(doctorAccountIds);
+        var hospitalDetails = await FetchHospitalDetailsAsync(hospitalAccountIds);
 
-        return (userDetails, doctorDetails);
+        return (userDetails, doctorDetails, hospitalDetails);
+
     }
 
     private async Task<
@@ -496,11 +509,54 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         return doctorDetails;
     }
 
+    private async Task<
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)>
+    > FetchHospitalDetailsAsync(List<string> hospitalAccountIds)
+    {
+        var hospitalDetails =
+            new Dictionary<string, (string Email, string FullName, string AvatarUrl)>();
+
+        if (!hospitalAccountIds.Any())
+            return hospitalDetails;
+
+        try
+        {
+            var hospitalRequest = new GetHospitalsByAccountIdsRequest();
+            hospitalRequest.AccountIds.AddRange(hospitalAccountIds);
+
+            var hospitalResponse = await _hospitalGrpcClient.GetHospitalsByAccountIdsAsync(hospitalRequest);
+            foreach (var hospital in hospitalResponse.Hospitals)
+            {
+                hospitalDetails[hospital.AccountId] = (
+                    hospital.Email,
+                    hospital.FullName,
+                    hospital.AvatarUrl ?? string.Empty
+                );
+            }
+
+            _logger.LogInformation(
+                "Retrieved {Count} hospital details from HospitalService",
+                hospitalResponse.Hospitals.Count
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error calling HospitalService for account IDs: {AccountIds}",
+                string.Join(", ", hospitalAccountIds)
+            );
+        }
+
+        return hospitalDetails;
+    }
+
     private void BuildAccountDetailsResponse(
         List<Guid> validAccountIds,
         Dictionary<Guid, (Guid AccountId, List<string> Roles)> accountDict,
         Dictionary<string, (string Email, string FullName, string AvatarUrl)> userDetails,
         Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> hospitalDetails,
         GetAccountDetailsResponse response
     )
     {
@@ -512,6 +568,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
                 accountDict,
                 userDetails,
                 doctorDetails,
+                hospitalDetails,
                 accountId
             );
             response.AccountDetails.Add(accountDetail);
@@ -523,6 +580,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         Dictionary<Guid, (Guid AccountId, List<string> Roles)> accountDict,
         Dictionary<string, (string Email, string FullName, string AvatarUrl)> userDetails,
         Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> hospitalDetails,
         Guid accountId
     )
     {
@@ -533,7 +591,7 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
             accountDetail.Found = true;
             accountDetail.Role = string.Join(",", account.Roles);
 
-            SetAccountDetailProfile(accountDetail, accountIdString, userDetails, doctorDetails);
+            SetAccountDetailProfile(accountDetail, accountIdString, userDetails, doctorDetails, hospitalDetails);
         }
         else
         {
@@ -547,7 +605,8 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         AccountDetail accountDetail,
         string accountIdString,
         Dictionary<string, (string Email, string FullName, string AvatarUrl)> userDetails,
-        Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> doctorDetails,
+        Dictionary<string, (string Email, string FullName, string AvatarUrl)> hospitalDetails
     )
     {
         if (userDetails.TryGetValue(accountIdString, out var userDetail))
@@ -561,6 +620,12 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
             accountDetail.Email = doctorDetail.Email;
             accountDetail.FullName = doctorDetail.FullName;
             accountDetail.AvatarUrl = doctorDetail.AvatarUrl;
+        }
+        else if (hospitalDetails.TryGetValue(accountIdString, out var hospitalDetail))
+        {
+            accountDetail.Email = hospitalDetail.Email;
+            accountDetail.FullName = hospitalDetail.FullName;
+            accountDetail.AvatarUrl = hospitalDetail.AvatarUrl;
         }
         else
         {
