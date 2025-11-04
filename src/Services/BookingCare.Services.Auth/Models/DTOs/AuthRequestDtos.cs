@@ -168,10 +168,9 @@ public class DoctorProfileRequest
     [Required]
     public Guid HospitalId { get; set; }
     [Required]
-    [MaxLength(2000)]
     public string Bio { get; set; } = string.Empty;
     [Required]
-    [Range(0, 80)]
+    [Range(0, 80, ErrorMessage = "Years of experience must be between 0 and 80")]
     public int YearsOfExperience { get; set; }
     public List<Guid>? LanguageIds { get; set; }
     public List<DoctorPriceRequestDto>? ServicePrices { get; set; }
