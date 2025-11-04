@@ -505,6 +505,22 @@ public class AppointmentService : BaseService, IAppointmentService
                 throw new AppointmentException("Failed to cancel appointment");
             }
 
+            // Invalidate available slots cache after successful cancellation
+            // Only invalidate if:
+            // 1. Appointment has doctor assigned
+            // 2. Appointment date is in the future (slot can be booked again)
+            if (appointment.DoctorId.HasValue &&
+                appointment.AppointmentDate.Date >= DateTime.UtcNow.Date)
+            {
+                await InvalidateAvailableSlotsCacheAsync(
+                    appointment.DoctorId.Value,
+                    appointment.AppointmentDate,
+                    appointment.ServiceId);
+
+                LogInfo("Invalidated available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
+                    null, appointment.Id);
+            }
+
             // Publish appropriate event based on refund percentage and reschedule options
             await PublishCancellationEventAsync(appointment, request, cancellationDetails, rescheduleResponse);
 
@@ -952,16 +968,6 @@ public class AppointmentService : BaseService, IAppointmentService
         };
 
         await _eventBus.PublishAsync(cancelledEvent);
-
-        // Invalidate available slots cache after cancellation
-        // The cancelled slot should become available again
-        if (appointment.DoctorId.HasValue)
-        {
-            await InvalidateAvailableSlotsCacheAsync(
-                appointment.DoctorId.Value,
-                appointment.AppointmentDate,
-                appointment.ServiceId);
-        }
 
         LogInfo("Published refund event for appointment {AppointmentId} with {Refund}% refund",
             null, appointment.Id, details.RefundPercentage);
@@ -1601,16 +1607,23 @@ public class AppointmentService : BaseService, IAppointmentService
                 throw new AppointmentException("Failed to update appointment status");
             }
 
-            // Invalidate available slots cache if status changes affect availability
-            // When CANCELLED or COMPLETED, the slot should become available again
-            if ((request.Status == AppointmentStatus.CANCELLED ||
-                 request.Status == AppointmentStatus.COMPLETED)
-                && existingAppointment.DoctorId.HasValue)
+            // Invalidate available slots cache only for direct CANCELLED status update
+            // (when not going through CancelAppointmentAsync - edge case)
+            // Note: 
+            // - COMPLETED appointments don't need cache invalidation (already past date)
+            // - Only invalidate for future appointments (can be booked again)
+            // - Normal cancellation flow goes through CancelAppointmentAsync which already handles cache
+            if (request.Status == AppointmentStatus.CANCELLED &&
+                existingAppointment.DoctorId.HasValue &&
+                existingAppointment.AppointmentDate.Date >= DateTime.UtcNow.Date)
             {
                 await InvalidateAvailableSlotsCacheAsync(
                     existingAppointment.DoctorId.Value,
                     existingAppointment.AppointmentDate,
                     existingAppointment.ServiceId);
+
+                LogInfo("Invalidated cache after direct status update to CANCELLED for appointment {AppointmentId}",
+                    null, request.Id);
             }
 
             LogInfo("Successfully updated appointment {AppointmentId} status to {Status}",
