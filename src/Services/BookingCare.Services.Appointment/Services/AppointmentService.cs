@@ -185,12 +185,12 @@ public class AppointmentService : BaseService, IAppointmentService
 
     #region Appointment Operations
 
-    public async Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request)
+    public async Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request, bool skipPayment = false)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Creating appointment for patient {PatientId} on {AppointmentDate}",
-                null, request.PatientId, request.AppointmentDate);
+            LogInfo("Creating appointment for patient {PatientId} on {AppointmentDate}, SkipPayment: {SkipPayment}",
+                null, request.PatientId, request.AppointmentDate, skipPayment);
 
             // Validate the appointment
             await ValidateAppointmentAsync(request);
@@ -229,6 +229,15 @@ public class AppointmentService : BaseService, IAppointmentService
                     request.DoctorId.Value,
                     request.AppointmentDate,
                     request.ServiceId);
+            }
+
+            // If no payment (skipPayment = true), send booking success email immediately
+            // For payment flow, email will be sent by AppointmentPaymentSuccessEventHandler after payment
+            if (skipPayment)
+            {
+                LogInfo("No payment flow - sending booking success email immediately for appointment {AppointmentId}",
+                    null, appointmentEntity.Id);
+                await SendAppointmentBookingSuccessEmailAsync(appointmentEntity.Id, request.PatientId, 0);
             }
 
             LogInfo("Successfully created appointment {AppointmentId}", null, appointmentEntity.Id);
@@ -494,6 +503,22 @@ public class AppointmentService : BaseService, IAppointmentService
             if (!cancelled)
             {
                 throw new AppointmentException("Failed to cancel appointment");
+            }
+
+            // Invalidate available slots cache after successful cancellation
+            // Only invalidate if:
+            // 1. Appointment has doctor assigned
+            // 2. Appointment date is in the future (slot can be booked again)
+            if (appointment.DoctorId.HasValue &&
+                appointment.AppointmentDate.Date >= DateTime.UtcNow.Date)
+            {
+                await InvalidateAvailableSlotsCacheAsync(
+                    appointment.DoctorId.Value,
+                    appointment.AppointmentDate,
+                    appointment.ServiceId);
+
+                LogInfo("Invalidated available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
+                    null, appointment.Id);
             }
 
             // Publish appropriate event based on refund percentage and reschedule options
@@ -788,39 +813,40 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             await PublishStaffCancellationWithOptionsNotificationAsync(appointment, request, details, rescheduleResponse, patientInfo);
         }
-        // CASE 2: Patient cancellation OR staff cancellation WITHOUT options → Immediate refund processing
+        // CASE 2: Patient cancellation OR staff cancellation WITHOUT options → Check payment before processing
         else
         {
             if (details.RefundPercentage > 0)
             {
-                await PublishImmediateRefundEventAsync(appointment, request, details, patientInfo);
+                // Check if appointment has payment by trying to get payment amount
+                var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
+
+                if (paymentAmount.HasValue)
+                {
+                    // Has payment → Process refund via Payment Service
+                    await PublishImmediateRefundEventAsync(appointment, request, details, patientInfo);
+                }
+                else
+                {
+                    // No payment → Send cancellation success notification directly
+                    await PublishCancellationSuccessNotificationAsync(appointment, request, patientInfo);
+                }
             }
             else
             {
+                // No refund (late cancellation) → Send no-refund notification
                 await PublishNoRefundNotificationAsync(appointment, request, patientInfo);
             }
         }
     }
 
     /// <summary>
-    /// CASE 1: Publish notification event for staff cancellation WITH reschedule options
-    /// Patient will receive email/SMS and choose: reschedule (Option 1/2/3) or refund (Option 4)
-    /// This does NOT trigger Payment Service - just notification
+    /// Get doctor and hospital names for notification context
+    /// Extracted to avoid code duplication across notification methods
     /// </summary>
-    private async Task PublishStaffCancellationWithOptionsNotificationAsync(
-        AppointmentEntity appointment,
-        CancelAppointmentRequest request,
-        CancellationDetails details,
-        RescheduleResponse rescheduleResponse,
-        PatientNotificationInfo patientInfo)
+    private async Task<(string? doctorName, string? hospitalName)> GetDoctorAndHospitalNamesForNotificationAsync(
+        AppointmentEntity appointment)
     {
-        // Get payment amount to calculate potential refund
-        var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
-        var potentialRefundAmount = paymentAmount.HasValue
-            ? paymentAmount.Value * details.RefundPercentage / 100
-            : (decimal?)null;
-
-        // Get doctor and hospital info for notification context
         string? doctorName = null;
         string? hospitalName = null;
 
@@ -851,6 +877,30 @@ public class AppointmentService : BaseService, IAppointmentService
                 LogWarning("Failed to get hospital name for notification: {Error}", null, ex.Message);
             }
         }
+
+        return (doctorName, hospitalName);
+    }
+
+    /// <summary>
+    /// CASE 1: Publish notification event for staff cancellation WITH reschedule options
+    /// Patient will receive email/SMS and choose: reschedule (Option 1/2/3) or refund (Option 4)
+    /// This does NOT trigger Payment Service - just notification
+    /// </summary>
+    private async Task PublishStaffCancellationWithOptionsNotificationAsync(
+        AppointmentEntity appointment,
+        CancelAppointmentRequest request,
+        CancellationDetails details,
+        RescheduleResponse rescheduleResponse,
+        PatientNotificationInfo patientInfo)
+    {
+        // Get payment amount to calculate potential refund
+        var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
+        var potentialRefundAmount = paymentAmount.HasValue
+            ? paymentAmount.Value * details.RefundPercentage / 100
+            : (decimal?)null;
+
+        // Get doctor and hospital info for notification context
+        var (doctorName, hospitalName) = await GetDoctorAndHospitalNamesForNotificationAsync(appointment);
 
         var notificationEvent = new AppointmentCancelledWithOptionsNotificationEvent
         {
@@ -918,16 +968,6 @@ public class AppointmentService : BaseService, IAppointmentService
         };
 
         await _eventBus.PublishAsync(cancelledEvent);
-
-        // Invalidate available slots cache after cancellation
-        // The cancelled slot should become available again
-        if (appointment.DoctorId.HasValue)
-        {
-            await InvalidateAvailableSlotsCacheAsync(
-                appointment.DoctorId.Value,
-                appointment.AppointmentDate,
-                appointment.ServiceId);
-        }
 
         LogInfo("Published refund event for appointment {AppointmentId} with {Refund}% refund",
             null, appointment.Id, details.RefundPercentage);
@@ -997,6 +1037,37 @@ public class AppointmentService : BaseService, IAppointmentService
 
         await _eventBus.PublishAsync(noRefundEvent);
         LogInfo("Published no-refund notification event for appointment {AppointmentId} - no refund due to late cancellation",
+            null, appointment.Id);
+    }
+
+    /// <summary>
+    /// Publish cancellation success notification for appointments without payment
+    /// Used when appointment is eligible for refund but no payment record exists
+    /// </summary>
+    private async Task PublishCancellationSuccessNotificationAsync(
+        AppointmentEntity appointment,
+        CancelAppointmentRequest request,
+        PatientNotificationInfo patientInfo)
+    {
+        // Get doctor and hospital info for notification context using extracted method
+        var (doctorName, hospitalName) = await GetDoctorAndHospitalNamesForNotificationAsync(appointment);
+
+        var successEvent = new AppointmentCancelledSuccessNotificationEvent
+        {
+            AppointmentId = appointment.Id,
+            PatientId = appointment.PatientId,
+            AppointmentDate = appointment.AppointmentDate,
+            CancellationReason = request.CancellationReason,
+            CancelledAt = DateTime.UtcNow,
+            PatientEmail = patientInfo.Email,
+            PatientPhone = patientInfo.Phone,
+            PatientFullName = patientInfo.FullName,
+            DoctorName = doctorName,
+            HospitalName = hospitalName
+        };
+
+        await _eventBus.PublishAsync(successEvent);
+        LogInfo("Published cancellation success notification for appointment {AppointmentId} - no payment record found",
             null, appointment.Id);
     }
 
@@ -1536,16 +1607,23 @@ public class AppointmentService : BaseService, IAppointmentService
                 throw new AppointmentException("Failed to update appointment status");
             }
 
-            // Invalidate available slots cache if status changes affect availability
-            // When CANCELLED or COMPLETED, the slot should become available again
-            if ((request.Status == AppointmentStatus.CANCELLED ||
-                 request.Status == AppointmentStatus.COMPLETED)
-                && existingAppointment.DoctorId.HasValue)
+            // Invalidate available slots cache only for direct CANCELLED status update
+            // (when not going through CancelAppointmentAsync - edge case)
+            // Note: 
+            // - COMPLETED appointments don't need cache invalidation (already past date)
+            // - Only invalidate for future appointments (can be booked again)
+            // - Normal cancellation flow goes through CancelAppointmentAsync which already handles cache
+            if (request.Status == AppointmentStatus.CANCELLED &&
+                existingAppointment.DoctorId.HasValue &&
+                existingAppointment.AppointmentDate.Date >= DateTime.UtcNow.Date)
             {
                 await InvalidateAvailableSlotsCacheAsync(
                     existingAppointment.DoctorId.Value,
                     existingAppointment.AppointmentDate,
                     existingAppointment.ServiceId);
+
+                LogInfo("Invalidated cache after direct status update to CANCELLED for appointment {AppointmentId}",
+                    null, request.Id);
             }
 
             LogInfo("Successfully updated appointment {AppointmentId} status to {Status}",
@@ -1770,7 +1848,7 @@ public class AppointmentService : BaseService, IAppointmentService
             if (entitiesByType.Count == 1)
             {
                 var appointmentType = entitiesByType[0].Key;
-                doctorRequest.ServiceTypeName = appointmentType.ToString();
+                doctorRequest.ServiceTypeName = appointmentType == AppointmentType.IN_PERSON ? "Khám trực tiếp" : "Tư vấn online";
             }
 
             var doctorsResponse = await _grpcClients.DoctorClient.GetDoctorsBasicInfoAsync(doctorRequest);

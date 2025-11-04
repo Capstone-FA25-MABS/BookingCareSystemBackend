@@ -679,6 +679,38 @@ public class AppointmentNoRefundNotificationEvent : IntegrationEvent
 }
 
 /// <summary>
+/// Base class for appointment notification events to reduce code duplication
+/// Contains common properties shared across different cancellation notification types
+/// </summary>
+public abstract class AppointmentNotificationEventBase : IntegrationEvent
+{
+    public Guid AppointmentId { get; set; }
+    public Guid PatientId { get; set; }
+    public DateTime AppointmentDate { get; set; }
+    public string CancellationReason { get; set; } = string.Empty;
+    public DateTime CancelledAt { get; set; }
+
+    // Patient information for notification
+    public string? PatientEmail { get; set; }
+    public string? PatientPhone { get; set; }
+    public string? PatientFullName { get; set; }
+
+    // Doctor and Hospital info (for context in notification)
+    public string? DoctorName { get; set; }
+    public string? HospitalName { get; set; }
+}
+
+/// <summary>
+/// Integration event for successful appointment cancellation without payment
+/// Used when appointment is cancelled (eligible for refund) but no payment record exists
+/// This event is published directly to Notification Service to send simple cancellation confirmation
+/// </summary>
+public class AppointmentCancelledSuccessNotificationEvent : AppointmentNotificationEventBase
+{
+    // All common properties inherited from base class
+}
+
+/// <summary>
 /// Bank account information included in refund events
 /// </summary>
 public class BankAccountInfo
@@ -888,22 +920,9 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
 /// This is a NOTIFICATION-ONLY event consumed by Notification Service
 /// Does NOT trigger refund - patient must explicitly choose refund option
 /// </summary>
-public class AppointmentCancelledWithOptionsNotificationEvent : IntegrationEvent
+public class AppointmentCancelledWithOptionsNotificationEvent : AppointmentNotificationEventBase
 {
-    public Guid AppointmentId { get; set; }
-    public Guid PatientId { get; set; }
-    public DateTime AppointmentDate { get; set; }
-    public string CancellationReason { get; set; } = string.Empty;
-    public DateTime CancelledAt { get; set; }
-
-    // Patient contact information
-    public string? PatientEmail { get; set; }
-    public string? PatientPhone { get; set; }
-    public string? PatientFullName { get; set; }
-
-    // Doctor and Hospital info (for context in notification)
-    public string? DoctorName { get; set; }
-    public string? HospitalName { get; set; }
+    // Common properties inherited from base class
 
     // Reschedule options with deep links (4 options)
     public string? RescheduleToken { get; set; }

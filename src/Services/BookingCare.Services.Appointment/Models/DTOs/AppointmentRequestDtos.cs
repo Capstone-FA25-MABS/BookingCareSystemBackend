@@ -35,8 +35,20 @@ public class CreateAppointmentRequest
     [MaxLength(4000, ErrorMessage = "Symptoms cannot exceed 4000 characters")]
     public string? Symptoms { get; set; }
 
-    [MaxLength(2000, ErrorMessage = "Attachment URLs cannot exceed 2000 characters")]
+    /// <summary>
+    /// Comma-separated URLs of attachment files
+    /// Example: "url1,url2,url3"
+    /// Supports multiple files for cases like follow-up appointments, medical records, etc.
+    /// </summary>
+    [MaxLength(4000, ErrorMessage = "Attachment URLs cannot exceed 4000 characters")]
     public string? AttachmentUrls { get; set; }
+
+    /// <summary>
+    /// Indicates whether to skip payment and send booking confirmation email immediately.
+    /// If true, no payment will be required and email notification will be sent right after appointment creation.
+    /// If false (default), payment will be required and email will be sent after successful payment.
+    /// </summary>
+    public bool SkipPayment { get; set; } = false;
 }
 
 /// <summary>
@@ -50,8 +62,9 @@ public class UpdateAppointmentStatusRequest
     [Required(ErrorMessage = "Status is required")]
     public required AppointmentStatus Status { get; set; }
 
+    [Required(ErrorMessage = "Result is required")]
     [MaxLength(4000, ErrorMessage = "Result cannot exceed 4000 characters")]
-    public string? Result { get; set; }
+    public required string Result { get; set; }
 }
 
 /// <summary>
@@ -239,7 +252,18 @@ public class AppointmentQueryRequest
     public Guid? HospitalId { get; set; }
     public Guid? ServiceId { get; set; }
     public AppointmentType? AppointmentType { get; set; }
+
+    /// <summary>
+    /// Filter by single status (for backward compatibility)
+    /// </summary>
     public AppointmentStatus? Status { get; set; }
+
+    /// <summary>
+    /// Filter by multiple statuses (e.g., for calendar view showing only CONFIRMED and COMPLETED)
+    /// Takes precedence over Status if provided
+    /// </summary>
+    public List<AppointmentStatus>? Statuses { get; set; }
+
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
 

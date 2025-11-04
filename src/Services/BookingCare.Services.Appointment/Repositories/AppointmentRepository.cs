@@ -109,8 +109,16 @@ public class AppointmentRepository : IAppointmentRepository
         if (query.AppointmentType.HasValue)
             queryable = queryable.Where(a => a.AppointmentType == query.AppointmentType);
 
-        if (query.Status.HasValue)
+        // Statuses takes precedence over Status for filtering multiple statuses
+        // Used for scenarios like calendar view showing only CONFIRMED and COMPLETED
+        if (query.Statuses != null && query.Statuses.Any())
+        {
+            queryable = queryable.Where(a => query.Statuses.Contains(a.Status));
+        }
+        else if (query.Status.HasValue)
+        {
             queryable = queryable.Where(a => a.Status == query.Status);
+        }
 
         // Date range filtering
         if (query.FromDate.HasValue)
