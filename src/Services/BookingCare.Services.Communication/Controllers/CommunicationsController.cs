@@ -368,7 +368,7 @@ public class CommunicationsController : BaseApiController
     }
 
     /// <summary>
-    /// Lấy số tin nhắn chưa đọc
+    /// Lấy số tin nhắn chưa đọc trong một conversation cụ thể
     /// </summary>
     [HttpGet("conversations/{conversationId}/unread-count")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -380,6 +380,66 @@ public class CommunicationsController : BaseApiController
         var count = await _messageService.GetUnreadCountAsync(conversationId, userId);
 
         return Success(new { UnreadCount = count }, "Lấy số tin nhắn chưa đọc thành công!");
+    }
+
+    /// <summary>
+    /// Lấy tổng số tin nhắn chưa đọc của user (across all conversations)
+    /// Dùng để hiển thị badge notification trên icon chat
+    /// </summary>
+    [HttpGet("users/{userId}/total-unread-count")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetTotalUnreadCount(string userId)
+    {
+        try
+        {
+            var totalUnreadCount = await _messageService.GetTotalUnreadCountAsync(userId);
+
+            return Success(
+                new
+                {
+                    UserId = userId,
+                    TotalUnreadCount = totalUnreadCount,
+                    Timestamp = DateTime.UtcNow,
+                },
+                "Lấy tổng số tin nhắn chưa đọc thành công!"
+            );
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Lỗi khi lấy tổng số tin nhắn chưa đọc: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Lấy unread count chi tiết cho từng conversation của user
+    /// Dùng để hiển thị badge trên danh sách conversations
+    /// </summary>
+    [HttpGet("users/{userId}/unread-counts-by-conversation")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetUnreadCountsByConversation(string userId)
+    {
+        try
+        {
+            var unreadCounts = await _messageService.GetUnreadCountByConversationsAsync(userId);
+
+            var totalUnreadCount = unreadCounts.Values.Sum();
+
+            return Success(
+                new
+                {
+                    UserId = userId,
+                    TotalUnreadCount = totalUnreadCount,
+                    ConversationsWithUnreadMessages = unreadCounts.Count,
+                    UnreadCountsByConversation = unreadCounts,
+                    Timestamp = DateTime.UtcNow,
+                },
+                "Lấy chi tiết số tin nhắn chưa đọc theo conversation thành công!"
+            );
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Lỗi khi lấy chi tiết tin nhắn chưa đọc: {ex.Message}");
+        }
     }
 
     /// <summary>

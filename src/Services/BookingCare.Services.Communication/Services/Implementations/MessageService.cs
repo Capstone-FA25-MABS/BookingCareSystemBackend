@@ -678,11 +678,90 @@ public class MessageService : BaseService, IMessageService
     }
 
     /// <summary>
-    /// Lấy số tin nhắn chưa đọc
+    /// Lấy số tin nhắn chưa đọc trong một conversation
     /// </summary>
     public async Task<long> GetUnreadCountAsync(string conversationId, string userId)
     {
         return await _messageRepository.GetUnreadCountAsync(conversationId, userId);
+    }
+
+    /// <summary>
+    /// Lấy tổng số tin nhắn chưa đọc của user (across all conversations)
+    /// </summary>
+    public async Task<long> GetTotalUnreadCountAsync(string userId)
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo("Getting total unread count for user: {UserId}", null, userId);
+
+                // Get all conversations where user is a participant
+                var conversations = await _conversationRepository.GetByUserIdAsync(userId);
+
+                // Sum unread counts across all conversations
+                long totalUnreadCount = 0;
+                foreach (var conversation in conversations)
+                {
+                    var unreadCount = await _messageRepository.GetUnreadCountAsync(
+                        conversation.Id,
+                        userId
+                    );
+                    totalUnreadCount += unreadCount;
+                }
+
+                LogInfo(
+                    "Total unread count for user {UserId}: {Count} across {ConversationCount} conversations",
+                    null,
+                    userId,
+                    totalUnreadCount,
+                    conversations.Count()
+                );
+
+                return totalUnreadCount;
+            },
+            "GetTotalUnreadCountAsync"
+        );
+    }
+
+    /// <summary>
+    /// Lấy unread count cho từng conversation của user (for displaying badges on conversation list)
+    /// </summary>
+    public async Task<Dictionary<string, long>> GetUnreadCountByConversationsAsync(string userId)
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo("Getting unread counts by conversations for user: {UserId}", null, userId);
+
+                // Get all conversations where user is a participant
+                var conversations = await _conversationRepository.GetByUserIdAsync(userId);
+
+                // Build dictionary of conversationId -> unreadCount
+                var unreadCountsByConversation = new Dictionary<string, long>();
+
+                foreach (var conversation in conversations)
+                {
+                    var unreadCount = await _messageRepository.GetUnreadCountAsync(
+                        conversation.Id,
+                        userId
+                    );
+                    if (unreadCount > 0) // Only include conversations with unread messages
+                    {
+                        unreadCountsByConversation[conversation.Id] = unreadCount;
+                    }
+                }
+
+                LogInfo(
+                    "Found {Count} conversations with unread messages for user {UserId}",
+                    null,
+                    unreadCountsByConversation.Count,
+                    userId
+                );
+
+                return unreadCountsByConversation;
+            },
+            "GetUnreadCountByConversationsAsync"
+        );
     }
 
     /// <summary>
