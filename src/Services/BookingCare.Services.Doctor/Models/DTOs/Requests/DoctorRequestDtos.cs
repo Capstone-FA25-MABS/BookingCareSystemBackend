@@ -46,10 +46,9 @@ public abstract class BaseDoctorRequest
 
     public Guid? HospitalId { get; set; }
 
-    [StringLength(2000, ErrorMessage = "Bio cannot exceed 2000 characters")]
     public string? Bio { get; set; }
 
-    [Range(0, 50, ErrorMessage = "Years of experience must be between 0 and 50")]
+    [Range(0, 80, ErrorMessage = "Years of experience must be between 0 and 80")]
     public int? YearsOfExperience { get; set; }
 
     [Url(ErrorMessage = "Invalid URL format")]
