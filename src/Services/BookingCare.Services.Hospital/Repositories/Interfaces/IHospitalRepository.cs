@@ -29,4 +29,16 @@ public interface IHospitalRepository
 
     // Get hospitals by account IDs (batch operation for admin management)
     Task<List<HospitalEntity>> GetByAccountIdsAsync(IEnumerable<Guid> accountIds);
+
+    // Specialty Management
+    Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+    Task<bool> RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+
+    // ServiceType Management
+    Task<bool> AddServiceTypeAsync(Guid hospitalId, Guid serviceTypeId);
+    Task<bool> RemoveServiceTypeAsync(Guid hospitalId, Guid serviceTypeId);
+
+    // ServiceMedical Management
+    Task<bool> AddServiceMedicalAsync(Guid hospitalId, Guid serviceMedicalId);
+    Task<bool> RemoveServiceMedicalAsync(Guid hospitalId, Guid serviceMedicalId);
 }

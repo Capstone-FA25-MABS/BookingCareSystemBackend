@@ -16,6 +16,8 @@ public class HospitalResponse
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public List<HospitalSpecialtyResponse>? Specialties { get; set; }
+    public List<HospitalServiceTypeResponse>? ServiceTypes { get; set; }
+    public List<HospitalServiceMedicalResponse>? ServiceMedicals { get; set; }
     public List<HospitalImageResponse>? Images { get; set; }
     public HospitalSubscriptionResponse? CurrentSubscription { get; set; }
 }
@@ -24,6 +26,18 @@ public class HospitalSpecialtyResponse
 {
     public Guid SpecialtyId { get; set; }
     public string? SpecialtyName { get; set; }
+}
+
+public class HospitalServiceTypeResponse
+{
+    public Guid ServiceTypeId { get; set; }
+    public string? ServiceTypeName { get; set; }
+}
+
+public class HospitalServiceMedicalResponse
+{
+    public Guid ServiceMedicalId { get; set; }
+    public string? ServiceMedicalName { get; set; }
 }
 
 public class HospitalListResponse

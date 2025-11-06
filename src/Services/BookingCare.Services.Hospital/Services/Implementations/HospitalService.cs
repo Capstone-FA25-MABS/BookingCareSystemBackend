@@ -15,6 +15,7 @@ namespace BookingCare.Services.Hospital.Services.Implementations;
 public class HospitalService : IHospitalService
 {
     private readonly IHospitalRepository _hospitalRepository;
+    private readonly IHospitalImageRepository _hospitalImageRepository;
     private readonly IMapper _mapper;
     private readonly AuthService.AuthServiceClient _authClient;
     private readonly ILocationApiService _locationApiService;
@@ -29,6 +30,7 @@ public class HospitalService : IHospitalService
 
     public HospitalService(
         IHospitalRepository hospitalRepository,
+        IHospitalImageRepository hospitalImageRepository,
         IMapper mapper,
         AuthService.AuthServiceClient authClient,
         ILocationApiService locationApiService,
@@ -37,6 +39,7 @@ public class HospitalService : IHospitalService
         IMemoryCache cache)
     {
         _hospitalRepository = hospitalRepository;
+        _hospitalImageRepository = hospitalImageRepository;
         _mapper = mapper;
         _authClient = authClient;
         _locationApiService = locationApiService;
@@ -59,6 +62,9 @@ public class HospitalService : IHospitalService
 
             _logger.LogInformation("Hospital found: {HospitalName}, mapping to response", hospital.Name);
             _logger.LogInformation("Hospital images count: {ImageCount}", hospital.HospitalImages?.Count ?? 0);
+            _logger.LogInformation("Hospital specialties count: {SpecialtyCount}", hospital.HospitalSpecialties?.Count ?? 0);
+            _logger.LogInformation("Hospital service types count: {ServiceTypeCount}", hospital.HospitalServiceTypes?.Count ?? 0);
+            _logger.LogInformation("Hospital service medicals count: {ServiceMedicalCount}", hospital.HospitalServiceMedicals?.Count ?? 0);
             if (hospital.HospitalImages?.Any() == true)
             {
                 _logger.LogInformation("Sample image URL: {ImageUrl}", hospital.HospitalImages.First().ImageUrl);
@@ -67,7 +73,25 @@ public class HospitalService : IHospitalService
             {
                 _logger.LogWarning("No images found for hospital {HospitalId}", id);
             }
+            if (hospital.HospitalServiceTypes?.Any() == true)
+            {
+                _logger.LogInformation("Hospital service type IDs: {ServiceTypeIds}", string.Join(", ", hospital.HospitalServiceTypes.Select(st => st.ServiceTypeId)));
+            }
+            else
+            {
+                _logger.LogWarning("No service types found for hospital {HospitalId}", id);
+            }
             var response = _mapper.Map<HospitalProfileResponse>(hospital);
+            _logger.LogInformation("Response service types count: {ResponseServiceTypeCount}", response.ServiceTypes?.Count ?? 0);
+            _logger.LogInformation("Response service medicals count: {ResponseServiceMedicalCount}", response.ServiceMedicals?.Count ?? 0);
+            if (hospital.HospitalServiceMedicals?.Any() == true)
+            {
+                _logger.LogInformation("Hospital service medical IDs: {ServiceMedicalIds}", string.Join(", ", hospital.HospitalServiceMedicals.Select(sm => sm.ServiceMedicalId)));
+            }
+            else
+            {
+                _logger.LogWarning("No service medicals found for hospital {HospitalId}", id);
+            }
             _logger.LogInformation("Mapping completed successfully");
             _logger.LogInformation("Response images count: {ResponseImageCount}", response.Images?.Count ?? 0);
 
@@ -212,33 +236,59 @@ public class HospitalService : IHospitalService
             throw new HospitalNotFoundException(id);
         }
 
-        // Validate email uniqueness if email is being updated
-        if (!string.IsNullOrEmpty(request.Email) && request.Email != existingHospital.Email && await _hospitalRepository.EmailExistsAsync(request.Email, id))
+        // Email and Phone are read-only and cannot be updated
+        // These fields are ignored even if provided in the request
+
+        // Validate that required fields are provided
+        if (string.IsNullOrWhiteSpace(request.Name))
         {
-            throw new HospitalAlreadyExistsException(request.Email);
+            throw new InvalidHospitalDataException("Tên bệnh viện là bắt buộc! Vui lòng nhập tên bệnh viện");
         }
 
-        // Update hospital properties
-        _mapper.Map(request, existingHospital);
+        if (string.IsNullOrWhiteSpace(request.Address))
+        {
+            throw new InvalidHospitalDataException("Địa chỉ là bắt buộc! Vui lòng nhập địa chỉ");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Description))
+        {
+            throw new InvalidHospitalDataException("Mô tả là bắt buộc! Vui lòng nhập mô tả");
+        }
+
+        // Update hospital properties (but not relationships)
+        // Email and Phone are NOT updated - they remain unchanged
+        existingHospital.Name = request.Name;
+        existingHospital.Address = request.Address;
+        // existingHospital.Phone = request.Phone ?? existingHospital.Phone; // Read-only, not updated
+        // existingHospital.Email = request.Email ?? existingHospital.Email; // Read-only, not updated
+        existingHospital.Description = request.Description;
+        existingHospital.BackgroundUrl = request.BackgroundUrl ?? existingHospital.BackgroundUrl;
+        existingHospital.AvatarUrl = request.AvatarUrl ?? existingHospital.AvatarUrl;
+        existingHospital.UpdatedAt = DateTime.Now;
 
         try
         {
-            var updatedHospital = await _hospitalRepository.UpdateAsync(existingHospital);
-
-            // Update specialties if provided
+            // Update relationships if provided
             if (request.SpecialtyIds != null)
             {
-                // Remove existing specialties and add new ones
-                // This is a simplified approach - in a real scenario, you might want to be more selective
-                // Clear existing specialties (this would need to be implemented in the repository)
-                // Then add new specialties
-                foreach (var specialtyId in request.SpecialtyIds)
-                {
-                    await AddSpecialtyAsync(id, specialtyId);
-                }
+                await UpdateHospitalSpecialtiesAsync(id, request.SpecialtyIds);
             }
 
-            var response = _mapper.Map<HospitalResponse>(updatedHospital);
+            if (request.ServiceTypeIds != null)
+            {
+                await UpdateHospitalServiceTypesAsync(id, request.ServiceTypeIds);
+            }
+
+            if (request.ServiceMedicalIds != null)
+            {
+                await UpdateHospitalServiceMedicalsAsync(id, request.ServiceMedicalIds);
+            }
+
+            var updatedHospital = await _hospitalRepository.UpdateAsync(existingHospital);
+
+            // Reload with all relationships
+            var hospitalWithRelations = await _hospitalRepository.GetByIdAsync(id);
+            var response = _mapper.Map<HospitalResponse>(hospitalWithRelations);
             await EnrichHospitalsWithStatusAsync(new List<HospitalResponse> { response });
             return response;
         }
@@ -297,14 +347,11 @@ public class HospitalService : IHospitalService
         }
     }
 
-    public Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId)
+    public async Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId)
     {
-        // This would need to be implemented properly with a HospitalSpecialty repository
-        // For now, this is a placeholder
         try
         {
-            // Implementation would add a record to hospital_specialties table
-            return Task.FromResult(true);
+            return await _hospitalRepository.AddSpecialtyAsync(hospitalId, specialtyId);
         }
         catch (Exception ex)
         {
@@ -312,18 +359,72 @@ public class HospitalService : IHospitalService
         }
     }
 
-    public Task<bool> RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId)
+    public async Task<bool> RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId)
     {
-        // This would need to be implemented properly with a HospitalSpecialty repository
-        // For now, this is a placeholder
         try
         {
-            // Implementation would remove a record from hospital_specialties table
-            return Task.FromResult(true);
+            return await _hospitalRepository.RemoveSpecialtyAsync(hospitalId, specialtyId);
         }
         catch (Exception ex)
         {
             throw new HospitalOperationException($"Failed to remove specialty {specialtyId} from hospital {hospitalId}", ex);
+        }
+    }
+
+    private async Task UpdateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds)
+    {
+        // Remove all existing specialties
+        var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
+        if (hospital?.HospitalSpecialties != null)
+        {
+            foreach (var specialty in hospital.HospitalSpecialties.ToList())
+            {
+                await RemoveSpecialtyAsync(hospitalId, specialty.SpecialtyId);
+            }
+        }
+
+        // Add new specialties
+        foreach (var specialtyId in specialtyIds.Distinct())
+        {
+            await AddSpecialtyAsync(hospitalId, specialtyId);
+        }
+    }
+
+    private async Task UpdateHospitalServiceTypesAsync(Guid hospitalId, List<Guid> serviceTypeIds)
+    {
+        // Remove all existing service types
+        var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
+        if (hospital?.HospitalServiceTypes != null)
+        {
+            foreach (var serviceType in hospital.HospitalServiceTypes.ToList())
+            {
+                await _hospitalRepository.RemoveServiceTypeAsync(hospitalId, serviceType.ServiceTypeId);
+            }
+        }
+
+        // Add new service types
+        foreach (var serviceTypeId in serviceTypeIds.Distinct())
+        {
+            await _hospitalRepository.AddServiceTypeAsync(hospitalId, serviceTypeId);
+        }
+    }
+
+    private async Task UpdateHospitalServiceMedicalsAsync(Guid hospitalId, List<Guid> serviceMedicalIds)
+    {
+        // Remove all existing service medicals
+        var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
+        if (hospital?.HospitalServiceMedicals != null)
+        {
+            foreach (var serviceMedical in hospital.HospitalServiceMedicals.ToList())
+            {
+                await _hospitalRepository.RemoveServiceMedicalAsync(hospitalId, serviceMedical.ServiceMedicalId);
+            }
+        }
+
+        // Add new service medicals
+        foreach (var serviceMedicalId in serviceMedicalIds.Distinct())
+        {
+            await _hospitalRepository.AddServiceMedicalAsync(hospitalId, serviceMedicalId);
         }
     }
 
@@ -945,6 +1046,59 @@ public class HospitalService : IHospitalService
         {
             _logger.LogWarning(ex, "Failed to get doctor counts for hospital {HospitalId}, returning empty counts", hospitalId);
             return new Dictionary<Guid, int>();
+        }
+    }
+
+    #endregion
+
+    #region Hospital Image Management
+
+    public async Task<HospitalImageResponse?> AddHospitalImageAsync(CreateHospitalImageRequest request)
+    {
+        try
+        {
+            // Verify hospital exists
+            var hospital = await _hospitalRepository.GetByIdAsync(request.HospitalId);
+            if (hospital == null)
+            {
+                throw new HospitalNotFoundException(request.HospitalId);
+            }
+
+            var imageEntity = _mapper.Map<HospitalImageEntity>(request);
+            var createdImage = await _hospitalImageRepository.CreateAsync(imageEntity);
+            return _mapper.Map<HospitalImageResponse>(createdImage);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding hospital image for hospital {HospitalId}", request.HospitalId);
+            throw;
+        }
+    }
+
+    public async Task<bool> DeleteHospitalImageAsync(Guid hospitalId, Guid imageId)
+    {
+        try
+        {
+            // Verify hospital exists
+            var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
+            if (hospital == null)
+            {
+                throw new HospitalNotFoundException(hospitalId);
+            }
+
+            // Verify image exists and belongs to hospital
+            var image = await _hospitalImageRepository.GetByIdAsync(imageId);
+            if (image == null || image.HospitalId != hospitalId)
+            {
+                return false;
+            }
+
+            return await _hospitalImageRepository.DeleteAsync(imageId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting hospital image {ImageId} for hospital {HospitalId}", imageId, hospitalId);
+            throw;
         }
     }
 

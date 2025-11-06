@@ -3,6 +3,7 @@ namespace BookingCare.Services.Hospital.Models.DTOs.Responses;
 public class HospitalProfileResponse
 {
     public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string? Phone { get; set; }
@@ -12,6 +13,8 @@ public class HospitalProfileResponse
     public string? AvatarUrl { get; set; }
     public List<HospitalImageSimpleResponse> Images { get; set; } = new();
     public List<HospitalSpecialtyWithImageResponse> Specialties { get; set; } = new();
+    public List<HospitalServiceTypeResponse> ServiceTypes { get; set; } = new();
+    public List<HospitalServiceMedicalResponse> ServiceMedicals { get; set; } = new();
 }
 
 public class HospitalImageSimpleResponse

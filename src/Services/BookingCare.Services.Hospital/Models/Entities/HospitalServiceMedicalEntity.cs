@@ -3,20 +3,14 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BookingCare.Services.Hospital.Models.Entities;
 
-[Table("hospital_images")]
-public class HospitalImageEntity
+[Table("hospital_service_medicals")]
+public class HospitalServiceMedicalEntity
 {
-    [Key]
-    [Column("id")]
-    public Guid Id { get; set; } = Guid.NewGuid();
-
-    [Required]
-    [Column("hospital_id")]
+    [Key, Column("hospital_id", Order = 0)]
     public Guid HospitalId { get; set; }
 
-    [Required]
-    [Column("image_url")]
-    public string ImageUrl { get; set; } = string.Empty;
+    [Key, Column("service_medical_id", Order = 1)]
+    public Guid ServiceMedicalId { get; set; }
 
     [Required]
     [Column("created_at")]
@@ -25,4 +19,7 @@ public class HospitalImageEntity
     // Navigation properties
     [ForeignKey("HospitalId")]
     public virtual HospitalEntity Hospital { get; set; } = null!;
+
+    // Note: ServiceEntity is defined in ServiceMedical service
+    // For now, we'll store only the ID reference
 }

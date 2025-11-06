@@ -40,6 +40,7 @@ builder.Services.AddScoped<IHospitalRepository, HospitalRepository>();
 builder.Services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanRepository>();
 builder.Services.AddScoped<IHospitalSubscriptionRepository, HospitalSubscriptionRepository>();
 builder.Services.AddScoped<IHospitalRegistrationRepository, HospitalRegistrationRepository>();
+builder.Services.AddScoped<IHospitalImageRepository, HospitalImageRepository>();
 
 // Register services
 builder.Services.AddScoped<IHospitalService, HospitalService>();

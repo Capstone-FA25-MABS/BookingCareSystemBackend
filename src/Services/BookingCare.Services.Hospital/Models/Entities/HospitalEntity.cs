@@ -55,4 +55,6 @@ public class HospitalEntity
     public virtual ICollection<HospitalSubscriptionEntity> HospitalSubscriptions { get; set; } = new List<HospitalSubscriptionEntity>();
     public virtual ICollection<HospitalSpecialtyEntity> HospitalSpecialties { get; set; } = new List<HospitalSpecialtyEntity>();
     public virtual ICollection<HospitalImageEntity> HospitalImages { get; set; } = new List<HospitalImageEntity>();
+    public virtual ICollection<HospitalServiceTypeEntity> HospitalServiceTypes { get; set; } = new List<HospitalServiceTypeEntity>();
+    public virtual ICollection<HospitalServiceMedicalEntity> HospitalServiceMedicals { get; set; } = new List<HospitalServiceMedicalEntity>();
 }
