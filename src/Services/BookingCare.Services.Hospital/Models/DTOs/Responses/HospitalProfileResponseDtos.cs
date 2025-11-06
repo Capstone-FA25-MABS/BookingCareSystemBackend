@@ -1,16 +1,7 @@
 namespace BookingCare.Services.Hospital.Models.DTOs.Responses;
 
-public class HospitalProfileResponse
+public class HospitalProfileResponse : HospitalBaseResponse
 {
-    public Guid Id { get; set; }
-    public Guid AccountId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Address { get; set; } = string.Empty;
-    public string? Phone { get; set; }
-    public string Email { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public string? BackgroundUrl { get; set; }
-    public string? AvatarUrl { get; set; }
     public List<HospitalImageSimpleResponse> Images { get; set; } = new();
     public List<HospitalSpecialtyWithImageResponse> Specialties { get; set; } = new();
     public List<HospitalServiceTypeResponse> ServiceTypes { get; set; } = new();

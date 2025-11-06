@@ -5,6 +5,7 @@ using BookingCare.Services.Hospital.Models.DTOs.Responses;
 using BookingCare.Services.Hospital.Models.Entities;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Services.Interfaces;
+using BookingCare.Services.Hospital.Services.Helpers;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Protos;
@@ -17,9 +18,7 @@ public class HospitalService : IHospitalService
     private readonly IHospitalRepository _hospitalRepository;
     private readonly IHospitalImageRepository _hospitalImageRepository;
     private readonly IMapper _mapper;
-    private readonly AuthService.AuthServiceClient _authClient;
-    private readonly ILocationApiService _locationApiService;
-    private readonly DoctorService.DoctorServiceClient _doctorClient;
+    private readonly HospitalServiceDependencies _dependencies;
     private readonly ILogger<HospitalService> _logger;
     private readonly IMemoryCache _cache;
     private static readonly object _circuitBreakerLock = new object();
@@ -32,18 +31,14 @@ public class HospitalService : IHospitalService
         IHospitalRepository hospitalRepository,
         IHospitalImageRepository hospitalImageRepository,
         IMapper mapper,
-        AuthService.AuthServiceClient authClient,
-        ILocationApiService locationApiService,
-        DoctorService.DoctorServiceClient doctorClient,
+        HospitalServiceDependencies dependencies,
         ILogger<HospitalService> logger,
         IMemoryCache cache)
     {
         _hospitalRepository = hospitalRepository;
         _hospitalImageRepository = hospitalImageRepository;
         _mapper = mapper;
-        _authClient = authClient;
-        _locationApiService = locationApiService;
-        _doctorClient = doctorClient;
+        _dependencies = dependencies;
         _logger = logger;
         _cache = cache;
     }
@@ -97,7 +92,7 @@ public class HospitalService : IHospitalService
 
             // Enrich specialties with name and image via Doctor gRPC
             var specialtyIds = hospital.HospitalSpecialties?.Select(hs => hs.SpecialtyId).ToList() ?? new List<Guid>();
-            if (specialtyIds.Any() && _doctorClient != null)
+            if (specialtyIds.Any() && _dependencies.DoctorClient != null)
             {
                 try
                 {
@@ -529,7 +524,7 @@ public class HospitalService : IHospitalService
             _logger.LogInformation("Sample hospital address: {HospitalName} - {Address}", hospital.Name, hospital.Address);
         }
 
-        var locationFilteredHospitals = await _locationApiService.ApplyLocationFilteringAsync(
+        var locationFilteredHospitals = await _dependencies.LocationApiService.ApplyLocationFilteringAsync(
             hospitalResponses,
             filter.ProvinceId,
             filter.DistrictId);
@@ -580,7 +575,7 @@ public class HospitalService : IHospitalService
                         Id = specialtyId.ToString()
                     };
 
-                    var response = await _doctorClient.GetSpecialtyByIdAsync(request);
+                    var response = await _dependencies.DoctorClient.GetSpecialtyByIdAsync(request);
                     if (response != null && !string.IsNullOrEmpty(response.Id))
                     {
                         validCount++;
@@ -647,7 +642,7 @@ public class HospitalService : IHospitalService
             var request = new GetAccountStatusByIdsRequest();
             request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
 
-            var response = await _authClient.GetAccountStatusByIdsAsync(request);
+            var response = await _dependencies.AuthClient.GetAccountStatusByIdsAsync(request);
 
             foreach (var accountStatus in response.AccountStatuses)
             {
@@ -712,7 +707,7 @@ public class HospitalService : IHospitalService
         {
             try
             {
-                var result = await _doctorClient.GetSpecialtiesByIdsAsync(request);
+                var result = await _dependencies.DoctorClient.GetSpecialtiesByIdsAsync(request);
 
                 // Reset circuit breaker on success
                 ResetCircuitBreaker();
@@ -1018,7 +1013,7 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            if (!specialtyIds.Any() || _doctorClient == null)
+            if (!specialtyIds.Any() || _dependencies.DoctorClient == null)
             {
                 return new Dictionary<Guid, int>();
             }
@@ -1029,7 +1024,7 @@ public class HospitalService : IHospitalService
             };
             request.SpecialtyIds.AddRange(specialtyIds.Select(x => x.ToString()));
 
-            var response = await _doctorClient.GetDoctorCountsBySpecialtyAndHospitalAsync(request);
+            var response = await _dependencies.DoctorClient.GetDoctorCountsBySpecialtyAndHospitalAsync(request);
 
             var result = new Dictionary<Guid, int>();
             foreach (var count in response.SpecialtyCounts)
@@ -1071,7 +1066,7 @@ public class HospitalService : IHospitalService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adding hospital image for hospital {HospitalId}", request.HospitalId);
-            throw;
+            throw new HospitalOperationException($"Failed to add hospital image for hospital {request.HospitalId}", ex);
         }
     }
 
@@ -1098,7 +1093,7 @@ public class HospitalService : IHospitalService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting hospital image {ImageId} for hospital {HospitalId}", imageId, hospitalId);
-            throw;
+            throw new HospitalOperationException($"Failed to delete hospital image {imageId} for hospital {hospitalId}", ex);
         }
     }
 

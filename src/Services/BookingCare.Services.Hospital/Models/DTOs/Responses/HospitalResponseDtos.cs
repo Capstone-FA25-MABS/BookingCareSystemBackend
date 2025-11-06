@@ -2,7 +2,10 @@ using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Hospital.Models.DTOs.Responses;
 
-public class HospitalResponse
+/// <summary>
+/// Base class containing common hospital properties
+/// </summary>
+public abstract class HospitalBaseResponse
 {
     public Guid Id { get; set; }
     public Guid AccountId { get; set; }
@@ -13,6 +16,10 @@ public class HospitalResponse
     public string Description { get; set; } = string.Empty;
     public string? BackgroundUrl { get; set; }
     public string? AvatarUrl { get; set; }
+}
+
+public class HospitalResponse : HospitalBaseResponse
+{
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public List<HospitalSpecialtyResponse>? Specialties { get; set; }

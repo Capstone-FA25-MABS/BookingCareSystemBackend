@@ -207,15 +207,10 @@ public class HospitalsController : BaseApiController
         [FromForm] IFormFile? avatarFile,
         CancellationToken cancellationToken = default)
     {
-        if (!ModelState.IsValid)
+        var validationResult = ValidateModelState();
+        if (validationResult != null)
         {
-            var errors = ModelState
-                .Where(x => x.Value?.Errors.Count > 0)
-                .ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray()
-                );
-            return BadRequest(new { Message = "Validation failed", Errors = errors });
+            return validationResult;
         }
 
         try
@@ -227,44 +222,10 @@ public class HospitalsController : BaseApiController
             }
 
             // Handle avatar upload if provided
-            if (avatarFile != null)
+            var uploadResult = await HandleAvatarUploadAsync(avatarFile, currentHospital, request, id, cancellationToken);
+            if (uploadResult != null)
             {
-                // Delete old avatar if exists
-                if (!string.IsNullOrEmpty(currentHospital.AvatarUrl))
-                {
-                    var deleteConfig = new FileDeletionConfig
-                    {
-                        FileUrl = currentHospital.AvatarUrl,
-                        ExpectedFolder = "avatars",
-                        SuccessMessage = "Old avatar deleted successfully",
-                        EntityType = "hospital-avatar"
-                    };
-
-                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentHospital.AccountId, _logger, cancellationToken);
-                    if (!deleteResult.Success)
-                    {
-                        _logger.LogWarning("Failed to delete old avatar for hospital {HospitalId}: {Error}", id, deleteResult.ErrorMessage);
-                    }
-                }
-
-                var config = new FileUploadConfig
-                {
-                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                    MaxSizeInMB = 5,
-                    Folder = "avatars/hospitals",
-                    SuccessMessage = "Hospital avatar uploaded successfully",
-                    EntityType = "hospital-avatar"
-                };
-
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(avatarFile, config, currentHospital.AccountId, _logger, cancellationToken);
-
-                if (!uploadResult.Success)
-                {
-                    return BadRequest($"Avatar upload failed: {uploadResult.ErrorMessage}");
-                }
-
-                // Set the avatar URL from upload result - use CloudFront URL for public access
-                request.AvatarUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                return uploadResult;
             }
 
             var hospital = await _hospitalService.UpdateAsync(id, request);
@@ -291,15 +252,10 @@ public class HospitalsController : BaseApiController
         [FromForm] IFormFile? backgroundFile,
         CancellationToken cancellationToken = default)
     {
-        if (!ModelState.IsValid)
+        var validationResult = ValidateModelState();
+        if (validationResult != null)
         {
-            var errors = ModelState
-                .Where(x => x.Value?.Errors.Count > 0)
-                .ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray()
-                );
-            return BadRequest(new { Message = "Validation failed", Errors = errors });
+            return validationResult;
         }
 
         try
@@ -311,44 +267,10 @@ public class HospitalsController : BaseApiController
             }
 
             // Handle background upload if provided
-            if (backgroundFile != null)
+            var uploadResult = await HandleBackgroundUploadAsync(backgroundFile, currentHospital, request, id, cancellationToken);
+            if (uploadResult != null)
             {
-                // Delete old background if exists
-                if (!string.IsNullOrEmpty(currentHospital.BackgroundUrl))
-                {
-                    var deleteConfig = new FileDeletionConfig
-                    {
-                        FileUrl = currentHospital.BackgroundUrl,
-                        ExpectedFolder = "hospitals",
-                        SuccessMessage = "Old background deleted successfully",
-                        EntityType = "hospital-background"
-                    };
-
-                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentHospital.AccountId, _logger, cancellationToken);
-                    if (!deleteResult.Success)
-                    {
-                        _logger.LogWarning("Failed to delete old background for hospital {HospitalId}: {Error}", id, deleteResult.ErrorMessage);
-                    }
-                }
-
-                var config = new FileUploadConfig
-                {
-                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                    MaxSizeInMB = 5,
-                    Folder = "hospitals/backgrounds",
-                    SuccessMessage = "Hospital background uploaded successfully",
-                    EntityType = "hospital-background"
-                };
-
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(backgroundFile, config, currentHospital.AccountId, _logger, cancellationToken);
-
-                if (!uploadResult.Success)
-                {
-                    return BadRequest($"Background upload failed: {uploadResult.ErrorMessage}");
-                }
-
-                // Set the background URL from upload result
-                request.BackgroundUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                return uploadResult;
             }
 
             var hospital = await _hospitalService.UpdateAsync(id, request);
@@ -376,15 +298,10 @@ public class HospitalsController : BaseApiController
         [FromForm] IFormFile? backgroundFile,
         CancellationToken cancellationToken = default)
     {
-        if (!ModelState.IsValid)
+        var validationResult = ValidateModelState();
+        if (validationResult != null)
         {
-            var errors = ModelState
-                .Where(x => x.Value?.Errors.Count > 0)
-                .ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray()
-                );
-            return BadRequest(new { Message = "Validation failed", Errors = errors });
+            return validationResult;
         }
 
         try
@@ -396,83 +313,17 @@ public class HospitalsController : BaseApiController
             }
 
             // Handle avatar upload if provided
-            if (avatarFile != null)
+            var avatarUploadResult = await HandleAvatarUploadAsync(avatarFile, currentHospital, request, id, cancellationToken);
+            if (avatarUploadResult != null)
             {
-                // Delete old avatar if exists
-                if (!string.IsNullOrEmpty(currentHospital.AvatarUrl))
-                {
-                    var deleteConfig = new FileDeletionConfig
-                    {
-                        FileUrl = currentHospital.AvatarUrl,
-                        ExpectedFolder = "avatars",
-                        SuccessMessage = "Old avatar deleted successfully",
-                        EntityType = "hospital-avatar"
-                    };
-
-                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentHospital.AccountId, _logger, cancellationToken);
-                    if (!deleteResult.Success)
-                    {
-                        _logger.LogWarning("Failed to delete old avatar for hospital {HospitalId}: {Error}", id, deleteResult.ErrorMessage);
-                    }
-                }
-
-                var config = new FileUploadConfig
-                {
-                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                    MaxSizeInMB = 5,
-                    Folder = "avatars/hospitals",
-                    SuccessMessage = "Hospital avatar uploaded successfully",
-                    EntityType = "hospital-avatar"
-                };
-
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(avatarFile, config, currentHospital.AccountId, _logger, cancellationToken);
-
-                if (!uploadResult.Success)
-                {
-                    return BadRequest($"Avatar upload failed: {uploadResult.ErrorMessage}");
-                }
-
-                request.AvatarUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                return avatarUploadResult;
             }
 
             // Handle background upload if provided
-            if (backgroundFile != null)
+            var backgroundUploadResult = await HandleBackgroundUploadAsync(backgroundFile, currentHospital, request, id, cancellationToken);
+            if (backgroundUploadResult != null)
             {
-                // Delete old background if exists
-                if (!string.IsNullOrEmpty(currentHospital.BackgroundUrl))
-                {
-                    var deleteConfig = new FileDeletionConfig
-                    {
-                        FileUrl = currentHospital.BackgroundUrl,
-                        ExpectedFolder = "hospitals",
-                        SuccessMessage = "Old background deleted successfully",
-                        EntityType = "hospital-background"
-                    };
-
-                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentHospital.AccountId, _logger, cancellationToken);
-                    if (!deleteResult.Success)
-                    {
-                        _logger.LogWarning("Failed to delete old background for hospital {HospitalId}: {Error}", id, deleteResult.ErrorMessage);
-                    }
-                }
-
-                var config = new FileUploadConfig
-                {
-                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                    MaxSizeInMB = 5,
-                    Folder = "hospitals/backgrounds",
-                    SuccessMessage = "Hospital background uploaded successfully",
-                    EntityType = "hospital-background"
-                };
-
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(backgroundFile, config, currentHospital.AccountId, _logger, cancellationToken);
-
-                if (!uploadResult.Success)
-                {
-                    return BadRequest($"Background upload failed: {uploadResult.ErrorMessage}");
-                }
-
-                request.BackgroundUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                return backgroundUploadResult;
             }
 
             var hospital = await _hospitalService.UpdateAsync(id, request);
@@ -511,46 +362,7 @@ public class HospitalsController : BaseApiController
                 return BadRequest("No image files provided");
             }
 
-            var uploadedImages = new List<HospitalImageResponse>();
-
-            foreach (var imageFile in imageFiles)
-            {
-                var config = new FileUploadConfig
-                {
-                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
-                    MaxSizeInMB = 5,
-                    Folder = "hospitals/hospital-images",
-                    SuccessMessage = "Hospital image uploaded successfully",
-                    EntityType = "hospital-image"
-                };
-
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, currentHospital.AccountId, _logger, cancellationToken);
-
-                if (!uploadResult.Success)
-                {
-                    _logger.LogWarning("Failed to upload image for hospital {HospitalId}: {Error}", id, uploadResult.ErrorMessage);
-                    continue;
-                }
-
-                var imageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
-
-                // Create hospital image entity
-                var createImageRequest = new CreateHospitalImageRequest
-                {
-                    HospitalId = id,
-                    ImageUrl = imageUrl
-                };
-
-                var image = await _hospitalService.AddHospitalImageAsync(createImageRequest);
-                if (image != null)
-                {
-                    uploadedImages.Add(new HospitalImageResponse
-                    {
-                        Id = image.Id,
-                        ImageUrl = image.ImageUrl
-                    });
-                }
-            }
+            var uploadedImages = await ProcessImageUploadsAsync(imageFiles, id, currentHospital.AccountId, cancellationToken);
 
             return Ok(new { Images = uploadedImages, Message = $"{uploadedImages.Count} image(s) uploaded successfully" });
         }
@@ -576,45 +388,20 @@ public class HospitalsController : BaseApiController
     {
         try
         {
-            // Get hospital to verify it exists and get AccountId
             var hospital = await _hospitalService.GetByIdAsync(id);
             if (hospital == null)
             {
                 return NotFound($"Hospital with ID {id} not found");
             }
 
-            // Get image entity from repository
             var imageEntity = await _hospitalImageRepository.GetByIdAsync(imageId);
             if (imageEntity == null || imageEntity.HospitalId != id)
             {
                 return NotFound(new { Message = "Hospital image not found" });
             }
 
-            // Delete file from S3 - extract S3Key from ImageUrl
-            if (!string.IsNullOrEmpty(imageEntity.ImageUrl))
-            {
-                var deleteConfig = new FileDeletionConfig
-                {
-                    FileUrl = imageEntity.ImageUrl,
-                    ExpectedFolder = "hospitals",
-                    SuccessMessage = "Hospital image deleted successfully",
-                    EntityType = "hospital-image"
-                };
+            await DeleteImageFileFromStorageAsync(imageEntity.ImageUrl, id, imageId, cancellationToken);
 
-                // Get AccountId from hospital entity
-                var hospitalEntity = await _hospitalRepository.GetByIdAsync(id);
-                if (hospitalEntity != null)
-                {
-                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, hospitalEntity.AccountId, _logger, cancellationToken);
-                    if (!deleteResult.Success)
-                    {
-                        _logger.LogWarning("Failed to delete hospital image file from S3 for image {ImageId}: {Error}", imageId, deleteResult.ErrorMessage);
-                        // Continue with database deletion even if S3 deletion fails
-                    }
-                }
-            }
-
-            // Delete from database
             var result = await _hospitalService.DeleteHospitalImageAsync(id, imageId);
             if (result)
             {
@@ -735,4 +522,233 @@ public class HospitalsController : BaseApiController
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
+
+    #region Helper Methods
+
+    /// <summary>
+    /// Validates ModelState and returns BadRequest if invalid
+    /// </summary>
+    private IActionResult? ValidateModelState()
+    {
+        if (!ModelState.IsValid)
+        {
+            var errors = ModelState
+                .Where(x => x.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray()
+                );
+            return BadRequest(new { Message = "Validation failed", Errors = errors });
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Handles avatar upload including deletion of old avatar
+    /// </summary>
+    private async Task<IActionResult?> HandleAvatarUploadAsync(
+        IFormFile? avatarFile,
+        HospitalProfileResponse currentHospital,
+        UpdateHospitalRequest request,
+        Guid hospitalId,
+        CancellationToken cancellationToken)
+    {
+        if (avatarFile == null) return null;
+
+        // Delete old avatar if exists
+        if (!string.IsNullOrEmpty(currentHospital.AvatarUrl))
+        {
+            var deleteConfig = new FileDeletionConfig
+            {
+                FileUrl = currentHospital.AvatarUrl,
+                ExpectedFolder = "avatars",
+                SuccessMessage = "Old avatar deleted successfully",
+                EntityType = "hospital-avatar"
+            };
+
+            var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentHospital.AccountId, _logger, cancellationToken);
+            if (!deleteResult.Success)
+            {
+                _logger.LogWarning("Failed to delete old avatar for hospital {HospitalId}: {Error}", hospitalId, deleteResult.ErrorMessage);
+            }
+        }
+
+        var config = new FileUploadConfig
+        {
+            AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+            MaxSizeInMB = 5,
+            Folder = "avatars/hospitals",
+            SuccessMessage = "Hospital avatar uploaded successfully",
+            EntityType = "hospital-avatar"
+        };
+
+        var uploadResult = await _uploadOrchestrator.UploadFileAsync(avatarFile, config, currentHospital.AccountId, _logger, cancellationToken);
+
+        if (!uploadResult.Success)
+        {
+            return BadRequest($"Avatar upload failed: {uploadResult.ErrorMessage}");
+        }
+
+        // Set the avatar URL from upload result - use CloudFront URL for public access
+        request.AvatarUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+        return null;
+    }
+
+    /// <summary>
+    /// Handles background upload including deletion of old background
+    /// </summary>
+    private async Task<IActionResult?> HandleBackgroundUploadAsync(
+        IFormFile? backgroundFile,
+        HospitalProfileResponse currentHospital,
+        UpdateHospitalRequest request,
+        Guid hospitalId,
+        CancellationToken cancellationToken)
+    {
+        if (backgroundFile == null) return null;
+
+        // Delete old background if exists
+        if (!string.IsNullOrEmpty(currentHospital.BackgroundUrl))
+        {
+            var deleteConfig = new FileDeletionConfig
+            {
+                FileUrl = currentHospital.BackgroundUrl,
+                ExpectedFolder = "hospitals",
+                SuccessMessage = "Old background deleted successfully",
+                EntityType = "hospital-background"
+            };
+
+            var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentHospital.AccountId, _logger, cancellationToken);
+            if (!deleteResult.Success)
+            {
+                _logger.LogWarning("Failed to delete old background for hospital {HospitalId}: {Error}", hospitalId, deleteResult.ErrorMessage);
+            }
+        }
+
+        var config = new FileUploadConfig
+        {
+            AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+            MaxSizeInMB = 5,
+            Folder = "hospitals/backgrounds",
+            SuccessMessage = "Hospital background uploaded successfully",
+            EntityType = "hospital-background"
+        };
+
+        var uploadResult = await _uploadOrchestrator.UploadFileAsync(backgroundFile, config, currentHospital.AccountId, _logger, cancellationToken);
+
+        if (!uploadResult.Success)
+        {
+            return BadRequest($"Background upload failed: {uploadResult.ErrorMessage}");
+        }
+
+        // Set the background URL from upload result
+        request.BackgroundUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+        return null;
+    }
+
+    /// <summary>
+    /// Processes multiple image file uploads
+    /// </summary>
+    private async Task<List<HospitalImageResponse>> ProcessImageUploadsAsync(
+        List<IFormFile> imageFiles,
+        Guid hospitalId,
+        Guid accountId,
+        CancellationToken cancellationToken)
+    {
+        var uploadedImages = new List<HospitalImageResponse>();
+
+        foreach (var imageFile in imageFiles)
+        {
+            var image = await UploadSingleHospitalImageAsync(imageFile, hospitalId, accountId, cancellationToken);
+            if (image != null)
+            {
+                uploadedImages.Add(image);
+            }
+        }
+
+        return uploadedImages;
+    }
+
+    /// <summary>
+    /// Uploads a single hospital image file
+    /// </summary>
+    private async Task<HospitalImageResponse?> UploadSingleHospitalImageAsync(
+        IFormFile imageFile,
+        Guid hospitalId,
+        Guid accountId,
+        CancellationToken cancellationToken)
+    {
+        var config = new FileUploadConfig
+        {
+            AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" },
+            MaxSizeInMB = 5,
+            Folder = "hospitals/hospital-images",
+            SuccessMessage = "Hospital image uploaded successfully",
+            EntityType = "hospital-image"
+        };
+
+        var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, accountId, _logger, cancellationToken);
+
+        if (!uploadResult.Success)
+        {
+            _logger.LogWarning("Failed to upload image for hospital {HospitalId}: {Error}", hospitalId, uploadResult.ErrorMessage);
+            return null;
+        }
+
+        var imageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+
+        var createImageRequest = new CreateHospitalImageRequest
+        {
+            HospitalId = hospitalId,
+            ImageUrl = imageUrl
+        };
+
+        var image = await _hospitalService.AddHospitalImageAsync(createImageRequest);
+        if (image == null)
+        {
+            return null;
+        }
+
+        return new HospitalImageResponse
+        {
+            Id = image.Id,
+            ImageUrl = image.ImageUrl
+        };
+    }
+
+    /// <summary>
+    /// Deletes image file from storage (S3)
+    /// </summary>
+    private async Task DeleteImageFileFromStorageAsync(
+        string? imageUrl,
+        Guid hospitalId,
+        Guid imageId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(imageUrl))
+        {
+            return;
+        }
+
+        var hospitalEntity = await _hospitalRepository.GetByIdAsync(hospitalId);
+        if (hospitalEntity == null)
+        {
+            return;
+        }
+
+        var deleteConfig = new FileDeletionConfig
+        {
+            FileUrl = imageUrl,
+            ExpectedFolder = "hospitals",
+            SuccessMessage = "Hospital image deleted successfully",
+            EntityType = "hospital-image"
+        };
+
+        var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, hospitalEntity.AccountId, _logger, cancellationToken);
+        if (!deleteResult.Success)
+        {
+            _logger.LogWarning("Failed to delete hospital image file from S3 for image {ImageId}: {Error}", imageId, deleteResult.ErrorMessage);
+        }
+    }
+
+    #endregion
 }
