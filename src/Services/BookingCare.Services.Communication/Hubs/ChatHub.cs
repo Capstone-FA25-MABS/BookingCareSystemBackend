@@ -514,6 +514,359 @@ public class ChatHub : Hub
         await Clients.Caller.SendAsync("OnlineUsers", onlineUsers);
     }
 
+    #region WebRTC Call Signaling
+
+    /// <summary>
+    /// Bắt đầu cuộc gọi (caller gửi tín hiệu đến callee)
+    /// </summary>
+    public async Task StartCall(StartCallRequest request)
+    {
+        var callerId = GetUserId();
+        if (string.IsNullOrEmpty(callerId))
+        {
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "📞 StartCall: {CallerId} calling {CalleeId} in conversation {ConversationId}",
+                callerId,
+                request.CalleeId,
+                request.ConversationId
+            );
+
+            var callData = new
+            {
+                CallerId = callerId,
+                CalleeId = request.CalleeId,
+                ConversationId = request.ConversationId,
+                CallType = request.CallType, // "video" or "audio"
+                CallerName = request.CallerName,
+                CallerAvatar = request.CallerAvatar,
+            };
+
+            // Send to callee's user group
+            var calleeGroupName = GetUserGroupName(request.CalleeId);
+            await Clients.Group(calleeGroupName).SendAsync("IncomingCall", callData);
+
+            _logger.LogInformation("📤 Sent IncomingCall to {CalleeId}", request.CalleeId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error starting call from {CallerId} to {CalleeId}",
+                callerId,
+                request.CalleeId
+            );
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi bắt đầu cuộc gọi");
+        }
+    }
+
+    /// <summary>
+    /// Chấp nhận cuộc gọi (callee phản hồi caller)
+    /// </summary>
+    public async Task AcceptCall(AcceptCallRequest request)
+    {
+        var calleeId = GetUserId();
+        if (string.IsNullOrEmpty(calleeId))
+        {
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "✅ AcceptCall: {CalleeId} accepted call from {CallerId}",
+                calleeId,
+                request.CallerId
+            );
+
+            var acceptData = new
+            {
+                CalleeId = calleeId,
+                CallerId = request.CallerId,
+                ConversationId = request.ConversationId,
+            };
+
+            // Notify caller that call was accepted
+            var callerGroupName = GetUserGroupName(request.CallerId);
+            await Clients.Group(callerGroupName).SendAsync("CallAccepted", acceptData);
+
+            _logger.LogInformation("📤 Sent CallAccepted to {CallerId}", request.CallerId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error accepting call from {CallerId}", request.CallerId);
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi chấp nhận cuộc gọi");
+        }
+    }
+
+    /// <summary>
+    /// Từ chối cuộc gọi
+    /// </summary>
+    public async Task DeclineCall(DeclineCallRequest request)
+    {
+        var calleeId = GetUserId();
+        if (string.IsNullOrEmpty(calleeId))
+        {
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "❌ DeclineCall: {CalleeId} declined call from {CallerId}",
+                calleeId,
+                request.CallerId
+            );
+
+            var declineData = new
+            {
+                CalleeId = calleeId,
+                CallerId = request.CallerId,
+                Reason = request.Reason ?? "declined",
+            };
+
+            // Notify caller that call was declined
+            var callerGroupName = GetUserGroupName(request.CallerId);
+            await Clients.Group(callerGroupName).SendAsync("CallDeclined", declineData);
+
+            _logger.LogInformation("📤 Sent CallDeclined to {CallerId}", request.CallerId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error declining call from {CallerId}", request.CallerId);
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi từ chối cuộc gọi");
+        }
+    }
+
+    /// <summary>
+    /// Kết thúc cuộc gọi
+    /// </summary>
+    public async Task EndCall(EndCallRequest request)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "📵 EndCall: {UserId} ending call with {OtherUserId}",
+                userId,
+                request.OtherUserId
+            );
+
+            var endData = new
+            {
+                UserId = userId,
+                OtherUserId = request.OtherUserId,
+                Reason = request.Reason ?? "ended",
+            };
+
+            // Notify other user
+            var otherUserGroupName = GetUserGroupName(request.OtherUserId);
+            await Clients.Group(otherUserGroupName).SendAsync("CallEnded", endData);
+
+            _logger.LogInformation("📤 Sent CallEnded to {OtherUserId}", request.OtherUserId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error ending call with {OtherUserId}", request.OtherUserId);
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi kết thúc cuộc gọi");
+        }
+    }
+
+    /// <summary>
+    /// Gửi WebRTC Offer (SDP)
+    /// </summary>
+    public async Task SendOffer(WebRTCSignalRequest request)
+    {
+        var senderId = GetUserId();
+        if (string.IsNullOrEmpty(senderId))
+        {
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "📡 SendOffer: {SenderId} -> {ReceiverId}",
+                senderId,
+                request.ReceiverId
+            );
+
+            var offerData = new
+            {
+                SenderId = senderId,
+                ReceiverId = request.ReceiverId,
+                Offer = request.Signal, // SDP offer
+            };
+
+            // Send to receiver
+            var receiverGroupName = GetUserGroupName(request.ReceiverId);
+            await Clients.Group(receiverGroupName).SendAsync("ReceiveOffer", offerData);
+
+            _logger.LogInformation("📤 Sent Offer to {ReceiverId}", request.ReceiverId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending offer to {ReceiverId}", request.ReceiverId);
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi gửi WebRTC offer");
+        }
+    }
+
+    /// <summary>
+    /// Gửi WebRTC Answer (SDP)
+    /// </summary>
+    public async Task SendAnswer(WebRTCSignalRequest request)
+    {
+        var senderId = GetUserId();
+        if (string.IsNullOrEmpty(senderId))
+        {
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "📡 SendAnswer: {SenderId} -> {ReceiverId}",
+                senderId,
+                request.ReceiverId
+            );
+
+            var answerData = new
+            {
+                SenderId = senderId,
+                ReceiverId = request.ReceiverId,
+                Answer = request.Signal, // SDP answer
+            };
+
+            // Send to receiver
+            var receiverGroupName = GetUserGroupName(request.ReceiverId);
+            await Clients.Group(receiverGroupName).SendAsync("ReceiveAnswer", answerData);
+
+            _logger.LogInformation("📤 Sent Answer to {ReceiverId}", request.ReceiverId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending answer to {ReceiverId}", request.ReceiverId);
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi gửi WebRTC answer");
+        }
+    }
+
+    /// <summary>
+    /// Gửi ICE Candidate
+    /// </summary>
+    public async Task SendIceCandidate(ICECandidateRequest request)
+    {
+        var senderId = GetUserId();
+        if (string.IsNullOrEmpty(senderId))
+        {
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "🧊 SendIceCandidate: {SenderId} -> {ReceiverId}",
+                senderId,
+                request.ReceiverId
+            );
+
+            var candidateData = new
+            {
+                SenderId = senderId,
+                ReceiverId = request.ReceiverId,
+                Candidate = request.Candidate,
+            };
+
+            // Send to receiver
+            var receiverGroupName = GetUserGroupName(request.ReceiverId);
+            await Clients.Group(receiverGroupName).SendAsync("ReceiveIceCandidate", candidateData);
+
+            // Don't log every ICE candidate (too noisy)
+            // _logger.LogDebug("📤 Sent ICE Candidate to {ReceiverId}", request.ReceiverId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending ICE candidate to {ReceiverId}", request.ReceiverId);
+            // Don't send error to client - ICE candidates are not critical
+        }
+    }
+
+    /// <summary>
+    /// Báo user đang bận (đã có cuộc gọi khác)
+    /// </summary>
+    public async Task CallBusy(CallBusyRequest request)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            await Clients.Caller.SendAsync(
+                HubConstants.ErrorMessage,
+                HubConstants.UserNotAuthenticated
+            );
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation(
+                "📞 CallBusy: {UserId} is busy, notifying {CallerId}",
+                userId,
+                request.CallerId
+            );
+
+            var busyData = new { UserId = userId, CallerId = request.CallerId };
+
+            // Notify caller that user is busy
+            var callerGroupName = GetUserGroupName(request.CallerId);
+            await Clients.Group(callerGroupName).SendAsync("UserBusy", busyData);
+
+            _logger.LogInformation("📤 Sent UserBusy to {CallerId}", request.CallerId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending busy status to {CallerId}", request.CallerId);
+            await Clients.Caller.SendAsync(HubConstants.ErrorMessage, "Lỗi khi gửi trạng thái bận");
+        }
+    }
+
+    #endregion
+
     #region Private Methods
 
     /// <summary>
@@ -628,3 +981,72 @@ public class SendMessageHub
     public string? ReceiverId { get; set; }
     public string Content { get; set; } = string.Empty;
 }
+
+#region WebRTC Call DTOs
+
+/// <summary>
+/// Request để bắt đầu cuộc gọi
+/// </summary>
+public class StartCallRequest
+{
+    public string CalleeId { get; set; } = string.Empty;
+    public string ConversationId { get; set; } = string.Empty;
+    public string CallType { get; set; } = "video"; // "video" or "audio"
+    public string? CallerName { get; set; }
+    public string? CallerAvatar { get; set; }
+}
+
+/// <summary>
+/// Request để chấp nhận cuộc gọi
+/// </summary>
+public class AcceptCallRequest
+{
+    public string CallerId { get; set; } = string.Empty;
+    public string ConversationId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request để từ chối cuộc gọi
+/// </summary>
+public class DeclineCallRequest
+{
+    public string CallerId { get; set; } = string.Empty;
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Request để kết thúc cuộc gọi
+/// </summary>
+public class EndCallRequest
+{
+    public string OtherUserId { get; set; } = string.Empty;
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Request để gửi WebRTC signal (Offer/Answer)
+/// </summary>
+public class WebRTCSignalRequest
+{
+    public string ReceiverId { get; set; } = string.Empty;
+    public object Signal { get; set; } = null!; // RTCSessionDescriptionInit
+}
+
+/// <summary>
+/// Request để gửi ICE Candidate
+/// </summary>
+public class ICECandidateRequest
+{
+    public string ReceiverId { get; set; } = string.Empty;
+    public object Candidate { get; set; } = null!; // RTCIceCandidateInit
+}
+
+/// <summary>
+/// Request để báo đang bận
+/// </summary>
+public class CallBusyRequest
+{
+    public string CallerId { get; set; } = string.Empty;
+}
+
+#endregion
