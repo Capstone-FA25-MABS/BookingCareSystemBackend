@@ -39,25 +39,37 @@ public class CreateHospitalRequest
 
 public class UpdateHospitalRequest
 {
-    [MaxLength(255)]
+    [Required(ErrorMessage = "Tên bệnh viện là bắt buộc! Vui lòng nhập tên bệnh viện")]
+    [MaxLength(255, ErrorMessage = "Tên bệnh viện không được vượt quá 255 ký tự")]
     public string? Name { get; set; }
 
+    [Required(ErrorMessage = "Địa chỉ là bắt buộc! Vui lòng nhập địa chỉ")]
+    [MaxLength(500, ErrorMessage = "Địa chỉ không được vượt quá 500 ký tự")]
     public string? Address { get; set; }
 
+    // Email and Phone are read-only and should not be updated
+    // These fields are kept in DTO for backward compatibility but will be ignored in UpdateAsync
     [MaxLength(20)]
     public string? Phone { get; set; }
 
-    [EmailAddress]
-    [MaxLength(100)]
+    [EmailAddress(ErrorMessage = "Email không hợp lệ")]
+    [MaxLength(100, ErrorMessage = "Email không được vượt quá 100 ký tự")]
     public string? Email { get; set; }
 
+    [Required(ErrorMessage = "Mô tả là bắt buộc! Vui lòng nhập mô tả")]
     public string? Description { get; set; }
 
+    [Url(ErrorMessage = "URL ảnh nền không hợp lệ")]
+    [MaxLength(500, ErrorMessage = "URL ảnh nền không được vượt quá 500 ký tự")]
     public string? BackgroundUrl { get; set; }
 
+    [Url(ErrorMessage = "URL ảnh đại diện không hợp lệ")]
+    [MaxLength(500, ErrorMessage = "URL ảnh đại diện không được vượt quá 500 ký tự")]
     public string? AvatarUrl { get; set; }
 
     public List<Guid>? SpecialtyIds { get; set; }
+    public List<Guid>? ServiceTypeIds { get; set; }
+    public List<Guid>? ServiceMedicalIds { get; set; }
 }
 
 public class HospitalFilterRequest

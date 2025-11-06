@@ -2,6 +2,7 @@ using BookingCare.Services.Hospital.Services;
 using BookingCare.Services.Hospital.Data;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Services.Implementations;
+using BookingCare.Services.Hospital.Services.Helpers;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Repositories.Implementations;
 using BookingCare.Services.Hospital.Mappings;
@@ -40,6 +41,7 @@ builder.Services.AddScoped<IHospitalRepository, HospitalRepository>();
 builder.Services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanRepository>();
 builder.Services.AddScoped<IHospitalSubscriptionRepository, HospitalSubscriptionRepository>();
 builder.Services.AddScoped<IHospitalRegistrationRepository, HospitalRegistrationRepository>();
+builder.Services.AddScoped<IHospitalImageRepository, HospitalImageRepository>();
 
 // Register services
 builder.Services.AddScoped<IHospitalService, HospitalService>();
@@ -85,6 +87,15 @@ var doctorAddress = builder.Configuration.GetSection("GrpcClients:Doctor:Address
 builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(options =>
 {
     options.Address = new Uri(doctorAddress);
+});
+
+// Register HospitalServiceDependencies to reduce constructor parameters
+builder.Services.AddScoped<HospitalServiceDependencies>(sp =>
+{
+    var authClient = sp.GetRequiredService<AuthService.AuthServiceClient>();
+    var doctorClient = sp.GetRequiredService<DoctorService.DoctorServiceClient>();
+    var locationApiService = sp.GetRequiredService<ILocationApiService>();
+    return new HospitalServiceDependencies(authClient, doctorClient, locationApiService);
 });
 
 var app = builder.Build();
