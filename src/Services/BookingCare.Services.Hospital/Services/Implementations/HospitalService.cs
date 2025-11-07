@@ -55,185 +55,13 @@ public class HospitalService : IHospitalService
                 return null;
             }
 
-            _logger.LogInformation("Hospital found: {HospitalName}, mapping to response", hospital.Name);
-            _logger.LogInformation("Hospital images count: {ImageCount}", hospital.HospitalImages?.Count ?? 0);
-            _logger.LogInformation("Hospital specialties count: {SpecialtyCount}", hospital.HospitalSpecialties?.Count ?? 0);
-            _logger.LogInformation("Hospital service types count: {ServiceTypeCount}", hospital.HospitalServiceTypes?.Count ?? 0);
-            _logger.LogInformation("Hospital service medicals count: {ServiceMedicalCount}", hospital.HospitalServiceMedicals?.Count ?? 0);
-            if (hospital.HospitalImages?.Any() == true)
-            {
-                _logger.LogInformation("Sample image URL: {ImageUrl}", hospital.HospitalImages.First().ImageUrl);
-            }
-            else
-            {
-                _logger.LogWarning("No images found for hospital {HospitalId}", id);
-            }
-            if (hospital.HospitalServiceTypes?.Any() == true)
-            {
-                _logger.LogInformation("Hospital service type IDs: {ServiceTypeIds}", string.Join(", ", hospital.HospitalServiceTypes.Select(st => st.ServiceTypeId)));
-            }
-            else
-            {
-                _logger.LogWarning("No service types found for hospital {HospitalId}", id);
-            }
+            LogHospitalDetails(hospital, id);
             var response = _mapper.Map<HospitalProfileResponse>(hospital);
-            _logger.LogInformation("Response service types count: {ResponseServiceTypeCount}", response.ServiceTypes?.Count ?? 0);
-            _logger.LogInformation("Response service medicals count: {ResponseServiceMedicalCount}", response.ServiceMedicals?.Count ?? 0);
-            if (hospital.HospitalServiceMedicals?.Any() == true)
-            {
-                _logger.LogInformation("Hospital service medical IDs: {ServiceMedicalIds}", string.Join(", ", hospital.HospitalServiceMedicals.Select(sm => sm.ServiceMedicalId)));
-            }
-            else
-            {
-                _logger.LogWarning("No service medicals found for hospital {HospitalId}", id);
-            }
-            _logger.LogInformation("Mapping completed successfully");
-            _logger.LogInformation("Response images count: {ResponseImageCount}", response.Images?.Count ?? 0);
+            LogMappingDetails(hospital, response, id);
 
-            // Enrich specialties with name and image via Doctor gRPC
-            var specialtyIds = hospital.HospitalSpecialties?.Select(hs => hs.SpecialtyId).ToList() ?? new List<Guid>();
-            if (specialtyIds.Any() && _dependencies.DoctorClient != null)
-            {
-                try
-                {
-                    var bulkRequest = new GetSpecialtiesByIdsRequest();
-                    bulkRequest.Ids.AddRange(specialtyIds.Select(x => x.ToString()));
-                    var bulkResponse = await GetSpecialtiesBulkWithRetryAsync(bulkRequest);
-                    if (bulkResponse?.Specialties != null)
-                    {
-                        var map = bulkResponse.Specialties
-                            .Where(s => Guid.TryParse(s.Id, out _))
-                            .ToDictionary(s => Guid.Parse(s.Id), s => s);
-
-                        // Get doctor counts for each specialty
-                        var doctorCounts = await GetDoctorCountsBySpecialtyAndHospitalAsync(id, specialtyIds);
-
-                        response.Specialties = specialtyIds
-                            .Where(id => map.ContainsKey(id))
-                            .Select(specialtyId => new HospitalSpecialtyWithImageResponse
-                            {
-                                Id = specialtyId,
-                                Name = map[specialtyId].Name,
-                                ImageUrl = map[specialtyId].ImageUrl,
-                                DoctorCount = doctorCounts.GetValueOrDefault(specialtyId, 0)
-                            })
-                            .ToList();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to enrich specialties for hospital {HospitalId}, returning empty specialties list", id);
-                    response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
-                }
-            }
-            else
-            {
-                // If no specialties or gRPC client is not available, return empty list
-                response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
-            }
-
-            // Enrich service medicals with details via ServiceMedical gRPC (similar to specialties)
-            var serviceMedicalIds = hospital.HospitalServiceMedicals?.Select(hsm => hsm.ServiceMedicalId).ToList() ?? new List<Guid>();
-            if (serviceMedicalIds.Any() && _dependencies.ServiceMedicalClient != null)
-            {
-                try
-                {
-                    _logger.LogInformation("Calling ServiceMedical gRPC to get {Count} service medicals for hospital {HospitalId}", serviceMedicalIds.Count, id);
-
-                    // Call gRPC for each service medical to get details
-                    var serviceMedicalTasks = serviceMedicalIds.Select(async smId =>
-                    {
-                        try
-                        {
-                            var smRequest = new ServiceMedical.Protos.GetServiceGrpcRequest { Id = smId.ToString() };
-                            var smResponse = await _dependencies.ServiceMedicalClient.GetServiceAsync(smRequest);
-
-                            if (smResponse != null && !string.IsNullOrEmpty(smResponse.Id))
-                            {
-                                return new HospitalServiceMedicalResponse
-                                {
-                                    Id = Guid.Parse(smResponse.Id),
-                                    Name = smResponse.Name,
-                                    ImageUrl = smResponse.ImageUrl,
-                                    Price = decimal.Parse(smResponse.Price)
-                                };
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to get service medical {ServiceMedicalId} from gRPC", smId);
-                        }
-                        return null;
-                    }).ToList();
-
-                    var serviceMedicals = await Task.WhenAll(serviceMedicalTasks);
-                    response.ServiceMedicals = serviceMedicals.Where(sm => sm != null).ToList()!;
-
-                    _logger.LogInformation("Enriched {Count} service medicals for hospital {HospitalId}", response.ServiceMedicals.Count, id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to enrich service medicals for hospital {HospitalId}, returning empty list", id);
-                    response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
-                }
-            }
-            else
-            {
-                response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
-                _logger.LogInformation("No service medical IDs found for hospital {HospitalId}", id);
-            }
-
-            // Enrich service types with doctor count via Doctor gRPC (similar to specialties)
-            var serviceTypeIds = hospital.HospitalServiceTypes?.Select(hst => hst.ServiceTypeId).ToList() ?? new List<Guid>();
-            if (serviceTypeIds.Any() && _dependencies.DoctorClient != null)
-            {
-                try
-                {
-                    _logger.LogInformation("Calling Doctor gRPC to get {Count} service types for hospital {HospitalId}", serviceTypeIds.Count, id);
-
-                    var serviceTypeRequest = new Doctor.Protos.GetServiceTypesByHospitalRequest
-                    {
-                        HospitalId = id.ToString()
-                    };
-                    var serviceTypeResponse = await _dependencies.DoctorClient.GetServiceTypesByHospitalAsync(serviceTypeRequest);
-
-                    if (serviceTypeResponse?.ServiceTypes != null && serviceTypeResponse.ServiceTypes.Any())
-                    {
-                        // Map service types from gRPC response that match our hospital's service type IDs
-                        var serviceTypeMap = serviceTypeResponse.ServiceTypes
-                            .Where(st => Guid.TryParse(st.Id, out _))
-                            .ToDictionary(st => Guid.Parse(st.Id), st => st);
-
-                        response.ServiceTypes = serviceTypeIds
-                            .Where(stId => serviceTypeMap.ContainsKey(stId))
-                            .Select(stId => new HospitalServiceTypeResponse
-                            {
-                                Id = stId,
-                                Name = serviceTypeMap[stId].Name,
-                                ImageUrl = serviceTypeMap[stId].ImageUrl,
-                                DoctorCount = serviceTypeMap[stId].DoctorCount
-                            })
-                            .ToList();
-
-                        _logger.LogInformation("Enriched {Count} service types for hospital {HospitalId}", response.ServiceTypes.Count, id);
-                    }
-                    else
-                    {
-                        response.ServiceTypes = new List<HospitalServiceTypeResponse>();
-                        _logger.LogInformation("No service types returned from gRPC for hospital {HospitalId}", id);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to enrich service types for hospital {HospitalId}, returning empty list", id);
-                    response.ServiceTypes = new List<HospitalServiceTypeResponse>();
-                }
-            }
-            else
-            {
-                response.ServiceTypes = new List<HospitalServiceTypeResponse>();
-                _logger.LogInformation("No service type IDs found for hospital {HospitalId}", id);
-            }
+            await EnrichSpecialtiesAsync(response, hospital, id);
+            await EnrichServiceMedicalsAsync(response, hospital, id);
+            await EnrichServiceTypesAsync(response, hospital, id);
 
             return response;
         }
@@ -244,6 +72,207 @@ public class HospitalService : IHospitalService
         }
     }
 
+    #region GetByIdAsync Helper Methods
+
+    private void LogHospitalDetails(HospitalEntity hospital, Guid id)
+    {
+        _logger.LogInformation("Hospital found: {HospitalName}, mapping to response", hospital.Name);
+        _logger.LogInformation("Hospital images count: {ImageCount}", hospital.HospitalImages?.Count ?? 0);
+        _logger.LogInformation("Hospital specialties count: {SpecialtyCount}", hospital.HospitalSpecialties?.Count ?? 0);
+        _logger.LogInformation("Hospital service types count: {ServiceTypeCount}", hospital.HospitalServiceTypes?.Count ?? 0);
+        _logger.LogInformation("Hospital service medicals count: {ServiceMedicalCount}", hospital.HospitalServiceMedicals?.Count ?? 0);
+
+        if (hospital.HospitalImages?.Any() == true)
+        {
+            _logger.LogInformation("Sample image URL: {ImageUrl}", hospital.HospitalImages.First().ImageUrl);
+        }
+        else
+        {
+            _logger.LogWarning("No images found for hospital {HospitalId}", id);
+        }
+
+        if (hospital.HospitalServiceTypes?.Any() == true)
+        {
+            _logger.LogInformation("Hospital service type IDs: {ServiceTypeIds}",
+                string.Join(", ", hospital.HospitalServiceTypes.Select(st => st.ServiceTypeId)));
+        }
+        else
+        {
+            _logger.LogWarning("No service types found for hospital {HospitalId}", id);
+        }
+    }
+
+    private void LogMappingDetails(HospitalEntity hospital, HospitalProfileResponse response, Guid id)
+    {
+        _logger.LogInformation("Response service types count: {ResponseServiceTypeCount}", response.ServiceTypes?.Count ?? 0);
+        _logger.LogInformation("Response service medicals count: {ResponseServiceMedicalCount}", response.ServiceMedicals?.Count ?? 0);
+
+        if (hospital.HospitalServiceMedicals?.Any() == true)
+        {
+            _logger.LogInformation("Hospital service medical IDs: {ServiceMedicalIds}",
+                string.Join(", ", hospital.HospitalServiceMedicals.Select(sm => sm.ServiceMedicalId)));
+        }
+        else
+        {
+            _logger.LogWarning("No service medicals found for hospital {HospitalId}", id);
+        }
+
+        _logger.LogInformation("Mapping completed successfully");
+        _logger.LogInformation("Response images count: {ResponseImageCount}", response.Images?.Count ?? 0);
+    }
+
+    private async Task EnrichSpecialtiesAsync(HospitalProfileResponse response, HospitalEntity hospital, Guid id)
+    {
+        var specialtyIds = hospital.HospitalSpecialties?.Select(hs => hs.SpecialtyId).ToList() ?? new List<Guid>();
+        if (!specialtyIds.Any() || _dependencies.DoctorClient == null)
+        {
+            response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
+            return;
+        }
+
+        try
+        {
+            var bulkRequest = new GetSpecialtiesByIdsRequest();
+            bulkRequest.Ids.AddRange(specialtyIds.Select(x => x.ToString()));
+            var bulkResponse = await GetSpecialtiesBulkWithRetryAsync(bulkRequest);
+
+            if (bulkResponse?.Specialties == null)
+            {
+                response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
+                return;
+            }
+
+            var map = bulkResponse.Specialties
+                .Where(s => Guid.TryParse(s.Id, out _))
+                .ToDictionary(s => Guid.Parse(s.Id), s => s);
+
+            var doctorCounts = await GetDoctorCountsBySpecialtyAndHospitalAsync(id, specialtyIds);
+
+            response.Specialties = specialtyIds
+                .Where(specialtyId => map.ContainsKey(specialtyId))
+                .Select(specialtyId => new HospitalSpecialtyWithImageResponse
+                {
+                    Id = specialtyId,
+                    Name = map[specialtyId].Name,
+                    ImageUrl = map[specialtyId].ImageUrl,
+                    DoctorCount = doctorCounts.GetValueOrDefault(specialtyId, 0)
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enrich specialties for hospital {HospitalId}, returning empty specialties list", id);
+            response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
+        }
+    }
+
+    private async Task EnrichServiceMedicalsAsync(HospitalProfileResponse response, HospitalEntity hospital, Guid id)
+    {
+        var serviceMedicalIds = hospital.HospitalServiceMedicals?.Select(hsm => hsm.ServiceMedicalId).ToList() ?? new List<Guid>();
+        if (!serviceMedicalIds.Any() || _dependencies.ServiceMedicalClient == null)
+        {
+            response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
+            _logger.LogInformation("No service medical IDs found for hospital {HospitalId}", id);
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("Calling ServiceMedical gRPC to get {Count} service medicals for hospital {HospitalId}",
+                serviceMedicalIds.Count, id);
+
+            var serviceMedicalTasks = serviceMedicalIds.Select(async smId =>
+            {
+                try
+                {
+                    var smRequest = new ServiceMedical.Protos.GetServiceGrpcRequest { Id = smId.ToString() };
+                    var smResponse = await _dependencies.ServiceMedicalClient.GetServiceAsync(smRequest);
+
+                    if (smResponse != null && !string.IsNullOrEmpty(smResponse.Id))
+                    {
+                        return new HospitalServiceMedicalResponse
+                        {
+                            Id = Guid.Parse(smResponse.Id),
+                            Name = smResponse.Name,
+                            ImageUrl = smResponse.ImageUrl,
+                            Price = decimal.Parse(smResponse.Price)
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to get service medical {ServiceMedicalId} from gRPC", smId);
+                }
+                return null;
+            }).ToList();
+
+            var serviceMedicals = await Task.WhenAll(serviceMedicalTasks);
+            response.ServiceMedicals = serviceMedicals.Where(sm => sm != null).ToList()!;
+
+            _logger.LogInformation("Enriched {Count} service medicals for hospital {HospitalId}",
+                response.ServiceMedicals.Count, id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enrich service medicals for hospital {HospitalId}, returning empty list", id);
+            response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
+        }
+    }
+
+    private async Task EnrichServiceTypesAsync(HospitalProfileResponse response, HospitalEntity hospital, Guid id)
+    {
+        var serviceTypeIds = hospital.HospitalServiceTypes?.Select(hst => hst.ServiceTypeId).ToList() ?? new List<Guid>();
+        if (!serviceTypeIds.Any() || _dependencies.DoctorClient == null)
+        {
+            response.ServiceTypes = new List<HospitalServiceTypeResponse>();
+            _logger.LogInformation("No service type IDs found for hospital {HospitalId}", id);
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("Calling Doctor gRPC to get {Count} service types for hospital {HospitalId}",
+                serviceTypeIds.Count, id);
+
+            var serviceTypeRequest = new Doctor.Protos.GetServiceTypesByHospitalRequest
+            {
+                HospitalId = id.ToString()
+            };
+            var serviceTypeResponse = await _dependencies.DoctorClient.GetServiceTypesByHospitalAsync(serviceTypeRequest);
+
+            if (serviceTypeResponse?.ServiceTypes == null || !serviceTypeResponse.ServiceTypes.Any())
+            {
+                response.ServiceTypes = new List<HospitalServiceTypeResponse>();
+                _logger.LogInformation("No service types returned from gRPC for hospital {HospitalId}", id);
+                return;
+            }
+
+            var serviceTypeMap = serviceTypeResponse.ServiceTypes
+                .Where(st => Guid.TryParse(st.Id, out _))
+                .ToDictionary(st => Guid.Parse(st.Id), st => st);
+
+            response.ServiceTypes = serviceTypeIds
+                .Where(stId => serviceTypeMap.ContainsKey(stId))
+                .Select(stId => new HospitalServiceTypeResponse
+                {
+                    Id = stId,
+                    Name = serviceTypeMap[stId].Name,
+                    ImageUrl = serviceTypeMap[stId].ImageUrl,
+                    DoctorCount = serviceTypeMap[stId].DoctorCount
+                })
+                .ToList();
+
+            _logger.LogInformation("Enriched {Count} service types for hospital {HospitalId}",
+                response.ServiceTypes.Count, id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enrich service types for hospital {HospitalId}, returning empty list", id);
+            response.ServiceTypes = new List<HospitalServiceTypeResponse>();
+        }
+    }
+
+    #endregion
 
     public async Task<HospitalResponse?> GetByEmailAsync(string email)
     {
