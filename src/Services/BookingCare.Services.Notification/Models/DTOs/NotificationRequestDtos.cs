@@ -49,9 +49,9 @@ namespace BookingCare.Services.Notification.Models.DTOs
 
     /// <summary>
     /// DTO for creating a new notification
-    /// Inherits from NotificationContentBase to eliminate code duplication
+    /// Inherits from NotificationContent to eliminate code duplication
     /// </summary>
-    public class CreateNotificationDto : NotificationContentBase
+    public class CreateNotificationDto : NotificationContent
     {
         public string UserId { get; set; } = string.Empty;
         public NotificationType Type { get; set; }

@@ -220,7 +220,7 @@ public class NotificationRepository : INotificationRepository
             })
         };
 
-        var cursor = await _notifications.AggregateAsync(pipeline, cancellationToken: cancellationToken);
+        var cursor = await _notifications.AggregateAsync<BsonDocument>(pipeline, cancellationToken: cancellationToken);
         var aggregationResult = await cursor.ToListAsync(cancellationToken);
 
         var result = new Dictionary<NotificationType, long>();

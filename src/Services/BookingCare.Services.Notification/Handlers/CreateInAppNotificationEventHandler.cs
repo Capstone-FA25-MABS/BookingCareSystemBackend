@@ -30,24 +30,25 @@ public class CreateInAppNotificationEventHandler : IIntegrationEventHandler<Crea
     {
         _logger.LogInformation(
             "[NotificationService] Creating in-app notification - UserId: {UserId}, Type: {Type}, TitleVi: {TitleVi}",
-            @event.UserId, @event.Type, @event.TitleVi);
+            @event.UserId, @event.Type, @event.Content.TitleVi);
 
         try
         {
-            // Create notification DTO directly from event (bilingual support!)
+            // Create notification DTO using composition (content from event.Content)
             var notificationDto = new CreateNotificationDto
             {
                 UserId = @event.UserId,
                 Type = @event.Type,
-                TitleVi = @event.TitleVi,
-                TitleEn = @event.TitleEn,
-                ContentVi = @event.ContentVi,
-                ContentEn = @event.ContentEn,
-                Metadata = @event.Metadata,
-                ActionUrl = @event.ActionUrl,
-                Icon = @event.Icon,
-                Priority = @event.Priority,
-                ExpirationDays = @event.ExpirationDays
+                // Copy properties from NotificationContent
+                TitleVi = @event.Content.TitleVi,
+                TitleEn = @event.Content.TitleEn,
+                ContentVi = @event.Content.ContentVi,
+                ContentEn = @event.Content.ContentEn,
+                Metadata = @event.Content.Metadata,
+                ActionUrl = @event.Content.ActionUrl,
+                Icon = @event.Content.Icon,
+                Priority = @event.Content.Priority,
+                ExpirationDays = @event.Content.ExpirationDays
             };
 
             // Save to MongoDB

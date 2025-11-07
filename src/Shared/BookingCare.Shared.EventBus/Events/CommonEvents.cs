@@ -1,6 +1,7 @@
 using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Shared.EventBus.Events;
@@ -1252,10 +1253,7 @@ public class HospitalRegistrationAccountLinkedEvent : IntegrationEvent
 /// This event can be published by any service to request notification creation in Notification Service
 /// Uses shared enums from BookingCare.Shared.Common.Enums for type safety
 /// Supports bilingual content (Vietnamese + English)
-/// 
-/// Note: Cannot inherit from NotificationContentBase due to C# single inheritance limitation
-/// (already inherits from IntegrationEvent). Properties are kept in sync manually.
-/// SonarQube duplication warning can be suppressed for this technical limitation.
+/// Uses composition pattern to avoid code duplication
 /// </summary>
 public class CreateInAppNotificationEvent : IntegrationEvent
 {
@@ -1269,53 +1267,11 @@ public class CreateInAppNotificationEvent : IntegrationEvent
     /// </summary>
     public NotificationType Type { get; set; } = NotificationType.General;
 
-    // Properties match NotificationContentBase - duplication is unavoidable due to C# inheritance limitation
     /// <summary>
-    /// Notification title in Vietnamese
+    /// Notification content (title, content, metadata, etc.)
+    /// Uses composition to avoid code duplication with NotificationContent
     /// </summary>
-    public string TitleVi { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Notification title in English
-    /// </summary>
-    public string TitleEn { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Notification content/message in Vietnamese
-    /// </summary>
-    public string ContentVi { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Notification content/message in English
-    /// </summary>
-    public string ContentEn { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Optional metadata (e.g., appointmentId, doctorName, etc.)
-    /// </summary>
-    public Dictionary<string, object>? Metadata { get; set; }
-
-    /// <summary>
-    /// Optional action URL (e.g., /user/profile?tab=appointments&id=xxx)
-    /// </summary>
-    public string? ActionUrl { get; set; }
-
-    /// <summary>
-    /// Optional icon class (e.g., "isax isax-calendar-tick")
-    /// </summary>
-    public string? Icon { get; set; }
-
-    /// <summary>
-    /// Notification priority (uses shared enum)
-    /// Default: Normal
-    /// </summary>
-    public NotificationPriority Priority { get; set; } = NotificationPriority.Normal;
-
-    /// <summary>
-    /// Number of days before notification expires (soft delete)
-    /// Default: 30 days
-    /// </summary>
-    public int ExpirationDays { get; set; } = 30;
+    public NotificationContent Content { get; set; } = new();
 }
 
 /// <summary>

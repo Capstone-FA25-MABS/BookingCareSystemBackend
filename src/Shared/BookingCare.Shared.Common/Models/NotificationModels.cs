@@ -3,11 +3,11 @@ using BookingCare.Shared.Common.Enums;
 namespace BookingCare.Shared.Common.Models;
 
 /// <summary>
-/// Abstract base class containing shared notification content properties
-/// Eliminates code duplication for notification-related classes
-/// Use inheritance when possible (CreateNotificationDto), composition when not (CreateInAppNotificationEvent)
+/// Concrete class containing shared notification content properties
+/// Can be used via inheritance (CreateNotificationDto) or composition (CreateInAppNotificationEvent)
+/// Eliminates code duplication across notification-related classes
 /// </summary>
-public abstract class NotificationContentBase
+public class NotificationContent
 {
     /// <summary>
     /// Notification title in Vietnamese

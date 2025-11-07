@@ -1,6 +1,7 @@
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.Common.Models;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Models.DTOs;
 using System.Globalization;
@@ -79,21 +80,24 @@ public class AppointmentBookingSuccessNotificationEventHandler : IIntegrationEve
             {
                 UserId = @event.AccountId, // Use AccountId from event instead of PatientId
                 Type = NotificationType.BookingConfirmation,
-                TitleVi = "Đặt lịch khám thành công",
-                TitleEn = "Appointment Confirmed",
-                ContentVi = $"Lịch khám của bạn với {doctorName} vào {formattedDateVi} lúc {appointmentTime} đã được xác nhận.",
-                ContentEn = $"Your appointment with {doctorName} on {formattedDateEn} at {appointmentTime} has been confirmed.",
-                Metadata = new Dictionary<string, object>
+                Content = new NotificationContent
                 {
-                    { "appointmentId", @event.AppointmentId.ToString() },
-                    { "doctorName", doctorName },
-                    { "appointmentDate", @event.AppointmentData?.AppointmentDate.ToString("O") ?? "" },
-                    { "appointmentTime", @event.AppointmentData?.AppointmentTime ?? "" }
-                },
-                ActionUrl = $"/user/profile?tab=appointments&id={@event.AppointmentId}",
-                Icon = "isax isax-calendar-tick",
-                Priority = NotificationPriority.High,
-                ExpirationDays = 90
+                    TitleVi = "Đặt lịch khám thành công",
+                    TitleEn = "Appointment Confirmed",
+                    ContentVi = $"Lịch khám của bạn với {doctorName} vào {formattedDateVi} lúc {appointmentTime} đã được xác nhận.",
+                    ContentEn = $"Your appointment with {doctorName} on {formattedDateEn} at {appointmentTime} has been confirmed.",
+                    Metadata = new Dictionary<string, object>
+                    {
+                        { "appointmentId", @event.AppointmentId.ToString() },
+                        { "doctorName", doctorName },
+                        { "appointmentDate", @event.AppointmentData?.AppointmentDate.ToString("O") ?? "" },
+                        { "appointmentTime", @event.AppointmentData?.AppointmentTime ?? "" }
+                    },
+                    ActionUrl = $"/user/profile?tab=appointments&id={@event.AppointmentId}",
+                    Icon = "isax isax-calendar-tick",
+                    Priority = NotificationPriority.High,
+                    ExpirationDays = 90
+                }
             };
 
             await _eventBus.PublishAsync(notificationEvent, null, cancellationToken);
