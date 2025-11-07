@@ -1,5 +1,6 @@
 using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Shared.EventBus.Events;
@@ -838,6 +839,11 @@ public class AppointmentPaymentSuccessIntegrationEvent : IntegrationEvent
     public Guid PatientId { get; set; }
 
     /// <summary>
+    /// Account ID of the patient (from JWT token) - used for notification system
+    /// </summary>
+    public string AccountId { get; set; } = string.Empty;
+
+    /// <summary>
     /// ID of the successful payment
     /// </summary>
     public Guid PaymentId { get; set; }
@@ -888,6 +894,11 @@ public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
     /// ID of the patient who booked the appointment
     /// </summary>
     public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Account ID of the patient (from JWT token) - used for notification system
+    /// </summary>
+    public string AccountId { get; set; } = string.Empty;
 
     /// <summary>
     /// Patient email address
@@ -1234,6 +1245,72 @@ public class HospitalRegistrationAccountLinkedEvent : IntegrationEvent
     public Guid HospitalId { get; set; }
     public Guid AccountId { get; set; }
     public DateTime LinkedAt { get; set; }
+}
+
+/// <summary>
+/// Generic event for creating in-app notifications
+/// This event can be published by any service to request notification creation in Notification Service
+/// Uses shared enums from BookingCare.Shared.Common.Enums for type safety
+/// Supports bilingual content (Vietnamese + English)
+/// </summary>
+public class CreateInAppNotificationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// User ID to send notification to
+    /// </summary>
+    public string UserId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Notification type (uses shared enum)
+    /// </summary>
+    public NotificationType Type { get; set; } = NotificationType.General;
+
+    /// <summary>
+    /// Notification title in Vietnamese
+    /// </summary>
+    public string TitleVi { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Notification title in English
+    /// </summary>
+    public string TitleEn { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Notification content/message in Vietnamese
+    /// </summary>
+    public string ContentVi { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Notification content/message in English
+    /// </summary>
+    public string ContentEn { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional metadata (e.g., appointmentId, doctorName, etc.)
+    /// </summary>
+    public Dictionary<string, object>? Metadata { get; set; }
+
+    /// <summary>
+    /// Optional action URL (e.g., /user/profile?tab=appointments&id=xxx)
+    /// </summary>
+    public string? ActionUrl { get; set; }
+
+    /// <summary>
+    /// Optional icon class (e.g., "isax isax-calendar-tick")
+    /// </summary>
+    public string? Icon { get; set; }
+
+    /// <summary>
+    /// Notification priority (uses shared enum)
+    /// Default: Normal
+    /// </summary>
+    public NotificationPriority Priority { get; set; } = NotificationPriority.Normal;
+
+    /// <summary>
+    /// Number of days before notification expires (soft delete)
+    /// Default: 30 days
+    /// </summary>
+    public int ExpirationDays { get; set; } = 30;
 }
 
 /// <summary>

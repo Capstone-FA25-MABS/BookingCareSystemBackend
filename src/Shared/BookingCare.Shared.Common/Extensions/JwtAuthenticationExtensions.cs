@@ -114,19 +114,35 @@ public static class JwtAuthenticationExtensions
             ClockSkew = TimeSpan.Zero,
         };
 
-        // Allow SignalR to receive token from query string
+        // Allow SignalR to receive token from query string or Authorization header
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
-                var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
 
-                // If request is for SignalR hub, get token from query string
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                // Check if this is a SignalR hub request
+                if (path.StartsWithSegments("/hubs") || path.StartsWithSegments("/noti-hubs"))
                 {
-                    context.Token = accessToken;
+                    // Try to get token from query string first (for WebSocket connections)
+                    var accessToken = context.Request.Query["access_token"].ToString();
+
+                    // If not in query string, try Authorization header (for negotiate/long polling)
+                    if (string.IsNullOrEmpty(accessToken))
+                    {
+                        var authHeader = context.Request.Headers["Authorization"].ToString();
+                        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                        {
+                            accessToken = authHeader.Substring("Bearer ".Length).Trim();
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(accessToken))
+                    {
+                        context.Token = accessToken;
+                    }
                 }
+
                 return Task.CompletedTask;
             }
         };
