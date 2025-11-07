@@ -4,9 +4,7 @@ public class HospitalImageResponse
 {
     public Guid Id { get; set; }
     public Guid HospitalId { get; set; }
-    public string S3Key { get; set; } = string.Empty;
     public string ImageUrl { get; set; } = string.Empty;
-    public string? Description { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 

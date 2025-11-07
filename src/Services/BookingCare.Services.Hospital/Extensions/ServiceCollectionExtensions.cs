@@ -21,8 +21,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IHospitalRepository, HospitalRepository>();
         services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanRepository>();
         services.AddScoped<IHospitalSubscriptionRepository, HospitalSubscriptionRepository>();
+        services.AddScoped<IHospitalImageRepository, HospitalImageRepository>();
         // services.AddScoped<IHospitalSpecialtyRepository, HospitalSpecialtyRepository>();
-        // services.AddScoped<IHospitalImageRepository, HospitalImageRepository>();
 
         // Services
         // services.AddScoped<IHospitalService, HospitalService>(); // Already registered in Program.cs

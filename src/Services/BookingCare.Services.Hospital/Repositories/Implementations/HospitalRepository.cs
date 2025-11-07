@@ -21,6 +21,8 @@ public class HospitalRepository : IHospitalRepository
     {
         return await _context.Hospitals
             .Include(h => h.HospitalSpecialties)
+            .Include(h => h.HospitalServiceTypes)
+            .Include(h => h.HospitalServiceMedicals)
             .Include(h => h.HospitalImages)
             .FirstOrDefaultAsync(h => h.Id == id);
     }
@@ -153,6 +155,8 @@ public class HospitalRepository : IHospitalRepository
     {
         return await _context.Hospitals
             .Include(h => h.HospitalSpecialties)
+            .Include(h => h.HospitalServiceTypes)
+            .Include(h => h.HospitalServiceMedicals)
             .Include(h => h.HospitalImages)
             .Where(h => h.AccountId == accountId)
             .ToListAsync();
@@ -361,6 +365,125 @@ public class HospitalRepository : IHospitalRepository
         // 4. Use event sourcing to sync specialty data
 
         return Task.FromResult(new Dictionary<Guid, (string Name, string? ImageUrl)>());
+    }
+
+    #endregion
+
+    #region Specialty Management
+
+    public async Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId)
+    {
+        var exists = await _context.HospitalSpecialties
+            .AnyAsync(hs => hs.HospitalId == hospitalId && hs.SpecialtyId == specialtyId);
+
+        if (exists)
+        {
+            return true; // Already exists
+        }
+
+        _context.HospitalSpecialties.Add(new HospitalSpecialtyEntity
+        {
+            HospitalId = hospitalId,
+            SpecialtyId = specialtyId
+        });
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId)
+    {
+        var hospitalSpecialty = await _context.HospitalSpecialties
+            .FirstOrDefaultAsync(hs => hs.HospitalId == hospitalId && hs.SpecialtyId == specialtyId);
+
+        if (hospitalSpecialty == null)
+        {
+            return false;
+        }
+
+        _context.HospitalSpecialties.Remove(hospitalSpecialty);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    #endregion
+
+    #region ServiceType Management
+
+    public async Task<bool> AddServiceTypeAsync(Guid hospitalId, Guid serviceTypeId)
+    {
+        var exists = await _context.HospitalServiceTypes
+            .AnyAsync(hst => hst.HospitalId == hospitalId && hst.ServiceTypeId == serviceTypeId);
+
+        if (exists)
+        {
+            return true; // Already exists
+        }
+
+        _context.HospitalServiceTypes.Add(new HospitalServiceTypeEntity
+        {
+            HospitalId = hospitalId,
+            ServiceTypeId = serviceTypeId,
+            CreatedAt = DateTime.Now
+        });
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RemoveServiceTypeAsync(Guid hospitalId, Guid serviceTypeId)
+    {
+        var hospitalServiceType = await _context.HospitalServiceTypes
+            .FirstOrDefaultAsync(hst => hst.HospitalId == hospitalId && hst.ServiceTypeId == serviceTypeId);
+
+        if (hospitalServiceType == null)
+        {
+            return false;
+        }
+
+        _context.HospitalServiceTypes.Remove(hospitalServiceType);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    #endregion
+
+    #region ServiceMedical Management
+
+    public async Task<bool> AddServiceMedicalAsync(Guid hospitalId, Guid serviceMedicalId)
+    {
+        var exists = await _context.HospitalServiceMedicals
+            .AnyAsync(hsm => hsm.HospitalId == hospitalId && hsm.ServiceMedicalId == serviceMedicalId);
+
+        if (exists)
+        {
+            return true; // Already exists
+        }
+
+        _context.HospitalServiceMedicals.Add(new HospitalServiceMedicalEntity
+        {
+            HospitalId = hospitalId,
+            ServiceMedicalId = serviceMedicalId,
+            CreatedAt = DateTime.Now
+        });
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RemoveServiceMedicalAsync(Guid hospitalId, Guid serviceMedicalId)
+    {
+        var hospitalServiceMedical = await _context.HospitalServiceMedicals
+            .FirstOrDefaultAsync(hsm => hsm.HospitalId == hospitalId && hsm.ServiceMedicalId == serviceMedicalId);
+
+        if (hospitalServiceMedical == null)
+        {
+            return false;
+        }
+
+        _context.HospitalServiceMedicals.Remove(hospitalServiceMedical);
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     #endregion

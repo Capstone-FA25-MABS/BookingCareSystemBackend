@@ -17,6 +17,8 @@ public class HospitalDbContext : DbContext
     public DbSet<HospitalSpecialtyEntity> HospitalSpecialties { get; set; }
     public DbSet<HospitalImageEntity> HospitalImages { get; set; }
     public DbSet<HospitalRegistrationEntity> HospitalRegistrations { get; set; }
+    public DbSet<HospitalServiceTypeEntity> HospitalServiceTypes { get; set; }
+    public DbSet<HospitalServiceMedicalEntity> HospitalServiceMedicals { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -128,14 +130,42 @@ public class HospitalDbContext : DbContext
             // Note: Specialty relationship would be configured when SpecialtyEntity is available
         });
 
+        // Configure HospitalServiceType entity (Many-to-Many)
+        modelBuilder.Entity<HospitalServiceTypeEntity>(entity =>
+        {
+            entity.HasKey(e => new { e.HospitalId, e.ServiceTypeId });
+
+            entity.HasOne(e => e.Hospital)
+                  .WithMany(h => h.HospitalServiceTypes)
+                  .HasForeignKey(e => e.HospitalId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
+
+            // Note: ServiceType relationship is defined in Doctor service
+        });
+
+        // Configure HospitalServiceMedical entity (Many-to-Many)
+        modelBuilder.Entity<HospitalServiceMedicalEntity>(entity =>
+        {
+            entity.HasKey(e => new { e.HospitalId, e.ServiceMedicalId });
+
+            entity.HasOne(e => e.Hospital)
+                  .WithMany(h => h.HospitalServiceMedicals)
+                  .HasForeignKey(e => e.HospitalId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
+
+            // Note: ServiceMedical relationship is defined in ServiceMedical service
+        });
+
         // Configure HospitalImage entity
         modelBuilder.Entity<HospitalImageEntity>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.S3Key).IsRequired().HasMaxLength(500);
             entity.Property(e => e.ImageUrl).IsRequired();
-            entity.Property(e => e.Description).HasMaxLength(255);
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
 
             // Foreign key relationship
