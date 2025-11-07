@@ -30,7 +30,7 @@ public class AppointmentPaymentSuccessEventHandler : IIntegrationEventHandler<Ap
         try
         {
             // Send booking success email notification to patient with payment amount
-            var emailSent = await _appointmentService.SendAppointmentBookingSuccessEmailAsync(@event.AppointmentId, @event.PatientId, @event.Amount);
+            var emailSent = await _appointmentService.SendAppointmentBookingSuccessEmailAsync(@event.AppointmentId, @event.PatientId, @event.AccountId, @event.Amount);
 
             if (emailSent)
             {
