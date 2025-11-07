@@ -1,4 +1,5 @@
 ﻿using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.Common.Models;
 using System.ComponentModel.DataAnnotations;
 
 namespace BookingCare.Services.Notification.Models.DTOs
@@ -46,19 +47,14 @@ namespace BookingCare.Services.Notification.Models.DTOs
         public NotificationPriority Priority { get; set; } = NotificationPriority.Normal;
     }
 
-    public class CreateNotificationDto
+    /// <summary>
+    /// DTO for creating a new notification
+    /// Inherits from NotificationContentBase to eliminate code duplication
+    /// </summary>
+    public class CreateNotificationDto : NotificationContentBase
     {
         public string UserId { get; set; } = string.Empty;
         public NotificationType Type { get; set; }
-        public string TitleVi { get; set; } = string.Empty;
-        public string TitleEn { get; set; } = string.Empty;
-        public string ContentVi { get; set; } = string.Empty;
-        public string ContentEn { get; set; } = string.Empty;
-        public Dictionary<string, object>? Metadata { get; set; }
-        public string? ActionUrl { get; set; }
-        public string? Icon { get; set; }
-        public NotificationPriority Priority { get; set; } = NotificationPriority.Normal;
-        public int ExpirationDays { get; set; } = 30;
     }
 
     public class MarkNotificationReadDto

@@ -11,7 +11,6 @@ namespace BookingCare.Services.Notification.Repositories.Implementations;
 public class NotificationRepository : INotificationRepository
 {
     private readonly IMongoCollection<NotificationEntity> _notifications;
-    private readonly IMongoDatabase _database;
     private readonly ILogger<NotificationRepository> _logger;
 
     public NotificationRepository(
@@ -21,8 +20,8 @@ public class NotificationRepository : INotificationRepository
         _logger = logger;
         var settings = mongoDbSettings.Value;
         var mongoClient = new MongoClient(settings.ConnectionString);
-        _database = mongoClient.GetDatabase(settings.DatabaseName);
-        _notifications = _database.GetCollection<NotificationEntity>(settings.NotificationsCollectionName);
+        var database = mongoClient.GetDatabase(settings.DatabaseName);
+        _notifications = database.GetCollection<NotificationEntity>(settings.NotificationsCollectionName);
 
         // Create indexes
         CreateIndexes();
@@ -221,8 +220,8 @@ public class NotificationRepository : INotificationRepository
             })
         };
 
-        var aggregationResult = await _notifications.Aggregate<BsonDocument>(pipeline)
-            .ToListAsync(cancellationToken);
+        var cursor = await _notifications.AggregateAsync(pipeline, cancellationToken: cancellationToken);
+        var aggregationResult = await cursor.ToListAsync(cancellationToken);
 
         var result = new Dictionary<NotificationType, long>();
 

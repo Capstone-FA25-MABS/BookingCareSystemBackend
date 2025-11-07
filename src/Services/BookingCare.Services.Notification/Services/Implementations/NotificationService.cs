@@ -198,7 +198,7 @@ public class NotificationService : BaseService, INotificationService
         }, nameof(GetCountsByTypeAsync));
     }
 
-    private string GetUnreadCountCacheKey(string userId) => $"{UnreadCountCacheKeyPrefix}{userId}";
+    private static string GetUnreadCountCacheKey(string userId) => $"{UnreadCountCacheKeyPrefix}{userId}";
 
     private async Task InvalidateUnreadCountCacheAsync(string userId)
     {

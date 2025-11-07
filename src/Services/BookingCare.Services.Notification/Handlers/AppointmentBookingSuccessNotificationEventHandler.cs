@@ -113,7 +113,7 @@ public class AppointmentBookingSuccessNotificationEventHandler : IIntegrationEve
         }
     }
 
-    private string FormatAppointmentDate(DateTime? date)
+    private static string FormatAppointmentDate(DateTime? date)
     {
         if (!date.HasValue) return "ngày đã chọn";
 
@@ -123,7 +123,7 @@ public class AppointmentBookingSuccessNotificationEventHandler : IIntegrationEve
         return vietnamTime.ToString("'ngày' dd/MM/yyyy");
     }
 
-    private string FormatAppointmentDateEn(DateTime? date)
+    private static string FormatAppointmentDateEn(DateTime? date)
     {
         if (!date.HasValue) return "your selected date";
 

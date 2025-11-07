@@ -1252,6 +1252,10 @@ public class HospitalRegistrationAccountLinkedEvent : IntegrationEvent
 /// This event can be published by any service to request notification creation in Notification Service
 /// Uses shared enums from BookingCare.Shared.Common.Enums for type safety
 /// Supports bilingual content (Vietnamese + English)
+/// 
+/// Note: Cannot inherit from NotificationContentBase due to C# single inheritance limitation
+/// (already inherits from IntegrationEvent). Properties are kept in sync manually.
+/// SonarQube duplication warning can be suppressed for this technical limitation.
 /// </summary>
 public class CreateInAppNotificationEvent : IntegrationEvent
 {
@@ -1265,6 +1269,7 @@ public class CreateInAppNotificationEvent : IntegrationEvent
     /// </summary>
     public NotificationType Type { get; set; } = NotificationType.General;
 
+    // Properties match NotificationContentBase - duplication is unavoidable due to C# inheritance limitation
     /// <summary>
     /// Notification title in Vietnamese
     /// </summary>
