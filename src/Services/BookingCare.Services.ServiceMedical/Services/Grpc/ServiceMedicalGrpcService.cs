@@ -28,7 +28,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 var response = new ServiceCategoriesResponse();
                 foreach (var category in categories)
                 {
-                    response.Categories.Add(new ServiceCategoryResponse
+                    response.Categories.Add(new Protos.ServiceCategoryResponse
                     {
                         Id = category.Id.ToString(),
                         Name = category.Name,
@@ -69,7 +69,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 var response = new ServiceCategoriesResponse();
                 foreach (var category in categories)
                 {
-                    response.Categories.Add(new ServiceCategoryResponse
+                    response.Categories.Add(new Protos.ServiceCategoryResponse
                     {
                         Id = category.Id.ToString(),
                         Name = category.Name,
@@ -93,7 +93,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
             }
         }
 
-        public override async Task<HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategory(
+        public override async Task<Protos.HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategory(
             GetHospitalsByServiceCategoryGrpcRequest request, ServerCallContext context)
         {
             try
@@ -111,7 +111,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
 
                 var result = await _serviceMedicalService.GetHospitalsByServiceCategoryAsync(requestDto);
 
-                var response = new HospitalsByServiceCategoryResponse
+                var response = new Protos.HospitalsByServiceCategoryResponse
                 {
                     ServiceCategoryId = result.ServiceCategoryId.ToString(),
                     ServiceCategoryName = result.ServiceCategoryName,
@@ -289,7 +289,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
             }
         }
 
-        private Protos.ServiceResponse MapToServiceResponse(ServiceResponse service)
+        private Protos.ServiceResponse MapToServiceResponse(Models.DTOs.Responses.ServiceResponse service)
         {
             var serviceResponse = new Protos.ServiceResponse
             {
@@ -306,7 +306,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
 
             if (service.ServiceCategory != null)
             {
-                serviceResponse.ServiceCategory = new ServiceCategoryResponse
+                serviceResponse.ServiceCategory = new Protos.ServiceCategoryResponse
                 {
                     Id = service.ServiceCategory.Id.ToString(),
                     Name = service.ServiceCategory.Name,
