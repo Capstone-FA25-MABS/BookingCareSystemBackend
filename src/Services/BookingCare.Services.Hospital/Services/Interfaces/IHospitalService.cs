@@ -29,4 +29,8 @@ public interface IHospitalService
 
     // Get hospitals by account IDs (batch operation for admin management)
     Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(IEnumerable<Guid> accountIds);
+
+    // Hospital Image Management
+    Task<HospitalImageResponse?> AddHospitalImageAsync(CreateHospitalImageRequest request);
+    Task<bool> DeleteHospitalImageAsync(Guid hospitalId, Guid imageId);
 }

@@ -477,12 +477,17 @@ public class S3FileUploadService : IFileUploadService
 
     public string GetCloudFrontUrl(string s3Key)
     {
-        if (string.IsNullOrEmpty(_cloudFrontConfig.Domain))
+        // Use CloudFrontDomain from S3 config if available, otherwise use CloudFront config Domain
+        var cloudFrontDomain = !string.IsNullOrEmpty(_s3Config.CloudFrontDomain)
+            ? _s3Config.CloudFrontDomain
+            : _cloudFrontConfig.Domain;
+
+        if (string.IsNullOrEmpty(cloudFrontDomain))
         {
             return $"https://{_s3Config.BucketName}.s3.{_s3Config.Region}.amazonaws.com/{s3Key}";
         }
 
-        return $"https://{_cloudFrontConfig.Domain}/{s3Key}";
+        return $"https://{cloudFrontDomain}/{s3Key}";
     }
 
     public (bool IsValid, string? ErrorMessage) ValidateFile(string fileName, long fileSize, string contentType)
