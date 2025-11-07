@@ -266,6 +266,73 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
             }
         }
 
+        public override async Task<ServicesResponse> GetServicesByHospital(
+            GetServicesByHospitalGrpcRequest request, ServerCallContext context)
+        {
+            try
+            {
+                if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+                {
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID"));
+                }
+
+                _logger.LogInformation("[ServiceMedicalGrpcService] GetServicesByHospital called for hospital: {HospitalId}", hospitalId);
+
+                var services = await _serviceMedicalService.GetServicesByHospitalAsync(hospitalId);
+
+                var response = new ServicesResponse
+                {
+                    TotalCount = services.Count,
+                    Page = 1,
+                    PageSize = services.Count,
+                    TotalPages = 1
+                };
+
+                foreach (var service in services)
+                {
+                    var serviceResponse = new Protos.ServiceResponse
+                    {
+                        Id = service.Id.ToString(),
+                        Name = service.Name,
+                        Description = service.Description ?? string.Empty,
+                        Price = service.Price.ToString("F2"),
+                        ImageUrl = service.ImageUrl ?? string.Empty,
+                        HospitalId = service.HospitalId.ToString(),
+                        ServiceCategoryId = service.ServiceCategoryId?.ToString() ?? string.Empty,
+                        DurationTime = service.DurationTime,
+                        Status = service.Status
+                    };
+
+                    if (service.ServiceCategory != null)
+                    {
+                        serviceResponse.ServiceCategory = new ServiceCategoryResponse
+                        {
+                            Id = service.ServiceCategory.Id.ToString(),
+                            Name = service.ServiceCategory.Name,
+                            Description = service.ServiceCategory.Description ?? string.Empty,
+                            ImageUrl = service.ServiceCategory.ImageUrl ?? string.Empty,
+                            ParentId = service.ServiceCategory.ParentId?.ToString() ?? string.Empty,
+                            Status = service.ServiceCategory.Status
+                        };
+                    }
+
+                    response.Services.Add(serviceResponse);
+                }
+
+                _logger.LogInformation("[ServiceMedicalGrpcService] Returning {Count} services for hospital {HospitalId}", services.Count, hospitalId);
+                return response;
+            }
+            catch (RpcException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting services by hospital via gRPC for hospital: {HospitalId}", request.HospitalId);
+                throw new RpcException(new Status(StatusCode.Internal, StatusConstants.InternalServerError));
+            }
+        }
+
         public override async Task<ValidateServiceMedicalResponse> ValidateServiceMedical(
             ValidateServiceMedicalRequest request, ServerCallContext context)
         {
