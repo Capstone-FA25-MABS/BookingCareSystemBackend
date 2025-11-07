@@ -38,6 +38,16 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
         public string? Status { get; set; }
         public Guid? ParentId { get; set; }
         public bool IncludeChildren { get; set; } = false;
+
+        /// <summary>
+        /// Sort field: "Name" (default)
+        /// </summary>
+        public string? SortBy { get; set; }
+
+        /// <summary>
+        /// Sort direction: "asc" (ascending) or "desc" (descending). Default: "asc"
+        /// </summary>
+        public string? SortDirection { get; set; } = "asc";
     }
 
     public class GetServiceCategoryChildrenRequest
