@@ -27,4 +27,57 @@ namespace BookingCare.Services.Notification.Models.DTOs
         [Required]
         public string Token { get; set; } = "";
     }
+
+    public class NotificationDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+        public NotificationType Type { get; set; }
+        public string TitleVi { get; set; } = string.Empty;
+        public string TitleEn { get; set; } = string.Empty;
+        public string ContentVi { get; set; } = string.Empty;
+        public string ContentEn { get; set; } = string.Empty;
+        public Dictionary<string, object>? Metadata { get; set; }
+        public string? ActionUrl { get; set; }
+        public string? Icon { get; set; }
+        public bool IsRead { get; set; }
+        public DateTime? ReadAt { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public NotificationPriority Priority { get; set; } = NotificationPriority.Normal;
+    }
+
+    public class CreateNotificationDto
+    {
+        public string UserId { get; set; } = string.Empty;
+        public NotificationType Type { get; set; }
+        public string TitleVi { get; set; } = string.Empty;
+        public string TitleEn { get; set; } = string.Empty;
+        public string ContentVi { get; set; } = string.Empty;
+        public string ContentEn { get; set; } = string.Empty;
+        public Dictionary<string, object>? Metadata { get; set; }
+        public string? ActionUrl { get; set; }
+        public string? Icon { get; set; }
+        public NotificationPriority Priority { get; set; } = NotificationPriority.Normal;
+        public int ExpirationDays { get; set; } = 30;
+    }
+
+    public class MarkNotificationReadDto
+    {
+        public string NotificationId { get; set; } = string.Empty;
+    }
+
+    public class NotificationFilterDto
+    {
+        public string? UserId { get; set; }
+        public NotificationType? Type { get; set; }
+        public bool? IsRead { get; set; }
+        public int PageNumber { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
+    }
+
+    public class NotificationSummaryDto
+    {
+        public long TotalCount { get; set; }
+        public long UnreadCount { get; set; }
+    }
 }
