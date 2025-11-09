@@ -12,7 +12,6 @@ using BookingCare.Services.Hospital;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
-using BookingCare.Services.Hospital;
 using HospitalBasicInfo = BookingCare.Services.Doctor.Models.DTOs.Responses.HospitalBasicInfo;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
@@ -2310,6 +2309,183 @@ public class DoctorService : BaseService, IDoctorService
             var errorMessage = $"Error getting doctor account IDs for hospital {hospitalId}";
             Logger.LogError(ex, errorMessage);
             throw new InvalidOperationException(errorMessage, ex);
+        }
+    }
+
+    #endregion
+
+    #region AI Recommendation Filtering
+
+    /// <summary>
+    /// Filter doctors for AI recommendations (by specialty IDs, location)
+    /// Returns doctors with rating, hospital info, and prices for ranking
+    /// </summary>
+    public async Task<List<DoctorEntity>> FilterDoctorsForRecommendationAsync(
+        List<Guid> specialtyIds,
+        string? provinceId,
+        string? districtId,
+        int maxResults = 10)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Filtering doctors for AI recommendations - Specialties: {SpecialtyIds}, Location: {ProvinceId}/{DistrictId}, MaxResults: {MaxResults}",
+                null, string.Join(", ", specialtyIds), provinceId, districtId, maxResults);
+
+            if (!specialtyIds.Any())
+            {
+                LogInfo("No specialty IDs provided, returning empty list");
+                return new List<DoctorEntity>();
+            }
+
+            // Step 1: Build query request
+            var query = new DoctorQueryRequest
+            {
+                SpecialtyIds = specialtyIds,
+                ProvinceId = provinceId,
+                DistrictId = districtId,
+                Status = Status.ACTIVE, // Only active doctors
+                PageNumber = 1,
+                PageSize = maxResults * 2, // Get more to account for location filtering
+                SortBy = "YearsOfExperience", // Sort by experience first
+                SortOrder = "desc"
+            };
+
+            // Step 2: Get doctors from repository (with location filtering if needed)
+            List<DoctorEntity> doctors;
+            if (!string.IsNullOrEmpty(provinceId) || !string.IsNullOrEmpty(districtId))
+            {
+                // Use location filtering approach
+                var (allDoctors, _) = await GetAllDoctorsForLocationFilteringAsync(query);
+                doctors = allDoctors;
+            }
+            else
+            {
+                var (result, _) = await _repository.Value.GetDoctorsAsync(query);
+                doctors = result;
+            }
+
+            if (!doctors.Any())
+            {
+                LogInfo("No doctors found matching criteria");
+                return new List<DoctorEntity>();
+            }
+
+            // Step 3: Filter by ACTIVE status from Auth Service
+            var accountIds = doctors.Select(d => d.AccountId).ToList();
+            var statusMap = await GetAccountStatusesAsync(accountIds);
+            var activeDoctors = doctors.Where(d =>
+            {
+                if (statusMap.TryGetValue(d.AccountId, out var status))
+                {
+                    return status == Status.ACTIVE;
+                }
+                return true; // Fallback: assume ACTIVE if status not found
+            }).ToList();
+
+            // Step 4: Apply location filtering if needed (after getting all doctors)
+            if (!string.IsNullOrEmpty(provinceId) || !string.IsNullOrEmpty(districtId))
+            {
+                activeDoctors = await FilterDoctorsByLocationAsync(activeDoctors, provinceId, districtId);
+            }
+
+            // Step 5: Limit results
+            var resultDoctors = activeDoctors.Take(maxResults).ToList();
+
+            LogInfo("Found {Count} doctors for AI recommendations (from {Total} active doctors)",
+                null, resultDoctors.Count, activeDoctors.Count);
+
+            return resultDoctors;
+        }, nameof(FilterDoctorsForRecommendationAsync));
+    }
+
+    /// <summary>
+    /// Filter doctors by location using LocationApiService
+    /// </summary>
+    private async Task<List<DoctorEntity>> FilterDoctorsByLocationAsync(
+        List<DoctorEntity> doctors,
+        string? provinceId,
+        string? districtId)
+    {
+        if (string.IsNullOrEmpty(provinceId) && string.IsNullOrEmpty(districtId))
+        {
+            return doctors;
+        }
+
+        try
+        {
+            var locationInfo = await _locationApiService.Value.GetLocationInfoAsync(provinceId, districtId);
+            if (locationInfo == null)
+            {
+                LogWarning("Location info not found for province: {ProvinceId}, district: {DistrictId}", null, provinceId, districtId);
+                return doctors; // Return all if location info not available
+            }
+
+            // Get hospital IDs to check location
+            var hospitalIds = doctors
+                .Where(d => d.HospitalId.HasValue)
+                .Select(d => d.HospitalId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (!hospitalIds.Any())
+            {
+                return doctors;
+            }
+
+            // Get hospital info via gRPC to check addresses
+            var hospitalInfoMap = new Dictionary<Guid, (string? Address, string? ProvinceName, string? DistrictName)>();
+            try
+            {
+                var hospitalRequest = new GetHospitalsBasicInfoRequest();
+                hospitalRequest.Ids.AddRange(hospitalIds.Select(id => id.ToString()));
+
+                var hospitalResponse = await _hospitalClient.Value.GetHospitalsBasicInfoAsync(hospitalRequest);
+                foreach (var hospital in hospitalResponse.Hospitals)
+                {
+                    if (Guid.TryParse(hospital.Id, out var hospitalId))
+                    {
+                        hospitalInfoMap[hospitalId] = (hospital.Address, null, null); // Address parsing would be needed for exact matching
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogWarning("Failed to get hospital info for location filtering, returning all doctors: {Error}", null, ex.Message);
+                return doctors;
+            }
+
+            // Simple location filtering: check if hospital address contains province/district name
+            // Note: This is a simplified approach; in production, you'd parse addresses properly
+            var filteredDoctors = doctors.Where(doctor =>
+            {
+                if (!doctor.HospitalId.HasValue) return false;
+                if (!hospitalInfoMap.TryGetValue(doctor.HospitalId.Value, out var hospitalInfo)) return false;
+                if (string.IsNullOrEmpty(hospitalInfo.Address)) return false;
+
+                var address = hospitalInfo.Address.ToLowerInvariant();
+                var provinceName = locationInfo.ProvinceName?.ToLowerInvariant() ?? "";
+                var districtName = locationInfo.DistrictName?.ToLowerInvariant() ?? "";
+
+                // Check if address contains province or district name
+                if (!string.IsNullOrEmpty(districtName) && address.Contains(districtName))
+                {
+                    return true;
+                }
+                if (!string.IsNullOrEmpty(provinceName) && address.Contains(provinceName))
+                {
+                    return true;
+                }
+
+                return false;
+            }).ToList();
+
+            LogInfo("Location filtering: {OriginalCount} -> {FilteredCount} doctors", null, doctors.Count, filteredDoctors.Count);
+            return filteredDoctors.Any() ? filteredDoctors : doctors; // Return all if no matches (fallback)
+        }
+        catch (Exception ex)
+        {
+            LogWarning("Error filtering doctors by location, returning all doctors: {Error}", null, ex.Message);
+            return doctors; // Return all on error
         }
     }
 

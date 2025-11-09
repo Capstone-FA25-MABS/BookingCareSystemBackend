@@ -1,5 +1,6 @@
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
+using BookingCare.Services.Review.Grpc;
 using Grpc.Core;
 
 namespace BookingCare.Services.Doctor.Services.Grpc;
@@ -8,12 +9,21 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 {
     private readonly IDoctorService _doctorService;
     private readonly ISpecialtyService _specialtyService;
+    private readonly ReviewService.ReviewServiceClient _reviewClient;
+    private readonly BookingCare.Services.Hospital.HospitalService.HospitalServiceClient _hospitalClient;
     private readonly ILogger<DoctorGrpcService> _logger;
 
-    public DoctorGrpcService(IDoctorService doctorService, ISpecialtyService specialtyService, ILogger<DoctorGrpcService> logger)
+    public DoctorGrpcService(
+        IDoctorService doctorService,
+        ISpecialtyService specialtyService,
+        ReviewService.ReviewServiceClient reviewClient,
+        BookingCare.Services.Hospital.HospitalService.HospitalServiceClient hospitalClient,
+        ILogger<DoctorGrpcService> logger)
     {
         _doctorService = doctorService;
         _specialtyService = specialtyService;
+        _reviewClient = reviewClient;
+        _hospitalClient = hospitalClient;
         _logger = logger;
     }
 
@@ -691,6 +701,193 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorsByHospitalId for hospital {HospitalId}", request.HospitalId);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    public override async Task<Protos.FilterDoctorsForRecommendationResponse> FilterDoctorsForRecommendation(
+        Protos.FilterDoctorsForRecommendationRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[DoctorGrpcService] FilterDoctorsForRecommendation called - Specialties: {SpecialtyIds}, Location: {ProvinceId}/{DistrictId}, MaxResults: {MaxResults}",
+                string.Join(", ", request.SpecialtyIds), request.ProvinceId, request.DistrictId, request.MaxResults);
+
+            // Parse specialty IDs
+            var specialtyIds = request.SpecialtyIds
+                .Where(id => Guid.TryParse(id, out _))
+                .Select(Guid.Parse)
+                .ToList();
+
+            if (!specialtyIds.Any())
+            {
+                _logger.LogWarning("[DoctorGrpcService] No valid specialty IDs provided");
+                return new Protos.FilterDoctorsForRecommendationResponse();
+            }
+
+            // Get max results (default: 10)
+            var maxResults = request.MaxResults > 0 ? request.MaxResults : 10;
+
+            // Filter doctors
+            var doctors = await _doctorService.FilterDoctorsForRecommendationAsync(
+                specialtyIds,
+                string.IsNullOrWhiteSpace(request.ProvinceId) ? null : request.ProvinceId,
+                string.IsNullOrWhiteSpace(request.DistrictId) ? null : request.DistrictId,
+                maxResults
+            );
+
+            if (!doctors.Any())
+            {
+                _logger.LogInformation("[DoctorGrpcService] No doctors found matching criteria");
+                return new Protos.FilterDoctorsForRecommendationResponse();
+            }
+
+            // Get doctor IDs for enrichment
+            var doctorIds = doctors.Select(d => d.Id).ToList();
+
+            // Enrich with review statistics (rating) - batch call
+            var ratingMap = new Dictionary<Guid, double>();
+            try
+            {
+                var reviewRequest = new BookingCare.Services.Review.Grpc.BatchDoctorsStatisticsRequest();
+                reviewRequest.DoctorIds.AddRange(doctorIds.Select(id => id.ToString()));
+
+                var reviewResponse = await _reviewClient.GetBatchDoctorsStatisticsAsync(reviewRequest);
+                foreach (var kvp in reviewResponse.DoctorStatistics)
+                {
+                    if (Guid.TryParse(kvp.Key, out var doctorId))
+                    {
+                        ratingMap[doctorId] = kvp.Value.AverageRating;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[DoctorGrpcService] Failed to get review statistics, continuing without ratings");
+            }
+
+            // Get hospital IDs
+            var hospitalIds = doctors
+                .Where(d => d.HospitalId.HasValue)
+                .Select(d => d.HospitalId!.Value)
+                .Distinct()
+                .ToList();
+
+            // Enrich with hospital info - batch call
+            var hospitalMap = new Dictionary<Guid, (string Name, string Address)>();
+            if (hospitalIds.Any())
+            {
+                try
+                {
+                    var hospitalRequest = new BookingCare.Services.Hospital.GetHospitalsBasicInfoRequest();
+                    hospitalRequest.Ids.AddRange(hospitalIds.Select(id => id.ToString()));
+
+                    var hospitalResponse = await _hospitalClient.GetHospitalsBasicInfoAsync(hospitalRequest);
+                    foreach (var hospital in hospitalResponse.Hospitals)
+                    {
+                        if (Guid.TryParse(hospital.Id, out var hospitalId))
+                        {
+                            hospitalMap[hospitalId] = (hospital.Name, hospital.Address);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[DoctorGrpcService] Failed to get hospital info, continuing without hospital names");
+                }
+            }
+
+            // Get prices for doctors (first service type price)
+            var priceMap = new Dictionary<Guid, (decimal Amount, string ServiceTypeName)>();
+            try
+            {
+                // Get prices for "IN_PERSON" service type (or first available)
+                var prices = await _doctorService.GetDoctorsPricesByServiceTypeAsync(doctorIds, "IN_PERSON");
+                foreach (var kvp in prices)
+                {
+                    priceMap[kvp.Key] = (kvp.Value, "IN_PERSON");
+                }
+
+                // For doctors without IN_PERSON price, try to get any price
+                var doctorsWithoutPrice = doctorIds.Where(id => !priceMap.ContainsKey(id)).ToList();
+                if (doctorsWithoutPrice.Any())
+                {
+                    // Get all prices for these doctors and use the first one
+                    foreach (var doctor in doctors.Where(d => doctorsWithoutPrice.Contains(d.Id)))
+                    {
+                        var doctorPrices = await _doctorService.GetDoctorPricesAsync(doctor.Id);
+                        var firstPrice = doctorPrices.FirstOrDefault();
+                        if (firstPrice != null)
+                        {
+                            // Use ServiceTypeName from DoctorPriceResponse
+                            var serviceTypeName = !string.IsNullOrWhiteSpace(firstPrice.ServiceTypeName)
+                                ? firstPrice.ServiceTypeName
+                                : "Khám chuyên khoa"; // Default fallback
+                            priceMap[doctor.Id] = (firstPrice.Amount, serviceTypeName);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[DoctorGrpcService] Failed to get doctor prices, continuing without prices");
+            }
+
+            // Build response
+            var response = new Protos.FilterDoctorsForRecommendationResponse
+            {
+                TotalCount = doctors.Count
+            };
+
+            foreach (var doctor in doctors)
+            {
+                var doctorInfo = new Protos.DoctorRecommendationInfo
+                {
+                    Id = doctor.Id.ToString(),
+                    FullName = $"{doctor.FirstName} {doctor.LastName}".Trim(),
+                    SpecialtyName = doctor.Specialty?.Name ?? string.Empty,
+                    YearsOfExperience = doctor.YearsOfExperience,
+                    AvatarUrl = doctor.AvatarUrl ?? string.Empty
+                };
+
+                // Add rating
+                if (ratingMap.TryGetValue(doctor.Id, out var rating))
+                {
+                    doctorInfo.Rating = rating;
+                }
+                else
+                {
+                    doctorInfo.Rating = 0.0;
+                }
+
+                // Add hospital info
+                if (doctor.HospitalId.HasValue && hospitalMap.TryGetValue(doctor.HospitalId.Value, out var hospitalInfo))
+                {
+                    doctorInfo.HospitalName = hospitalInfo.Name;
+                    doctorInfo.HospitalId = doctor.HospitalId.Value.ToString();
+                }
+
+                // Add price
+                if (priceMap.TryGetValue(doctor.Id, out var priceInfo))
+                {
+                    doctorInfo.ConsultationFee = (double)priceInfo.Amount;
+                    doctorInfo.ServiceTypeName = priceInfo.ServiceTypeName;
+                }
+
+                response.Doctors.Add(doctorInfo);
+            }
+
+            _logger.LogInformation("[DoctorGrpcService] Returning {Count} doctors for AI recommendations", response.Doctors.Count);
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in FilterDoctorsForRecommendation");
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }
     }
