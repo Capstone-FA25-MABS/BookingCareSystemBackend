@@ -114,4 +114,11 @@ public interface IMessageService
         GetMixedTimelineRequest request,
         MessageLoadOptions? options = null
     );
+
+    /// <summary>
+    /// Thu hồi tin nhắn (chỉ cho phép trong 1 giờ sau khi gửi)
+    /// </summary>
+    /// <param name="request">Request chứa MessageId và UserId</param>
+    /// <returns>MessageResponse đã cập nhật hoặc null nếu không thể thu hồi</returns>
+    Task<MessageResponse?> RecallMessageAsync(RecallMessageRequest request);
 }

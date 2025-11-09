@@ -23,5 +23,10 @@ public enum MessageStatus
     /// <summary>
     /// The message has not been read.
     /// </summary>
-    UNREAD
+    UNREAD,
+
+    /// <summary>
+    /// The message has been recalled by sender.
+    /// </summary>
+    RECALLED,
 }

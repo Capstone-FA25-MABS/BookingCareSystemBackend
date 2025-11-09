@@ -1414,4 +1414,105 @@ public class MessageService : BaseService, IMessageService
     }
 
     #endregion
+
+    #region Message Recall
+
+    /// <summary>
+    /// Thu hồi tin nhắn - chỉ cho phép trong 1 giờ sau khi gửi và phải là người gửi
+    /// </summary>
+    public async Task<MessageResponse?> RecallMessageAsync(RecallMessageRequest request)
+    {
+        LogInfo(
+            "Starting recall of message: {MessageId} by user: {UserId}",
+            null,
+            request.MessageId ?? string.Empty,
+            request.UserId ?? string.Empty
+        );
+
+        // Validation
+        ValidateRequired(request, nameof(request));
+        ValidateRequiredString(request.MessageId, nameof(request.MessageId));
+        ValidateRequiredString(request.UserId, nameof(request.UserId));
+
+        // Get message
+        var message = await _messageRepository.GetByIdAsync(request.MessageId);
+        if (message == null)
+        {
+            throw new ArgumentException($"Tin nhắn với ID {request.MessageId} không tồn tại");
+        }
+
+        // Check if user is the sender (case-insensitive)
+        if (!string.Equals(message.SenderId, request.UserId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Bạn không thể thu hồi tin nhắn của người khác");
+        }
+
+        // Check if message was sent within 1 hour
+        var hoursSinceSent = (DateTime.UtcNow - message.CreatedAt).TotalHours;
+        if (hoursSinceSent > 1)
+        {
+            throw new InvalidOperationException(
+                "Chỉ có thể thu hồi tin nhắn trong vòng 1 giờ sau khi gửi"
+            );
+        }
+
+        // Check if message is already recalled
+        if (message.Status == MessageStatus.RECALLED)
+        {
+            throw new InvalidOperationException("Tin nhắn này đã được thu hồi trước đó");
+        }
+
+        // Update message content and status
+        message.Content = "Tin nhắn đã được thu hồi";
+        message.Status = MessageStatus.RECALLED;
+        message.UpdatedAt = DateTime.UtcNow;
+
+        // Save to database
+        var updatedMessage = await _messageRepository.UpdateAsync(message);
+
+        // Map to response
+        var messageResponse = _mapper.Map<MessageResponse>(updatedMessage);
+
+        // Send real-time notification via SignalR
+        try
+        {
+            await _signalRNotificationService.SendMessageRecalledNotificationAsync(
+                message.ConversationId,
+                messageResponse
+            );
+            LogInfo(
+                "Successfully sent recall notification for message: {MessageId}",
+                null,
+                messageResponse.Id
+            );
+        }
+        catch (Exception ex)
+        {
+            LogWarning(
+                "Failed to send SignalR notification for recalled message: {MessageId}. Error: {Error}",
+                null,
+                messageResponse.Id,
+                ex.Message
+            );
+            // Don't throw - message is already updated, notification is optional
+        }
+
+        // Update conversation's LastMessage if this was the last message
+        var conversation = await _conversationRepository.GetByIdAsync(message.ConversationId);
+        if (conversation?.LastMessage != null && conversation.LastMessage.MessageId == message.Id)
+        {
+            conversation.LastMessage.Content = "Tin nhắn đã được thu hồi";
+            await _conversationRepository.UpdateAsync(conversation);
+        }
+
+        LogInfo(
+            "Successfully recalled message: {MessageId}",
+            null,
+            request.MessageId ?? string.Empty
+        );
+
+        return messageResponse;
+    }
+
+    #endregion
 }

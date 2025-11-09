@@ -368,6 +368,36 @@ public class CommunicationsController : BaseApiController
     }
 
     /// <summary>
+    /// Thu hồi tin nhắn (chỉ cho phép trong 1 giờ sau khi gửi)
+    /// </summary>
+    [HttpPost("messages/recall")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RecallMessage([FromBody] RecallMessageRequest request)
+    {
+        try
+        {
+            var result = await _messageService.RecallMessageAsync(request);
+            if (result == null)
+            {
+                return BadRequest("Không thể thu hồi tin nhắn");
+            }
+            return Success(result, "Thu hồi tin nhắn thành công!");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"Lỗi khi thu hồi tin nhắn: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Lấy số tin nhắn chưa đọc trong một conversation cụ thể
     /// </summary>
     [HttpGet("conversations/{conversationId}/unread-count")]
