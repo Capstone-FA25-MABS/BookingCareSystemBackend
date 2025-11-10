@@ -41,4 +41,9 @@ public interface ISignalRNotificationService
     /// Send a typing notification
     /// </summary>
     Task SendTypingNotificationAsync(string conversationId, string userId, bool isTyping);
+
+    /// <summary>
+    /// Send a notification when a message is recalled
+    /// </summary>
+    Task SendMessageRecalledNotificationAsync(string conversationId, MessageResponse message);
 }

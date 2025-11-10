@@ -26,7 +26,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/ais/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -42,7 +42,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/analytics/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -58,7 +58,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/appointments/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -74,7 +74,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/attachment/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -90,7 +90,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/auth/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "RouteClaimsRequirement": {},
       "AddHeadersToRequest": {},
       "AddHeadersToDownstream": {},
@@ -120,7 +120,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v1/hospitals/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -136,7 +136,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v1/subscription-plans/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -152,7 +152,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/subscription-plans/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -168,7 +168,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v1/hospital-subscriptions/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -184,7 +184,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/hospital-subscriptions/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -200,7 +200,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v1/subscription-usage/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -216,7 +216,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/subscription-usage/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -232,7 +232,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/hospitals/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -248,7 +248,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/hospital-registrations/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -264,11 +264,25 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/communications/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
+    },
+    {
+      "DownstreamPathTemplate": "/chatHub{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6005
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/communication/chatHub{everything}",
+      "UpstreamHttpMethod": ["GET", "POST", "OPTIONS", "DELETE", "PUT"],
+      "Priority": 1,
+      "DangerousAcceptAnyServerCertificateValidator": false
     },
     {
       "DownstreamPathTemplate": "/api/v{version}/contents/{everything}",
@@ -280,7 +294,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/contents/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -296,7 +310,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/discounts/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -312,7 +326,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/doctors/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -328,7 +342,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/specialties/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -344,7 +358,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/positions/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -360,7 +374,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/languages/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -376,7 +390,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/servicetypes/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -392,7 +406,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/favorites/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -408,7 +422,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/notifications/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -424,11 +438,23 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/otp/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
+    },
+    {
+      "DownstreamPathTemplate": "/noti-hubs/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6010
+        }
+      ],
+      "UpstreamPathTemplate": "/api/noti-hubs/{everything}",
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     },
     {
       "DownstreamPathTemplate": "/api/v{version}/payments/{everything}",
@@ -440,7 +466,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/payments/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -456,7 +482,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/paymentmethods/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -472,7 +498,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/payos/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -488,7 +514,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/vnpay/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -504,7 +530,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/bankaccounts/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -520,7 +546,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/refundhistories/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -536,7 +562,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/reviews/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -552,7 +578,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/sagas/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -568,7 +594,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedule/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -584,7 +610,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/medical-services/services/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -600,7 +626,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/medical-services/servicecategories/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -616,7 +642,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/users/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -632,7 +658,7 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/avatar/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
