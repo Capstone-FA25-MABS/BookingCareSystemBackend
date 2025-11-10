@@ -737,7 +737,7 @@ public class GeminiService : IGeminiService
             {
                 questionsAfterConsultMore = history
                     .Skip(lastConsultMoreIndex + 1)
-                    .Where(m => m.Role?.ToLower() == "ai" && 
+                    .Where(m => m.Role?.ToLower() == "ai" &&
                                !m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) == true &&
                                !m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) == true &&
                                !m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) == true &&
@@ -759,7 +759,7 @@ public class GeminiService : IGeminiService
                 .Count();
 
             sb.AppendLine("**LỊCH SỬ HỘI THOẠI TRƯỚC ĐÂY:**");
-            
+
             if (lastConsultMoreIndex >= 0)
             {
                 sb.AppendLine($"Người dùng đã yêu cầu 'Tư vấn thêm'. Số câu hỏi đã hỏi sau đó: {questionsAfterConsultMore}/3");
@@ -776,9 +776,9 @@ public class GeminiService : IGeminiService
                     sb.AppendLine("QUAN TRỌNG: Đã hỏi đủ 3 câu hỏi, KHÔNG được hỏi thêm nữa. PHẢI kết luận và recommend specialty ngay.");
                 }
             }
-            
+
             sb.AppendLine();
-            
+
             // List ONLY questions already asked (not conclusions) to avoid duplication
             sb.AppendLine("**CÁC CÂU HỎI ĐÃ HỎI (KHÔNG ĐƯỢC HỎI LẠI):**");
             var askedQuestions = history
@@ -791,7 +791,7 @@ public class GeminiService : IGeminiService
                             m.Content?.Contains("bạn có thể") == true))
                 .Select(m => m.Content)
                 .ToList();
-                
+
             if (askedQuestions.Any())
             {
                 foreach (var q in askedQuestions)
@@ -801,7 +801,7 @@ public class GeminiService : IGeminiService
                 sb.AppendLine("QUAN TRỌNG: Phải hỏi câu hỏi KHÁC, không trùng với các câu trên!");
             }
             sb.AppendLine();
-            
+
             sb.AppendLine("**CHI TIẾT LỊCH SỬ HỘI THOẠI:**");
             foreach (var msg in history.TakeLast(5)) // Only last 5 messages for context
             {
@@ -813,12 +813,12 @@ public class GeminiService : IGeminiService
         // Current user message
         sb.AppendLine("**TIN NHẮN HIỆN TẠI CỦA NGƯỜI DÙNG:**");
         sb.AppendLine(userMessage);
-        
+
         // Check if this is ONLY "tư vấn thêm" without any symptoms
         bool isOnlyConsultMore = (userMessage.Equals("tôi muốn được tư vấn thêm", StringComparison.OrdinalIgnoreCase) ||
                                   userMessage.Equals("tư vấn thêm", StringComparison.OrdinalIgnoreCase)) &&
                                  (history == null || !history.Any());
-        
+
         if (isOnlyConsultMore)
         {
             // User just clicked "Tư vấn thêm" without providing any symptoms first
@@ -834,13 +834,13 @@ public class GeminiService : IGeminiService
             sb.AppendLine("6. analysisComplete: false");
         }
         // Special handling for "tư vấn thêm" request with existing symptoms
-        else if (userMessage.Contains("tôi muốn được tư vấn thêm", StringComparison.OrdinalIgnoreCase) || 
+        else if (userMessage.Contains("tôi muốn được tư vấn thêm", StringComparison.OrdinalIgnoreCase) ||
                  userMessage.Contains("tư vấn thêm", StringComparison.OrdinalIgnoreCase))
         {
             sb.AppendLine();
             sb.AppendLine("**YÊU CẦU ĐẶC BIỆT - TƯ VẤN THÊM:**");
             sb.AppendLine("Người dùng yêu cầu tư vấn thêm để khoanh vùng bệnh chính xác hơn.");
-            
+
             // Check if already asked 3 follow-up QUESTIONS (not conclusions) after last "tư vấn thêm" request
             var followUpCount = 0;
             if (history != null && history.Any())
@@ -856,12 +856,12 @@ public class GeminiService : IGeminiService
                         break;
                     }
                 }
-                
+
                 // Count ONLY AI questions (not conclusions) after that index
                 if (lastConsultIndex >= 0)
                 {
                     followUpCount = history.Skip(lastConsultIndex + 1)
-                        .Count(m => m.Role?.ToLower() == "ai" && 
+                        .Count(m => m.Role?.ToLower() == "ai" &&
                                    !m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) == true &&
                                    !m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) == true &&
                                    !m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) == true &&
@@ -869,7 +869,7 @@ public class GeminiService : IGeminiService
                                     m.Content?.Contains("cho tôi biết") == true));
                 }
             }
-                                
+
             if (followUpCount >= 3)
             {
                 sb.AppendLine("ĐÃ HỎI ĐỦ 3 CÂU SAU 'TƯ VẤN THÊM' - BẮT BUỘC PHẢI KẾT LUẬN ĐẦY ĐỦ:");
@@ -900,7 +900,7 @@ public class GeminiService : IGeminiService
                 sb.AppendLine("CHỈ khi đã hỏi đủ 3 câu thì mới set analysisComplete = true và trả về đầy đủ.");
             }
         }
-        
+
         sb.AppendLine();
         sb.AppendLine("Hãy phân tích và trả về JSON theo định dạng trên.");
         sb.AppendLine("QUAN TRỌNG: Chỉ trả về JSON object thuần, KHÔNG dùng markdown code blocks (```json hoặc ```).");

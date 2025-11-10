@@ -242,12 +242,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 else
                 {
                     _logger.LogInformation("User is asking follow-up questions ({Count}/3), allowing more questions", followUpQuestionsCount);
-                    
+
                     // For "Tư vấn thêm", keep asking questions until we have 3 questions
                     // Only show full recommendations after 3 questions
                     analysisComplete = false; // Keep false while asking questions
                     shouldAskMoreQuestions = true;
-                    
+
                     // If AI doesn't have specific questions, ensure we still get relevant questions
                     if (!geminiResult.NextQuestions.Any() && isConsultMoreRequest)
                     {
@@ -268,23 +268,23 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             {
                 // Validate that AI returned all required components for conclusion
                 var missingComponents = new List<string>();
-                
+
                 if (!geminiResult.PossibleDiseases.Any())
                     missingComponents.Add("possibleDiseases");
                 if (!filteredSpecialties.Any())
                     missingComponents.Add("recommendedSpecialties");
                 if (!geminiResult.GeneralAdvice.Any())
                     missingComponents.Add("generalAdvice");
-                
+
                 if (missingComponents.Any())
                 {
-                    _logger.LogWarning("AI returned incomplete conclusion. Missing: {Components}. Forcing to ask more questions.", 
+                    _logger.LogWarning("AI returned incomplete conclusion. Missing: {Components}. Forcing to ask more questions.",
                         string.Join(", ", missingComponents));
-                    
+
                     // Force back to asking mode if conclusion is incomplete
                     analysisComplete = false;
                     shouldAskMoreQuestions = true;
-                    
+
                     // Add a generic follow-up question if AI didn't provide one
                     if (!geminiResult.NextQuestions.Any())
                     {
@@ -297,7 +297,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     }
                 }
             }
-            
+
             // Step 5: Create base response
             var baseMessage = shouldAskMoreQuestions
                 ? (geminiResult.NextQuestions.Any()
