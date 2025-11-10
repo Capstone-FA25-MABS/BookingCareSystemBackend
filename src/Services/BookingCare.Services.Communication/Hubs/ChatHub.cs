@@ -58,26 +58,24 @@ public class ChatHub : Hub
             // Add to user group for personal notifications
             var userGroupName = GetUserGroupName(userId);
             await Groups.AddToGroupAsync(Context.ConnectionId, userGroupName);
-            _logger.LogInformation("➕ Added connection to user group: {UserGroup}", userGroupName);
-
             _logger.LogInformation(
-                "User {UserId} connected with connection {ConnectionId}",
+                "➕ User {UserId} connected with connection {ConnectionId} - Added to group: {UserGroup}",
                 userId,
-                Context.ConnectionId
+                Context.ConnectionId,
+                userGroupName
             );
 
             // 1. Send list of currently online users to the newly connected user
             var onlineUsers = UserConnections.Keys.ToList();
             await Clients.Caller.SendAsync("OnlineUsers", onlineUsers);
-            _logger.LogInformation(
-                "📤 Sent online users list to {UserId}: {Count} users",
-                userId,
-                onlineUsers.Count
-            );
 
             // 2. Notify other users that this user is now online
             await Clients.Others.SendAsync("UserOnline", userId);
-            _logger.LogInformation("📤 Notified others that {UserId} is online", userId);
+            _logger.LogInformation(
+                "📤 User {UserId} is now online - Sent online users list ({Count} users) and notified others",
+                userId,
+                onlineUsers.Count
+            );
         }
 
         await base.OnConnectedAsync();
@@ -220,8 +218,9 @@ public class ChatHub : Hub
             _logger.LogInformation(
                 "📨 SendMessage called - Raw request: ConversationId={ConversationId}, Content={Content}, ReceiverId={ReceiverId}",
                 request?.ConversationId ?? "NULL",
-                request?.Content?.Substring(0, Math.Min(50, request?.Content?.Length ?? 0))
-                    ?? "NULL",
+                request?.Content is not null
+                    ? request.Content.Substring(0, Math.Min(50, request.Content.Length))
+                    : "NULL",
                 request?.ReceiverId ?? "NULL"
             );
 
@@ -242,29 +241,32 @@ public class ChatHub : Hub
                 if (request == null)
                 {
                     _logger.LogError("SendMessage request is NULL");
-                    await Clients.Caller.SendAsync("Error", "Request không hợp lệ");
+                    await Clients.Caller.SendAsync(
+                        HubConstants.ErrorMessage,
+                        "Request không hợp lệ"
+                    );
                     return;
                 }
 
                 if (string.IsNullOrEmpty(request.ConversationId))
                 {
                     _logger.LogError("ConversationId is null or empty");
-                    await Clients.Caller.SendAsync("Error", "ConversationId không hợp lệ");
+                    await Clients.Caller.SendAsync(
+                        HubConstants.ErrorMessage,
+                        "ConversationId không hợp lệ"
+                    );
                     return;
                 }
 
                 if (string.IsNullOrEmpty(request.Content))
                 {
                     _logger.LogError("Content is null or empty");
-                    await Clients.Caller.SendAsync("Error", "Nội dung tin nhắn không được trống");
+                    await Clients.Caller.SendAsync(
+                        HubConstants.ErrorMessage,
+                        "Nội dung tin nhắn không được trống"
+                    );
                     return;
                 }
-
-                _logger.LogInformation(
-                    "✅ Validation passed - Creating message for user {UserId} in conversation {ConversationId}",
-                    userId,
-                    request.ConversationId
-                );
 
                 // Create message through service
                 var messageRequest = new CreateMessageRequest
@@ -276,17 +278,22 @@ public class ChatHub : Hub
                     Type = MessageType.Text,
                 };
 
-                _logger.LogInformation("📝 Calling MessageService.CreateAsync...");
+                _logger.LogInformation(
+                    "✅ Validation passed - Creating message for user {UserId} in conversation {ConversationId}",
+                    userId,
+                    request.ConversationId
+                );
                 var message = await _messageService.CreateAsync(messageRequest);
 
                 if (message == null)
                 {
                     _logger.LogError("❌ MessageService.CreateAsync returned null");
-                    await Clients.Caller.SendAsync("Error", "Không thể tạo tin nhắn");
+                    await Clients.Caller.SendAsync(
+                        HubConstants.ErrorMessage,
+                        "Không thể tạo tin nhắn"
+                    );
                     return;
                 }
-
-                _logger.LogInformation("✅ Message created with ID: {MessageId}", message.Id);
 
                 var messagePayload = new
                 {
@@ -304,10 +311,6 @@ public class ChatHub : Hub
                 // 1. Send to conversation group (for users currently in the conversation)
                 var groupName = GetConversationGroupName(request.ConversationId);
                 await Clients.Group(groupName).SendAsync("ReceiveMessage", messagePayload);
-                _logger.LogInformation(
-                    "📤 Broadcast to conversation group: {GroupName}",
-                    groupName
-                );
 
                 // 2. Send to receiver user specifically (for notifications even if not in conversation)
                 if (!string.IsNullOrEmpty(request.ReceiverId))
@@ -316,16 +319,13 @@ public class ChatHub : Hub
                     await Clients
                         .Group(receiverGroupName)
                         .SendAsync("ReceiveMessage", messagePayload);
-                    _logger.LogInformation(
-                        "📤 Sent notification to receiver: {ReceiverId}",
-                        request.ReceiverId
-                    );
                 }
 
                 _logger.LogInformation(
-                    "Message sent via SignalR: {MessageId} in conversation {ConversationId}",
+                    "✅ Message created with ID: {MessageId} and sent via SignalR to conversation {ConversationId} and receiver {ReceiverId}",
                     message.Id,
-                    request.ConversationId
+                    request.ConversationId,
+                    request.ReceiverId
                 );
             }
             catch (Exception ex)
@@ -333,10 +333,13 @@ public class ChatHub : Hub
                 _logger.LogError(
                     ex,
                     "❌ Error sending message for user {UserId} in conversation {ConversationId}",
-                    userId ?? "Unknown",
-                    request?.ConversationId ?? "Unknown"
+                    userId,
+                    request?.ConversationId
                 );
-                await Clients.Caller.SendAsync("Error", "Lỗi khi gửi tin nhắn: " + ex.Message);
+                await Clients.Caller.SendAsync(
+                    HubConstants.ErrorMessage,
+                    "Lỗi khi gửi tin nhắn: " + ex.Message
+                );
             }
         }
         catch (Exception ex)
@@ -347,7 +350,10 @@ public class ChatHub : Hub
             );
             try
             {
-                await Clients.Caller.SendAsync("Error", "Lỗi nghiêm trọng khi gửi tin nhắn");
+                await Clients.Caller.SendAsync(
+                    HubConstants.ErrorMessage,
+                    "Lỗi nghiêm trọng khi gửi tin nhắn"
+                );
             }
             catch
             {
@@ -700,7 +706,7 @@ public class ChatHub : Hub
     /// <summary>
     /// Gửi WebRTC Offer (SDP)
     /// </summary>
-    public async Task SendOffer(WebRTCSignalRequest request)
+    public async Task SendOffer(WebRtcSignalRequest request)
     {
         var senderId = GetUserId();
         if (string.IsNullOrEmpty(senderId))
@@ -743,7 +749,7 @@ public class ChatHub : Hub
     /// <summary>
     /// Gửi WebRTC Answer (SDP)
     /// </summary>
-    public async Task SendAnswer(WebRTCSignalRequest request)
+    public async Task SendAnswer(WebRtcSignalRequest request)
     {
         var senderId = GetUserId();
         if (string.IsNullOrEmpty(senderId))
@@ -786,7 +792,7 @@ public class ChatHub : Hub
     /// <summary>
     /// Gửi ICE Candidate
     /// </summary>
-    public async Task SendIceCandidate(ICECandidateRequest request)
+    public async Task SendIceCandidate(IceCandidateRequest request)
     {
         var senderId = GetUserId();
         if (string.IsNullOrEmpty(senderId))
@@ -816,9 +822,6 @@ public class ChatHub : Hub
             // Send to receiver
             var receiverGroupName = GetUserGroupName(request.ReceiverId);
             await Clients.Group(receiverGroupName).SendAsync("ReceiveIceCandidate", candidateData);
-
-            // Don't log every ICE candidate (too noisy)
-            // _logger.LogDebug("📤 Sent ICE Candidate to {ReceiverId}", request.ReceiverId);
         }
         catch (Exception ex)
         {
@@ -1026,7 +1029,7 @@ public class EndCallRequest
 /// <summary>
 /// Request để gửi WebRTC signal (Offer/Answer)
 /// </summary>
-public class WebRTCSignalRequest
+public class WebRtcSignalRequest
 {
     public string ReceiverId { get; set; } = string.Empty;
     public object Signal { get; set; } = null!; // RTCSessionDescriptionInit
@@ -1035,7 +1038,7 @@ public class WebRTCSignalRequest
 /// <summary>
 /// Request để gửi ICE Candidate
 /// </summary>
-public class ICECandidateRequest
+public class IceCandidateRequest
 {
     public string ReceiverId { get; set; } = string.Empty;
     public object Candidate { get; set; } = null!; // RTCIceCandidateInit
@@ -1047,6 +1050,7 @@ public class ICECandidateRequest
 public class CallBusyRequest
 {
     public string CallerId { get; set; } = string.Empty;
+
 }
 
 #endregion

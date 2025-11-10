@@ -698,16 +698,15 @@ public class MessageService : BaseService, IMessageService
                 // Get all conversations where user is a participant
                 var conversations = await _conversationRepository.GetByUserIdAsync(userId);
 
-                // Sum unread counts across all conversations
-                long totalUnreadCount = 0;
-                foreach (var conversation in conversations)
-                {
-                    var unreadCount = await _messageRepository.GetUnreadCountAsync(
-                        conversation.Id,
-                        userId
-                    );
-                    totalUnreadCount += unreadCount;
-                }
+                // Sum unread counts across all conversations using parallel async calls
+                var unreadCountTasks = conversations
+                    .Select(conversation =>
+                        _messageRepository.GetUnreadCountAsync(conversation.Id, userId)
+                    )
+                    .ToList();
+
+                var unreadCounts = await Task.WhenAll(unreadCountTasks);
+                var totalUnreadCount = unreadCounts.Sum();
 
                 LogInfo(
                     "Total unread count for user {UserId}: {Count} across {ConversationCount} conversations",
@@ -736,20 +735,24 @@ public class MessageService : BaseService, IMessageService
                 // Get all conversations where user is a participant
                 var conversations = await _conversationRepository.GetByUserIdAsync(userId);
 
-                // Build dictionary of conversationId -> unreadCount
-                var unreadCountsByConversation = new Dictionary<string, long>();
-
-                foreach (var conversation in conversations)
-                {
-                    var unreadCount = await _messageRepository.GetUnreadCountAsync(
-                        conversation.Id,
-                        userId
-                    );
-                    if (unreadCount > 0) // Only include conversations with unread messages
+                // Build dictionary of conversationId -> unreadCount using parallel async calls
+                var unreadCountTasks = conversations
+                    .Select(async conversation => new
                     {
-                        unreadCountsByConversation[conversation.Id] = unreadCount;
-                    }
-                }
+                        conversation.Id,
+                        UnreadCount = await _messageRepository.GetUnreadCountAsync(
+                            conversation.Id,
+                            userId
+                        ),
+                    })
+                    .ToList();
+
+                var unreadResults = await Task.WhenAll(unreadCountTasks);
+
+                // Only include conversations with unread messages
+                var unreadCountsByConversation = unreadResults
+                    .Where(result => result.UnreadCount > 0)
+                    .ToDictionary(result => result.Id, result => result.UnreadCount);
 
                 LogInfo(
                     "Found {Count} conversations with unread messages for user {UserId}",

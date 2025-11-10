@@ -9,6 +9,14 @@ namespace BookingCare.Shared.FileUpload.Helpers;
 /// </summary>
 public static class FileNameHelper
 {
+    // Regex patterns with timeout to prevent ReDoS attacks
+    private static readonly Regex SpacesAndDashesRegex =
+        new(@"[\s\-]+", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+    private static readonly Regex NonAlphanumericRegex =
+        new(@"[^a-zA-Z0-9_\-]", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+    private static readonly Regex ConsecutiveUnderscoresRegex =
+        new(@"_{2,}", RegexOptions.None, TimeSpan.FromMilliseconds(100));
+
     /// <summary>
     /// Sanitize filename to be URL-safe and S3-compatible
     /// Removes Unicode characters, special characters, and spaces
@@ -53,14 +61,14 @@ public static class FileNameHelper
 
         // Step 2: Replace spaces and special characters with underscores
         // Converts: "Ho so benh an" ? "Ho_so_benh_an"
-        sanitized = Regex.Replace(sanitized, @"[\s\-]+", "_");
+        sanitized = SpacesAndDashesRegex.Replace(sanitized, "_");
 
         // Step 3: Remove all non-alphanumeric characters except underscore and dash
         // Keeps only: a-z, A-Z, 0-9, _, -
-        sanitized = Regex.Replace(sanitized, @"[^a-zA-Z0-9_\-]", "");
+        sanitized = NonAlphanumericRegex.Replace(sanitized, "");
 
         // Step 4: Remove multiple consecutive underscores
-        sanitized = Regex.Replace(sanitized, @"_{2,}", "_");
+        sanitized = ConsecutiveUnderscoresRegex.Replace(sanitized, "_");
 
         // Step 5: Trim underscores and dashes from start and end
         sanitized = sanitized.Trim('_', '-');
@@ -82,8 +90,8 @@ public static class FileNameHelper
 
     /// <summary>
     /// Remove diacritics (accents) from Unicode characters
-    /// Converts: "H? Chí Minh" ? "Ho Chi Minh"
-    /// Converts: "Café" ? "Cafe"
+    /// Converts: "H? Chï¿½ Minh" ? "Ho Chi Minh"
+    /// Converts: "Cafï¿½" ? "Cafe"
     /// Converts: "??????" ? "Moskva" (Cyrillic)
     /// </summary>
     /// <param name="text">Text with diacritics</param>
@@ -157,25 +165,84 @@ public static class FileNameHelper
         var transliterationMap = new Dictionary<char, string>
         {
             // Cyrillic
-            { '?', "a" }, { '?', "b" }, { '?', "v" }, { '?', "g" }, { '?', "d" },
-            { '?', "e" }, { '?', "yo" }, { '?', "zh" }, { '?', "z" }, { '?', "i" },
-            { '?', "y" }, { '?', "k" }, { '?', "l" }, { '?', "m" }, { '?', "n" },
-    { '?', "o" }, { '?', "p" }, { '?', "r" }, { '?', "s" }, { '?', "t" },
-          { '?', "u" }, { '?', "f" }, { '?', "h" }, { '?', "ts" }, { '?', "ch" },
-    { '?', "sh" }, { '?', "shch" }, { '?', "" }, { '?', "y" }, { '?', "" },
- { '?', "e" }, { '?', "yu" }, { '?', "ya" },
-      { '?', "A" }, { '?', "B" }, { '?', "V" }, { '?', "G" }, { '?', "D" },
-     { '?', "E" }, { '?', "Yo" }, { '?', "Zh" }, { '?', "Z" }, { '?', "I" },
-         { '?', "Y" }, { '?', "K" }, { '?', "L" }, { '?', "M" }, { '?', "N" },
-         { '?', "O" }, { '?', "P" }, { '?', "R" }, { '?', "S" }, { '?', "T" },
-       { '?', "U" }, { '?', "F" }, { '?', "H" }, { '?', "Ts" }, { '?', "Ch" },
-          { '?', "Sh" }, { '?', "Shch" }, { '?', "" }, { '?', "Y" }, { '?', "" },
-            { '?', "E" }, { '?', "Yu" }, { '?', "Ya" },
-            
- // Greek
-            { '?', "a" }, { '?', "b" }, { '?', "g" }, { '?', "d" }, { '?', "e" },
-            { '?', "A" }, { '?', "B" }, { '?', "G" }, { '?', "D" }, { '?', "E" },
-      };
+            { '?', "a" },
+            { '?', "b" },
+            { '?', "v" },
+            { '?', "g" },
+            { '?', "d" },
+            { '?', "e" },
+            { '?', "yo" },
+            { '?', "zh" },
+            { '?', "z" },
+            { '?', "i" },
+            { '?', "y" },
+            { '?', "k" },
+            { '?', "l" },
+            { '?', "m" },
+            { '?', "n" },
+            { '?', "o" },
+            { '?', "p" },
+            { '?', "r" },
+            { '?', "s" },
+            { '?', "t" },
+            { '?', "u" },
+            { '?', "f" },
+            { '?', "h" },
+            { '?', "ts" },
+            { '?', "ch" },
+            { '?', "sh" },
+            { '?', "shch" },
+            { '?', "" },
+            { '?', "y" },
+            { '?', "" },
+            { '?', "e" },
+            { '?', "yu" },
+            { '?', "ya" },
+            { '?', "A" },
+            { '?', "B" },
+            { '?', "V" },
+            { '?', "G" },
+            { '?', "D" },
+            { '?', "E" },
+            { '?', "Yo" },
+            { '?', "Zh" },
+            { '?', "Z" },
+            { '?', "I" },
+            { '?', "Y" },
+            { '?', "K" },
+            { '?', "L" },
+            { '?', "M" },
+            { '?', "N" },
+            { '?', "O" },
+            { '?', "P" },
+            { '?', "R" },
+            { '?', "S" },
+            { '?', "T" },
+            { '?', "U" },
+            { '?', "F" },
+            { '?', "H" },
+            { '?', "Ts" },
+            { '?', "Ch" },
+            { '?', "Sh" },
+            { '?', "Shch" },
+            { '?', "" },
+            { '?', "Y" },
+            { '?', "" },
+            { '?', "E" },
+            { '?', "Yu" },
+            { '?', "Ya" },
+            // Greek
+            { '?', "a" },
+            { '?', "b" },
+            { '?', "g" },
+            { '?', "d" },
+            { '?', "e" },
+            { '?', "A" },
+            { '?', "B" },
+            { '?', "G" },
+            { '?', "D" },
+            { '?', "E" },
+        };
 
         var result = new StringBuilder();
         foreach (var c in text)
