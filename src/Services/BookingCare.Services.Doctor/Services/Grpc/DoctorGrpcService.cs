@@ -784,7 +784,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     /// </summary>
     private async Task<Dictionary<Guid, (decimal Amount, string ServiceTypeName)>> GetDoctorPricesAsync(
         List<Guid> doctorIds,
-        List<DoctorResponse> doctors)
+        List<DoctorEntity> doctors)
     {
         var priceMap = new Dictionary<Guid, (decimal Amount, string ServiceTypeName)>();
 
@@ -813,7 +813,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     /// </summary>
     private async Task GetAlternativePricesAsync(
         List<Guid> doctorIds,
-        List<DoctorResponse> doctors,
+        List<DoctorEntity> doctors,
         Dictionary<Guid, (decimal Amount, string ServiceTypeName)> priceMap)
     {
         var doctorsWithoutPrice = doctorIds.Where(id => !priceMap.ContainsKey(id)).ToList();
@@ -837,19 +837,57 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     }
 
     /// <summary>
+    /// Get specialty names for doctors
+    /// </summary>
+    private async Task<Dictionary<Guid, string>> GetSpecialtyNamesAsync(List<DoctorEntity> doctors)
+    {
+        var specialtyMap = new Dictionary<Guid, string>();
+        var specialtyIds = doctors
+            .Where(d => d.SpecialtyId.HasValue)
+            .Select(d => d.SpecialtyId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!specialtyIds.Any())
+        {
+            return specialtyMap;
+        }
+
+        try
+        {
+            var specialties = await _specialtyService.GetSpecialtiesByIdsAsync(specialtyIds);
+            foreach (var specialty in specialties)
+            {
+                specialtyMap[specialty.Id] = specialty.Name;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[DoctorGrpcService] Failed to get specialty names");
+        }
+
+        return specialtyMap;
+    }
+
+    /// <summary>
     /// Build doctor recommendation info
     /// </summary>
     private Protos.DoctorRecommendationInfo BuildDoctorRecommendationInfo(
-        DoctorResponse doctor,
+        DoctorEntity doctor,
         Dictionary<Guid, double> ratingMap,
         Dictionary<Guid, (string Name, string Address)> hospitalMap,
-        Dictionary<Guid, (decimal Amount, string ServiceTypeName)> priceMap)
+        Dictionary<Guid, (decimal Amount, string ServiceTypeName)> priceMap,
+        Dictionary<Guid, string> specialtyMap)
     {
+        var specialtyName = doctor.SpecialtyId.HasValue && specialtyMap.TryGetValue(doctor.SpecialtyId.Value, out var name)
+            ? name
+            : string.Empty;
+
         var doctorInfo = new Protos.DoctorRecommendationInfo
         {
             Id = doctor.Id.ToString(),
             FullName = $"{doctor.FirstName} {doctor.LastName}".Trim(),
-            SpecialtyName = doctor.Specialty?.Name ?? string.Empty,
+            SpecialtyName = specialtyName,
             YearsOfExperience = doctor.YearsOfExperience,
             AvatarUrl = doctor.AvatarUrl ?? string.Empty
         };
@@ -924,6 +962,9 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
             var priceMap = await GetDoctorPricesAsync(doctorIds, doctors);
 
+            // Get specialty names
+            var specialtyMap = await GetSpecialtyNamesAsync(doctors);
+
             // Build response
             var response = new Protos.FilterDoctorsForRecommendationResponse
             {
@@ -932,7 +973,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
             foreach (var doctor in doctors)
             {
-                var doctorInfo = BuildDoctorRecommendationInfo(doctor, ratingMap, hospitalMap, priceMap);
+                var doctorInfo = BuildDoctorRecommendationInfo(doctor, ratingMap, hospitalMap, priceMap, specialtyMap);
                 response.Doctors.Add(doctorInfo);
             }
 

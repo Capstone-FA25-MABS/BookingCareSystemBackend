@@ -134,7 +134,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 {
                     if (msg.Timestamp is DateTime dt)
                         timestamp = dt;
-                    else if (DateTime.TryParse(msg.Timestamp.ToString(), out var parsed))
+                    else if (DateTime.TryParse(msg.Timestamp.ToString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
                         timestamp = parsed;
                 }
 
@@ -157,9 +157,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         return history
             .Count(m => m.Role?.ToLower() == "ai" &&
-                       !m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) == true &&
-                       !m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) == true &&
-                       !m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) == true &&
+                       m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) != true &&
+                       m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) != true &&
+                       m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) != true &&
                        (m.Content?.Contains("?") == true ||
                         m.Content?.Contains("cho tôi biết") == true ||
                         m.Content?.Contains("bạn có thể") == true));
@@ -196,9 +196,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         return history
             .Skip(lastConsultMoreIndex + 1)
             .Count(m => m.Role?.ToLower() == "ai" &&
-                       !m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) == true &&
-                       !m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) == true &&
-                       !m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) == true &&
+                       m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) != true &&
+                       m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) != true &&
+                       m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) != true &&
                        (m.Content?.Contains("?") == true ||
                         m.Content?.Contains("cho tôi biết") == true ||
                         m.Content?.Contains("bạn có thể") == true));
@@ -603,7 +603,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
 
         // Confidence 0.5-0.8: Show 2-3 specialty options
-        if (topSpecialtyConfidence >= 0.5 && topSpecialtyConfidence <= 0.8)
+        if (topSpecialtyConfidence >= 0.5)
         {
             filteredSpecialties = geminiResult.RecommendedSpecialties
                 .Where(s => s.Confidence >= 0.5)
@@ -723,6 +723,103 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         return sb.ToString().Trim();
     }
 
+    /// <summary>
+    /// Get or build specialty lookup dictionaries
+    /// </summary>
+    private (Dictionary<string, SpecialtyDto> exactMatchDict, Dictionary<string, SpecialtyDto> normalizedMatchDict)
+        GetOrBuildSpecialtyDictionaries(List<SpecialtyDto> allSpecialties)
+    {
+        lock (_cacheLock)
+        {
+            // Check if dictionaries are cached and still valid
+            if (_exactMatchDictCache != null &&
+                _normalizedMatchDictCache != null &&
+                _cacheLastUpdated != DateTime.MinValue &&
+                DateTime.UtcNow - _cacheLastUpdated < CacheExpiration)
+            {
+                return (_exactMatchDictCache, _normalizedMatchDictCache);
+            }
+
+            // Build dictionaries
+            var exactMatchDict = new Dictionary<string, SpecialtyDto>(StringComparer.OrdinalIgnoreCase);
+            var normalizedMatchDict = new Dictionary<string, SpecialtyDto>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var specialty in allSpecialties)
+            {
+                // Add exact match (case-insensitive)
+                if (!exactMatchDict.ContainsKey(specialty.Name))
+                {
+                    exactMatchDict[specialty.Name] = specialty;
+                }
+
+                // Add normalized match
+                var normalizedName = NormalizeSpecialtyName(specialty.Name);
+                if (!string.IsNullOrWhiteSpace(normalizedName) && !normalizedMatchDict.ContainsKey(normalizedName))
+                {
+                    normalizedMatchDict[normalizedName] = specialty;
+                }
+            }
+
+            // Cache dictionaries
+            UpdateDictionaryCaches(exactMatchDict, normalizedMatchDict);
+            return (exactMatchDict, normalizedMatchDict);
+        }
+    }
+
+    /// <summary>
+    /// Find specialty match for a Gemini specialty
+    /// </summary>
+    private SpecialtyMatch? FindSpecialtyMatch(
+        GeminiSpecialty geminiSpecialty,
+        Dictionary<string, SpecialtyDto> exactMatchDict,
+        Dictionary<string, SpecialtyDto> normalizedMatchDict)
+    {
+        Guid? specialtyId = null;
+        string? matchedSpecialtyName = null;
+
+        // Try exact match with original name (case-insensitive) - O(1) lookup
+        if (exactMatchDict.TryGetValue(geminiSpecialty.SpecialtyName, out var exactMatch))
+        {
+            specialtyId = exactMatch.Id;
+            matchedSpecialtyName = exactMatch.Name;
+            _logger.LogDebug("Exact match found for specialty: {GeminiName} -> {DbName} (ID: {Id})",
+                geminiSpecialty.SpecialtyName, matchedSpecialtyName, exactMatch.Id);
+        }
+        else
+        {
+            // Try normalized match as fallback - O(1) lookup
+            var normalizedGeminiName = NormalizeSpecialtyName(geminiSpecialty.SpecialtyName);
+            if (!string.IsNullOrWhiteSpace(normalizedGeminiName) &&
+                normalizedMatchDict.TryGetValue(normalizedGeminiName, out var normalizedMatch))
+            {
+                specialtyId = normalizedMatch.Id;
+                matchedSpecialtyName = normalizedMatch.Name;
+                _logger.LogDebug("Normalized match found for specialty: {GeminiName} -> {DbName} (ID: {Id})",
+                    geminiSpecialty.SpecialtyName, matchedSpecialtyName, normalizedMatch.Id);
+            }
+            else
+            {
+                _logger.LogWarning("No match found for specialty: {GeminiName}. Only mapping specialties that exist in database.",
+                    geminiSpecialty.SpecialtyName);
+            }
+        }
+
+        // Only return if we found a match (specialtyId is not null)
+        if (specialtyId.HasValue)
+        {
+            return new SpecialtyMatch
+            {
+                SpecialtyId = specialtyId,
+                SpecialtyName = matchedSpecialtyName ?? geminiSpecialty.SpecialtyName,
+                Confidence = geminiSpecialty.Confidence,
+                Urgency = geminiSpecialty.Urgency,
+                Reasons = geminiSpecialty.Reasons
+            };
+        }
+
+        return null;
+    }
+
     private async Task<List<SpecialtyMatch>> MapSpecialtiesToDbAsync(List<GeminiSpecialty> geminiSpecialties)
     {
         var result = new List<SpecialtyMatch>();
@@ -740,91 +837,19 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             // Get or build lookup dictionaries from cache for O(1) lookup instead of O(n) FirstOrDefault
             // This is much faster when we have many specialties
-            Dictionary<string, SpecialtyDto> exactMatchDict;
-            Dictionary<string, SpecialtyDto> normalizedMatchDict;
-
-            lock (_cacheLock)
-            {
-                // Check if dictionaries are cached and still valid
-                if (_exactMatchDictCache != null &&
-                    _normalizedMatchDictCache != null &&
-                    _cacheLastUpdated != DateTime.MinValue &&
-                    DateTime.UtcNow - _cacheLastUpdated < CacheExpiration)
-                {
-                    exactMatchDict = _exactMatchDictCache;
-                    normalizedMatchDict = _normalizedMatchDictCache;
-                }
-                else
-                {
-                    // Build dictionaries
-                    exactMatchDict = new Dictionary<string, SpecialtyDto>(StringComparer.OrdinalIgnoreCase);
-                    normalizedMatchDict = new Dictionary<string, SpecialtyDto>(StringComparer.OrdinalIgnoreCase);
-
-                    foreach (var specialty in allSpecialties)
-                    {
-                        // Add exact match (case-insensitive)
-                        if (!exactMatchDict.ContainsKey(specialty.Name))
-                        {
-                            exactMatchDict[specialty.Name] = specialty;
-                        }
-
-                        // Add normalized match
-                        var normalizedName = NormalizeSpecialtyName(specialty.Name);
-                        if (!string.IsNullOrWhiteSpace(normalizedName) && !normalizedMatchDict.ContainsKey(normalizedName))
-                        {
-                            normalizedMatchDict[normalizedName] = specialty;
-                        }
-                    }
-
-                    // Cache dictionaries
-                    UpdateDictionaryCaches(exactMatchDict, normalizedMatchDict);
-                }
-            }
+            var (exactMatchDict, normalizedMatchDict) = GetOrBuildSpecialtyDictionaries(allSpecialties);
 
             // Now do fast dictionary lookups
             foreach (var geminiSpecialty in geminiSpecialties)
             {
-                Guid? specialtyId = null;
-                string? matchedSpecialtyName = null;
+                var specialtyMatch = FindSpecialtyMatch(
+                    geminiSpecialty,
+                    exactMatchDict,
+                    normalizedMatchDict);
 
-                // Try exact match with original name (case-insensitive) - O(1) lookup
-                if (exactMatchDict.TryGetValue(geminiSpecialty.SpecialtyName, out var exactMatch))
+                if (specialtyMatch != null)
                 {
-                    specialtyId = exactMatch.Id;
-                    matchedSpecialtyName = exactMatch.Name;
-                    _logger.LogDebug("Exact match found for specialty: {GeminiName} -> {DbName} (ID: {Id})",
-                        geminiSpecialty.SpecialtyName, matchedSpecialtyName, exactMatch.Id);
-                }
-                else
-                {
-                    // Try normalized match as fallback - O(1) lookup
-                    var normalizedGeminiName = NormalizeSpecialtyName(geminiSpecialty.SpecialtyName);
-                    if (!string.IsNullOrWhiteSpace(normalizedGeminiName) &&
-                        normalizedMatchDict.TryGetValue(normalizedGeminiName, out var normalizedMatch))
-                    {
-                        specialtyId = normalizedMatch.Id;
-                        matchedSpecialtyName = normalizedMatch.Name;
-                        _logger.LogDebug("Normalized match found for specialty: {GeminiName} -> {DbName} (ID: {Id})",
-                            geminiSpecialty.SpecialtyName, matchedSpecialtyName, normalizedMatch.Id);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("No match found for specialty: {GeminiName}. Only mapping specialties that exist in database.",
-                            geminiSpecialty.SpecialtyName);
-                    }
-                }
-
-                // Only add to result if we found a match (specialtyId is not null)
-                if (specialtyId.HasValue)
-                {
-                    result.Add(new SpecialtyMatch
-                    {
-                        SpecialtyId = specialtyId,
-                        SpecialtyName = matchedSpecialtyName ?? geminiSpecialty.SpecialtyName,
-                        Confidence = geminiSpecialty.Confidence,
-                        Urgency = geminiSpecialty.Urgency,
-                        Reasons = geminiSpecialty.Reasons
-                    });
+                    result.Add(specialtyMatch);
                 }
             }
         }
@@ -1102,7 +1127,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// Convert doctor proto to recommendation
     /// </summary>
     private DoctorRecommendation ConvertToDoctorRecommendation(
-        BookingCare.Services.Doctor.Protos.DoctorRecommendation doctor,
+        BookingCare.Services.Doctor.Protos.DoctorRecommendationInfo doctor,
         List<SpecialtyMatch> specialtyMatches,
         LocationContext? location,
         Dictionary<string, string> hospitalAddressMap)
@@ -1169,6 +1194,75 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
     }
 
+    /// <summary>
+    /// Calculate hospital address score for doctor
+    /// </summary>
+    private double CalculateHospitalAddressScore(
+        BookingCare.Services.Doctor.Protos.DoctorRecommendationInfo doctor)
+    {
+        bool hasHospitalAddress = !string.IsNullOrWhiteSpace(doctor.HospitalName) &&
+                                  !string.IsNullOrWhiteSpace(doctor.HospitalId);
+        return hasHospitalAddress ? 0.30 : 0.05;
+    }
+
+    /// <summary>
+    /// Calculate location matching score for doctor
+    /// </summary>
+    private double CalculateLocationScore(
+        BookingCare.Services.Doctor.Protos.DoctorRecommendationInfo doctor,
+        LocationContext? location,
+        string? hospitalAddress)
+    {
+        if (location == null)
+        {
+            return 0.05; // No location preference
+        }
+
+        // Check exact address match
+        if (!string.IsNullOrWhiteSpace(hospitalAddress) && !string.IsNullOrWhiteSpace(location.DisplayName))
+        {
+            bool locationMatch = IsAddressInLocation(hospitalAddress, location.DisplayName);
+            if (locationMatch)
+            {
+                _logger.LogDebug("Doctor {DoctorId} hospital address matches location: {Address} matches {Location}",
+                    doctor.Id, hospitalAddress, location.DisplayName);
+                return 0.50; // HIGHEST priority for location match
+            }
+            else
+            {
+                _logger.LogDebug("Doctor {DoctorId} hospital address does NOT match location: {Address} vs {Location}",
+                    doctor.Id, hospitalAddress, location.DisplayName);
+                return 0.05;
+            }
+        }
+
+        // Fallback to district/province matching
+        if (!string.IsNullOrEmpty(location.DistrictId))
+        {
+            return 0.20; // Medium priority for district match
+        }
+
+        if (!string.IsNullOrEmpty(location.ProvinceId))
+        {
+            return 0.15; // Lower priority for province match
+        }
+
+        return 0.05; // No location data
+    }
+
+    /// <summary>
+    /// Calculate specialty matching score
+    /// </summary>
+    private double CalculateSpecialtyScore(
+        BookingCare.Services.Doctor.Protos.DoctorRecommendationInfo doctor,
+        List<SpecialtyMatch> specialtyMatches)
+    {
+        var specialtyMatch = specialtyMatches.FirstOrDefault(s =>
+            s.SpecialtyName.Equals(doctor.SpecialtyName, StringComparison.OrdinalIgnoreCase));
+
+        return specialtyMatch != null ? 0.10 * specialtyMatch.Confidence : 0.02;
+    }
+
     private double CalculateDoctorScore(
         BookingCare.Services.Doctor.Protos.DoctorRecommendationInfo doctor,
         List<SpecialtyMatch> specialtyMatches,
@@ -1177,73 +1271,19 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         double score = 0;
 
-        // PRIORITY: Doctor with hospital address map (has hospital name = has address) gets bonus
-        // This ensures doctors with hospital address are ranked first
-        bool hasHospitalAddress = !string.IsNullOrWhiteSpace(doctor.HospitalName) &&
-                                  !string.IsNullOrWhiteSpace(doctor.HospitalId);
-        if (hasHospitalAddress)
-        {
-            score += 0.30; // Base bonus for having hospital address map
-        }
-        else
-        {
-            score += 0.05; // Very low score if no hospital address
-        }
+        // Hospital address score (30%)
+        score += CalculateHospitalAddressScore(doctor);
 
-        // CRITICAL: Location matching based on actual address (ưu tiên cao nhất)
-        // Check if hospital address matches user location
-        bool locationMatch = false;
-        if (location != null && !string.IsNullOrWhiteSpace(hospitalAddress) && !string.IsNullOrWhiteSpace(location.DisplayName))
-        {
-            locationMatch = IsAddressInLocation(hospitalAddress, location.DisplayName);
-            if (locationMatch)
-            {
-                score += 0.50; // HIGHEST priority for location match
-                _logger.LogDebug("Doctor {DoctorId} hospital address matches location: {Address} matches {Location}",
-                    doctor.Id, hospitalAddress, location.DisplayName);
-            }
-            else
-            {
-                score += 0.05; // Very low score if location doesn't match
-                _logger.LogDebug("Doctor {DoctorId} hospital address does NOT match location: {Address} vs {Location}",
-                    doctor.Id, hospitalAddress, location.DisplayName);
-            }
-        }
-        else if (location != null && !string.IsNullOrEmpty(location.DistrictId))
-        {
-            // Fallback: if no address, use district/province ID matching
-            score += 0.20; // Medium priority for district match
-        }
-        else if (location != null && !string.IsNullOrEmpty(location.ProvinceId))
-        {
-            // Fallback: province match
-            score += 0.15; // Lower priority for province match
-        }
-        else
-        {
-            // No location preference or no location data
-            score += 0.05; // Lower score without location
-        }
+        // Location matching score (50%)
+        score += CalculateLocationScore(doctor, location, hospitalAddress);
 
-        // 10% - Specialty match confidence
-        var specialtyMatch = specialtyMatches.FirstOrDefault(s =>
-            s.SpecialtyName.Equals(doctor.SpecialtyName, StringComparison.OrdinalIgnoreCase));
-        if (specialtyMatch != null)
-        {
-            score += 0.10 * specialtyMatch.Confidence;
-        }
-        else
-        {
-            // No specialty match = very low score
-            score += 0.02; // Minimal score
-        }
+        // Specialty match score (10%)
+        score += CalculateSpecialtyScore(doctor, specialtyMatches);
 
-        // 5% - Rating (normalized to 0-1, assuming 5-star scale)
-        // Rating 5.0 = 5%, Rating 4.0 = 4%, Rating 3.0 = 3%
+        // Rating score (5%)
         score += 0.05 * Math.Min(doctor.Rating / 5.0, 1.0);
 
-        // 5% - Experience (capped at 30 years for normalization)
-        // 30+ years = 5%, 20 years = 3.33%, 10 years = 1.67%
+        // Experience score (5%)
         score += 0.05 * Math.Min(doctor.YearsOfExperience / 30.0, 1.0);
 
         return Math.Round(score, 3);
@@ -1426,7 +1466,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private HospitalRecommendation ConvertToHospitalRecommendation(
         HospitalDto hospital,
         LocationContext? location,
-        bool isEmergency)
+        bool isEmergency,
+        int specialtyCount = 0)
     {
         return new HospitalRecommendation
         {
@@ -1434,7 +1475,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             Name = hospital.Name,
             Address = hospital.Address,
             SpecialtyNames = hospital.SpecialtyNames ?? new List<string>(),
-            RecommendationScore = CalculateHospitalScore(hospital, location, isEmergency),
+            RecommendationScore = CalculateHospitalScore(hospital, location, isEmergency, specialtyCount),
             ImageUrl = hospital.ImageUrl
         };
     }
@@ -1463,8 +1504,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             }
 
             // Convert and rank hospitals
+            var specialtyCount = specialtyIds.Count;
             return allHospitals.Values
-                .Select(h => ConvertToHospitalRecommendation(h, location, isEmergency))
+                .Select(h => ConvertToHospitalRecommendation(h, location, isEmergency, specialtyCount))
                 .OrderByDescending(h => h.RecommendationScore)
                 .Take(3) // Top 3 hospitals
                 .ToList();
@@ -1476,91 +1518,117 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
     }
 
-    private double CalculateHospitalScore(HospitalDto hospital, LocationContext? location, bool isEmergency)
+    /// <summary>
+    /// Calculate hospital address availability score
+    /// </summary>
+    private double CalculateHospitalAddressScore(HospitalDto hospital)
     {
-        double score = 0;
-
-        // PRIORITY: Hospital with address map (has address) gets bonus
-        // This ensures hospitals with address are ranked first
         bool hasAddress = !string.IsNullOrWhiteSpace(hospital.Address);
-        if (hasAddress)
+        return hasAddress ? 0.30 : 0.05;
+    }
+
+    /// <summary>
+    /// Calculate hospital location matching score
+    /// </summary>
+    private double CalculateHospitalLocationScore(
+        HospitalDto hospital,
+        LocationContext? location)
+    {
+        if (location == null)
         {
-            score += 0.30; // Base bonus for having address map
-        }
-        else
-        {
-            score += 0.05; // Very low score if no address
+            return 0.05; // No location preference
         }
 
-        // CRITICAL: Location matching based on actual address (ưu tiên cao nhất)
-        // Check if hospital address matches user location
-        bool locationMatch = false;
-        if (location != null && hasAddress && !string.IsNullOrWhiteSpace(location.DisplayName))
+        bool hasAddress = !string.IsNullOrWhiteSpace(hospital.Address);
+
+        // Check exact address match
+        if (hasAddress && !string.IsNullOrWhiteSpace(location.DisplayName))
         {
-            locationMatch = IsAddressInLocation(hospital.Address, location.DisplayName);
+            bool locationMatch = IsAddressInLocation(hospital.Address, location.DisplayName);
             if (locationMatch)
             {
-                score += 0.50; // HIGHEST priority for location match
                 _logger.LogDebug("Hospital {HospitalId} address matches location: {Address} matches {Location}",
                     hospital.Id, hospital.Address, location.DisplayName);
+                return 0.50; // HIGHEST priority
             }
             else
             {
-                score += 0.05; // Very low score if location doesn't match
                 _logger.LogDebug("Hospital {HospitalId} address does NOT match location: {Address} vs {Location}",
                     hospital.Id, hospital.Address, location.DisplayName);
+                return 0.05;
             }
         }
-        else if (location != null && !string.IsNullOrEmpty(location.DistrictId))
+
+        // Fallback to district/province matching
+        if (!string.IsNullOrEmpty(location.DistrictId))
         {
-            // Fallback: if no address, use district/province ID matching
-            score += 0.20; // Medium priority for district match
-        }
-        else if (location != null && !string.IsNullOrEmpty(location.ProvinceId))
-        {
-            // Fallback: province match
-            score += 0.15; // Lower priority for province match
-        }
-        else
-        {
-            // No location preference or no location data
-            score += 0.05; // Lower score without location
+            return 0.20; // Medium priority
         }
 
-        // 30% - Specialty match (hospitals with matching specialties)
+        if (!string.IsNullOrEmpty(location.ProvinceId))
+        {
+            return 0.15; // Lower priority
+        }
+
+        return 0.05; // No location data
+    }
+
+    /// <summary>
+    /// Calculate hospital specialty matching score
+    /// </summary>
+    private double CalculateHospitalSpecialtyScore(
+        HospitalDto hospital,
+        int specialtyCount)
+    {
         if (specialtyCount > 0 && hospital.SpecialtyNames != null && hospital.SpecialtyNames.Any())
         {
-            // Calculate how many recommended specialties match hospital's specialties
-            // In production, you would match by specialty IDs, not names
-            // For now, assume hospitals with more specialties have better match
             var matchRatio = Math.Min(
                 (double)hospital.SpecialtyNames.Count / Math.Max(specialtyCount, 1),
                 1.0
             );
-            score += 0.30 * matchRatio;
+            return 0.30 * matchRatio;
         }
-        else
-        {
-            score += 0.05; // Minimal score if no specialty match
-        }
+        return 0.05; // Minimal score if no specialty match
+    }
 
-        // 20% - Has emergency department (if urgent/emergency case)
+    /// <summary>
+    /// Calculate emergency department score
+    /// </summary>
+    private double CalculateEmergencyScore(
+        HospitalDto hospital,
+        bool isEmergency)
+    {
+        bool hasEmergencyDept = (hospital.SpecialtyNames?.Count ?? 0) >= 10;
+
         if (isEmergency)
         {
-            // In production, check hospital.HasEmergencyDepartment flag
-            // For now, assume hospitals with many specialties (10+) have ER
-            bool hasEmergencyDept = (hospital.SpecialtyNames?.Count ?? 0) >= 10;
-            score += hasEmergencyDept ? 0.20 : 0.05; // Critical for emergency cases
-        }
-        else
-        {
-            // Non-emergency: still give points for having ER (better equipped)
-            bool hasEmergencyDept = (hospital.SpecialtyNames?.Count ?? 0) >= 10;
-            score += hasEmergencyDept ? 0.10 : 0.05;
+            return hasEmergencyDept ? 0.20 : 0.05; // Critical for emergency
         }
 
-        // 10% - Specialty diversity (more specialties = better equipped hospital)
-        // 20+ specialties = 10%, 10 specialties = 5%, 5 specialties = 2.5%
+        return hasEmergencyDept ? 0.10 : 0.05; // Better equipped
+    }
+
+    private double CalculateHospitalScore(
+        HospitalDto hospital,
+        LocationContext? location,
+        bool isEmergency,
+        int specialtyCount = 0)
+    {
+        double score = 0;
+
+        // Address availability score (30%)
+        score += CalculateHospitalAddressScore(hospital);
+
+        // Location matching score (50%)
+        score += CalculateHospitalLocationScore(hospital, location);
+
+        // Specialty matching score (30%)
+        score += CalculateHospitalSpecialtyScore(hospital, specialtyCount);
+
+        // Emergency department score (20%)
+        score += CalculateEmergencyScore(hospital, isEmergency);
+
+        // Specialty diversity score (10%)
         var specialtyDiversity = Math.Min((hospital.SpecialtyNames?.Count ?? 0) / 20.0, 1.0);
         score += 0.10 * specialtyDiversity;
 

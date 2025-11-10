@@ -175,7 +175,7 @@ public class SymptomAnalysisController : BaseApiController
     [HttpGet("sessions")]
     [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
-    [ProducesResponseType(typeof(ApiResponse<List<ConversationSessionSummary>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<List<SessionSummary>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(string), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetUserSessions()

@@ -119,9 +119,13 @@ public class GeminiService : IGeminiService
         }
         catch (HttpRequestException httpEx)
         {
-            _logger.LogDebug(httpEx, "HTTP error calling Gemini API with model {Model} on {Endpoint}: {Message}",
+            _logger.LogWarning(httpEx, "HTTP error calling Gemini API with model {Model} on {Endpoint}: {Message}",
                 model, endpoint, httpEx.Message);
-            return null;
+            throw new GeminiApiException(
+                $"HTTP error calling Gemini API: {httpEx.Message}",
+                "HTTP_REQUEST_FAILED",
+                null,
+                httpEx);
         }
     }
 
@@ -181,7 +185,7 @@ public class GeminiService : IGeminiService
             $"Last error: {lastException?.Message}",
             "ALL_MODELS_FAILED",
             null,
-            lastException!);
+            lastException);
     }
 
     /// <summary>
@@ -348,7 +352,7 @@ public class GeminiService : IGeminiService
             responsePreview.Substring(0, previewLength));
 
         // Try to fix incomplete JSON by closing open structures
-        var jsonToFix = !string.IsNullOrWhiteSpace(cleanedResponse) ? cleanedResponse : responsePreview;
+        var jsonToFix = cleanedResponse;
         var fixedJson = TryFixIncompleteJson(jsonToFix);
 
         if (fixedJson != null)
@@ -556,7 +560,7 @@ public class GeminiService : IGeminiService
         catch (JsonException ex)
         {
             _logger.LogDebug(ex, "JSON validation failed. JSON preview: {Preview}",
-                json?.Substring(0, Math.Min(100, json?.Length ?? 0)) ?? "null");
+                json.Substring(0, Math.Min(100, json.Length)));
             return false;
         }
     }
@@ -600,7 +604,7 @@ public class GeminiService : IGeminiService
             var result = fixedJson.ToString();
 
             // Validate the fixed JSON is parseable
-            if (ValidateFixedJson(result))
+            if (IsValidJson(result))
             {
                 _logger.LogInformation("Successfully fixed incomplete JSON. Added {Braces} braces and {Brackets} brackets",
                     missingBraces, missingBrackets);
