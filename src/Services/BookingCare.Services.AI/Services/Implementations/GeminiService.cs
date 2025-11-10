@@ -28,16 +28,11 @@ public class GeminiService : IGeminiService
         _logger = logger;
     }
 
-    public async Task<string> AnalyzeSymptomsAsync(string message, List<ConversationMessage>? conversationHistory = null)
+    /// <summary>
+    /// Build list of models to try
+    /// </summary>
+    private List<string> BuildModelsToTry(List<string> availableModels)
     {
-        var prompt = BuildSymptomAnalysisPrompt(message, conversationHistory);
-        var requestBody = BuildGeminiRequest(prompt);
-
-        // Try to get available models first, then use them
-        var availableModels = await GetAvailableModelsAsync();
-
-        // List of models to try in order
-        // Priority: config model > available models > common fallbacks
         var modelsToTry = new List<string>();
 
         if (!string.IsNullOrEmpty(_settings.Model))
@@ -65,73 +60,97 @@ public class GeminiService : IGeminiService
 
         modelsToTry.AddRange(fallbackModels.Where(m => !modelsToTry.Contains(m)));
 
+        return modelsToTry.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Try calling Gemini API with specific model and endpoint
+    /// </summary>
+    private async Task<string?> TryCallGeminiApi(string model, string endpoint, object requestBody)
+    {
+        try
+        {
+            var url = $"{endpoint}/{model}:generateContent?key={_settings.ApiKey}";
+
+            var content = new StringContent(
+                JsonSerializer.Serialize(requestBody),
+                Encoding.UTF8,
+                "application/json");
+
+            _logger.LogInformation("Calling Gemini API: {Endpoint}/{Model}:generateContent",
+                endpoint, model);
+            _logger.LogDebug("Request body: {RequestBody}", JsonSerializer.Serialize(requestBody));
+
+            var response = await _httpClient.PostAsync(url, content);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Gemini API call successful with model {Model} on {Endpoint}. Response length: {Length}",
+                    model, endpoint, responseBody.Length);
+                _logger.LogDebug("Gemini API response: {Response}", responseBody);
+
+                return ExtractTextFromGeminiResponse(responseBody);
+            }
+
+            // Check for authentication/API key errors
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                _logger.LogError("Gemini API authentication failed. Please check your API key and ensure Generative Language API is enabled.");
+                throw new GeminiApiException(
+                    "Gemini API authentication failed. Please check your API key and ensure 'Generative Language API' is enabled in Google Cloud Console.",
+                    "AUTHENTICATION_FAILED",
+                    (int)response.StatusCode);
+            }
+
+            // If 404, return null to try next endpoint
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _logger.LogDebug("Model {Model} not found in {Endpoint}, trying next endpoint", model, endpoint);
+                return null;
+            }
+
+            // Other errors
+            _logger.LogWarning("Gemini API call failed for model {Model} on {Endpoint}. Status: {StatusCode}, Response: {ResponseBody}",
+                model, endpoint, response.StatusCode, responseBody);
+
+            return null;
+        }
+        catch (HttpRequestException httpEx)
+        {
+            _logger.LogDebug(httpEx, "HTTP error calling Gemini API with model {Model} on {Endpoint}: {Message}",
+                model, endpoint, httpEx.Message);
+            return null;
+        }
+    }
+
+    public async Task<string> AnalyzeSymptomsAsync(string message, List<ConversationMessage>? conversationHistory = null)
+    {
+        var prompt = BuildSymptomAnalysisPrompt(message, conversationHistory);
+        var requestBody = BuildGeminiRequest(prompt);
+
+        var availableModels = await GetAvailableModelsAsync();
+        var modelsToTry = BuildModelsToTry(availableModels);
+
         Exception? lastException = null;
 
-        foreach (var model in modelsToTry.Distinct())
+        var endpoints = new[]
+        {
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            "https://generativelanguage.googleapis.com/v1/models"
+        };
+
+        foreach (var model in modelsToTry)
         {
             try
             {
-                // Try v1beta endpoint first (for newer models from Google AI Studio)
-                var endpoints = new[]
-                {
-                    "https://generativelanguage.googleapis.com/v1beta/models",
-                    "https://generativelanguage.googleapis.com/v1/models"
-                };
-
                 foreach (var endpoint in endpoints)
                 {
-                    try
+                    var result = await TryCallGeminiApi(model, endpoint, requestBody);
+                    if (result != null)
                     {
-                        var url = $"{endpoint}/{model}:generateContent?key={_settings.ApiKey}";
-
-                        var content = new StringContent(
-                            JsonSerializer.Serialize(requestBody),
-                            Encoding.UTF8,
-                            "application/json");
-
-                        _logger.LogInformation("Calling Gemini API: {Endpoint}/{Model}:generateContent",
-                            endpoint, model);
-                        _logger.LogDebug("Request body: {RequestBody}", JsonSerializer.Serialize(requestBody));
-
-                        var response = await _httpClient.PostAsync(url, content);
-                        var responseBody = await response.Content.ReadAsStringAsync();
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            _logger.LogInformation("Gemini API call successful with model {Model} on {Endpoint}. Response length: {Length}",
-                                model, endpoint, responseBody.Length);
-                            _logger.LogDebug("Gemini API response: {Response}", responseBody);
-
-                            return ExtractTextFromGeminiResponse(responseBody);
-                        }
-
-                        // Check for authentication/API key errors
-                        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
-                            response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                        {
-                            _logger.LogError("Gemini API authentication failed. Please check your API key and ensure Generative Language API is enabled.");
-                            throw new GeminiApiException(
-                                "Gemini API authentication failed. Please check your API key and ensure 'Generative Language API' is enabled in Google Cloud Console.",
-                                "AUTHENTICATION_FAILED",
-                                (int)response.StatusCode);
-                        }
-
-                        // If 404, try next endpoint
-                        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                        {
-                            _logger.LogDebug("Model {Model} not found in {Endpoint}, trying next endpoint", model, endpoint);
-                            continue;
-                        }
-
-                        // Other errors
-                        _logger.LogWarning("Gemini API call failed for model {Model} on {Endpoint}. Status: {StatusCode}, Response: {ResponseBody}",
-                            model, endpoint, response.StatusCode, responseBody);
-                    }
-                    catch (HttpRequestException httpEx)
-                    {
-                        _logger.LogDebug(httpEx, "HTTP error calling Gemini API with model {Model} on {Endpoint}: {Message}",
-                            model, endpoint, httpEx.Message);
-                        // Continue to next endpoint
+                        return result;
                     }
                 }
 
@@ -166,12 +185,92 @@ public class GeminiService : IGeminiService
     }
 
     /// <summary>
+    /// Extract model short name from full path
+    /// </summary>
+    private string? ExtractModelShortName(string modelName)
+    {
+        if (string.IsNullOrEmpty(modelName))
+        {
+            return null;
+        }
+
+        // Extract model name from full path (e.g., "models/gemini-pro" -> "gemini-pro")
+        var parts = modelName.Split('/');
+        return parts.Length > 0 ? parts[parts.Length - 1] : null;
+    }
+
+    /// <summary>
+    /// Parse models from API response
+    /// </summary>
+    private List<string> ParseModelsFromResponse(string responseBody)
+    {
+        var models = new List<string>();
+
+        try
+        {
+            var jsonDoc = JsonDocument.Parse(responseBody);
+            if (jsonDoc.RootElement.TryGetProperty("models", out var modelsElement))
+            {
+                foreach (var model in modelsElement.EnumerateArray())
+                {
+                    if (model.TryGetProperty("name", out var name))
+                    {
+                        var modelName = name.GetString();
+                        var shortName = ExtractModelShortName(modelName);
+
+                        if (!string.IsNullOrEmpty(shortName) && !models.Contains(shortName))
+                        {
+                            models.Add(shortName);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error parsing models from response");
+        }
+
+        return models;
+    }
+
+    /// <summary>
+    /// Try to fetch models from specific endpoint
+    /// </summary>
+    private async Task<List<string>> TryFetchModelsFromEndpoint(string endpoint)
+    {
+        try
+        {
+            var url = $"{endpoint}?key={_settings.ApiKey}";
+            _logger.LogDebug("Fetching available models from: {Endpoint}", endpoint);
+
+            var response = await _httpClient.GetAsync(url);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                var models = ParseModelsFromResponse(responseBody);
+                if (models.Any())
+                {
+                    _logger.LogInformation("Successfully fetched {Count} available models from {Endpoint}",
+                        models.Count, endpoint);
+                    return models;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error fetching models from {Endpoint}", endpoint);
+        }
+
+        return new List<string>();
+    }
+
+    /// <summary>
     /// Get list of available models from Gemini API
     /// </summary>
     private async Task<List<string>> GetAvailableModelsAsync()
     {
-        var availableModels = new List<string>();
-
         try
         {
             // Try v1beta first (for Google AI Studio API keys)
@@ -183,53 +282,10 @@ public class GeminiService : IGeminiService
 
             foreach (var endpoint in endpoints)
             {
-                try
+                var models = await TryFetchModelsFromEndpoint(endpoint);
+                if (models.Any())
                 {
-                    var url = $"{endpoint}?key={_settings.ApiKey}";
-                    _logger.LogDebug("Fetching available models from: {Endpoint}", endpoint);
-
-                    var response = await _httpClient.GetAsync(url);
-                    var responseBody = await response.Content.ReadAsStringAsync();
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var jsonDoc = JsonDocument.Parse(responseBody);
-                        if (jsonDoc.RootElement.TryGetProperty("models", out var models))
-                        {
-                            foreach (var model in models.EnumerateArray())
-                            {
-                                if (model.TryGetProperty("name", out var name))
-                                {
-                                    var modelName = name.GetString();
-                                    if (!string.IsNullOrEmpty(modelName))
-                                    {
-                                        // Extract model name from full path (e.g., "models/gemini-pro" -> "gemini-pro")
-                                        var parts = modelName.Split('/');
-                                        if (parts.Length > 0)
-                                        {
-                                            var shortName = parts[parts.Length - 1];
-                                            if (!availableModels.Contains(shortName))
-                                            {
-                                                availableModels.Add(shortName);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (availableModels.Any())
-                            {
-                                _logger.LogInformation("Successfully fetched {Count} available models from {Endpoint}",
-                                    availableModels.Count, endpoint);
-                                break; // Found models, no need to try other endpoints
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Error fetching models from {Endpoint}", endpoint);
-                    // Continue to next endpoint
+                    return models;
                 }
             }
         }
@@ -238,13 +294,85 @@ public class GeminiService : IGeminiService
             _logger.LogWarning(ex, "Failed to fetch available models, will use fallback models");
         }
 
-        return availableModels;
+        return new List<string>();
+    }
+
+    /// <summary>
+    /// Get JSON serializer options for parsing
+    /// </summary>
+    private JsonSerializerOptions GetJsonSerializerOptions()
+    {
+        return new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            AllowTrailingCommas = true,
+            ReadCommentHandling = JsonCommentHandling.Skip
+        };
+    }
+
+    /// <summary>
+    /// Try to parse JSON string to GeminiAnalysisResult
+    /// </summary>
+    private GeminiAnalysisResult? TryDeserializeGeminiResult(string json)
+    {
+        try
+        {
+            var options = GetJsonSerializerOptions();
+            return JsonSerializer.Deserialize<GeminiAnalysisResult>(json, options);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to deserialize Gemini result. This is expected for incomplete JSON.");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Check if JSON exception indicates incomplete/truncated response
+    /// </summary>
+    private bool IsIncompleteJsonError(JsonException jsonEx)
+    {
+        return jsonEx.Message.Contains("end of data", StringComparison.OrdinalIgnoreCase) ||
+               jsonEx.Message.Contains("unexpected end", StringComparison.OrdinalIgnoreCase) ||
+               jsonEx.Message.Contains("end of string", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Handle incomplete JSON by trying to fix and parse
+    /// </summary>
+    private GeminiAnalysisResult? HandleIncompleteJson(string geminiResponse, string cleanedResponse, JsonException jsonEx)
+    {
+        var responsePreview = geminiResponse ?? string.Empty;
+        var previewLength = Math.Min(1000, responsePreview.Length);
+        _logger.LogError(jsonEx, "JSON response appears to be incomplete/truncated. This may be due to MaxTokens limit being too low. Response preview: {Response}",
+            responsePreview.Substring(0, previewLength));
+
+        // Try to fix incomplete JSON by closing open structures
+        var jsonToFix = !string.IsNullOrWhiteSpace(cleanedResponse) ? cleanedResponse : responsePreview;
+        var fixedJson = TryFixIncompleteJson(jsonToFix);
+
+        if (fixedJson != null)
+        {
+            _logger.LogInformation("Attempting to parse fixed JSON");
+            var result = TryDeserializeGeminiResult(fixedJson);
+            if (result != null)
+            {
+                _logger.LogInformation("Successfully parsed fixed JSON response");
+                return result;
+            }
+            _logger.LogWarning("Failed to parse fixed JSON, will throw original error");
+        }
+
+        var shortPreview = responsePreview.Substring(0, Math.Min(500, responsePreview.Length));
+        throw new GeminiResponseParseException(
+            $"AI response was incomplete (truncated). This usually happens when the response is too long. " +
+            $"Please try again or contact support. Error: {jsonEx.Message}",
+            shortPreview,
+            jsonEx);
     }
 
     public GeminiAnalysisResult ParseGeminiResponse(string geminiResponse)
     {
-        // Remove markdown code blocks if present (e.g., ```json ... ```)
-        // Declare outside try block so it's accessible in catch block
         string cleanedResponse = string.Empty;
 
         try
@@ -254,21 +382,12 @@ public class GeminiService : IGeminiService
                 throw new ArgumentException("Gemini response is empty");
             }
 
-            // Remove markdown code blocks if present (e.g., ```json ... ```)
             cleanedResponse = RemoveMarkdownCodeBlocks(geminiResponse);
 
             _logger.LogDebug("Parsing Gemini response (cleaned). Length: {Length}", cleanedResponse.Length);
             _logger.LogDebug("Original response preview: {Preview}", geminiResponse.Substring(0, Math.Min(200, geminiResponse.Length)));
 
-            // Gemini trả về JSON, ta parse nó
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                AllowTrailingCommas = true,
-                ReadCommentHandling = JsonCommentHandling.Skip
-            };
-
-            var result = JsonSerializer.Deserialize<GeminiAnalysisResult>(cleanedResponse, options);
+            var result = TryDeserializeGeminiResult(cleanedResponse);
 
             if (result == null)
             {
@@ -283,52 +402,13 @@ public class GeminiService : IGeminiService
         }
         catch (JsonException jsonEx)
         {
-            // Check if JSON is incomplete (truncated)
-            var isIncomplete = jsonEx.Message.Contains("end of data", StringComparison.OrdinalIgnoreCase) ||
-                              jsonEx.Message.Contains("unexpected end", StringComparison.OrdinalIgnoreCase) ||
-                              jsonEx.Message.Contains("end of string", StringComparison.OrdinalIgnoreCase);
-
-            if (isIncomplete)
+            if (IsIncompleteJsonError(jsonEx))
             {
-                var responsePreview = geminiResponse ?? string.Empty;
-                var previewLength = Math.Min(1000, responsePreview.Length);
-                _logger.LogError(jsonEx, "JSON response appears to be incomplete/truncated. This may be due to MaxTokens limit being too low. Response preview: {Response}",
-                    responsePreview.Substring(0, previewLength));
-
-                // Try to fix incomplete JSON by closing open structures
-                // Use cleanedResponse if available, otherwise use original geminiResponse
-                var jsonToFix = !string.IsNullOrWhiteSpace(cleanedResponse) ? cleanedResponse : responsePreview;
-                var fixedJson = TryFixIncompleteJson(jsonToFix);
-                if (fixedJson != null)
+                var fixedResult = HandleIncompleteJson(geminiResponse, cleanedResponse, jsonEx);
+                if (fixedResult != null)
                 {
-                    try
-                    {
-                        _logger.LogInformation("Attempting to parse fixed JSON");
-                        var options = new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true,
-                            AllowTrailingCommas = true,
-                            ReadCommentHandling = JsonCommentHandling.Skip
-                        };
-                        var result = JsonSerializer.Deserialize<GeminiAnalysisResult>(fixedJson, options);
-                        if (result != null)
-                        {
-                            _logger.LogInformation("Successfully parsed fixed JSON response");
-                            return result;
-                        }
-                    }
-                    catch (Exception fixEx)
-                    {
-                        _logger.LogWarning(fixEx, "Failed to parse fixed JSON, will throw original error");
-                    }
+                    return fixedResult;
                 }
-
-                var shortPreview = responsePreview.Substring(0, Math.Min(500, responsePreview.Length));
-                throw new GeminiResponseParseException(
-                    $"AI response was incomplete (truncated). This usually happens when the response is too long. " +
-                    $"Please try again or contact support. Error: {jsonEx.Message}",
-                    shortPreview,
-                    jsonEx);
             }
 
             var preview = (geminiResponse ?? string.Empty).Substring(0, Math.Min(500, (geminiResponse ?? string.Empty).Length));
@@ -414,6 +494,74 @@ public class GeminiService : IGeminiService
     }
 
     /// <summary>
+    /// Check if JSON brackets/braces are balanced
+    /// </summary>
+    private bool IsJsonBalanced(string json, out int missingBraces, out int missingBrackets)
+    {
+        var openBraces = json.Count(c => c == '{');
+        var closeBraces = json.Count(c => c == '}');
+        var openBrackets = json.Count(c => c == '[');
+        var closeBrackets = json.Count(c => c == ']');
+
+        missingBraces = openBraces - closeBraces;
+        missingBrackets = openBrackets - closeBrackets;
+
+        return missingBraces == 0 && missingBrackets == 0;
+    }
+
+    /// <summary>
+    /// Try to fix incomplete string at the end of JSON
+    /// </summary>
+    private bool TryFixIncompleteString(StringBuilder fixedJson, string jsonStr)
+    {
+        var lastQuoteIndex = jsonStr.LastIndexOf('"');
+        if (lastQuoteIndex <= 0 || lastQuoteIndex <= jsonStr.Length - 200)
+        {
+            return false;
+        }
+
+        var afterLastQuote = jsonStr.Substring(lastQuoteIndex + 1).Trim();
+
+        // If there's text after the last quote but no closing quote, comma, brace, or bracket
+        if (afterLastQuote.Length > 0 &&
+            !afterLastQuote.Contains('"') &&
+            !afterLastQuote.Contains(',') &&
+            !afterLastQuote.Contains('}') &&
+            !afterLastQuote.Contains(']'))
+        {
+            // Check if we're in a string value context
+            var beforeLastQuote = jsonStr.Substring(0, lastQuoteIndex);
+            var lastColonIndex = beforeLastQuote.LastIndexOf(':');
+
+            if (lastColonIndex > 0 && lastColonIndex > lastQuoteIndex - 50)
+            {
+                fixedJson.Append('"');
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Validate if fixed JSON is parseable
+    /// </summary>
+    private bool IsValidJson(string json)
+    {
+        try
+        {
+            JsonDocument.Parse(json);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogDebug(ex, "JSON validation failed. JSON preview: {Preview}",
+                json?.Substring(0, Math.Min(100, json?.Length ?? 0)) ?? "null");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Try to fix incomplete JSON by closing open brackets/braces
     /// </summary>
     private string? TryFixIncompleteJson(string json)
@@ -425,14 +573,8 @@ public class GeminiService : IGeminiService
 
         try
         {
-            // Count open/close brackets and braces
-            var openBraces = json.Count(c => c == '{');
-            var closeBraces = json.Count(c => c == '}');
-            var openBrackets = json.Count(c => c == '[');
-            var closeBrackets = json.Count(c => c == ']');
-
-            // If already balanced, return null (no fix needed)
-            if (openBraces == closeBraces && openBrackets == closeBrackets)
+            // Check if JSON is already balanced
+            if (IsJsonBalanced(json, out int missingBraces, out int missingBrackets))
             {
                 return null;
             }
@@ -441,60 +583,31 @@ public class GeminiService : IGeminiService
             var jsonStr = fixedJson.ToString();
 
             // Try to fix incomplete string at the end
-            // Look for pattern where we're in the middle of a string value
-            // Example: "description": "incomplete text... (no closing quote)
-            var lastQuoteIndex = jsonStr.LastIndexOf('"');
-            if (lastQuoteIndex > 0 && lastQuoteIndex > jsonStr.Length - 200)
-            {
-                var afterLastQuote = jsonStr.Substring(lastQuoteIndex + 1).Trim();
-
-                // If there's text after the last quote but no closing quote, comma, brace, or bracket,
-                // we likely have an incomplete string value
-                if (afterLastQuote.Length > 0 &&
-                    !afterLastQuote.Contains('"') &&
-                    !afterLastQuote.Contains(',') &&
-                    !afterLastQuote.Contains('}') &&
-                    !afterLastQuote.Contains(']'))
-                {
-                    // Check if we're in a string value context (look for colon before the quote)
-                    var beforeLastQuote = jsonStr.Substring(0, lastQuoteIndex);
-                    var lastColonIndex = beforeLastQuote.LastIndexOf(':');
-
-                    if (lastColonIndex > 0 && lastColonIndex > lastQuoteIndex - 50)
-                    {
-                        // We're likely in a string value, close it
-                        fixedJson.Append('"');
-                    }
-                }
-            }
+            TryFixIncompleteString(fixedJson, jsonStr);
 
             // Close arrays first
-            for (int i = 0; i < openBrackets - closeBrackets; i++)
+            for (int i = 0; i < missingBrackets; i++)
             {
                 fixedJson.Append(']');
             }
 
             // Close objects
-            for (int i = 0; i < openBraces - closeBraces; i++)
+            for (int i = 0; i < missingBraces; i++)
             {
                 fixedJson.Append('}');
             }
 
             var result = fixedJson.ToString();
 
-            // Validate the fixed JSON is at least parseable
-            try
+            // Validate the fixed JSON is parseable
+            if (ValidateFixedJson(result))
             {
-                JsonDocument.Parse(result);
                 _logger.LogInformation("Successfully fixed incomplete JSON. Added {Braces} braces and {Brackets} brackets",
-                    openBraces - closeBraces, openBrackets - closeBrackets);
+                    missingBraces, missingBrackets);
                 return result;
             }
-            catch
-            {
-                // Fixed JSON is still invalid
-                return null;
-            }
+
+            return null;
         }
         catch (Exception ex)
         {
@@ -992,6 +1105,110 @@ public class GeminiService : IGeminiService
         };
     }
 
+    /// <summary>
+    /// Check for API error in response
+    /// </summary>
+    private void CheckForApiError(JsonDocument jsonDoc)
+    {
+        if (jsonDoc.RootElement.TryGetProperty("error", out var errorElement))
+        {
+            var errorMessage = errorElement.GetProperty("message").GetString() ?? "Unknown error";
+            _logger.LogError("Gemini API returned error: {Error}", errorMessage);
+            throw new GeminiApiException(errorMessage, "API_ERROR");
+        }
+    }
+
+    /// <summary>
+    /// Get candidates array from response
+    /// </summary>
+    private JsonElement GetCandidates(JsonDocument jsonDoc, string responseBody)
+    {
+        if (!jsonDoc.RootElement.TryGetProperty("candidates", out var candidates))
+        {
+            _logger.LogError("No 'candidates' property in Gemini response. Response: {Response}", responseBody);
+            throw new JsonException("No 'candidates' property found in Gemini response");
+        }
+
+        if (candidates.GetArrayLength() == 0)
+        {
+            _logger.LogError("Empty 'candidates' array in Gemini response. Response: {Response}", responseBody);
+            throw new JsonException("Empty candidates array in Gemini response");
+        }
+
+        return candidates;
+    }
+
+    /// <summary>
+    /// Check finish reason and handle special cases
+    /// </summary>
+    private void CheckFinishReason(JsonElement candidate)
+    {
+        if (!candidate.TryGetProperty("finishReason", out var finishReason))
+        {
+            return;
+        }
+
+        var finishReasonValue = finishReason.GetString();
+        if (finishReasonValue == "STOP" || finishReasonValue == null)
+        {
+            return;
+        }
+
+        _logger.LogWarning("Gemini response finish reason: {Reason}", finishReasonValue);
+
+        if (finishReasonValue == "SAFETY")
+        {
+            throw new GeminiApiException(
+                "Gemini API blocked the content for safety reasons",
+                "SAFETY_BLOCKED");
+        }
+
+        if (finishReasonValue == "MAX_TOKENS")
+        {
+            _logger.LogWarning("Gemini response was truncated due to MAX_TOKENS limit. Consider increasing MaxTokens in config.");
+        }
+    }
+
+    /// <summary>
+    /// Extract text from candidate content
+    /// </summary>
+    private string ExtractTextFromCandidate(JsonElement candidate, string responseBody)
+    {
+        if (!candidate.TryGetProperty("content", out var content))
+        {
+            _logger.LogError("No 'content' property in candidate. Response: {Response}", responseBody);
+            throw new JsonException("No 'content' property found in candidate");
+        }
+
+        if (!content.TryGetProperty("parts", out var parts))
+        {
+            _logger.LogError("No 'parts' property in content. Response: {Response}", responseBody);
+            throw new JsonException("No 'parts' property found in content");
+        }
+
+        if (parts.GetArrayLength() == 0)
+        {
+            _logger.LogError("Empty 'parts' array. Response: {Response}", responseBody);
+            throw new JsonException("Empty parts array in Gemini response");
+        }
+
+        var textPart = parts[0];
+        if (!textPart.TryGetProperty("text", out var textElement))
+        {
+            _logger.LogError("No 'text' property in part. Response: {Response}", responseBody);
+            throw new JsonException("No 'text' property found in part");
+        }
+
+        var text = textElement.GetString();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _logger.LogError("Empty text in Gemini response. Response: {Response}", responseBody);
+            throw new JsonException("Empty text in Gemini response");
+        }
+
+        return text;
+    }
+
     private string ExtractTextFromGeminiResponse(string responseBody)
     {
         try
@@ -1005,82 +1222,20 @@ public class GeminiService : IGeminiService
 
             var jsonDoc = JsonDocument.Parse(responseBody);
 
-            // Check if response has error
-            if (jsonDoc.RootElement.TryGetProperty("error", out var errorElement))
-            {
-                var errorMessage = errorElement.GetProperty("message").GetString() ?? "Unknown error";
-                _logger.LogError("Gemini API returned error: {Error}", errorMessage);
-                throw new GeminiApiException(errorMessage, "API_ERROR");
-            }
+            // Check for API errors
+            CheckForApiError(jsonDoc);
 
-            if (!jsonDoc.RootElement.TryGetProperty("candidates", out var candidates))
-            {
-                _logger.LogError("No 'candidates' property in Gemini response. Response: {Response}", responseBody);
-                throw new JsonException("No 'candidates' property found in Gemini response");
-            }
-
-            if (candidates.GetArrayLength() == 0)
-            {
-                _logger.LogError("Empty 'candidates' array in Gemini response. Response: {Response}", responseBody);
-                throw new JsonException("Empty candidates array in Gemini response");
-            }
-
+            // Get candidates array
+            var candidates = GetCandidates(jsonDoc, responseBody);
             var firstCandidate = candidates[0];
 
-            // Check for finishReason (might indicate blocked content or truncated response)
-            string? finishReasonValue = null;
-            if (firstCandidate.TryGetProperty("finishReason", out var finishReason))
-            {
-                finishReasonValue = finishReason.GetString();
-                if (finishReasonValue != "STOP" && finishReasonValue != null)
-                {
-                    _logger.LogWarning("Gemini response finish reason: {Reason}", finishReasonValue);
-                    if (finishReasonValue == "SAFETY")
-                    {
-                        throw new GeminiApiException(
-                            "Gemini API blocked the content for safety reasons",
-                            "SAFETY_BLOCKED");
-                    }
-                    if (finishReasonValue == "MAX_TOKENS")
-                    {
-                        _logger.LogWarning("Gemini response was truncated due to MAX_TOKENS limit. Consider increasing MaxTokens in config.");
-                    }
-                }
-            }
+            // Check finish reason
+            CheckFinishReason(firstCandidate);
 
-            if (!firstCandidate.TryGetProperty("content", out var content))
-            {
-                _logger.LogError("No 'content' property in candidate. Response: {Response}", responseBody);
-                throw new JsonException("No 'content' property found in candidate");
-            }
+            // Extract text from candidate
+            var text = ExtractTextFromCandidate(firstCandidate, responseBody);
 
-            if (!content.TryGetProperty("parts", out var parts))
-            {
-                _logger.LogError("No 'parts' property in content. Response: {Response}", responseBody);
-                throw new JsonException("No 'parts' property found in content");
-            }
-
-            if (parts.GetArrayLength() == 0)
-            {
-                _logger.LogError("Empty 'parts' array. Response: {Response}", responseBody);
-                throw new JsonException("Empty parts array in Gemini response");
-            }
-
-            var textPart = parts[0];
-            if (!textPart.TryGetProperty("text", out var textElement))
-            {
-                _logger.LogError("No 'text' property in part. Response: {Response}", responseBody);
-                throw new JsonException("No 'text' property found in part");
-            }
-
-            var text = textElement.GetString();
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                _logger.LogError("Empty text in Gemini response. Response: {Response}", responseBody);
-                throw new JsonException("Empty text in Gemini response");
-            }
-
-            // Remove markdown code blocks if present (e.g., ```json ... ```)
+            // Remove markdown code blocks if present
             text = RemoveMarkdownCodeBlocks(text);
 
             _logger.LogDebug("Successfully extracted text from Gemini response. Text length: {Length}", text.Length);

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Exceptions;
 using BookingCare.Services.Doctor.Models.ApiModels;
@@ -276,37 +276,60 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Cập nhật thông tin doctor
     /// </summary>
+    /// <summary>
+    /// Create a copy of the original doctor entity for comparison
+    /// </summary>
+    private DoctorEntity CreateDoctorCopy(DoctorEntity doctor)
+    {
+        return new DoctorEntity
+        {
+            Id = doctor.Id,
+            AccountId = doctor.AccountId,
+            Email = doctor.Email,
+            FirstName = doctor.FirstName,
+            LastName = doctor.LastName,
+            Gender = doctor.Gender,
+            Address = doctor.Address,
+            AvatarUrl = doctor.AvatarUrl
+        };
+    }
+
+    /// <summary>
+    /// Perform doctor update operations
+    /// </summary>
+    private async Task<DoctorEntity> PerformDoctorUpdateAsync(
+        DoctorEntity existingDoctor,
+        UpdateDoctorRequest request)
+    {
+        UpdateDoctorEntity(existingDoctor, request);
+        await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
+        await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
+        return await _repository.Value.UpdateDoctorAsync(existingDoctor);
+    }
+
+    /// <summary>
+    /// Publish update event asynchronously
+    /// </summary>
+    private void PublishUpdateEventAsync(DoctorEntity originalDoctor, DoctorEntity updatedDoctor)
+    {
+        var correlationId = Guid.NewGuid().ToString();
+        _ = Task.Run(async () =>
+        {
+            await PublishUserProfileUpdatedEventAsync(originalDoctor, updatedDoctor, correlationId);
+        });
+    }
+
     public async Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
             var existingDoctor = await ValidateAndGetExistingDoctor(request.Id);
-
             await ValidateUpdateDoctorRequest(request);
-            var originalDoctor = new DoctorEntity
-            {
-                Id = existingDoctor.Id,
-                AccountId = existingDoctor.AccountId,
-                Email = existingDoctor.Email,
-                FirstName = existingDoctor.FirstName,
-                LastName = existingDoctor.LastName,
-                Gender = existingDoctor.Gender,
-                Address = existingDoctor.Address,
-                AvatarUrl = existingDoctor.AvatarUrl
-            };
-            UpdateDoctorEntity(existingDoctor, request);
 
-            await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
-            await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
+            var originalDoctor = CreateDoctorCopy(existingDoctor);
+            var updatedDoctor = await PerformDoctorUpdateAsync(existingDoctor, request);
 
-            var updatedDoctor = await _repository.Value.UpdateDoctorAsync(existingDoctor);
-
-            // 🎯 Publish UserProfileUpdatedEvent for cache invalidation (fire and forget) - tương tự UserService
-            var correlationId = Guid.NewGuid().ToString();
-            _ = Task.Run(async () =>
-            {
-                await PublishUserProfileUpdatedEventAsync(originalDoctor, updatedDoctor, correlationId);
-            });
+            PublishUpdateEventAsync(originalDoctor, updatedDoctor);
 
             LogInfo("Doctor updated successfully with ID: {DoctorId}", null, existingDoctor.Id);
             return _mapper.Value.Map<DoctorResponse>(updatedDoctor);
