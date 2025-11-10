@@ -1416,12 +1416,13 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 pattern,
                 string.Empty,
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase |
-                System.Text.RegularExpressions.RegexOptions.Multiline
+                System.Text.RegularExpressions.RegexOptions.Multiline,
+                TimeSpan.FromSeconds(2)
             );
         }
 
         // Clean up multiple consecutive newlines
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\n{3,}", "\n\n");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\n{3,}", "\n\n", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(2));
 
         return result.Trim();
     }
