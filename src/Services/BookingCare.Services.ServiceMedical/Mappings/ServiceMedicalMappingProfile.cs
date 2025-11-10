@@ -14,6 +14,10 @@ namespace BookingCare.Services.ServiceMedical.Mappings
                 .ForMember(dest => dest.Children, opt => opt.MapFrom(src => src.Children))
                 .ForMember(dest => dest.Parent, opt => opt.MapFrom(src => src.Parent));
 
+            // Admin response mapping (flat list without navigation properties)
+            CreateMap<ServiceCategoryEntity, ServiceCategoryAdminResponse>();
+            CreateMap<ServiceCategoryResponse, ServiceCategoryAdminResponse>();
+
             CreateMap<CreateServiceCategoryRequest, ServiceCategoryEntity>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => "INACTIVE"))

@@ -42,7 +42,8 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
             var entity = await _context.Services.FindAsync(id);
             if (entity == null) return false;
 
-            _context.Services.Remove(entity);
+            // Soft delete: Only change status to INACTIVE instead of hard delete
+            entity.Status = StatusConstants.Inactive;
             await _context.SaveChangesAsync();
             return true;
         }
@@ -120,8 +121,23 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
             }
 
             var totalCount = await query.CountAsync();
-            var services = await query
-                .OrderBy(s => s.Name)
+
+            // Apply sorting - only support Name and Price
+            var isDescending = string.Equals(request.SortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+            var sortBy = string.IsNullOrWhiteSpace(request.SortBy) ? "Name" : request.SortBy;
+
+            var orderedQuery = sortBy.ToLower() switch
+            {
+                "name" => isDescending
+                    ? query.OrderByDescending(s => s.Name)
+                    : query.OrderBy(s => s.Name),
+                "price" => isDescending
+                    ? query.OrderByDescending(s => s.Price)
+                    : query.OrderBy(s => s.Price),
+                _ => query.OrderBy(s => s.Name) // Default sorting by name
+            };
+
+            var services = await orderedQuery
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .ToListAsync();
@@ -133,6 +149,14 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
         {
             return await _context.Services
                 .Where(s => s.ServiceCategoryId == categoryId && s.Status == StatusConstants.Active)
+                .Select(s => s.HospitalId)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        public async Task<List<Guid>> GetAllDistinctHospitalIdsAsync()
+        {
+            return await _context.Services
                 .Select(s => s.HospitalId)
                 .Distinct()
                 .ToListAsync();

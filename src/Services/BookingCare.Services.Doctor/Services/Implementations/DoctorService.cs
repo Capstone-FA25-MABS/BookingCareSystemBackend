@@ -2213,6 +2213,11 @@ public class DoctorService : BaseService, IDoctorService
         return await _repository.Value.GetDoctorCountsBySpecialtyAndHospitalAsync(hospitalId, specialtyIds);
     }
 
+    public async Task<List<(Guid ServiceTypeId, string ServiceTypeName, string? ServiceTypeImageUrl, int DoctorCount)>> GetServiceTypesByHospitalAsync(Guid hospitalId)
+    {
+        return await _repository.Value.GetServiceTypesByHospitalAsync(hospitalId);
+    }
+
     #endregion
 
     #region Avatar Operations

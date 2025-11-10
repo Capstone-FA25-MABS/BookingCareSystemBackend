@@ -77,6 +77,9 @@ public interface IDoctorRepository
     // Doctor count operations
     Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
 
+    // Get service types by hospital with doctor count
+    Task<List<(Guid ServiceTypeId, string ServiceTypeName, string? ServiceTypeImageUrl, int DoctorCount)>> GetServiceTypesByHospitalAsync(Guid hospitalId);
+
     // Hospital staff management operations (optimized - only returns AccountIds)
     Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId);
 }

@@ -107,14 +107,19 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                // Check if category has children
+                // Check if category is a parent (has children) - cannot delete parent if it has any children
                 var hasChildren = await _categoryRepository.HasChildrenAsync(id);
                 if (hasChildren)
                 {
-                    throw new InvalidOperationException("Cannot delete category that has child categories");
+                    throw new InvalidOperationException("Không thể xóa danh mục dịch vụ cha. Vui lòng xóa tất cả danh mục dịch vụ con trước.");
                 }
 
                 return await _categoryRepository.DeleteAsync(id);
+            }
+            catch (InvalidOperationException)
+            {
+                // Re-throw InvalidOperationException as-is (business rule violation)
+                throw;
             }
             catch (Exception ex)
             {
@@ -128,7 +133,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             try
             {
                 var (categories, totalCount) = await _categoryRepository.GetPagedAsync(
-                    query.Page, query.PageSize, query.SearchTerm, query.Status, query.ParentId);
+                    query.Page, query.PageSize, query.SearchTerm, query.Status, query.ParentId,
+                    query.SortBy, query.SortDirection);
 
                 var response = new ServiceCategoryListResponse
                 {
@@ -470,6 +476,109 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             {
                 _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", request.ServiceCategoryId);
                 throw new InvalidOperationException($"Failed to retrieve services with hospital information for category '{request.ServiceCategoryId}'", ex);
+            }
+        }
+
+        // Get filter options (hospitals and service categories) for dropdown
+        public async Task<FilterOptionsResponse> GetFilterOptionsAsync()
+        {
+            try
+            {
+                // Get all distinct hospital IDs from services
+                var hospitalIds = await _serviceRepository.GetAllDistinctHospitalIdsAsync();
+
+                // Get hospital information from Hospital Service via gRPC
+                var hospitals = await _hospitalService.GetHospitalsByIdsAsync(hospitalIds);
+                var hospitalList = hospitals
+                    .Select(h => new SimpleItemResponse
+                    {
+                        Id = h.Id,
+                        Name = h.Name
+                    })
+                    .OrderBy(h => h.Name)
+                    .ToList();
+
+                // Get all child service categories (categories with ParentId != null and status = ACTIVE)
+                var allCategories = await _categoryRepository.GetActiveCategoriesAsync();
+                var childCategories = allCategories
+                    .Where(c => c.ParentId != null)
+                    .Select(c => new SimpleItemResponse
+                    {
+                        Id = c.Id,
+                        Name = c.Name
+                    })
+                    .OrderBy(c => c.Name)
+                    .ToList();
+
+                return new FilterOptionsResponse
+                {
+                    Hospitals = hospitalList,
+                    ServiceCategories = childCategories
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting filter options");
+                throw new InvalidOperationException("Failed to retrieve filter options", ex);
+            }
+        }
+
+        // Get all services with hospital name and category name (with filtering and sorting)
+        public async Task<ServiceDetailListResponse> GetAllServicesWithDetailsAsync(ServiceQueryRequest? query = null)
+        {
+            try
+            {
+                // If no query provided, get all services
+                if (query == null)
+                {
+                    query = new ServiceQueryRequest
+                    {
+                        Page = 1,
+                        PageSize = int.MaxValue // Get all if no pagination specified
+                    };
+                }
+
+                // Use GetPagedAsync for filtering and sorting (except HospitalName)
+                var (services, totalCount) = await _serviceRepository.GetPagedAsync(query);
+
+                // Extract unique hospital IDs from services
+                var hospitalIds = services
+                    .Select(s => s.HospitalId)
+                    .Distinct()
+                    .ToList();
+
+                // Get hospital information from Hospital Service via gRPC
+                var hospitals = await _hospitalService.GetHospitalsByIdsAsync(hospitalIds);
+                var hospitalDict = hospitals.ToDictionary(h => h.Id, h => h);
+
+                // Map services with hospital name and category name
+                var serviceDetails = services.Select(service =>
+                {
+                    var serviceDetail = new ServiceDetailResponse
+                    {
+                        Id = service.Id,
+                        Name = service.Name,
+                        Description = service.Description,
+                        Price = service.Price,
+                        Duration = service.DurationTime,
+                        Status = service.Status,
+                        ServiceCategoryName = service.ServiceCategory?.Name,
+                        HospitalName = hospitalDict.TryGetValue(service.HospitalId, out var hospital) ? hospital.Name : null
+                    };
+
+                    return serviceDetail;
+                }).ToList();
+
+                return new ServiceDetailListResponse
+                {
+                    Services = serviceDetails,
+                    TotalCount = totalCount
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all services with details");
+                throw new InvalidOperationException("Failed to retrieve all services with details", ex);
             }
         }
 

@@ -237,7 +237,10 @@ public class AppointmentService : BaseService, IAppointmentService
             {
                 LogInfo("No payment flow - sending booking success email immediately for appointment {AppointmentId}",
                     null, appointmentEntity.Id);
-                await SendAppointmentBookingSuccessEmailAsync(appointmentEntity.Id, request.PatientId, 0);
+
+                // Get accountId from JWT token
+                var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(_httpContextAccessor.HttpContext!);
+                await SendAppointmentBookingSuccessEmailAsync(appointmentEntity.Id, request.PatientId, accountId.ToString(), 0);
             }
 
             LogInfo("Successfully created appointment {AppointmentId}", null, appointmentEntity.Id);
@@ -1661,12 +1664,12 @@ public class AppointmentService : BaseService, IAppointmentService
 
     #region Email Notification Operations
 
-    public async Task<bool> SendAppointmentBookingSuccessEmailAsync(Guid appointmentId, Guid patientId, decimal amount = 0)
+    public async Task<bool> SendAppointmentBookingSuccessEmailAsync(Guid appointmentId, Guid patientId, string accountId, decimal amount = 0)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            LogInfo("Sending appointment booking success email for AppointmentId: {AppointmentId}, PatientId: {PatientId}, Amount: {Amount}",
-                null, appointmentId, patientId, amount);
+            LogInfo("Sending appointment booking success email for AppointmentId: {AppointmentId}, PatientId: {PatientId}, AccountId: {AccountId}, Amount: {Amount}",
+                null, appointmentId, patientId, accountId, amount);
 
             // 1. Get appointment details using existing method (already includes patient info)
             var appointment = await GetAppointmentByIdForPatientAsync(appointmentId);
@@ -1729,6 +1732,7 @@ public class AppointmentService : BaseService, IAppointmentService
             {
                 AppointmentId = appointmentId,
                 PatientId = patientId,
+                AccountId = accountId,
                 PatientEmail = patientInfo.Email,
                 AppointmentData = new AppointmentData
                 {
@@ -1758,7 +1762,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// <summary>
     /// Get user basic information using User Service gRPC
     /// </summary>
-    private async Task<BookingCare.Services.User.Protos.UserBasicInfoResponse?> GetUserBasicInfoAsync(Guid userId)
+    private async Task<UserBasicInfoResponse?> GetUserBasicInfoAsync(Guid userId)
     {
         try
         {

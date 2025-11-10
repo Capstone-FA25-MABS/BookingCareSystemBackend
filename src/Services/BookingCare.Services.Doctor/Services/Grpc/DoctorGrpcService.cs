@@ -596,6 +596,47 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         }
     }
 
+    public override async Task<Protos.GetServiceTypesByHospitalResponse> GetServiceTypesByHospital(
+        Protos.GetServiceTypesByHospitalRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[DoctorGrpcService] GetServiceTypesByHospital called for hospital {HospitalId}", request.HospitalId);
+
+            if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            var serviceTypes = await _doctorService.GetServiceTypesByHospitalAsync(hospitalId);
+
+            var response = new Protos.GetServiceTypesByHospitalResponse();
+            foreach (var serviceType in serviceTypes)
+            {
+                response.ServiceTypes.Add(new Protos.ServiceTypeWithDoctorCountResponse
+                {
+                    Id = serviceType.ServiceTypeId.ToString(),
+                    Name = serviceType.ServiceTypeName,
+                    ImageUrl = serviceType.ServiceTypeImageUrl ?? string.Empty,
+                    DoctorCount = serviceType.DoctorCount
+                });
+            }
+
+            _logger.LogInformation("[DoctorGrpcService] Returning {Count} service types for hospital {HospitalId}", serviceTypes.Count, hospitalId);
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetServiceTypesByHospital for hospital {HospitalId}", request.HospitalId);
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
     /// <summary>
     /// Get doctors with full details by hospital ID (OPTIMIZED - single gRPC call)
     /// Combines GetDoctorAccountIdsByHospitalId + GetDoctorsByAccountIds into one call

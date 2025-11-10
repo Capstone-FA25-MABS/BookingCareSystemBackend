@@ -312,6 +312,7 @@ public class AuthService : BaseService, IAuthService
             return new AuthResponse
             {
                 Message = "Token refreshed successfully",
+                Token = newAccessToken,
             };
         }, "RefreshToken");
     }
