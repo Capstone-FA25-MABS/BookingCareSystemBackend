@@ -23,19 +23,26 @@ public class ConversationSessionEntity
     public string? DistrictId { get; set; }
 
     /// <summary>
+    /// Conversation title (extracted from first user message)
+    /// </summary>
+    public string? Title { get; set; }
+
+    /// <summary>
     /// Conversation history stored as JSON
     /// </summary>
     public string ConversationHistory { get; set; } = "[]";
 
     /// <summary>
-    /// Created timestamp
+    /// Created timestamp (UTC)
+    /// Note: Set automatically by DbContext, do not set manually
     /// </summary>
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
 
     /// <summary>
-    /// Updated timestamp
+    /// Updated timestamp (UTC)
+    /// Note: Set automatically by DbContext, do not set manually
     /// </summary>
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; }
 }
 
 /// <summary>

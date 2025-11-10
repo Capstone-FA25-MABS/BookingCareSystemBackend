@@ -51,15 +51,14 @@ public class ConversationSessionService : IConversationSessionService
             }
 
             // Create new session
+            // Note: CreatedAt and UpdatedAt will be set automatically by DbContext.UpdateTimestamps()
             var newSession = new Models.Entities.ConversationSessionEntity
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 ProvinceId = location?.ProvinceId,
                 DistrictId = location?.DistrictId,
-                ConversationHistory = "[]",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                ConversationHistory = "[]"
             };
 
             _context.ConversationSessions.Add(newSession);
@@ -162,6 +161,17 @@ public class ConversationSessionService : IConversationSessionService
 
             history.Add(aiMessageObj);
 
+            // Update title if this is the first user message (session title is null or default)
+            if (string.IsNullOrWhiteSpace(session.Title) || session.Title == "Cuộc trò chuyện mới")
+            {
+                // Extract title from first user message (truncate to 50 chars)
+                var title = userMessage.Length > 50
+                    ? userMessage.Substring(0, 50) + "..."
+                    : userMessage;
+                session.Title = title;
+                _logger.LogDebug("Updated session {SessionId} title to: {Title}", sessionId, title);
+            }
+
             // Keep only last 50 messages to prevent database bloat
             if (history.Count > 50)
             {
@@ -184,7 +194,7 @@ public class ConversationSessionService : IConversationSessionService
             }
 
             session.ConversationHistory = JsonSerializer.Serialize(history, options);
-            session.UpdatedAt = DateTime.UtcNow;
+            // Note: UpdatedAt will be set automatically by DbContext.UpdateTimestamps()
 
             _logger.LogInformation("Saved conversation history with {Count} messages. Last AI message has suggestions: {HasSuggestions}",
                 history.Count,
@@ -247,13 +257,24 @@ public class ConversationSessionService : IConversationSessionService
                         {
                             messageCount = history.Count;
 
-                            // Get first user message as title
-                            var firstUserMessage = history.FirstOrDefault(m => m.Role?.ToLower() == "user");
-                            if (firstUserMessage != null && !string.IsNullOrWhiteSpace(firstUserMessage.Content))
+                            // Use saved title from DB first, otherwise extract from first user message
+                            if (!string.IsNullOrWhiteSpace(session.Title) && session.Title != "Cuộc trò chuyện mới")
                             {
-                                title = firstUserMessage.Content.Length > 50
-                                    ? firstUserMessage.Content.Substring(0, 50) + "..."
-                                    : firstUserMessage.Content;
+                                title = session.Title;
+                            }
+                            else
+                            {
+                                // Get first user/patient/guest message as title
+                                var firstUserMessage = history.FirstOrDefault(m =>
+                                    m.Role?.ToLower() == "user" ||
+                                    m.Role?.ToLower() == "patient" ||
+                                    m.Role?.ToLower() == "guest");
+                                if (firstUserMessage != null && !string.IsNullOrWhiteSpace(firstUserMessage.Content))
+                                {
+                                    title = firstUserMessage.Content.Length > 50
+                                        ? firstUserMessage.Content.Substring(0, 50) + "..."
+                                        : firstUserMessage.Content;
+                                }
                             }
 
                             // Get last message
@@ -272,14 +293,32 @@ public class ConversationSessionService : IConversationSessionService
                     }
                 }
 
+                // Ensure DateTime is in UTC (convert if needed)
+                // Entity Framework may load DateTime as Unspecified or Local, so we need to ensure UTC
+                var createdAt = session.CreatedAt;
+                if (createdAt.Kind != DateTimeKind.Utc)
+                {
+                    createdAt = createdAt.Kind == DateTimeKind.Local
+                        ? createdAt.ToUniversalTime()
+                        : DateTime.SpecifyKind(createdAt, DateTimeKind.Utc);
+                }
+
+                var updatedAt = session.UpdatedAt;
+                if (updatedAt.Kind != DateTimeKind.Utc)
+                {
+                    updatedAt = updatedAt.Kind == DateTimeKind.Local
+                        ? updatedAt.ToUniversalTime()
+                        : DateTime.SpecifyKind(updatedAt, DateTimeKind.Utc);
+                }
+
                 summaries.Add(new Models.Entities.SessionSummaryEntity
                 {
                     Id = session.Id,
                     UserId = session.UserId,
                     Title = title ?? "Cuộc trò chuyện mới",
                     LastMessage = lastMessage,
-                    CreatedAt = session.CreatedAt,
-                    UpdatedAt = session.UpdatedAt,
+                    CreatedAt = createdAt,
+                    UpdatedAt = updatedAt,
                     MessageCount = messageCount
                 });
             }

@@ -813,6 +813,39 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 return new List<DoctorRecommendation>();
             }
 
+            // Get hospital addresses for location matching
+            var hospitalIds = grpcResponse.Doctors
+                .Where(d => !string.IsNullOrWhiteSpace(d.HospitalId))
+                .Select(d => d.HospitalId)
+                .Distinct()
+                .ToList();
+
+            var hospitalAddressMap = new Dictionary<string, string>();
+            if (hospitalIds.Any() && location != null)
+            {
+                try
+                {
+                    var hospitalRequest = new BookingCare.Services.Hospital.GetHospitalsBasicInfoRequest();
+                    hospitalRequest.Ids.AddRange(hospitalIds);
+
+                    // Add timeout (5 seconds) to prevent hanging
+                    var callOptions = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(5));
+                    var hospitalResponse = await _hospitalClient.GetHospitalsBasicInfoAsync(hospitalRequest, callOptions);
+
+                    foreach (var hospital in hospitalResponse.Hospitals)
+                    {
+                        if (!string.IsNullOrWhiteSpace(hospital.Address))
+                        {
+                            hospitalAddressMap[hospital.Id] = hospital.Address;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error fetching hospital addresses for location matching");
+                }
+            }
+
             // Rank doctors
             return grpcResponse.Doctors
                 .Select(d => new DoctorRecommendation
@@ -825,7 +858,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     YearOfExperience = d.YearsOfExperience,
                     ServiceTypeName = d.ServiceTypeName ?? "Khám chuyên khoa",
                     Price = d.ConsultationFee > 0 ? $"{d.ConsultationFee:N0} VNĐ" : null,
-                    RecommendationScore = CalculateDoctorScore(d, specialtyMatches, location),
+                    RecommendationScore = CalculateDoctorScore(d, specialtyMatches, location,
+                        hospitalAddressMap.TryGetValue(d.HospitalId, out var address) ? address : null),
                     AvatarUrl = !string.IsNullOrWhiteSpace(d.AvatarUrl) ? d.AvatarUrl : null
                 })
                 .OrderByDescending(d => d.RecommendationScore)
@@ -847,51 +881,124 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private double CalculateDoctorScore(
         BookingCare.Services.Doctor.Protos.DoctorRecommendationInfo doctor,
         List<SpecialtyMatch> specialtyMatches,
-        LocationContext? location)
+        LocationContext? location,
+        string? hospitalAddress = null)
     {
         double score = 0;
 
-        // 40% - Location proximity (ưu tiên lên đầu)
-        if (location != null && !string.IsNullOrEmpty(location.DistrictId))
+        // PRIORITY: Doctor with hospital address map (has hospital name = has address) gets bonus
+        // This ensures doctors with hospital address are ranked first
+        bool hasHospitalAddress = !string.IsNullOrWhiteSpace(doctor.HospitalName) &&
+                                  !string.IsNullOrWhiteSpace(doctor.HospitalId);
+        if (hasHospitalAddress)
         {
-            // In production, calculate actual distance or check if same district
-            // Same district = 40%, same province = 30%, different = 10%
-            // For now, give high score if location is provided (assuming same district/province)
-            score += 0.40; // High priority for location match
+            score += 0.30; // Base bonus for having hospital address map
+        }
+        else
+        {
+            score += 0.05; // Very low score if no hospital address
+        }
+
+        // CRITICAL: Location matching based on actual address (ưu tiên cao nhất)
+        // Check if hospital address matches user location
+        bool locationMatch = false;
+        if (location != null && !string.IsNullOrWhiteSpace(hospitalAddress) && !string.IsNullOrWhiteSpace(location.DisplayName))
+        {
+            locationMatch = IsAddressInLocation(hospitalAddress, location.DisplayName);
+            if (locationMatch)
+            {
+                score += 0.50; // HIGHEST priority for location match
+                _logger.LogDebug("Doctor {DoctorId} hospital address matches location: {Address} matches {Location}",
+                    doctor.Id, hospitalAddress, location.DisplayName);
+            }
+            else
+            {
+                score += 0.05; // Very low score if location doesn't match
+                _logger.LogDebug("Doctor {DoctorId} hospital address does NOT match location: {Address} vs {Location}",
+                    doctor.Id, hospitalAddress, location.DisplayName);
+            }
+        }
+        else if (location != null && !string.IsNullOrEmpty(location.DistrictId))
+        {
+            // Fallback: if no address, use district/province ID matching
+            score += 0.20; // Medium priority for district match
         }
         else if (location != null && !string.IsNullOrEmpty(location.ProvinceId))
         {
-            // Same province but different district
-            score += 0.30;
+            // Fallback: province match
+            score += 0.15; // Lower priority for province match
         }
         else
         {
             // No location preference or no location data
-            score += 0.10; // Lower score without location
+            score += 0.05; // Lower score without location
         }
 
-        // 35% - Specialty match confidence (quan trọng thứ hai)
+        // 10% - Specialty match confidence
         var specialtyMatch = specialtyMatches.FirstOrDefault(s =>
             s.SpecialtyName.Equals(doctor.SpecialtyName, StringComparison.OrdinalIgnoreCase));
         if (specialtyMatch != null)
         {
-            score += 0.35 * specialtyMatch.Confidence;
+            score += 0.10 * specialtyMatch.Confidence;
         }
         else
         {
             // No specialty match = very low score
-            score += 0.05; // Minimal score
+            score += 0.02; // Minimal score
         }
 
-        // 15% - Rating (normalized to 0-1, assuming 5-star scale)
-        // Rating 5.0 = 15%, Rating 4.0 = 12%, Rating 3.0 = 9%
-        score += 0.15 * Math.Min(doctor.Rating / 5.0, 1.0);
+        // 5% - Rating (normalized to 0-1, assuming 5-star scale)
+        // Rating 5.0 = 5%, Rating 4.0 = 4%, Rating 3.0 = 3%
+        score += 0.05 * Math.Min(doctor.Rating / 5.0, 1.0);
 
-        // 10% - Experience (capped at 30 years for normalization)
-        // 30+ years = 10%, 20 years = 6.67%, 10 years = 3.33%
-        score += 0.10 * Math.Min(doctor.YearsOfExperience / 30.0, 1.0);
+        // 5% - Experience (capped at 30 years for normalization)
+        // 30+ years = 5%, 20 years = 3.33%, 10 years = 1.67%
+        score += 0.05 * Math.Min(doctor.YearsOfExperience / 30.0, 1.0);
 
         return Math.Round(score, 3);
+    }
+
+    /// <summary>
+    /// Check if hospital/doctor address matches user location
+    /// </summary>
+    private bool IsAddressInLocation(string address, string locationDisplayName)
+    {
+        if (string.IsNullOrWhiteSpace(address) || string.IsNullOrWhiteSpace(locationDisplayName))
+            return false;
+
+        // Normalize both strings for comparison
+        var normalizedAddress = address.ToLowerInvariant().Trim();
+        var normalizedLocation = locationDisplayName.ToLowerInvariant().Trim();
+
+        // Extract province/city name from DisplayName
+        // Examples: "Thành phố Hà Nội" -> "hà nội", "Tỉnh Hải Dương" -> "hải dương"
+        var locationName = normalizedLocation
+            .Replace("thành phố", "")
+            .Replace("tp.", "")
+            .Replace("tp ", "")
+            .Replace("tỉnh", "")
+            .Replace("t.", "")
+            .Trim();
+
+        // Check if address contains the location name
+        // Also check for common variations
+        var locationVariations = new List<string> { locationName, normalizedLocation };
+
+        // Add variations like "hà nội", "ha noi" (without diacritics would need more complex logic)
+        // For now, just check direct match and normalized location
+        foreach (var variation in locationVariations)
+        {
+            if (!string.IsNullOrWhiteSpace(variation) && normalizedAddress.Contains(variation))
+            {
+                _logger.LogDebug("Address match found: '{Address}' contains '{Variation}'", address, variation);
+                return true;
+            }
+        }
+
+        // Also check common city names that might appear in addresses
+        // Example: "Hà Nội" might appear as "Hanoi" in some addresses, but we'll focus on Vietnamese
+        // For now, return false if no match found
+        return false;
     }
 
     private async Task<List<HospitalRecommendation>> GetHospitalRecommendationsAsync(
@@ -1032,23 +1139,51 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         double score = 0;
 
-        // 40% - Location proximity (ưu tiên lên đầu)
-        if (location != null && !string.IsNullOrEmpty(location.DistrictId))
+        // PRIORITY: Hospital with address map (has address) gets bonus
+        // This ensures hospitals with address are ranked first
+        bool hasAddress = !string.IsNullOrWhiteSpace(hospital.Address);
+        if (hasAddress)
         {
-            // In production, calculate actual distance or check if same district
-            // Same district = 40%, same province = 30%, different = 10%
-            // For now, give high score if location is provided (assuming same district/province)
-            score += 0.40; // High priority for location match
+            score += 0.30; // Base bonus for having address map
+        }
+        else
+        {
+            score += 0.05; // Very low score if no address
+        }
+
+        // CRITICAL: Location matching based on actual address (ưu tiên cao nhất)
+        // Check if hospital address matches user location
+        bool locationMatch = false;
+        if (location != null && hasAddress && !string.IsNullOrWhiteSpace(location.DisplayName))
+        {
+            locationMatch = IsAddressInLocation(hospital.Address, location.DisplayName);
+            if (locationMatch)
+            {
+                score += 0.50; // HIGHEST priority for location match
+                _logger.LogDebug("Hospital {HospitalId} address matches location: {Address} matches {Location}",
+                    hospital.Id, hospital.Address, location.DisplayName);
+            }
+            else
+            {
+                score += 0.05; // Very low score if location doesn't match
+                _logger.LogDebug("Hospital {HospitalId} address does NOT match location: {Address} vs {Location}",
+                    hospital.Id, hospital.Address, location.DisplayName);
+            }
+        }
+        else if (location != null && !string.IsNullOrEmpty(location.DistrictId))
+        {
+            // Fallback: if no address, use district/province ID matching
+            score += 0.20; // Medium priority for district match
         }
         else if (location != null && !string.IsNullOrEmpty(location.ProvinceId))
         {
-            // Same province but different district
-            score += 0.30;
+            // Fallback: province match
+            score += 0.15; // Lower priority for province match
         }
         else
         {
             // No location preference or no location data
-            score += 0.10; // Lower score without location
+            score += 0.05; // Lower score without location
         }
 
         // 30% - Specialty match (hospitals with matching specialties)

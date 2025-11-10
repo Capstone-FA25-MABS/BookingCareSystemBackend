@@ -31,6 +31,10 @@ public class AiDbContext : DbContext
             entity.Property(e => e.ProvinceId).HasMaxLength(50).IsRequired(false);
             entity.Property(e => e.DistrictId).HasMaxLength(50).IsRequired(false);
 
+            entity.Property(e => e.Title)
+                .HasMaxLength(200)
+                .IsRequired(false);
+
             entity.Property(e => e.ConversationHistory)
                 .HasColumnType("nvarchar(max)")
                 .IsRequired()
@@ -69,11 +73,34 @@ public class AiDbContext : DbContext
 
         foreach (var entry in entries)
         {
+            // Always use UTC time to ensure consistency
+            var utcNow = DateTime.UtcNow;
+
             if (entry.State == EntityState.Added)
             {
-                entry.Entity.CreatedAt = DateTime.UtcNow;
+                // Only set CreatedAt if it hasn't been set (default DateTime is 0001-01-01)
+                if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
+                {
+                    entry.Entity.CreatedAt = utcNow;
+                }
+                else
+                {
+                    // Ensure CreatedAt is in UTC (convert if needed)
+                    if (entry.Entity.CreatedAt.Kind != DateTimeKind.Utc)
+                    {
+                        entry.Entity.CreatedAt = entry.Entity.CreatedAt.ToUniversalTime();
+                    }
+                }
             }
-            entry.Entity.UpdatedAt = DateTime.UtcNow;
+
+            // Always update UpdatedAt to current UTC time
+            entry.Entity.UpdatedAt = utcNow;
+
+            // Ensure UpdatedAt is in UTC (convert if needed)
+            if (entry.Entity.UpdatedAt.Kind != DateTimeKind.Utc)
+            {
+                entry.Entity.UpdatedAt = entry.Entity.UpdatedAt.ToUniversalTime();
+            }
         }
     }
 }
