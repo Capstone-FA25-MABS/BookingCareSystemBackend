@@ -2,7 +2,10 @@ using BookingCare.Services.ServiceMedical.Constants;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
+using BookingCare.Shared.FileUpload.Services;
+using BookingCare.Shared.FileUpload.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace BookingCare.Services.ServiceMedical.Controllers
 {
@@ -13,11 +16,16 @@ namespace BookingCare.Services.ServiceMedical.Controllers
     public class ServicesController : ControllerBase
     {
         private readonly IServiceMedicalService _serviceMedicalService;
+        private readonly FileUploadOrchestrator _uploadOrchestrator;
         private readonly ILogger<ServicesController> _logger;
 
-        public ServicesController(IServiceMedicalService serviceMedicalService, ILogger<ServicesController> logger)
+        public ServicesController(
+            IServiceMedicalService serviceMedicalService,
+            FileUploadOrchestrator uploadOrchestrator,
+            ILogger<ServicesController> logger)
         {
             _serviceMedicalService = serviceMedicalService;
+            _uploadOrchestrator = uploadOrchestrator;
             _logger = logger;
         }
 
@@ -64,6 +72,93 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             {
                 _logger.LogError(ex, "Error creating service");
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Create a new service with image upload
+        /// </summary>
+        /// <param name="request">Service creation request</param>
+        /// <param name="imageFile">Service image file</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Created service</returns>
+        [HttpPost("upload-image")]
+        // [Authorize] // Temporarily disabled for testing - enable after authentication is configured
+        public async Task<ActionResult<ServiceResponse>> CreateServiceWithImage(
+            [FromForm] CreateServiceRequest request,
+            [FromForm] IFormFile? imageFile,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Log received data for debugging
+                _logger.LogInformation("Received CreateServiceWithImage: Name={Name}, Price={Price}, HospitalId={HospitalId}, ServiceCategoryId={ServiceCategoryId}, DurationTime={DurationTime}, HasImage={HasImage}",
+                    request?.Name, request?.Price, request?.HospitalId, request?.ServiceCategoryId, request?.DurationTime, imageFile != null);
+
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    _logger.LogWarning("ModelState invalid: {Errors}", string.Join(", ", errors));
+                    return BadRequest(new { error = "Invalid request data", errors = errors });
+                }
+
+                // Validate required fields
+                if (request == null)
+                {
+                    _logger.LogError("CreateServiceRequest is null");
+                    return BadRequest(new { error = "Request data is required" });
+                }
+
+                // Handle image upload if provided
+                if (imageFile != null)
+                {
+                    var config = new FileUploadConfig
+                    {
+                        AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" },
+                        MaxSizeInMB = 5,
+                        Folder = "services/images",
+                        SuccessMessage = "Service image uploaded successfully",
+                        EntityType = "service-image"
+                    };
+
+                    var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+                        imageFile,
+                        config,
+                        request.HospitalId,
+                        _logger,
+                        cancellationToken);
+
+                    if (!uploadResult.Success)
+                    {
+                        return BadRequest(new { error = $"Image upload failed: {uploadResult.ErrorMessage}" });
+                    }
+
+                    // Set the image URL from upload result - use CloudFront URL for public access
+                    request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                }
+
+                var result = await _serviceMedicalService.CreateServiceAsync(request);
+
+                return CreatedAtAction(nameof(GetService), new { id = result.Id }, result);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "ArgumentException when creating service: {Message}", ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating service with image: {Message}. StackTrace: {StackTrace}",
+                    ex.Message, ex.StackTrace);
+                return StatusCode(500, new
+                {
+                    error = StatusConstants.InternalServerError,
+                    message = ex.Message,
+                    innerException = ex.InnerException?.Message
+                });
             }
         }
 
@@ -123,7 +218,108 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
-        /// Delete service
+        /// Update service with image upload
+        /// </summary>
+        /// <param name="id">Service ID</param>
+        /// <param name="request">Service update request</param>
+        /// <param name="imageFile">Service image file</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Updated service</returns>
+        [HttpPut("{id}/upload-image")]
+        // [Authorize] // Temporarily disabled for testing - enable after authentication is configured
+        public async Task<ActionResult<ServiceResponse>> UpdateServiceWithImage(
+            Guid id,
+            [FromForm] UpdateServiceRequest request,
+            [FromForm] IFormFile? imageFile,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                if (id != request.Id)
+                {
+                    return BadRequest(new { error = "ID mismatch" });
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new { error = "Invalid request data", errors = ModelState });
+                }
+
+                // Get current service to get hospital ID for image upload
+                var currentService = await _serviceMedicalService.GetServiceByIdAsync(id);
+                if (currentService == null)
+                {
+                    return NotFound(new { error = $"Service with ID {id} not found" });
+                }
+
+                // Handle image upload if provided
+                if (imageFile != null)
+                {
+                    // Delete old image if exists
+                    if (!string.IsNullOrEmpty(currentService.ImageUrl))
+                    {
+                        var deleteConfig = new FileDeletionConfig
+                        {
+                            FileUrl = currentService.ImageUrl,
+                            ExpectedFolder = "services",
+                            SuccessMessage = "Old service image deleted successfully",
+                            EntityType = "service-image"
+                        };
+
+                        var deleteResult = await _uploadOrchestrator.DeleteFileAsync(
+                            deleteConfig,
+                            currentService.HospitalId,
+                            _logger,
+                            cancellationToken);
+
+                        if (!deleteResult.Success)
+                        {
+                            _logger.LogWarning("Failed to delete old image for service {ServiceId}: {Error}", id, deleteResult.ErrorMessage);
+                            // Continue with upload even if deletion fails
+                        }
+                    }
+
+                    var config = new FileUploadConfig
+                    {
+                        AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" },
+                        MaxSizeInMB = 5,
+                        Folder = "services/images",
+                        SuccessMessage = "Service image uploaded successfully",
+                        EntityType = "service-image"
+                    };
+
+                    var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+                        imageFile,
+                        config,
+                        currentService.HospitalId,
+                        _logger,
+                        cancellationToken);
+
+                    if (!uploadResult.Success)
+                    {
+                        return BadRequest(new { error = $"Image upload failed: {uploadResult.ErrorMessage}" });
+                    }
+
+                    // Set the image URL from upload result - use CloudFront URL for public access
+                    request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                }
+
+                var result = await _serviceMedicalService.UpdateServiceAsync(request);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating service with image: {Id}", id);
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Delete service (soft delete - changes status to INACTIVE)
         /// </summary>
         /// <param name="id">Service ID</param>
         /// <returns>Success status</returns>
@@ -280,6 +476,47 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", categoryId);
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Get all services with details (id, name, description, price, duration, hospital name, category name, status)
+        /// Supports filtering and sorting
+        /// </summary>
+        /// <param name="query">Query parameters for filtering, sorting, and pagination</param>
+        /// <returns>List of services with detailed information</returns>
+        [HttpGet("all-details")]
+        public async Task<ActionResult<ServiceDetailListResponse>> GetAllServicesWithDetails([FromQuery] ServiceQueryRequest? query)
+        {
+            try
+            {
+                var result = await _serviceMedicalService.GetAllServicesWithDetailsAsync(query);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all services with details");
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Get filter options for dropdown (hospitals and service categories)
+        /// Returns list of hospitals (id, name) and list of child service categories (id, name)
+        /// </summary>
+        /// <returns>Filter options with hospitals and service categories</returns>
+        [HttpGet("filter-options")]
+        public async Task<ActionResult<FilterOptionsResponse>> GetFilterOptions()
+        {
+            try
+            {
+                var result = await _serviceMedicalService.GetFilterOptionsAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting filter options");
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
