@@ -45,15 +45,16 @@ public class SymptomAnalysisController : BaseApiController
     }
 
     /// <summary>
-    /// Analyze symptoms and provide recommendations
+    /// Analyze symptoms and provide recommendations (requires Patient authentication)
     /// </summary>
     /// <param name="request">Symptom analysis request with user message and context</param>
     /// <returns>Analysis response with disease possibilities, questions, and recommendations</returns>
     /// <response code="200">Analysis completed successfully</response>
     /// <response code="400">Invalid request data</response>
+    /// <response code="401">Unauthorized - user must be authenticated</response>
     /// <response code="500">Internal server error</response>
     [HttpPost("analyze")]
-    [AllowAnonymous] // Allow non-authenticated users to use AI support
+    [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
     [ProducesResponseType(typeof(ApiResponse<SymptomAnalysisResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
@@ -78,18 +79,30 @@ public class SymptomAnalysisController : BaseApiController
                 });
             }
 
-            _logger.LogInformation("Analyzing symptoms for session: {SessionId}, message: {Message}",
-                request.SessionId, request.Message?.Substring(0, Math.Min(request.Message.Length, 50)));
+            // Get authenticated user ID from JWT claims using JwtHelper
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            // Override request userId with authenticated user ID for security
+            request.UserId = accountId;
+
+            _logger.LogInformation("Analyzing symptoms for user: {UserId}, session: {SessionId}, message: {Message}",
+                accountId, request.SessionId, request.Message?.Substring(0, Math.Min(request.Message.Length, 50)));
 
             var result = await _symptomAnalysisService.AnalyzeSymptomsAsync(request);
 
-            // Add user info if authenticated
-            if (request.UserId.HasValue)
-            {
-                _logger.LogInformation("Symptom analysis completed for user: {UserId}", request.UserId.Value);
-            }
+            _logger.LogInformation("Symptom analysis completed for user: {UserId}", accountId);
 
             return Success(result, "Symptom analysis completed successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access attempt: {Message}", ex.Message);
+            return Unauthorized(new
+            {
+                success = false,
+                message = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
         }
         catch (ApplicationException ex)
         {
@@ -152,24 +165,30 @@ public class SymptomAnalysisController : BaseApiController
     }
 
     /// <summary>
-    /// Get all conversation sessions for a user
+    /// Get all conversation sessions for authenticated user
     /// </summary>
-    /// <param name="userId">User ID (optional, can be passed as query parameter)</param>
     /// <returns>List of conversation sessions</returns>
     [HttpGet("sessions")]
-    [AllowAnonymous]
+    [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetUserSessions([FromQuery] Guid? userId)
+    public async Task<IActionResult> GetUserSessions()
     {
         try
         {
-            var sessions = await _symptomAnalysisService.GetUserSessionsAsync(userId);
+            // Get authenticated user ID from JWT claims using JwtHelper
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            var sessions = await _symptomAnalysisService.GetUserSessionsAsync(accountId);
 
             return Success(sessions, "Sessions retrieved successfully");
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving sessions for user {UserId}: {Message}", userId, ex.Message);
+            _logger.LogError(ex, "Error retrieving sessions: {Message}", ex.Message);
             return StatusCode(500, new
             {
                 success = false,
@@ -180,30 +199,37 @@ public class SymptomAnalysisController : BaseApiController
     }
 
     /// <summary>
-    /// Delete a conversation session
+    /// Delete a conversation session (requires authentication and ownership)
     /// </summary>
     /// <param name="sessionId">Session ID</param>
     /// <returns>Delete confirmation</returns>
     [HttpDelete("sessions/{sessionId}")]
-    [AllowAnonymous]
+    [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeleteSession(Guid sessionId)
     {
         try
         {
-            var deleted = await _symptomAnalysisService.DeleteSessionAsync(sessionId);
+            // Get authenticated user ID from JWT claims using JwtHelper
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            var deleted = await _symptomAnalysisService.DeleteSessionAsync(sessionId, accountId);
 
             if (!deleted)
             {
                 return NotFound(new
                 {
                     success = false,
-                    message = "Session not found",
+                    message = "Session not found or you don't have permission to delete it",
                     timestamp = DateTime.UtcNow
                 });
             }
 
             return Success(new { sessionId }, "Session deleted successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
         }
         catch (Exception ex)
         {

@@ -8,19 +8,9 @@ public class ConversationSessionEntity
     public Guid Id { get; set; }
 
     /// <summary>
-    /// User ID if authenticated (nullable for anonymous users)
+    /// User ID (required - user must be authenticated)
     /// </summary>
-    public Guid? UserId { get; set; }
-
-    /// <summary>
-    /// Province ID for location context
-    /// </summary>
-    public string? ProvinceId { get; set; }
-
-    /// <summary>
-    /// District ID for location context
-    /// </summary>
-    public string? DistrictId { get; set; }
+    public Guid UserId { get; set; }
 
     /// <summary>
     /// Conversation title (extracted from first user message)
@@ -51,7 +41,7 @@ public class ConversationSessionEntity
 public class SessionSummaryEntity
 {
     public Guid Id { get; set; }
-    public Guid? UserId { get; set; }
+    public Guid UserId { get; set; }
     public string? Title { get; set; }
     public string? LastMessage { get; set; }
     public DateTime CreatedAt { get; set; }

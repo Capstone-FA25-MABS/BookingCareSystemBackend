@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
@@ -62,23 +59,15 @@ builder.Services.AddScoped<IConversationSessionService, ConversationSessionServi
 // Register Symptom Analysis Service
 builder.Services.AddScoped<ISymptomAnalysisService, SymptomAnalysisService>();
 
-// Add JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
-            ClockSkew = TimeSpan.Zero
-        };
-    });
+// Add JWT Authentication and Authorization using centralized configuration
+// This includes: JWT auth, authorization policies, and AutoToken middleware
+builder.Services.AddJwtAuthAndAuthorization();
+
+// Add global exception handling
+builder.Services.AddGlobalExceptionHandling();
+
+// Add logging
+builder.Logging.AddCommonLogging();
 
 var app = builder.Build();
 
@@ -89,10 +78,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseRouting();
-
-app.UseAuthentication();
-app.UseAuthorization();
+// Use standard authentication pipeline
+// This includes: AutoToken middleware, Routing, Authentication, Authorization
+app.UseGlobalExceptionHandling();
+app.UseStandardAuthPipeline();
 
 app.MapControllers();
 

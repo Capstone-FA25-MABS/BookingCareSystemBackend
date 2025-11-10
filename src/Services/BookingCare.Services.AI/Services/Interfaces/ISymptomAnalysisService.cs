@@ -23,18 +23,19 @@ public interface ISymptomAnalysisService
     Task<List<Models.DTOs.Requests.ConversationMessage>> GetConversationHistoryAsync(Guid sessionId);
 
     /// <summary>
-    /// Get all conversation sessions for a user
+    /// Get all conversation sessions for a user (requires authentication)
     /// </summary>
-    /// <param name="userId">User ID (optional)</param>
+    /// <param name="userId">User ID (required)</param>
     /// <returns>List of session summaries</returns>
-    Task<List<Models.DTOs.Responses.SessionSummary>> GetUserSessionsAsync(Guid? userId);
+    Task<List<Models.DTOs.Responses.SessionSummary>> GetUserSessionsAsync(Guid userId);
 
     /// <summary>
-    /// Delete a conversation session
+    /// Delete a conversation session (requires authentication and ownership verification)
     /// </summary>
     /// <param name="sessionId">Session ID</param>
+    /// <param name="userId">User ID (required for ownership verification)</param>
     /// <returns>True if deleted successfully</returns>
-    Task<bool> DeleteSessionAsync(Guid sessionId);
+    Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId);
 }
 
 

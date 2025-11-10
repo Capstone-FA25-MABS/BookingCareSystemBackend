@@ -93,11 +93,17 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             Guid sessionId;
             List<ConversationMessage> conversationHistory;
 
+            // Validate that userId is provided (authentication required)
+            if (!request.UserId.HasValue)
+            {
+                throw new UnauthorizedAccessException("User must be authenticated to use AI chat service.");
+            }
+
             try
             {
                 sessionId = await _conversationSessionService.GetOrCreateSessionAsync(
                     request.SessionId,
-                    request.UserId,
+                    request.UserId.Value,
                     request.Location
                 );
 
@@ -1271,7 +1277,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
     }
 
-    public async Task<List<SessionSummary>> GetUserSessionsAsync(Guid? userId)
+    public async Task<List<SessionSummary>> GetUserSessionsAsync(Guid userId)
     {
         try
         {
@@ -1295,11 +1301,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
     }
 
-    public async Task<bool> DeleteSessionAsync(Guid sessionId)
+    public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId)
     {
         try
         {
-            return await _conversationSessionService.DeleteSessionAsync(sessionId);
+            return await _conversationSessionService.DeleteSessionAsync(sessionId, userId);
         }
         catch (Exception ex)
         {

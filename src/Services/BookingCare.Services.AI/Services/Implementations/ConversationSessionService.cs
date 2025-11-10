@@ -22,30 +22,18 @@ public class ConversationSessionService : IConversationSessionService
         _logger = logger;
     }
 
-    public async Task<Guid> GetOrCreateSessionAsync(Guid? sessionId, Guid? userId, LocationContext? location)
+    public async Task<Guid> GetOrCreateSessionAsync(Guid? sessionId, Guid userId, LocationContext? location)
     {
         try
         {
-            // If sessionId is provided, check if it exists
+            // If sessionId is provided, check if it exists and belongs to the user
             if (sessionId.HasValue)
             {
                 var existingSession = await _context.ConversationSessions
-                    .FirstOrDefaultAsync(s => s.Id == sessionId.Value);
+                    .FirstOrDefaultAsync(s => s.Id == sessionId.Value && s.UserId == userId);
 
                 if (existingSession != null)
                 {
-                    // Update location if provided and different
-                    if (location != null)
-                    {
-                        if (existingSession.ProvinceId != location.ProvinceId ||
-                            existingSession.DistrictId != location.DistrictId)
-                        {
-                            existingSession.ProvinceId = location.ProvinceId;
-                            existingSession.DistrictId = location.DistrictId;
-                            await _context.SaveChangesAsync();
-                        }
-                    }
-
                     return existingSession.Id;
                 }
             }
@@ -56,15 +44,13 @@ public class ConversationSessionService : IConversationSessionService
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                ProvinceId = location?.ProvinceId,
-                DistrictId = location?.DistrictId,
                 ConversationHistory = "[]"
             };
 
             _context.ConversationSessions.Add(newSession);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Created new conversation session: {SessionId}", newSession.Id);
+            _logger.LogInformation("Created new conversation session: {SessionId} for user: {UserId}", newSession.Id, userId);
 
             return newSession.Id;
         }
@@ -200,13 +186,6 @@ public class ConversationSessionService : IConversationSessionService
                 history.Count,
                 aiMessageObj.Suggestions != null);
 
-            // Update location if provided
-            if (location != null)
-            {
-                session.ProvinceId = location.ProvinceId;
-                session.DistrictId = location.DistrictId;
-            }
-
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Saved conversation history for session {SessionId}", sessionId);
@@ -218,17 +197,13 @@ public class ConversationSessionService : IConversationSessionService
         }
     }
 
-    public async Task<List<Models.Entities.SessionSummaryEntity>> GetUserSessionsAsync(Guid? userId)
+    public async Task<List<Models.Entities.SessionSummaryEntity>> GetUserSessionsAsync(Guid userId)
     {
         try
         {
-            var query = _context.ConversationSessions.AsQueryable();
-
-            // Filter by user if provided
-            if (userId.HasValue)
-            {
-                query = query.Where(s => s.UserId == userId.Value);
-            }
+            // Always filter by authenticated user
+            var query = _context.ConversationSessions
+                .Where(s => s.UserId == userId);
 
             var sessions = await query
                 .OrderByDescending(s => s.UpdatedAt)
@@ -332,23 +307,23 @@ public class ConversationSessionService : IConversationSessionService
         }
     }
 
-    public async Task<bool> DeleteSessionAsync(Guid sessionId)
+    public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId)
     {
         try
         {
             var session = await _context.ConversationSessions
-                .FirstOrDefaultAsync(s => s.Id == sessionId);
+                .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId);
 
             if (session == null)
             {
-                _logger.LogWarning("Session {SessionId} not found for deletion", sessionId);
+                _logger.LogWarning("Session {SessionId} not found or user {UserId} does not have permission to delete", sessionId, userId);
                 return false;
             }
 
             _context.ConversationSessions.Remove(session);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Deleted conversation session: {SessionId}", sessionId);
+            _logger.LogInformation("Deleted conversation session: {SessionId} for user: {UserId}", sessionId, userId);
             return true;
         }
         catch (Exception ex)

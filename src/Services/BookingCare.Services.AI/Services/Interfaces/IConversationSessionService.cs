@@ -8,9 +8,9 @@ namespace BookingCare.Services.AI.Services.Interfaces;
 public interface IConversationSessionService
 {
     /// <summary>
-    /// Get or create a conversation session
+    /// Get or create a conversation session (requires authenticated user)
     /// </summary>
-    Task<Guid> GetOrCreateSessionAsync(Guid? sessionId, Guid? userId, LocationContext? location);
+    Task<Guid> GetOrCreateSessionAsync(Guid? sessionId, Guid userId, LocationContext? location);
 
     /// <summary>
     /// Load conversation history for a session
@@ -29,12 +29,12 @@ public interface IConversationSessionService
         Guid? userId = null);
 
     /// <summary>
-    /// Get all conversation sessions for a user
+    /// Get all conversation sessions for a user (requires authenticated user)
     /// </summary>
-    Task<List<Models.Entities.SessionSummaryEntity>> GetUserSessionsAsync(Guid? userId);
+    Task<List<Models.Entities.SessionSummaryEntity>> GetUserSessionsAsync(Guid userId);
 
     /// <summary>
-    /// Delete a conversation session
+    /// Delete a conversation session (requires authenticated user and ownership verification)
     /// </summary>
-    Task<bool> DeleteSessionAsync(Guid sessionId);
+    Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId);
 }
