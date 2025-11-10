@@ -8,63 +8,63 @@ namespace BookingCare.Shared.FileUpload.Helpers;
 public static class EncodingHelper
 {
     /// <summary>
-  /// Detect encoding of text content
+    /// Detect encoding of text content
     /// </summary>
     /// <param name="content">Text content to analyze</param>
     /// <returns>Detected encoding</returns>
     public static Encoding DetectEncoding(byte[] content)
     {
-     // Check for BOM (Byte Order Mark)
+        // Check for BOM (Byte Order Mark)
         if (content.Length >= 3)
         {
             // UTF-8 BOM: EF BB BF
-    if (content[0] == 0xEF && content[1] == 0xBB && content[2] == 0xBF)
-  {
-   return Encoding.UTF8;
-   }
+            if (content[0] == 0xEF && content[1] == 0xBB && content[2] == 0xBF)
+            {
+                return Encoding.UTF8;
+            }
 
-      // UTF-16 LE BOM: FF FE
-      if (content[0] == 0xFF && content[1] == 0xFE)
-   {
-    return Encoding.Unicode; // UTF-16 Little Endian
-         }
+            // UTF-16 LE BOM: FF FE
+            if (content[0] == 0xFF && content[1] == 0xFE)
+            {
+                return Encoding.Unicode; // UTF-16 Little Endian
+            }
 
-  // UTF-16 BE BOM: FE FF
+            // UTF-16 BE BOM: FE FF
             if (content[0] == 0xFE && content[1] == 0xFF)
             {
                 return Encoding.BigEndianUnicode; // UTF-16 Big Endian
-     }
- }
+            }
+        }
 
         // Check for UTF-8 without BOM (more complex heuristic)
         if (IsLikelyUtf8(content))
-  {
- return new UTF8Encoding(false); // UTF-8 without BOM
+        {
+            return new UTF8Encoding(false); // UTF-8 without BOM
         }
 
-     // Default to UTF-8 (safest assumption for modern files)
+        // Default to UTF-8 (safest assumption for modern files)
         return new UTF8Encoding(false);
     }
 
- /// <summary>
+    /// <summary>
     /// Check if content is likely UTF-8 encoded
     /// </summary>
     private static bool IsLikelyUtf8(byte[] content)
     {
         try
         {
-         var decoder = Encoding.UTF8.GetDecoder();
-       var chars = new char[content.Length];
-        
-   decoder.GetChars(content, 0, content.Length, chars, 0, true);
-  
-       // If no exception thrown, likely valid UTF-8
-          return true;
+            var decoder = Encoding.UTF8.GetDecoder();
+            var chars = new char[content.Length];
+
+            decoder.GetChars(content, 0, content.Length, chars, 0, true);
+
+            // If no exception thrown, likely valid UTF-8
+            return true;
         }
-     catch (DecoderFallbackException)
+        catch (DecoderFallbackException)
         {
-    return false;
-     }
+            return false;
+        }
     }
 
     /// <summary>
@@ -75,16 +75,16 @@ public static class EncodingHelper
     /// <returns>UTF-8 encoded content</returns>
     public static byte[] EnsureUtf8(byte[] content, Encoding? sourceEncoding = null)
     {
-    if (sourceEncoding == null)
-      {
-        sourceEncoding = DetectEncoding(content);
-  }
+        if (sourceEncoding == null)
+        {
+            sourceEncoding = DetectEncoding(content);
+        }
 
         // If already UTF-8, return as-is
         if (sourceEncoding.CodePage == Encoding.UTF8.CodePage)
         {
-        return content;
-}
+            return content;
+        }
 
         // Convert to UTF-8
         var text = sourceEncoding.GetString(content);
@@ -115,7 +115,7 @@ public static class EncodingHelper
     {
         // Common issue: UTF-8 bytes interpreted as Latin-1/Windows-1252
         // Example: "vá»›i" should be "v?i"
-        
+
         // Detect if text has mojibake (garbled text)
         if (!HasMojibake(text))
         {
@@ -125,18 +125,18 @@ public static class EncodingHelper
         try
         {
             // Try to fix by converting Latin-1 -> UTF-8
- var bytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(text);
-   return Encoding.UTF8.GetString(bytes);
+            var bytes = Encoding.GetEncoding("ISO-8859-1").GetBytes(text);
+            return Encoding.UTF8.GetString(bytes);
         }
         catch
-     {
-        // If conversion fails, return original
- return text;
-    }
+        {
+            // If conversion fails, return original
+            return text;
+        }
     }
 
     /// <summary>
-/// Check if text contains mojibake (garbled characters)
+    /// Check if text contains mojibake (garbled characters)
     /// </summary>
     private static bool HasMojibake(string text)
     {
@@ -148,7 +148,7 @@ public static class EncodingHelper
             "Ã", "Â", "È", // Common UTF-8 mojibake prefixes
     };
 
-   return mojibakePatterns.Any(pattern => text.Contains(pattern));
+        return mojibakePatterns.Any(pattern => text.Contains(pattern));
     }
 
     /// <summary>
@@ -158,15 +158,15 @@ public static class EncodingHelper
     /// <returns>Content-Type with charset</returns>
     public static string GetContentTypeWithCharset(string contentType)
     {
- if (string.IsNullOrEmpty(contentType))
+        if (string.IsNullOrEmpty(contentType))
         {
-     return "application/octet-stream";
-   }
+            return "application/octet-stream";
+        }
 
         // If already has charset, return as-is
         if (contentType.Contains("charset=", StringComparison.OrdinalIgnoreCase))
         {
-   return contentType;
+            return contentType;
         }
 
         // Add UTF-8 charset for text-based content types
@@ -181,7 +181,7 @@ public static class EncodingHelper
 
         if (textBasedTypes.Any(type => contentType.StartsWith(type, StringComparison.OrdinalIgnoreCase)))
         {
-       return $"{contentType}; charset=utf-8";
+            return $"{contentType}; charset=utf-8";
         }
 
         return contentType;
@@ -194,14 +194,14 @@ public static class EncodingHelper
     /// <returns>True if valid UTF-8</returns>
     public static bool IsValidUtf8(string text)
     {
-  try
+        try
         {
             var bytes = Encoding.UTF8.GetBytes(text);
-      var decoded = Encoding.UTF8.GetString(bytes);
+            var decoded = Encoding.UTF8.GetString(bytes);
             return text == decoded;
         }
-  catch
-    {
+        catch
+        {
             return false;
         }
     }
@@ -226,15 +226,15 @@ public static class EncodingHelper
     {
         if (!addBom)
         {
-return content;
+            return content;
         }
 
-var bom = Encoding.UTF8.GetPreamble();
+        var bom = Encoding.UTF8.GetPreamble();
         var result = new byte[bom.Length + content.Length];
-        
+
         Buffer.BlockCopy(bom, 0, result, 0, bom.Length);
         Buffer.BlockCopy(content, 0, result, bom.Length, content.Length);
-        
+
         return result;
     }
 }

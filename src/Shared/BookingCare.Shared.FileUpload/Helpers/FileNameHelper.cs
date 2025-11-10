@@ -10,7 +10,7 @@ namespace BookingCare.Shared.FileUpload.Helpers;
 public static class FileNameHelper
 {
     /// <summary>
-/// Sanitize filename to be URL-safe and S3-compatible
+    /// Sanitize filename to be URL-safe and S3-compatible
     /// Removes Unicode characters, special characters, and spaces
     /// </summary>
     /// <param name="fileName">Original filename with extension</param>
@@ -19,17 +19,17 @@ public static class FileNameHelper
     {
         if (string.IsNullOrWhiteSpace(fileName))
         {
-        return "unnamed_file";
+            return "unnamed_file";
         }
 
         // Extract extension first
-  var extension = Path.GetExtension(fileName);
+        var extension = Path.GetExtension(fileName);
         var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
 
-  // Sanitize filename part
+        // Sanitize filename part
         var sanitizedName = SanitizeFileNameWithoutExtension(nameWithoutExtension);
 
-  // Combine with original extension (keep extension as-is)
+        // Combine with original extension (keep extension as-is)
         return $"{sanitizedName}{extension.ToLowerInvariant()}";
     }
 
@@ -41,8 +41,8 @@ public static class FileNameHelper
     public static string SanitizeFileNameWithoutExtension(string fileNameWithoutExtension)
     {
         if (string.IsNullOrWhiteSpace(fileNameWithoutExtension))
-  {
- return "unnamed";
+        {
+            return "unnamed";
         }
 
         var sanitized = fileNameWithoutExtension;
@@ -53,7 +53,7 @@ public static class FileNameHelper
 
         // Step 2: Replace spaces and special characters with underscores
         // Converts: "Ho so benh an" ? "Ho_so_benh_an"
-      sanitized = Regex.Replace(sanitized, @"[\s\-]+", "_");
+        sanitized = Regex.Replace(sanitized, @"[\s\-]+", "_");
 
         // Step 3: Remove all non-alphanumeric characters except underscore and dash
         // Keeps only: a-z, A-Z, 0-9, _, -
@@ -65,7 +65,7 @@ public static class FileNameHelper
         // Step 5: Trim underscores and dashes from start and end
         sanitized = sanitized.Trim('_', '-');
 
-      // Step 6: If empty after sanitization, use fallback
+        // Step 6: If empty after sanitization, use fallback
         if (string.IsNullOrWhiteSpace(sanitized))
         {
             sanitized = "file";
@@ -73,8 +73,8 @@ public static class FileNameHelper
 
         // Step 7: Limit length to 100 characters (S3 recommends shorter keys)
         if (sanitized.Length > 100)
- {
-      sanitized = sanitized.Substring(0, 100).TrimEnd('_', '-');
+        {
+            sanitized = sanitized.Substring(0, 100).TrimEnd('_', '-');
         }
 
         return sanitized;
@@ -90,21 +90,21 @@ public static class FileNameHelper
     /// <returns>Text without diacritics</returns>
     private static string RemoveDiacritics(string text)
     {
- // Normalize Unicode string to FormD (decomposed form)
+        // Normalize Unicode string to FormD (decomposed form)
         // This separates base characters from combining diacritical marks
         var normalizedString = text.Normalize(NormalizationForm.FormD);
         var stringBuilder = new StringBuilder();
 
-  foreach (var c in normalizedString)
- {
+        foreach (var c in normalizedString)
+        {
             // Get Unicode category
             var unicodeCategory = CharUnicodeInfo.GetUnicodeCategory(c);
 
             // Keep all characters except NonSpacingMark (diacritical marks)
             if (unicodeCategory != UnicodeCategory.NonSpacingMark)
-         {
-       stringBuilder.Append(c);
-       }
+            {
+                stringBuilder.Append(c);
+            }
         }
 
         // Normalize back to FormC (composed form)
@@ -119,13 +119,13 @@ public static class FileNameHelper
     public static string GenerateUniqueFileName(string originalFileName)
     {
         var extension = Path.GetExtension(originalFileName);
-var nameWithoutExtension = Path.GetFileNameWithoutExtension(originalFileName);
-  var sanitizedName = SanitizeFileNameWithoutExtension(nameWithoutExtension);
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(originalFileName);
+        var sanitizedName = SanitizeFileNameWithoutExtension(nameWithoutExtension);
 
         var uniqueId = Guid.NewGuid().ToString("N")[..8];
         var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd");
 
-return $"{sanitizedName}_{timestamp}_{uniqueId}{extension.ToLowerInvariant()}";
+        return $"{sanitizedName}_{timestamp}_{uniqueId}{extension.ToLowerInvariant()}";
     }
 
     /// <summary>
@@ -135,12 +135,12 @@ return $"{sanitizedName}_{timestamp}_{uniqueId}{extension.ToLowerInvariant()}";
     /// <returns>True if safe, false otherwise</returns>
     public static bool IsSafeForS3(string fileName)
     {
-   if (string.IsNullOrWhiteSpace(fileName))
+        if (string.IsNullOrWhiteSpace(fileName))
         {
-  return false;
+            return false;
         }
 
-     // Check for unsafe characters that might cause issues in S3
+        // Check for unsafe characters that might cause issues in S3
         var unsafeChars = new[] { '\\', '/', ':', '*', '?', '"', '<', '>', '|', '\0' };
         return !fileName.Any(c => unsafeChars.Contains(c) || c > 127); // No non-ASCII
     }
@@ -177,19 +177,19 @@ return $"{sanitizedName}_{timestamp}_{uniqueId}{extension.ToLowerInvariant()}";
             { '?', "A" }, { '?', "B" }, { '?', "G" }, { '?', "D" }, { '?', "E" },
       };
 
-    var result = new StringBuilder();
-   foreach (var c in text)
+        var result = new StringBuilder();
+        foreach (var c in text)
         {
             if (transliterationMap.TryGetValue(c, out var replacement))
-      {
-       result.Append(replacement);
+            {
+                result.Append(replacement);
             }
             else
-{
-     result.Append(c);
+            {
+                result.Append(c);
             }
         }
 
-  return result.ToString();
+        return result.ToString();
     }
 }

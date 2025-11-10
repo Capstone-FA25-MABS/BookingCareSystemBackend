@@ -517,12 +517,12 @@ public class S3FileUploadService : IFileUploadService
         if (generateUnique)
         {
             // ✅ FIX: Use helper to generate URL-safe unique filename
-    fileName = FileNameHelper.GenerateUniqueFileName(fileName);
+            fileName = FileNameHelper.GenerateUniqueFileName(fileName);
         }
         else
         {
-     // ✅ FIX: Sanitize filename even when not generating unique
-          fileName = FileNameHelper.SanitizeFileName(fileName);
+            // ✅ FIX: Sanitize filename even when not generating unique
+            fileName = FileNameHelper.SanitizeFileName(fileName);
         }
 
         return $"{cleanFolder}{fileName}";
