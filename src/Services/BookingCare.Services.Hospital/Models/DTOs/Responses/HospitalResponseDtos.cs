@@ -37,14 +37,18 @@ public class HospitalSpecialtyResponse
 
 public class HospitalServiceTypeResponse
 {
-    public Guid ServiceTypeId { get; set; }
-    public string? ServiceTypeName { get; set; }
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
+    public int DoctorCount { get; set; }
 }
 
 public class HospitalServiceMedicalResponse
 {
-    public Guid ServiceMedicalId { get; set; }
-    public string? ServiceMedicalName { get; set; }
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
+    public decimal Price { get; set; }
 }
 
 public class HospitalListResponse

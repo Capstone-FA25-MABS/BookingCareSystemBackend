@@ -12,8 +12,8 @@ public class HospitalMappingProfile : Profile
         // Hospital mappings
         CreateMap<HospitalEntity, HospitalResponse>()
             .ForMember(dest => dest.Specialties, opt => opt.MapFrom(src => src.HospitalSpecialties))
-            .ForMember(dest => dest.ServiceTypes, opt => opt.MapFrom(src => src.HospitalServiceTypes))
-            .ForMember(dest => dest.ServiceMedicals, opt => opt.MapFrom(src => src.HospitalServiceMedicals))
+            .ForMember(dest => dest.ServiceTypes, opt => opt.Ignore()) // Not populated via direct mapping
+            .ForMember(dest => dest.ServiceMedicals, opt => opt.Ignore()) // Not populated via direct mapping
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
             .ForMember(dest => dest.CurrentSubscription, opt => opt.MapFrom(src =>
                 src.HospitalSubscriptions.FirstOrDefault(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)))
@@ -44,8 +44,8 @@ public class HospitalMappingProfile : Profile
 
         CreateMap<HospitalEntity, HospitalDetailResponse>()
             .ForMember(dest => dest.Specialties, opt => opt.MapFrom(src => src.HospitalSpecialties))
-            .ForMember(dest => dest.ServiceTypes, opt => opt.MapFrom(src => src.HospitalServiceTypes))
-            .ForMember(dest => dest.ServiceMedicals, opt => opt.MapFrom(src => src.HospitalServiceMedicals))
+            .ForMember(dest => dest.ServiceTypes, opt => opt.Ignore()) // Not populated via direct mapping
+            .ForMember(dest => dest.ServiceMedicals, opt => opt.Ignore()) // Not populated via direct mapping
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
             .ForMember(dest => dest.CurrentSubscription, opt => opt.MapFrom(src =>
                 src.HospitalSubscriptions.FirstOrDefault(s => s.Status == BookingCare.Services.Hospital.Enums.SubscriptionStatus.ACTIVE)))
@@ -74,9 +74,9 @@ public class HospitalMappingProfile : Profile
         // Hospital Profile mapping (exclude accountId, createdAt, updatedAt)
         CreateMap<HospitalEntity, HospitalProfileResponse>()
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
-            .ForMember(dest => dest.Specialties, opt => opt.Ignore())
-            .ForMember(dest => dest.ServiceTypes, opt => opt.MapFrom(src => src.HospitalServiceTypes))
-            .ForMember(dest => dest.ServiceMedicals, opt => opt.MapFrom(src => src.HospitalServiceMedicals));
+            .ForMember(dest => dest.Specialties, opt => opt.Ignore()) // Populated manually via gRPC
+            .ForMember(dest => dest.ServiceTypes, opt => opt.Ignore()) // Populated manually via gRPC
+            .ForMember(dest => dest.ServiceMedicals, opt => opt.Ignore()); // Populated manually via gRPC
 
         CreateMap<HospitalImageEntity, HospitalImageSimpleResponse>()
             .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
@@ -105,13 +105,8 @@ public class HospitalMappingProfile : Profile
         // Hospital Specialty mappings
         CreateMap<HospitalSpecialtyEntity, HospitalSpecialtyResponse>();
 
-        // Hospital ServiceType mappings
-        CreateMap<HospitalServiceTypeEntity, HospitalServiceTypeResponse>()
-            .ForMember(dest => dest.ServiceTypeId, opt => opt.MapFrom(src => src.ServiceTypeId));
-
-        // Hospital ServiceMedical mappings
-        CreateMap<HospitalServiceMedicalEntity, HospitalServiceMedicalResponse>()
-            .ForMember(dest => dest.ServiceMedicalId, opt => opt.MapFrom(src => src.ServiceMedicalId));
+        // Note: HospitalServiceTypeResponse and HospitalServiceMedicalResponse are populated manually
+        // in HospitalService.GetByIdAsync via gRPC calls to Doctor and ServiceMedical services
 
         // Hospital Image mappings
         CreateMap<HospitalImageEntity, HospitalImageResponse>();

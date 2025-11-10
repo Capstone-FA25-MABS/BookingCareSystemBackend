@@ -1,5 +1,6 @@
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.ServiceMedical.Protos;
 using BookingCare.Services.Hospital.Services.Interfaces;
 
 namespace BookingCare.Services.Hospital.Services.Helpers;
@@ -11,15 +12,18 @@ public class HospitalServiceDependencies
 {
     public AuthService.AuthServiceClient AuthClient { get; }
     public DoctorService.DoctorServiceClient DoctorClient { get; }
+    public ServiceMedicalService.ServiceMedicalServiceClient ServiceMedicalClient { get; }
     public ILocationApiService LocationApiService { get; }
 
     public HospitalServiceDependencies(
         AuthService.AuthServiceClient authClient,
         DoctorService.DoctorServiceClient doctorClient,
+        ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient,
         ILocationApiService locationApiService)
     {
         AuthClient = authClient;
         DoctorClient = doctorClient;
+        ServiceMedicalClient = serviceMedicalClient;
         LocationApiService = locationApiService;
     }
 }
