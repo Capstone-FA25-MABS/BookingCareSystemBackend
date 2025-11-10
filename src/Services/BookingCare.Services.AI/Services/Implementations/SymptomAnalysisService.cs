@@ -154,9 +154,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 .OrderByDescending(s => s.Confidence)
                 .FirstOrDefault()?.Confidence ?? 0;
 
-            // Count number of questions already asked in conversation history
+            // Count number of QUESTIONS (not conclusions) already asked in conversation history
             var questionsAskedCount = conversationHistory
                 .Where(m => m.Role?.ToLower() == "ai" &&
+                           !m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) == true &&
+                           !m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) == true &&
+                           !m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) == true &&
                            (m.Content?.Contains("?") == true ||
                             m.Content?.Contains("cho tôi biết") == true ||
                             m.Content?.Contains("bạn có thể") == true))
@@ -199,13 +202,17 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 }
             }
 
-            // Count AI messages (questions) after the last "tư vấn thêm" request
+            // Count ONLY AI questions (not conclusions) after the last "tư vấn thêm" request
+            // Exclude messages that contain conclusion markers
             var followUpQuestionsCount = 0;
             if (lastConsultMoreIndex >= 0)
             {
                 followUpQuestionsCount = conversationHistory
                     .Skip(lastConsultMoreIndex + 1)
                     .Where(m => m.Role?.ToLower() == "ai" &&
+                               !m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) == true &&
+                               !m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) == true &&
+                               !m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) == true &&
                                (m.Content?.Contains("?") == true ||
                                 m.Content?.Contains("cho tôi biết") == true ||
                                 m.Content?.Contains("bạn có thể") == true))
@@ -235,10 +242,17 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 else
                 {
                     _logger.LogInformation("User is asking follow-up questions ({Count}/3), allowing more questions", followUpQuestionsCount);
-                    analysisComplete = false;
-                    // Only set shouldAskMoreQuestions to true if Gemini has questions to ask
-                    // Otherwise, just provide explanation without asking more
-                    shouldAskMoreQuestions = geminiResult.NextQuestions.Any();
+                    
+                    // For "Tư vấn thêm", keep asking questions until we have 3 questions
+                    // Only show full recommendations after 3 questions
+                    analysisComplete = false; // Keep false while asking questions
+                    shouldAskMoreQuestions = true;
+                    
+                    // If AI doesn't have specific questions, ensure we still get relevant questions
+                    if (!geminiResult.NextQuestions.Any() && isConsultMoreRequest)
+                    {
+                        _logger.LogInformation("User requested more consultation but AI has no questions. This should not happen if prompt is correct.");
+                    }
                 }
             }
             // Force complete if already asked 3 questions (but not for follow-up questions)
@@ -249,7 +263,42 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 shouldAskMoreQuestions = false;
             }
 
-            // Step 4: Create base response
+            // Step 4: Validate complete analysis has all required components
+            if (analysisComplete)
+            {
+                // Validate that AI returned all required components for conclusion
+                var missingComponents = new List<string>();
+                
+                if (!geminiResult.PossibleDiseases.Any())
+                    missingComponents.Add("possibleDiseases");
+                if (!filteredSpecialties.Any())
+                    missingComponents.Add("recommendedSpecialties");
+                if (!geminiResult.GeneralAdvice.Any())
+                    missingComponents.Add("generalAdvice");
+                
+                if (missingComponents.Any())
+                {
+                    _logger.LogWarning("AI returned incomplete conclusion. Missing: {Components}. Forcing to ask more questions.", 
+                        string.Join(", ", missingComponents));
+                    
+                    // Force back to asking mode if conclusion is incomplete
+                    analysisComplete = false;
+                    shouldAskMoreQuestions = true;
+                    
+                    // Add a generic follow-up question if AI didn't provide one
+                    if (!geminiResult.NextQuestions.Any())
+                    {
+                        geminiResult.NextQuestions.Add(new GeminiQuestion
+                        {
+                            Question = "Bạn có thể mô tả thêm chi tiết về triệu chứng của mình không?",
+                            Purpose = "Thu thập thêm thông tin để đưa ra kết luận chính xác",
+                            Priority = "HIGH"
+                        });
+                    }
+                }
+            }
+            
+            // Step 5: Create base response
             var baseMessage = shouldAskMoreQuestions
                 ? (geminiResult.NextQuestions.Any()
                     ? geminiResult.NextQuestions.First().Question  // Chỉ hiển thị câu hỏi khi chưa đủ thông tin
@@ -291,12 +340,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             response.RecommendedSpecialties = specialtyMatches;
 
             // Step 6: If analysis is complete and specialties identified, get recommendations
-            // Recommend if:
-            // 1. Analysis is complete AND specialties identified AND not a follow-up question, OR
-            // 2. It's a follow-up question but already asked 3 follow-up questions
-            var shouldRecommend = analysisComplete &&
-                                  specialtyMatches.Any(s => s.SpecialtyId != null) &&
-                                  ((!isConsultMoreRequest && !isFollowUpQuestion) || followUpQuestionsCount >= 3);
+            // Always recommend when analysis is complete, regardless of follow-up status
+            // This ensures user gets doctor/hospital cards whenever we have enough info
+            var shouldRecommend = analysisComplete && specialtyMatches.Any(s => s.SpecialtyId != null);
 
             if (shouldRecommend)
             {
@@ -462,6 +508,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             sb.AppendLine();
         }
 
+        // REQUIRED: Possible diseases with confidence
         if (result.PossibleDiseases.Any())
         {
             sb.AppendLine("Dựa trên các triệu chứng bạn mô tả, có thể liên quan đến:");
@@ -472,7 +519,15 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             }
             sb.AppendLine();
         }
+        else
+        {
+            // Fallback if no diseases provided (should not happen with validation)
+            _logger.LogWarning("BuildAIMessage called but no possible diseases provided");
+            sb.AppendLine("Dựa trên các triệu chứng bạn mô tả, tôi cần thêm thông tin để đưa ra đánh giá chính xác.");
+            sb.AppendLine();
+        }
 
+        // REQUIRED: General advice
         if (result.GeneralAdvice.Any())
         {
             sb.AppendLine("**Lời khuyên chung**:");
@@ -482,11 +537,28 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             }
             sb.AppendLine();
         }
+        else
+        {
+            // Fallback if no advice provided (should not happen with validation)
+            _logger.LogWarning("BuildAIMessage called but no general advice provided");
+            sb.AppendLine("**Lời khuyên chung**:");
+            sb.AppendLine("• Theo dõi triệu chứng của bạn");
+            sb.AppendLine("• Nếu triệu chứng trở nên nghiêm trọng hơn, hãy đến cơ sở y tế");
+            sb.AppendLine();
+        }
 
+        // REQUIRED: Recommended specialties
         if (result.RecommendedSpecialties.Any())
         {
             var topSpecialty = result.RecommendedSpecialties.OrderByDescending(s => s.Confidence).First();
             sb.AppendLine($"**Chuyên khoa phù hợp**: {topSpecialty.SpecialtyName}");
+            sb.AppendLine();
+        }
+        else
+        {
+            // Fallback if no specialties provided (should not happen with validation)
+            _logger.LogWarning("BuildAIMessage called but no recommended specialties provided");
+            sb.AppendLine("**Chuyên khoa phù hợp**: Nội tổng quát");
             sb.AppendLine();
         }
 
