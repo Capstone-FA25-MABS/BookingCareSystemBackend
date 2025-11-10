@@ -16,7 +16,8 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Interfaces
         Task<List<ServiceCategoryEntity>> GetChildrenAsync(Guid parentId);
         Task<List<ServiceCategoryEntity>> GetActiveCategoriesAsync();
         Task<(List<ServiceCategoryEntity> Categories, int TotalCount)> GetPagedAsync(
-            int page, int pageSize, string? searchTerm = null, string? status = null, Guid? parentId = null);
+            int page, int pageSize, string? searchTerm = null, string? status = null, Guid? parentId = null,
+            string? sortBy = null, string? sortDirection = null);
 
         // Validation Operations
         Task<bool> ExistsAsync(Guid id);
