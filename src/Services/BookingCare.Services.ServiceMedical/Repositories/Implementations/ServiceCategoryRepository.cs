@@ -42,7 +42,8 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
             var entity = await _context.ServiceCategories.FindAsync(id);
             if (entity == null) return false;
 
-            _context.ServiceCategories.Remove(entity);
+            // Soft delete: Only change status to INACTIVE instead of hard delete
+            entity.Status = StatusConstants.Inactive;
             await _context.SaveChangesAsync();
             return true;
         }
@@ -83,11 +84,11 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
         }
 
         public async Task<(List<ServiceCategoryEntity> Categories, int TotalCount)> GetPagedAsync(
-            int page, int pageSize, string? searchTerm = null, string? status = null, Guid? parentId = null)
+            int page, int pageSize, string? searchTerm = null, string? status = null, Guid? parentId = null,
+            string? sortBy = null, string? sortDirection = null)
         {
+            // No need to include Parent or Children for flat list - frontend will handle hierarchy
             var query = _context.ServiceCategories
-                .Include(sc => sc.Parent)
-                .Include(sc => sc.Children)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -107,8 +108,20 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
             }
 
             var totalCount = await query.CountAsync();
-            var categories = await query
-                .OrderBy(sc => sc.Name)
+
+            // Apply sorting - only support Name
+            var isDescending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+            var sortField = string.IsNullOrWhiteSpace(sortBy) ? "Name" : sortBy;
+
+            var orderedQuery = sortField.ToLower() switch
+            {
+                "name" => isDescending
+                    ? query.OrderByDescending(sc => sc.Name)
+                    : query.OrderBy(sc => sc.Name),
+                _ => query.OrderBy(sc => sc.Name) // Default sorting by name
+            };
+
+            var categories = await orderedQuery
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

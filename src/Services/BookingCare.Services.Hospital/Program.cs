@@ -15,6 +15,7 @@ using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.ServiceMedical.Protos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,13 +90,20 @@ builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(options =>
     options.Address = new Uri(doctorAddress);
 });
 
+var serviceMedicalAddress = builder.Configuration.GetSection("GrpcClients:ServiceMedical:Address").Value ?? "http://localhost:6115";
+builder.Services.AddGrpcClient<ServiceMedicalService.ServiceMedicalServiceClient>(options =>
+{
+    options.Address = new Uri(serviceMedicalAddress);
+});
+
 // Register HospitalServiceDependencies to reduce constructor parameters
 builder.Services.AddScoped<HospitalServiceDependencies>(sp =>
 {
     var authClient = sp.GetRequiredService<AuthService.AuthServiceClient>();
     var doctorClient = sp.GetRequiredService<DoctorService.DoctorServiceClient>();
+    var serviceMedicalClient = sp.GetRequiredService<ServiceMedicalService.ServiceMedicalServiceClient>();
     var locationApiService = sp.GetRequiredService<ILocationApiService>();
-    return new HospitalServiceDependencies(authClient, doctorClient, locationApiService);
+    return new HospitalServiceDependencies(authClient, doctorClient, serviceMedicalClient, locationApiService);
 });
 
 var app = builder.Build();

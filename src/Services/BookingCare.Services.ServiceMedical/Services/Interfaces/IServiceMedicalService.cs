@@ -44,6 +44,12 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
         // Get services by category with hospital information (optimized)
         Task<ServicesByCategoryOptimizedResponse> GetServicesByCategoryWithHospitalAsync(GetServicesByCategoryRequest request);
 
+        // Get all services with hospital name and category name (with filtering and sorting)
+        Task<ServiceDetailListResponse> GetAllServicesWithDetailsAsync(ServiceQueryRequest? query = null);
+
+        // Get filter options (hospitals and service categories) for dropdown
+        Task<FilterOptionsResponse> GetFilterOptionsAsync();
+
         #endregion
 
 

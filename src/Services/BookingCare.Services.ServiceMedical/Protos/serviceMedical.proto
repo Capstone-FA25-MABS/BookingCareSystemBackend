@@ -21,6 +21,9 @@ service ServiceMedicalService {
   // Get services by category
   rpc GetServicesByCategory (GetServicesByCategoryGrpcRequest) returns (ServicesResponse);
   
+  // Get services by hospital
+  rpc GetServicesByHospital (GetServicesByHospitalGrpcRequest) returns (ServicesResponse);
+  
   // Validate service medical
   rpc ValidateServiceMedical (ValidateServiceMedicalRequest) returns (ValidateServiceMedicalResponse);
 }
@@ -49,6 +52,11 @@ message GetServicesByCategoryGrpcRequest {
   int32 page = 2;
   int32 page_size = 3;
   bool include_inactive = 4;
+}
+
+message GetServicesByHospitalGrpcRequest {
+  string hospital_id = 1;
+  bool include_inactive = 2;
 }
 
 message ValidateServiceMedicalRequest {
