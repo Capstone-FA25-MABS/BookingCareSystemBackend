@@ -1973,7 +1973,7 @@ public class AuthService : BaseService, IAuthService
             var account = await _authRepository.GetAccountByIdAsync(accountId);
             if (account == null)
             {
-                throw new AuthenticationException("Account not found");
+                throw new AuthenticationException(AuthConstants.ACCOUNT_NOT_FOUND);
             }
 
             // Generate a new secret key
@@ -2011,7 +2011,7 @@ public class AuthService : BaseService, IAuthService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            var (isEnabled, secretKey, _, _) = await _authRepository.Get2FADataAsync(accountId);
+            var (_, secretKey, _, _) = await _authRepository.Get2FADataAsync(accountId);
 
             if (string.IsNullOrEmpty(secretKey))
             {
@@ -2072,7 +2072,7 @@ public class AuthService : BaseService, IAuthService
                 return new Disable2FAResponse
                 {
                     Success = false,
-                    Message = "Account not found"
+                    Message = AuthConstants.ACCOUNT_NOT_FOUND
                 };
             }
 
@@ -2111,7 +2111,7 @@ public class AuthService : BaseService, IAuthService
     /// <summary>
     /// Verify 2FA code
     /// </summary>
-    public async Task<bool> Verify2FACodeAsync(Guid accountId, string code)
+    public async Task<bool> Verify2FACodeAsync(Guid accountId, string verificationCode)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
@@ -2122,7 +2122,7 @@ public class AuthService : BaseService, IAuthService
                 return false;
             }
 
-            return VerifyTotpCode(secretKey, code);
+            return VerifyTotpCode(secretKey, verificationCode);
         }, "Verify2FACode");
     }
 
@@ -2170,7 +2170,7 @@ public class AuthService : BaseService, IAuthService
                 return new RegenerateBackupCodesResponse
                 {
                     Success = false,
-                    Message = "Account not found"
+                    Message = AuthConstants.ACCOUNT_NOT_FOUND
                 };
             }
 
@@ -2262,7 +2262,7 @@ public class AuthService : BaseService, IAuthService
             var account = await _authRepository.GetAccountByIdAsync(accountId);
             if (account == null)
             {
-                throw new AuthenticationException("Account not found");
+                throw new AuthenticationException(AuthConstants.ACCOUNT_NOT_FOUND);
             }
 
             // Check account status
@@ -2319,16 +2319,26 @@ public class AuthService : BaseService, IAuthService
         return codes;
     }
 
-    private string GenerateBackupCode()
+    private static string GenerateBackupCode()
     {
         const int BACKUP_CODE_LENGTH = 8;
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        var random = new Random();
-        return new string(Enumerable.Repeat(chars, BACKUP_CODE_LENGTH)
-            .Select(s => s[random.Next(s.Length)]).ToArray());
+
+        // Use cryptographically secure random number generator
+        using var rng = RandomNumberGenerator.Create();
+        var randomBytes = new byte[BACKUP_CODE_LENGTH];
+        rng.GetBytes(randomBytes);
+
+        var result = new char[BACKUP_CODE_LENGTH];
+        for (int i = 0; i < BACKUP_CODE_LENGTH; i++)
+        {
+            result[i] = chars[randomBytes[i] % chars.Length];
+        }
+
+        return new string(result);
     }
 
-    private string HashBackupCode(string code)
+    private static string HashBackupCode(string code)
     {
         using var sha256 = SHA256.Create();
         var bytes = Encoding.UTF8.GetBytes(code);
@@ -2336,7 +2346,7 @@ public class AuthService : BaseService, IAuthService
         return Convert.ToBase64String(hash);
     }
 
-    private string FormatSecretKey(string key)
+    private static string FormatSecretKey(string key)
     {
         // Format as XXXX-XXXX-XXXX-XXXX for easier manual entry
         var formatted = new StringBuilder();

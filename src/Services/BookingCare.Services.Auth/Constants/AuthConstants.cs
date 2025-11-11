@@ -16,5 +16,6 @@
 
         // Constants for repeated string literals
         public const string UNKNOWN_STATUS = "UNKNOWN";
+        public const string ACCOUNT_NOT_FOUND = "Account not found";
     }
 }

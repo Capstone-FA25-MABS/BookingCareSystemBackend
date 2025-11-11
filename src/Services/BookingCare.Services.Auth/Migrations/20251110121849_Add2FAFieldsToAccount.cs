@@ -8,24 +8,26 @@ namespace BookingCare.Services.Auth.Migrations
     /// <inheritdoc />
     public partial class Add2FAFieldsToAccount : Migration
     {
+        private const string TABLE_NAME_ASP_NET_USERS = "AspNetUsers";
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
                 name: "TwoFactorBackupCodes",
-                table: "AspNetUsers",
+                table: TABLE_NAME_ASP_NET_USERS,
                 type: "nvarchar(max)",
                 nullable: true);
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "TwoFactorEnabledAt",
-                table: "AspNetUsers",
+                table: TABLE_NAME_ASP_NET_USERS,
                 type: "datetime2",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "TwoFactorSecretKey",
-                table: "AspNetUsers",
+                table: TABLE_NAME_ASP_NET_USERS,
                 type: "nvarchar(max)",
                 nullable: true);
         }
@@ -35,15 +37,15 @@ namespace BookingCare.Services.Auth.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "TwoFactorBackupCodes",
-                table: "AspNetUsers");
+                table: TABLE_NAME_ASP_NET_USERS);
 
             migrationBuilder.DropColumn(
                 name: "TwoFactorEnabledAt",
-                table: "AspNetUsers");
+                table: TABLE_NAME_ASP_NET_USERS);
 
             migrationBuilder.DropColumn(
                 name: "TwoFactorSecretKey",
-                table: "AspNetUsers");
+                table: TABLE_NAME_ASP_NET_USERS);
         }
     }
 }
