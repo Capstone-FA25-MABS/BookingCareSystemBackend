@@ -445,42 +445,30 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// Get services by category with hospital information
         /// </summary>
         /// <param name="categoryId">Service category ID</param>
-        /// <param name="page">Page number</param>
-        /// <param name="pageSize">Page size</param>
-        /// <param name="includeInactive">Include inactive services</param>
-        /// <param name="searchTerm">Search term for filtering services by name or description</param>
-        /// <param name="hospitalIds">Comma-separated list of hospital IDs to filter services</param>
-        /// <param name="provinceId">Province ID for location filtering</param>
-        /// <param name="districtId">District ID for location filtering</param>
+        /// <param name="queryParams">Query parameters for filtering and pagination</param>
         /// <returns>List of services in the category with hospital information</returns>
         [HttpGet("category/{categoryId}/with-hospital")]
         public async Task<ActionResult<ServicesByCategoryOptimizedResponse>> GetServicesByCategoryWithHospital(
             Guid categoryId,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] bool includeInactive = false,
-            [FromQuery] string? searchTerm = null,
-            [FromQuery] string? hospitalIds = null,
-            [FromQuery] string? provinceId = null,
-            [FromQuery] string? districtId = null)
+            [FromQuery] GetServicesByCategoryWithHospitalQueryParams queryParams)
         {
             try
             {
                 var request = new GetServicesByCategoryRequest
                 {
                     ServiceCategoryId = categoryId,
-                    Page = page,
-                    PageSize = pageSize,
-                    IncludeInactive = includeInactive,
-                    SearchTerm = searchTerm,
-                    ProvinceId = provinceId,
-                    DistrictId = districtId
+                    Page = queryParams.Page,
+                    PageSize = queryParams.PageSize,
+                    IncludeInactive = queryParams.IncludeInactive,
+                    SearchTerm = queryParams.SearchTerm,
+                    ProvinceId = queryParams.ProvinceId,
+                    DistrictId = queryParams.DistrictId
                 };
 
                 // Parse hospital IDs from comma-separated string
-                if (!string.IsNullOrEmpty(hospitalIds))
+                if (!string.IsNullOrEmpty(queryParams.HospitalIds))
                 {
-                    var hospitalIdList = hospitalIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    var hospitalIdList = queryParams.HospitalIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
                         .Select(id => Guid.TryParse(id.Trim(), out var guid) ? guid : (Guid?)null)
                         .Where(id => id.HasValue)
                         .Select(id => id!.Value)

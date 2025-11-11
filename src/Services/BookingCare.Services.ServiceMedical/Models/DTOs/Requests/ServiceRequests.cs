@@ -103,4 +103,15 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
         public bool IncludeInactive { get; set; } = false;
     }
 
+    public class GetServicesByCategoryWithHospitalQueryParams
+    {
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+        public bool IncludeInactive { get; set; } = false;
+        public string? SearchTerm { get; set; }
+        public string? HospitalIds { get; set; }
+        public string? ProvinceId { get; set; }
+        public string? DistrictId { get; set; }
+    }
+
 }
