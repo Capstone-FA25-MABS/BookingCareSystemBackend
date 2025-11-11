@@ -55,6 +55,16 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
         public Guid? ServiceCategoryId { get; set; }
         public decimal? MinPrice { get; set; }
         public decimal? MaxPrice { get; set; }
+
+        /// <summary>
+        /// Sort field: "Name" or "Price"
+        /// </summary>
+        public string? SortBy { get; set; }
+
+        /// <summary>
+        /// Sort direction: "asc" (ascending) or "desc" (descending). Default: "asc"
+        /// </summary>
+        public string? SortDirection { get; set; } = "asc";
     }
 
     public class GetServicesByCategoryRequest

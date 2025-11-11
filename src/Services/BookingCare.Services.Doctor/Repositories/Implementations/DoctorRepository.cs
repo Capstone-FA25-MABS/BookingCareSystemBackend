@@ -1004,5 +1004,30 @@ public class DoctorRepository : IDoctorRepository
         return result;
     }
 
+    public async Task<List<(Guid ServiceTypeId, string ServiceTypeName, string? ServiceTypeImageUrl, int DoctorCount)>> GetServiceTypesByHospitalAsync(Guid hospitalId)
+    {
+        // Get all service types that have doctor prices for doctors in this hospital
+        var serviceTypesWithCounts = await _context.DoctorPrices
+            .Where(dp => dp.Doctor.HospitalId.HasValue && dp.Doctor.HospitalId.Value == hospitalId)
+            .GroupBy(dp => new
+            {
+                dp.ServiceType.Id,
+                dp.ServiceType.Name,
+                dp.ServiceType.ImageUrl
+            })
+            .Select(g => new
+            {
+                ServiceTypeId = g.Key.Id,
+                ServiceTypeName = g.Key.Name,
+                ServiceTypeImageUrl = g.Key.ImageUrl,
+                DoctorCount = g.Select(dp => dp.DoctorId).Distinct().Count()
+            })
+            .ToListAsync();
+
+        return serviceTypesWithCounts
+            .Select(x => (x.ServiceTypeId, x.ServiceTypeName, x.ServiceTypeImageUrl, x.DoctorCount))
+            .ToList();
+    }
+
     #endregion
 }

@@ -14,6 +14,8 @@ using BookingCare.Services.Notification.Services.Interfaces;
 using BookingCare.Services.Notification.Services.Grpc;
 using BookingCare.Shared.Cache.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Services.Notification.Services.Implementations;
+using BookingCare.Services.Notification.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +25,9 @@ builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environmen
 // Add controllers and Swagger
 builder.Services.AddCommonControllers();
 builder.Services.AddCommonSwagger("Notification");
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddGrpc();
 
@@ -46,6 +51,19 @@ builder.Services.AddScoped<DeviceStore>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<FcmV1Service>();
 
+// Notification services
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationPushService, NotificationPushService>();
+
+// SignalR with Redis backplane for scaling
+var redisConnectionString = builder.Configuration.GetValue<string>("Cache:ConnectionString") ?? "localhost:6379";
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(redisConnectionString, options =>
+    {
+        options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("BookingCare:SignalR:");
+    });
+
 // Add JWT Authentication and Authorization using centralized configuration
 builder.Services.AddJwtAuthAndAuthorization();
 
@@ -68,6 +86,7 @@ builder.Services.AddIntegrationEventHandler<AppointmentCancelledWithOptionsNotif
 builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<CreateInAppNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<DoctorCredentialsGeneratedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalSubscriptionCreatedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalSubscriptionUpgradedEventHandler>();
@@ -94,6 +113,9 @@ app.MapControllers();
 // Map gRPC services
 app.MapGrpcService<OtpGrpcService>();
 
+// Map SignalR hub
+app.MapHub<NotificationHub>("/noti-hubs/notification-hub");
+
 // Map health check endpoint
 app.MapCommonHealthCheck("Notification");
 
@@ -108,8 +130,11 @@ app.UseEventBus(eventBus =>
     eventBus.Subscribe<RefundHistoryCompletedIntegrationEvent, RefundHistoryCompletedEventHandler>();
     eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
 
-    // Subscribe to appointment booking success notifications for email sending
+    // Subscribe to appointment booking success notifications (sends email + creates in-app notification)
     eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
+
+    // Subscribe to generic notification creation event (published by any service)
+    eventBus.Subscribe<CreateInAppNotificationEvent, CreateInAppNotificationEventHandler>();
 
     // Subscribe to doctor credentials generated event for sending login credentials
     eventBus.Subscribe<DoctorCredentialsGeneratedEvent, DoctorCredentialsGeneratedEventHandler>();

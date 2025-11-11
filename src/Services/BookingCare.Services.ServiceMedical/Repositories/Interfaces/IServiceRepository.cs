@@ -21,6 +21,7 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Interfaces
         // Business Operations
         Task<List<Guid>> GetHospitalIdsByCategoryAsync(Guid categoryId);
         Task<List<ServiceEntity>> GetServicesWithCategoryAsync();
+        Task<List<Guid>> GetAllDistinctHospitalIdsAsync();
 
         // Validation Operations
         Task<bool> ExistsAsync(Guid id);

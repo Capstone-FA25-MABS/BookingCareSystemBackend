@@ -1,5 +1,6 @@
 using BookingCare.Services.ServiceMedical.Constants;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
+using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Protos;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using Grpc.Core;
@@ -27,7 +28,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 var response = new ServiceCategoriesResponse();
                 foreach (var category in categories)
                 {
-                    response.Categories.Add(new ServiceCategoryResponse
+                    response.Categories.Add(new Protos.ServiceCategoryResponse
                     {
                         Id = category.Id.ToString(),
                         Name = category.Name,
@@ -68,7 +69,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 var response = new ServiceCategoriesResponse();
                 foreach (var category in categories)
                 {
-                    response.Categories.Add(new ServiceCategoryResponse
+                    response.Categories.Add(new Protos.ServiceCategoryResponse
                     {
                         Id = category.Id.ToString(),
                         Name = category.Name,
@@ -92,7 +93,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
             }
         }
 
-        public override async Task<HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategory(
+        public override async Task<Protos.HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategory(
             GetHospitalsByServiceCategoryGrpcRequest request, ServerCallContext context)
         {
             try
@@ -110,7 +111,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
 
                 var result = await _serviceMedicalService.GetHospitalsByServiceCategoryAsync(requestDto);
 
-                var response = new HospitalsByServiceCategoryResponse
+                var response = new Protos.HospitalsByServiceCategoryResponse
                 {
                     ServiceCategoryId = result.ServiceCategoryId.ToString(),
                     ServiceCategoryName = result.ServiceCategoryName,
@@ -155,33 +156,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                     throw new RpcException(new Status(StatusCode.NotFound, "Service not found"));
                 }
 
-                var response = new Protos.ServiceResponse
-                {
-                    Id = service.Id.ToString(),
-                    Name = service.Name,
-                    Description = service.Description ?? string.Empty,
-                    Price = service.Price.ToString("F2"),
-                    ImageUrl = service.ImageUrl ?? string.Empty,
-                    HospitalId = service.HospitalId.ToString(),
-                    ServiceCategoryId = service.ServiceCategoryId?.ToString() ?? string.Empty,
-                    DurationTime = service.DurationTime,
-                    Status = service.Status
-                };
-
-                if (service.ServiceCategory != null)
-                {
-                    response.ServiceCategory = new ServiceCategoryResponse
-                    {
-                        Id = service.ServiceCategory.Id.ToString(),
-                        Name = service.ServiceCategory.Name,
-                        Description = service.ServiceCategory.Description ?? string.Empty,
-                        ImageUrl = service.ServiceCategory.ImageUrl ?? string.Empty,
-                        ParentId = service.ServiceCategory.ParentId?.ToString() ?? string.Empty,
-                        Status = service.ServiceCategory.Status
-                    };
-                }
-
-                return response;
+                return MapToServiceResponse(service);
             }
             catch (RpcException)
             {
@@ -224,33 +199,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
 
                 foreach (var service in result.Services)
                 {
-                    var serviceResponse = new Protos.ServiceResponse
-                    {
-                        Id = service.Id.ToString(),
-                        Name = service.Name,
-                        Description = service.Description ?? string.Empty,
-                        Price = service.Price.ToString("F2"),
-                        ImageUrl = service.ImageUrl ?? string.Empty,
-                        HospitalId = service.HospitalId.ToString(),
-                        ServiceCategoryId = service.ServiceCategoryId?.ToString() ?? string.Empty,
-                        DurationTime = service.DurationTime,
-                        Status = service.Status
-                    };
-
-                    if (service.ServiceCategory != null)
-                    {
-                        serviceResponse.ServiceCategory = new ServiceCategoryResponse
-                        {
-                            Id = service.ServiceCategory.Id.ToString(),
-                            Name = service.ServiceCategory.Name,
-                            Description = service.ServiceCategory.Description ?? string.Empty,
-                            ImageUrl = service.ServiceCategory.ImageUrl ?? string.Empty,
-                            ParentId = service.ServiceCategory.ParentId?.ToString() ?? string.Empty,
-                            Status = service.ServiceCategory.Status
-                        };
-                    }
-
-                    response.Services.Add(serviceResponse);
+                    response.Services.Add(MapToServiceResponse(service));
                 }
 
                 return response;
@@ -262,6 +211,47 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting services by category via gRPC for category: {CategoryId}", request.ServiceCategoryId);
+                throw new RpcException(new Status(StatusCode.Internal, StatusConstants.InternalServerError));
+            }
+        }
+
+        public override async Task<ServicesResponse> GetServicesByHospital(
+            GetServicesByHospitalGrpcRequest request, ServerCallContext context)
+        {
+            try
+            {
+                if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+                {
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID"));
+                }
+
+                _logger.LogInformation("[ServiceMedicalGrpcService] GetServicesByHospital called for hospital: {HospitalId}", hospitalId);
+
+                var services = await _serviceMedicalService.GetServicesByHospitalAsync(hospitalId);
+
+                var response = new ServicesResponse
+                {
+                    TotalCount = services.Count,
+                    Page = 1,
+                    PageSize = services.Count,
+                    TotalPages = 1
+                };
+
+                foreach (var service in services)
+                {
+                    response.Services.Add(MapToServiceResponse(service));
+                }
+
+                _logger.LogInformation("[ServiceMedicalGrpcService] Returning {Count} services for hospital {HospitalId}", services.Count, hospitalId);
+                return response;
+            }
+            catch (RpcException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting services by hospital via gRPC for hospital: {HospitalId}", request.HospitalId);
                 throw new RpcException(new Status(StatusCode.Internal, StatusConstants.InternalServerError));
             }
         }
@@ -297,6 +287,37 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
                 _logger.LogError(ex, "Error validating service medical via gRPC: {ServiceId}", request.Id);
                 throw new RpcException(new Status(StatusCode.Internal, StatusConstants.InternalServerError));
             }
+        }
+
+        private Protos.ServiceResponse MapToServiceResponse(Models.DTOs.Responses.ServiceResponse service)
+        {
+            var serviceResponse = new Protos.ServiceResponse
+            {
+                Id = service.Id.ToString(),
+                Name = service.Name,
+                Description = service.Description ?? string.Empty,
+                Price = service.Price.ToString("F2"),
+                ImageUrl = service.ImageUrl ?? string.Empty,
+                HospitalId = service.HospitalId.ToString(),
+                ServiceCategoryId = service.ServiceCategoryId?.ToString() ?? string.Empty,
+                DurationTime = service.DurationTime,
+                Status = service.Status
+            };
+
+            if (service.ServiceCategory != null)
+            {
+                serviceResponse.ServiceCategory = new Protos.ServiceCategoryResponse
+                {
+                    Id = service.ServiceCategory.Id.ToString(),
+                    Name = service.ServiceCategory.Name,
+                    Description = service.ServiceCategory.Description ?? string.Empty,
+                    ImageUrl = service.ServiceCategory.ImageUrl ?? string.Empty,
+                    ParentId = service.ServiceCategory.ParentId?.ToString() ?? string.Empty,
+                    Status = service.ServiceCategory.Status
+                };
+            }
+
+            return serviceResponse;
         }
     }
 }
