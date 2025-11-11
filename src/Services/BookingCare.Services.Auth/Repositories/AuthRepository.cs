@@ -4,6 +4,7 @@ using BookingCare.Services.Auth.Models.Entities;
 using BookingCare.Services.Auth.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace BookingCare.Services.Auth.Repositories;
 
@@ -1314,6 +1315,139 @@ public class AuthRepository : IAuthRepository
         {
             _logger.LogError(ex, "Error adding external login for user: {UserId}", userId);
             throw new AuthException("Failed to add external login", innerException: ex);
+        }
+    }
+
+    #endregion
+
+    #region Two-Factor Authentication Operations
+
+    /// <summary>
+    /// Update 2FA secret key for account
+    /// </summary>
+    public async Task<bool> Update2FASecretKeyAsync(Guid accountId, string secretKey)
+    {
+        try
+        {
+            var account = await _context.Users.FindAsync(accountId);
+            if (account == null) return false;
+
+            account.TwoFactorSecretKey = secretKey;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating 2FA secret key for account: {AccountId}", accountId);
+            throw new AuthException("Failed to update 2FA secret key", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Enable 2FA for account
+    /// </summary>
+    public async Task<bool> Enable2FAAsync(Guid accountId, string secretKey, List<string> backupCodes)
+    {
+        try
+        {
+            var account = await _context.Users.FindAsync(accountId);
+            if (account == null) return false;
+
+            account.TwoFactorSecretKey = secretKey;
+            account.TwoFactorBackupCodes = JsonSerializer.Serialize(backupCodes);
+            account.TwoFactorEnabledAt = DateTime.UtcNow;
+            account.TwoFactorEnabled = true;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error enabling 2FA for account: {AccountId}", accountId);
+            throw new AuthException("Failed to enable 2FA", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Disable 2FA for account
+    /// </summary>
+    public async Task<bool> Disable2FAAsync(Guid accountId)
+    {
+        try
+        {
+            var account = await _context.Users.FindAsync(accountId);
+            if (account == null) return false;
+
+            account.TwoFactorSecretKey = null;
+            account.TwoFactorBackupCodes = null;
+            account.TwoFactorEnabledAt = null;
+            account.TwoFactorEnabled = false;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error disabling 2FA for account: {AccountId}", accountId);
+            throw new AuthException("Failed to disable 2FA", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Update backup codes for account
+    /// </summary>
+    public async Task<bool> UpdateBackupCodesAsync(Guid accountId, List<string> backupCodes)
+    {
+        try
+        {
+            var account = await _context.Users.FindAsync(accountId);
+            if (account == null) return false;
+
+            account.TwoFactorBackupCodes = JsonSerializer.Serialize(backupCodes);
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating backup codes for account: {AccountId}", accountId);
+            throw new AuthException("Failed to update backup codes", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get 2FA data for account
+    /// </summary>
+    public async Task<(bool IsEnabled, string? SecretKey, List<string> BackupCodes, DateTime? EnabledAt)> Get2FADataAsync(Guid accountId)
+    {
+        try
+        {
+            var account = await _context.Users.FindAsync(accountId);
+            if (account == null)
+            {
+                return (false, null, new List<string>(), null);
+            }
+
+            var backupCodes = new List<string>();
+            if (!string.IsNullOrEmpty(account.TwoFactorBackupCodes))
+            {
+                try
+                {
+                    backupCodes = JsonSerializer.Deserialize<List<string>>(account.TwoFactorBackupCodes) ?? new List<string>();
+                }
+                catch
+                {
+                    backupCodes = new List<string>();
+                }
+            }
+
+            return (account.TwoFactorEnabled, account.TwoFactorSecretKey, backupCodes, account.TwoFactorEnabledAt);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting 2FA data for account: {AccountId}", accountId);
+            throw new AuthException("Failed to get 2FA data", innerException: ex);
         }
     }
 
