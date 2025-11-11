@@ -77,4 +77,14 @@ public interface IAuthService
         string? searchTerm = null,
         string sortBy = "CreatedAt",
         string sortOrder = "desc");
+
+    // Two-Factor Authentication operations
+    Task<Generate2FASetupResponse> GenerateSetupAsync(Guid accountId);
+    Task<Enable2FAResponse> Enable2FAAsync(Guid accountId, Enable2FARequest request);
+    Task<Disable2FAResponse> Disable2FAAsync(Guid accountId, Disable2FARequest request);
+    Task<bool> Verify2FACodeAsync(Guid accountId, string verificationCode);
+    Task<bool> VerifyBackupCodeAsync(Guid accountId, string backupCode);
+    Task<RegenerateBackupCodesResponse> RegenerateBackupCodesAsync(Guid accountId, RegenerateBackupCodesRequest request);
+    Task<TwoFactorStatusResponse> GetStatusAsync(Guid accountId);
+    Task<AuthResponse> Complete2FALoginAsync(Guid accountId, string verificationCode);
 }

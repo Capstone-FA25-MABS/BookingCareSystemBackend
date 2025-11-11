@@ -1573,6 +1573,18 @@ public class AuthService : BaseService, IAuthService
     /// </summary>
     private async Task<AuthResponse> GenerateAuthResponseAsync(AccountEntity account, string message)
     {
+        // Check if 2FA is enabled for this account
+        if (account.TwoFactorEnabled)
+        {
+            LogInfo("2FA is enabled for account: {AccountId}, requiring verification", null, account.Id);
+            return new AuthResponse
+            {
+                Message = "2FA verification required",
+                Requires2FA = true,
+                AccountId = account.Id.ToString()
+            };
+        }
+
         // Generate JWT access token with roles and permissions
         var accessToken = await _jwtService.GenerateAccessTokenAsync(account);
 
@@ -1944,6 +1956,398 @@ public class AuthService : BaseService, IAuthService
             CreatedAt = account?.CreatedAt ?? DateTime.MinValue,
             IsLocked = isLocked
         };
+    }
+
+    #endregion
+
+    #region Two-Factor Authentication Operations
+
+    /// <summary>
+    /// Generate 2FA setup (QR code and secret key)
+    /// </summary>
+    public async Task<Generate2FASetupResponse> GenerateSetupAsync(Guid accountId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var account = await _authRepository.GetAccountByIdAsync(accountId);
+            if (account == null)
+            {
+                throw new AuthenticationException("Account not found");
+            }
+
+            // Generate a new secret key
+            var key = OtpNet.KeyGeneration.GenerateRandomKey(20);
+            var base32Key = OtpNet.Base32Encoding.ToString(key);
+
+            // Store temporary secret key (will be confirmed when user enables 2FA)
+            await _authRepository.Update2FASecretKeyAsync(accountId, base32Key);
+
+            // Generate QR code URL for authenticator apps
+            var email = account.Email ?? account.UserName ?? "user";
+            var issuer = "BookingCare";
+            var qrCodeUrl = $"otpauth://totp/{issuer}:{email}?secret={base32Key}&issuer={issuer}";
+
+            // Generate QR code image as base64
+            using var qrGenerator = new QRCoder.QRCodeGenerator();
+            using var qrCodeData = qrGenerator.CreateQrCode(qrCodeUrl, QRCoder.QRCodeGenerator.ECCLevel.Q);
+            using var qrCode = new QRCoder.PngByteQRCode(qrCodeData);
+            var qrCodeImage = qrCode.GetGraphic(20);
+            var qrCodeBase64 = Convert.ToBase64String(qrCodeImage);
+
+            return new Generate2FASetupResponse
+            {
+                SecretKey = base32Key,
+                QrCodeUrl = $"data:image/png;base64,{qrCodeBase64}",
+                ManualEntryKey = FormatSecretKey(base32Key)
+            };
+        }, "GenerateSetup");
+    }
+
+    /// <summary>
+    /// Enable 2FA for account
+    /// </summary>
+    public async Task<Enable2FAResponse> Enable2FAAsync(Guid accountId, Enable2FARequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var (isEnabled, secretKey, _, _) = await _authRepository.Get2FADataAsync(accountId);
+
+            if (string.IsNullOrEmpty(secretKey))
+            {
+                return new Enable2FAResponse
+                {
+                    Success = false,
+                    Message = "2FA setup not initiated. Please generate setup first."
+                };
+            }
+
+            // Verify the code
+            var isValid = VerifyTotpCode(secretKey, request.VerificationCode);
+            if (!isValid)
+            {
+                return new Enable2FAResponse
+                {
+                    Success = false,
+                    Message = "Invalid verification code"
+                };
+            }
+
+            // Generate backup codes
+            var backupCodes = GenerateBackupCodes();
+            var hashedBackupCodes = backupCodes.Select(HashBackupCode).ToList();
+
+            // Enable 2FA
+            var success = await _authRepository.Enable2FAAsync(accountId, secretKey, hashedBackupCodes);
+            if (!success)
+            {
+                return new Enable2FAResponse
+                {
+                    Success = false,
+                    Message = "Failed to enable 2FA"
+                };
+            }
+
+            LogInfo("2FA enabled for account {AccountId}", null, accountId);
+
+            return new Enable2FAResponse
+            {
+                Success = true,
+                Message = "2FA enabled successfully",
+                BackupCodes = backupCodes
+            };
+        }, "Enable2FA");
+    }
+
+    /// <summary>
+    /// Disable 2FA for account
+    /// </summary>
+    public async Task<Disable2FAResponse> Disable2FAAsync(Guid accountId, Disable2FARequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var account = await _authRepository.GetAccountByIdAsync(accountId);
+            if (account == null)
+            {
+                return new Disable2FAResponse
+                {
+                    Success = false,
+                    Message = "Account not found"
+                };
+            }
+
+            // Verify password
+            var isPasswordValid = await _authRepository.ValidateCredentialsAsync(account, request.Password);
+            if (!isPasswordValid)
+            {
+                return new Disable2FAResponse
+                {
+                    Success = false,
+                    Message = "Invalid password"
+                };
+            }
+
+            // Disable 2FA
+            var success = await _authRepository.Disable2FAAsync(accountId);
+            if (!success)
+            {
+                return new Disable2FAResponse
+                {
+                    Success = false,
+                    Message = "Failed to disable 2FA"
+                };
+            }
+
+            LogInfo("2FA disabled for account {AccountId}", null, accountId);
+
+            return new Disable2FAResponse
+            {
+                Success = true,
+                Message = "2FA disabled successfully"
+            };
+        }, "Disable2FA");
+    }
+
+    /// <summary>
+    /// Verify 2FA code
+    /// </summary>
+    public async Task<bool> Verify2FACodeAsync(Guid accountId, string code)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var (isEnabled, secretKey, _, _) = await _authRepository.Get2FADataAsync(accountId);
+
+            if (!isEnabled || string.IsNullOrEmpty(secretKey))
+            {
+                return false;
+            }
+
+            return VerifyTotpCode(secretKey, code);
+        }, "Verify2FACode");
+    }
+
+    /// <summary>
+    /// Verify backup code
+    /// </summary>
+    public async Task<bool> VerifyBackupCodeAsync(Guid accountId, string backupCode)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var (isEnabled, _, backupCodes, _) = await _authRepository.Get2FADataAsync(accountId);
+
+            if (!isEnabled || !backupCodes.Any())
+            {
+                return false;
+            }
+
+            var hashedCode = HashBackupCode(backupCode);
+            var isValid = backupCodes.Contains(hashedCode);
+
+            if (isValid)
+            {
+                // Remove used backup code
+                backupCodes.Remove(hashedCode);
+                await _authRepository.UpdateBackupCodesAsync(accountId, backupCodes);
+
+                LogInfo("Backup code used for account {AccountId}. Remaining codes: {Count}",
+                    null, accountId, backupCodes.Count);
+            }
+
+            return isValid;
+        }, "VerifyBackupCode");
+    }
+
+    /// <summary>
+    /// Regenerate backup codes
+    /// </summary>
+    public async Task<RegenerateBackupCodesResponse> RegenerateBackupCodesAsync(Guid accountId, RegenerateBackupCodesRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var account = await _authRepository.GetAccountByIdAsync(accountId);
+            if (account == null)
+            {
+                return new RegenerateBackupCodesResponse
+                {
+                    Success = false,
+                    Message = "Account not found"
+                };
+            }
+
+            var (isEnabled, _, _, _) = await _authRepository.Get2FADataAsync(accountId);
+            if (!isEnabled)
+            {
+                return new RegenerateBackupCodesResponse
+                {
+                    Success = false,
+                    Message = "2FA is not enabled"
+                };
+            }
+
+            // Verify password
+            var isPasswordValid = await _authRepository.ValidateCredentialsAsync(account, request.Password);
+            if (!isPasswordValid)
+            {
+                return new RegenerateBackupCodesResponse
+                {
+                    Success = false,
+                    Message = "Invalid password"
+                };
+            }
+
+            // Generate new backup codes
+            var backupCodes = GenerateBackupCodes();
+            var hashedBackupCodes = backupCodes.Select(HashBackupCode).ToList();
+
+            var success = await _authRepository.UpdateBackupCodesAsync(accountId, hashedBackupCodes);
+            if (!success)
+            {
+                return new RegenerateBackupCodesResponse
+                {
+                    Success = false,
+                    Message = "Failed to regenerate backup codes"
+                };
+            }
+
+            LogInfo("Backup codes regenerated for account {AccountId}", null, accountId);
+
+            return new RegenerateBackupCodesResponse
+            {
+                Success = true,
+                Message = "Backup codes regenerated successfully",
+                BackupCodes = backupCodes
+            };
+        }, "RegenerateBackupCodes");
+    }
+
+    /// <summary>
+    /// Get 2FA status
+    /// </summary>
+    public async Task<TwoFactorStatusResponse> GetStatusAsync(Guid accountId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var data = await _authRepository.Get2FADataAsync(accountId);
+
+            return new TwoFactorStatusResponse
+            {
+                IsEnabled = data.IsEnabled,
+                EnabledAt = data.EnabledAt,
+                RemainingBackupCodes = data.BackupCodes?.Count ?? 0
+            };
+        }, "GetStatus");
+    }
+
+    /// <summary>
+    /// Complete 2FA login after successful verification
+    /// </summary>
+    public async Task<AuthResponse> Complete2FALoginAsync(Guid accountId, string verificationCode)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            // Verify the 2FA code first
+            var isValid = await Verify2FACodeAsync(accountId, verificationCode);
+            if (!isValid)
+            {
+                // Try backup code
+                isValid = await VerifyBackupCodeAsync(accountId, verificationCode);
+            }
+
+            if (!isValid)
+            {
+                throw new AuthenticationException("Invalid verification code");
+            }
+
+            // Get account
+            var account = await _authRepository.GetAccountByIdAsync(accountId);
+            if (account == null)
+            {
+                throw new AuthenticationException("Account not found");
+            }
+
+            // Check account status
+            if (account.Status != Status.ACTIVE)
+            {
+                throw new AuthenticationException("Account is not active");
+            }
+
+            // Generate tokens (bypass 2FA check since we just verified)
+            var accessToken = await _jwtService.GenerateAccessTokenAsync(account);
+            var refreshTokenEntity = await _authRepository.CreateRefreshTokenAsync(account.Id);
+            _cookieService.SaveTokensInCookies(account.Id, accessToken, refreshTokenEntity.Token);
+
+            LogInfo("2FA login completed successfully for account: {AccountId}", null, accountId);
+
+            return new AuthResponse
+            {
+                Message = "2FA verification successful",
+                Token = accessToken
+            };
+        }, "Complete2FALogin");
+    }
+
+    #endregion
+
+    #region Two-Factor Authentication Helper Methods
+
+    private bool VerifyTotpCode(string secretKey, string code)
+    {
+        try
+        {
+            var keyBytes = OtpNet.Base32Encoding.ToBytes(secretKey);
+            var totp = new OtpNet.Totp(keyBytes);
+
+            // Verify with time window (allow 1 step before and after for clock skew)
+            long timeStepMatched;
+            return totp.VerifyTotp(code, out timeStepMatched, window: new OtpNet.VerificationWindow(1, 1));
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error verifying TOTP code", null);
+            return false;
+        }
+    }
+
+    private List<string> GenerateBackupCodes()
+    {
+        const int BACKUP_CODES_COUNT = 10;
+        var codes = new List<string>();
+        for (int i = 0; i < BACKUP_CODES_COUNT; i++)
+        {
+            codes.Add(GenerateBackupCode());
+        }
+        return codes;
+    }
+
+    private string GenerateBackupCode()
+    {
+        const int BACKUP_CODE_LENGTH = 8;
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = new Random();
+        return new string(Enumerable.Repeat(chars, BACKUP_CODE_LENGTH)
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
+    private string HashBackupCode(string code)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(code);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
+    }
+
+    private string FormatSecretKey(string key)
+    {
+        // Format as XXXX-XXXX-XXXX-XXXX for easier manual entry
+        var formatted = new StringBuilder();
+        for (int i = 0; i < key.Length; i++)
+        {
+            if (i > 0 && i % 4 == 0)
+            {
+                formatted.Append('-');
+            }
+            formatted.Append(key[i]);
+        }
+        return formatted.ToString();
     }
 
     #endregion
