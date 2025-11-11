@@ -1,17 +1,17 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using FluentValidation;
-using BookingCare.Services.Payment.Services.Interfaces;
+﻿using System.Text.Json;
+using BookingCare.Services.Appointment.Protos;
+using BookingCare.Services.Payment.Controllers.Base;
+using BookingCare.Services.Payment.Helpers;
 using BookingCare.Services.Payment.Models.DTOs.PayOS;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
-using BookingCare.Services.Payment.Helpers;
-using BookingCare.Services.Payment.Controllers.Base;
+using BookingCare.Services.Payment.Services.Interfaces;
+using BookingCare.Shared.Common.AppRouting;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Versioning;
-using BookingCare.Shared.Common.AppRouting;
-using BookingCare.Services.Appointment.Protos;
 using BookingCare.Shared.EventBus.Abstractions;
-using System.Text.Json;
+using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace BookingCare.Services.Payment.Controllers;
 
@@ -26,6 +26,7 @@ public class PayOSController : BasePaymentGatewayController
     private const string GatewayName = "PayOS";
     private readonly IPayOSService _payOSService;
     private readonly IValidator<PayOSPaymentRequest> _validator;
+    private readonly BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient _hospitalSubscriptionClient;
 
     public PayOSController(
         IPayOSService payOSService,
@@ -34,11 +35,14 @@ public class PayOSController : BasePaymentGatewayController
         IOptions<FrontendOptions> frontendOptions,
         IValidator<PayOSPaymentRequest> validator,
         ILogger<PayOSController> logger,
-        AppointmentService.AppointmentServiceClient appointmentClient)
+        AppointmentService.AppointmentServiceClient appointmentClient,
+        BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient
+    )
         : base(paymentService, eventBus, frontendOptions, logger, appointmentClient)
     {
         _payOSService = payOSService;
         _validator = validator;
+        _hospitalSubscriptionClient = hospitalSubscriptionClient;
     }
 
     /// <summary>
@@ -73,7 +77,11 @@ public class PayOSController : BasePaymentGatewayController
 
             // Use shared payment validation helper (PayOS requires PENDING status validation)
             var (validationError, _) = await PaymentValidationHelper.ValidatePaymentForGatewayAsync(
-                PaymentService, request.PaymentId, request.Amount, validateStatus: true);
+                PaymentService,
+                request.PaymentId,
+                request.Amount,
+                validateStatus: true
+            );
 
             if (validationError != null)
             {
@@ -83,8 +91,11 @@ public class PayOSController : BasePaymentGatewayController
             // Create PayOS payment link
             var payOSResponse = await _payOSService.CreatePaymentLinkAsync(request);
 
-            Logger.LogInformation("PayOS payment link created successfully for PaymentId: {PaymentId}, OrderCode: {OrderCode}",
-                request.PaymentId, payOSResponse.OrderCode);
+            Logger.LogInformation(
+                "PayOS payment link created successfully for PaymentId: {PaymentId}, OrderCode: {OrderCode}",
+                request.PaymentId,
+                payOSResponse.OrderCode
+            );
 
             return Success(payOSResponse, "Create PayOS payment link successful");
         }
@@ -95,8 +106,15 @@ public class PayOSController : BasePaymentGatewayController
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "PayOS payment creation failed for PaymentId: {PaymentId}", request.PaymentId);
-            return StatusCode(500, new { Message = "An error occurred while creating PayOS payment link" });
+            Logger.LogError(
+                ex,
+                "PayOS payment creation failed for PaymentId: {PaymentId}",
+                request.PaymentId
+            );
+            return StatusCode(
+                500,
+                new { Message = "An error occurred while creating PayOS payment link" }
+            );
         }
     }
 
@@ -106,25 +124,46 @@ public class PayOSController : BasePaymentGatewayController
     /// <returns>Payment result</returns>
     [HttpGet("payos-return")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> PayOSCallback([FromQuery] string code, [FromQuery] string id, [FromQuery] bool cancel, [FromQuery] string orderCode)
+    public async Task<IActionResult> PayOSCallback(
+        [FromQuery] string code,
+        [FromQuery] string id,
+        [FromQuery] bool cancel,
+        [FromQuery] string orderCode
+    )
     {
         var requestId = GenerateRequestId();
 
         try
         {
-            Logger.LogInformation("PayOS Callback #{RequestId} - Code: {Code}, Id: {Id}, Cancel: {Cancel}, OrderCode: {OrderCode}",
-                requestId, code, id, cancel, orderCode);
+            Logger.LogInformation(
+                "PayOS Callback #{RequestId} - Code: {Code}, Id: {Id}, Cancel: {Cancel}, OrderCode: {OrderCode}",
+                requestId,
+                code,
+                id,
+                cancel,
+                orderCode
+            );
 
             // Validate input parameters
             var validationResult = ValidateCallbackParameters(orderCode, requestId);
-            if (validationResult != null) return validationResult;
+            if (validationResult != null)
+                return validationResult;
 
             // Process callback via PayOSService
             var orderCodeLong = long.Parse(orderCode);
-            var result = await _payOSService.ProcessCallbackAsync(orderCodeLong, code ?? string.Empty, cancel);
+            var result = await _payOSService.ProcessCallbackAsync(
+                orderCodeLong,
+                code ?? string.Empty,
+                cancel
+            );
 
-            Logger.LogInformation("PayOS Callback #{RequestId} - Processed successfully - PaymentId: {PaymentId}, Success: {Success}, IsEmptyGuid: {IsEmptyGuid}",
-                requestId, result.PaymentId, result.Success, result.PaymentId == Guid.Empty);
+            Logger.LogInformation(
+                "PayOS Callback #{RequestId} - Processed successfully - PaymentId: {PaymentId}, Success: {Success}, IsEmptyGuid: {IsEmptyGuid}",
+                requestId,
+                result.PaymentId,
+                result.Success,
+                result.PaymentId == Guid.Empty
+            );
 
             // Handle different payment outcomes
             if (result.PaymentId == Guid.Empty)
@@ -141,17 +180,54 @@ public class PayOSController : BasePaymentGatewayController
             if (result.Success)
             {
                 // Use PayOS-specific async handler for supplementary payment support
-                return await HandleSuccessfulPaymentAsync(payment, result, requestId,
-                    (p, r, reqId) => CreateStandardResponse(r, reqId));
+                return await HandleSuccessfulPaymentAsync(
+                    payment,
+                    result,
+                    requestId,
+                    (p, r, reqId) => CreateStandardResponse(r, reqId)
+                );
             }
 
-            return await HandleFailedPaymentAsync(payment, result, requestId, GatewayName,
-                payment.AppointmentId!.Value, GetPayOSResponseMessage,
-                (p, r, reqId) => CreateStandardResponse(r, reqId));
+            // Handle failed/cancelled payment
+            // Check if this is a subscription payment
+            var subscriptionMetadata = await _payOSService.GetSubscriptionMetadataAsync(
+                result.OrderCode
+            );
+
+            if (subscriptionMetadata.HasValue)
+            {
+                // Subscription payment failed - redirect to subscription plan page
+                var planType = subscriptionMetadata.Value.PlanType?.ToLowerInvariant() ?? "monthly";
+                var frontendUrl =
+                    $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
+                Logger.LogWarning(
+                    "PayOS Callback #{RequestId} - Subscription payment failed/cancelled for HospitalId: {HospitalId}, PlanType: {PlanType}, Code: {Code}",
+                    requestId,
+                    subscriptionMetadata.Value.HospitalId,
+                    planType,
+                    code
+                );
+                return Redirect(frontendUrl);
+            }
+
+            // Regular payment failed - use base handler
+            return await HandleFailedPaymentAsync(
+                payment,
+                result,
+                requestId,
+                GatewayName,
+                payment.AppointmentId!.Value,
+                GetPayOSResponseMessage,
+                (p, r, reqId) => CreateStandardResponse(r, reqId)
+            );
         }
         catch (ArgumentException ex)
         {
-            Logger.LogWarning(ex, "PayOS Callback #{RequestId} - Processing failed - Invalid argument", requestId);
+            Logger.LogWarning(
+                ex,
+                "PayOS Callback #{RequestId} - Processing failed - Invalid argument",
+                requestId
+            );
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
@@ -176,8 +252,15 @@ public class PayOSController : BasePaymentGatewayController
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to get PayOS payment info for OrderCode: {OrderCode}", orderCode);
-            return StatusCode(500, new { Message = "An error occurred while retrieving PayOS payment info" });
+            Logger.LogError(
+                ex,
+                "Failed to get PayOS payment info for OrderCode: {OrderCode}",
+                orderCode
+            );
+            return StatusCode(
+                500,
+                new { Message = "An error occurred while retrieving PayOS payment info" }
+            );
         }
     }
 
@@ -195,19 +278,28 @@ public class PayOSController : BasePaymentGatewayController
 
             var deletedCount = await _payOSService.CleanupExpiredMappingsAsync();
 
-            Logger.LogInformation("Manual PayOS mapping cleanup completed - Deleted {DeletedCount} mappings", deletedCount);
+            Logger.LogInformation(
+                "Manual PayOS mapping cleanup completed - Deleted {DeletedCount} mappings",
+                deletedCount
+            );
 
-            return Success(new
-            {
-                DeletedCount = deletedCount,
-                CleanupTime = DateTime.UtcNow,
-                Message = $"Deleted {deletedCount} expired mappings"
-            }, "Cleanup PayOS mappings successful");
+            return Success(
+                new
+                {
+                    DeletedCount = deletedCount,
+                    CleanupTime = DateTime.UtcNow,
+                    Message = $"Deleted {deletedCount} expired mappings",
+                },
+                "Cleanup PayOS mappings successful"
+            );
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to cleanup PayOS mappings");
-            return StatusCode(500, new { Message = "An error occurred while cleaning up PayOS mappings" });
+            return StatusCode(
+                500,
+                new { Message = "An error occurred while cleaning up PayOS mappings" }
+            );
         }
     }
 
@@ -222,7 +314,11 @@ public class PayOSController : BasePaymentGatewayController
         var requestId = GenerateRequestId();
         try
         {
-            Logger.LogInformation("PayOS Cancel Callback #{RequestId} - OrderCode: {OrderCode}", requestId, orderCode);
+            Logger.LogInformation(
+                "PayOS Cancel Callback #{RequestId} - OrderCode: {OrderCode}",
+                requestId,
+                orderCode
+            );
 
             if (!long.TryParse(orderCode, out var orderCodeLong))
             {
@@ -232,37 +328,81 @@ public class PayOSController : BasePaymentGatewayController
             // Process cancel callback
             var result = await _payOSService.ProcessCallbackAsync(orderCodeLong, "CANCELLED", true);
 
-            Logger.LogInformation("PayOS Cancel Callback #{RequestId} - Processed - PaymentId: {PaymentId}", requestId, result.PaymentId);
+            Logger.LogInformation(
+                "PayOS Cancel Callback #{RequestId} - Processed - PaymentId: {PaymentId}",
+                requestId,
+                result.PaymentId
+            );
 
-            // Check if payment is for appointment and try to redirect to doctor booking page
+            // Check if payment exists
             if (result.PaymentId != Guid.Empty)
             {
-                var payment = await GetPaymentWithValidation(result.PaymentId, requestId, GatewayName);
+                var payment = await GetPaymentWithValidation(
+                    result.PaymentId,
+                    requestId,
+                    GatewayName
+                );
                 if (payment == null)
                 {
                     return BadRequest("Payment not found");
                 }
 
+                // Check if this is a subscription payment
+                var subscriptionMetadata = await _payOSService.GetSubscriptionMetadataAsync(
+                    result.OrderCode
+                );
+
+                if (subscriptionMetadata.HasValue)
+                {
+                    // Subscription payment cancelled - redirect to subscription plan page
+                    var planType =
+                        subscriptionMetadata.Value.PlanType?.ToLowerInvariant() ?? "monthly";
+                    var frontendUrl =
+                        $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
+                    Logger.LogWarning(
+                        "PayOS Cancel Callback #{RequestId} - Subscription payment cancelled for HospitalId: {HospitalId}, PlanType: {PlanType}",
+                        requestId,
+                        subscriptionMetadata.Value.HospitalId,
+                        planType
+                    );
+                    return Redirect(frontendUrl);
+                }
+
+                // Check if payment is for appointment and try to redirect to doctor booking page
                 var appointmentId = payment.AppointmentId;
                 if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
                 {
-                    return await ProcessFailedAppointmentPaymentAsync(payment, result, requestId, GatewayName,
-                        appointmentId!.Value, GetPayOSResponseMessage);
+                    return await ProcessFailedAppointmentPaymentAsync(
+                        payment,
+                        result,
+                        requestId,
+                        GatewayName,
+                        appointmentId!.Value,
+                        GetPayOSResponseMessage
+                    );
                 }
             }
 
-            return Success(new
-            {
-                Success = false,
-                PaymentId = result.PaymentId,
-                OrderCode = result.OrderCode,
-                Message = "Payment has been cancelled",
-                CancelledAt = DateTime.UtcNow
-            }, "PayOS payment has been cancelled");
+            return Success(
+                new
+                {
+                    Success = false,
+                    PaymentId = result.PaymentId,
+                    OrderCode = result.OrderCode,
+                    Message = "Payment has been cancelled",
+                    CancelledAt = DateTime.UtcNow,
+                },
+                "PayOS payment has been cancelled"
+            );
         }
         catch (ArgumentException ex)
         {
-            Logger.LogWarning(ex, "PayOS Cancel Callback #{RequestId} - Invalid argument: {Error}", requestId, ex.Message);
+            Logger.LogWarning(
+                ex,
+                "PayOS Cancel Callback #{RequestId} - Invalid argument: {Error}",
+                requestId,
+                ex.Message
+            );
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
@@ -291,8 +431,55 @@ public class PayOSController : BasePaymentGatewayController
         PaymentResponse payment,
         PayOSCallbackResponse callbackResult,
         string requestId,
-        Func<PaymentResponse, PayOSCallbackResponse, string, IActionResult> createResponseFunc)
+        Func<PaymentResponse, PayOSCallbackResponse, string, IActionResult> createResponseFunc
+    )
     {
+        // Check if this is a subscription payment
+        var subscriptionMetadata = await _payOSService.GetSubscriptionMetadataAsync(
+            callbackResult.OrderCode
+        );
+
+        if (subscriptionMetadata.HasValue)
+        {
+            // Handle subscription payment
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await HandleSubscriptionPaymentSuccessAsync(
+                        subscriptionMetadata.Value.SubscriptionPlanId!.Value,
+                        subscriptionMetadata.Value.HospitalId!.Value,
+                        subscriptionMetadata.Value.IsSubscriptionUpgrade,
+                        subscriptionMetadata.Value.CurrentHospitalSubscriptionId,
+                        payment,
+                        callbackResult,
+                        requestId
+                    );
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(
+                        ex,
+                        "PayOS Callback #{RequestId} - Failed to process subscription payment for HospitalId: {HospitalId}",
+                        requestId,
+                        subscriptionMetadata.Value.HospitalId
+                    );
+                }
+            });
+
+            // Redirect to subscription confirmation page with plan type
+            var planType = subscriptionMetadata.Value.PlanType?.ToLowerInvariant() ?? "monthly";
+            var frontendUrl =
+                $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
+            Logger.LogInformation(
+                "PayOS Callback #{RequestId} - Subscription payment successful, redirecting to confirmation for HospitalId: {HospitalId}, PlanType: {PlanType}",
+                requestId,
+                subscriptionMetadata.Value.HospitalId,
+                planType
+            );
+            return Redirect(frontendUrl);
+        }
+
         // PayOS-specific: Extract metadata by querying payment info
         string? metadata = null;
         Guid? suppAppointmentId = null;
@@ -309,15 +496,22 @@ public class PayOSController : BasePaymentGatewayController
 
                 if (!string.IsNullOrEmpty(metadata))
                 {
-                    isSupplementaryPayment = IsSupplementaryPayment(metadata, out suppAppointmentId);
+                    isSupplementaryPayment = IsSupplementaryPayment(
+                        metadata,
+                        out suppAppointmentId
+                    );
                     isStaffAssigned = ExtractIsStaffAssigned(metadata);
                 }
             }
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "PayOS Callback #{RequestId} - Failed to extract metadata for OrderCode: {OrderCode}",
-                requestId, callbackResult.OrderCode);
+            Logger.LogWarning(
+                ex,
+                "PayOS Callback #{RequestId} - Failed to extract metadata for OrderCode: {OrderCode}",
+                requestId,
+                callbackResult.OrderCode
+            );
         }
 
         if (isSupplementaryPayment && suppAppointmentId.HasValue)
@@ -333,24 +527,42 @@ public class PayOSController : BasePaymentGatewayController
                         callbackResult,
                         requestId,
                         GatewayName,
-                        isStaffAssigned);
+                        isStaffAssigned
+                    );
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "PayOS Callback #{RequestId} - Failed to process supplementary payment for AppointmentId: {AppointmentId}",
-                        requestId, suppAppointmentId.Value);
+                    Logger.LogError(
+                        ex,
+                        "PayOS Callback #{RequestId} - Failed to process supplementary payment for AppointmentId: {AppointmentId}",
+                        requestId,
+                        suppAppointmentId.Value
+                    );
                 }
             });
 
             // Redirect to booking confirmation page
-            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(FrontendOptions, suppAppointmentId.Value, true);
-            Logger.LogInformation("PayOS Callback #{RequestId} - Supplementary payment successful, redirecting to confirmation for AppointmentId: {AppointmentId}",
-                requestId, suppAppointmentId.Value);
+            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
+                FrontendOptions,
+                suppAppointmentId.Value,
+                true
+            );
+            Logger.LogInformation(
+                "PayOS Callback #{RequestId} - Supplementary payment successful, redirecting to confirmation for AppointmentId: {AppointmentId}",
+                requestId,
+                suppAppointmentId.Value
+            );
             return Redirect(frontendUrl);
         }
 
         // Regular payment - call base implementation
-        return await HandleSuccessfulPayment(payment, callbackResult, requestId, GatewayName, createResponseFunc);
+        return await HandleSuccessfulPayment(
+            payment,
+            callbackResult,
+            requestId,
+            GatewayName,
+            createResponseFunc
+        );
     }
 
     #region Private Helper Methods
@@ -367,7 +579,11 @@ public class PayOSController : BasePaymentGatewayController
 
         if (!long.TryParse(orderCode, out _))
         {
-            Logger.LogWarning("PayOS Callback #{RequestId} - Invalid OrderCode format: {OrderCode}", requestId, orderCode);
+            Logger.LogWarning(
+                "PayOS Callback #{RequestId} - Invalid OrderCode format: {OrderCode}",
+                requestId,
+                orderCode
+            );
             return BadRequest("Invalid OrderCode format");
         }
 
@@ -377,7 +593,10 @@ public class PayOSController : BasePaymentGatewayController
     /// <summary>
     /// Create response for already processed payments
     /// </summary>
-    private IActionResult CreateAlreadyProcessedResponse(PayOSCallbackResponse result, string requestId)
+    private IActionResult CreateAlreadyProcessedResponse(
+        PayOSCallbackResponse result,
+        string requestId
+    )
     {
         var response = new
         {
@@ -390,10 +609,13 @@ public class PayOSController : BasePaymentGatewayController
             PaymentDate = result.PaymentDate,
             RequestId = requestId,
             ProcessedAt = DateTime.UtcNow,
-            IsAlreadyProcessed = true
+            IsAlreadyProcessed = true,
         };
 
-        return Success(response, result.Success ? "PayOS payment successful" : "PayOS payment failed");
+        return Success(
+            response,
+            result.Success ? "PayOS payment successful" : "PayOS payment failed"
+        );
     }
 
     /// <summary>
@@ -412,24 +634,137 @@ public class PayOSController : BasePaymentGatewayController
             PaymentDate = result.PaymentDate,
             RequestId = requestId,
             ProcessedAt = DateTime.UtcNow,
-            IsAlreadyProcessed = false
+            IsAlreadyProcessed = false,
         };
 
-        return Success(response, result.Success ? "PayOS payment successful" : "PayOS payment failed");
+        return Success(
+            response,
+            result.Success ? "PayOS payment successful" : "PayOS payment failed"
+        );
     }
 
     /// <summary>
     /// Convert PayOS response code to human readable message
     /// </summary>
-    private static string GetPayOSResponseMessage(string responseCode) => responseCode switch
+    private static string GetPayOSResponseMessage(string responseCode) =>
+        responseCode switch
+        {
+            "00" => "Transaction successful",
+            "CANCELLED" => "Transaction cancelled by user",
+            "FAILED" => "Transaction failed",
+            "EXPIRED" => "Transaction expired",
+            "PENDING" => "Transaction pending",
+            _ => $"Unknown response code: {responseCode}",
+        };
+
+    /// <summary>
+    /// Handle successful subscription payment
+    /// </summary>
+    private async Task HandleSubscriptionPaymentSuccessAsync(
+        Guid subscriptionPlanId,
+        Guid hospitalId,
+        bool isUpgrade,
+        Guid? currentHospitalSubscriptionId,
+        PaymentResponse payment,
+        PayOSCallbackResponse callbackResult,
+        string requestId
+    )
     {
-        "00" => "Transaction successful",
-        "CANCELLED" => "Transaction cancelled by user",
-        "FAILED" => "Transaction failed",
-        "EXPIRED" => "Transaction expired",
-        "PENDING" => "Transaction pending",
-        _ => $"Unknown response code: {responseCode}"
-    };
+        Logger.LogInformation(
+            "PayOS Callback #{RequestId} - Handling subscription payment - HospitalId: {HospitalId}, PlanId: {PlanId}, IsUpgrade: {IsUpgrade}",
+            requestId,
+            hospitalId,
+            subscriptionPlanId,
+            isUpgrade
+        );
+
+        try
+        {
+            if (isUpgrade && currentHospitalSubscriptionId.HasValue)
+            {
+                // Call gRPC to upgrade subscription
+                var upgradeRequest =
+                    new BookingCare.Services.Hospital.UpgradeHospitalSubscriptionGrpcRequest
+                    {
+                        CurrentSubscriptionId = currentHospitalSubscriptionId.Value.ToString(),
+                        NewSubscriptionPlanId = subscriptionPlanId.ToString(),
+                    };
+
+                var upgradeResponse =
+                    await _hospitalSubscriptionClient.UpgradeHospitalSubscriptionAsync(
+                        upgradeRequest
+                    );
+
+                if (!string.IsNullOrEmpty(upgradeResponse?.HospitalSubscriptionId))
+                {
+                    Logger.LogInformation(
+                        "PayOS Callback #{RequestId} - Successfully upgraded subscription via gRPC - NewSubscriptionId: {NewSubscriptionId}, Status: {Status}",
+                        requestId,
+                        upgradeResponse.HospitalSubscriptionId,
+                        upgradeResponse.Status
+                    );
+                }
+                else
+                {
+                    Logger.LogError(
+                        "PayOS Callback #{RequestId} - Failed to upgrade subscription via gRPC - Empty response",
+                        requestId
+                    );
+                }
+            }
+            else
+            {
+                // Call gRPC to create new subscription
+                var createRequest =
+                    new BookingCare.Services.Hospital.CreateHospitalSubscriptionGrpcRequest
+                    {
+                        HospitalId = hospitalId.ToString(),
+                        SubscriptionId = subscriptionPlanId.ToString(),
+                        // StartDate and EndDate are auto-calculated by Hospital Service based on billing cycle
+                    };
+
+                var createResponse =
+                    await _hospitalSubscriptionClient.CreateHospitalSubscriptionAsync(
+                        createRequest
+                    );
+
+                if (!string.IsNullOrEmpty(createResponse?.HospitalSubscriptionId))
+                {
+                    Logger.LogInformation(
+                        "PayOS Callback #{RequestId} - Successfully created subscription via gRPC - SubscriptionId: {SubscriptionId}, Status: {Status}",
+                        requestId,
+                        createResponse.HospitalSubscriptionId,
+                        createResponse.Status
+                    );
+                }
+                else
+                {
+                    Logger.LogError(
+                        "PayOS Callback #{RequestId} - Failed to create subscription via gRPC - Empty response",
+                        requestId
+                    );
+                }
+            }
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            Logger.LogError(
+                ex,
+                "PayOS Callback #{RequestId} - gRPC error handling subscription payment - Status: {Status}, Detail: {Detail}",
+                requestId,
+                ex.Status.StatusCode,
+                ex.Status.Detail
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "PayOS Callback #{RequestId} - Unexpected error handling subscription payment",
+                requestId
+            );
+        }
+    }
 
     #endregion
 }

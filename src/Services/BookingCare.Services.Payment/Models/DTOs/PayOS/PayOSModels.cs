@@ -37,6 +37,31 @@ public class PayOSPaymentRequest
     /// Product/service items information (optional)
     /// </summary>
     public List<PayOSItemInfo>? Items { get; set; }
+
+    /// <summary>
+    /// Subscription Plan ID (for subscription payments)
+    /// </summary>
+    public Guid? SubscriptionPlanId { get; set; }
+
+    /// <summary>
+    /// Hospital ID (for subscription payments)
+    /// </summary>
+    public Guid? HospitalId { get; set; }
+
+    /// <summary>
+    /// Is subscription upgrade
+    /// </summary>
+    public bool IsSubscriptionUpgrade { get; set; }
+
+    /// <summary>
+    /// Current Hospital Subscription ID (for upgrade)
+    /// </summary>
+    public Guid? CurrentHospitalSubscriptionId { get; set; }
+
+    /// <summary>
+    /// Plan type (billing cycle): MONTHLY, QUARTERLY, YEARLY
+    /// </summary>
+    public string? PlanType { get; set; }
 }
 
 /// <summary>

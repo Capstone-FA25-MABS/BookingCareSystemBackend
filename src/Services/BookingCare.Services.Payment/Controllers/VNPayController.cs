@@ -1,15 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using FluentValidation;
-using BookingCare.Services.Payment.Services.Interfaces;
-using BookingCare.Services.Payment.Models.DTOs.VNPay;
-using BookingCare.Services.Payment.Models.DTOs.Responses;
-using BookingCare.Services.Payment.Helpers;
+﻿using BookingCare.Services.Appointment.Protos;
 using BookingCare.Services.Payment.Controllers.Base;
-using BookingCare.Shared.Common.Versioning;
+using BookingCare.Services.Payment.Helpers;
+using BookingCare.Services.Payment.Models.DTOs.Responses;
+using BookingCare.Services.Payment.Models.DTOs.VNPay;
+using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.AppRouting;
+using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.EventBus.Abstractions;
-using BookingCare.Services.Appointment.Protos;
+using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace BookingCare.Services.Payment.Controllers;
 
@@ -24,6 +24,7 @@ public class VNPayController : BasePaymentGatewayController
     private const string GatewayName = "VNPay";
     private readonly IVNPayService _vnpayService;
     private readonly IValidator<VNPayPaymentRequest> _validator;
+    private readonly BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient _hospitalSubscriptionClient;
 
     public VNPayController(
         IVNPayService vnpayService,
@@ -32,11 +33,14 @@ public class VNPayController : BasePaymentGatewayController
         IOptions<FrontendOptions> frontendOptions,
         IValidator<VNPayPaymentRequest> validator,
         ILogger<VNPayController> logger,
-        AppointmentService.AppointmentServiceClient appointmentClient)
+        AppointmentService.AppointmentServiceClient appointmentClient,
+        BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient
+    )
         : base(paymentService, eventBus, frontendOptions, logger, appointmentClient)
     {
         _vnpayService = vnpayService;
         _validator = validator;
+        _hospitalSubscriptionClient = hospitalSubscriptionClient;
     }
 
     /// <summary>
@@ -58,7 +62,10 @@ public class VNPayController : BasePaymentGatewayController
     /// <returns>URL to redirect to VNPay</returns>
     [HttpPost("create-payment-url")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> CreatePaymentUrl([FromBody] VNPayPaymentRequest request, [FromHeader(Name = "X-Forwarded-For")] string? forwardedFor)
+    public async Task<IActionResult> CreatePaymentUrl(
+        [FromBody] VNPayPaymentRequest request,
+        [FromHeader(Name = "X-Forwarded-For")] string? forwardedFor
+    )
     {
         try
         {
@@ -68,11 +75,13 @@ public class VNPayController : BasePaymentGatewayController
                 if (!string.IsNullOrEmpty(forwardedFor))
                 {
                     var forwardedIps = forwardedFor.Split(',');
-                    request.ClientIP = forwardedIps.Length > 0 ? forwardedIps[0].Trim() : string.Empty;
+                    request.ClientIP =
+                        forwardedIps.Length > 0 ? forwardedIps[0].Trim() : string.Empty;
                 }
                 else
                 {
-                    request.ClientIP = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+                    request.ClientIP =
+                        HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
                 }
             }
 
@@ -86,7 +95,11 @@ public class VNPayController : BasePaymentGatewayController
 
             // Use shared payment validation helper (VNPay doesn't require PENDING status validation)
             var (validationError, _) = await PaymentValidationHelper.ValidatePaymentForGatewayAsync(
-                PaymentService, request.PaymentId, request.Amount, validateStatus: false);
+                PaymentService,
+                request.PaymentId,
+                request.Amount,
+                validateStatus: false
+            );
 
             if (validationError != null)
             {
@@ -105,8 +118,15 @@ public class VNPayController : BasePaymentGatewayController
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error creating VNPay payment URL for PaymentId: {PaymentId}", request.PaymentId);
-            return StatusCode(500, new { Message = "An error occurred while creating VNPay payment URL" });
+            Logger.LogError(
+                ex,
+                "Error creating VNPay payment URL for PaymentId: {PaymentId}",
+                request.PaymentId
+            );
+            return StatusCode(
+                500,
+                new { Message = "An error occurred while creating VNPay payment URL" }
+            );
         }
     }
 
@@ -122,8 +142,15 @@ public class VNPayController : BasePaymentGatewayController
         try
         {
             // Get and validate query parameters
-            var rawQueryParams = Request.Query.ToDictionary(kv => kv.Key, kv => kv.Value.ToString());
-            Logger.LogInformation("VNPay Callback #{RequestId} received with {ParamCount} parameters", requestId, rawQueryParams.Count);
+            var rawQueryParams = Request.Query.ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value.ToString()
+            );
+            Logger.LogInformation(
+                "VNPay Callback #{RequestId} received with {ParamCount} parameters",
+                requestId,
+                rawQueryParams.Count
+            );
 
             // Process callback and extract payment info
             var callbackResult = await _vnpayService.ProcessCallbackAsync(rawQueryParams);
@@ -144,20 +171,99 @@ public class VNPayController : BasePaymentGatewayController
                 return BadRequest("Payment not found");
             }
 
+            // Check if this is a subscription payment by parsing OrderInfo
+            var subscriptionMetadata = ParseSubscriptionMetadata(callbackResult.vnp_OrderInfo);
+
             // Handle success or failure scenarios
             if (callbackResult.IsSuccess)
             {
-                return await HandleSuccessfulPayment(payment, callbackResult, requestId, GatewayName,
-                    (p, r, reqId) => CreateVNPayResponse(p.Id, r, reqId, true));
+                if (subscriptionMetadata.HasValue)
+                {
+                    // Handle subscription payment
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await HandleSubscriptionPaymentSuccessAsync(
+                                subscriptionMetadata.Value.SubscriptionPlanId,
+                                subscriptionMetadata.Value.HospitalId,
+                                subscriptionMetadata.Value.IsUpgrade,
+                                subscriptionMetadata.Value.CurrentHospitalSubscriptionId,
+                                payment,
+                                callbackResult,
+                                requestId
+                            );
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError(
+                                ex,
+                                "VNPay Callback #{RequestId} - Failed to process subscription payment for HospitalId: {HospitalId}",
+                                requestId,
+                                subscriptionMetadata.Value.HospitalId
+                            );
+                        }
+                    });
+
+                    // Redirect to subscription confirmation page with plan type
+                    var planType =
+                        subscriptionMetadata.Value.PlanType?.ToLowerInvariant() ?? "monthly";
+                    var frontendUrl =
+                        $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
+                    Logger.LogInformation(
+                        "VNPay Callback #{RequestId} - Subscription payment successful, redirecting to confirmation for HospitalId: {HospitalId}, PlanType: {PlanType}",
+                        requestId,
+                        subscriptionMetadata.Value.HospitalId,
+                        planType
+                    );
+                    return Redirect(frontendUrl);
+                }
+
+                // Regular payment - use base handler
+                return await HandleSuccessfulPayment(
+                    payment,
+                    callbackResult,
+                    requestId,
+                    GatewayName,
+                    (p, r, reqId) => CreateVNPayResponse(p.Id, r, reqId, true)
+                );
             }
 
-            return await HandleFailedPaymentAsync(payment, callbackResult, requestId, GatewayName,
-                payment.AppointmentId!.Value, GetVNPayResponseMessage,
-                (p, r, reqId) => CreateVNPayResponse(p.Id, r, reqId, false));
+            // Handle failed/cancelled payment
+            if (subscriptionMetadata.HasValue)
+            {
+                // Subscription payment failed - redirect to subscription plan page
+                var planType = subscriptionMetadata.Value.PlanType?.ToLowerInvariant() ?? "monthly";
+                var frontendUrl =
+                    $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
+                Logger.LogWarning(
+                    "VNPay Callback #{RequestId} - Subscription payment failed/cancelled for HospitalId: {HospitalId}, PlanType: {PlanType}, ResponseCode: {ResponseCode}",
+                    requestId,
+                    subscriptionMetadata.Value.HospitalId,
+                    planType,
+                    callbackResult.vnp_ResponseCode
+                );
+                return Redirect(frontendUrl);
+            }
+
+            // Regular payment failed - use base handler
+            return await HandleFailedPaymentAsync(
+                payment,
+                callbackResult,
+                requestId,
+                GatewayName,
+                payment.AppointmentId!.Value,
+                GetVNPayResponseMessage,
+                (p, r, reqId) => CreateVNPayResponse(p.Id, r, reqId, false)
+            );
         }
         catch (UnauthorizedAccessException ex)
         {
-            Logger.LogError(ex, "VNPay Callback #{RequestId} - Signature validation failed", requestId);
+            Logger.LogError(
+                ex,
+                "VNPay Callback #{RequestId} - Signature validation failed",
+                requestId
+            );
             return BadRequest("Invalid VNPay signature");
         }
         catch (Exception ex)
@@ -174,7 +280,10 @@ public class VNPayController : BasePaymentGatewayController
     /// <returns>Transaction information</returns>
     [HttpGet("query/{transactionRef}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> QueryTransaction(string transactionRef, [FromQuery] string transactionDate)
+    public async Task<IActionResult> QueryTransaction(
+        string transactionRef,
+        [FromQuery] string transactionDate
+    )
     {
         try
         {
@@ -196,7 +305,10 @@ public class VNPayController : BasePaymentGatewayController
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error querying VNPay transaction: {TxnRef}", transactionRef);
-            return StatusCode(500, new { Message = "An error occurred while querying VNPay transaction" });
+            return StatusCode(
+                500,
+                new { Message = "An error occurred while querying VNPay transaction" }
+            );
         }
     }
 
@@ -205,12 +317,19 @@ public class VNPayController : BasePaymentGatewayController
     /// <summary>
     /// Extract and validate PaymentId from VNPay callback
     /// </summary>
-    private Guid? ExtractPaymentIdFromCallback(VNPayCallbackResponse callbackResult, string requestId)
+    private Guid? ExtractPaymentIdFromCallback(
+        VNPayCallbackResponse callbackResult,
+        string requestId
+    )
     {
         var paymentIdStr = callbackResult.vnp_TxnRef.Split('_')[0];
         if (!Guid.TryParse(paymentIdStr, out var paymentId))
         {
-            Logger.LogError("VNPay Callback #{RequestId} - Invalid PaymentId format in TxnRef: {TxnRef}", requestId, callbackResult.vnp_TxnRef);
+            Logger.LogError(
+                "VNPay Callback #{RequestId} - Invalid PaymentId format in TxnRef: {TxnRef}",
+                requestId,
+                callbackResult.vnp_TxnRef
+            );
             return null;
         }
         return paymentId;
@@ -219,20 +338,30 @@ public class VNPayController : BasePaymentGatewayController
     /// <summary>
     /// Update payment status based on VNPay callback result
     /// </summary>
-    private async Task UpdatePaymentStatusAsync(Guid paymentId, VNPayCallbackResponse callbackResult)
+    private async Task UpdatePaymentStatusAsync(
+        Guid paymentId,
+        VNPayCallbackResponse callbackResult
+    )
     {
         var newStatus = callbackResult.IsSuccess ? "COMPLETED" : "FAILED";
-        await PaymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
-        {
-            Id = paymentId,
-            Status = Enum.Parse<BookingCare.Services.Payment.Enums.PaymentStatus>(newStatus)
-        });
+        await PaymentService.UpdateStatusAsync(
+            new Models.DTOs.Requests.UpdatePaymentStatusRequest
+            {
+                Id = paymentId,
+                Status = Enum.Parse<BookingCare.Services.Payment.Enums.PaymentStatus>(newStatus),
+            }
+        );
     }
 
     /// <summary>
     /// Create standard VNPay response for non-redirect scenarios
     /// </summary>
-    private IActionResult CreateVNPayResponse(Guid paymentId, VNPayCallbackResponse callbackResult, string requestId, bool isSuccess)
+    private IActionResult CreateVNPayResponse(
+        Guid paymentId,
+        VNPayCallbackResponse callbackResult,
+        string requestId,
+        bool isSuccess
+    )
     {
         var message = GetVNPayResponseMessage(callbackResult.vnp_ResponseCode);
 
@@ -247,42 +376,232 @@ public class VNPayController : BasePaymentGatewayController
             PaymentDate = callbackResult.GetPaymentDateTime(),
             RequestId = requestId,
             ProcessedAt = DateTime.UtcNow,
-            IsAlreadyProcessed = false
+            IsAlreadyProcessed = false,
         };
 
         if (isSuccess)
         {
-            Logger.LogInformation("VNPay Callback #{RequestId} - Payment completed successfully for PaymentId: {PaymentId}", requestId, paymentId);
+            Logger.LogInformation(
+                "VNPay Callback #{RequestId} - Payment completed successfully for PaymentId: {PaymentId}",
+                requestId,
+                paymentId
+            );
         }
         else
         {
-            Logger.LogWarning("VNPay Callback #{RequestId} - Payment failed for PaymentId: {PaymentId}, ResponseCode: {ResponseCode}",
-                requestId, paymentId, callbackResult.vnp_ResponseCode);
+            Logger.LogWarning(
+                "VNPay Callback #{RequestId} - Payment failed for PaymentId: {PaymentId}, ResponseCode: {ResponseCode}",
+                requestId,
+                paymentId,
+                callbackResult.vnp_ResponseCode
+            );
         }
 
-        return Success(unified, callbackResult.IsSuccess ? "VNPay payment successful" : "VNPay payment failed");
+        return Success(
+            unified,
+            callbackResult.IsSuccess ? "VNPay payment successful" : "VNPay payment failed"
+        );
     }
 
     /// <summary>
     /// Convert VNPay response code to human readable message
     /// </summary>
-    private static string GetVNPayResponseMessage(string responseCode) => responseCode switch
+    private static string GetVNPayResponseMessage(string responseCode) =>
+        responseCode switch
+        {
+            "00" => "Transaction successful",
+            "07" =>
+                "Debit successful. Transaction is suspicious (possible fraud or unusual activity).",
+            "09" =>
+                "Transaction failed: Card/account is not registered for InternetBanking at the bank.",
+            "10" => "Transaction failed: Card/account authentication failed more than 3 times.",
+            "11" =>
+                "Transaction failed: Payment waiting time expired. Please retry the transaction.",
+            "12" => "Transaction failed: Card/account is blocked.",
+            "13" => "Transaction failed: Incorrect OTP entered. Please retry.",
+            "24" => "Transaction failed: Customer canceled the transaction.",
+            "51" => "Transaction failed: Insufficient funds.",
+            "65" => "Transaction failed: Daily transaction limit exceeded.",
+            "75" => "The paying bank is under maintenance.",
+            "79" =>
+                "Transaction failed: Payment password entered incorrectly too many times. Please retry.",
+            "99" => "Other errors (not listed in known response codes)",
+            _ => "Unknown error",
+        };
+
+    /// <summary>
+    /// Parse subscription metadata from VNPay OrderInfo
+    /// Format: SUBSCRIPTION:{subscriptionId}:HOSPITAL:{hospitalId}:UPGRADE:{isUpgrade}:CURRENT:{currentSubId}:PLAN_TYPE:{planType}
+    /// </summary>
+    private (
+        Guid SubscriptionPlanId,
+        Guid HospitalId,
+        bool IsUpgrade,
+        Guid? CurrentHospitalSubscriptionId,
+        string? PlanType
+    )? ParseSubscriptionMetadata(string orderInfo)
     {
-        "00" => "Transaction successful",
-        "07" => "Debit successful. Transaction is suspicious (possible fraud or unusual activity).",
-        "09" => "Transaction failed: Card/account is not registered for InternetBanking at the bank.",
-        "10" => "Transaction failed: Card/account authentication failed more than 3 times.",
-        "11" => "Transaction failed: Payment waiting time expired. Please retry the transaction.",
-        "12" => "Transaction failed: Card/account is blocked.",
-        "13" => "Transaction failed: Incorrect OTP entered. Please retry.",
-        "24" => "Transaction failed: Customer canceled the transaction.",
-        "51" => "Transaction failed: Insufficient funds.",
-        "65" => "Transaction failed: Daily transaction limit exceeded.",
-        "75" => "The paying bank is under maintenance.",
-        "79" => "Transaction failed: Payment password entered incorrectly too many times. Please retry.",
-        "99" => "Other errors (not listed in known response codes)",
-        _ => "Unknown error"
-    };
+        if (string.IsNullOrEmpty(orderInfo) || !orderInfo.StartsWith("SUBSCRIPTION:"))
+        {
+            return null;
+        }
+
+        try
+        {
+            var parts = orderInfo.Split(':');
+
+            if (parts.Length < 6) // Minimum: SUBSCRIPTION, id, HOSPITAL, id, UPGRADE, bool
+            {
+                return null;
+            }
+
+            var subscriptionPlanId = Guid.Parse(parts[1]);
+            var hospitalId = Guid.Parse(parts[3]);
+            var isUpgrade = bool.Parse(parts[5]);
+
+            Guid? currentHospitalSubscriptionId = null;
+            string? planType = null;
+
+            // Parse optional fields
+            for (int i = 6; i < parts.Length - 1; i++)
+            {
+                if (parts[i] == "CURRENT" && i + 1 < parts.Length)
+                {
+                    currentHospitalSubscriptionId = Guid.Parse(parts[i + 1]);
+                }
+                else if (parts[i] == "PLAN_TYPE" && i + 1 < parts.Length)
+                {
+                    planType = parts[i + 1];
+                }
+            }
+
+            return (
+                subscriptionPlanId,
+                hospitalId,
+                isUpgrade,
+                currentHospitalSubscriptionId,
+                planType
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(
+                ex,
+                "Failed to parse subscription metadata from OrderInfo: {OrderInfo}",
+                orderInfo
+            );
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Handle successful subscription payment
+    /// </summary>
+    private async Task HandleSubscriptionPaymentSuccessAsync(
+        Guid subscriptionPlanId,
+        Guid hospitalId,
+        bool isUpgrade,
+        Guid? currentHospitalSubscriptionId,
+        PaymentResponse payment,
+        VNPayCallbackResponse callbackResult,
+        string requestId
+    )
+    {
+        Logger.LogInformation(
+            "VNPay Callback #{RequestId} - Handling subscription payment - HospitalId: {HospitalId}, PlanId: {PlanId}, IsUpgrade: {IsUpgrade}",
+            requestId,
+            hospitalId,
+            subscriptionPlanId,
+            isUpgrade
+        );
+
+        try
+        {
+            if (isUpgrade && currentHospitalSubscriptionId.HasValue)
+            {
+                // Call gRPC to upgrade subscription
+                var upgradeRequest =
+                    new BookingCare.Services.Hospital.UpgradeHospitalSubscriptionGrpcRequest
+                    {
+                        CurrentSubscriptionId = currentHospitalSubscriptionId.Value.ToString(),
+                        NewSubscriptionPlanId = subscriptionPlanId.ToString(),
+                    };
+
+                var upgradeResponse =
+                    await _hospitalSubscriptionClient.UpgradeHospitalSubscriptionAsync(
+                        upgradeRequest
+                    );
+
+                if (!string.IsNullOrEmpty(upgradeResponse?.HospitalSubscriptionId))
+                {
+                    Logger.LogInformation(
+                        "VNPay Callback #{RequestId} - Successfully upgraded subscription via gRPC - NewSubscriptionId: {NewSubscriptionId}, Status: {Status}",
+                        requestId,
+                        upgradeResponse.HospitalSubscriptionId,
+                        upgradeResponse.Status
+                    );
+                }
+                else
+                {
+                    Logger.LogError(
+                        "VNPay Callback #{RequestId} - Failed to upgrade subscription via gRPC - Empty response",
+                        requestId
+                    );
+                }
+            }
+            else
+            {
+                // Call gRPC to create new subscription
+                var createRequest =
+                    new BookingCare.Services.Hospital.CreateHospitalSubscriptionGrpcRequest
+                    {
+                        HospitalId = hospitalId.ToString(),
+                        SubscriptionId = subscriptionPlanId.ToString(),
+                        // StartDate and EndDate are auto-calculated by Hospital Service based on billing cycle
+                    };
+
+                var createResponse =
+                    await _hospitalSubscriptionClient.CreateHospitalSubscriptionAsync(
+                        createRequest
+                    );
+
+                if (!string.IsNullOrEmpty(createResponse?.HospitalSubscriptionId))
+                {
+                    Logger.LogInformation(
+                        "VNPay Callback #{RequestId} - Successfully created subscription via gRPC - SubscriptionId: {SubscriptionId}, Status: {Status}",
+                        requestId,
+                        createResponse.HospitalSubscriptionId,
+                        createResponse.Status
+                    );
+                }
+                else
+                {
+                    Logger.LogError(
+                        "VNPay Callback #{RequestId} - Failed to create subscription via gRPC - Empty response",
+                        requestId
+                    );
+                }
+            }
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            Logger.LogError(
+                ex,
+                "VNPay Callback #{RequestId} - gRPC error handling subscription payment - Status: {Status}, Detail: {Detail}",
+                requestId,
+                ex.Status.StatusCode,
+                ex.Status.Detail
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "VNPay Callback #{RequestId} - Unexpected error handling subscription payment",
+                requestId
+            );
+        }
+    }
 
     #endregion
 }

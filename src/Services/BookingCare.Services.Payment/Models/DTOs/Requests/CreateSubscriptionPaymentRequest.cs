@@ -36,4 +36,21 @@ public class CreateSubscriptionPaymentRequest
     [Required]
     [JsonRequired]
     public Guid PaymentMethodId { get; set; }
+
+    /// <summary>
+    /// Indicates if this is an upgrade from an existing subscription
+    /// </summary>
+    public bool IsUpgrade { get; set; } = false;
+
+    /// <summary>
+    /// Current hospital subscription ID (required only if IsUpgrade is true)
+    /// This is the ID from HospitalSubscription table, not SubscriptionPlan
+    /// </summary>
+    public Guid? CurrentHospitalSubscriptionId { get; set; }
+
+    /// <summary>
+    /// Plan type (billing cycle): MONTHLY, QUARTERLY, YEARLY
+    /// Used for frontend redirect after payment
+    /// </summary>
+    public string? PlanType { get; set; }
 }

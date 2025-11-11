@@ -14,7 +14,34 @@ public interface IPayOSPaymentMappingRepository
     /// <param name="orderCode">Order code from PayOS</param>
     /// <param name="expiresAt">Expiration time (optional)</param>
     /// <returns>The created mapping entity</returns>
-    Task<PayOSPaymentMappingEntity> CreateMappingAsync(Guid paymentId, long orderCode, DateTime? expiresAt = null);
+    Task<PayOSPaymentMappingEntity> CreateMappingAsync(
+        Guid paymentId,
+        long orderCode,
+        DateTime? expiresAt = null
+    );
+
+    /// <summary>
+    /// Create a new mapping for subscription payment
+    /// </summary>
+    /// <param name="paymentId">ID of the payment</param>
+    /// <param name="orderCode">Order code from PayOS</param>
+    /// <param name="subscriptionPlanId">Subscription Plan ID</param>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="isUpgrade">Is this an upgrade (nullable)</param>
+    /// <param name="currentHospitalSubscriptionId">Current subscription ID (for upgrade)</param>
+    /// <param name="planType">Plan type (billing cycle): MONTHLY, QUARTERLY, YEARLY</param>
+    /// <param name="expiresAt">Expiration time (optional)</param>
+    /// <returns>The created mapping entity</returns>
+    Task<PayOSPaymentMappingEntity> CreateSubscriptionMappingAsync(
+        Guid paymentId,
+        long orderCode,
+        Guid subscriptionPlanId,
+        Guid hospitalId,
+        bool? isUpgrade,
+        Guid? currentHospitalSubscriptionId,
+        string? planType,
+        DateTime? expiresAt
+    );
 
     /// <summary>
     /// Get PaymentId by OrderCode

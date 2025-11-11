@@ -1,7 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Repositories.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 
@@ -20,9 +20,42 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     /// <summary>
     /// Create a new mapping between PaymentId and OrderCode
     /// </summary>
-    public async Task<PayOSPaymentMappingEntity> CreateMappingAsync(Guid paymentId, long orderCode, DateTime? expiresAt = null)
+    public async Task<PayOSPaymentMappingEntity> CreateMappingAsync(
+        Guid paymentId,
+        long orderCode,
+        DateTime? expiresAt = null
+    )
     {
         var mapping = new PayOSPaymentMappingEntity(paymentId, orderCode, expiresAt);
+
+        _context.PayOSPaymentMappings.Add(mapping);
+        await _context.SaveChangesAsync();
+
+        return mapping;
+    }
+
+    /// <summary>
+    /// Create a new mapping for subscription payment
+    /// </summary>
+    public async Task<PayOSPaymentMappingEntity> CreateSubscriptionMappingAsync(
+        Guid paymentId,
+        long orderCode,
+        Guid subscriptionPlanId,
+        Guid hospitalId,
+        bool? isUpgrade,
+        Guid? currentHospitalSubscriptionId,
+        string? planType,
+        DateTime? expiresAt
+    )
+    {
+        var mapping = new PayOSPaymentMappingEntity(paymentId, orderCode, expiresAt)
+        {
+            SubscriptionPlanId = subscriptionPlanId,
+            HospitalId = hospitalId,
+            IsSubscriptionUpgrade = isUpgrade,
+            CurrentHospitalSubscriptionId = currentHospitalSubscriptionId,
+            PlanType = planType,
+        };
 
         _context.PayOSPaymentMappings.Add(mapping);
         await _context.SaveChangesAsync();
@@ -35,8 +68,8 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     /// </summary>
     public async Task<Guid?> GetPaymentIdByOrderCodeAsync(long orderCode)
     {
-        var mapping = await _context.PayOSPaymentMappings
-            .AsNoTracking()
+        var mapping = await _context
+            .PayOSPaymentMappings.AsNoTracking()
             .FirstOrDefaultAsync(m => m.OrderCode == orderCode);
 
         return mapping?.PaymentId;
@@ -47,8 +80,8 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     /// </summary>
     public async Task<long?> GetOrderCodeByPaymentIdAsync(Guid paymentId)
     {
-        var mapping = await _context.PayOSPaymentMappings
-            .AsNoTracking()
+        var mapping = await _context
+            .PayOSPaymentMappings.AsNoTracking()
             .FirstOrDefaultAsync(m => m.PaymentId == paymentId);
 
         return mapping?.OrderCode;
@@ -59,8 +92,8 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     /// </summary>
     public async Task<PayOSPaymentMappingEntity?> GetMappingByOrderCodeAsync(long orderCode)
     {
-        return await _context.PayOSPaymentMappings
-            .AsNoTracking()
+        return await _context
+            .PayOSPaymentMappings.AsNoTracking()
             .FirstOrDefaultAsync(m => m.OrderCode == orderCode);
     }
 
@@ -69,8 +102,9 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     /// </summary>
     public async Task<bool> DeleteMappingAsync(long orderCode)
     {
-        var mapping = await _context.PayOSPaymentMappings
-            .FirstOrDefaultAsync(m => m.OrderCode == orderCode);
+        var mapping = await _context.PayOSPaymentMappings.FirstOrDefaultAsync(m =>
+            m.OrderCode == orderCode
+        );
 
         if (mapping == null)
             return false;
@@ -87,8 +121,8 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     public async Task<int> CleanupExpiredMappingsAsync()
     {
         var now = DateTime.UtcNow;
-        var expiredMappings = await _context.PayOSPaymentMappings
-            .Where(m => m.ExpiresAt < now)
+        var expiredMappings = await _context
+            .PayOSPaymentMappings.Where(m => m.ExpiresAt < now)
             .ToListAsync();
 
         if (expiredMappings.Count == 0)
@@ -105,8 +139,8 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     /// </summary>
     public async Task<bool> MappingExistsAsync(long orderCode)
     {
-        return await _context.PayOSPaymentMappings
-            .AsNoTracking()
+        return await _context
+            .PayOSPaymentMappings.AsNoTracking()
             .AnyAsync(m => m.OrderCode == orderCode);
     }
 }
