@@ -19,6 +19,21 @@ public class AccountEntity : IdentityUser<Guid>
     /// </summary>
     public bool MustChangePassword { get; set; } = false;
 
+    /// <summary>
+    /// Secret key for TOTP (Time-based One-Time Password) 2FA
+    /// </summary>
+    public string? TwoFactorSecretKey { get; set; }
+
+    /// <summary>
+    /// Backup codes for 2FA recovery (stored as JSON array)
+    /// </summary>
+    public string? TwoFactorBackupCodes { get; set; }
+
+    /// <summary>
+    /// Timestamp when 2FA was enabled
+    /// </summary>
+    public DateTime? TwoFactorEnabledAt { get; set; }
+
     // Navigation properties
     public virtual ICollection<AccountRoleEntity> UserRoles { get; set; } = new List<AccountRoleEntity>();
 }

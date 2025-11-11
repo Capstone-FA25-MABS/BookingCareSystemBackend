@@ -81,4 +81,11 @@ public interface IAuthRepository
     Task<IdentityResult> CreateAccountAsync(AccountEntity user);
     Task<bool> HasExternalLoginAsync(Guid userId, string loginProvider, string providerKey);
     Task AddExternalLoginAsync(Guid userId, string loginProvider, string providerKey);
+
+    // Two-Factor Authentication operations
+    Task<bool> Update2FASecretKeyAsync(Guid accountId, string secretKey);
+    Task<bool> Enable2FAAsync(Guid accountId, string secretKey, List<string> backupCodes);
+    Task<bool> Disable2FAAsync(Guid accountId);
+    Task<bool> UpdateBackupCodesAsync(Guid accountId, List<string> backupCodes);
+    Task<(bool IsEnabled, string? SecretKey, List<string> BackupCodes, DateTime? EnabledAt)> Get2FADataAsync(Guid accountId);
 }
