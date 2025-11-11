@@ -1,3 +1,4 @@
+using AutoMapper;
 using BookingCare.Services.ServiceMedical.Constants;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
@@ -14,11 +15,13 @@ namespace BookingCare.Services.ServiceMedical.Controllers
     {
         private readonly IServiceMedicalService _serviceMedicalService;
         private readonly ILogger<ServiceCategoriesController> _logger;
+        private readonly IMapper _mapper;
 
-        public ServiceCategoriesController(IServiceMedicalService serviceMedicalService, ILogger<ServiceCategoriesController> logger)
+        public ServiceCategoriesController(IServiceMedicalService serviceMedicalService, ILogger<ServiceCategoriesController> logger, IMapper mapper)
         {
             _serviceMedicalService = serviceMedicalService;
             _logger = logger;
+            _mapper = mapper;
         }
 
         #region Health Check
@@ -123,7 +126,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
-        /// Delete service category
+        /// Delete service category (soft delete - changes status to INACTIVE)
         /// </summary>
         /// <param name="id">Service category ID</param>
         /// <returns>Success status</returns>
@@ -273,6 +276,56 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting service categories");
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Get all service categories with details (flat list with filtering and sorting)
+        /// Returns all categories (parent and child) in a flat list format - no pagination
+        /// </summary>
+        /// <param name="searchTerm">Search term for filtering by name or description</param>
+        /// <param name="status">Status filter (ACTIVE or INACTIVE)</param>
+        /// <param name="parentId">Filter by parent ID (null for parent categories only)</param>
+        /// <param name="sortBy">Sort field: "Name" (default)</param>
+        /// <param name="sortDirection">Sort direction: "asc" (A-Z) or "desc" (Z-A). Default: "asc"</param>
+        /// <returns>List of all service categories with details</returns>
+        [HttpGet("all-details")]
+        public async Task<ActionResult<ServiceCategoryAdminListResponse>> GetAllServiceCategoriesWithDetails(
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string? status = null,
+            [FromQuery] Guid? parentId = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortDirection = "asc")
+        {
+            try
+            {
+                // Get all categories without pagination
+                var request = new ServiceCategoryQueryRequest
+                {
+                    Page = 1,
+                    PageSize = int.MaxValue, // Get all items
+                    SearchTerm = searchTerm,
+                    Status = status,
+                    ParentId = parentId,
+                    SortBy = sortBy,
+                    SortDirection = sortDirection
+                };
+
+                var result = await _serviceMedicalService.GetServiceCategoriesAsync(request);
+
+                // Convert to admin response format (map to ServiceCategoryAdminResponse to avoid navigation properties)
+                var adminResponse = new ServiceCategoryAdminListResponse
+                {
+                    ServiceCategories = _mapper.Map<List<ServiceCategoryAdminResponse>>(result.Categories),
+                    TotalCount = result.TotalCount
+                };
+
+                return Ok(adminResponse);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all service categories with details");
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }

@@ -50,6 +50,9 @@ service DoctorService {
 
   // Filter doctors for AI recommendations (by specialty IDs, location, with rating and experience)
   rpc FilterDoctorsForRecommendation (FilterDoctorsForRecommendationRequest) returns (FilterDoctorsForRecommendationResponse);
+  
+  // Get all active specialties (for AI service fuzzy matching)
+  rpc GetAllSpecialties (GetAllSpecialtiesRequest) returns (GetAllSpecialtiesResponse);
 }
 
 // Request messages
@@ -290,4 +293,14 @@ message DoctorRecommendationInfo {
 message FilterDoctorsForRecommendationResponse {
   repeated DoctorRecommendationInfo doctors = 1;
   int32 total_count = 2;
+}
+
+// Request message for getting all active specialties
+message GetAllSpecialtiesRequest {
+  // Empty request - returns all active specialties
+}
+
+// Response message for all specialties
+message GetAllSpecialtiesResponse {
+  repeated SpecialtySimpleResponse specialties = 1;
 }

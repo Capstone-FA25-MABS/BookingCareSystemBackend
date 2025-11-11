@@ -31,13 +31,7 @@ builder.Services.AddDbContext<AiDbContext>(options =>
 // Configure Gemini Settings
 builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("Gemini"));
 
-// Add HttpClient for external service calls
-builder.Services.AddHttpClient("BookingCareServices", client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
-
-// Register Gemini Service
+// Register Gemini Service (still needs HttpClient for Gemini API)
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
 // Register gRPC clients

@@ -6,4 +6,5 @@ public class MongoDbSettings
     public string ConnectionString { get; set; } = "";
     public string DatabaseName { get; set; } = "";
     public string DevicesCollectionName { get; set; } = "devices";
+    public string NotificationsCollectionName { get; set; } = "notifications";
 }

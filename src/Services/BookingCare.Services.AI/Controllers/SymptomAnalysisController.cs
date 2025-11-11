@@ -1,6 +1,7 @@
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
+using BookingCare.Services.AI.Exceptions;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Models;
@@ -33,6 +34,7 @@ public class SymptomAnalysisController : BaseApiController
     [HttpGet("health")]
     [AllowAnonymous]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
         return Ok(new
@@ -104,9 +106,9 @@ public class SymptomAnalysisController : BaseApiController
                 timestamp = DateTime.UtcNow
             });
         }
-        catch (ApplicationException ex)
+        catch (SymptomAnalysisException ex)
         {
-            _logger.LogError(ex, "Application error during symptom analysis: {Message}. StackTrace: {StackTrace}",
+            _logger.LogError(ex, "Symptom analysis error: {Message}. StackTrace: {StackTrace}",
                 ex.Message, ex.StackTrace);
             _logger.LogError(ex.InnerException, "Inner exception: {Message}", ex.InnerException?.Message);
             return StatusCode(500, new
@@ -140,6 +142,8 @@ public class SymptomAnalysisController : BaseApiController
     [HttpGet("sessions/{sessionId}")]
     [AllowAnonymous]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetSession(Guid sessionId)
     {
         try
@@ -171,6 +175,9 @@ public class SymptomAnalysisController : BaseApiController
     [HttpGet("sessions")]
     [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(ApiResponse<List<SessionSummary>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetUserSessions()
     {
         try
@@ -206,6 +213,10 @@ public class SymptomAnalysisController : BaseApiController
     [HttpDelete("sessions/{sessionId}")]
     [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DeleteSession(Guid sessionId)
     {
         try
@@ -252,6 +263,7 @@ public class SymptomAnalysisController : BaseApiController
     [HttpPost("sessions/{sessionId}/save")]
     [AllowAnonymous]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult SaveSession(Guid sessionId, [FromBody] object request)
     {
         // TODO: Implement session persistence to database

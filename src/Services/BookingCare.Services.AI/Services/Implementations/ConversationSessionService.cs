@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BookingCare.Services.AI.Data;
+using BookingCare.Services.AI.Exceptions;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -58,7 +59,11 @@ public class ConversationSessionService : IConversationSessionService
         {
             _logger.LogError(ex, "Error getting or creating session: {Message}. StackTrace: {StackTrace}",
                 ex.Message, ex.StackTrace);
-            throw new ApplicationException($"Failed to get or create conversation session: {ex.Message}", ex);
+            throw new ConversationSessionException(
+                $"Failed to get or create conversation session: {ex.Message}",
+                sessionId,
+                userId,
+                ex);
         }
     }
 
@@ -197,6 +202,127 @@ public class ConversationSessionService : IConversationSessionService
         }
     }
 
+    /// <summary>
+    /// Parse conversation history from JSON string
+    /// </summary>
+    private List<ConversationMessage>? ParseConversationHistory(string conversationHistory)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<ConversationMessage>>(
+                conversationHistory,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error parsing conversation history");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Extract title from session or conversation history
+    /// </summary>
+    private string? ExtractSessionTitle(Models.Entities.ConversationSessionEntity session, List<ConversationMessage> history)
+    {
+        // Use saved title from DB first
+        if (!string.IsNullOrWhiteSpace(session.Title) && session.Title != "Cuộc trò chuyện mới")
+        {
+            return session.Title;
+        }
+
+        // Get first user/patient/guest message as title
+        var firstUserMessage = history.FirstOrDefault(m =>
+            m.Role?.ToLower() == "user" ||
+            m.Role?.ToLower() == "patient" ||
+            m.Role?.ToLower() == "guest");
+
+        if (firstUserMessage != null && !string.IsNullOrWhiteSpace(firstUserMessage.Content))
+        {
+            return firstUserMessage.Content.Length > 50
+                ? firstUserMessage.Content.Substring(0, 50) + "..."
+                : firstUserMessage.Content;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Extract last message from conversation history
+    /// </summary>
+    private string? ExtractLastMessage(List<ConversationMessage> history)
+    {
+        var lastMsg = history.LastOrDefault();
+        if (lastMsg != null && !string.IsNullOrWhiteSpace(lastMsg.Content))
+        {
+            return lastMsg.Content.Length > 100
+                ? lastMsg.Content.Substring(0, 100) + "..."
+                : lastMsg.Content;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Normalize DateTime to UTC
+    /// </summary>
+    private DateTime NormalizeToUtc(DateTime dateTime)
+    {
+        if (dateTime.Kind == DateTimeKind.Utc)
+        {
+            return dateTime;
+        }
+
+        return dateTime.Kind == DateTimeKind.Local
+            ? dateTime.ToUniversalTime()
+            : DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+    }
+
+    /// <summary>
+    /// Create session summary from entity and history
+    /// </summary>
+    private Models.Entities.SessionSummaryEntity CreateSessionSummary(
+        Models.Entities.ConversationSessionEntity session,
+        string? title,
+        string? lastMessage,
+        int messageCount)
+    {
+        return new Models.Entities.SessionSummaryEntity
+        {
+            Id = session.Id,
+            UserId = session.UserId,
+            Title = title ?? "Cuộc trò chuyện mới",
+            LastMessage = lastMessage,
+            CreatedAt = NormalizeToUtc(session.CreatedAt),
+            UpdatedAt = NormalizeToUtc(session.UpdatedAt),
+            MessageCount = messageCount
+        };
+    }
+
+    /// <summary>
+    /// Process session entity to create summary
+    /// </summary>
+    private Models.Entities.SessionSummaryEntity ProcessSessionForSummary(Models.Entities.ConversationSessionEntity session)
+    {
+        string? title = null;
+        string? lastMessage = null;
+        int messageCount = 0;
+
+        if (!string.IsNullOrWhiteSpace(session.ConversationHistory))
+        {
+            var history = ParseConversationHistory(session.ConversationHistory);
+
+            if (history != null && history.Any())
+            {
+                messageCount = history.Count;
+                title = ExtractSessionTitle(session, history);
+                lastMessage = ExtractLastMessage(history);
+            }
+        }
+
+        return CreateSessionSummary(session, title, lastMessage, messageCount);
+    }
+
     public async Task<List<Models.Entities.SessionSummaryEntity>> GetUserSessionsAsync(Guid userId)
     {
         try
@@ -214,88 +340,8 @@ public class ConversationSessionService : IConversationSessionService
 
             foreach (var session in sessions)
             {
-                // Parse conversation history to get title and last message
-                string? title = null;
-                string? lastMessage = null;
-                int messageCount = 0;
-
-                if (!string.IsNullOrWhiteSpace(session.ConversationHistory))
-                {
-                    try
-                    {
-                        var history = JsonSerializer.Deserialize<List<ConversationMessage>>(
-                            session.ConversationHistory,
-                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-                        );
-
-                        if (history != null && history.Any())
-                        {
-                            messageCount = history.Count;
-
-                            // Use saved title from DB first, otherwise extract from first user message
-                            if (!string.IsNullOrWhiteSpace(session.Title) && session.Title != "Cuộc trò chuyện mới")
-                            {
-                                title = session.Title;
-                            }
-                            else
-                            {
-                                // Get first user/patient/guest message as title
-                                var firstUserMessage = history.FirstOrDefault(m =>
-                                    m.Role?.ToLower() == "user" ||
-                                    m.Role?.ToLower() == "patient" ||
-                                    m.Role?.ToLower() == "guest");
-                                if (firstUserMessage != null && !string.IsNullOrWhiteSpace(firstUserMessage.Content))
-                                {
-                                    title = firstUserMessage.Content.Length > 50
-                                        ? firstUserMessage.Content.Substring(0, 50) + "..."
-                                        : firstUserMessage.Content;
-                                }
-                            }
-
-                            // Get last message
-                            var lastMsg = history.LastOrDefault();
-                            if (lastMsg != null && !string.IsNullOrWhiteSpace(lastMsg.Content))
-                            {
-                                lastMessage = lastMsg.Content.Length > 100
-                                    ? lastMsg.Content.Substring(0, 100) + "..."
-                                    : lastMsg.Content;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Error parsing conversation history for session {SessionId}", session.Id);
-                    }
-                }
-
-                // Ensure DateTime is in UTC (convert if needed)
-                // Entity Framework may load DateTime as Unspecified or Local, so we need to ensure UTC
-                var createdAt = session.CreatedAt;
-                if (createdAt.Kind != DateTimeKind.Utc)
-                {
-                    createdAt = createdAt.Kind == DateTimeKind.Local
-                        ? createdAt.ToUniversalTime()
-                        : DateTime.SpecifyKind(createdAt, DateTimeKind.Utc);
-                }
-
-                var updatedAt = session.UpdatedAt;
-                if (updatedAt.Kind != DateTimeKind.Utc)
-                {
-                    updatedAt = updatedAt.Kind == DateTimeKind.Local
-                        ? updatedAt.ToUniversalTime()
-                        : DateTime.SpecifyKind(updatedAt, DateTimeKind.Utc);
-                }
-
-                summaries.Add(new Models.Entities.SessionSummaryEntity
-                {
-                    Id = session.Id,
-                    UserId = session.UserId,
-                    Title = title ?? "Cuộc trò chuyện mới",
-                    LastMessage = lastMessage,
-                    CreatedAt = createdAt,
-                    UpdatedAt = updatedAt,
-                    MessageCount = messageCount
-                });
+                var summary = ProcessSessionForSummary(session);
+                summaries.Add(summary);
             }
 
             return summaries;
@@ -303,7 +349,11 @@ public class ConversationSessionService : IConversationSessionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting user sessions for user {UserId}", userId);
-            throw new ApplicationException($"Failed to get user sessions: {ex.Message}", ex);
+            throw new ConversationSessionException(
+                $"Failed to get user sessions: {ex.Message}",
+                null,
+                userId,
+                ex);
         }
     }
 
@@ -329,7 +379,11 @@ public class ConversationSessionService : IConversationSessionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting session {SessionId}: {Message}", sessionId, ex.Message);
-            throw new ApplicationException($"Failed to delete session: {ex.Message}", ex);
+            throw new ConversationSessionException(
+                $"Failed to delete session: {ex.Message}",
+                sessionId,
+                userId,
+                ex);
         }
     }
 }
