@@ -448,13 +448,21 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="page">Page number</param>
         /// <param name="pageSize">Page size</param>
         /// <param name="includeInactive">Include inactive services</param>
+        /// <param name="searchTerm">Search term for filtering services by name or description</param>
+        /// <param name="hospitalIds">Comma-separated list of hospital IDs to filter services</param>
+        /// <param name="provinceId">Province ID for location filtering</param>
+        /// <param name="districtId">District ID for location filtering</param>
         /// <returns>List of services in the category with hospital information</returns>
         [HttpGet("category/{categoryId}/with-hospital")]
         public async Task<ActionResult<ServicesByCategoryOptimizedResponse>> GetServicesByCategoryWithHospital(
             Guid categoryId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] bool includeInactive = false)
+            [FromQuery] bool includeInactive = false,
+            [FromQuery] string? searchTerm = null,
+            [FromQuery] string? hospitalIds = null,
+            [FromQuery] string? provinceId = null,
+            [FromQuery] string? districtId = null)
         {
             try
             {
@@ -463,8 +471,26 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                     ServiceCategoryId = categoryId,
                     Page = page,
                     PageSize = pageSize,
-                    IncludeInactive = includeInactive
+                    IncludeInactive = includeInactive,
+                    SearchTerm = searchTerm,
+                    ProvinceId = provinceId,
+                    DistrictId = districtId
                 };
+
+                // Parse hospital IDs from comma-separated string
+                if (!string.IsNullOrEmpty(hospitalIds))
+                {
+                    var hospitalIdList = hospitalIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(id => Guid.TryParse(id.Trim(), out var guid) ? guid : (Guid?)null)
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .ToList();
+                    
+                    if (hospitalIdList.Any())
+                    {
+                        request.HospitalIds = hospitalIdList;
+                    }
+                }
 
                 var result = await _serviceMedicalService.GetServicesByCategoryWithHospitalAsync(request);
                 return Ok(result);

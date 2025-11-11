@@ -74,6 +74,26 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
         public bool IncludeInactive { get; set; } = false;
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
+        
+        /// <summary>
+        /// Search term for filtering services by name or description
+        /// </summary>
+        public string? SearchTerm { get; set; }
+        
+        /// <summary>
+        /// List of hospital IDs to filter services (multiple hospitals)
+        /// </summary>
+        public List<Guid>? HospitalIds { get; set; }
+        
+        /// <summary>
+        /// Province ID for location filtering
+        /// </summary>
+        public string? ProvinceId { get; set; }
+        
+        /// <summary>
+        /// District ID for location filtering
+        /// </summary>
+        public string? DistrictId { get; set; }
     }
 
     public class GetHospitalsByServiceCategoryRequest

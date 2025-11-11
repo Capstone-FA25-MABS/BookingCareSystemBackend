@@ -4,6 +4,7 @@ using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Models.Entities;
 using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
+using System.Text.Json;
 
 namespace BookingCare.Services.ServiceMedical.Services.Implementations
 {
@@ -14,19 +15,23 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private readonly IMapper _mapper;
         private readonly ILogger<ServiceMedicalService> _logger;
         private readonly IHospitalService _hospitalService;
+        private readonly HttpClient _httpClient;
 
         public ServiceMedicalService(
             IServiceCategoryRepository categoryRepository,
             IServiceRepository serviceRepository,
             IMapper mapper,
             ILogger<ServiceMedicalService> logger,
-            IHospitalService hospitalService)
+            IHospitalService hospitalService,
+            IHttpClientFactory httpClientFactory)
         {
             _categoryRepository = categoryRepository;
             _serviceRepository = serviceRepository;
             _mapper = mapper;
             _logger = logger;
             _hospitalService = hospitalService;
+            _httpClient = httpClientFactory.CreateClient();
+            _httpClient.BaseAddress = new Uri("https://provinces.open-api.vn/api/");
         }
 
         #region ServiceCategory Operations
@@ -331,19 +336,32 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
+                // If location filtering is needed, we should get all services first (handled in GetServicesByCategoryWithHospitalAsync)
+                // Otherwise, apply pagination at repository level
                 var serviceQuery = new ServiceQueryRequest
                 {
                     Page = request.Page,
                     PageSize = request.PageSize,
                     ServiceCategoryId = request.ServiceCategoryId,
-                    Status = request.IncludeInactive ? null : "ACTIVE"
+                    Status = request.IncludeInactive ? null : "ACTIVE",
+                    SearchTerm = request.SearchTerm
                 };
 
                 var (services, totalCount) = await _serviceRepository.GetPagedAsync(serviceQuery);
 
+                // Apply HospitalIds filter if provided (client-side filtering as repository doesn't support multiple hospital IDs)
+                List<ServiceResponse> filteredServices = _mapper.Map<List<ServiceResponse>>(services);
+                if (request.HospitalIds != null && request.HospitalIds.Any())
+                {
+                    filteredServices = filteredServices
+                        .Where(s => request.HospitalIds.Contains(s.HospitalId))
+                        .ToList();
+                    totalCount = filteredServices.Count;
+                }
+
                 var response = new ServiceListResponse
                 {
-                    Services = _mapper.Map<List<ServiceResponse>>(services),
+                    Services = filteredServices,
                     TotalCount = totalCount,
                     Page = request.Page,
                     PageSize = request.PageSize,
@@ -429,16 +447,96 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     throw new ArgumentException($"Service category with ID {request.ServiceCategoryId} not found");
                 }
 
-                // Get services by category using optimized query
-                var servicesResult = await GetServicesByCategoryAsync(request);
+                // Check if we need location filtering - if yes, get all services first, then filter, then paginate
+                bool needsLocationFiltering = !string.IsNullOrEmpty(request.ProvinceId) || !string.IsNullOrEmpty(request.DistrictId);
+                
+                ServiceListResponse servicesResult;
+                if (needsLocationFiltering || (request.HospitalIds != null && request.HospitalIds.Any()))
+                {
+                    // Get all services first (without pagination) to apply location/hospital filtering
+                    var serviceQueryAll = new ServiceQueryRequest
+                    {
+                        Page = 1,
+                        PageSize = int.MaxValue, // Get all services
+                        ServiceCategoryId = request.ServiceCategoryId,
+                        Status = request.IncludeInactive ? null : "ACTIVE",
+                        SearchTerm = request.SearchTerm
+                    };
 
-                // Extract unique hospital IDs from services
+                    var (allServices, _) = await _serviceRepository.GetPagedAsync(serviceQueryAll);
+                    var allServicesResponse = _mapper.Map<List<ServiceResponse>>(allServices);
+
+                    // Extract unique hospital IDs from all services
+                    var allHospitalIds = allServicesResponse
+                        .Select(s => s.HospitalId)
+                        .Distinct()
+                        .ToList();
+
+                    // Get hospital information from Hospital Service via gRPC
+                    var allHospitals = await _hospitalService.GetHospitalsByIdsAsync(allHospitalIds);
+
+                    // Apply location filtering if provided
+                    List<Guid> filteredHospitalIds = allHospitalIds;
+                    if (needsLocationFiltering)
+                    {
+                        _logger.LogInformation("Applying location filtering - ProvinceId: {ProvinceId}, DistrictId: {DistrictId}", 
+                            request.ProvinceId, request.DistrictId);
+                        
+                        var locationFilteredHospitals = await FilterHospitalsByLocationAsync(
+                            allHospitals, 
+                            request.ProvinceId, 
+                            request.DistrictId);
+                        
+                        filteredHospitalIds = locationFilteredHospitals.Select(h => h.Id).ToList();
+                        _logger.LogInformation("Location filtering result: {FilteredCount} out of {TotalCount} hospitals", 
+                            filteredHospitalIds.Count, allHospitalIds.Count);
+                    }
+
+                    // Apply HospitalIds filter if provided (combine with location filter)
+                    if (request.HospitalIds != null && request.HospitalIds.Any())
+                    {
+                        filteredHospitalIds = filteredHospitalIds
+                            .Where(id => request.HospitalIds.Contains(id))
+                            .ToList();
+                        _logger.LogInformation("HospitalIds filtering result: {FilteredCount} hospitals", filteredHospitalIds.Count);
+                    }
+
+                    // Filter services by filtered hospitals
+                    var filteredServices = allServicesResponse
+                        .Where(s => filteredHospitalIds.Contains(s.HospitalId))
+                        .ToList();
+
+                    // Apply pagination to filtered services
+                    var totalCountAfterFilter = filteredServices.Count;
+                    var totalPagesAfterFilter = (int)Math.Ceiling((double)totalCountAfterFilter / request.PageSize);
+                    
+                    var paginatedServices = filteredServices
+                        .Skip((request.Page - 1) * request.PageSize)
+                        .Take(request.PageSize)
+                        .ToList();
+
+                    servicesResult = new ServiceListResponse
+                    {
+                        Services = paginatedServices,
+                        TotalCount = totalCountAfterFilter,
+                        Page = request.Page,
+                        PageSize = request.PageSize,
+                        TotalPages = totalPagesAfterFilter
+                    };
+                }
+                else
+                {
+                    // No location/hospital filtering needed - use standard pagination
+                    servicesResult = await GetServicesByCategoryAsync(request);
+                }
+
+                // Extract hospital IDs from paginated services for hospital info retrieval
                 var hospitalIds = servicesResult.Services
                     .Select(s => s.HospitalId)
                     .Distinct()
                     .ToList();
 
-                // Get hospital information from Hospital Service via gRPC
+                // Get hospital information for the paginated services
                 var hospitals = await _hospitalService.GetHospitalsByIdsAsync(hospitalIds);
                 var hospitalDict = hospitals.ToDictionary(h => h.Id, h => h);
 
@@ -463,8 +561,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 {
                     ServiceCategoryId = request.ServiceCategoryId,
                     ServiceCategoryName = category.Name,
-                    ServiceCategoryDescription = category.Description, // Add service category description
-                    ParentCategoryName = category.Parent?.Name, // Add parent category name
+                    ServiceCategoryDescription = category.Description,
+                    ParentCategoryName = category.Parent?.Name,
                     TotalServices = servicesResult.TotalCount,
                     Page = servicesResult.Page,
                     PageSize = servicesResult.PageSize,
@@ -477,6 +575,160 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", request.ServiceCategoryId);
                 throw new InvalidOperationException($"Failed to retrieve services with hospital information for category '{request.ServiceCategoryId}'", ex);
             }
+        }
+
+        /// <summary>
+        /// Filter hospitals by location (province and/or district)
+        /// </summary>
+        private async Task<List<HospitalInfoResponse>> FilterHospitalsByLocationAsync(
+            List<HospitalInfoResponse> hospitals,
+            string? provinceId,
+            string? districtId)
+        {
+            if (string.IsNullOrEmpty(provinceId) && string.IsNullOrEmpty(districtId))
+            {
+                return hospitals;
+            }
+
+            try
+            {
+                // Get location info (province and district names)
+                string? provinceName = null;
+                string? districtName = null;
+
+                if (!string.IsNullOrEmpty(provinceId))
+                {
+                    provinceName = await GetProvinceNameByIdAsync(provinceId);
+                    if (string.IsNullOrEmpty(provinceName))
+                    {
+                        _logger.LogWarning("Province name not found for ID: {ProvinceId}", provinceId);
+                        return hospitals; // Return all if cannot get province name
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(districtId))
+                {
+                    districtName = await GetDistrictNameByIdAsync(districtId);
+                    if (string.IsNullOrEmpty(districtName) && !string.IsNullOrEmpty(districtId))
+                    {
+                        _logger.LogWarning("District name not found for ID: {DistrictId}", districtId);
+                        // Continue with province filtering only
+                    }
+                }
+
+                // Filter hospitals by location
+                var filteredHospitals = hospitals.Where(hospital =>
+                {
+                    if (string.IsNullOrEmpty(hospital.Address))
+                    {
+                        return false;
+                    }
+
+                    var hospitalAddress = hospital.Address.ToLowerInvariant();
+                    var provinceNameLower = provinceName?.ToLowerInvariant() ?? "";
+                    var districtNameLower = districtName?.ToLowerInvariant() ?? "";
+
+                    // Clean up province name - remove common prefixes
+                    var cleanProvinceName = provinceNameLower
+                        .Replace("thành phố", "")
+                        .Replace("tỉnh", "")
+                        .Replace("tp.", "")
+                        .Replace("tp ", "")
+                        .Trim();
+
+                    // Clean up district name - remove common prefixes
+                    var cleanDistrictName = districtNameLower
+                        .Replace("quận", "")
+                        .Replace("huyện", "")
+                        .Replace("thị xã", "")
+                        .Replace("thành phố", "")
+                        .Replace("tx.", "")
+                        .Replace("q.", "")
+                        .Replace("h.", "")
+                        .Trim();
+
+                    if (!string.IsNullOrEmpty(districtName))
+                    {
+                        // Filter by both province and district
+                        var provinceMatch = string.IsNullOrEmpty(provinceName) || 
+                                          hospitalAddress.Contains(provinceNameLower) ||
+                                          hospitalAddress.Contains(cleanProvinceName);
+                        
+                        var districtMatch = hospitalAddress.Contains(districtNameLower) ||
+                                          hospitalAddress.Contains(cleanDistrictName);
+
+                        return provinceMatch && districtMatch;
+                    }
+                    else if (!string.IsNullOrEmpty(provinceName))
+                    {
+                        // Filter by province only
+                        return hospitalAddress.Contains(provinceNameLower) ||
+                               hospitalAddress.Contains(cleanProvinceName);
+                    }
+
+                    return false;
+                }).ToList();
+
+                _logger.LogInformation("Location filtering completed. {FilteredCount} out of {TotalCount} hospitals match the criteria",
+                    filteredHospitals.Count, hospitals.Count);
+
+                return filteredHospitals;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error filtering hospitals by location. Returning all hospitals.");
+                return hospitals; // Return all if error occurs
+            }
+        }
+
+        /// <summary>
+        /// Get province name from ID using provinces.open-api.vn API
+        /// </summary>
+        private async Task<string?> GetProvinceNameByIdAsync(string provinceId)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync($"p/{provinceId}?depth=1");
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var province = JsonSerializer.Deserialize<JsonElement>(content);
+                    if (province.TryGetProperty("name", out var nameElement))
+                    {
+                        return nameElement.GetString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting province name for ID: {ProvinceId}", provinceId);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Get district name from ID using provinces.open-api.vn API
+        /// </summary>
+        private async Task<string?> GetDistrictNameByIdAsync(string districtId)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync($"d/{districtId}?depth=2");
+                if (response.IsSuccessStatusCode)
+                {
+                    var content = await response.Content.ReadAsStringAsync();
+                    var district = JsonSerializer.Deserialize<JsonElement>(content);
+                    if (district.TryGetProperty("name", out var nameElement))
+                    {
+                        return nameElement.GetString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting district name for ID: {DistrictId}", districtId);
+            }
+            return null;
         }
 
         // Get filter options (hospitals and service categories) for dropdown

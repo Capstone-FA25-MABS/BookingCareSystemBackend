@@ -32,6 +32,9 @@ builder.Services.AddAutoMapper(typeof(ServiceMedicalMappingProfile));
 builder.Services.AddScoped<IServiceCategoryRepository, ServiceCategoryRepository>();
 builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 
+// Add HttpClient for Location API
+builder.Services.AddHttpClient();
+
 // Add Services
 builder.Services.AddScoped<IServiceMedicalService, ServiceMedicalService>();
 builder.Services.AddScoped<IHospitalService, HospitalService>();
