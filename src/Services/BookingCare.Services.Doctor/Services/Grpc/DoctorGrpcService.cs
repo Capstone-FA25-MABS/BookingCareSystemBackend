@@ -991,4 +991,35 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }
     }
+
+    public override async Task<Protos.GetAllSpecialtiesResponse> GetAllSpecialties(Protos.GetAllSpecialtiesRequest request, ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[DoctorGrpcService] Getting all active specialties");
+
+            // Get all active specialties
+            var specialties = await _specialtyService.GetActiveSpecialtiesSimpleAsync();
+
+            var response = new Protos.GetAllSpecialtiesResponse();
+
+            foreach (var specialty in specialties)
+            {
+                response.Specialties.Add(new Protos.SpecialtySimpleResponse
+                {
+                    Id = specialty.Id.ToString(),
+                    Name = specialty.Name,
+                    ImageUrl = specialty.ImageUrl ?? string.Empty
+                });
+            }
+
+            _logger.LogInformation("[DoctorGrpcService] Returning {Count} active specialties", response.Specialties.Count);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetAllSpecialties");
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
 }

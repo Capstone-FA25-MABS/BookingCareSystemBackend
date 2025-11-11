@@ -19,13 +19,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private readonly IGeminiService _geminiService;
     private readonly DoctorService.DoctorServiceClient _doctorClient;
     private readonly BookingCare.Services.Hospital.HospitalService.HospitalServiceClient _hospitalClient;
-    private readonly HttpClient _httpClient;
     private readonly ILogger<SymptomAnalysisService> _logger;
     private readonly IConversationSessionService _conversationSessionService;
-
-    // Service URLs from configuration (for REST API fallback)
-    private readonly string _doctorServiceUrl;
-    private readonly string _hospitalServiceUrl;
 
     // Cache for specialty mapping to avoid multiple API calls
     private static Dictionary<string, Guid>? _specialtyNameMapCache = null;
@@ -76,20 +71,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         IGeminiService geminiService,
         DoctorService.DoctorServiceClient doctorClient,
         BookingCare.Services.Hospital.HospitalService.HospitalServiceClient hospitalClient,
-        IHttpClientFactory httpClientFactory,
         ILogger<SymptomAnalysisService> logger,
-        IConfiguration configuration,
         IConversationSessionService conversationSessionService)
     {
         _geminiService = geminiService;
         _doctorClient = doctorClient;
         _hospitalClient = hospitalClient;
-        _httpClient = httpClientFactory.CreateClient("BookingCareServices");
         _logger = logger;
         _conversationSessionService = conversationSessionService;
-
-        _doctorServiceUrl = configuration["Services:Doctor:Url"] ?? "http://localhost:6008";
-        _hospitalServiceUrl = configuration["Services:Hospital:Url"] ?? "http://localhost:6004";
     }
 
     /// <summary>
@@ -905,26 +894,27 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         try
         {
-            var url = $"{_doctorServiceUrl}/api/v1.0/specialties/all";
-            var response = await _httpClient.GetAsync(url);
+            _logger.LogDebug("Fetching all specialties via gRPC");
 
-            if (response.IsSuccessStatusCode)
+            var request = new BookingCare.Services.Doctor.Protos.GetAllSpecialtiesRequest();
+            var response = await _doctorClient.GetAllSpecialtiesAsync(request);
+
+            if (response?.Specialties != null)
             {
-                var json = await response.Content.ReadAsStringAsync();
-                var apiResponse = JsonSerializer.Deserialize<ApiResponse<List<SpecialtyDto>>>(json, new JsonSerializerOptions
+                var specialties = response.Specialties.Select(s => new SpecialtyDto
                 {
-                    PropertyNameCaseInsensitive = true
-                });
+                    Id = Guid.Parse(s.Id),
+                    Name = s.Name,
+                    ImageUrl = s.ImageUrl
+                }).ToList();
 
-                if (apiResponse?.Success == true && apiResponse.Data != null)
-                {
-                    return apiResponse.Data;
-                }
+                _logger.LogDebug("Fetched {Count} specialties via gRPC", specialties.Count);
+                return specialties;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching all specialties for fuzzy matching");
+            _logger.LogError(ex, "Error fetching all specialties via gRPC for fuzzy matching");
         }
 
         return new List<SpecialtyDto>();
@@ -1483,29 +1473,37 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
         try
         {
-            var url = $"{_hospitalServiceUrl}/api/v1.0/hospitals/list?pageSize=20";
-            var response = await _httpClient.GetAsync(url);
+            _logger.LogDebug("Fetching hospitals via gRPC");
 
-            if (response.IsSuccessStatusCode)
+            var request = new BookingCare.Services.Hospital.GetHospitalsListRequest
             {
-                var json = await response.Content.ReadAsStringAsync();
-                var hospitalResponse = JsonSerializer.Deserialize<HospitalFilterResponse>(json, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                Page = 1,
+                PageSize = 20
+            };
 
-                if (hospitalResponse?.Data?.Items != null)
+            var response = await _hospitalClient.GetHospitalsListAsync(request);
+
+            if (response?.Hospitals != null)
+            {
+                foreach (var hospital in response.Hospitals)
                 {
-                    foreach (var hospital in hospitalResponse.Data.Items)
+                    var hospitalDto = new HospitalDto
                     {
-                        allHospitals[hospital.Id] = hospital;
-                    }
+                        Id = hospital.Id,
+                        Name = hospital.Name,
+                        Address = hospital.Address,
+                        SpecialtyNames = new List<string>() // Will be populated by GetHospitalsBySpecialtiesAsync if needed
+                    };
+
+                    allHospitals[hospital.Id] = hospitalDto;
                 }
+
+                _logger.LogDebug("Fetched {Count} hospitals via gRPC", allHospitals.Count);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error fetching hospitals via REST API");
+            _logger.LogWarning(ex, "Error fetching hospitals via gRPC");
         }
 
         return allHospitals;
