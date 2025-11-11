@@ -485,7 +485,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                         .Where(id => id.HasValue)
                         .Select(id => id!.Value)
                         .ToList();
-                    
+
                     if (hospitalIdList.Any())
                     {
                         request.HospitalIds = hospitalIdList;

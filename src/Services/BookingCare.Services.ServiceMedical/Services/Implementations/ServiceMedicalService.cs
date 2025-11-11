@@ -449,7 +449,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
                 // Check if we need location filtering - if yes, get all services first, then filter, then paginate
                 bool needsLocationFiltering = !string.IsNullOrEmpty(request.ProvinceId) || !string.IsNullOrEmpty(request.DistrictId);
-                
+
                 ServiceListResponse servicesResult;
                 if (needsLocationFiltering || (request.HospitalIds != null && request.HospitalIds.Any()))
                 {
@@ -479,16 +479,16 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     List<Guid> filteredHospitalIds = allHospitalIds;
                     if (needsLocationFiltering)
                     {
-                        _logger.LogInformation("Applying location filtering - ProvinceId: {ProvinceId}, DistrictId: {DistrictId}", 
+                        _logger.LogInformation("Applying location filtering - ProvinceId: {ProvinceId}, DistrictId: {DistrictId}",
                             request.ProvinceId, request.DistrictId);
-                        
+
                         var locationFilteredHospitals = await FilterHospitalsByLocationAsync(
-                            allHospitals, 
-                            request.ProvinceId, 
+                            allHospitals,
+                            request.ProvinceId,
                             request.DistrictId);
-                        
+
                         filteredHospitalIds = locationFilteredHospitals.Select(h => h.Id).ToList();
-                        _logger.LogInformation("Location filtering result: {FilteredCount} out of {TotalCount} hospitals", 
+                        _logger.LogInformation("Location filtering result: {FilteredCount} out of {TotalCount} hospitals",
                             filteredHospitalIds.Count, allHospitalIds.Count);
                     }
 
@@ -509,7 +509,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     // Apply pagination to filtered services
                     var totalCountAfterFilter = filteredServices.Count;
                     var totalPagesAfterFilter = (int)Math.Ceiling((double)totalCountAfterFilter / request.PageSize);
-                    
+
                     var paginatedServices = filteredServices
                         .Skip((request.Page - 1) * request.PageSize)
                         .Take(request.PageSize)
@@ -650,10 +650,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     if (!string.IsNullOrEmpty(districtName))
                     {
                         // Filter by both province and district
-                        var provinceMatch = string.IsNullOrEmpty(provinceName) || 
+                        var provinceMatch = string.IsNullOrEmpty(provinceName) ||
                                           hospitalAddress.Contains(provinceNameLower) ||
                                           hospitalAddress.Contains(cleanProvinceName);
-                        
+
                         var districtMatch = hospitalAddress.Contains(districtNameLower) ||
                                           hospitalAddress.Contains(cleanDistrictName);
 
