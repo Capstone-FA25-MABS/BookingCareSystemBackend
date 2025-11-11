@@ -74,4 +74,11 @@ public interface IDoctorService : IAvatarService
 
     // Hospital staff management operations (optimized for performance)
     Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId);
+
+    // Filter doctors for AI recommendations (by specialty IDs, location)
+    Task<List<DoctorEntity>> FilterDoctorsForRecommendationAsync(
+        List<Guid> specialtyIds,
+        string? provinceId,
+        string? districtId,
+        int maxResults = 10);
 }
