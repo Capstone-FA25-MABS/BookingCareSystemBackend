@@ -2308,7 +2308,7 @@ public class AuthService : BaseService, IAuthService
         }
     }
 
-    private List<string> GenerateBackupCodes()
+    private static List<string> GenerateBackupCodes()
     {
         const int BACKUP_CODES_COUNT = 10;
         var codes = new List<string>();
