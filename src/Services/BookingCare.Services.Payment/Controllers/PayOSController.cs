@@ -197,17 +197,14 @@ public class PayOSController : BasePaymentGatewayController
             if (subscriptionMetadata.HasValue)
             {
                 // Subscription payment failed - redirect to subscription plan page
-                var planType = subscriptionMetadata.Value.PlanType?.ToLowerInvariant() ?? "monthly";
-                var frontendUrl =
-                    $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
-                Logger.LogWarning(
-                    "PayOS Callback #{RequestId} - Subscription payment failed/cancelled for HospitalId: {HospitalId}, PlanType: {PlanType}, Code: {Code}",
-                    requestId,
+                return HandleSubscriptionPaymentFailed(
+                    subscriptionMetadata.Value.PlanType,
                     subscriptionMetadata.Value.HospitalId,
-                    planType,
+                    requestId,
+                    GatewayName,
+                    "failed/cancelled",
                     code
                 );
-                return Redirect(frontendUrl);
             }
 
             // Regular payment failed - use base handler
@@ -355,17 +352,13 @@ public class PayOSController : BasePaymentGatewayController
                 if (subscriptionMetadata.HasValue)
                 {
                     // Subscription payment cancelled - redirect to subscription plan page
-                    var planType =
-                        subscriptionMetadata.Value.PlanType?.ToLowerInvariant() ?? "monthly";
-                    var frontendUrl =
-                        $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
-                    Logger.LogWarning(
-                        "PayOS Cancel Callback #{RequestId} - Subscription payment cancelled for HospitalId: {HospitalId}, PlanType: {PlanType}",
-                        requestId,
+                    return HandleSubscriptionPaymentFailed(
+                        subscriptionMetadata.Value.PlanType,
                         subscriptionMetadata.Value.HospitalId,
-                        planType
+                        requestId,
+                        GatewayName,
+                        "cancelled"
                     );
-                    return Redirect(frontendUrl);
                 }
 
                 // Check if payment is for appointment and try to redirect to doctor booking page

@@ -233,17 +233,14 @@ public class VNPayController : BasePaymentGatewayController
             if (subscriptionMetadata.HasValue)
             {
                 // Subscription payment failed - redirect to subscription plan page
-                var planType = subscriptionMetadata.Value.PlanType?.ToLowerInvariant() ?? "monthly";
-                var frontendUrl =
-                    $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
-                Logger.LogWarning(
-                    "VNPay Callback #{RequestId} - Subscription payment failed/cancelled for HospitalId: {HospitalId}, PlanType: {PlanType}, ResponseCode: {ResponseCode}",
-                    requestId,
+                return HandleSubscriptionPaymentFailed(
+                    subscriptionMetadata.Value.PlanType,
                     subscriptionMetadata.Value.HospitalId,
-                    planType,
+                    requestId,
+                    GatewayName,
+                    "failed/cancelled",
                     callbackResult.vnp_ResponseCode
                 );
-                return Redirect(frontendUrl);
             }
 
             // Regular payment failed - use base handler
