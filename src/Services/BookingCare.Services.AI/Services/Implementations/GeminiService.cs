@@ -819,6 +819,119 @@ public class GeminiService : IGeminiService
     }
 
     /// <summary>
+    /// Append consult more handling rules to prompt
+    /// </summary>
+    private void AppendConsultMoreRules(StringBuilder sb)
+    {
+        sb.AppendLine("**XỬ LÝ KHI NHẬN 'tôi muốn được tư vấn thêm':**");
+        sb.AppendLine("- Nếu người dùng gửi 'tôi muốn được tư vấn thêm' hoặc 'tư vấn thêm', đây là yêu cầu khoanh vùng bệnh chi tiết hơn");
+        sb.AppendLine("- Ngay lập tức hỏi 1 câu hỏi quan trọng nhất (HIGH priority) để làm rõ triệu chứng");
+        sb.AppendLine("- QUAN TRỌNG: KHÔNG HỎI LẠI các câu hỏi đã hỏi trong lịch sử hội thoại");
+        sb.AppendLine("- Phải xem lại lịch sử và loại bỏ các câu hỏi đã được trả lời");
+        sb.AppendLine("- Tập trung vào các câu hỏi khoanh vùng bệnh cụ thể, không hỏi chung chung");
+        sb.AppendLine("- Sau khi hỏi tối đa 3 câu, PHẢI đưa ra kết luận và gợi ý chuyên khoa phù hợp");
+        sb.AppendLine("- Chọn câu hỏi quan trọng nhất (HIGH priority) và chỉ hỏi câu đó");
+        sb.AppendLine("- Sau khi người dùng trả lời, mới hỏi câu tiếp theo");
+        sb.AppendLine("- Các câu hỏi phải hỏi theo thứ tự ưu tiên để khoanh vùng bệnh và gen ra câu hỏi tiếp theo");
+        sb.AppendLine("- Nếu đã có đủ thông tin Stage 1 và confidence > 0.5, có thể recommend specialty ngay");
+        sb.AppendLine("- Nếu confidence < 0.5 sau Stage 1, hỏi thêm Stage 2 (nhưng vẫn chỉ 1 câu mỗi lần)");
+    }
+
+    /// <summary>
+    /// Append message display rules to prompt
+    /// </summary>
+    private void AppendMessageDisplayRules(StringBuilder sb)
+    {
+        sb.AppendLine("**QUY TẮC HIỂN THỊ MESSAGE:**");
+        sb.AppendLine("- KHI analysisComplete = false (đang hỏi thêm):");
+        sb.AppendLine("  + Field \"message\" CHỈ chứa câu hỏi đơn giản, ngắn gọn");
+        sb.AppendLine("  + KHÔNG cần phần \"Dựa trên các triệu chứng...\", \"Lời khuyên chung\"");
+        sb.AppendLine("  + possibleDiseases: có thể để trống [] hoặc chỉ 1-2 bệnh sơ bộ");
+        sb.AppendLine("  + recommendedSpecialties: có thể để trống [] hoặc chuyên khoa sơ bộ");
+        sb.AppendLine("  + generalAdvice: có thể để trống []");
+        sb.AppendLine("  + nextQuestions: PHẢI có 1 câu hỏi cụ thể");
+        sb.AppendLine();
+        sb.AppendLine("- KHI analysisComplete = true (kết luận):");
+        sb.AppendLine("  + Field \"message\" chứa phân tích ĐẦY ĐỦ:");
+        sb.AppendLine("    \"Dựa trên các triệu chứng bạn mô tả, có thể liên quan đến:\"");
+        sb.AppendLine("    + Liệt kê possibleDiseases với confidence");
+        sb.AppendLine("    + General advice");
+        sb.AppendLine("    + Recommended specialties");
+        sb.AppendLine("  + possibleDiseases: PHẢI có ít nhất 2-3 bệnh");
+        sb.AppendLine("  + recommendedSpecialties: PHẢI có ít nhất 1 chuyên khoa");
+        sb.AppendLine("  + generalAdvice: PHẢI có ít nhất 2 lời khuyên");
+        sb.AppendLine("  + nextQuestions: có thể rỗng []");
+    }
+
+    /// <summary>
+    /// Append confidence thresholds to prompt
+    /// </summary>
+    private void AppendConfidenceThresholds(StringBuilder sb)
+    {
+        sb.AppendLine("**NGƯỠNG CONFIDENCE:**");
+        sb.AppendLine("- confidence > 0.8: Recommend ngay 1 chuyên khoa chính xác");
+        sb.AppendLine("- confidence 0.5-0.8: Show 2-3 chuyên khoa options");
+        sb.AppendLine("- confidence < 0.5: Hỏi thêm trước khi recommend");
+        sb.AppendLine("- NGOẠI LỆ: Nếu đã hỏi 3 câu (ở bất kỳ giai đoạn nào), PHẢI set analysisComplete = true");
+        sb.AppendLine("- NGOẠI LỆ: Sau 3 câu hỏi tư vấn thêm, PHẢI kết luận với analysisComplete = true");
+    }
+
+    /// <summary>
+    /// Append JSON output format to prompt
+    /// </summary>
+    private void AppendOutputFormat(StringBuilder sb)
+    {
+        sb.AppendLine("**ĐỊNH DẠNG OUTPUT (JSON):**");
+        sb.AppendLine("QUAN TRỌNG: Chỉ trả về JSON thuần, KHÔNG bao bọc trong markdown code blocks (không dùng ```json hoặc ```).");
+        sb.AppendLine("Chỉ trả về JSON object trực tiếp, ví dụ:");
+        sb.AppendLine("{");
+        sb.AppendLine("  \"possibleDiseases\": [");
+        sb.AppendLine("    {");
+        sb.AppendLine("      \"name\": \"Tên bệnh tiếng Việt\",");
+        sb.AppendLine("      \"confidence\": 0.75,");
+        sb.AppendLine("      \"description\": \"Mô tả ngắn gọn về bệnh\"");
+        sb.AppendLine("    }");
+        sb.AppendLine("  ],");
+        sb.AppendLine("  \"nextQuestions\": [");
+        sb.AppendLine("    {");
+        sb.AppendLine("      \"question\": \"Câu hỏi cụ thể\",");
+        sb.AppendLine("      \"purpose\": \"Lý do cần hỏi (Stage 1/2/3)\",");
+        sb.AppendLine("      \"priority\": \"HIGH hoặc MEDIUM hoặc LOW\"");
+        sb.AppendLine("    }");
+        sb.AppendLine("  ],");
+        sb.AppendLine("  \"recommendedSpecialties\": [");
+        sb.AppendLine("    {");
+        sb.AppendLine("      \"specialtyName\": \"Tên chuyên khoa tiếng Việt\",");
+        sb.AppendLine("      \"confidence\": 0.85,");
+        sb.AppendLine("      \"urgency\": \"EMERGENCY hoặc URGENT hoặc NORMAL hoặc ROUTINE\",");
+        sb.AppendLine("      \"reasons\": [\"Lý do 1\", \"Lý do 2\"]");
+        sb.AppendLine("    }");
+        sb.AppendLine("  ],");
+        sb.AppendLine("  \"generalAdvice\": [");
+        sb.AppendLine("    \"Lời khuyên chung 1\",");
+        sb.AppendLine("    \"Lời khuyên chung 2\"");
+        sb.AppendLine("  ],");
+        sb.AppendLine("  \"analysisComplete\": true hoặc false,");
+        sb.AppendLine("  \"requiresImmediateAttention\": true hoặc false");
+        sb.AppendLine("}");
+        sb.AppendLine();
+        sb.AppendLine("**QUAN TRỌNG VỀ analysisComplete:**");
+        sb.AppendLine("- Set true khi: đã hỏi 3 câu HOẶC confidence > 0.5 HOẶC đã có đủ thông tin");
+        sb.AppendLine("- Set false khi: cần hỏi thêm để khoanh vùng bệnh");
+        sb.AppendLine();
+        sb.AppendLine("**BẮT BUỘC KHI analysisComplete = true (KHÔNG ĐƯỢC THIẾU):**");
+        sb.AppendLine("1. possibleDiseases: PHẢI có ít nhất 2-3 bệnh với confidence");
+        sb.AppendLine("   Ví dụ: [{\"name\": \"Viêm dạ dày\", \"confidence\": 0.65}, {\"name\": \"Rối loạn tiêu hóa\", \"confidence\": 0.60}]");
+        sb.AppendLine("2. recommendedSpecialties: PHẢI có ít nhất 1 chuyên khoa");
+        sb.AppendLine("   Ví dụ: [{\"specialtyName\": \"Nội tiêu hóa - Gan mật\", \"confidence\": 0.70}]");
+        sb.AppendLine("3. generalAdvice: PHẢI có ít nhất 2-3 lời khuyên cụ thể");
+        sb.AppendLine("   Ví dụ: [\"Theo dõi triệu chứng trong 24-48 giờ\", \"Tránh thức ăn cay nóng\", \"Uống đủ nước\"]");
+        sb.AppendLine("4. nextQuestions: để trống []");
+        sb.AppendLine();
+        sb.AppendLine("NGHIÊM NGẶT: Nếu thiếu BẤT KỲ thành phần nào trong 3 mục trên, response sẽ bị từ chối!");
+    }
+
+    /// <summary>
     /// Append specialty list to prompt
     /// </summary>
     private void AppendSpecialtyList(StringBuilder sb)
@@ -938,97 +1051,16 @@ public class GeminiService : IGeminiService
         // Priority-based Questioning
         AppendQuestioningStrategy(sb);
         sb.AppendLine();
-        sb.AppendLine("**XỬ LÝ KHI NHẬN 'tôi muốn được tư vấn thêm':**");
-        sb.AppendLine("- Nếu người dùng gửi 'tôi muốn được tư vấn thêm' hoặc 'tư vấn thêm', đây là yêu cầu khoanh vùng bệnh chi tiết hơn");
-        sb.AppendLine("- Ngay lập tức hỏi 1 câu hỏi quan trọng nhất (HIGH priority) để làm rõ triệu chứng");
-        sb.AppendLine("- QUAN TRỌNG: KHÔNG HỎI LẠI các câu hỏi đã hỏi trong lịch sử hội thoại");
-        sb.AppendLine("- Phải xem lại lịch sử và loại bỏ các câu hỏi đã được trả lời");
-        sb.AppendLine("- Tập trung vào các câu hỏi khoanh vùng bệnh cụ thể, không hỏi chung chung");
-        sb.AppendLine("- Sau khi hỏi tối đa 3 câu, PHẢI đưa ra kết luận và gợi ý chuyên khoa phù hợp");
-        sb.AppendLine("- Chọn câu hỏi quan trọng nhất (HIGH priority) và chỉ hỏi câu đó");
-        sb.AppendLine("- Sau khi người dùng trả lời, mới hỏi câu tiếp theo");
-        sb.AppendLine("- Các câu hỏi phải hỏi theo thứ tự ưu tiên để khoanh vùng bệnh và gen ra câu hỏi tiếp theo");
-        sb.AppendLine("- Nếu đã có đủ thông tin Stage 1 và confidence > 0.5, có thể recommend specialty ngay");
-        sb.AppendLine("- Nếu confidence < 0.5 sau Stage 1, hỏi thêm Stage 2 (nhưng vẫn chỉ 1 câu mỗi lần)");
+        AppendConsultMoreRules(sb);
         sb.AppendLine();
-        sb.AppendLine("**QUY TẮC HIỂN THỊ MESSAGE:**");
-        sb.AppendLine("- KHI analysisComplete = false (đang hỏi thêm):");
-        sb.AppendLine("  + Field \"message\" CHỈ chứa câu hỏi đơn giản, ngắn gọn");
-        sb.AppendLine("  + KHÔNG cần phần \"Dựa trên các triệu chứng...\", \"Lời khuyên chung\"");
-        sb.AppendLine("  + possibleDiseases: có thể để trống [] hoặc chỉ 1-2 bệnh sơ bộ");
-        sb.AppendLine("  + recommendedSpecialties: có thể để trống [] hoặc chuyên khoa sơ bộ");
-        sb.AppendLine("  + generalAdvice: có thể để trống []");
-        sb.AppendLine("  + nextQuestions: PHẢI có 1 câu hỏi cụ thể");
-        sb.AppendLine();
-        sb.AppendLine("- KHI analysisComplete = true (kết luận):");
-        sb.AppendLine("  + Field \"message\" chứa phân tích ĐẦY ĐỦ:");
-        sb.AppendLine("    \"Dựa trên các triệu chứng bạn mô tả, có thể liên quan đến:\"");
-        sb.AppendLine("    + Liệt kê possibleDiseases với confidence");
-        sb.AppendLine("    + General advice");
-        sb.AppendLine("    + Recommended specialties");
-        sb.AppendLine("  + possibleDiseases: PHẢI có ít nhất 2-3 bệnh");
-        sb.AppendLine("  + recommendedSpecialties: PHẢI có ít nhất 1 chuyên khoa");
-        sb.AppendLine("  + generalAdvice: PHẢI có ít nhất 2 lời khuyên");
-        sb.AppendLine("  + nextQuestions: có thể rỗng []");
+        AppendMessageDisplayRules(sb);
         sb.AppendLine();
 
         // Confidence Thresholds
-        sb.AppendLine("**NGƯỠNG CONFIDENCE:**");
-        sb.AppendLine("- confidence > 0.8: Recommend ngay 1 chuyên khoa chính xác");
-        sb.AppendLine("- confidence 0.5-0.8: Show 2-3 chuyên khoa options");
-        sb.AppendLine("- confidence < 0.5: Hỏi thêm trước khi recommend");
-        sb.AppendLine("- NGOẠI LỆ: Nếu đã hỏi 3 câu (ở bất kỳ giai đoạn nào), PHẢI set analysisComplete = true");
-        sb.AppendLine("- NGOẠI LỆ: Sau 3 câu hỏi tư vấn thêm, PHẢI kết luận với analysisComplete = true");
+        AppendConfidenceThresholds(sb);
         sb.AppendLine();
 
-        sb.AppendLine("**ĐỊNH DẠNG OUTPUT (JSON):**");
-        sb.AppendLine("QUAN TRỌNG: Chỉ trả về JSON thuần, KHÔNG bao bọc trong markdown code blocks (không dùng ```json hoặc ```).");
-        sb.AppendLine("Chỉ trả về JSON object trực tiếp, ví dụ:");
-        sb.AppendLine("{");
-        sb.AppendLine("  \"possibleDiseases\": [");
-        sb.AppendLine("    {");
-        sb.AppendLine("      \"name\": \"Tên bệnh tiếng Việt\",");
-        sb.AppendLine("      \"confidence\": 0.75,");
-        sb.AppendLine("      \"description\": \"Mô tả ngắn gọn về bệnh\"");
-        sb.AppendLine("    }");
-        sb.AppendLine("  ],");
-        sb.AppendLine("  \"nextQuestions\": [");
-        sb.AppendLine("    {");
-        sb.AppendLine("      \"question\": \"Câu hỏi cụ thể\",");
-        sb.AppendLine("      \"purpose\": \"Lý do cần hỏi (Stage 1/2/3)\",");
-        sb.AppendLine("      \"priority\": \"HIGH hoặc MEDIUM hoặc LOW\"");
-        sb.AppendLine("    }");
-        sb.AppendLine("  ],");
-        sb.AppendLine("  \"recommendedSpecialties\": [");
-        sb.AppendLine("    {");
-        sb.AppendLine("      \"specialtyName\": \"Tên chuyên khoa tiếng Việt\",");
-        sb.AppendLine("      \"confidence\": 0.85,");
-        sb.AppendLine("      \"urgency\": \"EMERGENCY hoặc URGENT hoặc NORMAL hoặc ROUTINE\",");
-        sb.AppendLine("      \"reasons\": [\"Lý do 1\", \"Lý do 2\"]");
-        sb.AppendLine("    }");
-        sb.AppendLine("  ],");
-        sb.AppendLine("  \"generalAdvice\": [");
-        sb.AppendLine("    \"Lời khuyên chung 1\",");
-        sb.AppendLine("    \"Lời khuyên chung 2\"");
-        sb.AppendLine("  ],");
-        sb.AppendLine("  \"analysisComplete\": true hoặc false,");
-        sb.AppendLine("  \"requiresImmediateAttention\": true hoặc false");
-        sb.AppendLine("}");
-        sb.AppendLine();
-        sb.AppendLine("**QUAN TRỌNG VỀ analysisComplete:**");
-        sb.AppendLine("- Set true khi: đã hỏi 3 câu HOẶC confidence > 0.5 HOẶC đã có đủ thông tin");
-        sb.AppendLine("- Set false khi: cần hỏi thêm để khoanh vùng bệnh");
-        sb.AppendLine();
-        sb.AppendLine("**BẮT BUỘC KHI analysisComplete = true (KHÔNG ĐƯỢC THIẾU):**");
-        sb.AppendLine("1. possibleDiseases: PHẢI có ít nhất 2-3 bệnh với confidence");
-        sb.AppendLine("   Ví dụ: [{\"name\": \"Viêm dạ dày\", \"confidence\": 0.65}, {\"name\": \"Rối loạn tiêu hóa\", \"confidence\": 0.60}]");
-        sb.AppendLine("2. recommendedSpecialties: PHẢI có ít nhất 1 chuyên khoa");
-        sb.AppendLine("   Ví dụ: [{\"specialtyName\": \"Nội tiêu hóa - Gan mật\", \"confidence\": 0.70}]");
-        sb.AppendLine("3. generalAdvice: PHẢI có ít nhất 2-3 lời khuyên cụ thể");
-        sb.AppendLine("   Ví dụ: [\"Theo dõi triệu chứng trong 24-48 giờ\", \"Tránh thức ăn cay nóng\", \"Uống đủ nước\"]");
-        sb.AppendLine("4. nextQuestions: để trống []");
-        sb.AppendLine();
-        sb.AppendLine("NGHIÊM NGẶT: Nếu thiếu BẤT KỲ thành phần nào trong 3 mục trên, response sẽ bị từ chối!");
+        AppendOutputFormat(sb);
         sb.AppendLine();
         AppendSpecialtyList(sb);
         sb.AppendLine();
