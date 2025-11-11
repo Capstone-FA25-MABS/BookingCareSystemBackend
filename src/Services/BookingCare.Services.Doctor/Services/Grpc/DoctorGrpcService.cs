@@ -1,5 +1,6 @@
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Services.Doctor.Models.DTOs.Responses;
+using BookingCare.Services.Doctor.Models.Entities;
 using BookingCare.Services.Review.Grpc;
 using Grpc.Core;
 

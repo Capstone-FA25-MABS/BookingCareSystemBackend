@@ -129,20 +129,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             var sessionId = request.SessionId ?? Guid.NewGuid();
             var history = request.ConversationHistory?.Select(msg =>
             {
-                DateTime timestamp = DateTime.UtcNow;
-                if (msg.Timestamp != null)
-                {
-                    if (msg.Timestamp is DateTime dt)
-                        timestamp = dt;
-                    else if (DateTime.TryParse(msg.Timestamp.ToString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed))
-                        timestamp = parsed;
-                }
-
+                // Timestamp is already a DateTime value type with default value, no need to check for null
                 return new ConversationMessage
                 {
                     Role = msg.Role,
                     Content = msg.Content,
-                    Timestamp = timestamp
+                    Timestamp = msg.Timestamp
                 };
             }).ToList() ?? new List<ConversationMessage>();
 
@@ -1379,48 +1371,107 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
         foreach (var specialtyId in specialtyIds)
         {
-            try
-            {
-                var request = new BookingCare.Services.Hospital.GetHospitalsBySpecialtyRequest
-                {
-                    SpecialtyId = specialtyId.ToString()
-                };
-
-                var grpcResponse = await _hospitalClient.GetHospitalsBySpecialtyAsync(request);
-
-                foreach (var hospital in grpcResponse.Hospitals)
-                {
-                    // Store or update hospital info
-                    if (!allHospitals.ContainsKey(hospital.Id))
-                    {
-                        allHospitals[hospital.Id] = new HospitalDto
-                        {
-                            Id = hospital.Id,
-                            Name = hospital.Name,
-                            Address = hospital.Address,
-                            SpecialtyNames = new List<string>(),
-                            ImageUrl = !string.IsNullOrWhiteSpace(hospital.AvatarUrl) ? hospital.AvatarUrl : null
-                        };
-                    }
-
-                    // Add specialty name to hospital's specialty list
-                    if (specialtyNameMap.TryGetValue(specialtyId, out var specialtyName))
-                    {
-                        var hospitalDto = allHospitals[hospital.Id];
-                        if (!hospitalDto.SpecialtyNames!.Contains(specialtyName))
-                        {
-                            hospitalDto.SpecialtyNames.Add(specialtyName);
-                        }
-                    }
-                }
-            }
-            catch (RpcException ex)
-            {
-                _logger.LogWarning(ex, "Error fetching hospitals for specialty {SpecialtyId} via gRPC", specialtyId);
-            }
+            await ProcessSpecialtyHospitalsAsync(specialtyId, specialtyNameMap, allHospitals);
         }
 
         return allHospitals;
+    }
+
+    /// <summary>
+    /// Process hospitals for a single specialty
+    /// </summary>
+    private async Task ProcessSpecialtyHospitalsAsync(
+        Guid specialtyId,
+        Dictionary<Guid, string> specialtyNameMap,
+        Dictionary<string, HospitalDto> allHospitals)
+    {
+        try
+        {
+            var hospitals = await FetchHospitalsBySpecialtyAsync(specialtyId);
+            ProcessHospitalResults(hospitals, specialtyId, specialtyNameMap, allHospitals);
+        }
+        catch (RpcException ex)
+        {
+            _logger.LogWarning(ex, "Error fetching hospitals for specialty {SpecialtyId} via gRPC", specialtyId);
+        }
+    }
+
+    /// <summary>
+    /// Fetch hospitals for a specific specialty via gRPC
+    /// </summary>
+    private async Task<IEnumerable<BookingCare.Services.Hospital.HospitalReply>> FetchHospitalsBySpecialtyAsync(Guid specialtyId)
+    {
+        var request = new BookingCare.Services.Hospital.GetHospitalsBySpecialtyRequest
+        {
+            SpecialtyId = specialtyId.ToString()
+        };
+
+        var grpcResponse = await _hospitalClient.GetHospitalsBySpecialtyAsync(request);
+        return grpcResponse.Hospitals;
+    }
+
+    /// <summary>
+    /// Process hospital results and update the hospital dictionary
+    /// </summary>
+    private void ProcessHospitalResults(
+        IEnumerable<BookingCare.Services.Hospital.HospitalReply> hospitals,
+        Guid specialtyId,
+        Dictionary<Guid, string> specialtyNameMap,
+        Dictionary<string, HospitalDto> allHospitals)
+    {
+        foreach (var hospital in hospitals)
+        {
+            var hospitalDto = GetOrCreateHospitalDto(hospital, allHospitals);
+            AddSpecialtyToHospital(hospitalDto, specialtyId, specialtyNameMap);
+        }
+    }
+
+    /// <summary>
+    /// Get existing or create new hospital DTO
+    /// </summary>
+    private HospitalDto GetOrCreateHospitalDto(
+        BookingCare.Services.Hospital.HospitalReply hospital,
+        Dictionary<string, HospitalDto> allHospitals)
+    {
+        if (!allHospitals.ContainsKey(hospital.Id))
+        {
+            allHospitals[hospital.Id] = CreateHospitalDto(hospital);
+        }
+        return allHospitals[hospital.Id];
+    }
+
+    /// <summary>
+    /// Create a new hospital DTO from hospital info
+    /// </summary>
+    private HospitalDto CreateHospitalDto(BookingCare.Services.Hospital.HospitalReply hospital)
+    {
+        return new HospitalDto
+        {
+            Id = hospital.Id,
+            Name = hospital.Name,
+            Address = hospital.Address,
+            SpecialtyNames = new List<string>(),
+            ImageUrl = !string.IsNullOrWhiteSpace(hospital.AvatarUrl) ? hospital.AvatarUrl : null
+        };
+    }
+
+    /// <summary>
+    /// Add specialty name to hospital's specialty list if not already present
+    /// </summary>
+    private void AddSpecialtyToHospital(
+        HospitalDto hospitalDto,
+        Guid specialtyId,
+        Dictionary<Guid, string> specialtyNameMap)
+    {
+        if (!specialtyNameMap.TryGetValue(specialtyId, out var specialtyName))
+        {
+            return;
+        }
+
+        if (!hospitalDto.SpecialtyNames!.Contains(specialtyName))
+        {
+            hospitalDto.SpecialtyNames.Add(specialtyName);
+        }
     }
 
     /// <summary>

@@ -1261,7 +1261,10 @@ public class GeminiService : IGeminiService
             var preview = safeBody.Substring(0, Math.Min(500, safeBody.Length));
             _logger.LogError(ex, "Error extracting text from Gemini response: {Message}. Response: {Response}",
                 ex.Message, preview);
-            throw;
+            throw new GeminiResponseParseException(
+                $"Failed to extract text from Gemini response: {ex.Message}",
+                preview,
+                ex);
         }
     }
 }
