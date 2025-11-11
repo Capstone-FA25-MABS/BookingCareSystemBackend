@@ -496,3 +496,82 @@ public class PermissionQueryRequest
 }
 
 #endregion
+
+#region Two-Factor Authentication Request DTOs
+
+/// <summary>
+/// Request to enable 2FA for an account
+/// </summary>
+public class Enable2FARequest : IValidatableObject
+{
+    [Required(ErrorMessage = "Verification code is required")]
+    [StringLength(6, MinimumLength = 6, ErrorMessage = "Verification code must be 6 digits")]
+    public string VerificationCode { get; set; } = string.Empty;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!string.IsNullOrWhiteSpace(VerificationCode) && !VerificationCode.All(char.IsDigit))
+        {
+            yield return new ValidationResult("Verification code must contain only digits", new[] { nameof(VerificationCode) });
+        }
+    }
+}
+
+/// <summary>
+/// Request to disable 2FA
+/// </summary>
+public class Disable2FARequest : IValidatableObject
+{
+    [Required(ErrorMessage = "Password is required")]
+    public string Password { get; set; } = string.Empty;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (string.IsNullOrWhiteSpace(Password))
+        {
+            yield return new ValidationResult("Password cannot be empty", new[] { nameof(Password) });
+        }
+    }
+}
+
+/// <summary>
+/// Request to verify 2FA code during login
+/// </summary>
+public class Verify2FARequest : IValidatableObject
+{
+    [Required(ErrorMessage = "Account identifier is required")]
+    public string AccountId { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Verification code is required")]
+    [StringLength(8, MinimumLength = 6, ErrorMessage = "Verification code must be 6-8 characters")]
+    public string VerificationCode { get; set; } = string.Empty;
+
+    public bool RememberDevice { get; set; } = false;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!Guid.TryParse(AccountId, out _))
+        {
+            yield return new ValidationResult("Invalid account identifier", new[] { nameof(AccountId) });
+        }
+    }
+}
+
+/// <summary>
+/// Request to regenerate backup codes
+/// </summary>
+public class RegenerateBackupCodesRequest : IValidatableObject
+{
+    [Required(ErrorMessage = "Password is required")]
+    public string Password { get; set; } = string.Empty;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (string.IsNullOrWhiteSpace(Password))
+        {
+            yield return new ValidationResult("Password cannot be empty", new[] { nameof(Password) });
+        }
+    }
+}
+
+#endregion

@@ -1,6 +1,22 @@
 {
   "Routes": [
     {
+      "DownstreamPathTemplate": "/api/v{version}/symptoms/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6000
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/symptoms/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/ais/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

@@ -47,6 +47,12 @@ service DoctorService {
 
   // Get doctors with full details by hospital ID (optimized for hospital staff management - single call)
   rpc GetDoctorsByHospitalId (GetDoctorsByHospitalIdRequest) returns (DoctorBatchResponse);
+
+  // Filter doctors for AI recommendations (by specialty IDs, location, with rating and experience)
+  rpc FilterDoctorsForRecommendation (FilterDoctorsForRecommendationRequest) returns (FilterDoctorsForRecommendationResponse);
+  
+  // Get all active specialties (for AI service fuzzy matching)
+  rpc GetAllSpecialties (GetAllSpecialtiesRequest) returns (GetAllSpecialtiesResponse);
 }
 
 // Request messages
@@ -259,4 +265,42 @@ message GetServiceTypesByHospitalResponse {
 // Request message for getting doctors with full details by hospital ID
 message GetDoctorsByHospitalIdRequest {
   string hospital_id = 1;
+}
+
+// Request message for filtering doctors for AI recommendations
+message FilterDoctorsForRecommendationRequest {
+  repeated string specialty_ids = 1; // List of specialty IDs to filter
+  string province_id = 2; // Optional: province ID for location filtering
+  string district_id = 3; // Optional: district ID for location filtering
+  int32 max_results = 4; // Maximum number of results to return (default: 10)
+}
+
+// Response message for filtered doctors with recommendation data
+message DoctorRecommendationInfo {
+  string id = 1;
+  string full_name = 2;
+  string specialty_name = 3;
+  string hospital_name = 4;
+  double rating = 5;
+  int32 years_of_experience = 6;
+  string service_type_name = 7; // Optional: service type name
+  double consultation_fee = 8; // Optional: consultation fee in VND
+  string hospital_id = 9;
+  string avatar_url = 10;
+}
+
+// Response message for filtered doctors
+message FilterDoctorsForRecommendationResponse {
+  repeated DoctorRecommendationInfo doctors = 1;
+  int32 total_count = 2;
+}
+
+// Request message for getting all active specialties
+message GetAllSpecialtiesRequest {
+  // Empty request - returns all active specialties
+}
+
+// Response message for all specialties
+message GetAllSpecialtiesResponse {
+  repeated SpecialtySimpleResponse specialties = 1;
 }

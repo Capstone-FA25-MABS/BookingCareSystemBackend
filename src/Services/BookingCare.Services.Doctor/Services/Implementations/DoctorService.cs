@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Exceptions;
 using BookingCare.Services.Doctor.Models.ApiModels;
@@ -12,7 +12,6 @@ using BookingCare.Services.Hospital;
 using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Services;
-using BookingCare.Services.Hospital;
 using HospitalBasicInfo = BookingCare.Services.Doctor.Models.DTOs.Responses.HospitalBasicInfo;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
@@ -277,37 +276,60 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Cập nhật thông tin doctor
     /// </summary>
+    /// <summary>
+    /// Create a copy of the original doctor entity for comparison
+    /// </summary>
+    private DoctorEntity CreateDoctorCopy(DoctorEntity doctor)
+    {
+        return new DoctorEntity
+        {
+            Id = doctor.Id,
+            AccountId = doctor.AccountId,
+            Email = doctor.Email,
+            FirstName = doctor.FirstName,
+            LastName = doctor.LastName,
+            Gender = doctor.Gender,
+            Address = doctor.Address,
+            AvatarUrl = doctor.AvatarUrl
+        };
+    }
+
+    /// <summary>
+    /// Perform doctor update operations
+    /// </summary>
+    private async Task<DoctorEntity> PerformDoctorUpdateAsync(
+        DoctorEntity existingDoctor,
+        UpdateDoctorRequest request)
+    {
+        UpdateDoctorEntity(existingDoctor, request);
+        await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
+        await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
+        return await _repository.Value.UpdateDoctorAsync(existingDoctor);
+    }
+
+    /// <summary>
+    /// Publish update event asynchronously
+    /// </summary>
+    private void PublishUpdateEventAsync(DoctorEntity originalDoctor, DoctorEntity updatedDoctor)
+    {
+        var correlationId = Guid.NewGuid().ToString();
+        _ = Task.Run(async () =>
+        {
+            await PublishUserProfileUpdatedEventAsync(originalDoctor, updatedDoctor, correlationId);
+        });
+    }
+
     public async Task<DoctorResponse> UpdateDoctorAsync(UpdateDoctorRequest request)
     {
         return await ExecuteWithErrorHandling(async () =>
         {
             var existingDoctor = await ValidateAndGetExistingDoctor(request.Id);
-
             await ValidateUpdateDoctorRequest(request);
-            var originalDoctor = new DoctorEntity
-            {
-                Id = existingDoctor.Id,
-                AccountId = existingDoctor.AccountId,
-                Email = existingDoctor.Email,
-                FirstName = existingDoctor.FirstName,
-                LastName = existingDoctor.LastName,
-                Gender = existingDoctor.Gender,
-                Address = existingDoctor.Address,
-                AvatarUrl = existingDoctor.AvatarUrl
-            };
-            UpdateDoctorEntity(existingDoctor, request);
 
-            await UpdateDoctorPricesAsync(existingDoctor.Id, request.Prices);
-            await UpdateDoctorLanguagesAsync(existingDoctor.Id, request.LanguageIds);
+            var originalDoctor = CreateDoctorCopy(existingDoctor);
+            var updatedDoctor = await PerformDoctorUpdateAsync(existingDoctor, request);
 
-            var updatedDoctor = await _repository.Value.UpdateDoctorAsync(existingDoctor);
-
-            // 🎯 Publish UserProfileUpdatedEvent for cache invalidation (fire and forget) - tương tự UserService
-            var correlationId = Guid.NewGuid().ToString();
-            _ = Task.Run(async () =>
-            {
-                await PublishUserProfileUpdatedEventAsync(originalDoctor, updatedDoctor, correlationId);
-            });
+            PublishUpdateEventAsync(originalDoctor, updatedDoctor);
 
             LogInfo("Doctor updated successfully with ID: {DoctorId}", null, existingDoctor.Id);
             return _mapper.Value.Map<DoctorResponse>(updatedDoctor);
@@ -2310,6 +2332,240 @@ public class DoctorService : BaseService, IDoctorService
             var errorMessage = $"Error getting doctor account IDs for hospital {hospitalId}";
             Logger.LogError(ex, errorMessage);
             throw new InvalidOperationException(errorMessage, ex);
+        }
+    }
+
+    #endregion
+
+    #region AI Recommendation Filtering
+
+    /// <summary>
+    /// Filter doctors for AI recommendations (by specialty IDs, location)
+    /// Returns doctors with rating, hospital info, and prices for ranking
+    /// </summary>
+    public async Task<List<DoctorEntity>> FilterDoctorsForRecommendationAsync(
+        List<Guid> specialtyIds,
+        string? provinceId,
+        string? districtId,
+        int maxResults = 10)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Filtering doctors for AI recommendations - Specialties: {SpecialtyIds}, Location: {ProvinceId}/{DistrictId}, MaxResults: {MaxResults}",
+                null, string.Join(", ", specialtyIds), provinceId, districtId, maxResults);
+
+            if (!specialtyIds.Any())
+            {
+                LogInfo("No specialty IDs provided, returning empty list");
+                return new List<DoctorEntity>();
+            }
+
+            // Step 1: Build query request
+            var query = new DoctorQueryRequest
+            {
+                SpecialtyIds = specialtyIds,
+                ProvinceId = provinceId,
+                DistrictId = districtId,
+                Status = Status.ACTIVE, // Only active doctors
+                PageNumber = 1,
+                PageSize = maxResults * 2, // Get more to account for location filtering
+                SortBy = "YearsOfExperience", // Sort by experience first
+                SortOrder = "desc"
+            };
+
+            // Step 2: Get doctors from repository (with location filtering if needed)
+            List<DoctorEntity> doctors;
+            if (!string.IsNullOrEmpty(provinceId) || !string.IsNullOrEmpty(districtId))
+            {
+                // Use location filtering approach
+                var (allDoctors, _) = await GetAllDoctorsForLocationFilteringAsync(query);
+                doctors = allDoctors;
+            }
+            else
+            {
+                var (result, _) = await _repository.Value.GetDoctorsAsync(query);
+                doctors = result;
+            }
+
+            if (!doctors.Any())
+            {
+                LogInfo("No doctors found matching criteria");
+                return new List<DoctorEntity>();
+            }
+
+            // Step 3: Filter by ACTIVE status from Auth Service
+            var accountIds = doctors.Select(d => d.AccountId).ToList();
+            var statusMap = await GetAccountStatusesAsync(accountIds);
+            var activeDoctors = doctors.Where(d =>
+            {
+                if (statusMap.TryGetValue(d.AccountId, out var status))
+                {
+                    return status == Status.ACTIVE;
+                }
+                return true; // Fallback: assume ACTIVE if status not found
+            }).ToList();
+
+            // Step 4: Apply location filtering if needed (after getting all doctors)
+            if (!string.IsNullOrEmpty(provinceId) || !string.IsNullOrEmpty(districtId))
+            {
+                activeDoctors = await FilterDoctorsByLocationAsync(activeDoctors, provinceId, districtId);
+            }
+
+            // Step 5: Limit results
+            var resultDoctors = activeDoctors.Take(maxResults).ToList();
+
+            LogInfo("Found {Count} doctors for AI recommendations (from {Total} active doctors)",
+                null, resultDoctors.Count, activeDoctors.Count);
+
+            return resultDoctors;
+        }, nameof(FilterDoctorsForRecommendationAsync));
+    }
+
+    /// <summary>
+    /// Filter doctors by location using LocationApiService
+    /// </summary>
+    /// <summary>
+    /// Extract hospital IDs from doctors
+    /// </summary>
+    private List<Guid> ExtractHospitalIds(List<DoctorEntity> doctors)
+    {
+        return doctors
+            .Where(d => d.HospitalId.HasValue)
+            .Select(d => d.HospitalId!.Value)
+            .Distinct()
+            .ToList();
+    }
+
+    /// <summary>
+    /// Get hospital information map via gRPC
+    /// </summary>
+    private async Task<Dictionary<Guid, (string? Address, string? ProvinceName, string? DistrictName)>> GetHospitalInfoMapAsync(
+        List<Guid> hospitalIds)
+    {
+        var hospitalInfoMap = new Dictionary<Guid, (string? Address, string? ProvinceName, string? DistrictName)>();
+
+        try
+        {
+            var hospitalRequest = new GetHospitalsBasicInfoRequest();
+            hospitalRequest.Ids.AddRange(hospitalIds.Select(id => id.ToString()));
+
+            var hospitalResponse = await _hospitalClient.Value.GetHospitalsBasicInfoAsync(hospitalRequest);
+            foreach (var hospital in hospitalResponse.Hospitals)
+            {
+                if (Guid.TryParse(hospital.Id, out var hospitalId))
+                {
+                    hospitalInfoMap[hospitalId] = (hospital.Address, null, null);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWarning("Failed to get hospital info for location filtering: {Error}", null, ex.Message);
+        }
+
+        return hospitalInfoMap;
+    }
+
+    /// <summary>
+    /// Check if doctor matches location criteria
+    /// </summary>
+    private bool DoctorMatchesLocation(
+        DoctorEntity doctor,
+        Dictionary<Guid, (string? Address, string? ProvinceName, string? DistrictName)> hospitalInfoMap,
+        string provinceName,
+        string districtName)
+    {
+        if (!doctor.HospitalId.HasValue)
+            return false;
+
+        if (!hospitalInfoMap.TryGetValue(doctor.HospitalId.Value, out var hospitalInfo))
+            return false;
+
+        if (string.IsNullOrEmpty(hospitalInfo.Address))
+            return false;
+
+        var address = hospitalInfo.Address.ToLowerInvariant();
+
+        // Check district match first (more specific)
+        if (!string.IsNullOrEmpty(districtName) && address.Contains(districtName))
+        {
+            return true;
+        }
+
+        // Check province match
+        if (!string.IsNullOrEmpty(provinceName) && address.Contains(provinceName))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Filter doctors by location criteria
+    /// </summary>
+    private List<DoctorEntity> FilterDoctorsByLocationCriteria(
+        List<DoctorEntity> doctors,
+        Dictionary<Guid, (string? Address, string? ProvinceName, string? DistrictName)> hospitalInfoMap,
+        LocationInfo locationInfo)
+    {
+        var provinceName = locationInfo.ProvinceName?.ToLowerInvariant() ?? "";
+        var districtName = locationInfo.DistrictName?.ToLowerInvariant() ?? "";
+
+        return doctors
+            .Where(doctor => DoctorMatchesLocation(doctor, hospitalInfoMap, provinceName, districtName))
+            .ToList();
+    }
+
+    private async Task<List<DoctorEntity>> FilterDoctorsByLocationAsync(
+        List<DoctorEntity> doctors,
+        string? provinceId,
+        string? districtId)
+    {
+        // Early return if no location criteria
+        if (string.IsNullOrEmpty(provinceId) && string.IsNullOrEmpty(districtId))
+        {
+            return doctors;
+        }
+
+        try
+        {
+            // Get location info
+            var locationInfo = await _locationApiService.Value.GetLocationInfoAsync(provinceId, districtId);
+            if (locationInfo == null)
+            {
+                LogWarning("Location info not found for province: {ProvinceId}, district: {DistrictId}",
+                    null, provinceId, districtId);
+                return doctors;
+            }
+
+            // Extract hospital IDs
+            var hospitalIds = ExtractHospitalIds(doctors);
+            if (!hospitalIds.Any())
+            {
+                return doctors;
+            }
+
+            // Get hospital info map
+            var hospitalInfoMap = await GetHospitalInfoMapAsync(hospitalIds);
+            if (!hospitalInfoMap.Any())
+            {
+                return doctors;
+            }
+
+            // Filter doctors by location
+            var filteredDoctors = FilterDoctorsByLocationCriteria(doctors, hospitalInfoMap, locationInfo);
+
+            LogInfo("Location filtering: {OriginalCount} -> {FilteredCount} doctors",
+                null, doctors.Count, filteredDoctors.Count);
+
+            // Return filtered doctors or all doctors if no matches (fallback)
+            return filteredDoctors.Any() ? filteredDoctors : doctors;
+        }
+        catch (Exception ex)
+        {
+            LogWarning("Error filtering doctors by location, returning all doctors: {Error}", null, ex.Message);
+            return doctors;
         }
     }
 
