@@ -350,7 +350,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         return SubscriptionStatus.ACTIVE;
     }
 
-    private SubscriptionStatus DetermineCurrentStatus(
+    private static SubscriptionStatus DetermineCurrentStatus(
         DateTime startDate,
         DateTime endDate,
         SubscriptionStatus currentStatus

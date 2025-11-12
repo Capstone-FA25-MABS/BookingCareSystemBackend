@@ -24,6 +24,8 @@ public class PaymentsController(
 ) : BaseApiController
 {
     private const string InvalidRequestDataMessage = "Invalid request data";
+    private const string PayOSGateway = "PAYOS";
+    private const string VNPayGateway = "VNPAY";
 
     private readonly IPaymentService _paymentService = paymentService;
     private readonly IPaymentMethodService _paymentMethodService = paymentMethodService;
@@ -244,7 +246,7 @@ public class PaymentsController(
 
             switch (paymentMethodName)
             {
-                case "PAYOS":
+                case PayOSGateway:
                     try
                     {
                         response = await CreatePayOSPaymentUrl(payment);
@@ -260,7 +262,7 @@ public class PaymentsController(
                         response = await CreateVNPayPaymentUrl(payment, request);
                     }
                     break;
-                case "VNPAY":
+                case VNPayGateway:
                     response = await CreateVNPayPaymentUrl(payment, request);
                     break;
                 default:
@@ -483,7 +485,7 @@ public class PaymentsController(
 
             switch (paymentMethodName)
             {
-                case "PAYOS":
+                case PayOSGateway:
                     try
                     {
                         response = await CreatePayOSSupplementaryPaymentUrl(
@@ -505,7 +507,7 @@ public class PaymentsController(
                         );
                     }
                     break;
-                case "VNPAY":
+                case VNPayGateway:
                     response = await CreateVNPaySupplementaryPaymentUrl(
                         request,
                         supplementaryPaymentId
@@ -586,7 +588,7 @@ public class PaymentsController(
 
             switch (paymentMethodName)
             {
-                case "PAYOS":
+                case PayOSGateway:
                     try
                     {
                         response = await CreatePayOSSubscriptionPaymentUrl(payment, request);
@@ -602,7 +604,7 @@ public class PaymentsController(
                         response = await CreateVNPaySubscriptionPaymentUrl(payment, request);
                     }
                     break;
-                case "VNPAY":
+                case VNPayGateway:
                     response = await CreateVNPaySubscriptionPaymentUrl(payment, request);
                     break;
                 default:
@@ -648,8 +650,7 @@ public class PaymentsController(
         {
             PaymentId = payment.Id,
             Amount = payment.Amount,
-            Description =
-                $"",
+            Description = $"",
             BuyerInfo = new Models.DTOs.PayOS.PayOSBuyerInfo
             {
                 // Hospital info - could be fetched from Hospital service if needed
