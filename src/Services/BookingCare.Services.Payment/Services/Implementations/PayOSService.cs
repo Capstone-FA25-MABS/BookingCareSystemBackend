@@ -145,14 +145,17 @@ public class PayOSService : BaseService, IPayOSService
                 if (request.SubscriptionPlanId.HasValue && request.HospitalId.HasValue)
                 {
                     await _mappingRepository.CreateSubscriptionMappingAsync(
-                        request.PaymentId,
-                        orderCode,
-                        request.SubscriptionPlanId.Value,
-                        request.HospitalId.Value,
-                        request.IsSubscriptionUpgrade,
-                        request.CurrentHospitalSubscriptionId,
-                        request.PlanType,
-                        DateTime.UtcNow
+                        new CreateSubscriptionMappingRequest
+                        {
+                            PaymentId = request.PaymentId,
+                            OrderCode = orderCode,
+                            SubscriptionPlanId = request.SubscriptionPlanId.Value,
+                            HospitalId = request.HospitalId.Value,
+                            IsUpgrade = request.IsSubscriptionUpgrade,
+                            CurrentHospitalSubscriptionId = request.CurrentHospitalSubscriptionId,
+                            PlanType = request.PlanType,
+                            ExpiresAt = DateTime.UtcNow,
+                        }
                     );
                 }
                 else

@@ -1,3 +1,4 @@
+using BookingCare.Services.Payment.Models.DTOs.PayOS;
 using BookingCare.Services.Payment.Models.Entities;
 
 namespace BookingCare.Services.Payment.Repositories.Interfaces;
@@ -23,24 +24,10 @@ public interface IPayOSPaymentMappingRepository
     /// <summary>
     /// Create a new mapping for subscription payment
     /// </summary>
-    /// <param name="paymentId">ID of the payment</param>
-    /// <param name="orderCode">Order code from PayOS</param>
-    /// <param name="subscriptionPlanId">Subscription Plan ID</param>
-    /// <param name="hospitalId">Hospital ID</param>
-    /// <param name="isUpgrade">Is this an upgrade (nullable)</param>
-    /// <param name="currentHospitalSubscriptionId">Current subscription ID (for upgrade)</param>
-    /// <param name="planType">Plan type (billing cycle): MONTHLY, QUARTERLY, YEARLY</param>
-    /// <param name="expiresAt">Expiration time (optional)</param>
+    /// <param name="request">Subscription mapping request containing all required data</param>
     /// <returns>The created mapping entity</returns>
     Task<PayOSPaymentMappingEntity> CreateSubscriptionMappingAsync(
-        Guid paymentId,
-        long orderCode,
-        Guid subscriptionPlanId,
-        Guid hospitalId,
-        bool? isUpgrade,
-        Guid? currentHospitalSubscriptionId,
-        string? planType,
-        DateTime? expiresAt
+        CreateSubscriptionMappingRequest request
     );
 
     /// <summary>

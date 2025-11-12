@@ -51,6 +51,7 @@ public class PayOSPaymentRequest
     /// <summary>
     /// Is subscription upgrade
     /// </summary>
+    [JsonRequired]
     public bool IsSubscriptionUpgrade { get; set; }
 
     /// <summary>

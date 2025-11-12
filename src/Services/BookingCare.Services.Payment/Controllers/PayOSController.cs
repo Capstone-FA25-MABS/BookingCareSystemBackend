@@ -440,13 +440,13 @@ public class PayOSController : BasePaymentGatewayController
                 try
                 {
                     await HandleSubscriptionPaymentSuccessAsync(
+                        _hospitalSubscriptionClient,
                         subscriptionMetadata.Value.SubscriptionPlanId!.Value,
                         subscriptionMetadata.Value.HospitalId!.Value,
                         subscriptionMetadata.Value.IsSubscriptionUpgrade,
                         subscriptionMetadata.Value.CurrentHospitalSubscriptionId,
-                        payment,
-                        callbackResult,
-                        requestId
+                        requestId,
+                        GatewayName
                     );
                 }
                 catch (Exception ex)
@@ -649,115 +649,6 @@ public class PayOSController : BasePaymentGatewayController
             "PENDING" => "Transaction pending",
             _ => $"Unknown response code: {responseCode}",
         };
-
-    /// <summary>
-    /// Handle successful subscription payment
-    /// </summary>
-    private async Task HandleSubscriptionPaymentSuccessAsync(
-        Guid subscriptionPlanId,
-        Guid hospitalId,
-        bool isUpgrade,
-        Guid? currentHospitalSubscriptionId,
-        PaymentResponse payment,
-        PayOSCallbackResponse callbackResult,
-        string requestId
-    )
-    {
-        Logger.LogInformation(
-            "PayOS Callback #{RequestId} - Handling subscription payment - HospitalId: {HospitalId}, PlanId: {PlanId}, IsUpgrade: {IsUpgrade}",
-            requestId,
-            hospitalId,
-            subscriptionPlanId,
-            isUpgrade
-        );
-
-        try
-        {
-            if (isUpgrade && currentHospitalSubscriptionId.HasValue)
-            {
-                // Call gRPC to upgrade subscription
-                var upgradeRequest =
-                    new BookingCare.Services.Hospital.UpgradeHospitalSubscriptionGrpcRequest
-                    {
-                        CurrentSubscriptionId = currentHospitalSubscriptionId.Value.ToString(),
-                        NewSubscriptionPlanId = subscriptionPlanId.ToString(),
-                    };
-
-                var upgradeResponse =
-                    await _hospitalSubscriptionClient.UpgradeHospitalSubscriptionAsync(
-                        upgradeRequest
-                    );
-
-                if (!string.IsNullOrEmpty(upgradeResponse?.HospitalSubscriptionId))
-                {
-                    Logger.LogInformation(
-                        "PayOS Callback #{RequestId} - Successfully upgraded subscription via gRPC - NewSubscriptionId: {NewSubscriptionId}, Status: {Status}",
-                        requestId,
-                        upgradeResponse.HospitalSubscriptionId,
-                        upgradeResponse.Status
-                    );
-                }
-                else
-                {
-                    Logger.LogError(
-                        "PayOS Callback #{RequestId} - Failed to upgrade subscription via gRPC - Empty response",
-                        requestId
-                    );
-                }
-            }
-            else
-            {
-                // Call gRPC to create new subscription
-                var createRequest =
-                    new BookingCare.Services.Hospital.CreateHospitalSubscriptionGrpcRequest
-                    {
-                        HospitalId = hospitalId.ToString(),
-                        SubscriptionId = subscriptionPlanId.ToString(),
-                        // StartDate and EndDate are auto-calculated by Hospital Service based on billing cycle
-                    };
-
-                var createResponse =
-                    await _hospitalSubscriptionClient.CreateHospitalSubscriptionAsync(
-                        createRequest
-                    );
-
-                if (!string.IsNullOrEmpty(createResponse?.HospitalSubscriptionId))
-                {
-                    Logger.LogInformation(
-                        "PayOS Callback #{RequestId} - Successfully created subscription via gRPC - SubscriptionId: {SubscriptionId}, Status: {Status}",
-                        requestId,
-                        createResponse.HospitalSubscriptionId,
-                        createResponse.Status
-                    );
-                }
-                else
-                {
-                    Logger.LogError(
-                        "PayOS Callback #{RequestId} - Failed to create subscription via gRPC - Empty response",
-                        requestId
-                    );
-                }
-            }
-        }
-        catch (Grpc.Core.RpcException ex)
-        {
-            Logger.LogError(
-                ex,
-                "PayOS Callback #{RequestId} - gRPC error handling subscription payment - Status: {Status}, Detail: {Detail}",
-                requestId,
-                ex.Status.StatusCode,
-                ex.Status.Detail
-            );
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(
-                ex,
-                "PayOS Callback #{RequestId} - Unexpected error handling subscription payment",
-                requestId
-            );
-        }
-    }
 
     #endregion
 }

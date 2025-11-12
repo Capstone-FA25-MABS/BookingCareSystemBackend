@@ -1,4 +1,5 @@
 using BookingCare.Services.Payment.Data;
+using BookingCare.Services.Payment.Models.DTOs.PayOS;
 using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -38,23 +39,20 @@ public class PayOSPaymentMappingRepository : IPayOSPaymentMappingRepository
     /// Create a new mapping for subscription payment
     /// </summary>
     public async Task<PayOSPaymentMappingEntity> CreateSubscriptionMappingAsync(
-        Guid paymentId,
-        long orderCode,
-        Guid subscriptionPlanId,
-        Guid hospitalId,
-        bool? isUpgrade,
-        Guid? currentHospitalSubscriptionId,
-        string? planType,
-        DateTime? expiresAt
+        CreateSubscriptionMappingRequest request
     )
     {
-        var mapping = new PayOSPaymentMappingEntity(paymentId, orderCode, expiresAt)
+        var mapping = new PayOSPaymentMappingEntity(
+            request.PaymentId,
+            request.OrderCode,
+            request.ExpiresAt
+        )
         {
-            SubscriptionPlanId = subscriptionPlanId,
-            HospitalId = hospitalId,
-            IsSubscriptionUpgrade = isUpgrade,
-            CurrentHospitalSubscriptionId = currentHospitalSubscriptionId,
-            PlanType = planType,
+            SubscriptionPlanId = request.SubscriptionPlanId,
+            HospitalId = request.HospitalId,
+            IsSubscriptionUpgrade = request.IsUpgrade,
+            CurrentHospitalSubscriptionId = request.CurrentHospitalSubscriptionId,
+            PlanType = request.PlanType,
         };
 
         _context.PayOSPaymentMappings.Add(mapping);

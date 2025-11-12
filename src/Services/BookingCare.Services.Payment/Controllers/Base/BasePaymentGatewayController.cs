@@ -753,5 +753,119 @@ public abstract class BasePaymentGatewayController : BaseApiController
         return Redirect(frontendUrl);
     }
 
+    /// <summary>
+    /// Handle successful subscription payment - create or upgrade subscription via gRPC
+    /// </summary>
+    protected async Task HandleSubscriptionPaymentSuccessAsync(
+        BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient,
+        Guid subscriptionPlanId,
+        Guid hospitalId,
+        bool isUpgrade,
+        Guid? currentHospitalSubscriptionId,
+        string requestId,
+        string gatewayName
+    )
+    {
+        Logger.LogInformation(
+            "{Gateway} Callback #{RequestId} - Handling subscription payment - HospitalId: {HospitalId}, PlanId: {PlanId}, IsUpgrade: {IsUpgrade}",
+            gatewayName,
+            requestId,
+            hospitalId,
+            subscriptionPlanId,
+            isUpgrade
+        );
+
+        try
+        {
+            if (isUpgrade && currentHospitalSubscriptionId.HasValue)
+            {
+                // Call gRPC to upgrade subscription
+                var upgradeRequest =
+                    new BookingCare.Services.Hospital.UpgradeHospitalSubscriptionGrpcRequest
+                    {
+                        CurrentSubscriptionId = currentHospitalSubscriptionId.Value.ToString(),
+                        NewSubscriptionPlanId = subscriptionPlanId.ToString(),
+                    };
+
+                var upgradeResponse =
+                    await hospitalSubscriptionClient.UpgradeHospitalSubscriptionAsync(
+                        upgradeRequest
+                    );
+
+                if (!string.IsNullOrEmpty(upgradeResponse?.HospitalSubscriptionId))
+                {
+                    Logger.LogInformation(
+                        "{Gateway} Callback #{RequestId} - Successfully upgraded subscription via gRPC - NewSubscriptionId: {NewSubscriptionId}, Status: {Status}",
+                        gatewayName,
+                        requestId,
+                        upgradeResponse.HospitalSubscriptionId,
+                        upgradeResponse.Status
+                    );
+                }
+                else
+                {
+                    Logger.LogError(
+                        "{Gateway} Callback #{RequestId} - Failed to upgrade subscription via gRPC - Empty response",
+                        gatewayName,
+                        requestId
+                    );
+                }
+            }
+            else
+            {
+                // Call gRPC to create new subscription
+                var createRequest =
+                    new BookingCare.Services.Hospital.CreateHospitalSubscriptionGrpcRequest
+                    {
+                        HospitalId = hospitalId.ToString(),
+                        SubscriptionId = subscriptionPlanId.ToString(),
+                        // StartDate and EndDate are auto-calculated by Hospital Service based on billing cycle
+                    };
+
+                var createResponse =
+                    await hospitalSubscriptionClient.CreateHospitalSubscriptionAsync(createRequest);
+
+                if (!string.IsNullOrEmpty(createResponse?.HospitalSubscriptionId))
+                {
+                    Logger.LogInformation(
+                        "{Gateway} Callback #{RequestId} - Successfully created subscription via gRPC - SubscriptionId: {SubscriptionId}, Status: {Status}",
+                        gatewayName,
+                        requestId,
+                        createResponse.HospitalSubscriptionId,
+                        createResponse.Status
+                    );
+                }
+                else
+                {
+                    Logger.LogError(
+                        "{Gateway} Callback #{RequestId} - Failed to create subscription via gRPC - Empty response",
+                        gatewayName,
+                        requestId
+                    );
+                }
+            }
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            Logger.LogError(
+                ex,
+                "{Gateway} Callback #{RequestId} - gRPC error handling subscription payment - Status: {Status}, Detail: {Detail}",
+                gatewayName,
+                requestId,
+                ex.Status.StatusCode,
+                ex.Status.Detail
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "{Gateway} Callback #{RequestId} - Unexpected error handling subscription payment",
+                gatewayName,
+                requestId
+            );
+        }
+    }
+
     #endregion
 }

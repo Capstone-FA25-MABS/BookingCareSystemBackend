@@ -40,6 +40,7 @@ public class CreateSubscriptionPaymentRequest
     /// <summary>
     /// Indicates if this is an upgrade from an existing subscription
     /// </summary>
+    [JsonRequired]
     public bool IsUpgrade { get; set; } = false;
 
     /// <summary>

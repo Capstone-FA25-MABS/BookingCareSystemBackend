@@ -333,7 +333,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         }
     }
 
-    private SubscriptionStatus DetermineInitialStatus(DateTime startDate, DateTime endDate)
+    private static SubscriptionStatus DetermineInitialStatus(DateTime startDate, DateTime endDate)
     {
         var now = DateTime.Now;
 
