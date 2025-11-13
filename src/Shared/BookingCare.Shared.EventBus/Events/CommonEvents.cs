@@ -1050,9 +1050,16 @@ public class HospitalSubscriptionCreatedEvent : IntegrationEvent
 public class HospitalRegistrationSubmittedEvent : IntegrationEvent
 {
     public Guid RegistrationId { get; set; }
+
+    // Representative Information
+    public string RepresentativeName { get; set; } = string.Empty;
+    public string RepresentativeEmail { get; set; } = string.Empty;
+    public string RepresentativePhone { get; set; } = string.Empty;
+
+    // Hospital Information
     public string HospitalName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string Phone { get; set; } = string.Empty;
+    public string HospitalEmail { get; set; } = string.Empty;
+    public string HospitalPhone { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string TaxCode { get; set; } = string.Empty;
     public DateTime SubmittedAt { get; set; }
@@ -1065,8 +1072,14 @@ public class HospitalRegistrationSubmittedEvent : IntegrationEvent
 public class HospitalRegistrationStatusUpdatedEvent : IntegrationEvent
 {
     public Guid RegistrationId { get; set; }
+
+    // Representative Information
+    public string RepresentativeName { get; set; } = string.Empty;
+    public string RepresentativeEmail { get; set; } = string.Empty;
+
+    // Hospital Information
     public string HospitalName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+    public string HospitalEmail { get; set; } = string.Empty;
     public int Status { get; set; } // 0=PENDING, 1=CONFIRMED, 2=CANCELLED
     public string StatusText { get; set; } = string.Empty;
     public string? Reason { get; set; }
@@ -1093,9 +1106,16 @@ public class HospitalRegistrationFilesUploadEvent : IntegrationEvent
 public class HospitalAccountCreationRequestedEvent : IntegrationEvent
 {
     public Guid RegistrationId { get; set; }
+
+    // Representative Information
+    public string RepresentativeName { get; set; } = string.Empty;
+    public string RepresentativeEmail { get; set; } = string.Empty;
+    public string RepresentativePhone { get; set; } = string.Empty;
+
+    // Hospital Information
     public string HospitalName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string Phone { get; set; } = string.Empty;
+    public string HospitalEmail { get; set; } = string.Empty;
+    public string HospitalPhone { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string TaxCode { get; set; } = string.Empty;
     public string ContractFileUrl { get; set; } = string.Empty;
@@ -1110,8 +1130,14 @@ public class HospitalAccountCreatedEvent : IntegrationEvent
     public Guid RegistrationId { get; set; }
     public Guid AccountId { get; set; }
     public Guid HospitalId { get; set; }
-    public string Email { get; set; } = string.Empty;
+
+    // Representative Information
+    public string RepresentativeName { get; set; } = string.Empty;
+    public string RepresentativeEmail { get; set; } = string.Empty;
+
+    // Hospital Information
     public string HospitalName { get; set; } = string.Empty;
+    public string HospitalEmail { get; set; } = string.Empty;
     public string GeneratedPassword { get; set; } = string.Empty;
     public string LoginUrl { get; set; } = string.Empty;
     public string ContractFileUrl { get; set; } = string.Empty;
