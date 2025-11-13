@@ -22,10 +22,14 @@ public static class MongoDbServiceExtensions
     /// <summary>
     /// Thêm MongoDB services vào DI container
     /// </summary>
-    public static IServiceCollection AddMongoDb(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddMongoDb(
+        this IServiceCollection services,
+        IConfiguration configuration
+    )
     {
         // Lấy connection string từ configuration
-        var connectionString = configuration.GetConnectionString("MongoDB")
+        var connectionString =
+            configuration.GetConnectionString("MongoDB")
             ?? configuration["MongoDB:ConnectionString"];
 
         var databaseName = configuration["MongoDB:DatabaseName"];
@@ -60,11 +64,13 @@ public static class MongoDbServiceExtensions
         services.AddScoped<IMessageRepository, MessageRepository>();
         services.AddScoped<IConversationRepository, ConversationRepository>();
         services.AddScoped<ICallLogRepository, CallLogRepository>();
+        services.AddScoped<ITagRepository, TagRepository>();
 
         // Đăng ký services
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<IConversationService, ConversationService>();
         services.AddScoped<ICallLogService, CallLogService>();
+        services.AddScoped<ITagService, TagService>();
 
         // Đăng ký SignalR Notification Service
         services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
@@ -76,7 +82,9 @@ public static class MongoDbServiceExtensions
         services.AddScoped<IFileUploadService, FileUploadServiceWrapper>();
 
         // Đăng ký File Upload Configuration
-        services.Configure<FileUploadConfiguration>(configuration.GetSection(FileUploadConfiguration.SectionName));
+        services.Configure<FileUploadConfiguration>(
+            configuration.GetSection(FileUploadConfiguration.SectionName)
+        );
 
         // Đăng ký FluentValidation
         services.AddFluentValidationAutoValidation();
@@ -85,7 +93,6 @@ public static class MongoDbServiceExtensions
 
         return services;
     }
-
 
     public static async Task InitializeMongoDbAsync(this IServiceProvider serviceProvider)
     {
