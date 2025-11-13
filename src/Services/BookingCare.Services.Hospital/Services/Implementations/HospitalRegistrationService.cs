@@ -37,27 +37,38 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         {
             LogInfo("Creating hospital partnership registration for {HospitalName}", null, request.HospitalName);
 
-            // Check if email already exists
-            var existingByEmail = await _registrationRepository.GetByEmailAsync(request.Email);
+            // Check if hospital email already exists
+            var existingByHospitalEmail = await _registrationRepository.GetByHospitalEmailAsync(request.HospitalEmail);
 
-            if (existingByEmail != null && existingByEmail.Status == RegistrationStatus.CONFIRMED)
+            if (existingByHospitalEmail != null && existingByHospitalEmail.Status == RegistrationStatus.CONFIRMED)
             {
-                throw new HospitalRegistrationException($"Email {request.Email} đã được sử dụng cho đơn đăng ký khác");
+                throw new DuplicateRegistrationException($"Email bệnh viện {request.HospitalEmail} đã được sử dụng cho đơn đăng ký khác");
+            }
+
+            // Check if representative email already exists
+            var existingByRepEmail = await _registrationRepository.GetByRepresentativeEmailAsync(request.RepresentativeEmail);
+
+            if (existingByRepEmail != null && existingByRepEmail.Status == RegistrationStatus.CONFIRMED)
+            {
+                throw new DuplicateRegistrationException($"Email người đại diện {request.RepresentativeEmail} đã được sử dụng cho đơn đăng ký khác");
             }
 
             // Check if tax code already exists
             var existingByTaxCode = await _registrationRepository.GetByTaxCodeAsync(request.TaxCode);
             if (existingByTaxCode != null && existingByTaxCode.Status == RegistrationStatus.CONFIRMED)
             {
-                throw new HospitalRegistrationException($"Mã số thuế {request.TaxCode} đã được sử dụng cho đơn đăng ký khác");
+                throw new DuplicateRegistrationException($"Mã số thuế {request.TaxCode} đã được sử dụng cho đơn đăng ký khác");
             }
 
             // Create registration entity with placeholder URLs (files will be uploaded asynchronously)
             var registration = new HospitalRegistrationEntity
             {
+                RepresentativeName = request.RepresentativeName,
+                RepresentativeEmail = request.RepresentativeEmail,
+                RepresentativePhone = request.RepresentativePhone,
                 HospitalName = request.HospitalName,
-                Email = request.Email,
-                Phone = request.Phone,
+                HospitalEmail = request.HospitalEmail,
+                HospitalPhone = request.HospitalPhone,
                 Address = request.Address,
                 LicenseFile = "PENDING_UPLOAD", // Placeholder - will be updated by event handler
                 BusinessCertificateFile = "PENDING_UPLOAD",
@@ -79,7 +90,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 RegistrationId = created.Id,
                 LicenseFile = new FileUploadData
                 {
-                    FileName = request.LicenseFile.FileName,
+                    FileName = SanitizeFileName(request.LicenseFile.FileName),
                     ContentType = request.LicenseFile.ContentType,
                     FileData = licenseFileData,
                     Folder = "hospital-registrations/license-files",
@@ -87,7 +98,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 },
                 BusinessCertificateFile = new FileUploadData
                 {
-                    FileName = request.BusinessCertificateFile.FileName,
+                    FileName = SanitizeFileName(request.BusinessCertificateFile.FileName),
                     ContentType = request.BusinessCertificateFile.ContentType,
                     FileData = businessCertFileData,
                     Folder = "hospital-registrations/business-certificates",
@@ -95,7 +106,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 },
                 IdentityCardFile = new FileUploadData
                 {
-                    FileName = request.IdentityCardFile.FileName,
+                    FileName = SanitizeFileName(request.IdentityCardFile.FileName),
                     ContentType = request.IdentityCardFile.ContentType,
                     FileData = identityCardFileData,
                     Folder = "hospital-registrations/identity-cards",
@@ -109,9 +120,12 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             var emailEvent = new HospitalRegistrationSubmittedEvent
             {
                 RegistrationId = created.Id,
+                RepresentativeName = created.RepresentativeName,
+                RepresentativeEmail = created.RepresentativeEmail,
+                RepresentativePhone = created.RepresentativePhone,
                 HospitalName = created.HospitalName,
-                Email = created.Email,
-                Phone = created.Phone,
+                HospitalEmail = created.HospitalEmail,
+                HospitalPhone = created.HospitalPhone,
                 Address = created.Address,
                 TaxCode = created.TaxCode,
                 SubmittedAt = created.CreatedAt
@@ -196,18 +210,18 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             // Validate status transition
             if (registration.Status == newStatus)
             {
-                throw new HospitalRegistrationException("Trạng thái mới phải khác với trạng thái hiện tại");
+                throw new InvalidRegistrationStatusException("Trạng thái mới phải khác với trạng thái hiện tại");
             }
 
             // Validate required fields based on status
             if (newStatus == RegistrationStatus.CANCELLED && string.IsNullOrWhiteSpace(request.Reason))
             {
-                throw new HospitalRegistrationException("Lý do từ chối là bắt buộc khi hủy đơn đăng ký");
+                throw new HospitalRegistrationValidationException("Lý do từ chối là bắt buộc khi hủy đơn đăng ký");
             }
 
             if (newStatus == RegistrationStatus.CONFIRMED && !request.HospitalId.HasValue)
             {
-                throw new HospitalRegistrationException("Hospital ID là bắt buộc khi xác nhận đơn đăng ký");
+                throw new HospitalRegistrationValidationException("Hospital ID là bắt buộc khi xác nhận đơn đăng ký");
             }
 
             // Upload contract file if provided
@@ -238,8 +252,10 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             var integrationEvent = new HospitalRegistrationStatusUpdatedEvent
             {
                 RegistrationId = updated.Id,
+                RepresentativeName = updated.RepresentativeName,
+                RepresentativeEmail = updated.RepresentativeEmail,
                 HospitalName = updated.HospitalName,
-                Email = updated.Email,
+                HospitalEmail = updated.HospitalEmail,
                 Status = (int)updated.Status,
                 StatusText = GetStatusText(updated.Status),
                 Reason = updated.Reason,
@@ -255,6 +271,50 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             return MapToResponseDto(updated);
 
         }, "UpdateRegistrationStatus");
+    }
+
+    public async Task<HospitalRegistrationResponseDto> UpdateRegistrationAsync(
+        Guid id,
+        UpdateRegistrationRequestDto request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Updating registration for {RegistrationId}", null, id);
+
+            var registration = await _registrationRepository.GetByIdAsync(id);
+            if (registration == null)
+            {
+                throw new HospitalRegistrationNotFoundException(id);
+            }
+
+            // Only allow updates for confirmed registrations
+            if (registration.Status != RegistrationStatus.CONFIRMED)
+            {
+                throw new InvalidRegistrationStatusException("Chỉ có thể cập nhật đơn đăng ký đã được phê duyệt");
+            }
+
+            // Upload new contract file
+            var contractFileResult = await UploadFileAsync(
+                request.ContractFile,
+                "hospital-registrations/contracts",
+                "ContractFile");
+
+            if (!contractFileResult.Success)
+            {
+                throw new FileUploadException(
+                    contractFileResult.ErrorMessage ?? "Không thể tải lên file hợp đồng");
+            }
+
+            // Update contract file URL
+            registration.ContractFile = contractFileResult.UploadResult!.CloudFrontUrl ?? contractFileResult.UploadResult!.FileUrl;
+
+            var updated = await _registrationRepository.UpdateAsync(registration);
+
+            LogInfo("Registration updated successfully for {RegistrationId}", null, id);
+
+            return MapToResponseDto(updated);
+
+        }, "UpdateRegistration");
     }
 
     public async Task<bool> DeleteRegistrationAsync(Guid id)
@@ -292,13 +352,13 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             // Check if already approved
             if (registration.Status == RegistrationStatus.CONFIRMED)
             {
-                throw new HospitalRegistrationException("Đơn đăng ký đã được phê duyệt trước đó");
+                throw new InvalidRegistrationStatusException("Đơn đăng ký đã được phê duyệt trước đó");
             }
 
             // Check if cancelled
             if (registration.Status == RegistrationStatus.CANCELLED)
             {
-                throw new HospitalRegistrationException("Không thể phê duyệt đơn đăng ký đã bị từ chối");
+                throw new InvalidRegistrationStatusException("Không thể phê duyệt đơn đăng ký đã bị từ chối");
             }
 
             // Upload contract file
@@ -309,7 +369,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
 
             if (!contractFileResult.Success)
             {
-                throw new HospitalRegistrationException($"Không thể tải lên file hợp đồng: {contractFileResult.ErrorMessage}");
+                throw new FileUploadException($"Không thể tải lên file hợp đồng: {contractFileResult.ErrorMessage}");
             }
 
             var contractFileUrl = contractFileResult.UploadResult!.CloudFrontUrl ?? contractFileResult.UploadResult!.FileUrl;
@@ -327,9 +387,12 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             var accountCreationEvent = new HospitalAccountCreationRequestedEvent
             {
                 RegistrationId = updated.Id,
+                RepresentativeName = updated.RepresentativeName,
+                RepresentativeEmail = updated.RepresentativeEmail,
+                RepresentativePhone = updated.RepresentativePhone,
                 HospitalName = updated.HospitalName,
-                Email = updated.Email,
-                Phone = updated.Phone,
+                HospitalEmail = updated.HospitalEmail,
+                HospitalPhone = updated.HospitalPhone,
                 Address = updated.Address,
                 TaxCode = updated.TaxCode,
                 ContractFileUrl = contractFileUrl!,
@@ -362,13 +425,13 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             // Check if already cancelled
             if (registration.Status == RegistrationStatus.CANCELLED)
             {
-                throw new HospitalRegistrationException("Đơn đăng ký đã bị từ chối trước đó");
+                throw new InvalidRegistrationStatusException("Đơn đăng ký đã bị từ chối trước đó");
             }
 
             // Check if already confirmed
             if (registration.Status == RegistrationStatus.CONFIRMED)
             {
-                throw new HospitalRegistrationException("Không thể từ chối đơn đăng ký đã được phê duyệt");
+                throw new InvalidRegistrationStatusException("Không thể từ chối đơn đăng ký đã được phê duyệt");
             }
 
             // Update registration status to CANCELLED with reason
@@ -381,8 +444,10 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             var statusUpdatedEvent = new HospitalRegistrationStatusUpdatedEvent
             {
                 RegistrationId = updated.Id,
+                RepresentativeName = updated.RepresentativeName,
+                RepresentativeEmail = updated.RepresentativeEmail,
                 HospitalName = updated.HospitalName,
-                Email = updated.Email,
+                HospitalEmail = updated.HospitalEmail,
                 Status = (int)updated.Status,
                 Reason = updated.Reason,
                 ContractFileUrl = updated.ContractFile,
@@ -403,9 +468,12 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         return new HospitalRegistrationResponseDto
         {
             Id = entity.Id,
+            RepresentativeName = entity.RepresentativeName,
+            RepresentativeEmail = entity.RepresentativeEmail,
+            RepresentativePhone = entity.RepresentativePhone,
             HospitalName = entity.HospitalName,
-            Email = entity.Email,
-            Phone = entity.Phone,
+            HospitalEmail = entity.HospitalEmail,
+            HospitalPhone = entity.HospitalPhone,
             Address = entity.Address,
             LicenseFile = entity.LicenseFile,
             BusinessCertificateFile = entity.BusinessCertificateFile,
@@ -437,6 +505,12 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         string folder,
         string entityType)
     {
+        // Sanitize file name to prevent non-ASCII character issues
+        var sanitizedFileName = SanitizeFileName(file.FileName);
+
+        // Create a wrapper with sanitized file name
+        var sanitizedFile = new SanitizedFormFileWrapper(file, sanitizedFileName);
+
         var config = new FileUploadConfig
         {
             AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx" },
@@ -447,7 +521,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         };
 
         var uploadResult = await _uploadOrchestrator.UploadFileAsync(
-            file,
+            sanitizedFile,
             config,
             Guid.Empty,
             Logger,
@@ -503,5 +577,80 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         var randomValue = BitConverter.ToUInt32(bytes, 0);
         return (int)(randomValue % (uint)max);
     }
+
+    /// <summary>
+    /// Sanitizes file name to contain only ASCII characters
+    /// Removes diacritics and replaces non-ASCII characters with underscores
+    /// </summary>
+    private static string SanitizeFileName(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return $"file_{Guid.NewGuid():N}";
+        }
+
+        // Get file extension
+        var extension = Path.GetExtension(fileName);
+        var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+
+        // Remove diacritics (Vietnamese accents)
+        var normalizedString = nameWithoutExtension.Normalize(System.Text.NormalizationForm.FormD);
+        var stringBuilder = new System.Text.StringBuilder();
+
+        foreach (var c in normalizedString)
+        {
+            var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                // Keep only ASCII characters (letters, digits, dash, underscore)
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                    (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.')
+                {
+                    stringBuilder.Append(c);
+                }
+                else if (c == ' ')
+                {
+                    stringBuilder.Append('_');
+                }
+            }
+        }
+
+        var sanitizedName = stringBuilder.ToString();
+
+        // If sanitization resulted in empty string, generate a unique name
+        if (string.IsNullOrWhiteSpace(sanitizedName))
+        {
+            sanitizedName = $"file_{Guid.NewGuid():N}";
+        }
+
+        return sanitizedName + extension;
+    }
 }
 
+/// <summary>
+/// Wrapper class to provide a sanitized file name for IFormFile
+/// This prevents issues with non-ASCII characters in HTTP headers
+/// </summary>
+internal sealed class SanitizedFormFileWrapper : IFormFile
+{
+    private readonly IFormFile _originalFile;
+    private readonly string _sanitizedFileName;
+
+    public SanitizedFormFileWrapper(IFormFile originalFile, string sanitizedFileName)
+    {
+        _originalFile = originalFile ?? throw new ArgumentNullException(nameof(originalFile));
+        _sanitizedFileName = sanitizedFileName ?? throw new ArgumentNullException(nameof(sanitizedFileName));
+    }
+
+    public string ContentType => _originalFile.ContentType;
+    public string ContentDisposition => $"form-data; name=\"file\"; filename=\"{_sanitizedFileName}\"";
+    public IHeaderDictionary Headers => _originalFile.Headers;
+    public long Length => _originalFile.Length;
+    public string Name => _originalFile.Name;
+    public string FileName => _sanitizedFileName;
+
+    public void CopyTo(Stream target) => _originalFile.CopyTo(target);
+    public Task CopyToAsync(Stream target, CancellationToken cancellationToken = default)
+        => _originalFile.CopyToAsync(target, cancellationToken);
+    public Stream OpenReadStream() => _originalFile.OpenReadStream();
+}
