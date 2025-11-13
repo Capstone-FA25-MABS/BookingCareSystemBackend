@@ -144,11 +144,11 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
 
-                    b.Property<string>("Email")
+                    b.Property<string>("HospitalEmail")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
-                        .HasColumnName("email");
+                        .HasColumnName("hospital_email");
 
                     b.Property<Guid?>("HospitalId")
                         .HasColumnType("uniqueidentifier")
@@ -160,6 +160,12 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(255)")
                         .HasColumnName("hospital_name");
 
+                    b.Property<string>("HospitalPhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("hospital_phone");
+
                     b.Property<string>("IdentityCardFile")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -170,15 +176,27 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("license_file");
 
-                    b.Property<string>("Phone")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("phone");
-
                     b.Property<string>("Reason")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("reason");
+
+                    b.Property<string>("RepresentativeEmail")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("representative_email");
+
+                    b.Property<string>("RepresentativeName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("representative_name");
+
+                    b.Property<string>("RepresentativePhone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("representative_phone");
 
                     b.Property<int>("Status")
                         .HasColumnType("int")
@@ -198,9 +216,11 @@ namespace BookingCare.Services.Hospital.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email");
+                    b.HasIndex("HospitalEmail");
 
                     b.HasIndex("HospitalId");
+
+                    b.HasIndex("RepresentativeEmail");
 
                     b.HasIndex("TaxCode");
 
