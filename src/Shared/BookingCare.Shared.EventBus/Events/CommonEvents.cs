@@ -1044,10 +1044,9 @@ public class HospitalSubscriptionCreatedEvent : IntegrationEvent
 // Hospital Registration-related events
 
 /// <summary>
-/// Event published when a new hospital partnership registration is submitted
-/// This event is consumed by Communication Service to send confirmation email
+/// Base class for hospital registration events containing common properties
 /// </summary>
-public class HospitalRegistrationSubmittedEvent : IntegrationEvent
+public abstract class HospitalRegistrationEventBase : IntegrationEvent
 {
     public Guid RegistrationId { get; set; }
 
@@ -1062,6 +1061,14 @@ public class HospitalRegistrationSubmittedEvent : IntegrationEvent
     public string HospitalPhone { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string TaxCode { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Event published when a new hospital partnership registration is submitted
+/// This event is consumed by Communication Service to send confirmation email
+/// </summary>
+public class HospitalRegistrationSubmittedEvent : HospitalRegistrationEventBase
+{
     public DateTime SubmittedAt { get; set; }
 }
 
@@ -1069,17 +1076,8 @@ public class HospitalRegistrationSubmittedEvent : IntegrationEvent
 /// Event published when hospital registration status is updated by admin
 /// This event is consumed by Communication Service to send status update email
 /// </summary>
-public class HospitalRegistrationStatusUpdatedEvent : IntegrationEvent
+public class HospitalRegistrationStatusUpdatedEvent : HospitalRegistrationEventBase
 {
-    public Guid RegistrationId { get; set; }
-
-    // Representative Information
-    public string RepresentativeName { get; set; } = string.Empty;
-    public string RepresentativeEmail { get; set; } = string.Empty;
-
-    // Hospital Information
-    public string HospitalName { get; set; } = string.Empty;
-    public string HospitalEmail { get; set; } = string.Empty;
     public int Status { get; set; } // 0=PENDING, 1=CONFIRMED, 2=CANCELLED
     public string StatusText { get; set; } = string.Empty;
     public string? Reason { get; set; }
@@ -1103,21 +1101,8 @@ public class HospitalRegistrationFilesUploadEvent : IntegrationEvent
 /// <summary>
 /// Event published when hospital account creation is requested (triggers Saga)
 /// </summary>
-public class HospitalAccountCreationRequestedEvent : IntegrationEvent
+public class HospitalAccountCreationRequestedEvent : HospitalRegistrationEventBase
 {
-    public Guid RegistrationId { get; set; }
-
-    // Representative Information
-    public string RepresentativeName { get; set; } = string.Empty;
-    public string RepresentativeEmail { get; set; } = string.Empty;
-    public string RepresentativePhone { get; set; } = string.Empty;
-
-    // Hospital Information
-    public string HospitalName { get; set; } = string.Empty;
-    public string HospitalEmail { get; set; } = string.Empty;
-    public string HospitalPhone { get; set; } = string.Empty;
-    public string Address { get; set; } = string.Empty;
-    public string TaxCode { get; set; } = string.Empty;
     public string ContractFileUrl { get; set; } = string.Empty;
     public string GeneratedPassword { get; set; } = string.Empty;
 }
@@ -1125,19 +1110,10 @@ public class HospitalAccountCreationRequestedEvent : IntegrationEvent
 /// <summary>
 /// Event published when hospital account is successfully created
 /// </summary>
-public class HospitalAccountCreatedEvent : IntegrationEvent
+public class HospitalAccountCreatedEvent : HospitalRegistrationEventBase
 {
-    public Guid RegistrationId { get; set; }
     public Guid AccountId { get; set; }
     public Guid HospitalId { get; set; }
-
-    // Representative Information
-    public string RepresentativeName { get; set; } = string.Empty;
-    public string RepresentativeEmail { get; set; } = string.Empty;
-
-    // Hospital Information
-    public string HospitalName { get; set; } = string.Empty;
-    public string HospitalEmail { get; set; } = string.Empty;
     public string GeneratedPassword { get; set; } = string.Empty;
     public string LoginUrl { get; set; } = string.Empty;
     public string ContractFileUrl { get; set; } = string.Empty;
