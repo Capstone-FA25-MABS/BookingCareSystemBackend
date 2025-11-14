@@ -1103,4 +1103,129 @@ public class AuthController : BaseApiController
 
     #endregion
 
+    #region Two-Factor Authentication Operations
+
+    /// <summary>
+    /// Generate 2FA setup (QR code and secret key)
+    /// </summary>
+    /// <returns>2FA setup information</returns>
+    [HttpPost("2fa/setup")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Generate2FASetup()
+    {
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.GenerateSetupAsync(accountId);
+        return Success(result, "2FA setup generated successfully");
+    }
+
+    /// <summary>
+    /// Enable 2FA for the authenticated account
+    /// </summary>
+    /// <param name="request">Enable 2FA request with verification code</param>
+    /// <returns>Enable 2FA response with backup codes</returns>
+    [HttpPost("2fa/enable")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Enable2FA([FromBody] Enable2FARequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.Enable2FAAsync(accountId, request);
+
+        if (!result.Success)
+        {
+            return BadRequest(result.Message);
+        }
+
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
+    /// Disable 2FA for the authenticated account
+    /// </summary>
+    /// <param name="request">Disable 2FA request with password</param>
+    /// <returns>Disable 2FA response</returns>
+    [HttpPost("2fa/disable")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Disable2FA([FromBody] Disable2FARequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.Disable2FAAsync(accountId, request);
+
+        if (!result.Success)
+        {
+            return BadRequest(result.Message);
+        }
+
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
+    /// Verify 2FA code during login and complete authentication
+    /// </summary>
+    /// <param name="request">Verify 2FA request</param>
+    /// <returns>Authentication response with token if code is valid</returns>
+    [HttpPost("2fa/verify")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Verify2FA([FromBody] Verify2FARequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        if (!Guid.TryParse(request.AccountId, out var accountId))
+        {
+            return BadRequest("Invalid account ID");
+        }
+
+        var result = await _authService.Complete2FALoginAsync(accountId, request.VerificationCode);
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
+    /// Regenerate backup codes
+    /// </summary>
+    /// <param name="request">Regenerate backup codes request with password</param>
+    /// <returns>New backup codes</returns>
+    [HttpPost("2fa/regenerate-backup-codes")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> RegenerateBackupCodes([FromBody] RegenerateBackupCodesRequest request)
+    {
+        var validation = ValidateRequest(request);
+        if (validation != null) return validation;
+
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.RegenerateBackupCodesAsync(accountId, request);
+
+        if (!result.Success)
+        {
+            return BadRequest(result.Message);
+        }
+
+        return Success(result, result.Message);
+    }
+
+    /// <summary>
+    /// Get 2FA status for the authenticated account
+    /// </summary>
+    /// <returns>2FA status</returns>
+    [HttpGet("2fa/status")]
+    [Authorize]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> Get2FAStatus()
+    {
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var result = await _authService.GetStatusAsync(accountId);
+        return Success(result, "2FA status retrieved successfully");
+    }
+
+    #endregion
+
 }

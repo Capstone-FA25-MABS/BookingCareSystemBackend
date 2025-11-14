@@ -12,6 +12,16 @@ public class AuthResponse
 {
     public string Message { get; set; } = string.Empty;
     public string Token { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Indicates if 2FA verification is required
+    /// </summary>
+    public bool Requires2FA { get; set; } = false;
+
+    /// <summary>
+    /// Account ID for 2FA verification (only set when Requires2FA is true)
+    /// </summary>
+    public string? AccountId { get; set; }
 }
 
 /// <summary>
@@ -254,6 +264,59 @@ public class AccountManagementResponse
     public int PageNumber { get; set; }
     public int PageSize { get; set; }
     public int TotalPages { get; set; }
+}
+
+#endregion
+
+#region Two-Factor Authentication Response DTOs
+
+/// <summary>
+/// Response containing 2FA setup information
+/// </summary>
+public class Generate2FASetupResponse
+{
+    public string SecretKey { get; set; } = string.Empty;
+    public string QrCodeUrl { get; set; } = string.Empty;
+    public string ManualEntryKey { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response when enabling 2FA
+/// </summary>
+public class Enable2FAResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public List<string>? BackupCodes { get; set; }
+}
+
+/// <summary>
+/// Response when disabling 2FA
+/// </summary>
+public class Disable2FAResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response containing new backup codes
+/// </summary>
+public class RegenerateBackupCodesResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public List<string>? BackupCodes { get; set; }
+}
+
+/// <summary>
+/// Response for 2FA status
+/// </summary>
+public class TwoFactorStatusResponse
+{
+    public bool IsEnabled { get; set; }
+    public DateTime? EnabledAt { get; set; }
+    public int RemainingBackupCodes { get; set; }
 }
 
 #endregion
