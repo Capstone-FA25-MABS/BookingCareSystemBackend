@@ -156,10 +156,17 @@ public static class MongoDbIndexConfiguration
             new CreateIndexModel<TagEntity>(
                 Builders<TagEntity>.IndexKeys.Ascending(t => t.UserId).Ascending(t => t.IsActive)
             ),
-            // Compound index cho userId, name để check duplicate và search
+            // ✅ FIXED: Partial unique index - chỉ áp dụng cho active tags
+            // Điều này cho phép tạo lại tag cùng tên sau khi xóa (soft delete)
             new CreateIndexModel<TagEntity>(
                 Builders<TagEntity>.IndexKeys.Ascending(t => t.UserId).Ascending(t => t.Name),
-                new CreateIndexOptions { Unique = true }
+                new CreateIndexOptions<TagEntity>
+                {
+                    Unique = true,
+                    Name = "userId_name_active_unique",
+                    // Partial filter: chỉ enforce unique constraint cho tags đang active
+                    PartialFilterExpression = Builders<TagEntity>.Filter.Eq(t => t.IsActive, true),
+                }
             ),
             // Compound index cho userId, isPinned, order để sorting
             new CreateIndexModel<TagEntity>(

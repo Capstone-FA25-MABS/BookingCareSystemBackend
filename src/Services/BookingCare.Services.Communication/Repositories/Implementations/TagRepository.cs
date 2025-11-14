@@ -62,6 +62,14 @@ public class TagRepository : ITagRepository
     }
 
     /// <summary>
+    /// Lấy tag theo tên bao gồm cả tags đã xóa
+    /// </summary>
+    public async Task<TagEntity?> GetByNameIncludingInactiveAsync(string userId, string name)
+    {
+        return await _tags.Find(t => t.UserId == userId && t.Name == name).FirstOrDefaultAsync();
+    }
+
+    /// <summary>
     /// Lấy nhiều tag theo danh sách IDs
     /// </summary>
     public async Task<IEnumerable<TagEntity>> GetByIdsAsync(List<string> ids)
@@ -109,6 +117,22 @@ public class TagRepository : ITagRepository
 
         var result = await _tags.UpdateOneAsync(t => t.Id == id, update);
         return result.ModifiedCount > 0;
+    }
+
+    /// <summary>
+    /// Kích hoạt lại tag đã xóa
+    /// </summary>
+    public async Task<TagEntity?> ReactivateAsync(string id)
+    {
+        var update = Builders<TagEntity>
+            .Update.Set(t => t.IsActive, true)
+            .Set(t => t.UpdatedAt, DateTime.UtcNow);
+
+        return await _tags.FindOneAndUpdateAsync<TagEntity>(
+            t => t.Id == id,
+            update,
+            new FindOneAndUpdateOptions<TagEntity> { ReturnDocument = ReturnDocument.After }
+        );
     }
 
     /// <summary>

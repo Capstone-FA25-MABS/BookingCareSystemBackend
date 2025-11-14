@@ -33,7 +33,7 @@ public class TagService : BaseService, ITagService
     #region Tag Management
 
     /// <summary>
-    /// Tạo tag mới
+    /// Tạo tag mới hoặc kích hoạt lại tag đã xóa
     /// </summary>
     public async Task<TagDto> CreateTagAsync(string userId, CreateTagDto dto)
     {
@@ -41,21 +41,56 @@ public class TagService : BaseService, ITagService
             async () =>
             {
                 LogInfo(
-                    "Creating new tag for user {UserId}",
+                    "Creating new tag for user {UserId} with name {TagName}",
                     correlationId: null,
-                    args: new object[] { userId }
+                    args: new object[] { userId, dto.Name }
                 );
 
                 ValidateRequired(dto, nameof(dto));
                 ValidateRequired(userId, nameof(userId));
 
-                // Kiểm tra xem tag với tên này đã tồn tại chưa
-                var existingTag = await _tagRepository.GetByNameAsync(userId, dto.Name);
+                // Kiểm tra xem tag với tên này đã tồn tại chưa (bao gồm cả inactive)
+                var existingTag = await _tagRepository.GetByNameIncludingInactiveAsync(
+                    userId,
+                    dto.Name
+                );
+
                 if (existingTag != null)
                 {
-                    throw new InvalidOperationException($"Tag với tên '{dto.Name}' đã tồn tại");
+                    if (existingTag.IsActive)
+                    {
+                        // Tag đang active, không cho phép tạo duplicate
+                        throw new InvalidOperationException($"Tag với tên '{dto.Name}' đã tồn tại");
+                    }
+                    else
+                    {
+                        // Tag đã bị xóa, kích hoạt lại
+                        LogInfo(
+                            "Tag {TagId} with name '{TagName}' exists but inactive, reactivating...",
+                            correlationId: null,
+                            args: new object[] { existingTag.Id, dto.Name }
+                        );
+
+                        // Cập nhật thông tin tag nếu cần
+                        existingTag.Color = dto.Color ?? existingTag.Color;
+                        existingTag.Icon = dto.Icon ?? existingTag.Icon;
+                        existingTag.Type = dto.Type;
+                        existingTag.Description = dto.Description ?? existingTag.Description;
+
+                        // Kích hoạt lại tag
+                        var reactivatedTag = await _tagRepository.ReactivateAsync(existingTag.Id);
+
+                        LogInfo(
+                            "Tag {TagId} reactivated successfully for user {UserId}",
+                            correlationId: null,
+                            args: new object[] { existingTag.Id, userId }
+                        );
+
+                        return _mapper.Map<TagDto>(reactivatedTag);
+                    }
                 }
 
+                // Không có tag nào tồn tại, tạo mới
                 var tagEntity = _mapper.Map<TagEntity>(dto);
                 tagEntity.UserId = userId;
                 tagEntity.ConversationCount = 0;
@@ -411,6 +446,18 @@ public class TagService : BaseService, ITagService
 
                 if (userKey != null && conversation.UserTags[userKey] != null)
                 {
+                    // Log current tags before removal
+                    LogInfo(
+                        "Current tags for user {UserId} in conversation {ConversationId}: {Tags}",
+                        correlationId: null,
+                        args: new object[]
+                        {
+                            userId,
+                            conversationId,
+                            string.Join(", ", conversation.UserTags[userKey]),
+                        }
+                    );
+
                     // Find and remove the tag (case-insensitive)
                     var tagToRemove = conversation
                         .UserTags[userKey]
@@ -418,14 +465,30 @@ public class TagService : BaseService, ITagService
 
                     if (tagToRemove != null)
                     {
-                        conversation.UserTags[userKey].Remove(tagToRemove);
+                        var removed = conversation.UserTags[userKey].Remove(tagToRemove);
+                        LogInfo(
+                            "Tag removal result: {Removed}, Remaining tags: {Count}",
+                            correlationId: null,
+                            args: new object[] { removed, conversation.UserTags[userKey].Count }
+                        );
 
                         if (conversation.UserTags[userKey].Count == 0)
                         {
                             conversation.UserTags.Remove(userKey);
+                            LogInfo(
+                                "Removed empty tag list for user {UserId}",
+                                correlationId: null,
+                                args: new object[] { userId }
+                            );
                         }
 
-                        await _conversationRepository.UpdateAsync(conversation);
+                        var updateResult = await _conversationRepository.UpdateAsync(conversation);
+                        LogInfo(
+                            "Conversation updated: {ConversationId}",
+                            correlationId: null,
+                            args: new object[] { updateResult.Id }
+                        );
+
                         await _tagRepository.DecrementConversationCountAsync(tagId);
 
                         LogInfo(

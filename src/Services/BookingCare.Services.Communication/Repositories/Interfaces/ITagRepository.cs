@@ -28,6 +28,11 @@ public interface ITagRepository
     Task<TagEntity?> GetByNameAsync(string userId, string name);
 
     /// <summary>
+    /// Lấy tag theo tên bao gồm cả tags đã xóa (isActive = false)
+    /// </summary>
+    Task<TagEntity?> GetByNameIncludingInactiveAsync(string userId, string name);
+
+    /// <summary>
     /// Lấy nhiều tag theo danh sách IDs
     /// </summary>
     Task<IEnumerable<TagEntity>> GetByIdsAsync(List<string> ids);
@@ -46,6 +51,11 @@ public interface ITagRepository
     /// Xóa tag
     /// </summary>
     Task<bool> DeleteAsync(string id);
+
+    /// <summary>
+    /// Kích hoạt lại tag đã xóa (set isActive = true)
+    /// </summary>
+    Task<TagEntity?> ReactivateAsync(string id);
 
     /// <summary>
     /// Tăng số lượng cuộc hội thoại sử dụng tag
