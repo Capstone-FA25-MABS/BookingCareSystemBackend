@@ -31,6 +31,15 @@ service HospitalService {
   rpc GetHospitalsByAccountIds (GetHospitalsByAccountIdsRequest) returns (HospitalBatchResponse);
 }
 
+// The Hospital Subscription service definition (for Payment service)
+service HospitalSubscriptionGrpc {
+  // Creates a new hospital subscription
+  rpc CreateHospitalSubscription (CreateHospitalSubscriptionGrpcRequest) returns (HospitalSubscriptionGrpcResponse);
+  
+  // Upgrades an existing hospital subscription to a new plan
+  rpc UpgradeHospitalSubscription (UpgradeHospitalSubscriptionGrpcRequest) returns (HospitalSubscriptionGrpcResponse);
+}
+
 // The request message for getting a hospital by ID
 message GetHospitalRequest {
   string id = 1; // Guid as string
@@ -151,4 +160,55 @@ message DeleteHospitalRequest {
 message DeleteHospitalReply {
   bool success = 1;
   string message = 2;
+}
+
+// ==================== Hospital Subscription Messages ====================
+
+// Request message for creating a hospital subscription
+message CreateHospitalSubscriptionGrpcRequest {
+  string hospital_id = 1; // Guid as string
+  string subscription_id = 2; // Guid as string (Subscription Plan ID)
+  string start_date = 3; // ISO 8601 date string
+  string end_date = 4; // ISO 8601 date string
+}
+
+// Request message for upgrading a hospital subscription
+message UpgradeHospitalSubscriptionGrpcRequest {
+  string current_subscription_id = 1; // Guid as string (Current Hospital Subscription ID)
+  string new_subscription_plan_id = 2; // Guid as string (New Subscription Plan ID)
+}
+
+// Response message for hospital subscription operations
+message HospitalSubscriptionGrpcResponse {
+  string hospital_subscription_id = 1; // Guid as string
+  string hospital_id = 2; // Guid as string
+  string subscription_id = 3; // Guid as string (Subscription Plan ID)
+  string start_date = 4; // ISO 8601 date string
+  string end_date = 5; // ISO 8601 date string
+  string status = 6; // SubscriptionStatus enum as string (ACTIVE, PENDING, EXPIRED, CANCELLED, TRIAL)
+  string created_at = 7; // ISO 8601 date string
+  string updated_at = 8; // ISO 8601 date string
+  bool is_active = 9; // Computed field
+  int32 days_remaining = 10; // Computed field
+  HospitalBasicInfoForSubscription hospital = 11; // Optional hospital info
+  SubscriptionPlanInfo subscription_plan = 12; // Optional subscription plan info
+}
+
+// Basic hospital info for subscription response
+message HospitalBasicInfoForSubscription {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string phone = 4;
+}
+
+// Subscription plan info for subscription response
+message SubscriptionPlanInfo {
+  string id = 1;
+  string name = 2;
+  string billing_cycle = 3; // MONTHLY, QUARTERLY, YEARLY
+  double price = 4;
+  int32 max_doctors = 5;
+  int32 max_appointments = 6;
+  repeated string features = 7;
 }

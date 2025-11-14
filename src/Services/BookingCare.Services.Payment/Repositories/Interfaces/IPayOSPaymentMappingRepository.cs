@@ -1,3 +1,4 @@
+using BookingCare.Services.Payment.Models.DTOs.PayOS;
 using BookingCare.Services.Payment.Models.Entities;
 
 namespace BookingCare.Services.Payment.Repositories.Interfaces;
@@ -14,7 +15,20 @@ public interface IPayOSPaymentMappingRepository
     /// <param name="orderCode">Order code from PayOS</param>
     /// <param name="expiresAt">Expiration time (optional)</param>
     /// <returns>The created mapping entity</returns>
-    Task<PayOSPaymentMappingEntity> CreateMappingAsync(Guid paymentId, long orderCode, DateTime? expiresAt = null);
+    Task<PayOSPaymentMappingEntity> CreateMappingAsync(
+        Guid paymentId,
+        long orderCode,
+        DateTime? expiresAt = null
+    );
+
+    /// <summary>
+    /// Create a new mapping for subscription payment
+    /// </summary>
+    /// <param name="request">Subscription mapping request containing all required data</param>
+    /// <returns>The created mapping entity</returns>
+    Task<PayOSPaymentMappingEntity> CreateSubscriptionMappingAsync(
+        CreateSubscriptionMappingRequest request
+    );
 
     /// <summary>
     /// Get PaymentId by OrderCode

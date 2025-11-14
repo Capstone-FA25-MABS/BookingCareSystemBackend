@@ -43,4 +43,17 @@ public interface IPayOSService
     /// </summary>
     /// <returns>Number of mappings deleted</returns>
     Task<int> CleanupExpiredMappingsAsync();
+
+    /// <summary>
+    /// Get subscription metadata from PayOS payment mapping
+    /// </summary>
+    /// <param name="orderCode">PayOS order code</param>
+    /// <returns>Subscription metadata or null if not a subscription payment</returns>
+    Task<(
+        Guid? SubscriptionPlanId,
+        Guid? HospitalId,
+        bool IsSubscriptionUpgrade,
+        Guid? CurrentHospitalSubscriptionId,
+        string? PlanType
+    )?> GetSubscriptionMetadataAsync(long orderCode);
 }

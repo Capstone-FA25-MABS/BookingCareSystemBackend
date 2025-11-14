@@ -47,6 +47,38 @@ public class PayOSPaymentMappingEntity
     public DateTime ExpiresAt { get; set; }
 
     /// <summary>
+    /// Subscription Plan ID (for subscription payments)
+    /// </summary>
+    [Column("subscription_plan_id")]
+    public Guid? SubscriptionPlanId { get; set; }
+
+    /// <summary>
+    /// Hospital ID (for subscription payments)
+    /// </summary>
+    [Column("hospital_id")]
+    public Guid? HospitalId { get; set; }
+
+    /// <summary>
+    /// Indicates if this is a subscription upgrade (null for non-subscription payments)
+    /// </summary>
+    [Column("is_subscription_upgrade")]
+    public bool? IsSubscriptionUpgrade { get; set; }
+
+    /// <summary>
+    /// Current Hospital Subscription ID (for upgrade scenario)
+    /// </summary>
+    [Column("current_hospital_subscription_id")]
+    public Guid? CurrentHospitalSubscriptionId { get; set; }
+
+    /// <summary>
+    /// Plan type (billing cycle): MONTHLY, QUARTERLY, YEARLY
+    /// Used for frontend redirect after payment
+    /// </summary>
+    [Column("plan_type")]
+    [MaxLength(20)]
+    public string? PlanType { get; set; }
+
+    /// <summary>
     /// Default constructor
     /// </summary>
     public PayOSPaymentMappingEntity()
