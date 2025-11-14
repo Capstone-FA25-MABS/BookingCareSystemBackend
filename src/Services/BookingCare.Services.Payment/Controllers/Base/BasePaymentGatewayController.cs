@@ -1,15 +1,15 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using BookingCare.Services.Payment.Services.Interfaces;
+using BookingCare.Services.Appointment.Protos;
+using BookingCare.Services.Payment.Helpers;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Models.Interfaces;
-using BookingCare.Services.Payment.Helpers;
+using BookingCare.Services.Payment.Services.Interfaces;
+using BookingCare.Shared.Common.AppRouting;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
-using BookingCare.Shared.Common.AppRouting;
-using BookingCare.Services.Appointment.Protos;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace BookingCare.Services.Payment.Controllers.Base;
 
@@ -32,7 +32,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
         IEventBus eventBus,
         IOptions<FrontendOptions> frontendOptions,
         ILogger logger,
-        AppointmentService.AppointmentServiceClient appointmentClient)
+        AppointmentService.AppointmentServiceClient appointmentClient
+    )
     {
         PaymentService = paymentService;
         EventBus = eventBus;
@@ -46,25 +47,36 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// </summary>
     protected IActionResult CreateHealthCheckResponse(string serviceName)
     {
-        return Success(new
-        {
-            Service = $"{serviceName} Integration",
-            Status = "Healthy",
-            Timestamp = DateTime.UtcNow,
-            Version = ApiVersions.V1_0
-        }, $"{serviceName} service is healthy");
+        return Success(
+            new
+            {
+                Service = $"{serviceName} Integration",
+                Status = "Healthy",
+                Timestamp = DateTime.UtcNow,
+                Version = ApiVersions.V1_0,
+            },
+            $"{serviceName} service is healthy"
+        );
     }
 
     /// <summary>
     /// Common payment retrieval with validation
     /// </summary>
-    protected async Task<PaymentResponse?> GetPaymentWithValidation(Guid paymentId, string requestId, string gatewayName)
+    protected async Task<PaymentResponse?> GetPaymentWithValidation(
+        Guid paymentId,
+        string requestId,
+        string gatewayName
+    )
     {
         var payment = await PaymentService.GetByIdAsync(paymentId);
         if (payment == null)
         {
-            Logger.LogWarning("{Gateway} Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}",
-                gatewayName, requestId, paymentId);
+            Logger.LogWarning(
+                "{Gateway} Callback #{RequestId} - Payment not found for PaymentId: {PaymentId}",
+                gatewayName,
+                requestId,
+                paymentId
+            );
         }
         return payment;
     }
@@ -78,7 +90,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
         TResponse callbackResult,
         string requestId,
         string gatewayName,
-        Func<PaymentResponse, TResponse, string, IActionResult> createResponseFunc)
+        Func<PaymentResponse, TResponse, string, IActionResult> createResponseFunc
+    )
         where TResponse : class
     {
         var appointmentId = payment.AppointmentId;
@@ -100,19 +113,33 @@ public abstract class BasePaymentGatewayController : BaseApiController
                     callbackResult,
                     requestId,
                     gatewayName,
-                    isStaffAssigned);
+                    isStaffAssigned
+                );
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "{Gateway} Callback #{RequestId} - Failed to process supplementary payment for AppointmentId: {AppointmentId}",
-                    gatewayName, requestId, suppAppointmentId.Value);
+                Logger.LogError(
+                    ex,
+                    "{Gateway} Callback #{RequestId} - Failed to process supplementary payment for AppointmentId: {AppointmentId}",
+                    gatewayName,
+                    requestId,
+                    suppAppointmentId.Value
+                );
                 // Continue to redirect even if update fails (user can retry)
             }
 
             // Redirect to booking confirmation page
-            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(FrontendOptions, suppAppointmentId.Value, true);
-            Logger.LogInformation("{Gateway} Callback #{RequestId} - Supplementary payment successful, redirecting to confirmation for AppointmentId: {AppointmentId}",
-                gatewayName, requestId, suppAppointmentId.Value);
+            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
+                FrontendOptions,
+                suppAppointmentId.Value,
+                true
+            );
+            Logger.LogInformation(
+                "{Gateway} Callback #{RequestId} - Supplementary payment successful, redirecting to confirmation for AppointmentId: {AppointmentId}",
+                gatewayName,
+                requestId,
+                suppAppointmentId.Value
+            );
             return Redirect(frontendUrl);
         }
         else
@@ -133,18 +160,27 @@ public abstract class BasePaymentGatewayController : BaseApiController
                             PaymentMethod = gatewayName,
                             TransactionId = GetTransactionIdFromCallback(callbackResult),
                             PaymentCompletedAt = DateTime.UtcNow,
-                            CorrelationId = requestId
+                            CorrelationId = requestId,
                         };
 
                         await EventBus.PublishAsync(paymentSuccessEvent);
 
-                        Logger.LogInformation("{Gateway} Callback #{RequestId} - Published appointment payment success event for AppointmentId: {AppointmentId}",
-                            gatewayName, requestId, appointmentId.Value);
+                        Logger.LogInformation(
+                            "{Gateway} Callback #{RequestId} - Published appointment payment success event for AppointmentId: {AppointmentId}",
+                            gatewayName,
+                            requestId,
+                            appointmentId.Value
+                        );
                     }
                     catch (Exception ex)
                     {
-                        Logger.LogError(ex, "{Gateway} Callback #{RequestId} - Failed to publish payment success event for AppointmentId: {AppointmentId}",
-                            gatewayName, requestId, appointmentId);
+                        Logger.LogError(
+                            ex,
+                            "{Gateway} Callback #{RequestId} - Failed to publish payment success event for AppointmentId: {AppointmentId}",
+                            gatewayName,
+                            requestId,
+                            appointmentId
+                        );
                     }
                 });
             }
@@ -153,9 +189,18 @@ public abstract class BasePaymentGatewayController : BaseApiController
         if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
         {
             var apptId = appointmentId!.Value;
-            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(FrontendOptions, apptId, true);
-            Logger.LogInformation("{Gateway} Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
-                gatewayName, requestId, apptId, frontendUrl);
+            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
+                FrontendOptions,
+                apptId,
+                true
+            );
+            Logger.LogInformation(
+                "{Gateway} Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
+                gatewayName,
+                requestId,
+                apptId,
+                frontendUrl
+            );
 
             return Redirect(frontendUrl);
         }
@@ -173,7 +218,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
         string gatewayName,
         Guid appointmentId,
         Func<string, string> responseMessageFunc,
-        Func<PaymentResponse, TResponse, string, IActionResult> createResponseFunc)
+        Func<PaymentResponse, TResponse, string, IActionResult> createResponseFunc
+    )
         where TResponse : class
     {
         var appointmentIdValue = payment.AppointmentId;
@@ -186,7 +232,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
                 requestId,
                 gatewayName,
                 appointmentId,
-                responseMessageFunc);
+                responseMessageFunc
+            );
         }
 
         return createResponseFunc(payment, callbackResult, requestId);
@@ -201,7 +248,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
         string requestId,
         string gatewayName,
         Guid appointmentId,
-        Func<string, string> responseMessageFunc)
+        Func<string, string> responseMessageFunc
+    )
         where TResponse : class
     {
         // Check if this is a supplementary payment (price difference payment)
@@ -209,13 +257,27 @@ public abstract class BasePaymentGatewayController : BaseApiController
         var isSupplementaryPayment = IsSupplementaryPayment(metadata, out var _);
 
         // Try to get doctorId using gRPC
-        var (doctorId, pendingDoctorId, assignedDoctorId, rescheduleToken, hospitalId, specialtyId) = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(AppointmentClient, appointmentId);
+        var (
+            doctorId,
+            pendingDoctorId,
+            assignedDoctorId,
+            rescheduleToken,
+            hospitalId,
+            specialtyId
+        ) = await PaymentFrontendHelper.GetDoctorIdFromAppointmentAsync(
+            AppointmentClient,
+            appointmentId
+        );
 
         // If it's a supplementary payment, DO NOT delete appointment - just clear pending changes
         if (isSupplementaryPayment)
         {
-            Logger.LogWarning("{Gateway} Callback #{RequestId} - Supplementary payment failed/cancelled for AppointmentId: {AppointmentId}. Appointment will NOT be deleted, pending changes retained.",
-                gatewayName, requestId, appointmentId);
+            Logger.LogWarning(
+                "{Gateway} Callback #{RequestId} - Supplementary payment failed/cancelled for AppointmentId: {AppointmentId}. Appointment will NOT be deleted, pending changes retained.",
+                gatewayName,
+                requestId,
+                appointmentId
+            );
 
             // Extract IsStaffAssigned to determine correct redirect URL
             var isStaffAssigned = ExtractIsStaffAssigned(metadata);
@@ -225,33 +287,62 @@ public abstract class BasePaymentGatewayController : BaseApiController
             if (isStaffAssigned && assignedDoctorId.HasValue)
             {
                 // Option 2: Staff-assigned doctor - redirect to ConfirmNewDoctor page
-                redirectUrl = PaymentFrontendHelper.BuildConfirmNewDoctorRedirectUrl(FrontendOptions, appointmentId, rescheduleToken!, assignedDoctorId.Value);
-                Logger.LogInformation("{Gateway} Callback #{RequestId} - Supplementary payment failed for staff-assigned doctor, redirecting to ConfirmNewDoctor: {RedirectUrl}",
-                    gatewayName, requestId, redirectUrl);
+                redirectUrl = PaymentFrontendHelper.BuildConfirmNewDoctorRedirectUrl(
+                    FrontendOptions,
+                    appointmentId,
+                    rescheduleToken!,
+                    assignedDoctorId.Value
+                );
+                Logger.LogInformation(
+                    "{Gateway} Callback #{RequestId} - Supplementary payment failed for staff-assigned doctor, redirecting to ConfirmNewDoctor: {RedirectUrl}",
+                    gatewayName,
+                    requestId,
+                    redirectUrl
+                );
             }
             else if (pendingDoctorId.HasValue)
             {
                 // Option 3: Patient-chosen doctor - redirect to ChooseNewDoctor page (doctor booking)
-                redirectUrl = PaymentFrontendHelper.BuildChooseNewDoctorRedirectUrl(FrontendOptions, hospitalId, specialtyId, appointmentId, rescheduleToken!);
-                Logger.LogInformation("{Gateway} Callback #{RequestId} - Supplementary payment failed for patient-chosen doctor, redirecting to DoctorList: {RedirectUrl}",
-                    gatewayName, requestId, redirectUrl);
+                redirectUrl = PaymentFrontendHelper.BuildChooseNewDoctorRedirectUrl(
+                    FrontendOptions,
+                    hospitalId,
+                    specialtyId,
+                    appointmentId,
+                    rescheduleToken!
+                );
+                Logger.LogInformation(
+                    "{Gateway} Callback #{RequestId} - Supplementary payment failed for patient-chosen doctor, redirecting to DoctorList: {RedirectUrl}",
+                    gatewayName,
+                    requestId,
+                    redirectUrl
+                );
             }
             else
             {
                 // Fallback to appointment page
-                redirectUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(FrontendOptions, appointmentId, false);
-                Logger.LogInformation("{Gateway} Callback #{RequestId} - Supplementary payment failed, redirecting to appointment page: {AppointmentId}",
-                    gatewayName, requestId, appointmentId);
+                redirectUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
+                    FrontendOptions,
+                    appointmentId,
+                    false
+                );
+                Logger.LogInformation(
+                    "{Gateway} Callback #{RequestId} - Supplementary payment failed, redirecting to appointment page: {AppointmentId}",
+                    gatewayName,
+                    requestId,
+                    appointmentId
+                );
             }
 
             return Redirect(redirectUrl);
         }
 
         // For regular (non-supplementary) payments, proceed with deletion
-        Logger.LogInformation("{Gateway} Callback #{RequestId} - Regular payment failed, proceeding with appointment deletion for AppointmentId: {AppointmentId}",
-            gatewayName, requestId, appointmentId);
-
-
+        Logger.LogInformation(
+            "{Gateway} Callback #{RequestId} - Regular payment failed, proceeding with appointment deletion for AppointmentId: {AppointmentId}",
+            gatewayName,
+            requestId,
+            appointmentId
+        );
 
         // Publish appointment deletion event using parameter object approach
         var eventParams = new AppointmentDeleteEventParams
@@ -260,31 +351,47 @@ public abstract class BasePaymentGatewayController : BaseApiController
             ResponseCode = GetResponseCodeFromCallback(callbackResult),
             PaymentMethod = gatewayName,
             RequestId = requestId,
-            ResponseMessageFunc = responseMessageFunc
+            ResponseMessageFunc = responseMessageFunc,
         };
 
         var dependencies = new PaymentEventDependencies
         {
             AppointmentClient = AppointmentClient,
             EventBus = EventBus,
-            Logger = Logger
+            Logger = Logger,
         };
 
         await PaymentEventHelper.PublishAppointmentDeleteEventAsync(eventParams, dependencies);
 
         if (doctorId.HasValue)
         {
-            var doctorBookingUrl = PaymentFrontendHelper.BuildDoctorBookingRedirectUrl(FrontendOptions, doctorId.Value);
-            Logger.LogInformation("{Gateway} Callback #{RequestId} - Payment failed, redirecting to doctor booking page: {DoctorId}, URL: {RedirectUrl}",
-                gatewayName, requestId, doctorId.Value, doctorBookingUrl);
+            var doctorBookingUrl = PaymentFrontendHelper.BuildDoctorBookingRedirectUrl(
+                FrontendOptions,
+                doctorId.Value
+            );
+            Logger.LogInformation(
+                "{Gateway} Callback #{RequestId} - Payment failed, redirecting to doctor booking page: {DoctorId}, URL: {RedirectUrl}",
+                gatewayName,
+                requestId,
+                doctorId.Value,
+                doctorBookingUrl
+            );
 
             return Redirect(doctorBookingUrl);
         }
 
         // Fallback to appointment error page
-        var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(FrontendOptions, appointmentId, false);
-        Logger.LogWarning("{Gateway} Callback #{RequestId} - Payment failed, could not get doctorId, redirecting to original error page for appointment: {AppointmentId}",
-            gatewayName, requestId, appointmentId);
+        var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
+            FrontendOptions,
+            appointmentId,
+            false
+        );
+        Logger.LogWarning(
+            "{Gateway} Callback #{RequestId} - Payment failed, could not get doctorId, redirecting to original error page for appointment: {AppointmentId}",
+            gatewayName,
+            requestId,
+            appointmentId
+        );
 
         return Redirect(frontendUrl);
     }
@@ -300,7 +407,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Abstract method to extract response code from callback - must be implemented by derived classes
     /// </summary>
-    protected virtual string GetResponseCodeFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    protected virtual string GetResponseCodeFromCallback<TResponse>(TResponse callbackResult)
+        where TResponse : class
     {
         // Use interface if available, otherwise fallback to abstract implementation
         if (callbackResult is IPaymentCallbackResponse standardCallback)
@@ -315,7 +423,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Abstract method to extract transaction ID from callback - must be implemented by derived classes
     /// </summary>
-    protected virtual string? GetTransactionIdFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    protected virtual string? GetTransactionIdFromCallback<TResponse>(TResponse callbackResult)
+        where TResponse : class
     {
         // Use interface if available, otherwise fallback to abstract implementation
         if (callbackResult is IPaymentCallbackResponse standardCallback)
@@ -330,7 +439,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Fallback method for custom response code extraction - can be overridden by derived classes
     /// </summary>
-    protected virtual string GetCustomResponseCodeFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    protected virtual string GetCustomResponseCodeFromCallback<TResponse>(TResponse callbackResult)
+        where TResponse : class
     {
         return "UNKNOWN";
     }
@@ -338,7 +448,10 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Fallback method for custom transaction ID extraction - can be overridden by derived classes
     /// </summary>
-    protected virtual string? GetCustomTransactionIdFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    protected virtual string? GetCustomTransactionIdFromCallback<TResponse>(
+        TResponse callbackResult
+    )
+        where TResponse : class
     {
         return null;
     }
@@ -346,26 +459,47 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Common error response for invalid parameters
     /// </summary>
-    protected IActionResult CreateParameterValidationError(string parameterName, string requestId, string gatewayName)
+    protected IActionResult CreateParameterValidationError(
+        string parameterName,
+        string requestId,
+        string gatewayName
+    )
     {
-        Logger.LogWarning("{Gateway} Callback #{RequestId} - {Parameter} parameter validation failed",
-            gatewayName, requestId, parameterName);
+        Logger.LogWarning(
+            "{Gateway} Callback #{RequestId} - {Parameter} parameter validation failed",
+            gatewayName,
+            requestId,
+            parameterName
+        );
         return BadRequest($"{parameterName} parameter is invalid or missing");
     }
 
     /// <summary>
     /// Common response for processing errors
     /// </summary>
-    protected IActionResult CreateProcessingErrorResponse(Exception ex, string requestId, string gatewayName, params object[] additionalData)
+    protected IActionResult CreateProcessingErrorResponse(
+        Exception ex,
+        string requestId,
+        string gatewayName,
+        params object[] additionalData
+    )
     {
-        Logger.LogError(ex, "{Gateway} Callback #{RequestId} - Processing failed - Additional data: {@Data}",
-            gatewayName, requestId, additionalData);
+        Logger.LogError(
+            ex,
+            "{Gateway} Callback #{RequestId} - Processing failed - Additional data: {@Data}",
+            gatewayName,
+            requestId,
+            additionalData
+        );
 
-        return StatusCode(500, new
-        {
-            Message = $"An error occurred while processing {gatewayName} callback",
-            RequestId = requestId
-        });
+        return StatusCode(
+            500,
+            new
+            {
+                Message = $"An error occurred while processing {gatewayName} callback",
+                RequestId = requestId,
+            }
+        );
     }
 
     #region Supplementary Payment Helpers
@@ -373,7 +507,8 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Extract metadata from callback response (VNPay: vnp_OrderInfo, PayOS: Description)
     /// </summary>
-    protected virtual string? ExtractMetadataFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    protected virtual string? ExtractMetadataFromCallback<TResponse>(TResponse callbackResult)
+        where TResponse : class
     {
         // Try VNPay callback
         if (callbackResult is Models.DTOs.VNPay.VNPayCallbackResponse vnPayCallback)
@@ -381,7 +516,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
             return vnPayCallback.vnp_OrderInfo;
         }
 
-        // Try PayOS callback  
+        // Try PayOS callback
         if (callbackResult is Models.DTOs.PayOS.PayOSCallbackResponse)
         {
             // PayOS doesn't have Description in callback, need to query webhook data
@@ -410,7 +545,11 @@ public abstract class BasePaymentGatewayController : BaseApiController
         {
             // Parse: SUPP_PAYMENT:{suppId}:APPT:{appointmentId}
             var parts = metadata.Split(':');
-            if (parts.Length >= 4 && parts[2] == "APPT" && Guid.TryParse(parts[3].Split(' ')[0], out var apptId))
+            if (
+                parts.Length >= 4
+                && parts[2] == "APPT"
+                && Guid.TryParse(parts[3].Split(' ')[0], out var apptId)
+            )
             {
                 appointmentId = apptId;
                 return true;
@@ -418,7 +557,11 @@ public abstract class BasePaymentGatewayController : BaseApiController
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to parse supplementary payment metadata: {Metadata}", metadata);
+            Logger.LogWarning(
+                ex,
+                "Failed to parse supplementary payment metadata: {Metadata}",
+                metadata
+            );
         }
 
         return false;
@@ -436,14 +579,22 @@ public abstract class BasePaymentGatewayController : BaseApiController
         {
             // Parse: SUPP_PAYMENT:{suppId}:APPT:{appointmentId}:STAFF_ASSIGNED:{bool}
             var parts = metadata.Split(':');
-            if (parts.Length >= 6 && parts[4] == "STAFF_ASSIGNED" && bool.TryParse(parts[5].Split(' ')[0], out var isStaffAssigned))
+            if (
+                parts.Length >= 6
+                && parts[4] == "STAFF_ASSIGNED"
+                && bool.TryParse(parts[5].Split(' ')[0], out var isStaffAssigned)
+            )
             {
                 return isStaffAssigned;
             }
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to extract IsStaffAssigned from metadata: {Metadata}", metadata);
+            Logger.LogWarning(
+                ex,
+                "Failed to extract IsStaffAssigned from metadata: {Metadata}",
+                metadata
+            );
         }
 
         return false;
@@ -458,10 +609,16 @@ public abstract class BasePaymentGatewayController : BaseApiController
         TResponse callbackResult,
         string requestId,
         string gatewayName,
-        bool staffAssigned) where TResponse : class
+        bool staffAssigned
+    )
+        where TResponse : class
     {
-        Logger.LogInformation("{Gateway} Callback #{RequestId} - Processing supplementary payment for AppointmentId: {AppointmentId}",
-            gatewayName, requestId, appointmentId);
+        Logger.LogInformation(
+            "{Gateway} Callback #{RequestId} - Processing supplementary payment for AppointmentId: {AppointmentId}",
+            gatewayName,
+            requestId,
+            appointmentId
+        );
 
         try
         {
@@ -469,8 +626,12 @@ public abstract class BasePaymentGatewayController : BaseApiController
             var existingPayment = await PaymentService.GetByAppointmentIdAsync(appointmentId);
             if (existingPayment == null)
             {
-                Logger.LogError("{Gateway} Callback #{RequestId} - No existing payment found for AppointmentId: {AppointmentId}",
-                    gatewayName, requestId, appointmentId);
+                Logger.LogError(
+                    "{Gateway} Callback #{RequestId} - No existing payment found for AppointmentId: {AppointmentId}",
+                    gatewayName,
+                    requestId,
+                    appointmentId
+                );
                 return;
             }
 
@@ -479,50 +640,74 @@ public abstract class BasePaymentGatewayController : BaseApiController
 
             // 3. Update existing payment amount (add supplementary amount)
             var newTotalAmount = existingPayment.Amount + callbackAmount;
-            await PaymentService.UpdateStatusAsync(new Models.DTOs.Requests.UpdatePaymentStatusRequest
-            {
-                Id = existingPayment.Id,
-                Status = Enums.PaymentStatus.COMPLETED,
-                Amount = newTotalAmount
-            });
+            await PaymentService.UpdateStatusAsync(
+                new Models.DTOs.Requests.UpdatePaymentStatusRequest
+                {
+                    Id = existingPayment.Id,
+                    Status = Enums.PaymentStatus.COMPLETED,
+                    Amount = newTotalAmount,
+                }
+            );
 
-            Logger.LogInformation("{Gateway} Callback #{RequestId} - Updated payment amount from {OldAmount} to {NewAmount} for PaymentId: {PaymentId}",
-                gatewayName, requestId, existingPayment.Amount, newTotalAmount, existingPayment.Id);
+            Logger.LogInformation(
+                "{Gateway} Callback #{RequestId} - Updated payment amount from {OldAmount} to {NewAmount} for PaymentId: {PaymentId}",
+                gatewayName,
+                requestId,
+                existingPayment.Amount,
+                newTotalAmount,
+                existingPayment.Id
+            );
 
             // 4. Confirm appointment via gRPC
             var confirmRequest = new ConfirmAppointmentRequest
             {
                 AppointmentId = appointmentId.ToString(),
-                StaffAssigned = staffAssigned
+                StaffAssigned = staffAssigned,
             };
 
             var confirmResponse = await AppointmentClient.ConfirmAppointmentAsync(confirmRequest);
             if (confirmResponse.Success)
             {
-                Logger.LogInformation("{Gateway} Callback #{RequestId} - Appointment {AppointmentId} confirmed successfully after supplementary payment",
-                    gatewayName, requestId, appointmentId);
+                Logger.LogInformation(
+                    "{Gateway} Callback #{RequestId} - Appointment {AppointmentId} confirmed successfully after supplementary payment",
+                    gatewayName,
+                    requestId,
+                    appointmentId
+                );
             }
             else
             {
-                Logger.LogWarning("{Gateway} Callback #{RequestId} - Failed to confirm appointment {AppointmentId}: {Message}",
-                    gatewayName, requestId, appointmentId, confirmResponse.Message);
+                Logger.LogWarning(
+                    "{Gateway} Callback #{RequestId} - Failed to confirm appointment {AppointmentId}: {Message}",
+                    gatewayName,
+                    requestId,
+                    appointmentId,
+                    confirmResponse.Message
+                );
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "{Gateway} Callback #{RequestId} - Error processing supplementary payment for AppointmentId: {AppointmentId}",
-                gatewayName, requestId, appointmentId);
+            Logger.LogError(
+                ex,
+                "{Gateway} Callback #{RequestId} - Error processing supplementary payment for AppointmentId: {AppointmentId}",
+                gatewayName,
+                requestId,
+                appointmentId
+            );
             throw new InvalidOperationException(
-                $"Failed to process supplementary payment for appointment {appointmentId} in {gatewayName} callback #{requestId}. " +
-                $"Payment may be in inconsistent state. Manual intervention may be required.",
-                ex);
+                $"Failed to process supplementary payment for appointment {appointmentId} in {gatewayName} callback #{requestId}. "
+                    + $"Payment may be in inconsistent state. Manual intervention may be required.",
+                ex
+            );
         }
     }
 
     /// <summary>
     /// Extract payment amount from callback response
     /// </summary>
-    protected virtual decimal GetAmountFromCallback<TResponse>(TResponse callbackResult) where TResponse : class
+    protected virtual decimal GetAmountFromCallback<TResponse>(TResponse callbackResult)
+        where TResponse : class
     {
         // Try VNPay callback
         if (callbackResult is Models.DTOs.VNPay.VNPayCallbackResponse vnPayCallback)
@@ -537,6 +722,149 @@ public abstract class BasePaymentGatewayController : BaseApiController
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// Handle subscription payment failed/cancelled - redirect to subscription plan page
+    /// </summary>
+    protected IActionResult HandleSubscriptionPaymentFailed(
+        string? planType,
+        Guid? hospitalId,
+        string requestId,
+        string gatewayName,
+        string status,
+        string? responseCode = null
+    )
+    {
+        var finalPlanType = planType?.ToLowerInvariant() ?? "monthly";
+        var frontendUrl =
+            $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={finalPlanType}&is_cancelled=true";
+
+        Logger.LogWarning(
+            "{Gateway} Callback #{RequestId} - Subscription payment {Status} for HospitalId: {HospitalId}, PlanType: {PlanType}{ResponseCode}",
+            gatewayName,
+            requestId,
+            status,
+            hospitalId,
+            finalPlanType,
+            responseCode != null ? $", ResponseCode: {responseCode}" : string.Empty
+        );
+
+        return Redirect(frontendUrl);
+    }
+
+    /// <summary>
+    /// Handle successful subscription payment - create or upgrade subscription via gRPC
+    /// </summary>
+    protected async Task HandleSubscriptionPaymentSuccessAsync(
+        BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient,
+        Guid subscriptionPlanId,
+        Guid hospitalId,
+        bool isUpgrade,
+        Guid? currentHospitalSubscriptionId,
+        string requestId,
+        string gatewayName
+    )
+    {
+        Logger.LogInformation(
+            "{Gateway} Callback #{RequestId} - Handling subscription payment - HospitalId: {HospitalId}, PlanId: {PlanId}, IsUpgrade: {IsUpgrade}",
+            gatewayName,
+            requestId,
+            hospitalId,
+            subscriptionPlanId,
+            isUpgrade
+        );
+
+        try
+        {
+            if (isUpgrade && currentHospitalSubscriptionId.HasValue)
+            {
+                // Call gRPC to upgrade subscription
+                var upgradeRequest =
+                    new BookingCare.Services.Hospital.UpgradeHospitalSubscriptionGrpcRequest
+                    {
+                        CurrentSubscriptionId = currentHospitalSubscriptionId.Value.ToString(),
+                        NewSubscriptionPlanId = subscriptionPlanId.ToString(),
+                    };
+
+                var upgradeResponse =
+                    await hospitalSubscriptionClient.UpgradeHospitalSubscriptionAsync(
+                        upgradeRequest
+                    );
+
+                if (!string.IsNullOrEmpty(upgradeResponse?.HospitalSubscriptionId))
+                {
+                    Logger.LogInformation(
+                        "{Gateway} Callback #{RequestId} - Successfully upgraded subscription via gRPC - NewSubscriptionId: {NewSubscriptionId}, Status: {Status}",
+                        gatewayName,
+                        requestId,
+                        upgradeResponse.HospitalSubscriptionId,
+                        upgradeResponse.Status
+                    );
+                }
+                else
+                {
+                    Logger.LogError(
+                        "{Gateway} Callback #{RequestId} - Failed to upgrade subscription via gRPC - Empty response",
+                        gatewayName,
+                        requestId
+                    );
+                }
+            }
+            else
+            {
+                // Call gRPC to create new subscription
+                var createRequest =
+                    new BookingCare.Services.Hospital.CreateHospitalSubscriptionGrpcRequest
+                    {
+                        HospitalId = hospitalId.ToString(),
+                        SubscriptionId = subscriptionPlanId.ToString(),
+                        // StartDate and EndDate are auto-calculated by Hospital Service based on billing cycle
+                    };
+
+                var createResponse =
+                    await hospitalSubscriptionClient.CreateHospitalSubscriptionAsync(createRequest);
+
+                if (!string.IsNullOrEmpty(createResponse?.HospitalSubscriptionId))
+                {
+                    Logger.LogInformation(
+                        "{Gateway} Callback #{RequestId} - Successfully created subscription via gRPC - SubscriptionId: {SubscriptionId}, Status: {Status}",
+                        gatewayName,
+                        requestId,
+                        createResponse.HospitalSubscriptionId,
+                        createResponse.Status
+                    );
+                }
+                else
+                {
+                    Logger.LogError(
+                        "{Gateway} Callback #{RequestId} - Failed to create subscription via gRPC - Empty response",
+                        gatewayName,
+                        requestId
+                    );
+                }
+            }
+        }
+        catch (Grpc.Core.RpcException ex)
+        {
+            Logger.LogError(
+                ex,
+                "{Gateway} Callback #{RequestId} - gRPC error handling subscription payment - Status: {Status}, Detail: {Detail}",
+                gatewayName,
+                requestId,
+                ex.Status.StatusCode,
+                ex.Status.Detail
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "{Gateway} Callback #{RequestId} - Unexpected error handling subscription payment",
+                gatewayName,
+                requestId
+            );
+        }
     }
 
     #endregion
