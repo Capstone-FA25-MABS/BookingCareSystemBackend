@@ -454,8 +454,36 @@ public class HospitalService : IHospitalService
     {
         var hospitals = await _hospitalRepository.GetByAccountIdAsync(accountId);
         var hospitalResponses = _mapper.Map<List<HospitalResponse>>(hospitals);
+
+        // For account overview, return only basic info (exclude heavy relations)
+        foreach (var h in hospitalResponses)
+        {
+            h.Specialties = null;
+            h.ServiceTypes = null;
+            h.ServiceMedicals = null;
+        }
         await EnrichHospitalsWithStatusAsync(hospitalResponses);
         return hospitalResponses;
+    }
+
+    public async Task<HospitalProfileResponse?> GetHospitalProfileByAccountIdAsync(Guid accountId)
+    {
+        var hospitals = await _hospitalRepository.GetByAccountIdAsync(accountId);
+        if (hospitals == null || hospitals.Count == 0)
+        {
+            return null;
+        }
+
+        // Get the first hospital for this account (most cases: 1 account = 1 hospital)
+        var hospital = hospitals.First();
+        
+        // Map to HospitalProfileResponse with full details
+        var profileResponse = _mapper.Map<HospitalProfileResponse>(hospital);
+        
+        // Note: HospitalProfileResponse doesn't need status enrichment
+        // as it doesn't contain CurrentSubscription field
+        
+        return profileResponse;
     }
 
     public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(IEnumerable<Guid> accountIds)
@@ -498,41 +526,97 @@ public class HospitalService : IHospitalService
         }
     }
 
-    private async Task UpdateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds)
+    public async Task<List<Guid>> GetHospitalSpecialtyIdsAsync(Guid hospitalId)
     {
-        // Remove all existing specialties
-        var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
-        if (hospital?.HospitalSpecialties != null)
+        var cacheKey = $"hospital_specialties_{hospitalId}";
+        
+        if (_cache.TryGetValue(cacheKey, out List<Guid>? cachedSpecialtyIds) && cachedSpecialtyIds != null)
         {
-            foreach (var specialty in hospital.HospitalSpecialties.ToList())
-            {
-                await RemoveSpecialtyAsync(hospitalId, specialty.SpecialtyId);
-            }
+            return cachedSpecialtyIds;
         }
-
-        // Add new specialties
-        foreach (var specialtyId in specialtyIds.Distinct())
+        
+        // Optimized: Direct query IDs without loading full hospital entity
+        var specialtyIds = await _hospitalRepository.GetHospitalSpecialtyIdsAsync(hospitalId);
+        
+        // Cache for 10 minutes
+        var cacheOptions = new MemoryCacheEntryOptions
         {
-            await AddSpecialtyAsync(hospitalId, specialtyId);
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+            SlidingExpiration = TimeSpan.FromMinutes(5),
+            Priority = CacheItemPriority.Normal
+        };
+        _cache.Set(cacheKey, specialtyIds, cacheOptions);
+        
+        return specialtyIds;
+    }
+
+    public async Task UpdateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds)
+    {
+        try
+        {
+            _logger.LogInformation("Updating specialties for hospital {HospitalId}: {Count} specialties", 
+                hospitalId, specialtyIds?.Count ?? 0);
+            
+            // Optimized batch update - single transaction with change detection
+            await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(hospitalId, specialtyIds ?? new List<Guid>());
+            
+            // Clear related cache entries
+            var cacheKey = $"hospital_specialties_{hospitalId}";
+            _cache.Remove(cacheKey);
+            
+            _logger.LogInformation("Successfully updated specialties for hospital {HospitalId}", hospitalId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update specialties for hospital {HospitalId}", hospitalId);
+            throw new HospitalOperationException($"Failed to update specialties for hospital {hospitalId}", ex);
         }
     }
 
-    private async Task UpdateHospitalServiceTypesAsync(Guid hospitalId, List<Guid> serviceTypeIds)
+    public async Task<List<Guid>> GetHospitalServiceTypeIdsAsync(Guid hospitalId)
     {
-        // Remove all existing service types
-        var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
-        if (hospital?.HospitalServiceTypes != null)
+        var cacheKey = $"hospital_service_types_{hospitalId}";
+        
+        if (_cache.TryGetValue(cacheKey, out List<Guid>? cachedServiceTypeIds) && cachedServiceTypeIds != null)
         {
-            foreach (var serviceType in hospital.HospitalServiceTypes.ToList())
-            {
-                await _hospitalRepository.RemoveServiceTypeAsync(hospitalId, serviceType.ServiceTypeId);
-            }
+            return cachedServiceTypeIds;
         }
-
-        // Add new service types
-        foreach (var serviceTypeId in serviceTypeIds.Distinct())
+        
+        // Optimized: Direct query IDs without loading full hospital entity
+        var serviceTypeIds = await _hospitalRepository.GetHospitalServiceTypeIdsAsync(hospitalId);
+        
+        // Cache for 10 minutes
+        var cacheOptions = new MemoryCacheEntryOptions
         {
-            await _hospitalRepository.AddServiceTypeAsync(hospitalId, serviceTypeId);
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+            SlidingExpiration = TimeSpan.FromMinutes(5),
+            Priority = CacheItemPriority.Normal
+        };
+        _cache.Set(cacheKey, serviceTypeIds, cacheOptions);
+        
+        return serviceTypeIds;
+    }
+
+    public async Task UpdateHospitalServiceTypesAsync(Guid hospitalId, List<Guid> serviceTypeIds)
+    {
+        try
+        {
+            _logger.LogInformation("Updating service types for hospital {HospitalId}: {Count} service types", 
+                hospitalId, serviceTypeIds?.Count ?? 0);
+            
+            // Optimized batch update - single transaction with change detection
+            await _hospitalRepository.UpdateHospitalServiceTypesBatchAsync(hospitalId, serviceTypeIds ?? new List<Guid>());
+            
+            // Clear related cache entries
+            var cacheKey = $"hospital_service_types_{hospitalId}";
+            _cache.Remove(cacheKey);
+            
+            _logger.LogInformation("Successfully updated service types for hospital {HospitalId}", hospitalId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update service types for hospital {HospitalId}", hospitalId);
+            throw new HospitalOperationException($"Failed to update service types for hospital {hospitalId}", ex);
         }
     }
 

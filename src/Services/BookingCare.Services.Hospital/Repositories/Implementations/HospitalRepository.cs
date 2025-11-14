@@ -406,6 +406,60 @@ public class HospitalRepository : IHospitalRepository
         return true;
     }
 
+    public async Task UpdateHospitalSpecialtiesBatchAsync(Guid hospitalId, List<Guid> specialtyIds)
+    {
+        var distinctSpecialtyIds = specialtyIds?.Distinct().ToHashSet() ?? new HashSet<Guid>();
+        
+        // Get existing specialty IDs only (more efficient than loading full entities)
+        var existingSpecialtyIdsList = await _context.HospitalSpecialties
+            .Where(hs => hs.HospitalId == hospitalId)
+            .Select(hs => hs.SpecialtyId)
+            .ToListAsync();
+        var existingSpecialtyIds = existingSpecialtyIdsList.ToHashSet();
+
+        // Calculate changes to minimize database operations
+        var specialtiesToRemove = existingSpecialtyIds.Except(distinctSpecialtyIds).ToList();
+        var specialtiesToAdd = distinctSpecialtyIds.Except(existingSpecialtyIds).ToList();
+
+        // Only perform operations if there are actual changes
+        if (!specialtiesToRemove.Any() && !specialtiesToAdd.Any())
+        {
+            return; // No changes needed
+        }
+
+        // Remove specialties that are no longer needed
+        if (specialtiesToRemove.Any())
+        {
+            await _context.HospitalSpecialties
+                .Where(hs => hs.HospitalId == hospitalId && specialtiesToRemove.Contains(hs.SpecialtyId))
+                .ExecuteDeleteAsync(); // More efficient bulk delete
+        }
+
+        // Add new specialties
+        if (specialtiesToAdd.Any())
+        {
+            var newSpecialties = specialtiesToAdd.Select(specialtyId => new HospitalSpecialtyEntity
+            {
+                HospitalId = hospitalId,
+                SpecialtyId = specialtyId
+            }).ToList();
+            
+            await _context.HospitalSpecialties.AddRangeAsync(newSpecialties);
+        }
+
+        // Single SaveChanges call for all operations
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<Guid>> GetHospitalSpecialtyIdsAsync(Guid hospitalId)
+    {
+        // Optimized: Only query IDs, don't load full hospital entity
+        return await _context.HospitalSpecialties
+            .Where(hs => hs.HospitalId == hospitalId)
+            .Select(hs => hs.SpecialtyId)
+            .ToListAsync();
+    }
+
     #endregion
 
     #region ServiceType Management
@@ -444,6 +498,61 @@ public class HospitalRepository : IHospitalRepository
         _context.HospitalServiceTypes.Remove(hospitalServiceType);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task UpdateHospitalServiceTypesBatchAsync(Guid hospitalId, List<Guid> serviceTypeIds)
+    {
+        var distinctServiceTypeIds = serviceTypeIds?.Distinct().ToHashSet() ?? new HashSet<Guid>();
+        
+        // Get existing service type IDs only (more efficient than loading full entities)
+        var existingServiceTypeIdsList = await _context.HospitalServiceTypes
+            .Where(hst => hst.HospitalId == hospitalId)
+            .Select(hst => hst.ServiceTypeId)
+            .ToListAsync();
+        var existingServiceTypeIds = existingServiceTypeIdsList.ToHashSet();
+
+        // Calculate changes to minimize database operations
+        var serviceTypesToRemove = existingServiceTypeIds.Except(distinctServiceTypeIds).ToList();
+        var serviceTypesToAdd = distinctServiceTypeIds.Except(existingServiceTypeIds).ToList();
+
+        // Only perform operations if there are actual changes
+        if (!serviceTypesToRemove.Any() && !serviceTypesToAdd.Any())
+        {
+            return; // No changes needed
+        }
+
+        // Remove service types that are no longer needed
+        if (serviceTypesToRemove.Any())
+        {
+            await _context.HospitalServiceTypes
+                .Where(hst => hst.HospitalId == hospitalId && serviceTypesToRemove.Contains(hst.ServiceTypeId))
+                .ExecuteDeleteAsync(); // More efficient bulk delete
+        }
+
+        // Add new service types
+        if (serviceTypesToAdd.Any())
+        {
+            var newServiceTypes = serviceTypesToAdd.Select(serviceTypeId => new HospitalServiceTypeEntity
+            {
+                HospitalId = hospitalId,
+                ServiceTypeId = serviceTypeId,
+                CreatedAt = DateTime.UtcNow
+            }).ToList();
+            
+            await _context.HospitalServiceTypes.AddRangeAsync(newServiceTypes);
+        }
+
+        // Single SaveChanges call for all operations
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<Guid>> GetHospitalServiceTypeIdsAsync(Guid hospitalId)
+    {
+        // Optimized: Only query IDs, don't load full hospital entity
+        return await _context.HospitalServiceTypes
+            .Where(hst => hst.HospitalId == hospitalId)
+            .Select(hst => hst.ServiceTypeId)
+            .ToListAsync();
     }
 
     #endregion
