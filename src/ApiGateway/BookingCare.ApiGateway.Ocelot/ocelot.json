@@ -280,14 +280,14 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/tags/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
+        "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
     {
-      "DownstreamPathTemplate": "/chatHub{everything}",
+      "DownstreamPathTemplate": "/chatHub/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -295,10 +295,13 @@
           "Port": 6005
         }
       ],
-      "UpstreamPathTemplate": "/api/v{version}/communication/chatHub{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "OPTIONS", "DELETE", "PUT" ],
-      "Priority": 1,
-      "DangerousAcceptAnyServerCertificateValidator": false
+      "UpstreamPathTemplate": "/api/chatHub/{everything}",
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "UpgradeToWebSockets": true
     },
     {
       "DownstreamPathTemplate": "/api/v{version}/contents/{everything}",

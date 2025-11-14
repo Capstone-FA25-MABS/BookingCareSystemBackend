@@ -109,6 +109,9 @@ builder
 // Register participant enrichment service
 builder.Services.AddScoped<IParticipantEnrichmentService, ParticipantEnrichmentService>();
 
+// Add JWT Authentication and Authorization using centralized configuration
+builder.Services.AddJwtAuthAndAuthorization();
+
 // Add SignalR
 builder.Services.AddSignalR(options =>
 {
@@ -126,7 +129,11 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy
-                .WithOrigins("http://localhost:5173", "http://localhost:5174", "https://localhost:5173") // Add your frontend URLs
+                .WithOrigins(
+                    "http://localhost:5173",
+                    "http://localhost:5174",
+                    "https://localhost:5173"
+                ) // Add your frontend URLs
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -184,7 +191,9 @@ app.UseEventBus(eventBus =>
 // Configure the HTTP request pipeline using ProgramExtensions
 app.UseCommonSwaggerUI("Communication");
 
-app.UseRouting();
+// Unified auth + routing pipeline (adds UseAutoToken, UseRouting, UseAuthentication, UseAuthorization)
+// Replaces manual calls to keep consistency with other services
+app.UseStandardAuthPipeline();
 
 // Add health check endpoint
 app.MapHealthChecks("/health");
@@ -200,4 +209,4 @@ app.MapGrpcService<GreeterService>();
 // Add common health check endpoint using ProgramExtensions
 app.MapCommonHealthCheck("Communication");
 
-app.Run();
+await app.RunAsync();

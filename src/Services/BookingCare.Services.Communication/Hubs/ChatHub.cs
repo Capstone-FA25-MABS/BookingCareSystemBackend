@@ -11,8 +11,7 @@ namespace BookingCare.Services.Communication.Hubs;
 /// <summary>
 /// SignalR Hub cho real-time chat communication
 /// </summary>
-// [Authorize] // ⚠️ TODO: Temporarily disabled for testing SignalR connection
-[AllowAnonymous] // ⚠️ TODO: Enable authentication after connection test passes
+[Authorize]
 public class ChatHub : Hub
 {
     private readonly IMessageService _messageService;
@@ -1050,7 +1049,6 @@ public class IceCandidateRequest
 public class CallBusyRequest
 {
     public string CallerId { get; set; } = string.Empty;
-
 }
 
 #endregion

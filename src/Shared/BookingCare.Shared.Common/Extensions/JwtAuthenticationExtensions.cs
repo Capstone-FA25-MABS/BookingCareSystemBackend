@@ -122,7 +122,12 @@ public static class JwtAuthenticationExtensions
                 var path = context.HttpContext.Request.Path;
 
                 // Check if this is a SignalR hub request
-                if (path.StartsWithSegments("/hubs") || path.StartsWithSegments("/noti-hubs"))
+                if (
+                    path.StartsWithSegments("/hubs")
+                    || path.StartsWithSegments("/noti-hubs")
+                    || path.StartsWithSegments("/chatHub")
+                    || path.StartsWithSegments("/api/chatHub")
+                )
                 {
                     // Try to get token from query string first (for WebSocket connections)
                     var accessToken = context.Request.Query["access_token"].ToString();
