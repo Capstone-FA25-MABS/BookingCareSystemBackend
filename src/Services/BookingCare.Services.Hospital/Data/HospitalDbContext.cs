@@ -1,5 +1,4 @@
 using BookingCare.Services.Hospital.Models.Entities;
-using BookingCare.Services.Hospital.Enums;
 using BookingCare.Shared.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -180,16 +179,28 @@ public class HospitalDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            // Representative Information
+            entity.Property(e => e.RepresentativeName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.RepresentativeEmail).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.RepresentativeEmail);
+            entity.Property(e => e.RepresentativePhone).IsRequired().HasMaxLength(20);
+
+            // Hospital Information
             entity.Property(e => e.HospitalName).IsRequired().HasMaxLength(255);
-            entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
-            entity.HasIndex(e => e.Email);
-            entity.Property(e => e.Phone).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.HospitalEmail).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.HospitalEmail);
+            entity.Property(e => e.HospitalPhone).IsRequired().HasMaxLength(20);
             entity.Property(e => e.Address).IsRequired();
+            entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.TaxCode);
+
+            // Files
             entity.Property(e => e.LicenseFile).IsRequired();
             entity.Property(e => e.BusinessCertificateFile).IsRequired();
             entity.Property(e => e.IdentityCardFile).IsRequired();
-            entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(50);
-            entity.HasIndex(e => e.TaxCode);
+
+            // Status and metadata
             entity.Property(e => e.Status).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");

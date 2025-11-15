@@ -8,19 +8,35 @@ namespace BookingCare.Services.Hospital.Models.DTOs.Requests;
 /// </summary>
 public class CreateHospitalRegistrationRequestDto
 {
+    // Representative Information
+    [Required(ErrorMessage = "Tên người đại diện là bắt buộc")]
+    [MaxLength(255, ErrorMessage = "Tên người đại diện không được vượt quá 255 ký tự")]
+    public string RepresentativeName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Email người đại diện là bắt buộc")]
+    [EmailAddress(ErrorMessage = "Email người đại diện không hợp lệ")]
+    [MaxLength(100, ErrorMessage = "Email người đại diện không được vượt quá 100 ký tự")]
+    public string RepresentativeEmail { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Số điện thoại người đại diện là bắt buộc")]
+    [Phone(ErrorMessage = "Số điện thoại người đại diện không hợp lệ")]
+    [RegularExpression(@"^(0[3|5|7|8|9])+([0-9]{8})$", ErrorMessage = "Số điện thoại người đại diện phải là số điện thoại Việt Nam hợp lệ")]
+    public string RepresentativePhone { get; set; } = string.Empty;
+
+    // Hospital Information
     [Required(ErrorMessage = "Tên bệnh viện là bắt buộc")]
     [MaxLength(255, ErrorMessage = "Tên bệnh viện không được vượt quá 255 ký tự")]
     public string HospitalName { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Email là bắt buộc")]
-    [EmailAddress(ErrorMessage = "Email không hợp lệ")]
-    [MaxLength(100, ErrorMessage = "Email không được vượt quá 100 ký tự")]
-    public string Email { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Email bệnh viện là bắt buộc")]
+    [EmailAddress(ErrorMessage = "Email bệnh viện không hợp lệ")]
+    [MaxLength(100, ErrorMessage = "Email bệnh viện không được vượt quá 100 ký tự")]
+    public string HospitalEmail { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Số điện thoại là bắt buộc")]
-    [Phone(ErrorMessage = "Số điện thoại không hợp lệ")]
-    [RegularExpression(@"^(0[3|5|7|8|9])+([0-9]{8})$", ErrorMessage = "Số điện thoại phải là số điện thoại Việt Nam hợp lệ")]
-    public string Phone { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Số điện thoại bệnh viện là bắt buộc")]
+    [Phone(ErrorMessage = "Số điện thoại bệnh viện không hợp lệ")]
+    [RegularExpression(@"^(0[3|5|7|8|9])+([0-9]{8})$", ErrorMessage = "Số điện thoại bệnh viện phải là số điện thoại Việt Nam hợp lệ")]
+    public string HospitalPhone { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Địa chỉ là bắt buộc")]
     public string Address { get; set; } = string.Empty;
@@ -82,6 +98,18 @@ public class RejectRegistrationRequestDto
     [Required(ErrorMessage = "Lý do từ chối là bắt buộc")]
     [MaxLength(1000, ErrorMessage = "Lý do không được vượt quá 1000 ký tự")]
     public string Reason { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request DTO for updating hospital registration (contract file updates)
+/// </summary>
+public class UpdateRegistrationRequestDto
+{
+    /// <summary>
+    /// Updated contract file
+    /// </summary>
+    [Required(ErrorMessage = "File hợp đồng là bắt buộc")]
+    public IFormFile ContractFile { get; set; } = null!;
 }
 
 /// <summary>

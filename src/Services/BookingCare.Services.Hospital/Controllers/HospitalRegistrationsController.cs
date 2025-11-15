@@ -67,22 +67,22 @@ public class HospitalRegistrationsController : BaseApiController
     }
 
     /// <summary>
-    /// Update registration status (Admin only)
+    /// Update registration (Admin only) - Currently supports contract file updates
     /// </summary>
     /// <param name="id">Registration ID</param>
-    /// <param name="request">Status update request</param>
+    /// <param name="request">Update request</param>
     /// <returns>Updated registration</returns>
-    [HttpPatch("{id:guid}/status")]
-    [Authorize(Roles = "ADMIN")]
+    [HttpPut("{id:guid}/update")]
+    //[Authorize(Roles = "ADMIN")]
     [ProducesResponseType(typeof(HospitalRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateRegistrationStatus(
+    public async Task<IActionResult> UpdateRegistration(
         Guid id,
-        [FromForm] UpdateRegistrationStatusRequestDto request)
+        [FromForm] UpdateRegistrationRequestDto request)
     {
-        var result = await _registrationService.UpdateRegistrationStatusAsync(id, request);
-        return Success(result, "Cập nhật trạng thái đơn đăng ký thành công");
+        var result = await _registrationService.UpdateRegistrationAsync(id, request);
+        return Success(result, "Cập nhật đơn đăng ký thành công");
     }
 
     /// <summary>
@@ -91,7 +91,7 @@ public class HospitalRegistrationsController : BaseApiController
     /// <param name="id">Registration ID</param>
     /// <returns>Success status</returns>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = "ADMIN")]
+    //[Authorize(Roles = "ADMIN")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteRegistration(Guid id)

@@ -11,6 +11,23 @@ public class HospitalRegistrationEntity
     [Column("id")]
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    // Representative Information
+    [Required]
+    [MaxLength(255)]
+    [Column("representative_name")]
+    public string RepresentativeName { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(100)]
+    [Column("representative_email")]
+    public string RepresentativeEmail { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(20)]
+    [Column("representative_phone")]
+    public string RepresentativePhone { get; set; } = string.Empty;
+
+    // Hospital Information
     [Required]
     [MaxLength(255)]
     [Column("hospital_name")]
@@ -18,13 +35,13 @@ public class HospitalRegistrationEntity
 
     [Required]
     [MaxLength(100)]
-    [Column("email")]
-    public string Email { get; set; } = string.Empty;
+    [Column("hospital_email")]
+    public string HospitalEmail { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(20)]
-    [Column("phone")]
-    public string Phone { get; set; } = string.Empty;
+    [Column("hospital_phone")]
+    public string HospitalPhone { get; set; } = string.Empty;
 
     [Required]
     [Column("address")]

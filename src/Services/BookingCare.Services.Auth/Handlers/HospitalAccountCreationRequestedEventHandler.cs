@@ -3,7 +3,6 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.Saga.Abstractions;
 using BookingCare.Shared.Saga.Models;
 using BookingCare.Shared.Saga.SagaDefinition;
-using Microsoft.Extensions.Configuration;
 
 namespace BookingCare.Services.Auth.Handlers;
 
@@ -37,7 +36,7 @@ public class HospitalAccountCreationRequestedEventHandler
     {
         _logger.LogInformation(
             "[HospitalAccountCreationRequestedEventHandler] Received hospital account creation request for {Email}",
-            @event.Email);
+            @event.HospitalEmail);
 
         try
         {
@@ -51,8 +50,8 @@ public class HospitalAccountCreationRequestedEventHandler
 
             // Set saga data
             sagaContext.SetData("RegistrationId", @event.RegistrationId.ToString());
-            sagaContext.SetData("Email", @event.Email);
-            sagaContext.SetData("PhoneNumber", @event.Phone);
+            sagaContext.SetData("Email", @event.HospitalEmail);
+            sagaContext.SetData("PhoneNumber", @event.HospitalPhone);
             sagaContext.SetData("Password", @event.GeneratedPassword); // CreateAccountGrpcStep reads "Password"
             sagaContext.SetData("Role", "STAFF"); // Hospital accounts have STAFF role
             sagaContext.SetData("HospitalName", @event.HospitalName);
@@ -88,8 +87,9 @@ public class HospitalAccountCreationRequestedEventHandler
                 {
                     RegistrationId = @event.RegistrationId,
                     AccountId = parsedAccountId,
+                    RepresentativeEmail = @event.RepresentativeEmail,
                     HospitalId = parsedHospitalId,
-                    Email = @event.Email,
+                    HospitalEmail = @event.HospitalEmail,
                     HospitalName = @event.HospitalName,
                     GeneratedPassword = @event.GeneratedPassword,
                     LoginUrl = $"{adminFrontendUrl}/login",
@@ -101,21 +101,21 @@ public class HospitalAccountCreationRequestedEventHandler
 
                 _logger.LogInformation(
                     "[HospitalAccountCreationRequestedEventHandler] Hospital account creation saga completed for {Email}. Events published: HospitalRegistrationAccountLinkedEvent (RegistrationId: {RegistrationId}), HospitalAccountCreatedEvent",
-                    @event.Email,
+                    @event.HospitalEmail,
                     @event.RegistrationId);
             }
             else
             {
                 _logger.LogError(
                     "[HospitalAccountCreationRequestedEventHandler] Hospital account creation saga failed for {Email}: {Error}",
-                    @event.Email,
+                    @event.HospitalEmail,
                     result.ErrorMessage);
 
                 // Publish failure event
                 var failureEvent = new HospitalAccountCreationFailedEvent
                 {
                     RegistrationId = @event.RegistrationId,
-                    Email = @event.Email,
+                    Email = @event.HospitalEmail,
                     ErrorMessage = result.ErrorMessage ?? "Unknown error",
                     FailedAt = DateTime.UtcNow
                 };
@@ -128,13 +128,13 @@ public class HospitalAccountCreationRequestedEventHandler
             _logger.LogError(
                 ex,
                 "[HospitalAccountCreationRequestedEventHandler] Exception handling hospital account creation for {Email}",
-                @event.Email);
+                @event.HospitalEmail);
 
             // Publish failure event
             var failureEvent = new HospitalAccountCreationFailedEvent
             {
                 RegistrationId = @event.RegistrationId,
-                Email = @event.Email,
+                Email = @event.HospitalEmail,
                 ErrorMessage = ex.Message,
                 FailedAt = DateTime.UtcNow
             };

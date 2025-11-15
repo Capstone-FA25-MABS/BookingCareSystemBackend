@@ -7,7 +7,8 @@ public interface IHospitalRegistrationRepository
 {
     Task<HospitalRegistrationEntity> CreateAsync(HospitalRegistrationEntity registration);
     Task<HospitalRegistrationEntity?> GetByIdAsync(Guid id);
-    Task<HospitalRegistrationEntity?> GetByEmailAsync(string email);
+    Task<HospitalRegistrationEntity?> GetByHospitalEmailAsync(string hospitalEmail);
+    Task<HospitalRegistrationEntity?> GetByRepresentativeEmailAsync(string representativeEmail);
     Task<HospitalRegistrationEntity?> GetByTaxCodeAsync(string taxCode);
     Task<(List<HospitalRegistrationEntity> Registrations, int TotalCount)> GetAllAsync(
         HospitalRegistrationQueryParameters parameters);
