@@ -62,16 +62,12 @@ public class HospitalRegistrationSubmittedEventHandler : IIntegrationEventHandle
                 cancellationToken: cancellationToken
             );
 
-            _logger.LogInformation(
-                "[HospitalRegistrationSubmittedEventHandler] Successfully sent confirmation email to: {Email}",
-                @event.Email
-            );
-
             // Create notification for admin about new hospital registration
             await CreateAdminNotificationAsync(@event, cancellationToken);
 
             _logger.LogInformation(
-                "[HospitalRegistrationSubmittedEventHandler] Successfully created admin notification for hospital: {HospitalName}",
+                "[HospitalRegistrationSubmittedEventHandler] Successfully sent confirmation email to: {Email} and created admin notification for hospital: {HospitalName}",
+                @event.Email,
                 @event.HospitalName
             );
         }
