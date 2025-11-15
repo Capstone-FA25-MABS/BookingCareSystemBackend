@@ -1,11 +1,11 @@
 using AutoMapper;
+using BookingCare.Services.Hospital.Enums;
 using BookingCare.Services.Hospital.Exceptions;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
 using BookingCare.Services.Hospital.Models.DTOs.Responses;
 using BookingCare.Services.Hospital.Models.Entities;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Services.Interfaces;
-using BookingCare.Services.Hospital.Enums;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
@@ -27,7 +27,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         ISubscriptionPlanRepository subscriptionPlanRepository,
         IMapper mapper,
         IEventBus eventBus,
-        ILogger<HospitalSubscriptionService> logger)
+        ILogger<HospitalSubscriptionService> logger
+    )
     {
         _hospitalSubscriptionRepository = hospitalSubscriptionRepository;
         _hospitalRepository = hospitalRepository;
@@ -45,7 +46,9 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             // Update status based on current date
             await UpdateSubscriptionStatusAsync(subscription);
         }
-        return subscription != null ? _mapper.Map<HospitalSubscriptionResponse>(subscription) : null;
+        return subscription != null
+            ? _mapper.Map<HospitalSubscriptionResponse>(subscription)
+            : null;
     }
 
     public async Task<HospitalSubscriptionResponse?> GetActiveByHospitalIdAsync(Guid hospitalId)
@@ -59,7 +62,9 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
                 throw new HospitalNotFoundException(hospitalId);
             }
 
-            var subscription = await _hospitalSubscriptionRepository.GetActiveByHospitalIdAsync(hospitalId);
+            var subscription = await _hospitalSubscriptionRepository.GetActiveByHospitalIdAsync(
+                hospitalId
+            );
             if (subscription == null)
             {
                 return null;
@@ -110,7 +115,10 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         }
         catch (Exception ex)
         {
-            throw new HospitalOperationException($"Failed to retrieve active subscription for hospital {hospitalId}", ex);
+            throw new HospitalOperationException(
+                $"Failed to retrieve active subscription for hospital {hospitalId}",
+                ex
+            );
         }
     }
 
@@ -127,19 +135,23 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         return _mapper.Map<List<HospitalSubscriptionResponse>>(subscriptions);
     }
 
-    public async Task<HospitalSubscriptionResponse> CreateAsync(CreateHospitalSubscriptionRequest request)
+    public async Task<HospitalSubscriptionResponse> CreateAsync(
+        CreateHospitalSubscriptionRequest request
+    )
     {
         // Enhanced validation
         await ValidateHospitalSubscriptionCreationAsync(request);
 
         // Check for existing active subscription
-        var existingActive = await _hospitalSubscriptionRepository
-            .GetActiveByHospitalIdAsync(request.HospitalId);
+        var existingActive = await _hospitalSubscriptionRepository.GetActiveByHospitalIdAsync(
+            request.HospitalId
+        );
 
         if (existingActive != null)
         {
             throw new HospitalOperationException(
-                "Hospital already has an active subscription. Please cancel existing subscription first or use upgrade functionality.");
+                "Hospital already has an active subscription. Please cancel existing subscription first or use upgrade functionality."
+            );
         }
 
         var subscription = _mapper.Map<HospitalSubscriptionEntity>(request);
@@ -149,7 +161,9 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         var now = DateTime.Now;
 
         // Get subscription plan to determine billing cycle
-        var subscriptionPlan = await _subscriptionPlanRepository.GetByIdAsync(request.SubscriptionId);
+        var subscriptionPlan = await _subscriptionPlanRepository.GetByIdAsync(
+            request.SubscriptionId
+        );
         if (subscriptionPlan == null)
         {
             throw new SubscriptionPlanNotFoundException(request.SubscriptionId);
@@ -176,7 +190,9 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
 
         try
         {
-            var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(subscription);
+            var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(
+                subscription
+            );
             var response = _mapper.Map<HospitalSubscriptionResponse>(createdSubscription);
 
             // Publish event for email notification
@@ -202,7 +218,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
                         MaxDoctors = subscriptionPlan.MaxDoctors,
                         MaxAppointmentsPerMonth = subscriptionPlan.MaxAppointments,
                         Features = subscriptionPlan.Features,
-                        CreatedAt = createdSubscription.CreatedAt
+                        CreatedAt = createdSubscription.CreatedAt,
                     };
 
                     await _eventBus.PublishAsync(subscriptionCreatedEvent);
@@ -231,7 +247,10 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         }
     }
 
-    public async Task<HospitalSubscriptionResponse> UpdateAsync(Guid id, UpdateHospitalSubscriptionRequest request)
+    public async Task<HospitalSubscriptionResponse> UpdateAsync(
+        Guid id,
+        UpdateHospitalSubscriptionRequest request
+    )
     {
         var existingSubscription = await _hospitalSubscriptionRepository.GetByIdAsync(id);
         if (existingSubscription == null)
@@ -247,12 +266,15 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         {
             existingSubscription.Status = DetermineInitialStatus(
                 existingSubscription.StartDate,
-                existingSubscription.EndDate);
+                existingSubscription.EndDate
+            );
         }
 
         try
         {
-            var updatedSubscription = await _hospitalSubscriptionRepository.UpdateAsync(existingSubscription);
+            var updatedSubscription = await _hospitalSubscriptionRepository.UpdateAsync(
+                existingSubscription
+            );
             return _mapper.Map<HospitalSubscriptionResponse>(updatedSubscription);
         }
         catch (Exception ex)
@@ -298,7 +320,11 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
     private async Task UpdateSubscriptionStatusAsync(HospitalSubscriptionEntity subscription)
     {
         var currentStatus = subscription.Status;
-        var newStatus = DetermineCurrentStatus(subscription.StartDate, subscription.EndDate, subscription.Status);
+        var newStatus = DetermineCurrentStatus(
+            subscription.StartDate,
+            subscription.EndDate,
+            subscription.Status
+        );
 
         if (currentStatus != newStatus)
         {
@@ -307,7 +333,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         }
     }
 
-    private SubscriptionStatus DetermineInitialStatus(DateTime startDate, DateTime endDate)
+    private static SubscriptionStatus DetermineInitialStatus(DateTime startDate, DateTime endDate)
     {
         var now = DateTime.Now;
 
@@ -324,12 +350,19 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         return SubscriptionStatus.ACTIVE;
     }
 
-    private SubscriptionStatus DetermineCurrentStatus(DateTime startDate, DateTime endDate, SubscriptionStatus currentStatus)
+    private static SubscriptionStatus DetermineCurrentStatus(
+        DateTime startDate,
+        DateTime endDate,
+        SubscriptionStatus currentStatus
+    )
     {
         var now = DateTime.Now;
 
         // Don't change manually set statuses like CANCELLED or TRIAL
-        if (currentStatus == SubscriptionStatus.CANCELLED || currentStatus == SubscriptionStatus.TRIAL)
+        if (
+            currentStatus == SubscriptionStatus.CANCELLED
+            || currentStatus == SubscriptionStatus.TRIAL
+        )
         {
             // But check if trial has expired
             if (currentStatus == SubscriptionStatus.TRIAL && endDate < now)
@@ -355,9 +388,12 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
 
     public async Task<HospitalSubscriptionResponse> UpgradeSubscriptionAsync(
         Guid currentSubscriptionId,
-        Guid newSubscriptionPlanId)
+        Guid newSubscriptionPlanId
+    )
     {
-        var currentSubscription = await _hospitalSubscriptionRepository.GetByIdAsync(currentSubscriptionId);
+        var currentSubscription = await _hospitalSubscriptionRepository.GetByIdAsync(
+            currentSubscriptionId
+        );
         if (currentSubscription == null)
         {
             throw new HospitalOperationException("Current subscription not found");
@@ -369,7 +405,9 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             throw new SubscriptionPlanNotFoundException(newSubscriptionPlanId);
         }
 
-        var currentPlan = await _subscriptionPlanRepository.GetByIdAsync(currentSubscription.SubscriptionId);
+        var currentPlan = await _subscriptionPlanRepository.GetByIdAsync(
+            currentSubscription.SubscriptionId
+        );
         if (currentPlan == null)
         {
             throw new SubscriptionPlanNotFoundException(currentSubscription.SubscriptionId);
@@ -379,10 +417,17 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
 
         var now = DateTime.Now;
         var additionalDaysForNewPlan = CalculateBonusDaysForUpgrade(
-            currentSubscription, currentPlan, newPlan, now);
+            currentSubscription,
+            currentPlan,
+            newPlan,
+            now
+        );
 
         var newSubscriptionEndDate = CalculateNewSubscriptionEndDate(
-            newPlan, additionalDaysForNewPlan, now);
+            newPlan,
+            additionalDaysForNewPlan,
+            now
+        );
 
         ValidateSubscriptionEndDate(newSubscriptionEndDate, newPlan, additionalDaysForNewPlan, now);
 
@@ -397,17 +442,25 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             EndDate = newSubscriptionEndDate,
             Status = SubscriptionStatus.ACTIVE,
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
         };
 
         try
         {
             await _hospitalSubscriptionRepository.UpdateAsync(currentSubscription);
-            var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(newSubscription);
+            var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(
+                newSubscription
+            );
             var response = _mapper.Map<HospitalSubscriptionResponse>(createdSubscription);
 
             await PublishUpgradeEventAsync(
-                createdSubscription, currentSubscription, currentPlan, newPlan, additionalDaysForNewPlan, now);
+                createdSubscription,
+                currentSubscription,
+                currentPlan,
+                newPlan,
+                additionalDaysForNewPlan,
+                now
+            );
 
             return response;
         }
@@ -420,7 +473,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
     private async Task ValidateUpgradeRequestAsync(
         HospitalSubscriptionEntity currentSubscription,
         SubscriptionPlanEntity currentPlan,
-        SubscriptionPlanEntity newPlan)
+        SubscriptionPlanEntity newPlan
+    )
     {
         if (currentSubscription.SubscriptionId == newPlan.Id)
         {
@@ -438,16 +492,18 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         if (currentBillingCycleValue > newBillingCycleValue)
         {
             throw new HospitalOperationException(
-                $"Không thể chuyển từ gói {GetBillingCycleDisplayName(currentPlan.BillingCycle)} xuống gói {GetBillingCycleDisplayName(newPlan.BillingCycle)}. " +
-                $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới.");
+                $"Không thể chuyển từ gói {GetBillingCycleDisplayName(currentPlan.BillingCycle)} xuống gói {GetBillingCycleDisplayName(newPlan.BillingCycle)}. "
+                    + $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới."
+            );
         }
 
         if (currentBillingCycleValue == newBillingCycleValue && currentPlan.Price > newPlan.Price)
         {
             throw new HospitalOperationException(
-                $"Không thể chuyển từ gói {currentPlan.Name} ({GetBillingCycleDisplayName(currentPlan.BillingCycle)}) " +
-                $"xuống gói {newPlan.Name} ({GetBillingCycleDisplayName(newPlan.BillingCycle)}). " +
-                $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới.");
+                $"Không thể chuyển từ gói {currentPlan.Name} ({GetBillingCycleDisplayName(currentPlan.BillingCycle)}) "
+                    + $"xuống gói {newPlan.Name} ({GetBillingCycleDisplayName(newPlan.BillingCycle)}). "
+                    + $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới."
+            );
         }
     }
 
@@ -455,7 +511,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         HospitalSubscriptionEntity currentSubscription,
         SubscriptionPlanEntity currentPlan,
         SubscriptionPlanEntity newPlan,
-        DateTime now)
+        DateTime now
+    )
     {
         if (currentSubscription.EndDate <= now)
         {
@@ -480,7 +537,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         var remainingValue = (decimal)dailyRateForCurrentPlan * (decimal)remainingDaysDecimal;
 
         var billingCycleDaysForNewPlan = GetBillingCycleDays(newPlan.BillingCycle);
-        var dailyRateForNewPlan = billingCycleDaysForNewPlan > 0 ? newPlan.Price / billingCycleDaysForNewPlan : 0;
+        var dailyRateForNewPlan =
+            billingCycleDaysForNewPlan > 0 ? newPlan.Price / billingCycleDaysForNewPlan : 0;
 
         if (dailyRateForNewPlan <= 0)
         {
@@ -496,7 +554,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
     private DateTime CalculateNewSubscriptionEndDate(
         SubscriptionPlanEntity newPlan,
         double additionalDaysForNewPlan,
-        DateTime now)
+        DateTime now
+    )
     {
         var billingCycleMonths = GetBillingCycleMonths(newPlan.BillingCycle);
         var newSubscriptionEndDate = now.AddMonths(billingCycleMonths);
@@ -513,24 +572,28 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         DateTime newSubscriptionEndDate,
         SubscriptionPlanEntity newPlan,
         double additionalDaysForNewPlan,
-        DateTime now)
+        DateTime now
+    )
     {
         var billingCycleMonths = GetBillingCycleMonths(newPlan.BillingCycle);
         var actualDays = (newSubscriptionEndDate - now).TotalDays;
         var expectedMinDays = billingCycleMonths switch
         {
-            3 => 85,  // QUARTERLY: at least ~85 days
+            3 => 85, // QUARTERLY: at least ~85 days
             12 => 360, // YEARLY: at least ~360 days
-            _ => 25   // MONTHLY: at least ~25 days
+            _ =>
+                25 // MONTHLY: at least ~25 days
+            ,
         };
 
         if (actualDays < expectedMinDays)
         {
             System.Diagnostics.Debug.WriteLine(
-                $"WARNING: Calculated subscription duration seems incorrect. " +
-                $"Start: {now:yyyy-MM-dd HH:mm:ss}, End: {newSubscriptionEndDate:yyyy-MM-dd HH:mm:ss}, " +
-                $"Days: {actualDays:F2}, Expected min: {expectedMinDays}, " +
-                $"BillingCycle: {newPlan.BillingCycle}, BonusDays: {additionalDaysForNewPlan}");
+                $"WARNING: Calculated subscription duration seems incorrect. "
+                    + $"Start: {now:yyyy-MM-dd HH:mm:ss}, End: {newSubscriptionEndDate:yyyy-MM-dd HH:mm:ss}, "
+                    + $"Days: {actualDays:F2}, Expected min: {expectedMinDays}, "
+                    + $"BillingCycle: {newPlan.BillingCycle}, BonusDays: {additionalDaysForNewPlan}"
+            );
         }
     }
 
@@ -540,7 +603,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         SubscriptionPlanEntity currentPlan,
         SubscriptionPlanEntity newPlan,
         double additionalDaysForNewPlan,
-        DateTime now)
+        DateTime now
+    )
     {
         try
         {
@@ -571,7 +635,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
                 NewMaxDoctors = newPlan.MaxDoctors,
                 NewMaxAppointmentsPerMonth = newPlan.MaxAppointments,
                 NewFeatures = newPlan.Features,
-                UpgradedAt = now
+                UpgradedAt = now,
             };
 
             await _eventBus.PublishAsync(subscriptionUpgradedEvent);
@@ -593,7 +657,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
 
     public async Task<HospitalSubscriptionResponse> ExtendSubscriptionAsync(
         Guid subscriptionId,
-        int additionalMonths)
+        int additionalMonths
+    )
     {
         var subscription = await _hospitalSubscriptionRepository.GetByIdAsync(subscriptionId);
         if (subscription == null)
@@ -601,7 +666,10 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             throw new HospitalOperationException("Subscription not found");
         }
 
-        if (subscription.Status != SubscriptionStatus.ACTIVE && subscription.Status != SubscriptionStatus.TRIAL)
+        if (
+            subscription.Status != SubscriptionStatus.ACTIVE
+            && subscription.Status != SubscriptionStatus.TRIAL
+        )
         {
             throw new HospitalOperationException("Can only extend active or trial subscriptions");
         }
@@ -611,7 +679,9 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
 
         try
         {
-            var updatedSubscription = await _hospitalSubscriptionRepository.UpdateAsync(subscription);
+            var updatedSubscription = await _hospitalSubscriptionRepository.UpdateAsync(
+                subscription
+            );
             return _mapper.Map<HospitalSubscriptionResponse>(updatedSubscription);
         }
         catch (Exception ex)
@@ -622,9 +692,12 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
 
     public async Task<HospitalSubscriptionResponse> ConvertTrialToPaidAsync(
         Guid trialSubscriptionId,
-        Guid paidSubscriptionPlanId)
+        Guid paidSubscriptionPlanId
+    )
     {
-        var trialSubscription = await _hospitalSubscriptionRepository.GetByIdAsync(trialSubscriptionId);
+        var trialSubscription = await _hospitalSubscriptionRepository.GetByIdAsync(
+            trialSubscriptionId
+        );
         if (trialSubscription == null)
         {
             throw new HospitalOperationException("Trial subscription not found");
@@ -654,23 +727,30 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             EndDate = DateTime.Now.AddMonths(GetBillingCycleMonths(paidPlan.BillingCycle)),
             Status = SubscriptionStatus.ACTIVE,
             CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            UpdatedAt = DateTime.Now,
         };
 
         try
         {
             await _hospitalSubscriptionRepository.UpdateAsync(trialSubscription);
-            var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(paidSubscription);
+            var createdSubscription = await _hospitalSubscriptionRepository.CreateAsync(
+                paidSubscription
+            );
 
             return _mapper.Map<HospitalSubscriptionResponse>(createdSubscription);
         }
         catch (Exception ex)
         {
-            throw new HospitalOperationException("Failed to convert trial to paid subscription", ex);
+            throw new HospitalOperationException(
+                "Failed to convert trial to paid subscription",
+                ex
+            );
         }
     }
 
-    private async Task ValidateHospitalSubscriptionCreationAsync(CreateHospitalSubscriptionRequest request)
+    private async Task ValidateHospitalSubscriptionCreationAsync(
+        CreateHospitalSubscriptionRequest request
+    )
     {
         // Validate hospital exists
         if (!await _hospitalRepository.ExistsAsync(request.HospitalId))
@@ -693,7 +773,9 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         // Validate start date is not too far in the past
         if (request.StartDate < DateTime.Now.AddDays(-30))
         {
-            throw new HospitalOperationException("Start date cannot be more than 30 days in the past");
+            throw new HospitalOperationException(
+                "Start date cannot be more than 30 days in the past"
+            );
         }
 
         // Validate subscription duration is reasonable
@@ -706,18 +788,21 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
 
     private decimal CalculateProrationAmount(
         HospitalSubscriptionEntity currentSubscription,
-        SubscriptionPlanEntity newPlan)
+        SubscriptionPlanEntity newPlan
+    )
     {
         var remainingDays = (currentSubscription.EndDate - DateTime.Now).Days;
 
-        if (remainingDays <= 0) return 0;
+        if (remainingDays <= 0)
+            return 0;
 
         // Calculate daily rate based on new plan's billing cycle using actual date calculation
         var baseDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc); // Use a reference date
         var billingCycleEndDate = baseDate.AddMonths(GetBillingCycleMonths(newPlan.BillingCycle));
         var billingCycleDays = (billingCycleEndDate - baseDate).Days;
 
-        if (billingCycleDays <= 0) return 0;
+        if (billingCycleDays <= 0)
+            return 0;
 
         var dailyRate = newPlan.Price / billingCycleDays;
         return dailyRate * remainingDays;
@@ -730,7 +815,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             "MONTHLY" => 30,
             "QUARTERLY" => 90,
             "YEARLY" => 365,
-            _ => 30
+            _ => 30,
         };
     }
 
@@ -741,7 +826,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             "MONTHLY" => 1,
             "QUARTERLY" => 3,
             "YEARLY" => 12,
-            _ => 1
+            _ => 1,
         };
     }
 
@@ -753,7 +838,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             "MONTHLY" => 1,
             "QUARTERLY" => 3,
             "YEARLY" => 12,
-            _ => 1
+            _ => 1,
         };
     }
 
@@ -764,7 +849,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
             "MONTHLY" => "Tháng",
             "QUARTERLY" => "Quý",
             "YEARLY" => "Năm",
-            _ => "Tháng"
+            _ => "Tháng",
         };
     }
 }
