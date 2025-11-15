@@ -528,7 +528,7 @@ public class HospitalsController : BaseApiController
         try
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-            
+
             // Get hospital by account ID
             var hospital = await _hospitalService.GetHospitalProfileByAccountIdAsync(accountId);
             if (hospital == null)

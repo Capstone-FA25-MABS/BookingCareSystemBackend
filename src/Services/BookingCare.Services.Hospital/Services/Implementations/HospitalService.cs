@@ -21,6 +21,8 @@ public class HospitalService : IHospitalService
     private readonly HospitalServiceDependencies _dependencies;
     private readonly ILogger<HospitalService> _logger;
     private readonly IMemoryCache _cache;
+    private readonly ISubscriptionPlanRepository _subscriptionPlanRepository;
+    private readonly IHospitalSubscriptionService _hospitalSubscriptionService;
     private static readonly object _circuitBreakerLock = new object();
     private static int _consecutiveFailures = 0;
     private static DateTime _lastFailureTime = DateTime.MinValue;
@@ -33,7 +35,9 @@ public class HospitalService : IHospitalService
         IMapper mapper,
         HospitalServiceDependencies dependencies,
         ILogger<HospitalService> logger,
-        IMemoryCache cache)
+        IMemoryCache cache,
+        ISubscriptionPlanRepository subscriptionPlanRepository,
+        IHospitalSubscriptionService hospitalSubscriptionService)
     {
         _hospitalRepository = hospitalRepository;
         _hospitalImageRepository = hospitalImageRepository;
@@ -41,6 +45,8 @@ public class HospitalService : IHospitalService
         _dependencies = dependencies;
         _logger = logger;
         _cache = cache;
+        _subscriptionPlanRepository = subscriptionPlanRepository;
+        _hospitalSubscriptionService = hospitalSubscriptionService;
     }
 
     public async Task<HospitalProfileResponse?> GetByIdAsync(Guid id)
@@ -343,6 +349,9 @@ public class HospitalService : IHospitalService
                 }
             }
 
+            // Auto-assign trial subscription (Gói trải nghiệm)
+            await AssignTrialSubscriptionAsync(createdHospital.Id);
+
             // Reload hospital with relationships
             var hospitalWithRelations = await _hospitalRepository.GetByIdAsync(createdHospital.Id);
             var response = _mapper.Map<HospitalDetailResponse>(hospitalWithRelations);
@@ -476,13 +485,13 @@ public class HospitalService : IHospitalService
 
         // Get the first hospital for this account (most cases: 1 account = 1 hospital)
         var hospital = hospitals.First();
-        
+
         // Map to HospitalProfileResponse with full details
         var profileResponse = _mapper.Map<HospitalProfileResponse>(hospital);
-        
+
         // Note: HospitalProfileResponse doesn't need status enrichment
         // as it doesn't contain CurrentSubscription field
-        
+
         return profileResponse;
     }
 
@@ -529,15 +538,15 @@ public class HospitalService : IHospitalService
     public async Task<List<Guid>> GetHospitalSpecialtyIdsAsync(Guid hospitalId)
     {
         var cacheKey = $"hospital_specialties_{hospitalId}";
-        
+
         if (_cache.TryGetValue(cacheKey, out List<Guid>? cachedSpecialtyIds) && cachedSpecialtyIds != null)
         {
             return cachedSpecialtyIds;
         }
-        
+
         // Optimized: Direct query IDs without loading full hospital entity
         var specialtyIds = await _hospitalRepository.GetHospitalSpecialtyIdsAsync(hospitalId);
-        
+
         // Cache for 10 minutes
         var cacheOptions = new MemoryCacheEntryOptions
         {
@@ -546,7 +555,7 @@ public class HospitalService : IHospitalService
             Priority = CacheItemPriority.Normal
         };
         _cache.Set(cacheKey, specialtyIds, cacheOptions);
-        
+
         return specialtyIds;
     }
 
@@ -554,16 +563,16 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            _logger.LogInformation("Updating specialties for hospital {HospitalId}: {Count} specialties", 
+            _logger.LogInformation("Updating specialties for hospital {HospitalId}: {Count} specialties",
                 hospitalId, specialtyIds?.Count ?? 0);
-            
+
             // Optimized batch update - single transaction with change detection
             await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(hospitalId, specialtyIds ?? new List<Guid>());
-            
+
             // Clear related cache entries
             var cacheKey = $"hospital_specialties_{hospitalId}";
             _cache.Remove(cacheKey);
-            
+
             _logger.LogInformation("Successfully updated specialties for hospital {HospitalId}", hospitalId);
         }
         catch (Exception ex)
@@ -576,15 +585,15 @@ public class HospitalService : IHospitalService
     public async Task<List<Guid>> GetHospitalServiceTypeIdsAsync(Guid hospitalId)
     {
         var cacheKey = $"hospital_service_types_{hospitalId}";
-        
+
         if (_cache.TryGetValue(cacheKey, out List<Guid>? cachedServiceTypeIds) && cachedServiceTypeIds != null)
         {
             return cachedServiceTypeIds;
         }
-        
+
         // Optimized: Direct query IDs without loading full hospital entity
         var serviceTypeIds = await _hospitalRepository.GetHospitalServiceTypeIdsAsync(hospitalId);
-        
+
         // Cache for 10 minutes
         var cacheOptions = new MemoryCacheEntryOptions
         {
@@ -593,7 +602,7 @@ public class HospitalService : IHospitalService
             Priority = CacheItemPriority.Normal
         };
         _cache.Set(cacheKey, serviceTypeIds, cacheOptions);
-        
+
         return serviceTypeIds;
     }
 
@@ -601,16 +610,16 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            _logger.LogInformation("Updating service types for hospital {HospitalId}: {Count} service types", 
+            _logger.LogInformation("Updating service types for hospital {HospitalId}: {Count} service types",
                 hospitalId, serviceTypeIds?.Count ?? 0);
-            
+
             // Optimized batch update - single transaction with change detection
             await _hospitalRepository.UpdateHospitalServiceTypesBatchAsync(hospitalId, serviceTypeIds ?? new List<Guid>());
-            
+
             // Clear related cache entries
             var cacheKey = $"hospital_service_types_{hospitalId}";
             _cache.Remove(cacheKey);
-            
+
             _logger.LogInformation("Successfully updated service types for hospital {HospitalId}", hospitalId);
         }
         catch (Exception ex)
@@ -1310,6 +1319,53 @@ public class HospitalService : IHospitalService
         {
             _logger.LogError(ex, "Error deleting hospital image {ImageId} for hospital {HospitalId}", imageId, hospitalId);
             throw new HospitalOperationException($"Failed to delete hospital image {imageId} for hospital {hospitalId}", ex);
+        }
+    }
+
+    #endregion
+
+    #region Trial Subscription Assignment
+
+    /// <summary>
+    /// Automatically assigns a trial subscription plan (Gói trải nghiệm) to a newly created hospital.
+    /// The trial plan is identified as: price = 0, billing cycle = MONTHLY, status = ACTIVE
+    /// </summary>
+    /// <param name="hospitalId">The ID of the newly created hospital</param>
+    private async Task AssignTrialSubscriptionAsync(Guid hospitalId)
+    {
+        try
+        {
+            _logger.LogInformation("Attempting to assign trial subscription for hospital {HospitalId}", hospitalId);
+
+            // Find trial subscription plan (price = 0, MONTHLY, ACTIVE)
+            var allPlans = await _subscriptionPlanRepository.GetActiveAsync();
+            var trialPlan = allPlans.FirstOrDefault(p =>
+                p.Price == 0 &&
+                p.BillingCycle == "MONTHLY" &&
+                p.Status == Status.ACTIVE);
+
+            if (trialPlan == null)
+            {
+                _logger.LogWarning("Trial subscription plan not found for hospital {HospitalId}. Please create a plan with price = 0 and billing cycle = MONTHLY", hospitalId);
+                return;
+            }
+
+            // Create hospital subscription for 1 month trial period
+            var subscriptionRequest = new CreateHospitalSubscriptionRequest
+            {
+                HospitalId = hospitalId,
+                SubscriptionId = trialPlan.Id,
+                StartDate = DateTime.UtcNow,
+                EndDate = DateTime.UtcNow.AddMonths(1) // Trial for 1 month
+            };
+
+            await _hospitalSubscriptionService.CreateAsync(subscriptionRequest);
+            _logger.LogInformation("Successfully assigned trial subscription '{PlanName}' to hospital {HospitalId}", trialPlan.Name, hospitalId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to assign trial subscription for hospital {HospitalId}. Hospital created successfully but without subscription.", hospitalId);
+            // Don't throw - hospital creation should succeed even if subscription assignment fails
         }
     }
 

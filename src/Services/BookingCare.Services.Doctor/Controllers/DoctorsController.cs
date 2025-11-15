@@ -411,7 +411,7 @@ public class DoctorsController : BaseApiController
         try
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-            
+
             // Get doctor by account ID
             var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
             if (doctor == null)

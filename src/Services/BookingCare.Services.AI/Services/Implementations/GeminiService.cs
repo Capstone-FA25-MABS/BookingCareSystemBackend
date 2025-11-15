@@ -321,12 +321,26 @@ public class GeminiService : IGeminiService
     {
         try
         {
+            _logger.LogInformation("Attempting to deserialize JSON. Length: {Length}", json.Length);
+
             var options = GetJsonSerializerOptions();
-            return JsonSerializer.Deserialize<GeminiAnalysisResult>(json, options);
+            var result = JsonSerializer.Deserialize<GeminiAnalysisResult>(json, options);
+
+            if (result == null)
+            {
+                _logger.LogWarning("Deserialization returned null. JSON: {Json}", json);
+            }
+            else
+            {
+                _logger.LogInformation("Deserialization successful. Result type: {Type}", result.GetType().Name);
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to deserialize Gemini result. This is expected for incomplete JSON.");
+            _logger.LogError(ex, "Failed to deserialize Gemini result. Exception: {Message}. JSON: {Json}",
+                ex.Message, json.Length > 500 ? json.Substring(0, 500) + "..." : json);
             return null;
         }
     }
@@ -388,14 +402,20 @@ public class GeminiService : IGeminiService
 
             cleanedResponse = RemoveMarkdownCodeBlocks(geminiResponse);
 
-            _logger.LogDebug("Parsing Gemini response (cleaned). Length: {Length}", cleanedResponse.Length);
-            _logger.LogDebug("Original response preview: {Preview}", geminiResponse.Substring(0, Math.Min(200, geminiResponse.Length)));
+            _logger.LogInformation("Parsing Gemini response. Original length: {OrigLen}, Cleaned length: {CleanLen}",
+                geminiResponse.Length, cleanedResponse.Length);
+            _logger.LogInformation("Original response preview (200 chars): {Preview}",
+                geminiResponse.Substring(0, Math.Min(200, geminiResponse.Length)));
+            _logger.LogInformation("Cleaned response preview (200 chars): {Preview}",
+                cleanedResponse.Substring(0, Math.Min(200, cleanedResponse.Length)));
 
             var result = TryDeserializeGeminiResult(cleanedResponse);
 
             if (result == null)
             {
-                _logger.LogError("Failed to parse Gemini response - result is null. Response: {Response}", cleanedResponse);
+                _logger.LogError("Failed to parse Gemini response - result is null.");
+                _logger.LogError("Full cleaned response: {Response}", cleanedResponse);
+                _logger.LogError("Full original response: {Response}", geminiResponse);
                 throw new JsonException("Failed to parse Gemini response - result is null");
             }
 
@@ -635,22 +655,6 @@ public class GeminiService : IGeminiService
                         m.Content?.Contains("bạn có thể") == true));
     }
 
-    /// <summary>
-    /// Find last "tư vấn thêm" request index in history
-    /// </summary>
-    private int FindLastConsultMoreIndex(List<ConversationMessage> history)
-    {
-        for (int i = history.Count - 1; i >= 0; i--)
-        {
-            if ((history[i].Role?.ToLower() == "patient" || history[i].Role?.ToLower() == "guest" || history[i].Role?.ToLower() == "user") &&
-                (history[i].Content?.Contains("tư vấn thêm", StringComparison.OrdinalIgnoreCase) == true ||
-                 history[i].Content?.Contains("tôi muốn được tư vấn thêm", StringComparison.OrdinalIgnoreCase) == true))
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
 
     /// <summary>
     /// Get list of questions already asked (for duplication check)
@@ -668,267 +672,6 @@ public class GeminiService : IGeminiService
                         m.Content.Contains("bạn có thể")))
             .Select(m => m.Content)
             .ToList();
-    }
-
-    /// <summary>
-    /// Handle "tư vấn thêm" request and append instructions
-    /// </summary>
-    private void HandleConsultMoreRequest(StringBuilder sb, List<ConversationMessage>? history)
-    {
-        sb.AppendLine();
-        sb.AppendLine("**YÊU CẦU ĐẶC BIỆT - TƯ VẤN THÊM:**");
-        sb.AppendLine("Người dùng yêu cầu tư vấn thêm để khoanh vùng bệnh chính xác hơn.");
-
-        var followUpCount = 0;
-        if (history != null && history.Any())
-        {
-            var lastConsultIndex = FindLastConsultMoreIndex(history);
-            if (lastConsultIndex >= 0)
-            {
-                followUpCount = history.Skip(lastConsultIndex + 1)
-                    .Count(m => m.Role?.ToLower() == "ai" &&
-                               !m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) == true &&
-                               !m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) == true &&
-                               !m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) == true &&
-                               (m.Content?.Contains("?") == true ||
-                                m.Content?.Contains("cho tôi biết") == true));
-            }
-        }
-
-        if (followUpCount >= 3)
-        {
-            sb.AppendLine("ĐÃ HỎI ĐỦ 3 CÂU SAU 'TƯ VẤN THÊM' - BẮT BUỘC PHẢI KẾT LUẬN ĐẦY ĐỦ:");
-            sb.AppendLine("1. analysisComplete: PHẢI set = true");
-            sb.AppendLine("2. possibleDiseases: PHẢI có ít nhất 2-3 bệnh với tỉ lệ confidence");
-            sb.AppendLine("3. recommendedSpecialties: PHẢI có ít nhất 1 chuyên khoa phù hợp");
-            sb.AppendLine("4. generalAdvice: PHẢI có ít nhất 2-3 lời khuyên cụ thể, chi tiết");
-            sb.AppendLine("5. nextQuestions: PHẢI để trống []");
-            sb.AppendLine();
-            sb.AppendLine("KHÔNG ĐƯỢC THIẾU BẤT KỲ THÀNH PHẦN NÀO! Đây là kết luận cuối cùng.");
-        }
-        else
-        {
-            sb.AppendLine("BẮT BUỘC: Hỏi 1 câu hỏi cụ thể, tập trung vào:");
-            sb.AppendLine("- Vị trí chính xác của triệu chứng");
-            sb.AppendLine("- Thời gian và tần suất xuất hiện");
-            sb.AppendLine("- Mức độ nghiêm trọng");
-            sb.AppendLine("- Các yếu tố làm tăng/giảm triệu chứng");
-            sb.AppendLine($"Đã hỏi: {followUpCount}/3 câu sau 'tư vấn thêm'");
-            sb.AppendLine();
-            sb.AppendLine("**QUAN TRỌNG - KHI ĐANG HỎI:**");
-            sb.AppendLine("1. analysisComplete: set = false (vì đang hỏi thêm)");
-            sb.AppendLine("2. nextQuestions: 1 câu hỏi để khoanh vùng thêm");
-            sb.AppendLine("3. possibleDiseases: có thể để trống [] hoặc 1-2 bệnh sơ bộ");
-            sb.AppendLine("4. recommendedSpecialties: có thể để trống []");
-            sb.AppendLine("5. generalAdvice: có thể để trống []");
-            sb.AppendLine();
-            sb.AppendLine("CHỈ khi đã hỏi đủ 3 câu thì mới set analysisComplete = true và trả về đầy đủ.");
-        }
-    }
-
-    /// <summary>
-    /// Append conversation history context to prompt
-    /// </summary>
-    private void AppendConversationHistory(StringBuilder sb, List<ConversationMessage> history, int lastConsultMoreIndex)
-    {
-        var questionsAfterConsultMore = 0;
-        if (lastConsultMoreIndex >= 0)
-        {
-            questionsAfterConsultMore = history
-                .Skip(lastConsultMoreIndex + 1)
-                .Count(m => m.Role?.ToLower() == "ai" &&
-                           !m.Content?.Contains("Dựa trên các triệu chứng", StringComparison.OrdinalIgnoreCase) == true &&
-                           !m.Content?.Contains("Lời khuyên chung", StringComparison.OrdinalIgnoreCase) == true &&
-                           !m.Content?.Contains("Chuyên khoa phù hợp", StringComparison.OrdinalIgnoreCase) == true &&
-                           (m.Content?.Contains("?") == true ||
-                            m.Content?.Contains("cho tôi biết") == true ||
-                            m.Content?.Contains("bạn có thể") == true));
-        }
-
-        var totalQuestionsAsked = CountQuestionsInHistory(history);
-
-        sb.AppendLine("**LỊCH SỬ HỘI THOẠI TRƯỚC ĐÂY:**");
-
-        if (lastConsultMoreIndex >= 0)
-        {
-            sb.AppendLine($"Người dùng đã yêu cầu 'Tư vấn thêm'. Số câu hỏi đã hỏi sau đó: {questionsAfterConsultMore}/3");
-            if (questionsAfterConsultMore >= 3)
-            {
-                sb.AppendLine("QUAN TRỌNG: Đã hỏi đủ 3 câu hỏi khoanh vùng sau 'Tư vấn thêm', PHẢI kết luận và recommend specialty ngay.");
-            }
-        }
-        else
-        {
-            sb.AppendLine($"Số câu hỏi đã hỏi: {totalQuestionsAsked}/3");
-            if (totalQuestionsAsked >= 3)
-            {
-                sb.AppendLine("QUAN TRỌNG: Đã hỏi đủ 3 câu hỏi, KHÔNG được hỏi thêm nữa. PHẢI kết luận và recommend specialty ngay.");
-            }
-        }
-
-        sb.AppendLine();
-
-        // List ONLY questions already asked (not conclusions) to avoid duplication
-        sb.AppendLine("**CÁC CÂU HỎI ĐÃ HỎI (KHÔNG ĐƯỢC HỎI LẠI):**");
-        var askedQuestions = GetAskedQuestions(history);
-
-        if (askedQuestions.Any())
-        {
-            foreach (var q in askedQuestions)
-            {
-                sb.AppendLine($"- {q}");
-            }
-            sb.AppendLine("QUAN TRỌNG: Phải hỏi câu hỏi KHÁC, không trùng với các câu trên!");
-        }
-        sb.AppendLine();
-
-        sb.AppendLine("**CHI TIẾT LỊCH SỬ HỘI THOẠI:**");
-        foreach (var msg in history.TakeLast(5)) // Only last 5 messages for context
-        {
-            sb.AppendLine($"[{msg.Role.ToUpper()}]: {msg.Content}");
-        }
-        sb.AppendLine();
-    }
-
-    /// <summary>
-    /// Append common questioning strategy rules to prompt
-    /// </summary>
-    private void AppendQuestioningStrategy(StringBuilder sb)
-    {
-        sb.AppendLine("**CHIẾN LƯỢC ĐẶT CÂU HỎI THEO THỨ TỰ ƯU TIÊN:**");
-        sb.AppendLine();
-        sb.AppendLine("**Stage 1 (HIGH Priority) - Hỏi TRƯỚC TIÊN nếu thiếu:**");
-        sb.AppendLine("- Triệu chứng chính: Vị trí, tính chất (đau, sốt, nôn, ...)");
-        sb.AppendLine("- Thời gian: Khi nào bắt đầu? Kéo dài bao lâu?");
-        sb.AppendLine("- Mức độ: Nhẹ, trung bình, nặng? Có ảnh hưởng sinh hoạt không?");
-        sb.AppendLine();
-        sb.AppendLine("**Stage 2 (MEDIUM Priority) - Hỏi SAU Stage 1 nếu cần:**");
-        sb.AppendLine("- Severity: Mức độ nghiêm trọng, có tăng dần không?");
-        sb.AppendLine("- Triggers: Yếu tố khởi phát (ăn uống, vận động, thời tiết, ...)");
-        sb.AppendLine("- Đặc điểm: Đau liên tục hay từng cơn? Có lan tỏa không?");
-        sb.AppendLine();
-        sb.AppendLine("**Stage 3 (LOW Priority) - Hỏi CUỐI CÙNG nếu vẫn cần:**");
-        sb.AppendLine("- Additional context: Tiền sử bệnh, thuốc đang dùng, dị ứng");
-        sb.AppendLine("- Đi kèm: Các triệu chứng khác (sốt, mệt mỏi, chán ăn, ...)");
-        sb.AppendLine();
-        sb.AppendLine("**QUY TẮC QUAN TRỌNG:**");
-        sb.AppendLine("- CHỈ HỎI 1 CÂU HỎI MỖI LẦN - KHÔNG BAO GIỜ hỏi nhiều câu cùng lúc");
-        sb.AppendLine("- TỐI ĐA CHỈ HỎI 3 CÂU HỎI - Sau 3 câu hỏi, PHẢI kết luận và recommend specialty ngay");
-        sb.AppendLine("- Đếm số câu hỏi đã hỏi trong lịch sử hội thoại, nếu đã hỏi 3 câu thì KHÔNG hỏi thêm nữa");
-        sb.AppendLine("- Ưu tiên hỏi HIGH priority trước, chỉ hỏi MEDIUM/LOW khi đã có thông tin Stage 1");
-    }
-
-    /// <summary>
-    /// Append consult more handling rules to prompt
-    /// </summary>
-    private void AppendConsultMoreRules(StringBuilder sb)
-    {
-        sb.AppendLine("**XỬ LÝ KHI NHẬN 'tôi muốn được tư vấn thêm':**");
-        sb.AppendLine("- Nếu người dùng gửi 'tôi muốn được tư vấn thêm' hoặc 'tư vấn thêm', đây là yêu cầu khoanh vùng bệnh chi tiết hơn");
-        sb.AppendLine("- Ngay lập tức hỏi 1 câu hỏi quan trọng nhất (HIGH priority) để làm rõ triệu chứng");
-        sb.AppendLine("- QUAN TRỌNG: KHÔNG HỎI LẠI các câu hỏi đã hỏi trong lịch sử hội thoại");
-        sb.AppendLine("- Phải xem lại lịch sử và loại bỏ các câu hỏi đã được trả lời");
-        sb.AppendLine("- Tập trung vào các câu hỏi khoanh vùng bệnh cụ thể, không hỏi chung chung");
-        sb.AppendLine("- Sau khi hỏi tối đa 3 câu, PHẢI đưa ra kết luận và gợi ý chuyên khoa phù hợp");
-        sb.AppendLine("- Chọn câu hỏi quan trọng nhất (HIGH priority) và chỉ hỏi câu đó");
-        sb.AppendLine("- Sau khi người dùng trả lời, mới hỏi câu tiếp theo");
-        sb.AppendLine("- Các câu hỏi phải hỏi theo thứ tự ưu tiên để khoanh vùng bệnh và gen ra câu hỏi tiếp theo");
-        sb.AppendLine("- Nếu đã có đủ thông tin Stage 1 và confidence > 0.5, có thể recommend specialty ngay");
-        sb.AppendLine("- Nếu confidence < 0.5 sau Stage 1, hỏi thêm Stage 2 (nhưng vẫn chỉ 1 câu mỗi lần)");
-    }
-
-    /// <summary>
-    /// Append message display rules to prompt
-    /// </summary>
-    private void AppendMessageDisplayRules(StringBuilder sb)
-    {
-        sb.AppendLine("**QUY TẮC HIỂN THỊ MESSAGE:**");
-        sb.AppendLine("- KHI analysisComplete = false (đang hỏi thêm):");
-        sb.AppendLine("  + Field \"message\" CHỈ chứa câu hỏi đơn giản, ngắn gọn");
-        sb.AppendLine("  + KHÔNG cần phần \"Dựa trên các triệu chứng...\", \"Lời khuyên chung\"");
-        sb.AppendLine("  + possibleDiseases: có thể để trống [] hoặc chỉ 1-2 bệnh sơ bộ");
-        sb.AppendLine("  + recommendedSpecialties: có thể để trống [] hoặc chuyên khoa sơ bộ");
-        sb.AppendLine("  + generalAdvice: có thể để trống []");
-        sb.AppendLine("  + nextQuestions: PHẢI có 1 câu hỏi cụ thể");
-        sb.AppendLine();
-        sb.AppendLine("- KHI analysisComplete = true (kết luận):");
-        sb.AppendLine("  + Field \"message\" chứa phân tích ĐẦY ĐỦ:");
-        sb.AppendLine("    \"Dựa trên các triệu chứng bạn mô tả, có thể liên quan đến:\"");
-        sb.AppendLine("    + Liệt kê possibleDiseases với confidence");
-        sb.AppendLine("    + General advice");
-        sb.AppendLine("    + Recommended specialties");
-        sb.AppendLine("  + possibleDiseases: PHẢI có ít nhất 2-3 bệnh");
-        sb.AppendLine("  + recommendedSpecialties: PHẢI có ít nhất 1 chuyên khoa");
-        sb.AppendLine("  + generalAdvice: PHẢI có ít nhất 2 lời khuyên");
-        sb.AppendLine("  + nextQuestions: có thể rỗng []");
-    }
-
-    /// <summary>
-    /// Append confidence thresholds to prompt
-    /// </summary>
-    private void AppendConfidenceThresholds(StringBuilder sb)
-    {
-        sb.AppendLine("**NGƯỠNG CONFIDENCE:**");
-        sb.AppendLine("- confidence > 0.8: Recommend ngay 1 chuyên khoa chính xác");
-        sb.AppendLine("- confidence 0.5-0.8: Show 2-3 chuyên khoa options");
-        sb.AppendLine("- confidence < 0.5: Hỏi thêm trước khi recommend");
-        sb.AppendLine("- NGOẠI LỆ: Nếu đã hỏi 3 câu (ở bất kỳ giai đoạn nào), PHẢI set analysisComplete = true");
-        sb.AppendLine("- NGOẠI LỆ: Sau 3 câu hỏi tư vấn thêm, PHẢI kết luận với analysisComplete = true");
-    }
-
-    /// <summary>
-    /// Append JSON output format to prompt
-    /// </summary>
-    private void AppendOutputFormat(StringBuilder sb)
-    {
-        sb.AppendLine("**ĐỊNH DẠNG OUTPUT (JSON):**");
-        sb.AppendLine("QUAN TRỌNG: Chỉ trả về JSON thuần, KHÔNG bao bọc trong markdown code blocks (không dùng ```json hoặc ```).");
-        sb.AppendLine("Chỉ trả về JSON object trực tiếp, ví dụ:");
-        sb.AppendLine("{");
-        sb.AppendLine("  \"possibleDiseases\": [");
-        sb.AppendLine("    {");
-        sb.AppendLine("      \"name\": \"Tên bệnh tiếng Việt\",");
-        sb.AppendLine("      \"confidence\": 0.75,");
-        sb.AppendLine("      \"description\": \"Mô tả ngắn gọn về bệnh\"");
-        sb.AppendLine("    }");
-        sb.AppendLine("  ],");
-        sb.AppendLine("  \"nextQuestions\": [");
-        sb.AppendLine("    {");
-        sb.AppendLine("      \"question\": \"Câu hỏi cụ thể\",");
-        sb.AppendLine("      \"purpose\": \"Lý do cần hỏi (Stage 1/2/3)\",");
-        sb.AppendLine("      \"priority\": \"HIGH hoặc MEDIUM hoặc LOW\"");
-        sb.AppendLine("    }");
-        sb.AppendLine("  ],");
-        sb.AppendLine("  \"recommendedSpecialties\": [");
-        sb.AppendLine("    {");
-        sb.AppendLine("      \"specialtyName\": \"Tên chuyên khoa tiếng Việt\",");
-        sb.AppendLine("      \"confidence\": 0.85,");
-        sb.AppendLine("      \"urgency\": \"EMERGENCY hoặc URGENT hoặc NORMAL hoặc ROUTINE\",");
-        sb.AppendLine("      \"reasons\": [\"Lý do 1\", \"Lý do 2\"]");
-        sb.AppendLine("    }");
-        sb.AppendLine("  ],");
-        sb.AppendLine("  \"generalAdvice\": [");
-        sb.AppendLine("    \"Lời khuyên chung 1\",");
-        sb.AppendLine("    \"Lời khuyên chung 2\"");
-        sb.AppendLine("  ],");
-        sb.AppendLine("  \"analysisComplete\": true hoặc false,");
-        sb.AppendLine("  \"requiresImmediateAttention\": true hoặc false");
-        sb.AppendLine("}");
-        sb.AppendLine();
-        sb.AppendLine("**QUAN TRỌNG VỀ analysisComplete:**");
-        sb.AppendLine("- Set true khi: đã hỏi 3 câu HOẶC confidence > 0.5 HOẶC đã có đủ thông tin");
-        sb.AppendLine("- Set false khi: cần hỏi thêm để khoanh vùng bệnh");
-        sb.AppendLine();
-        sb.AppendLine("**BẮT BUỘC KHI analysisComplete = true (KHÔNG ĐƯỢC THIẾU):**");
-        sb.AppendLine("1. possibleDiseases: PHẢI có ít nhất 2-3 bệnh với confidence");
-        sb.AppendLine("   Ví dụ: [{\"name\": \"Viêm dạ dày\", \"confidence\": 0.65}, {\"name\": \"Rối loạn tiêu hóa\", \"confidence\": 0.60}]");
-        sb.AppendLine("2. recommendedSpecialties: PHẢI có ít nhất 1 chuyên khoa");
-        sb.AppendLine("   Ví dụ: [{\"specialtyName\": \"Nội tiêu hóa - Gan mật\", \"confidence\": 0.70}]");
-        sb.AppendLine("3. generalAdvice: PHẢI có ít nhất 2-3 lời khuyên cụ thể");
-        sb.AppendLine("   Ví dụ: [\"Theo dõi triệu chứng trong 24-48 giờ\", \"Tránh thức ăn cay nóng\", \"Uống đủ nước\"]");
-        sb.AppendLine("4. nextQuestions: để trống []");
-        sb.AppendLine();
-        sb.AppendLine("NGHIÊM NGẶT: Nếu thiếu BẤT KỲ thành phần nào trong 3 mục trên, response sẽ bị từ chối!");
     }
 
     /// <summary>
@@ -1019,97 +762,214 @@ public class GeminiService : IGeminiService
     {
         var sb = new StringBuilder();
 
-        // System instructions
-        sb.AppendLine("Bạn là một trợ lý y tế AI chuyên nghiệp của hệ thống đặt lịch khám bệnh BookingCare.");
+        // Count questions asked
+        var questionsAsked = CountQuestionsInHistory(history ?? new List<ConversationMessage>());
+
+        // === CORE RULES (ENHANCED) ===
+        sb.AppendLine("Bạn là trợ lý y tế AI của BookingCare. Nhiệm vụ: Hỏi để khoanh vùng bệnh → Gợi ý chuyên khoa.");
         sb.AppendLine();
-        sb.AppendLine("**NHIỆM VỤ CỦA BẠN:**");
-        sb.AppendLine("1. Phân tích triệu chứng người dùng nhập (ví dụ: \"Tôi bị đau bụng\", \"Tôi chóng mặt và buồn nôn\").");
-        sb.AppendLine("2. Liệt kê tối đa 5 bệnh có khả năng liên quan, kèm confidence (độ tin cậy từ 0–1).");
-        sb.AppendLine("3. Nếu thông tin chưa đủ, đặt câu hỏi bổ sung theo **thứ tự ưu tiên** để làm rõ triệu chứng.");
-        sb.AppendLine("4. Khi đã đủ thông tin, hãy xác định **chuyên khoa phù hợp nhất** để khám bệnh.");
-        sb.AppendLine("5. Tuyệt đối KHÔNG chẩn đoán chính thức, kê đơn, hoặc khẳng định người dùng mắc bệnh.");
-        sb.AppendLine("6. Chỉ đưa ra **gợi ý định hướng y tế** và **chuyên khoa phù hợp** để khám.");
-        sb.AppendLine("7. Tất cả output phải là JSON hợp lệ theo định dạng quy định.");
-        sb.AppendLine("8. Nếu người dùng đã trả lời các câu hỏi trước đó, sử dụng thông tin này để cập nhật phân tích và loại bỏ các câu hỏi trùng lặp.");
+        sb.AppendLine("⛔ QUY TẮC TUYỆT ĐỐI:");
+        sb.AppendLine($"• Confidence < 0.8 VÀ câu hỏi < 3 (hiện tại: {questionsAsked}/3) → analysisComplete = false, HỎI THÊM");
+        sb.AppendLine("• Triệu chứng mơ hồ (chỉ biết 'đau bụng', 'đau đầu') → HỎI vị trí/thời gian/mức độ");
+        sb.AppendLine("• Emergency (đau ngực dữ dội, khó thở, xuất huyết, ngất, đột quỵ) → KẾT LUẬN NGAY");
+        sb.AppendLine();
+        sb.AppendLine("🎯 QUY TẮC HỎI THÊM (QUAN TRỌNG):");
+        sb.AppendLine("• PHẢI xem lại TẤT CẢ lịch sử hội thoại trước khi hỏi câu tiếp theo");
+        sb.AppendLine("• DỰA VÀO câu trả lời của user trước đó để hỏi câu TIẾP THEO có logic");
+        sb.AppendLine("• KHÔNG hỏi lại những câu đã hỏi (xem danh sách 'Đã hỏi' ở phần lịch sử)");
+        sb.AppendLine("• Mỗi câu hỏi phải thu hẹp phạm vi bệnh/chuyên khoa dựa trên thông tin ĐÃ CÓ");
+        sb.AppendLine("• Ví dụ: Nếu đã biết 'đau bụng vùng thượng vị' → KHÔNG hỏi lại 'vị trí đau ở đâu?'");
+        sb.AppendLine("• Ví dụ: Đã biết 'đau bụng vùng thượng vị' → HỎI 'mức độ đau? thời gian? có nóng rát không?'");
         sb.AppendLine();
 
-        // Emergency Detection Keywords
-        sb.AppendLine("**PHÁT HIỆN TRƯỜNG HỢP KHẨN CẤP:**");
-        sb.AppendLine("Nếu phát hiện các từ khóa sau trong triệu chứng, ĐẶT requiresImmediateAttention = true NGAY LẬP TỨC:");
-        sb.AppendLine("- Đau ngực dữ dội, đau ngực đột ngột, đau thắt ngực");
-        sb.AppendLine("- Khó thở, thở gấp, nghẹt thở, không thở được");
-        sb.AppendLine("- Chảy máu nhiều, mất máu, xuất huyết");
-        sb.AppendLine("- Ngất xỉu, bất tỉnh, mất ý thức");
-        sb.AppendLine("- Đột quỵ, tai biến, liệt đột ngột");
-        sb.AppendLine("- Co giật, động kinh");
-        sb.AppendLine("- Sốc phản vệ, dị ứng nặng");
-        sb.AppendLine("- Đau bụng dữ dội đột ngột");
-        sb.AppendLine("- Nôn ra máu, ho ra máu");
-        sb.AppendLine("Khi requiresImmediateAttention = true, urgency PHẢI là EMERGENCY và đề xuất gọi 115.");
+        // === EXAMPLES (MOST IMPORTANT) ===
+        sb.AppendLine("📌 VÍ DỤ QUAN TRỌNG:");
+        sb.AppendLine();
+        sb.AppendLine("❌ SAI - TUYỆT ĐỐI KHÔNG:");
+        sb.AppendLine("User: 'Tôi bị đau bụng'");
+        sb.AppendLine("{\"analysisComplete\": true, \"possibleDiseases\": [{\"name\":\"Viêm dạ dày\",\"confidence\":0.3}], \"recommendedSpecialties\": [...]}");
+        sb.AppendLine("→ SAI vì: Chỉ biết 'đau bụng', không biết vị trí/thời gian/mức độ, confidence thấp!");
+        sb.AppendLine();
+        sb.AppendLine("✅ ĐÚNG:");
+        sb.AppendLine("User: 'Tôi bị đau bụng'");
+        sb.AppendLine("{\"analysisComplete\": false, \"possibleDiseases\": [], \"recommendedSpecialties\": [], \"generalAdvice\": [],");
+        sb.AppendLine(" \"nextQuestions\": [{\"question\":\"Vị trí đau ở đâu? (Thượng vị/hạ vị/quanh rốn/toàn bộ?)\",\"priority\":\"HIGH\"}]}");
         sb.AppendLine();
 
-        // Priority-based Questioning
-        AppendQuestioningStrategy(sb);
+        // === CONFIDENCE RULES (CONCISE) ===
+        sb.AppendLine("📊 NGƯỠNG CONFIDENCE & REQUIREMENTS:");
+        sb.AppendLine($"• Hiện tại đã hỏi: {questionsAsked}/3 câu");
+        sb.AppendLine("• Confidence < 0.8 + Câu < 3 → analysisComplete = false, nextQuestions = [1 câu HIGH priority]");
+        sb.AppendLine("• Confidence >= 0.8 HOẶC Câu >= 3 → analysisComplete = true");
         sb.AppendLine();
-        AppendConsultMoreRules(sb);
+        sb.AppendLine("⚠️ KHI analysisComplete = true, BẮT BUỘC PHẢI CÓ:");
+        sb.AppendLine("  1. possibleDiseases: >= 1 bệnh (name, confidence, description)");
+        sb.AppendLine("  2. recommendedSpecialties: >= 1 chuyên khoa (specialtyName, confidence, urgency, reasons)");
+        sb.AppendLine("  3. generalAdvice: >= 2 lời khuyên");
+        sb.AppendLine("  4. nextQuestions: [] (rỗng vì đã kết luận)");
         sb.AppendLine();
-        AppendMessageDisplayRules(sb);
+        sb.AppendLine("⛔ KHÔNG BAO GIỜ analysisComplete = true nếu thiếu bất kỳ thành phần nào trên!");
         sb.AppendLine();
 
-        // Confidence Thresholds
-        AppendConfidenceThresholds(sb);
+        // === OUTPUT FORMAT (DETAILED JSON SCHEMA) ===
+        sb.AppendLine("📤 JSON OUTPUT FORMAT (BẮT BUỘC):");
+        sb.AppendLine();
+        sb.AppendLine("Trả về JSON object với CẤU TRÚC CHÍNH XÁC SAU (KHÔNG dùng ```json):");
+        sb.AppendLine("{");
+        sb.AppendLine("  \"possibleDiseases\": [],");
+        sb.AppendLine("  \"recommendedSpecialties\": [],");
+        sb.AppendLine("  \"generalAdvice\": [],");
+        sb.AppendLine("  \"nextQuestions\": [");
+        sb.AppendLine("    {\"question\": \"Vị trí đau ở đâu?\", \"purpose\": \"Xác định vị trí\", \"priority\": \"HIGH\"}");
+        sb.AppendLine("  ],");
+        sb.AppendLine("  \"analysisComplete\": false,");
+        sb.AppendLine("  \"requiresImmediateAttention\": false");
+        sb.AppendLine("}");
+        sb.AppendLine();
+        sb.AppendLine("✅ Khi KẾT LUẬN (analysisComplete = true), ĐẦY ĐỦ:");
+        sb.AppendLine("{");
+        sb.AppendLine("  \"possibleDiseases\": [");
+        sb.AppendLine("    {\"name\": \"Viêm dạ dày\", \"confidence\": 0.75, \"description\": \"Viêm niêm mạc dạ dày do ăn uống không điều độ\"},");
+        sb.AppendLine("    {\"name\": \"Trào ngược dạ dày\", \"confidence\": 0.65, \"description\": \"Axit dạ dày trào ngược lên thực quản\"}");
+        sb.AppendLine("  ],");
+        sb.AppendLine("  \"recommendedSpecialties\": [");
+        sb.AppendLine("    {\"specialtyName\": \"Nội tiêu hóa - Gan mật\", \"confidence\": 0.85, \"urgency\": \"NORMAL\", \"reasons\": [\"Triệu chứng đau dạ dày rõ ràng\", \"Cần nội soi để chẩn đoán chính xác\"]}");
+        sb.AppendLine("  ],");
+        sb.AppendLine("  \"generalAdvice\": [");
+        sb.AppendLine("    \"Ăn nhiều bữa nhỏ trong ngày, tránh thức ăn cay nóng\",");
+        sb.AppendLine("    \"Nếu đau kéo dài > 3 ngày hoặc có nóng rát, xuất huyết thì đến khám ngay\"");
+        sb.AppendLine("  ],");
+        sb.AppendLine("  \"nextQuestions\": [],");
+        sb.AppendLine("  \"analysisComplete\": true,");
+        sb.AppendLine("  \"requiresImmediateAttention\": false");
+        sb.AppendLine("}");
+        sb.AppendLine();
+        sb.AppendLine("⚠️ TÓM TẮT:");
+        sb.AppendLine("• analysisComplete=false → possibleDiseases=[], recommendedSpecialties=[], generalAdvice=[], nextQuestions=[1 câu]");
+        sb.AppendLine("• analysisComplete=true → BẮT BUỘC: diseases >= 1, specialties >= 1, advice >= 2, nextQuestions=[]");
         sb.AppendLine();
 
-        AppendOutputFormat(sb);
+        // Emergency keywords (compact)
+        sb.AppendLine("🚨 KHẨN CẤP (requiresImmediateAttention=true): Đau ngực dữ dội, khó thở, xuất huyết, ngất, đột quỵ");
         sb.AppendLine();
+
+        // Specialty list (keep full for accuracy)
         AppendSpecialtyList(sb);
         sb.AppendLine();
-        sb.AppendLine("**LƯU Ý AN TOÀN:**");
-        sb.AppendLine("- Luôn nhắc người dùng đây chỉ là gợi ý, không thay thế khám bác sĩ.");
-        sb.AppendLine("- Dùng ngôn ngữ thân thiện, chuyên nghiệp, dễ hiểu.");
-        sb.AppendLine();
 
-        // Add conversation history if available
+        // === CONVERSATION CONTEXT (ENHANCED) ===
         if (history != null && history.Any())
         {
-            var lastConsultMoreIndex = FindLastConsultMoreIndex(history);
-            AppendConversationHistory(sb, history, lastConsultMoreIndex);
-        }
-
-        // Current user message
-        sb.AppendLine("**TIN NHẮN HIỆN TẠI CỦA NGƯỜI DÙNG:**");
-        sb.AppendLine(userMessage);
-
-        // Check if this is ONLY "tư vấn thêm" without any symptoms
-        bool isOnlyConsultMore = (userMessage.Equals("tôi muốn được tư vấn thêm", StringComparison.OrdinalIgnoreCase) ||
-                                  userMessage.Equals("tư vấn thêm", StringComparison.OrdinalIgnoreCase)) &&
-                                 (history == null || !history.Any());
-
-        if (isOnlyConsultMore)
-        {
-            // User just clicked "Tư vấn thêm" without providing any symptoms first
+            sb.AppendLine("💬 LỊCH SỬ HỘI THOẠI (PHÂN TÍCH KỸ):");
             sb.AppendLine();
-            sb.AppendLine("**TRƯỜNG HỢP ĐẶC BIỆT - CHƯA CÓ TRIỆU CHỨNG:**");
-            sb.AppendLine("Người dùng yêu cầu tư vấn nhưng chưa cung cấp triệu chứng.");
-            sb.AppendLine("PHẢI:");
-            sb.AppendLine("1. Hỏi về triệu chứng cụ thể người dùng đang gặp phải");
-            sb.AppendLine("2. possibleDiseases: để trống []");
-            sb.AppendLine("3. recommendedSpecialties: [{\"specialtyName\": \"Nội tổng quát\", \"confidence\": 0.5}]");
-            sb.AppendLine("4. generalAdvice: [\"Hãy mô tả chi tiết triệu chứng bạn đang gặp phải\", \"Cung cấp thông tin về thời gian xuất hiện triệu chứng\"]");
-            sb.AppendLine("5. nextQuestions: [{\"question\": \"Bạn đang gặp phải triệu chứng gì khiến bạn cần tư vấn y tế?\", \"purpose\": \"Thu thập triệu chứng ban đầu\", \"priority\": \"HIGH\"}]");
-            sb.AppendLine("6. analysisComplete: false");
+
+            // Show full conversation context (last 10 messages to get better context)
+            var recentHistory = history.TakeLast(10).ToList();
+            for (int i = 0; i < recentHistory.Count; i++)
+            {
+                var msg = recentHistory[i];
+                sb.AppendLine($"[{msg.Role?.ToUpper() ?? "UNKNOWN"}]: {msg.Content}");
+            }
+
+            // Extract key information already gathered
+            var userMessages = history.Where(m => m.Role?.ToLower() == "patient" || m.Role?.ToLower() == "user" || m.Role?.ToLower() == "guest").ToList();
+            var askedQuestions = GetAskedQuestions(history);
+
+            sb.AppendLine();
+            sb.AppendLine("📋 THÔNG TIN ĐÃ THU THẬP:");
+            if (userMessages.Any())
+            {
+                sb.AppendLine("• Câu trả lời của user:");
+                foreach (var userMsg in userMessages.TakeLast(5))
+                {
+                    var trimmed = userMsg.Content?.Length > 100 ? userMsg.Content.Substring(0, 100) + "..." : userMsg.Content;
+                    sb.AppendLine($"  - {trimmed}");
+                }
+            }
+            else
+            {
+                sb.AppendLine("• Chưa có câu trả lời từ user");
+            }
+
+            if (askedQuestions.Any())
+            {
+                sb.AppendLine();
+                sb.AppendLine("❓ ĐÃ HỎI (TUYỆT ĐỐI KHÔNG hỏi lại):");
+                foreach (var q in askedQuestions.TakeLast(5))
+                {
+                    var trimmed = q?.Length > 80 ? q.Substring(0, 80) + "..." : q;
+                    sb.AppendLine($"  - {trimmed}");
+                }
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("🎯 YÊU CẦU QUAN TRỌNG KHI HỎI TIẾP:");
+            sb.AppendLine("1. DỰA VÀO câu trả lời của user ở trên để hỏi câu tiếp theo");
+            sb.AppendLine("2. KHÔNG hỏi lại những gì đã hỏi (xem danh sách 'Đã hỏi' ở trên)");
+            sb.AppendLine("3. Hỏi câu hỏi TIẾP THEO có logic, giúp khoanh vùng bệnh/chuyên khoa rõ hơn");
+            sb.AppendLine("4. Nếu đã biết: vị trí → hỏi thời gian/mức độ/tính chất");
+            sb.AppendLine("5. Nếu đã biết: thời gian → hỏi vị trí/các triệu chứng kèm theo");
+            sb.AppendLine("6. Mục tiêu: Mỗi câu hỏi phải thu hẹp phạm vi bệnh/chuyên khoa dựa trên thông tin đã có");
+            sb.AppendLine();
         }
-        // Special handling for "tư vấn thêm" request with existing symptoms
-        else if (userMessage.Contains("tôi muốn được tư vấn thêm", StringComparison.OrdinalIgnoreCase) ||
-                 userMessage.Contains("tư vấn thêm", StringComparison.OrdinalIgnoreCase))
+
+        // === CURRENT USER MESSAGE ===
+        sb.AppendLine($"👤 TIN NHẮN HIỆN TẠI: {userMessage}");
+        sb.AppendLine();
+
+        // Special case: "Tư vấn thêm" handling
+        bool isConsultMoreRequest = userMessage.Contains("tư vấn thêm", StringComparison.OrdinalIgnoreCase) ||
+                                     userMessage.Contains("hỏi thêm", StringComparison.OrdinalIgnoreCase) ||
+                                     userMessage.Contains("cần thêm thông tin", StringComparison.OrdinalIgnoreCase);
+
+        if (isConsultMoreRequest && history != null && history.Any())
         {
-            HandleConsultMoreRequest(sb, history);
+            sb.AppendLine("⚠️ USER YÊU CẦU TƯ VẤN THÊM - XỬ LÝ ĐẶC BIỆT:");
+            sb.AppendLine();
+
+            if (questionsAsked >= 3)
+            {
+                sb.AppendLine($"• Đã hỏi đủ {questionsAsked}/3 câu → PHẢI kết luận với đầy đủ diseases/specialties/advice");
+                sb.AppendLine("• Dựa vào TẤT CẢ thông tin đã thu thập ở trên để đưa ra kết luận chính xác");
+            }
+            else if (questionsAsked < 3)
+            {
+                sb.AppendLine($"• Mới hỏi {questionsAsked}/3 câu → HỎI THÊM 1 câu quan trọng");
+                sb.AppendLine("• DỰA VÀO câu trả lời trước đó của user để hỏi câu tiếp theo có logic");
+                sb.AppendLine("• KHÔNG hỏi lại những câu đã hỏi (xem danh sách 'Đã hỏi' ở trên)");
+                sb.AppendLine("• Mục tiêu: Thu hẹp phạm vi bệnh/chuyên khoa dựa trên thông tin đã có");
+                sb.AppendLine("• Ví dụ: Nếu đã biết 'đau bụng vùng thượng vị' → hỏi 'mức độ đau? thời gian? có nóng rát không?'");
+            }
+            sb.AppendLine();
         }
 
         sb.AppendLine();
-        sb.AppendLine("Hãy phân tích và trả về JSON theo định dạng trên.");
-        sb.AppendLine("QUAN TRỌNG: Chỉ trả về JSON object thuần, KHÔNG dùng markdown code blocks (```json hoặc ```).");
-        sb.AppendLine("KHÔNG thêm bất kỳ text nào khác ngoài JSON object.");
+        sb.AppendLine("==================================================");
+        sb.AppendLine("✅ HƯỚNG DẪN CUỐI CÙNG:");
+        sb.AppendLine("1. PHÂN TÍCH KỸ:");
+        sb.AppendLine("   - Xem lại TẤT CẢ lịch sử hội thoại ở trên");
+        sb.AppendLine("   - Xác định THÔNG TIN ĐÃ THU THẬP (câu trả lời của user)");
+        sb.AppendLine("   - Xác định CÂU HỎI ĐÃ HỎI (không hỏi lại)");
+        sb.AppendLine("   - Xác định THÔNG TIN CÒN THIẾU để khoanh vùng bệnh/chuyên khoa");
+        sb.AppendLine();
+        sb.AppendLine("2. QUYẾT ĐỊNH:");
+        sb.AppendLine("   - Nếu thiếu thông tin + câu hỏi < 3 → Hỏi thêm (analysisComplete=false)");
+        sb.AppendLine("   - Nếu đủ thông tin HOẶC đã hỏi >= 3 câu → Kết luận (analysisComplete=true)");
+        sb.AppendLine();
+        sb.AppendLine("3. KHI HỎI THÊM (analysisComplete=false):");
+        sb.AppendLine("   - DỰA VÀO câu trả lời trước đó của user để hỏi câu TIẾP THEO");
+        sb.AppendLine("   - KHÔNG hỏi lại những câu đã hỏi (xem danh sách 'Đã hỏi')");
+        sb.AppendLine("   - Câu hỏi phải giúp THU HẸP phạm vi bệnh/chuyên khoa dựa trên thông tin đã có");
+        sb.AppendLine("   - Ví dụ: Đã biết 'đau đầu' + 'vùng thái dương' → hỏi 'thời gian? mức độ? có buồn nôn không?'");
+        sb.AppendLine();
+        sb.AppendLine("4. KHI KẾT LUẬN (analysisComplete=true):");
+        sb.AppendLine("   - Dựa vào TẤT CẢ thông tin đã thu thập để đưa ra kết luận chính xác");
+        sb.AppendLine("   - BẮT BUỘC có đủ: diseases >= 1, specialties >= 1, advice >= 2");
+        sb.AppendLine();
+        sb.AppendLine("5. JSON OUTPUT:");
+        sb.AppendLine("   - Trả về JSON THUẦN (KHÔNG ```json), theo format ở trên");
+        sb.AppendLine("   - Đảm bảo JSON hợp lệ, có đủ các field: possibleDiseases, recommendedSpecialties, generalAdvice, nextQuestions, analysisComplete, requiresImmediateAttention");
+        sb.AppendLine("==================================================");
 
         return sb.ToString();
     }

@@ -409,7 +409,7 @@ public class HospitalRepository : IHospitalRepository
     public async Task UpdateHospitalSpecialtiesBatchAsync(Guid hospitalId, List<Guid> specialtyIds)
     {
         var distinctSpecialtyIds = specialtyIds?.Distinct().ToHashSet() ?? new HashSet<Guid>();
-        
+
         // Get existing specialty IDs only (more efficient than loading full entities)
         var existingSpecialtyIdsList = await _context.HospitalSpecialties
             .Where(hs => hs.HospitalId == hospitalId)
@@ -443,7 +443,7 @@ public class HospitalRepository : IHospitalRepository
                 HospitalId = hospitalId,
                 SpecialtyId = specialtyId
             }).ToList();
-            
+
             await _context.HospitalSpecialties.AddRangeAsync(newSpecialties);
         }
 
@@ -503,7 +503,7 @@ public class HospitalRepository : IHospitalRepository
     public async Task UpdateHospitalServiceTypesBatchAsync(Guid hospitalId, List<Guid> serviceTypeIds)
     {
         var distinctServiceTypeIds = serviceTypeIds?.Distinct().ToHashSet() ?? new HashSet<Guid>();
-        
+
         // Get existing service type IDs only (more efficient than loading full entities)
         var existingServiceTypeIdsList = await _context.HospitalServiceTypes
             .Where(hst => hst.HospitalId == hospitalId)
@@ -538,7 +538,7 @@ public class HospitalRepository : IHospitalRepository
                 ServiceTypeId = serviceTypeId,
                 CreatedAt = DateTime.UtcNow
             }).ToList();
-            
+
             await _context.HospitalServiceTypes.AddRangeAsync(newServiceTypes);
         }
 
