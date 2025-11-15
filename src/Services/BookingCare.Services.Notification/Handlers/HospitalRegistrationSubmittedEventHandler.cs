@@ -27,25 +27,26 @@ public class HospitalRegistrationSubmittedEventHandler : IIntegrationEventHandle
         try
         {
             _logger.LogInformation(
-                "[HospitalRegistrationSubmittedEventHandler] Processing event for hospital: {HospitalName}, Email: {Email}",
+                "[HospitalRegistrationSubmittedEventHandler] Processing event for hospital: {HospitalName}, Representative: {RepresentativeName}, Hospital Email: {HospitalEmail}",
                 @event.HospitalName,
-                @event.Email
+                @event.RepresentativeName,
+                @event.HospitalEmail
             );
 
             // Build email content using template
             var emailHtml = EmailTemplate.BuildHospitalRegistrationSubmittedEmailHtml(
                 hospitalName: @event.HospitalName,
-                email: @event.Email,
-                phone: @event.Phone,
+                hospitalEmail: @event.HospitalEmail,
+                hospitalPhone: @event.HospitalPhone,
                 address: @event.Address,
                 taxCode: @event.TaxCode
             );
 
             var subject = $"Xác nhận đăng ký hợp tác - {@event.HospitalName}";
 
-            // Send email
+            // Send email to representative
             await _emailService.SendEmailAsync(
-                toEmail: @event.Email,
+                toEmail: @event.RepresentativeEmail,
                 subject: subject,
                 content: emailHtml,
                 isHtml: true,
@@ -53,22 +54,22 @@ public class HospitalRegistrationSubmittedEventHandler : IIntegrationEventHandle
             );
 
             _logger.LogInformation(
-                "[HospitalRegistrationSubmittedEventHandler] Successfully sent confirmation email to: {Email}",
-                @event.Email
+                "[HospitalRegistrationSubmittedEventHandler] Successfully sent confirmation email to representative: {RepresentativeEmail}",
+                @event.RepresentativeEmail
             );
         }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
-                "[HospitalRegistrationSubmittedEventHandler] Failed to send confirmation email to: {Email}",
-                @event.Email
+                "[HospitalRegistrationSubmittedEventHandler] Failed to send confirmation email to representative: {RepresentativeEmail}",
+                @event.RepresentativeEmail
             );
 
             // Re-throw as NotificationException for proper error handling
             throw new EmailDeliveryException(
-                $"Failed to send hospital registration confirmation email to {@event.Email}",
-                @event.Email,
+                $"Failed to send hospital registration confirmation email to {@event.RepresentativeEmail}",
+                @event.RepresentativeEmail,
                 ex
             );
         }

@@ -33,7 +33,7 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating hospital registration");
-            throw new HospitalRegistrationException("Failed to create hospital registration", ex);
+            throw new HospitalRegistrationException("Failed to create hospital registration", innerException: ex);
         }
     }
 
@@ -48,21 +48,35 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting hospital registration by ID: {RegistrationId}", id);
-            throw new HospitalRegistrationException("Failed to get hospital registration by ID", ex);
+            throw new HospitalRegistrationException("Failed to get hospital registration by ID", innerException: ex);
         }
     }
 
-    public async Task<HospitalRegistrationEntity?> GetByEmailAsync(string email)
+    public async Task<HospitalRegistrationEntity?> GetByHospitalEmailAsync(string hospitalEmail)
     {
         try
         {
             return await _context.HospitalRegistrations
-                .FirstOrDefaultAsync(r => r.Email.ToLower() == email.ToLower());
+                .FirstOrDefaultAsync(r => r.HospitalEmail.ToLower() == hospitalEmail.ToLower());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting hospital registration by email: {Email}", email);
-            throw new HospitalRegistrationException("Failed to get hospital registration by email", ex);
+            _logger.LogError(ex, "Error getting hospital registration by hospital email: {HospitalEmail}", hospitalEmail);
+            throw new HospitalRegistrationException("Failed to get hospital registration by hospital email", innerException: ex);
+        }
+    }
+
+    public async Task<HospitalRegistrationEntity?> GetByRepresentativeEmailAsync(string representativeEmail)
+    {
+        try
+        {
+            return await _context.HospitalRegistrations
+                .FirstOrDefaultAsync(r => r.RepresentativeEmail.ToLower() == representativeEmail.ToLower());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting hospital registration by representative email: {RepresentativeEmail}", representativeEmail);
+            throw new HospitalRegistrationException("Failed to get hospital registration by representative email", innerException: ex);
         }
     }
 
@@ -76,7 +90,7 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting hospital registration by tax code: {TaxCode}", taxCode);
-            throw new HospitalRegistrationException("Failed to get hospital registration by tax code", ex);
+            throw new HospitalRegistrationException("Failed to get hospital registration by tax code", innerException: ex);
         }
     }
 
@@ -110,7 +124,7 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting all hospital registrations");
-            throw new HospitalRegistrationException("Failed to get all hospital registrations", ex);
+            throw new HospitalRegistrationException("Failed to get all hospital registrations", innerException: ex);
         }
     }
 
@@ -126,8 +140,11 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
             var lowerSearchTerm = searchTerm.ToLower();
             query = query.Where(r =>
                 r.HospitalName.ToLower().Contains(lowerSearchTerm) ||
-                r.Email.ToLower().Contains(lowerSearchTerm) ||
-                r.Phone.Contains(searchTerm) ||
+                r.HospitalEmail.ToLower().Contains(lowerSearchTerm) ||
+                r.RepresentativeName.ToLower().Contains(lowerSearchTerm) ||
+                r.RepresentativeEmail.ToLower().Contains(lowerSearchTerm) ||
+                r.HospitalPhone.Contains(searchTerm) ||
+                r.RepresentativePhone.Contains(searchTerm) ||
                 r.TaxCode.Contains(searchTerm));
         }
 
@@ -161,15 +178,9 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
             "hospitalname" => isAscending
                 ? query.OrderBy(r => r.HospitalName)
                 : query.OrderByDescending(r => r.HospitalName),
-            "email" => isAscending
-                ? query.OrderBy(r => r.Email)
-                : query.OrderByDescending(r => r.Email),
-            "status" => isAscending
-                ? query.OrderBy(r => r.Status)
-                : query.OrderByDescending(r => r.Status),
-            "updatedat" => isAscending
-                ? query.OrderBy(r => r.UpdatedAt)
-                : query.OrderByDescending(r => r.UpdatedAt),
+            "hospitalemail" => isAscending
+                ? query.OrderBy(r => r.HospitalEmail)
+                : query.OrderByDescending(r => r.HospitalEmail),
             _ => isAscending
                 ? query.OrderBy(r => r.CreatedAt)
                 : query.OrderByDescending(r => r.CreatedAt)
@@ -189,7 +200,7 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating hospital registration: {RegistrationId}", registration.Id);
-            throw new HospitalRegistrationException("Failed to update hospital registration", ex);
+            throw new HospitalRegistrationException("Failed to update hospital registration", innerException: ex);
         }
     }
 
@@ -212,7 +223,7 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting hospital registration: {RegistrationId}", id);
-            throw new HospitalRegistrationException("Failed to delete hospital registration", ex);
+            throw new HospitalRegistrationException("Failed to delete hospital registration", innerException: ex);
         }
     }
 
@@ -225,7 +236,7 @@ public class HospitalRegistrationRepository : IHospitalRegistrationRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error checking hospital registration existence: {RegistrationId}", id);
-            throw new HospitalRegistrationException("Failed to check hospital registration existence", ex);
+            throw new HospitalRegistrationException("Failed to check hospital registration existence", innerException: ex);
         }
     }
 
