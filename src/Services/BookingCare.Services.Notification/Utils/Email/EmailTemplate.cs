@@ -1256,8 +1256,8 @@ public static class EmailTemplate
     /// </summary>
     public static string BuildHospitalRegistrationSubmittedEmailHtml(
         string hospitalName,
-        string email,
-        string phone,
+        string hospitalEmail,
+        string hospitalPhone,
         string address,
         string taxCode)
     {
@@ -1301,8 +1301,8 @@ public static class EmailTemplate
       <div class=""info-box"">
         <p><strong>📋 Thông tin đăng ký:</strong></p>
         <div class=""info-item""><strong>Tên bệnh viện:</strong> {hospitalName}</div>
-        <div class=""info-item""><strong>Email:</strong> {email}</div>
-        <div class=""info-item""><strong>Số điện thoại:</strong> {phone}</div>
+        <div class=""info-item""><strong>Email:</strong> {hospitalEmail}</div>
+        <div class=""info-item""><strong>Số điện thoại:</strong> {hospitalPhone}</div>
         <div class=""info-item""><strong>Địa chỉ:</strong> {address}</div>
         <div class=""info-item""><strong>Mã số thuế:</strong> {taxCode}</div>
       </div>
