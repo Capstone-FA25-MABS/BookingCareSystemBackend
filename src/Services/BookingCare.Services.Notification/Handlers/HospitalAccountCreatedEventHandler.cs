@@ -28,20 +28,20 @@ public class HospitalAccountCreatedEventHandler
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
-            "[HospitalAccountCreatedEventHandler] Sending credentials email to {Email}",
-            @event.Email);
+            "[HospitalAccountCreatedEventHandler] Sending credentials email to {RepresentativeEmail} for hospital {HospitalName}",
+            @event.RepresentativeEmail, @event.HospitalName);
 
         try
         {
             var emailBody = EmailTemplate.BuildHospitalAccountCredentialsEmailHtml(
                 @event.HospitalName,
-                @event.Email,
+                @event.HospitalEmail,
                 @event.GeneratedPassword,
                 @event.LoginUrl,
                 @event.ContractFileUrl);
 
             await _emailService.SendEmailAsync(
-                toEmail: @event.Email,
+                toEmail: @event.RepresentativeEmail,
                 subject: "Thông Tin Tài Khoản Bệnh Viện - BookingCare",
                 content: emailBody,
                 isHtml: true,
@@ -49,15 +49,15 @@ public class HospitalAccountCreatedEventHandler
             );
 
             _logger.LogInformation(
-                "[HospitalAccountCreatedEventHandler] Credentials email sent successfully to {Email}",
-                @event.Email);
+                "[HospitalAccountCreatedEventHandler] Credentials email sent successfully to {RepresentativeEmail}",
+                @event.RepresentativeEmail);
         }
         catch (Exception ex)
         {
             _logger.LogError(
                 ex,
-                "[HospitalAccountCreatedEventHandler] Failed to send credentials email to {Email}",
-                @event.Email);
+                "[HospitalAccountCreatedEventHandler] Failed to send credentials email to {RepresentativeEmail}",
+                @event.RepresentativeEmail);
         }
     }
 }

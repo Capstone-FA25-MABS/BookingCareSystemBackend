@@ -1,7 +1,6 @@
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
-using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Hospital.Handlers;
 

@@ -8,9 +8,16 @@ namespace BookingCare.Services.Hospital.Models.DTOs.Responses;
 public class HospitalRegistrationResponseDto
 {
     public Guid Id { get; set; }
+
+    // Representative Information
+    public string RepresentativeName { get; set; } = string.Empty;
+    public string RepresentativeEmail { get; set; } = string.Empty;
+    public string RepresentativePhone { get; set; } = string.Empty;
+
+    // Hospital Information
     public string HospitalName { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string Phone { get; set; } = string.Empty;
+    public string HospitalEmail { get; set; } = string.Empty;
+    public string HospitalPhone { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string LicenseFile { get; set; } = string.Empty;
     public string BusinessCertificateFile { get; set; } = string.Empty;
