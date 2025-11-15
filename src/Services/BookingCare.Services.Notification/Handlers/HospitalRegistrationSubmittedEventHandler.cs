@@ -67,9 +67,8 @@ public class HospitalRegistrationSubmittedEventHandler : IIntegrationEventHandle
             await CreateAdminNotificationAsync(@event, cancellationToken);
 
             _logger.LogInformation(
-                "[HospitalRegistrationSubmittedEventHandler] Successfully sent confirmation email to: {Email} and created admin notification for hospital: {HospitalName}",
-                @event.Email,
-                @event.HospitalName
+                "[HospitalRegistrationSubmittedEventHandler] Successfully sent confirmation email to representative: {RepresentativeEmail}",
+                @event.RepresentativeEmail
             );
         }
         catch (Exception ex)
@@ -137,8 +136,8 @@ public class HospitalRegistrationSubmittedEventHandler : IIntegrationEventHandle
                         {
                             { "registrationId", @event.RegistrationId },
                             { "hospitalName", @event.HospitalName },
-                            { "hospitalEmail", @event.Email },
-                            { "hospitalPhone", @event.Phone },
+                            { "hospitalEmail", @event.HospitalEmail },
+                            { "hospitalPhone", @event.HospitalPhone },
                             { "taxCode", @event.TaxCode }
                         }
                     };
