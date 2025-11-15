@@ -282,7 +282,7 @@
       "UpstreamPathTemplate": "/api/v{version}/tags/{everything}",
       "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
+        //"AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
@@ -297,10 +297,7 @@
       ],
       "UpstreamPathTemplate": "/api/chatHub/{everything}",
       "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-      "AuthenticationOptions": {
-        "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      },
+      
       "UpgradeToWebSockets": true
     },
     {

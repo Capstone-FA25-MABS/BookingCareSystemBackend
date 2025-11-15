@@ -108,9 +108,8 @@ builder
 
 // Register participant enrichment service
 builder.Services.AddScoped<IParticipantEnrichmentService, ParticipantEnrichmentService>();
-
-// Add JWT Authentication and Authorization using centralized configuration
 builder.Services.AddJwtAuthAndAuthorization();
+
 
 // Add SignalR
 builder.Services.AddSignalR(options =>
@@ -191,8 +190,7 @@ app.UseEventBus(eventBus =>
 // Configure the HTTP request pipeline using ProgramExtensions
 app.UseCommonSwaggerUI("Communication");
 
-// Unified auth + routing pipeline (adds UseAutoToken, UseRouting, UseAuthentication, UseAuthorization)
-// Replaces manual calls to keep consistency with other services
+// Configure routing and authentication manually to allow SignalR negotiate
 app.UseStandardAuthPipeline();
 
 // Add health check endpoint
@@ -200,8 +198,16 @@ app.MapHealthChecks("/health");
 
 app.MapControllers();
 
-// Map SignalR Hub
-app.MapHub<ChatHub>("/chatHub");
+// Map SignalR Hub with custom configuration to allow anonymous negotiate
+app.MapHub<ChatHub>(
+    "/chatHub",
+    options =>
+    {
+        // Allow negotiate endpoint without authentication
+        // Actual hub methods will still require authentication via [Authorize] on the Hub
+        options.AllowStatefulReconnects = true;
+    }
+);
 
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();

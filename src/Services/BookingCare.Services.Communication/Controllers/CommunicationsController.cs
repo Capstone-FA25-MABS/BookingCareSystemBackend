@@ -5,6 +5,7 @@ using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Communication.Controllers;
@@ -16,6 +17,7 @@ namespace BookingCare.Services.Communication.Controllers;
 [Produces("application/json")]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
+[Authorize]
 public class CommunicationsController : BaseApiController
 {
     private readonly IMessageService _messageService;
