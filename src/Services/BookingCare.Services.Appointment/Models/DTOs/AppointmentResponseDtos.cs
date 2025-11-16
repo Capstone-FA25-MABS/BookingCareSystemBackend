@@ -9,6 +9,8 @@ namespace BookingCare.Services.Appointment.Models.DTOs;
 public class AppointmentResponse
 {
     public Guid Id { get; set; }
+    public Guid PatientId { get; set; }
+    public Guid? PatientAccountId { get; set; }
     public DateTime AppointmentDate { get; set; }
     public AppointmentTime AppointmentTimeId { get; set; }
     public AppointmentType AppointmentType { get; set; }
@@ -208,4 +210,3 @@ public class GenerateRescheduleTokenResponse
     public string RedirectUrl { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 }
-

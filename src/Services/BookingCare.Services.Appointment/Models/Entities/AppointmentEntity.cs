@@ -14,6 +14,11 @@ public class AppointmentEntity
     [Required]
     public Guid PatientId { get; set; }
 
+    /// <summary>
+    /// Account ID of the patient who booked the appointment
+    /// </summary>
+    public Guid? PatientAccountId { get; set; }
+
     public Guid? DoctorId { get; set; }
 
     public Guid? ServiceId { get; set; }
@@ -53,6 +58,7 @@ public class AppointmentEntity
 
     // Reschedule tracking
     public bool IsRescheduled { get; set; } = false;
+
     [MaxLength(100)]
     public string? RescheduleToken { get; set; }
     public DateTime? RescheduleTokenExpiry { get; set; }
