@@ -454,6 +454,27 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         {
             try
             {
+                // Validate model state to ensure ProvinceId and DistrictId meet security requirements
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    return BadRequest(new { error = "Invalid request parameters", errors = errors });
+                }
+
+                // Additional validation for ProvinceId and DistrictId to prevent path traversal
+                if (!string.IsNullOrWhiteSpace(queryParams.ProvinceId) && !IsValidLocationId(queryParams.ProvinceId))
+                {
+                    return BadRequest(new { error = "Invalid ProvinceId format. Only alphanumeric characters, hyphens, and underscores are allowed." });
+                }
+
+                if (!string.IsNullOrWhiteSpace(queryParams.DistrictId) && !IsValidLocationId(queryParams.DistrictId))
+                {
+                    return BadRequest(new { error = "Invalid DistrictId format. Only alphanumeric characters, hyphens, and underscores are allowed." });
+                }
+
                 var request = new GetServicesByCategoryRequest
                 {
                     ServiceCategoryId = categoryId,
@@ -492,6 +513,23 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                 _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", categoryId);
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
+        }
+
+        /// <summary>
+        /// Validate location ID format to prevent path traversal attacks
+        /// Only allows alphanumeric characters, hyphens, and underscores
+        /// </summary>
+        private static bool IsValidLocationId(string locationId)
+        {
+            if (string.IsNullOrWhiteSpace(locationId))
+            {
+                return false;
+            }
+
+            // Allow only alphanumeric characters, hyphens, and underscores
+            // This prevents path traversal characters like ../, ..\, etc.
+            return locationId.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_') &&
+                   locationId.Length <= 50; // Reasonable length limit
         }
 
         /// <summary>
