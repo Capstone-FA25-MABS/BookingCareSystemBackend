@@ -37,6 +37,9 @@ public class SubscriptionPlanEntity
     [Column("max_appointments")]
     public int? MaxAppointments { get; set; } = 0; // null = unlimited
 
+    [Column("max_services")]
+    public int? MaxServices { get; set; } = 0; // null = unlimited
+
     [Column("features")]
     public string? Features { get; set; }
 
