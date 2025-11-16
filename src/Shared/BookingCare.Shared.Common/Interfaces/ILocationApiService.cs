@@ -1,8 +1,6 @@
-using BookingCare.Services.ServiceMedical.Models.ApiModels;
-using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
-using BookingCare.Shared.Common.Services;
+using BookingCare.Shared.Common.Models;
 
-namespace BookingCare.Services.ServiceMedical.Services.Interfaces;
+namespace BookingCare.Shared.Common.Interfaces;
 
 /// <summary>
 /// Service for handling location-related data from local JSON files
@@ -49,15 +47,5 @@ public interface ILocationApiService
     /// <param name="districtId">District ID</param>
     /// <returns>Location information</returns>
     Task<LocationInfo?> GetLocationInfoAsync(string? provinceId, string? districtId);
-}
-
-/// <summary>
-/// Location information for filtering
-/// </summary>
-public class LocationInfo
-{
-    public string ProvinceName { get; set; } = string.Empty;
-    public string DistrictName { get; set; } = string.Empty;
-    public bool HasDistrict { get; set; }
 }
 

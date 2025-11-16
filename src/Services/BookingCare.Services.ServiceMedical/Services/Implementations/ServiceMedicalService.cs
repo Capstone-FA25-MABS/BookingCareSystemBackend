@@ -4,6 +4,7 @@ using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Models.Entities;
 using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
+using BookingCare.Shared.Common.Interfaces;
 
 namespace BookingCare.Services.ServiceMedical.Services.Implementations
 {

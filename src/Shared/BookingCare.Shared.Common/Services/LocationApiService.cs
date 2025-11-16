@@ -1,12 +1,11 @@
-using BookingCare.Services.ServiceMedical.Models.ApiModels;
-using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
-using BookingCare.Services.ServiceMedical.Services.Interfaces;
+using BookingCare.Shared.Common.Interfaces;
+using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.Common.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
-namespace BookingCare.Services.ServiceMedical.Services.Implementations;
+namespace BookingCare.Shared.Common.Services;
 
 /// <summary>
 /// Service for handling location data from local JSON files

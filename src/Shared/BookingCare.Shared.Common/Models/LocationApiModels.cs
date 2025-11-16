@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace BookingCare.Services.ServiceMedical.Models.ApiModels;
+namespace BookingCare.Shared.Common.Models;
 
 /// <summary>
 /// Province API model for local JSON files
@@ -66,5 +66,15 @@ public class DistrictWithWardsApiModel
 
     [JsonPropertyName("wards")]
     public List<WardApiModel>? Wards { get; set; }
+}
+
+/// <summary>
+/// Location information for filtering
+/// </summary>
+public class LocationInfo
+{
+    public string ProvinceName { get; set; } = string.Empty;
+    public string DistrictName { get; set; } = string.Empty;
+    public bool HasDistrict { get; set; }
 }
 
