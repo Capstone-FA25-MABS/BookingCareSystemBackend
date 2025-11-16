@@ -4,8 +4,6 @@ using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Models.Entities;
 using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
-using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 
 namespace BookingCare.Services.ServiceMedical.Services.Implementations
 {
@@ -16,7 +14,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private readonly IMapper _mapper;
         private readonly ILogger<ServiceMedicalService> _logger;
         private readonly IHospitalService _hospitalService;
-        private readonly HttpClient _httpClient;
+        private readonly ILocationApiService _locationApiService;
 
         public ServiceMedicalService(
             IServiceCategoryRepository categoryRepository,
@@ -24,23 +22,14 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             IMapper mapper,
             ILogger<ServiceMedicalService> logger,
             IHospitalService hospitalService,
-            IHttpClientFactory httpClientFactory,
-            IConfiguration configuration)
+            ILocationApiService locationApiService)
         {
             _categoryRepository = categoryRepository;
             _serviceRepository = serviceRepository;
             _mapper = mapper;
             _logger = logger;
             _hospitalService = hospitalService;
-            _httpClient = httpClientFactory.CreateClient();
-
-            // Get base URL from configuration instead of hardcoding
-            var locationApiBaseUrl = configuration.GetSection("ExternalApis:LocationApi:BaseUrl").Value;
-            if (string.IsNullOrEmpty(locationApiBaseUrl))
-            {
-                throw new InvalidOperationException("Location API base URL is not configured");
-            }
-            _httpClient.BaseAddress = new Uri(locationApiBaseUrl);
+            _locationApiService = locationApiService;
         }
 
         #region ServiceCategory Operations
@@ -688,7 +677,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
             if (!string.IsNullOrEmpty(provinceId))
             {
-                provinceName = await GetProvinceNameByIdAsync(provinceId);
+                provinceName = await _locationApiService.GetProvinceNameByIdAsync(provinceId);
                 if (string.IsNullOrEmpty(provinceName))
                 {
                     _logger.LogWarning("Province name not found for ID: {ProvinceId}", provinceId);
@@ -697,7 +686,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
             if (!string.IsNullOrEmpty(districtId))
             {
-                districtName = await GetDistrictNameByIdAsync(districtId);
+                districtName = await _locationApiService.GetDistrictNameByIdAsync(districtId);
                 if (string.IsNullOrEmpty(districtName))
                 {
                     _logger.LogWarning("District name not found for ID: {DistrictId}", districtId);
@@ -805,108 +794,6 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             return provinceMatch && districtMatch;
         }
 
-        /// <summary>
-        /// Get province name from ID using provinces.open-api.vn API
-        /// </summary>
-        private async Task<string?> GetProvinceNameByIdAsync(string provinceId)
-        {
-            try
-            {
-                // Validate and sanitize input to prevent path traversal
-                if (string.IsNullOrWhiteSpace(provinceId) || !IsValidLocationId(provinceId))
-                {
-                    _logger.LogWarning("Invalid province ID format: {ProvinceId}", provinceId);
-                    return null;
-                }
-
-                // Use UriBuilder to safely construct the URI instead of string interpolation
-                // _httpClient.BaseAddress is guaranteed to be set in constructor (throws if not configured)
-                var encodedProvinceId = Uri.EscapeDataString(provinceId);
-                // Construct path safely using Uri methods to prevent path traversal
-                var pathSegment = "p/" + encodedProvinceId;
-                var uriBuilder = new UriBuilder(_httpClient.BaseAddress!)
-                {
-                    Path = pathSegment,
-                    Query = "depth=1"
-                };
-
-                var response = await _httpClient.GetAsync(uriBuilder.Uri);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync();
-                    var province = JsonSerializer.Deserialize<JsonElement>(content);
-                    if (province.TryGetProperty("name", out var nameElement))
-                    {
-                        return nameElement.GetString();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting province name for ID: {ProvinceId}", provinceId);
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Get district name from ID using provinces.open-api.vn API
-        /// </summary>
-        private async Task<string?> GetDistrictNameByIdAsync(string districtId)
-        {
-            try
-            {
-                // Validate and sanitize input to prevent path traversal
-                if (string.IsNullOrWhiteSpace(districtId) || !IsValidLocationId(districtId))
-                {
-                    _logger.LogWarning("Invalid district ID format: {DistrictId}", districtId);
-                    return null;
-                }
-
-                // Use UriBuilder to safely construct the URI instead of string interpolation
-                // _httpClient.BaseAddress is guaranteed to be set in constructor (throws if not configured)
-                var encodedDistrictId = Uri.EscapeDataString(districtId);
-                // Construct path safely using Uri methods to prevent path traversal
-                var pathSegment = "d/" + encodedDistrictId;
-                var uriBuilder = new UriBuilder(_httpClient.BaseAddress!)
-                {
-                    Path = pathSegment,
-                    Query = "depth=2"
-                };
-
-                var response = await _httpClient.GetAsync(uriBuilder.Uri);
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = await response.Content.ReadAsStringAsync();
-                    var district = JsonSerializer.Deserialize<JsonElement>(content);
-                    if (district.TryGetProperty("name", out var nameElement))
-                    {
-                        return nameElement.GetString();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting district name for ID: {DistrictId}", districtId);
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Validate location ID format to prevent path traversal attacks
-        /// Only allows alphanumeric characters and hyphens (typical format for location IDs)
-        /// </summary>
-        private static bool IsValidLocationId(string locationId)
-        {
-            if (string.IsNullOrWhiteSpace(locationId))
-            {
-                return false;
-            }
-
-            // Allow only alphanumeric characters, hyphens, and underscores
-            // This prevents path traversal characters like ../, ..\, etc.
-            return locationId.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_') &&
-                   locationId.Length <= 50; // Reasonable length limit
-        }
 
         // Get filter options (hospitals and service categories) for dropdown
         public async Task<FilterOptionsResponse> GetFilterOptionsAsync()
