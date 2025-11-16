@@ -1,21 +1,21 @@
-using BookingCare.Services.Hospital.Services;
-using BookingCare.Services.Hospital.Data;
-using BookingCare.Services.Hospital.Services.Interfaces;
-using BookingCare.Services.Hospital.Services.Implementations;
-using BookingCare.Services.Hospital.Services.Helpers;
-using BookingCare.Services.Hospital.Repositories.Interfaces;
-using BookingCare.Services.Hospital.Repositories.Implementations;
-using BookingCare.Services.Hospital.Mappings;
-using BookingCare.Services.Hospital.Handlers;
-using BookingCare.Shared.EventBus.Events;
-using Microsoft.EntityFrameworkCore;
-using BookingCare.Shared.Common.Extensions;
-using BookingCare.Shared.Common.Versioning;
-using BookingCare.Shared.EventBus.Extensions;
-using BookingCare.Shared.FileUpload.Extensions;
 using BookingCare.Services.Auth.Protos;
 using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.Hospital.Data;
+using BookingCare.Services.Hospital.Handlers;
+using BookingCare.Services.Hospital.Mappings;
+using BookingCare.Services.Hospital.Repositories.Implementations;
+using BookingCare.Services.Hospital.Repositories.Interfaces;
+using BookingCare.Services.Hospital.Services;
+using BookingCare.Services.Hospital.Services.Helpers;
+using BookingCare.Services.Hospital.Services.Implementations;
+using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.ServiceMedical.Protos;
+using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.EventBus.Extensions;
+using BookingCare.Shared.FileUpload.Extensions;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,8 +28,11 @@ builder.Services.AddCommonSwagger("Hospital");
 
 // Database configuration
 builder.Services.AddDbContext<HospitalDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")
-        ?? "Server=(local);Database=MABS_Hospital;Trusted_Connection=True;TrustServerCertificate=True;"));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? "Server=(local);Database=MABS_Hospital;Trusted_Connection=True;TrustServerCertificate=True;"
+    )
+);
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(HospitalMappingProfile));
@@ -65,9 +68,11 @@ builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
+
 // Add JWT Authentication and Authorization using centralized configuration
 // This includes: JWT auth, authorization, and frontend configuration
 builder.Services.AddJwtAuthAndAuthorization();
+
 // Add logging
 builder.Logging.AddCommonLogging();
 
@@ -78,19 +83,23 @@ builder.Services.AddApiVersioningSupport();
 builder.Services.AddGrpc();
 
 // gRPC clients
-var authAddress = builder.Configuration.GetSection("GrpcClients:Auth:Address").Value ?? "http://localhost:6103";
+var authAddress =
+    builder.Configuration.GetSection("GrpcClients:Auth:Address").Value ?? "http://localhost:6103";
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
 {
     options.Address = new Uri(authAddress);
 });
 
-var doctorAddress = builder.Configuration.GetSection("GrpcClients:Doctor:Address").Value ?? "http://localhost:6108";
+var doctorAddress =
+    builder.Configuration.GetSection("GrpcClients:Doctor:Address").Value ?? "http://localhost:6108";
 builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(options =>
 {
     options.Address = new Uri(doctorAddress);
 });
 
-var serviceMedicalAddress = builder.Configuration.GetSection("GrpcClients:ServiceMedical:Address").Value ?? "http://localhost:6115";
+var serviceMedicalAddress =
+    builder.Configuration.GetSection("GrpcClients:ServiceMedical:Address").Value
+    ?? "http://localhost:6115";
 builder.Services.AddGrpcClient<ServiceMedicalService.ServiceMedicalServiceClient>(options =>
 {
     options.Address = new Uri(serviceMedicalAddress);
@@ -101,9 +110,15 @@ builder.Services.AddScoped<HospitalServiceDependencies>(sp =>
 {
     var authClient = sp.GetRequiredService<AuthService.AuthServiceClient>();
     var doctorClient = sp.GetRequiredService<DoctorService.DoctorServiceClient>();
-    var serviceMedicalClient = sp.GetRequiredService<ServiceMedicalService.ServiceMedicalServiceClient>();
+    var serviceMedicalClient =
+        sp.GetRequiredService<ServiceMedicalService.ServiceMedicalServiceClient>();
     var locationApiService = sp.GetRequiredService<ILocationApiService>();
-    return new HospitalServiceDependencies(authClient, doctorClient, serviceMedicalClient, locationApiService);
+    return new HospitalServiceDependencies(
+        authClient,
+        doctorClient,
+        serviceMedicalClient,
+        locationApiService
+    );
 });
 
 var app = builder.Build();
@@ -119,9 +134,13 @@ app.MapControllers();
 
 // Map gRPC services
 app.MapGrpcService<HospitalGrpcService>();
+app.MapGrpcService<HospitalSubscriptionGrpcService>();
 
 // Default endpoint
-app.MapGet("/", () => "BookingCare Hospital Service is running. REST API: /swagger, gRPC: port 6014");
+app.MapGet(
+    "/",
+    () => "BookingCare Hospital Service is running. REST API: /swagger, gRPC: port 6014"
+);
 
 // Health check endpoint
 app.MapCommonHealthCheck("Hospital");
@@ -129,9 +148,18 @@ app.MapCommonHealthCheck("Hospital");
 // Configure EventBus subscriptions
 app.UseEventBus(eventBus =>
 {
-    eventBus.Subscribe<HospitalRegistrationFilesUploadEvent, HospitalRegistrationFilesUploadEventHandler>();
-    eventBus.Subscribe<HospitalAccountCreationFailedEvent, HospitalAccountCreationFailedEventHandler>();
-    eventBus.Subscribe<HospitalRegistrationAccountLinkedEvent, HospitalRegistrationAccountLinkedEventHandler>();
+    eventBus.Subscribe<
+        HospitalRegistrationFilesUploadEvent,
+        HospitalRegistrationFilesUploadEventHandler
+    >();
+    eventBus.Subscribe<
+        HospitalAccountCreationFailedEvent,
+        HospitalAccountCreationFailedEventHandler
+    >();
+    eventBus.Subscribe<
+        HospitalRegistrationAccountLinkedEvent,
+        HospitalRegistrationAccountLinkedEventHandler
+    >();
 });
 
 // Database migration and seeding (development only)

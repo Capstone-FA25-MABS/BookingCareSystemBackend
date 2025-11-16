@@ -18,6 +18,8 @@ service AuthService {
   rpc DeleteAccount (DeleteAccountRequest) returns (DeleteAccountResponse);
   // Get account details with role-based information
   rpc GetAccountDetails (GetAccountDetailsRequest) returns (GetAccountDetailsResponse);
+  // Get account IDs by role
+  rpc GetAccountIdsByRole (GetAccountIdsByRoleRequest) returns (GetAccountIdsByRoleResponse);
 }
 
 message CheckAccountExistsRequest {
@@ -105,4 +107,15 @@ message AccountDetail {
   string avatar_url = 4;
   string role = 5;
   bool found = 6;
+}
+
+message GetAccountIdsByRoleRequest {
+  string role = 1;
+  bool active_only = 2; // Optional: only return active accounts
+}
+
+message GetAccountIdsByRoleResponse {
+  bool success = 1;
+  string message = 2;
+  repeated string account_ids = 3;
 }

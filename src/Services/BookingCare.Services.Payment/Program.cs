@@ -1,22 +1,22 @@
 using BookingCare.Services.Payment.Data;
-using BookingCare.Services.Payment.Services.Interfaces;
-using BookingCare.Services.Payment.Services.Implementations;
-using BookingCare.Services.Payment.Services.BackgroundServices;
-using BookingCare.Services.Payment.Repositories.Interfaces;
-using BookingCare.Services.Payment.Repositories.Implementations;
-using BookingCare.Services.Payment.Mappings;
-using BookingCare.Services.Payment.Validators;
-using BookingCare.Services.Payment.Models.Configurations;
 using BookingCare.Services.Payment.Handlers;
+using BookingCare.Services.Payment.Mappings;
+using BookingCare.Services.Payment.Models.Configurations;
+using BookingCare.Services.Payment.Repositories.Implementations;
+using BookingCare.Services.Payment.Repositories.Interfaces;
+using BookingCare.Services.Payment.Services.BackgroundServices;
+using BookingCare.Services.Payment.Services.Grpc;
+using BookingCare.Services.Payment.Services.Implementations;
+using BookingCare.Services.Payment.Services.Interfaces;
+using BookingCare.Services.Payment.Validators;
+using BookingCare.Shared.Common.AppRouting;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
-using BookingCare.Shared.Common.AppRouting;
-using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.EventBus.Extensions;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using FluentValidation;
-using BookingCare.Services.Payment.Services.Grpc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,15 +25,24 @@ builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environmen
 
 // Add Entity Framework
 builder.Services.AddDbContext<PaymentDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
-        "Server=(local);Database=PaymentDb;Trusted_Connection=True;TrustServerCertificate=True;"));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? "Server=(local);Database=PaymentDb;Trusted_Connection=True;TrustServerCertificate=True;"
+    )
+);
 
 // Add Payment-specific configurations
-builder.Services.Configure<VNPayConfiguration>(builder.Configuration.GetSection("VNPayConfiguration"));
-builder.Services.Configure<PayOSConfiguration>(builder.Configuration.GetSection("PayOSConfiguration"));
+builder.Services.Configure<VNPayConfiguration>(
+    builder.Configuration.GetSection("VNPayConfiguration")
+);
+builder.Services.Configure<PayOSConfiguration>(
+    builder.Configuration.GetSection("PayOSConfiguration")
+);
 
 // Bind Frontend options for base URL resolution
-builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
+builder.Services.Configure<FrontendOptions>(
+    builder.Configuration.GetSection(FrontendOptions.SectionName)
+);
 
 // Add repositories
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
@@ -72,16 +81,34 @@ builder.Services.AddIntegrationEventHandler<BankAccountCreatedEventHandler>();
 // Using UserService from Appointment Service project reference
 builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.UserServiceClient>(o =>
 {
-    var userServiceUrl = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
+    var userServiceUrl =
+        builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl")
+        ?? "http://localhost:6116";
     o.Address = new Uri(userServiceUrl);
 });
 
 // Add gRPC client for Appointment Service (to get doctorId from appointmentId for payment failure redirect)
-builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient>(o =>
-{
-    var appointmentServiceUrl = builder.Configuration.GetSection("Services:Appointment").GetValue<string>("GrpcUrl") ?? "http://localhost:6102";
-    o.Address = new Uri(appointmentServiceUrl);
-});
+builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient>(
+    o =>
+    {
+        var appointmentServiceUrl =
+            builder.Configuration.GetSection("Services:Appointment").GetValue<string>("GrpcUrl")
+            ?? "http://localhost:6102";
+        o.Address = new Uri(appointmentServiceUrl);
+    }
+);
+
+// Add gRPC client for Hospital Subscription Service (to create/upgrade subscriptions after payment)
+builder
+    .Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient>(
+        o =>
+        {
+            var hospitalServiceUrl =
+                "http://localhost:6104";
+            o.Address = new Uri(hospitalServiceUrl);
+        }
+    );
+
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
@@ -106,8 +133,6 @@ builder.Services.Configure<SwaggerGenOptions>(c =>
     }
 });
 
-
-
 var app = builder.Build();
 
 // Ensure database is created
@@ -115,8 +140,6 @@ await EnsureDatabaseCreated(app);
 
 // Add global exception handling early in pipeline
 app.UseGlobalExceptionHandling();
-
-
 
 // Use common Swagger UI configuration
 app.UseCommonSwaggerUI("Payment Service");

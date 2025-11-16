@@ -69,6 +69,9 @@ public interface IAuthService
         string sortBy = "CreatedAt",
         string sortOrder = "desc");
 
+    // Get account IDs by role name (for notifications)
+    Task<List<string>> GetAccountIdsByRoleNameAsync(string roleName, bool activeOnly = true);
+
     // Hospital (Staff) doctor management operations  
     Task<AccountManagementResponse> GetDoctorsByHospitalAsync(
         Guid hospitalId,

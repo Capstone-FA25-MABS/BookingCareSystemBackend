@@ -2361,5 +2361,40 @@ public class AuthService : BaseService, IAuthService
         return formatted.ToString();
     }
 
+    /// <summary>
+    /// Get account IDs by role name (for notifications)
+    /// </summary>
+    public async Task<List<string>> GetAccountIdsByRoleNameAsync(string roleName, bool activeOnly = true)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Getting account IDs by role name: {RoleName}, ActiveOnly: {ActiveOnly}", null, roleName, activeOnly);
+
+            // Get role by name
+            var role = await _authRepository.GetRoleByNameAsync(roleName);
+            if (role == null)
+            {
+                LogWarning("Role '{RoleName}' not found", null, roleName);
+                return new List<string>();
+            }
+
+            // Get accounts with this role
+            var accounts = await _authRepository.GetAccountsByRoleAsync(role);
+
+            // Filter by active status if requested
+            if (activeOnly)
+            {
+                accounts = accounts.Where(a => a.Status == Status.ACTIVE).ToList();
+            }
+
+            var accountIds = accounts.Select(a => a.Id.ToString()).ToList();
+
+            LogInfo("Found {Count} account IDs for role '{RoleName}'", null, accountIds.Count, roleName);
+
+            return accountIds;
+
+        }, nameof(GetAccountIdsByRoleNameAsync));
+    }
+
     #endregion
 }

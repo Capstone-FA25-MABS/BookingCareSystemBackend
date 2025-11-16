@@ -69,9 +69,9 @@ public class HospitalRegistrationStatusUpdatedEventHandler : IIntegrationEventHa
                     return;
             }
 
-            // Send email
+            // Send email to representative
             await _emailService.SendEmailAsync(
-                toEmail: @event.Email,
+                toEmail: @event.RepresentativeEmail,
                 subject: subject,
                 content: emailHtml,
                 isHtml: true,
@@ -79,8 +79,8 @@ public class HospitalRegistrationStatusUpdatedEventHandler : IIntegrationEventHa
             );
 
             _logger.LogInformation(
-                "[HospitalRegistrationStatusUpdatedEventHandler] Successfully sent status update email to: {Email}, Status: {Status}",
-                @event.Email,
+                "[HospitalRegistrationStatusUpdatedEventHandler] Successfully sent status update email to: {RepresentativeEmail}, Status: {Status}",
+                @event.RepresentativeEmail,
                 @event.StatusText
             );
         }
@@ -88,14 +88,14 @@ public class HospitalRegistrationStatusUpdatedEventHandler : IIntegrationEventHa
         {
             _logger.LogError(
                 ex,
-                "[HospitalRegistrationStatusUpdatedEventHandler] Failed to send status update email to: {Email}",
-                @event.Email
+                "[HospitalRegistrationStatusUpdatedEventHandler] Failed to send status update email to: {RepresentativeEmail}",
+                @event.RepresentativeEmail
             );
 
             // Re-throw as NotificationException for proper error handling
             throw new EmailDeliveryException(
-                $"Failed to send hospital registration status update email to {@event.Email}",
-                @event.Email,
+                $"Failed to send hospital registration status update email to {@event.RepresentativeEmail}",
+                @event.RepresentativeEmail,
                 ex
             );
         }

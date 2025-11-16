@@ -651,5 +651,44 @@ public class AuthGrpcService : Protos.AuthService.AuthServiceBase
         return null;
     }
 
+    /// <summary>
+    /// Get account IDs by role
+    /// </summary>
+    public override async Task<GetAccountIdsByRoleResponse> GetAccountIdsByRole(
+        GetAccountIdsByRoleRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Getting account IDs by role: {Role}, ActiveOnly: {ActiveOnly}",
+                request.Role,
+                request.ActiveOnly
+            );
+
+            var accountIds = await _authService.GetAccountIdsByRoleNameAsync(request.Role, request.ActiveOnly);
+
+            var response = new GetAccountIdsByRoleResponse
+            {
+                Success = true,
+                Message = $"Found {accountIds.Count} accounts with role '{request.Role}'"
+            };
+
+            response.AccountIds.AddRange(accountIds);
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting account IDs by role: {Role}", request.Role);
+
+            return new GetAccountIdsByRoleResponse
+            {
+                Success = false,
+                Message = $"Error getting account IDs by role: {ex.Message}"
+            };
+        }
+    }
+
     #endregion
 }

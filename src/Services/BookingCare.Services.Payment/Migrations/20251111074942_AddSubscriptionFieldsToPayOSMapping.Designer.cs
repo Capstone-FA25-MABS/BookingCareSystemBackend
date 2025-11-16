@@ -4,6 +4,7 @@ using BookingCare.Services.Payment.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Payment.Migrations
 {
     [DbContext(typeof(PaymentDbContext))]
-    partial class PaymentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251111074942_AddSubscriptionFieldsToPayOSMapping")]
+    partial class AddSubscriptionFieldsToPayOSMapping
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -116,7 +119,7 @@ namespace BookingCare.Services.Payment.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("hospital_id");
 
-                    b.Property<bool?>("IsSubscriptionUpgrade")
+                    b.Property<bool>("IsSubscriptionUpgrade")
                         .HasColumnType("bit")
                         .HasColumnName("is_subscription_upgrade");
 
@@ -127,11 +130,6 @@ namespace BookingCare.Services.Payment.Migrations
                     b.Property<Guid>("PaymentId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("payment_id");
-
-                    b.Property<string>("PlanType")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasColumnName("plan_type");
 
                     b.Property<Guid?>("SubscriptionPlanId")
                         .HasColumnType("uniqueidentifier")

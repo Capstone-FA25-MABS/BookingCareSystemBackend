@@ -44,14 +44,14 @@ public class HospitalAccountCreationFailedEventHandler
                 return;
             }
 
-            // Revert status back to PENDING
-            registration.Status = RegistrationStatus.PENDING;
+            // Revert status back to CANCELLED
+            registration.Status = RegistrationStatus.CANCELLED;
             registration.Reason = $"Tạo tài khoản thất bại: {@event.ErrorMessage}";
 
             await _registrationRepository.UpdateAsync(registration);
 
             _logger.LogInformation(
-                "[HospitalAccountCreationFailedEventHandler] Registration {RegistrationId} status reverted to PENDING",
+                "[HospitalAccountCreationFailedEventHandler] Registration {RegistrationId} status reverted to CANCELLED",
                 @event.RegistrationId);
         }
         catch (Exception ex)
