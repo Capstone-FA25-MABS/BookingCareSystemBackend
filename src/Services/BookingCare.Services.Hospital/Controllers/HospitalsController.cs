@@ -69,6 +69,11 @@ public class HospitalsController : BaseApiController
             await _hospitalService.UpdateHospitalSpecialtiesAsync(hospitalId, request.Ids ?? new List<Guid>());
             return Success<object?>(null, "Hospital specialties updated successfully");
         }
+        catch (HospitalOperationException ex)
+        {
+            _logger.LogWarning(ex, "Hospital operation error updating specialties for hospital {HospitalId}: {Message}", hospitalId, ex.Message);
+            return BadRequest(new { Message = ex.Message });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating specialties for hospital {HospitalId}", hospitalId);
@@ -98,6 +103,11 @@ public class HospitalsController : BaseApiController
         {
             await _hospitalService.UpdateHospitalServiceTypesAsync(hospitalId, request.Ids ?? new List<Guid>());
             return Success<object?>(null, "Hospital service types updated successfully");
+        }
+        catch (HospitalOperationException ex)
+        {
+            _logger.LogWarning(ex, "Hospital operation error updating service types for hospital {HospitalId}: {Message}", hospitalId, ex.Message);
+            return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {

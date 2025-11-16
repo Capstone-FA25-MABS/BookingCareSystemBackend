@@ -135,6 +135,7 @@ app.MapControllers();
 // Map gRPC services
 app.MapGrpcService<HospitalGrpcService>();
 app.MapGrpcService<HospitalSubscriptionGrpcService>();
+app.MapGrpcService<SubscriptionUsageGrpcService>();
 
 // Default endpoint
 app.MapGet(

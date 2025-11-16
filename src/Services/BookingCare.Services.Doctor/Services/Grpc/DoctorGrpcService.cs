@@ -143,6 +143,11 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             throw;
         }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "[DoctorGrpcService] Invalid operation in CreateDoctor for email {Email}: {Message}", request.Email, ex.Message);
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "[DoctorGrpcService] Error in CreateDoctor for email {Email}", request.Email);

@@ -38,6 +38,19 @@ public class HospitalSubscriptionEntity
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
+    // Usage counts - Track actual usage against subscription limits
+    [Column("doctor_count")]
+    public int DoctorCount { get; set; } = 0;
+
+    [Column("specialty_count")]
+    public int SpecialtyCount { get; set; } = 0;
+
+    [Column("appointment_count")]
+    public int AppointmentCount { get; set; } = 0;
+
+    [Column("service_count")]
+    public int ServiceCount { get; set; } = 0;
+
     // Navigation properties
     [ForeignKey("HospitalId")]
     public virtual HospitalEntity Hospital { get; set; } = null!;

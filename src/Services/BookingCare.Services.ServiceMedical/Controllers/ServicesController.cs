@@ -68,6 +68,11 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             {
                 return BadRequest(new { error = ex.Message });
             }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation when creating service: {Message}", ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating service");
@@ -147,6 +152,11 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "ArgumentException when creating service: {Message}", ex.Message);
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation when creating service with image: {Message}", ex.Message);
                 return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)

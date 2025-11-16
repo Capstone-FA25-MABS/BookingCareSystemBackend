@@ -37,8 +37,14 @@ public abstract class BaseGrpcStep : CompensatableSagaStepBase
     /// </summary>
     private SagaStepResult HandleRpcException(RpcException ex, string operation, string stepName)
     {
-        _logger.LogError(ex, "[{StepName}] gRPC error {Operation}", stepName, operation);
-        return Failure($"gRPC error: {ex.Status.Detail}", ex, shouldRetry: true, retryDelay: TimeSpan.FromSeconds(30));
+        _logger.LogError(ex, "[{StepName}] gRPC error {Operation}: {Detail}", stepName, operation, ex.Status.Detail);
+
+        // Don't retry for FailedPrecondition (e.g., subscription limit exceeded) or InvalidArgument
+        var shouldRetry = ex.StatusCode != StatusCode.FailedPrecondition &&
+                         ex.StatusCode != StatusCode.InvalidArgument &&
+                         ex.StatusCode != StatusCode.NotFound;
+
+        return Failure($"gRPC error: {ex.Status.Detail}", ex, shouldRetry: shouldRetry, retryDelay: TimeSpan.FromSeconds(30));
     }
 
     /// <summary>

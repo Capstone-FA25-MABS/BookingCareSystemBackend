@@ -96,6 +96,12 @@ public class HospitalDbContext : DbContext
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
 
+            // Usage counts - Track actual usage against subscription limits
+            entity.Property(e => e.DoctorCount).HasDefaultValue(0);
+            entity.Property(e => e.SpecialtyCount).HasDefaultValue(0);
+            entity.Property(e => e.AppointmentCount).HasDefaultValue(0);
+            entity.Property(e => e.ServiceCount).HasDefaultValue(0);
+
             // Foreign key relationships
             entity.HasOne(e => e.Hospital)
                   .WithMany(h => h.HospitalSubscriptions)

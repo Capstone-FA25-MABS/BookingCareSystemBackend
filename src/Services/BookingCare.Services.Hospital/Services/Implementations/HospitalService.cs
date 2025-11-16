@@ -23,6 +23,7 @@ public class HospitalService : IHospitalService
     private readonly IMemoryCache _cache;
     private readonly ISubscriptionPlanRepository _subscriptionPlanRepository;
     private readonly IHospitalSubscriptionService _hospitalSubscriptionService;
+    private readonly ISubscriptionUsageService _subscriptionUsageService;
     private static readonly object _circuitBreakerLock = new object();
     private static int _consecutiveFailures = 0;
     private static DateTime _lastFailureTime = DateTime.MinValue;
@@ -37,7 +38,8 @@ public class HospitalService : IHospitalService
         ILogger<HospitalService> logger,
         IMemoryCache cache,
         ISubscriptionPlanRepository subscriptionPlanRepository,
-        IHospitalSubscriptionService hospitalSubscriptionService)
+        IHospitalSubscriptionService hospitalSubscriptionService,
+        ISubscriptionUsageService subscriptionUsageService)
     {
         _hospitalRepository = hospitalRepository;
         _hospitalImageRepository = hospitalImageRepository;
@@ -47,6 +49,7 @@ public class HospitalService : IHospitalService
         _cache = cache;
         _subscriptionPlanRepository = subscriptionPlanRepository;
         _hospitalSubscriptionService = hospitalSubscriptionService;
+        _subscriptionUsageService = subscriptionUsageService;
     }
 
     public async Task<HospitalProfileResponse?> GetByIdAsync(Guid id)
@@ -515,7 +518,28 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            return await _hospitalRepository.AddSpecialtyAsync(hospitalId, specialtyId);
+            // Check subscription limit before adding specialty
+            var canAdd = await _subscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
+            if (!canAdd)
+            {
+                throw new HospitalOperationException(
+                    "Bạn đã đạt giới hạn số lượng chuyên khoa cho phép trong gói đăng ký. Vui lòng nâng cấp gói để thêm chuyên khoa."
+                );
+            }
+
+            var result = await _hospitalRepository.AddSpecialtyAsync(hospitalId, specialtyId);
+
+            // Increment specialty count after successful addition (only if it's a new specialty)
+            if (result)
+            {
+                await _subscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
+            }
+
+            return result;
+        }
+        catch (HospitalOperationException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -527,7 +551,15 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            return await _hospitalRepository.RemoveSpecialtyAsync(hospitalId, specialtyId);
+            var result = await _hospitalRepository.RemoveSpecialtyAsync(hospitalId, specialtyId);
+
+            // Decrement specialty count after successful removal
+            if (result)
+            {
+                await _subscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -566,14 +598,60 @@ public class HospitalService : IHospitalService
             _logger.LogInformation("Updating specialties for hospital {HospitalId}: {Count} specialties",
                 hospitalId, specialtyIds?.Count ?? 0);
 
+            // Get existing specialty IDs before update
+            var existingSpecialtyIds = await _hospitalRepository.GetHospitalSpecialtyIdsAsync(hospitalId);
+            var existingSpecialtyIdsSet = existingSpecialtyIds.ToHashSet();
+            var newSpecialtyIdsSet = (specialtyIds ?? new List<Guid>()).Distinct().ToHashSet();
+
+            // Calculate changes
+            var specialtiesToAdd = newSpecialtyIdsSet.Except(existingSpecialtyIdsSet).ToList();
+            var specialtiesToRemove = existingSpecialtyIdsSet.Except(newSpecialtyIdsSet).ToList();
+
             // Optimized batch update - single transaction with change detection
             await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(hospitalId, specialtyIds ?? new List<Guid>());
+
+            // Update subscription usage counts based on changes
+            if (specialtiesToAdd.Count > 0 || specialtiesToRemove.Count > 0)
+            {
+                // Check limit before adding (if adding specialties)
+                if (specialtiesToAdd.Count > 0)
+                {
+                    // Check if we can add all specialties
+                    var canAdd = await _subscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
+                    if (!canAdd)
+                    {
+                        // Rollback: restore original specialties
+                        await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(hospitalId, existingSpecialtyIds);
+                        throw new HospitalOperationException(
+                            $"Bạn đã đạt giới hạn số lượng chuyên khoa cho phép trong gói đăng ký. " +
+                            $"Hiện tại: {existingSpecialtyIds.Count}, Giới hạn đã đạt. " +
+                            $"Vui lòng nâng cấp gói để thêm chuyên khoa.");
+                    }
+
+                    // Increment count for each added specialty
+                    for (int i = 0; i < specialtiesToAdd.Count; i++)
+                    {
+                        await _subscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
+                    }
+                }
+
+                // Decrement count for each removed specialty
+                for (int i = 0; i < specialtiesToRemove.Count; i++)
+                {
+                    await _subscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
+                }
+            }
 
             // Clear related cache entries
             var cacheKey = $"hospital_specialties_{hospitalId}";
             _cache.Remove(cacheKey);
 
-            _logger.LogInformation("Successfully updated specialties for hospital {HospitalId}", hospitalId);
+            _logger.LogInformation("Successfully updated specialties for hospital {HospitalId}. Added: {Added}, Removed: {Removed}",
+                hospitalId, specialtiesToAdd.Count, specialtiesToRemove.Count);
+        }
+        catch (HospitalOperationException)
+        {
+            throw; // Re-throw HospitalOperationException as-is
         }
         catch (Exception ex)
         {

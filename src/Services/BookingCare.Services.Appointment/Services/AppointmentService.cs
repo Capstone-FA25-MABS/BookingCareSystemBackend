@@ -61,6 +61,64 @@ public class AppointmentService : BaseService, IAppointmentService
     #region Helper Methods
 
     /// <summary>
+    /// Check and validate appointment limit before creating appointment
+    /// </summary>
+    private async Task CheckAndValidateAppointmentLimitAsync(Guid hospitalId)
+    {
+        try
+        {
+            var request = new CheckAppointmentLimitRequest
+            {
+                HospitalId = hospitalId.ToString(),
+                AdditionalAppointments = 1
+            };
+            var response = await _grpcClients.SubscriptionUsageClient.CheckAppointmentLimitAsync(request);
+            if (!response.CanAdd)
+            {
+                throw new AppointmentException(response.Message ?? "Bạn đã đạt giới hạn số lượng lịch hẹn cho phép trong gói đăng ký. Vui lòng nâng cấp gói để thêm lịch hẹn.");
+            }
+        }
+        catch (GrpcCore.RpcException ex) when (ex.StatusCode == GrpcCore.StatusCode.NotFound)
+        {
+            throw new AppointmentException("Không tìm thấy gói đăng ký cho bệnh viện này.");
+        }
+        catch (GrpcCore.RpcException ex)
+        {
+            LogError(ex, "gRPC error checking appointment limit for hospital {HospitalId}: {Error}", null, hospitalId, ex.Status.Detail);
+            throw new AppointmentException($"Không thể kiểm tra giới hạn lịch hẹn: {ex.Status.Detail}");
+        }
+    }
+
+    /// <summary>
+    /// Increment appointment count after successful creation
+    /// </summary>
+    private async Task IncrementAppointmentCountAsync(Guid hospitalId)
+    {
+        try
+        {
+            var request = new IncrementAppointmentRequest
+            {
+                HospitalId = hospitalId.ToString(),
+                Count = 1
+            };
+            var response = await _grpcClients.SubscriptionUsageClient.IncrementAppointmentCountAsync(request);
+            if (!response.Success)
+            {
+                LogWarning("Failed to increment appointment count for hospital {HospitalId}: {Message}", null, hospitalId, response.Message);
+            }
+            else
+            {
+                LogInfo("Successfully incremented appointment count for hospital {HospitalId}", null, hospitalId);
+            }
+        }
+        catch (GrpcCore.RpcException ex)
+        {
+            // Log error but don't throw - count update failure should not fail appointment creation
+            LogError(ex, "gRPC error incrementing appointment count for hospital {HospitalId}: {Error}", null, hospitalId, ex.Status.Detail);
+        }
+    }
+
+    /// <summary>
     /// Get payment information for an appointment via gRPC
     /// </summary>
     private async Task<decimal?> GetPaymentAmountAsync(Guid appointmentId)
@@ -195,6 +253,12 @@ public class AppointmentService : BaseService, IAppointmentService
             // Validate the appointment
             await ValidateAppointmentAsync(request);
 
+            // Check subscription limit before creating appointment
+            if (request.HospitalId.HasValue)
+            {
+                await CheckAndValidateAppointmentLimitAsync(request.HospitalId.Value);
+            }
+
             // Check for conflicts
             var hasConflict = await _appointmentRepository.HasConflictingAppointmentAsync(
                 request.PatientId, request.AppointmentDate, request.AppointmentTimeId);
@@ -221,6 +285,12 @@ public class AppointmentService : BaseService, IAppointmentService
 
             var appointmentEntity = _mapper.Map<AppointmentEntity>(request);
             await _appointmentRepository.CreateAppointmentAsync(appointmentEntity);
+
+            // Increment appointment count after successful creation
+            if (request.HospitalId.HasValue)
+            {
+                await IncrementAppointmentCountAsync(request.HospitalId.Value);
+            }
 
             // Invalidate available slots cache after successful appointment creation
             if (request.DoctorId.HasValue)
