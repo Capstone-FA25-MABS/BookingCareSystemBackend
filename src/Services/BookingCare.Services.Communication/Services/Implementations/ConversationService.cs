@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
+using BookingCare.Services.Communication.Hubs;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
 using BookingCare.Services.Communication.Services.Interfaces;
 using BookingCare.Services.Communication.Utils;
 using BookingCare.Shared.Common.Services;
+using Microsoft.AspNetCore.SignalR;
 
 namespace BookingCare.Services.Communication.Services.Implementations;
 
@@ -17,12 +19,14 @@ public class ConversationService : BaseService, IConversationService
     private readonly IMessageService _messageService;
     private readonly IParticipantEnrichmentService _participantEnrichmentService;
     private readonly IMapper _mapper;
+    private readonly IHubContext<ChatHub> _hubContext;
 
     public ConversationService(
         IConversationRepository conversationRepository,
         IMessageService messageService,
         IParticipantEnrichmentService participantEnrichmentService,
         IMapper mapper,
+        IHubContext<ChatHub> hubContext,
         ILogger<ConversationService> logger
     )
         : base(logger)
@@ -31,6 +35,7 @@ public class ConversationService : BaseService, IConversationService
         _messageService = messageService;
         _participantEnrichmentService = participantEnrichmentService;
         _mapper = mapper;
+        _hubContext = hubContext;
     }
 
     /// <summary>
@@ -54,13 +59,18 @@ public class ConversationService : BaseService, IConversationService
                     throw new ArgumentException("Conversation must have at least 2 participants");
                 }
 
+                // 🎯 Normalize all participant IDs to uppercase for case-insensitive comparison
+                var normalizedParticipants = request
+                    .Participants.Select(p => p.ToUpperInvariant())
+                    .ToList();
+
                 // Kiểm tra xem conversation giữa 2 user đã tồn tại chưa (nếu là chat 1-1)
-                if (request.Participants.Count == 2)
+                if (normalizedParticipants.Count == 2)
                 {
                     var existingConversation =
                         await _conversationRepository.GetConversationBetweenUsersAsync(
-                            request.Participants[0],
-                            request.Participants[1]
+                            normalizedParticipants[0],
+                            normalizedParticipants[1]
                         );
 
                     if (existingConversation != null)
@@ -74,8 +84,10 @@ public class ConversationService : BaseService, IConversationService
                     }
                 }
 
-                // Tạo conversation mới
+                // Tạo conversation mới với normalized participants
                 var conversationEntity = _mapper.Map<ConversationEntity>(request);
+                conversationEntity.Participants = normalizedParticipants;
+
                 var createdConversation = await _conversationRepository.CreateAsync(
                     conversationEntity
                 );
@@ -85,6 +97,44 @@ public class ConversationService : BaseService, IConversationService
                     correlationId: null,
                     args: new object[] { createdConversation.Id }
                 );
+
+                // ✅ Broadcast ConversationCreated event to all participants via SignalR
+                try
+                {
+                    var conversationResponse = _mapper.Map<ConversationResponse>(createdConversation);
+
+                    // Send to each participant's personal group
+                    foreach (var participantId in normalizedParticipants)
+                    {
+                        var userGroupName = $"user_{participantId}";
+                        await _hubContext.Clients.Group(userGroupName).SendAsync(
+                            "ConversationCreated",
+                            new
+                            {
+                                conversationId = createdConversation.Id,
+                                participants = normalizedParticipants,
+                                createdAt = createdConversation.CreatedAt,
+                                conversation = conversationResponse
+                            }
+                        );
+
+                        LogInfo(
+                            "📤 Sent ConversationCreated event to user {UserId} for conversation {ConversationId}",
+                            correlationId: null,
+                            args: new object[] { participantId, createdConversation.Id }
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Don't fail the request if SignalR broadcast fails
+                    LogWarning(
+                        "⚠️ Failed to broadcast ConversationCreated event: {Error}",
+                        correlationId: null,
+                        args: new object[] { ex.Message }
+                    );
+                }
+
                 return _mapper.Map<ConversationResponse>(createdConversation);
             },
             "CreateConversation"
