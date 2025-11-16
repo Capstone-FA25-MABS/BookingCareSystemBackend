@@ -33,10 +33,13 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             _logger = logger;
             _hospitalService = hospitalService;
             _httpClient = httpClientFactory.CreateClient();
-            
+
             // Get base URL from configuration instead of hardcoding
-            var locationApiBaseUrl = configuration.GetSection("ExternalApis:LocationApi:BaseUrl").Value 
-                ?? "https://provinces.open-api.vn/api/";
+            var locationApiBaseUrl = configuration.GetSection("ExternalApis:LocationApi:BaseUrl").Value;
+            if (string.IsNullOrEmpty(locationApiBaseUrl))
+            {
+                throw new InvalidOperationException("Location API base URL is not configured");
+            }
             _httpClient.BaseAddress = new Uri(locationApiBaseUrl);
         }
 
@@ -817,16 +820,16 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 }
 
                 // Use UriBuilder to safely construct the URI instead of string interpolation
-                var baseUri = _httpClient.BaseAddress ?? new Uri("https://provinces.open-api.vn/api/");
+                // _httpClient.BaseAddress is guaranteed to be set in constructor (throws if not configured)
                 var encodedProvinceId = Uri.EscapeDataString(provinceId);
                 // Construct path safely using Uri methods to prevent path traversal
                 var pathSegment = "p/" + encodedProvinceId;
-                var uriBuilder = new UriBuilder(baseUri)
+                var uriBuilder = new UriBuilder(_httpClient.BaseAddress!)
                 {
                     Path = pathSegment,
                     Query = "depth=1"
                 };
-                
+
                 var response = await _httpClient.GetAsync(uriBuilder.Uri);
                 if (response.IsSuccessStatusCode)
                 {
@@ -860,16 +863,16 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 }
 
                 // Use UriBuilder to safely construct the URI instead of string interpolation
-                var baseUri = _httpClient.BaseAddress ?? new Uri("https://provinces.open-api.vn/api/");
+                // _httpClient.BaseAddress is guaranteed to be set in constructor (throws if not configured)
                 var encodedDistrictId = Uri.EscapeDataString(districtId);
                 // Construct path safely using Uri methods to prevent path traversal
                 var pathSegment = "d/" + encodedDistrictId;
-                var uriBuilder = new UriBuilder(baseUri)
+                var uriBuilder = new UriBuilder(_httpClient.BaseAddress!)
                 {
                     Path = pathSegment,
                     Query = "depth=2"
                 };
-                
+
                 var response = await _httpClient.GetAsync(uriBuilder.Uri);
                 if (response.IsSuccessStatusCode)
                 {
