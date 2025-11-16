@@ -3,6 +3,7 @@ namespace BookingCare.Shared.Common.Enums;
 /// <summary>
 /// Types of notifications in the system
 /// Shared across all services to ensure consistency
+/// Updated to match front-end admin panel requirements
 /// </summary>
 public enum NotificationType
 {
@@ -54,6 +55,31 @@ public enum NotificationType
     /// <summary>
     /// System alert or warning
     /// </summary>
-    SystemAlert = 9
+    SystemAlert = 9,
+
+    /// <summary>
+    /// Payment reminder notification
+    /// </summary>
+    PaymentReminder = 10,
+
+    /// <summary>
+    /// General refund notification
+    /// </summary>
+    Refund = 11,
+
+    /// <summary>
+    /// Hospital registration notification (for admin)
+    /// </summary>
+    HospitalRegistration = 12,
+
+    /// <summary>
+    /// Doctor registration notification (for admin)
+    /// </summary>
+    DoctorRegistration = 13,
+
+    /// <summary>
+    /// Admin-specific alert notification
+    /// </summary>
+    AdminAlert = 14
 }
 
