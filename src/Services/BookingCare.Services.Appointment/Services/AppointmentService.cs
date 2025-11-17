@@ -243,6 +243,92 @@ public class AppointmentService : BaseService, IAppointmentService
 
     #region Appointment Operations
 
+    /// <summary>
+    /// Validate appointment before creation
+    /// </summary>
+    private async Task ValidateAppointmentBeforeCreationAsync(CreateAppointmentRequest request)
+    {
+        await ValidateAppointmentAsync(request);
+
+        if (request.HospitalId.HasValue)
+        {
+            await CheckAndValidateAppointmentLimitAsync(request.HospitalId.Value);
+        }
+    }
+
+    /// <summary>
+    /// Check for appointment conflicts
+    /// </summary>
+    private async Task CheckAppointmentConflictsAsync(CreateAppointmentRequest request)
+    {
+        var hasConflict = await _appointmentRepository.HasConflictingAppointmentAsync(
+            request.PatientId, request.AppointmentDate, request.AppointmentTimeId);
+        if (hasConflict)
+        {
+            throw new AppointmentConflictException(request.PatientId, request.AppointmentDate);
+        }
+    }
+
+    /// <summary>
+    /// Check doctor availability and set appointment status
+    /// </summary>
+    private async Task CheckDoctorAvailabilityAndSetStatusAsync(CreateAppointmentRequest request)
+    {
+        if (!request.DoctorId.HasValue)
+        {
+            request.Status = AppointmentStatus.PENDING;
+            return;
+        }
+
+        var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
+            request.DoctorId.Value, request.AppointmentDate, request.AppointmentTimeId);
+        if (!isDoctorAvailable)
+        {
+            throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate);
+        }
+
+        request.Status = AppointmentStatus.CONFIRMED;
+    }
+
+    /// <summary>
+    /// Perform post-creation tasks
+    /// </summary>
+    private async Task PerformPostCreationTasksAsync(
+        AppointmentEntity appointmentEntity,
+        CreateAppointmentRequest request,
+        bool skipPayment)
+    {
+        if (request.HospitalId.HasValue)
+        {
+            await IncrementAppointmentCountAsync(request.HospitalId.Value);
+        }
+
+        if (request.DoctorId.HasValue)
+        {
+            await InvalidateAvailableSlotsCacheAsync(
+                request.DoctorId.Value,
+                request.AppointmentDate,
+                request.ServiceId);
+        }
+
+        if (skipPayment)
+        {
+            await SendBookingSuccessEmailAsync(appointmentEntity.Id, request.PatientId);
+        }
+    }
+
+    /// <summary>
+    /// Send booking success email
+    /// </summary>
+    private async Task SendBookingSuccessEmailAsync(Guid appointmentId, Guid patientId)
+    {
+        LogInfo("No payment flow - sending booking success email immediately for appointment {AppointmentId}",
+            null, appointmentId);
+
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(_httpContextAccessor.HttpContext!);
+        await SendAppointmentBookingSuccessEmailAsync(appointmentId, patientId, accountId.ToString(), 0);
+    }
+
     public async Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request, bool skipPayment = false)
     {
         return await ExecuteWithErrorHandling(async () =>
@@ -250,68 +336,14 @@ public class AppointmentService : BaseService, IAppointmentService
             LogInfo("Creating appointment for patient {PatientId} on {AppointmentDate}, SkipPayment: {SkipPayment}",
                 null, request.PatientId, request.AppointmentDate, skipPayment);
 
-            // Validate the appointment
-            await ValidateAppointmentAsync(request);
-
-            // Check subscription limit before creating appointment
-            if (request.HospitalId.HasValue)
-            {
-                await CheckAndValidateAppointmentLimitAsync(request.HospitalId.Value);
-            }
-
-            // Check for conflicts
-            var hasConflict = await _appointmentRepository.HasConflictingAppointmentAsync(
-                request.PatientId, request.AppointmentDate, request.AppointmentTimeId);
-            if (hasConflict)
-            {
-                throw new AppointmentConflictException(request.PatientId, request.AppointmentDate);
-            }
-
-            // Check doctor availability if doctor is specified
-            if (request.DoctorId.HasValue)
-            {
-                var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
-                    request.DoctorId.Value, request.AppointmentDate, request.AppointmentTimeId);
-                if (!isDoctorAvailable)
-                {
-                    throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate);
-                }
-                request.Status = AppointmentStatus.CONFIRMED;
-            }
-            else
-            {
-                request.Status = AppointmentStatus.PENDING;
-            }
+            await ValidateAppointmentBeforeCreationAsync(request);
+            await CheckAppointmentConflictsAsync(request);
+            await CheckDoctorAvailabilityAndSetStatusAsync(request);
 
             var appointmentEntity = _mapper.Map<AppointmentEntity>(request);
             await _appointmentRepository.CreateAppointmentAsync(appointmentEntity);
 
-            // Increment appointment count after successful creation
-            if (request.HospitalId.HasValue)
-            {
-                await IncrementAppointmentCountAsync(request.HospitalId.Value);
-            }
-
-            // Invalidate available slots cache after successful appointment creation
-            if (request.DoctorId.HasValue)
-            {
-                await InvalidateAvailableSlotsCacheAsync(
-                    request.DoctorId.Value,
-                    request.AppointmentDate,
-                    request.ServiceId);
-            }
-
-            // If no payment (skipPayment = true), send booking success email immediately
-            // For payment flow, email will be sent by AppointmentPaymentSuccessEventHandler after payment
-            if (skipPayment)
-            {
-                LogInfo("No payment flow - sending booking success email immediately for appointment {AppointmentId}",
-                    null, appointmentEntity.Id);
-
-                // Get accountId from JWT token
-                var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(_httpContextAccessor.HttpContext!);
-                await SendAppointmentBookingSuccessEmailAsync(appointmentEntity.Id, request.PatientId, accountId.ToString(), 0);
-            }
+            await PerformPostCreationTasksAsync(appointmentEntity, request, skipPayment);
 
             LogInfo("Successfully created appointment {AppointmentId}", null, appointmentEntity.Id);
             return appointmentEntity.Id;
