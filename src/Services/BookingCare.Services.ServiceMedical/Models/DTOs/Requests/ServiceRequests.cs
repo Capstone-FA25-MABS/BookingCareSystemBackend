@@ -74,6 +74,26 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
         public bool IncludeInactive { get; set; } = false;
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
+
+        /// <summary>
+        /// Search term for filtering services by name or description
+        /// </summary>
+        public string? SearchTerm { get; set; }
+
+        /// <summary>
+        /// List of hospital IDs to filter services (multiple hospitals)
+        /// </summary>
+        public List<Guid>? HospitalIds { get; set; }
+
+        /// <summary>
+        /// Province ID for location filtering
+        /// </summary>
+        public string? ProvinceId { get; set; }
+
+        /// <summary>
+        /// District ID for location filtering
+        /// </summary>
+        public string? DistrictId { get; set; }
     }
 
     public class GetHospitalsByServiceCategoryRequest
@@ -81,6 +101,27 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Requests
         [Required]
         public Guid ServiceCategoryId { get; set; }
         public bool IncludeInactive { get; set; } = false;
+    }
+
+    public class GetServicesByCategoryWithHospitalQueryParams
+    {
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+        public bool IncludeInactive { get; set; } = false;
+        public string? SearchTerm { get; set; }
+        public string? HospitalIds { get; set; }
+
+        /// <summary>
+        /// Province ID for location filtering (validated to prevent path traversal)
+        /// </summary>
+        [RegularExpression(@"^[a-zA-Z0-9_-]{1,50}$", ErrorMessage = "ProvinceId must contain only alphanumeric characters, hyphens, and underscores, with a maximum length of 50")]
+        public string? ProvinceId { get; set; }
+
+        /// <summary>
+        /// District ID for location filtering (validated to prevent path traversal)
+        /// </summary>
+        [RegularExpression(@"^[a-zA-Z0-9_-]{1,50}$", ErrorMessage = "DistrictId must contain only alphanumeric characters, hyphens, and underscores, with a maximum length of 50")]
+        public string? DistrictId { get; set; }
     }
 
 }
