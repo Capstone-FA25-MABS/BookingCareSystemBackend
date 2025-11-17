@@ -125,8 +125,6 @@ public static class JwtAuthenticationExtensions
                 if (
                     path.StartsWithSegments("/hubs")
                     || path.StartsWithSegments("/noti-hubs")
-                    || path.StartsWithSegments("/chatHub")
-                    || path.StartsWithSegments("/api/chatHub")
                 )
                 {
                     // Try to get token from query string first (for WebSocket connections)
