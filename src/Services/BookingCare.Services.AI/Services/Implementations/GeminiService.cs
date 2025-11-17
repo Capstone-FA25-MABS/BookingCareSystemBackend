@@ -675,6 +675,50 @@ public class GeminiService : IGeminiService
     }
 
     /// <summary>
+    /// Append question rules to prompt
+    /// </summary>
+    private void AppendQuestionRules(StringBuilder sb)
+    {
+        sb.AppendLine("• PHẢI xem lại TẤT CẢ lịch sử hội thoại trước khi hỏi câu tiếp theo");
+        sb.AppendLine("• DỰA VÀO câu trả lời của user trước đó để hỏi câu TIẾP THEO có logic");
+        sb.AppendLine("• KHÔNG hỏi lại những câu đã hỏi (xem danh sách 'Đã hỏi' ở phần lịch sử)");
+        sb.AppendLine("• Mỗi câu hỏi phải thu hẹp phạm vi bệnh/chuyên khoa dựa trên thông tin ĐÃ CÓ");
+        sb.AppendLine("• Ví dụ: Nếu đã biết 'đau bụng vùng thượng vị' → KHÔNG hỏi lại 'vị trí đau ở đâu?'");
+        sb.AppendLine("• Ví dụ: Đã biết 'đau bụng vùng thượng vị' → HỎI 'mức độ đau? thời gian? có nóng rát không?'");
+    }
+
+    /// <summary>
+    /// Append requirements when asking more questions
+    /// </summary>
+    private void AppendWhenAskingMore(StringBuilder sb)
+    {
+        sb.AppendLine("   - DỰA VÀO câu trả lời trước đó của user để hỏi câu TIẾP THEO");
+        sb.AppendLine("   - KHÔNG hỏi lại những câu đã hỏi (xem danh sách 'Đã hỏi')");
+        sb.AppendLine("   - Câu hỏi phải giúp THU HẸP phạm vi bệnh/chuyên khoa dựa trên thông tin đã có");
+    }
+
+    /// <summary>
+    /// Append requirements when concluding analysis
+    /// </summary>
+    private void AppendWhenConcluding(StringBuilder sb)
+    {
+        sb.AppendLine("⚠️ KHI analysisComplete = true, BẮT BUỘC PHẢI CÓ:");
+        sb.AppendLine("  1. possibleDiseases: >= 1 bệnh (name, confidence, description)");
+        sb.AppendLine("  2. recommendedSpecialties: >= 1 chuyên khoa (specialtyName, confidence, urgency, reasons)");
+        sb.AppendLine("  3. generalAdvice: >= 2 lời khuyên");
+        sb.AppendLine("  4. nextQuestions: [] (rỗng vì đã kết luận)");
+    }
+
+    /// <summary>
+    /// Append JSON output format instructions
+    /// </summary>
+    private void AppendJsonOutputFormat(StringBuilder sb)
+    {
+        sb.AppendLine("   - Trả về JSON THUẦN (KHÔNG ```json), theo format ở trên");
+        sb.AppendLine("   - Đảm bảo JSON hợp lệ, có đủ các field: possibleDiseases, recommendedSpecialties, generalAdvice, nextQuestions, analysisComplete, requiresImmediateAttention");
+    }
+
+    /// <summary>
     /// Append specialty list to prompt
     /// </summary>
     private void AppendSpecialtyList(StringBuilder sb)
@@ -774,12 +818,7 @@ public class GeminiService : IGeminiService
         sb.AppendLine("• Emergency (đau ngực dữ dội, khó thở, xuất huyết, ngất, đột quỵ) → KẾT LUẬN NGAY");
         sb.AppendLine();
         sb.AppendLine("🎯 QUY TẮC HỎI THÊM (QUAN TRỌNG):");
-        sb.AppendLine("• PHẢI xem lại TẤT CẢ lịch sử hội thoại trước khi hỏi câu tiếp theo");
-        sb.AppendLine("• DỰA VÀO câu trả lời của user trước đó để hỏi câu TIẾP THEO có logic");
-        sb.AppendLine("• KHÔNG hỏi lại những câu đã hỏi (xem danh sách 'Đã hỏi' ở phần lịch sử)");
-        sb.AppendLine("• Mỗi câu hỏi phải thu hẹp phạm vi bệnh/chuyên khoa dựa trên thông tin ĐÃ CÓ");
-        sb.AppendLine("• Ví dụ: Nếu đã biết 'đau bụng vùng thượng vị' → KHÔNG hỏi lại 'vị trí đau ở đâu?'");
-        sb.AppendLine("• Ví dụ: Đã biết 'đau bụng vùng thượng vị' → HỎI 'mức độ đau? thời gian? có nóng rát không?'");
+        AppendQuestionRules(sb);
         sb.AppendLine();
 
         // === EXAMPLES (MOST IMPORTANT) ===
@@ -802,11 +841,7 @@ public class GeminiService : IGeminiService
         sb.AppendLine("• Confidence < 0.8 + Câu < 3 → analysisComplete = false, nextQuestions = [1 câu HIGH priority]");
         sb.AppendLine("• Confidence >= 0.8 HOẶC Câu >= 3 → analysisComplete = true");
         sb.AppendLine();
-        sb.AppendLine("⚠️ KHI analysisComplete = true, BẮT BUỘC PHẢI CÓ:");
-        sb.AppendLine("  1. possibleDiseases: >= 1 bệnh (name, confidence, description)");
-        sb.AppendLine("  2. recommendedSpecialties: >= 1 chuyên khoa (specialtyName, confidence, urgency, reasons)");
-        sb.AppendLine("  3. generalAdvice: >= 2 lời khuyên");
-        sb.AppendLine("  4. nextQuestions: [] (rỗng vì đã kết luận)");
+        AppendWhenConcluding(sb);
         sb.AppendLine();
         sb.AppendLine("⛔ KHÔNG BAO GIỜ analysisComplete = true nếu thiếu bất kỳ thành phần nào trên!");
         sb.AppendLine();
@@ -935,9 +970,7 @@ public class GeminiService : IGeminiService
             else if (questionsAsked < 3)
             {
                 sb.AppendLine($"• Mới hỏi {questionsAsked}/3 câu → HỎI THÊM 1 câu quan trọng");
-                sb.AppendLine("• DỰA VÀO câu trả lời trước đó của user để hỏi câu tiếp theo có logic");
-                sb.AppendLine("• KHÔNG hỏi lại những câu đã hỏi (xem danh sách 'Đã hỏi' ở trên)");
-                sb.AppendLine("• Mục tiêu: Thu hẹp phạm vi bệnh/chuyên khoa dựa trên thông tin đã có");
+                AppendWhenAskingMore(sb);
                 sb.AppendLine("• Ví dụ: Nếu đã biết 'đau bụng vùng thượng vị' → hỏi 'mức độ đau? thời gian? có nóng rát không?'");
             }
             sb.AppendLine();
@@ -957,9 +990,7 @@ public class GeminiService : IGeminiService
         sb.AppendLine("   - Nếu đủ thông tin HOẶC đã hỏi >= 3 câu → Kết luận (analysisComplete=true)");
         sb.AppendLine();
         sb.AppendLine("3. KHI HỎI THÊM (analysisComplete=false):");
-        sb.AppendLine("   - DỰA VÀO câu trả lời trước đó của user để hỏi câu TIẾP THEO");
-        sb.AppendLine("   - KHÔNG hỏi lại những câu đã hỏi (xem danh sách 'Đã hỏi')");
-        sb.AppendLine("   - Câu hỏi phải giúp THU HẸP phạm vi bệnh/chuyên khoa dựa trên thông tin đã có");
+        AppendWhenAskingMore(sb);
         sb.AppendLine("   - Ví dụ: Đã biết 'đau đầu' + 'vùng thái dương' → hỏi 'thời gian? mức độ? có buồn nôn không?'");
         sb.AppendLine();
         sb.AppendLine("4. KHI KẾT LUẬN (analysisComplete=true):");
@@ -967,8 +998,7 @@ public class GeminiService : IGeminiService
         sb.AppendLine("   - BẮT BUỘC có đủ: diseases >= 1, specialties >= 1, advice >= 2");
         sb.AppendLine();
         sb.AppendLine("5. JSON OUTPUT:");
-        sb.AppendLine("   - Trả về JSON THUẦN (KHÔNG ```json), theo format ở trên");
-        sb.AppendLine("   - Đảm bảo JSON hợp lệ, có đủ các field: possibleDiseases, recommendedSpecialties, generalAdvice, nextQuestions, analysisComplete, requiresImmediateAttention");
+        AppendJsonOutputFormat(sb);
         sb.AppendLine("==================================================");
 
         return sb.ToString();
