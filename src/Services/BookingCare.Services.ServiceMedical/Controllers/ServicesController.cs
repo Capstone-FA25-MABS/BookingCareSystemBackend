@@ -445,26 +445,61 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// Get services by category with hospital information
         /// </summary>
         /// <param name="categoryId">Service category ID</param>
-        /// <param name="page">Page number</param>
-        /// <param name="pageSize">Page size</param>
-        /// <param name="includeInactive">Include inactive services</param>
+        /// <param name="queryParams">Query parameters for filtering and pagination</param>
         /// <returns>List of services in the category with hospital information</returns>
         [HttpGet("category/{categoryId}/with-hospital")]
         public async Task<ActionResult<ServicesByCategoryOptimizedResponse>> GetServicesByCategoryWithHospital(
             Guid categoryId,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] bool includeInactive = false)
+            [FromQuery] GetServicesByCategoryWithHospitalQueryParams queryParams)
         {
             try
             {
+                // Validate model state to ensure ProvinceId and DistrictId meet security requirements
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    return BadRequest(new { error = "Invalid request parameters", errors = errors });
+                }
+
+                // Additional validation for ProvinceId and DistrictId to prevent path traversal
+                if (!string.IsNullOrWhiteSpace(queryParams.ProvinceId) && !IsValidLocationId(queryParams.ProvinceId))
+                {
+                    return BadRequest(new { error = "Invalid ProvinceId format. Only alphanumeric characters, hyphens, and underscores are allowed." });
+                }
+
+                if (!string.IsNullOrWhiteSpace(queryParams.DistrictId) && !IsValidLocationId(queryParams.DistrictId))
+                {
+                    return BadRequest(new { error = "Invalid DistrictId format. Only alphanumeric characters, hyphens, and underscores are allowed." });
+                }
+
                 var request = new GetServicesByCategoryRequest
                 {
                     ServiceCategoryId = categoryId,
-                    Page = page,
-                    PageSize = pageSize,
-                    IncludeInactive = includeInactive
+                    Page = queryParams.Page,
+                    PageSize = queryParams.PageSize,
+                    IncludeInactive = queryParams.IncludeInactive,
+                    SearchTerm = queryParams.SearchTerm,
+                    ProvinceId = queryParams.ProvinceId,
+                    DistrictId = queryParams.DistrictId
                 };
+
+                // Parse hospital IDs from comma-separated string
+                if (!string.IsNullOrEmpty(queryParams.HospitalIds))
+                {
+                    var hospitalIdList = queryParams.HospitalIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(id => Guid.TryParse(id.Trim(), out var guid) ? guid : (Guid?)null)
+                        .Where(id => id.HasValue)
+                        .Select(id => id!.Value)
+                        .ToList();
+
+                    if (hospitalIdList.Any())
+                    {
+                        request.HospitalIds = hospitalIdList;
+                    }
+                }
 
                 var result = await _serviceMedicalService.GetServicesByCategoryWithHospitalAsync(request);
                 return Ok(result);
@@ -478,6 +513,23 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                 _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", categoryId);
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
+        }
+
+        /// <summary>
+        /// Validate location ID format to prevent path traversal attacks
+        /// Only allows alphanumeric characters, hyphens, and underscores
+        /// </summary>
+        private static bool IsValidLocationId(string locationId)
+        {
+            if (string.IsNullOrWhiteSpace(locationId))
+            {
+                return false;
+            }
+
+            // Allow only alphanumeric characters, hyphens, and underscores
+            // This prevents path traversal characters like ../, ..\, etc.
+            return locationId.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_') &&
+                   locationId.Length <= 50; // Reasonable length limit
         }
 
         /// <summary>
