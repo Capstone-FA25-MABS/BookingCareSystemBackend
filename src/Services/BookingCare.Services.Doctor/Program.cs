@@ -18,7 +18,6 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "doctor");
 
 // Add services to the container.
 builder.Services.AddCommonControllers();

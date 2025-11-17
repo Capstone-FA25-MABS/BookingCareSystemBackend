@@ -10,7 +10,6 @@ using BookingCare.Shared.Common.Versioning;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "discount");
 
 // Add services
 builder.Services.AddControllers();

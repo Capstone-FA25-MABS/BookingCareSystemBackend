@@ -17,7 +17,6 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "communication");
 
 // Add common services using ProgramExtensions
 builder.Services.AddCommonControllers();

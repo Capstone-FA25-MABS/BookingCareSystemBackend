@@ -19,7 +19,6 @@ AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "servicemedical");
 
 // Add Entity Framework
 builder.Services.AddDbContext<ServiceMedicalDbContext>(options =>

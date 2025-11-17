@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Mvc;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "review");
 
 // Add services to the container with custom configuration for FluentValidation
 builder.Services.AddControllers(options =>

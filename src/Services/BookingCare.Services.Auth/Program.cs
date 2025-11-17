@@ -25,7 +25,6 @@ using BookingCare.Services.Hospital;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "auth");
 
 // Add services to the container using common extensions
 builder.Services.AddCommonControllers();

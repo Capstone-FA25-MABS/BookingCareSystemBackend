@@ -11,7 +11,6 @@ using Grpc.Net.Client;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "ai");
 
 // Add API Versioning
 builder.Services.AddApiVersioningSupport();

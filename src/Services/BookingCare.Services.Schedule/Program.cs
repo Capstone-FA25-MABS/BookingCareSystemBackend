@@ -12,7 +12,6 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "schedule");
 
 // Add DbContext
 builder.Services.AddDbContext<ScheduleDbContext>(options =>

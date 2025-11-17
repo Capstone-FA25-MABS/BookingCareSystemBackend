@@ -21,7 +21,6 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
-builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "payment");
 
 // Add Entity Framework
 builder.Services.AddDbContext<PaymentDbContext>(options =>
