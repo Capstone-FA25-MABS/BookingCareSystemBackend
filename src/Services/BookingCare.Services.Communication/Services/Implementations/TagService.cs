@@ -977,7 +977,7 @@ public class TagService : BaseService, ITagService
     /// <summary>
     /// Helper: Cập nhật các field của tag từ DTO
     /// </summary>
-    private void UpdateTagFields(TagEntity existingTag, UpdateTagDto dto)
+    private static void UpdateTagFields(TagEntity existingTag, UpdateTagDto dto)
     {
         if (!string.IsNullOrEmpty(dto.Name))
             existingTag.Name = dto.Name;

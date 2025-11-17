@@ -904,7 +904,7 @@ public class ConversationService : BaseService, IConversationService
     /// <summary>
     /// Helper: Group conversation vào dictionary theo tag ID
     /// </summary>
-    private void GroupConversationByTags(
+    private static void GroupConversationByTags(
         Dictionary<string, List<ConversationResponse>> grouped,
         ConversationResponse conversationDto,
         List<string> tagIds
