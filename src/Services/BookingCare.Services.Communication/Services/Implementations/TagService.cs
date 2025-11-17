@@ -1,4 +1,5 @@
 using AutoMapper;
+using BookingCare.Services.Communication.Extensions;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
@@ -836,23 +837,12 @@ public class TagService : BaseService, ITagService
                     int.MaxValue
                 );
 
-                IEnumerable<ConversationEntity> filteredConversations;
-                if (filterMode.ToLower() == "all")
-                {
-                    // Conversation phải có TẤT CẢ các tag (trong UserTags của user)
-                    filteredConversations = allConversations.Where(c =>
-                        c.UserTags.ContainsKey(userId)
-                        && tagIds.All(tagId => c.UserTags[userId].Contains(tagId))
-                    );
-                }
-                else // "any"
-                {
-                    // Conversation có ÍT NHẤT 1 tag (trong UserTags của user)
-                    filteredConversations = allConversations.Where(c =>
-                        c.UserTags.ContainsKey(userId)
-                        && c.UserTags[userId].Any(tagId => tagIds.Contains(tagId))
-                    );
-                }
+                // Sử dụng extension method để filter conversations
+                var filteredConversations = allConversations.FilterByTags(
+                    userId,
+                    tagIds,
+                    filterMode
+                );
 
                 var totalCount = filteredConversations.Count();
                 var pagedConversations = filteredConversations

@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using BookingCare.Services.Communication.Extensions;
 using BookingCare.Services.Communication.Hubs;
 using BookingCare.Services.Communication.Models.DTOs;
 using BookingCare.Services.Communication.Models.Entities;
@@ -101,22 +102,26 @@ public class ConversationService : BaseService, IConversationService
                 // ✅ Broadcast ConversationCreated event to all participants via SignalR
                 try
                 {
-                    var conversationResponse = _mapper.Map<ConversationResponse>(createdConversation);
+                    var conversationResponse = _mapper.Map<ConversationResponse>(
+                        createdConversation
+                    );
 
                     // Send to each participant's personal group
                     foreach (var participantId in normalizedParticipants)
                     {
                         var userGroupName = $"user_{participantId}";
-                        await _hubContext.Clients.Group(userGroupName).SendAsync(
-                            "ConversationCreated",
-                            new
-                            {
-                                conversationId = createdConversation.Id,
-                                participants = normalizedParticipants,
-                                createdAt = createdConversation.CreatedAt,
-                                conversation = conversationResponse
-                            }
-                        );
+                        await _hubContext
+                            .Clients.Group(userGroupName)
+                            .SendAsync(
+                                "ConversationCreated",
+                                new
+                                {
+                                    conversationId = createdConversation.Id,
+                                    participants = normalizedParticipants,
+                                    createdAt = createdConversation.CreatedAt,
+                                    conversation = conversationResponse,
+                                }
+                            );
 
                         LogInfo(
                             "📤 Sent ConversationCreated event to user {UserId} for conversation {ConversationId}",
@@ -859,23 +864,12 @@ public class ConversationService : BaseService, IConversationService
                     int.MaxValue
                 );
 
-                IEnumerable<ConversationEntity> filteredConversations;
-                if (filterMode.ToLower() == "all")
-                {
-                    // Conversation phải có TẤT CẢ các tag (trong UserTags của user)
-                    filteredConversations = allConversations.Where(c =>
-                        c.UserTags.ContainsKey(userId)
-                        && tagIds.All(tagId => c.UserTags[userId].Contains(tagId))
-                    );
-                }
-                else // "any"
-                {
-                    // Conversation có ÍT NHẤT 1 tag (trong UserTags của user)
-                    filteredConversations = allConversations.Where(c =>
-                        c.UserTags.ContainsKey(userId)
-                        && c.UserTags[userId].Any(tagId => tagIds.Contains(tagId))
-                    );
-                }
+                // Sử dụng extension method để filter conversations
+                var filteredConversations = allConversations.FilterByTags(
+                    userId,
+                    tagIds,
+                    filterMode
+                );
 
                 var totalCount = filteredConversations.Count();
                 var pagedConversations = filteredConversations
