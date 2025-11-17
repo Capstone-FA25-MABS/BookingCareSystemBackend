@@ -14,6 +14,10 @@ namespace BookingCare.Services.Communication.Services.Implementations;
 /// </summary>
 public class TagService : BaseService, ITagService
 {
+    private const string ConversationNotFoundError = "Cuộc hội thoại không tồn tại";
+    private const string UnauthorizedConversationAccessError =
+        "Bạn không có quyền truy cập cuộc hội thoại này";
+
     private readonly ITagRepository _tagRepository;
     private readonly IConversationRepository _conversationRepository;
     private readonly IMapper _mapper;
@@ -146,32 +150,10 @@ public class TagService : BaseService, ITagService
                 }
 
                 // Kiểm tra trùng tên (nếu đổi tên)
-                if (!string.IsNullOrEmpty(dto.Name) && dto.Name != existingTag.Name)
-                {
-                    var duplicateTag = await _tagRepository.GetByNameAsync(userId, dto.Name);
-                    if (duplicateTag != null)
-                    {
-                        throw new InvalidOperationException($"Tag với tên '{dto.Name}' đã tồn tại");
-                    }
-                }
+                await ValidateAndCheckDuplicateNameAsync(userId, dto.Name, existingTag.Name);
 
                 // Cập nhật các trường
-                if (!string.IsNullOrEmpty(dto.Name))
-                    existingTag.Name = dto.Name;
-                if (dto.Description != null)
-                    existingTag.Description = dto.Description;
-                if (!string.IsNullOrEmpty(dto.Color))
-                    existingTag.Color = dto.Color;
-                if (dto.Icon != null)
-                    existingTag.Icon = dto.Icon;
-                if (dto.Type.HasValue)
-                    existingTag.Type = dto.Type.Value;
-                if (dto.Order.HasValue)
-                    existingTag.Order = dto.Order.Value;
-                if (dto.IsPinned.HasValue)
-                    existingTag.IsPinned = dto.IsPinned.Value;
-                if (dto.IsActive.HasValue)
-                    existingTag.IsActive = dto.IsActive.Value;
+                UpdateTagFields(existingTag, dto);
 
                 var updatedTag = await _tagRepository.UpdateAsync(tagId, existingTag);
 
@@ -216,20 +198,20 @@ public class TagService : BaseService, ITagService
                     1,
                     int.MaxValue
                 );
-                foreach (var conversation in conversations)
-                {
-                    if (
-                        conversation.UserTags.ContainsKey(userId)
-                        && conversation.UserTags[userId].Contains(tagId)
+                var conversationsWithTag = conversations
+                    .Where(c =>
+                        c.UserTags.ContainsKey(userId) && c.UserTags[userId].Contains(tagId)
                     )
+                    .ToList();
+
+                foreach (var conversation in conversationsWithTag)
+                {
+                    conversation.UserTags[userId].Remove(tagId);
+                    if (conversation.UserTags[userId].Count == 0)
                     {
-                        conversation.UserTags[userId].Remove(tagId);
-                        if (conversation.UserTags[userId].Count == 0)
-                        {
-                            conversation.UserTags.Remove(userId);
-                        }
-                        await _conversationRepository.UpdateAsync(conversation);
+                        conversation.UserTags.Remove(userId);
                     }
+                    await _conversationRepository.UpdateAsync(conversation);
                 }
 
                 var result = await _tagRepository.DeleteAsync(tagId);
@@ -331,7 +313,7 @@ public class TagService : BaseService, ITagService
                 var conversation = await _conversationRepository.GetByIdAsync(conversationId);
                 if (conversation == null)
                 {
-                    throw new InvalidOperationException("Cuộc hội thoại không tồn tại");
+                    throw new InvalidOperationException(ConversationNotFoundError);
                 }
 
                 // Kiểm tra user có trong conversation không (case-insensitive)
@@ -341,9 +323,7 @@ public class TagService : BaseService, ITagService
                     )
                 )
                 {
-                    throw new UnauthorizedAccessException(
-                        "Bạn không có quyền truy cập cuộc hội thoại này"
-                    );
+                    throw new UnauthorizedAccessException(UnauthorizedConversationAccessError);
                 }
 
                 // Validate tags
@@ -365,20 +345,21 @@ public class TagService : BaseService, ITagService
                 }
 
                 // Thêm tags mới (không trùng lặp, case-insensitive)
-                var addedCount = 0;
-                foreach (var tagId in normalizedTagIds)
-                {
-                    if (
+                var tagsToAdd = normalizedTagIds
+                    .Where(tagId =>
                         !conversation
                             .UserTags[userKey]
                             .Any(t => t.Equals(tagId, StringComparison.OrdinalIgnoreCase))
                     )
-                    {
-                        conversation.UserTags[userKey].Add(tagId);
-                        await _tagRepository.IncrementConversationCountAsync(tagId);
-                        addedCount++;
-                    }
+                    .ToList();
+
+                foreach (var tagId in tagsToAdd)
+                {
+                    conversation.UserTags[userKey].Add(tagId);
+                    await _tagRepository.IncrementConversationCountAsync(tagId);
                 }
+
+                var addedCount = tagsToAdd.Count;
 
                 if (addedCount > 0)
                 {
@@ -425,7 +406,7 @@ public class TagService : BaseService, ITagService
                 var conversation = await _conversationRepository.GetByIdAsync(conversationId);
                 if (conversation == null)
                 {
-                    throw new InvalidOperationException("Cuộc hội thoại không tồn tại");
+                    throw new InvalidOperationException(ConversationNotFoundError);
                 }
 
                 // Kiểm tra user có trong conversation không
@@ -435,9 +416,7 @@ public class TagService : BaseService, ITagService
                     )
                 )
                 {
-                    throw new UnauthorizedAccessException(
-                        "Bạn không có quyền truy cập cuộc hội thoại này"
-                    );
+                    throw new UnauthorizedAccessException(UnauthorizedConversationAccessError);
                 }
 
                 // Find the correct user key (case-insensitive)
@@ -447,7 +426,6 @@ public class TagService : BaseService, ITagService
 
                 if (userKey != null && conversation.UserTags[userKey] != null)
                 {
-                    // Log current tags before removal
                     LogInfo(
                         "Current tags for user {UserId} in conversation {ConversationId}: {Tags}",
                         correlationId: null,
@@ -459,60 +437,13 @@ public class TagService : BaseService, ITagService
                         }
                     );
 
-                    // Find and remove the tag (case-insensitive)
-                    var tagToRemove = conversation
-                        .UserTags[userKey]
-                        .FirstOrDefault(t => t.Equals(tagId, StringComparison.OrdinalIgnoreCase));
-
-                    if (tagToRemove != null)
-                    {
-                        var removed = conversation.UserTags[userKey].Remove(tagToRemove);
-                        LogInfo(
-                            "Tag removal result: {Removed}, Remaining tags: {Count}",
-                            correlationId: null,
-                            args: new object[] { removed, conversation.UserTags[userKey].Count }
-                        );
-
-                        if (conversation.UserTags[userKey].Count == 0)
-                        {
-                            conversation.UserTags.Remove(userKey);
-                            LogInfo(
-                                "Removed empty tag list for user {UserId}",
-                                correlationId: null,
-                                args: new object[] { userId }
-                            );
-                        }
-
-                        var updateResult = await _conversationRepository.UpdateAsync(conversation);
-                        LogInfo(
-                            "Conversation updated: {ConversationId}",
-                            correlationId: null,
-                            args: new object[] { updateResult.Id }
-                        );
-
-                        await _tagRepository.DecrementConversationCountAsync(tagId);
-
-                        LogInfo(
-                            "Successfully removed tag {TagId} from conversation {ConversationId} for user {UserId}",
-                            correlationId: null,
-                            args: new object[] { tagId, conversationId, userId }
-                        );
-                        return true;
-                    }
-                    else
-                    {
-                        LogWarning(
-                            "Tag {TagId} not found in conversation {ConversationId} for user {UserId}. Available tags: {Tags}",
-                            correlationId: null,
-                            args: new object[]
-                            {
-                                tagId,
-                                conversationId,
-                                userId,
-                                string.Join(", ", conversation.UserTags[userKey]),
-                            }
-                        );
-                    }
+                    return await ProcessTagRemovalAsync(
+                        conversation,
+                        userKey,
+                        tagId,
+                        conversationId,
+                        userId
+                    );
                 }
                 else
                 {
@@ -759,20 +690,10 @@ public class TagService : BaseService, ITagService
                     Tag = _mapper.Map<TagDto>(tag),
                     TotalConversations = taggedConversations.Count,
                     LastMessageAt = taggedConversations.Max(c => c.LastMessage?.CreatedAt),
+                    UnreadMessagesCount =
+                        0 // Will be implemented when IMessageRepository supports GetUnreadMessagesAsync
+                    ,
                 };
-
-                // Đếm tin nhắn chưa đọc
-                var unreadCount = 0;
-                // TODO: Implement GetUnreadMessagesAsync trong IMessageRepository
-                // foreach (var conversation in taggedConversations)
-                // {
-                //     var messages = await _messageRepository.GetUnreadMessagesAsync(
-                //         conversation.Id,
-                //         userId
-                //     );
-                //     unreadCount += messages.Count();
-                // }
-                statistics.UnreadMessagesCount = unreadCount;
 
                 return statistics;
             },
@@ -879,21 +800,19 @@ public class TagService : BaseService, ITagService
                 ValidateRequired(userId, nameof(userId));
 
                 var tags = await _tagRepository.GetSortedTagsAsync(userId, includeSystem: true);
-                var counts = new Dictionary<string, int>();
-
                 var conversations = await _conversationRepository.GetByUserIdAsync(
                     userId,
                     1,
                     int.MaxValue
                 );
 
-                foreach (var tag in tags)
-                {
-                    var count = conversations.Count(c =>
-                        c.UserTags.ContainsKey(userId) && c.UserTags[userId].Contains(tag.Id)
-                    );
-                    counts[tag.Id] = count;
-                }
+                var counts = tags.ToDictionary(
+                    tag => tag.Id,
+                    tag =>
+                        conversations.Count(c =>
+                            c.UserTags.ContainsKey(userId) && c.UserTags[userId].Contains(tag.Id)
+                        )
+                );
 
                 return counts;
             },
@@ -937,23 +856,9 @@ public class TagService : BaseService, ITagService
                 {
                     try
                     {
-                        var conversation = await _conversationRepository.GetByIdAsync(
-                            conversationId
-                        );
-                        if (conversation != null && conversation.Participants.Contains(userId))
+                        if (await TryAddTagToConversationAsync(conversationId, userId, tagId))
                         {
-                            if (!conversation.UserTags.ContainsKey(userId))
-                            {
-                                conversation.UserTags[userId] = new List<string>();
-                            }
-
-                            if (!conversation.UserTags[userId].Contains(tagId))
-                            {
-                                conversation.UserTags[userId].Add(tagId);
-                                await _conversationRepository.UpdateAsync(conversation);
-                                await _tagRepository.IncrementConversationCountAsync(tagId);
-                                successCount++;
-                            }
+                            successCount++;
                         }
                     }
                     catch (Exception ex)
@@ -1008,21 +913,20 @@ public class TagService : BaseService, ITagService
                         var conversation = await _conversationRepository.GetByIdAsync(
                             conversationId
                         );
-                        if (conversation != null && conversation.Participants.Contains(userId))
+                        if (
+                            conversation != null
+                            && conversation.Participants.Contains(userId)
+                            && conversation.UserTags.ContainsKey(userId)
+                            && conversation.UserTags[userId].Remove(tagId)
+                        )
                         {
-                            if (
-                                conversation.UserTags.ContainsKey(userId)
-                                && conversation.UserTags[userId].Remove(tagId)
-                            )
+                            if (conversation.UserTags[userId].Count == 0)
                             {
-                                if (conversation.UserTags[userId].Count == 0)
-                                {
-                                    conversation.UserTags.Remove(userId);
-                                }
-                                await _conversationRepository.UpdateAsync(conversation);
-                                await _tagRepository.DecrementConversationCountAsync(tagId);
-                                successCount++;
+                                conversation.UserTags.Remove(userId);
                             }
+                            await _conversationRepository.UpdateAsync(conversation);
+                            await _tagRepository.DecrementConversationCountAsync(tagId);
+                            successCount++;
                         }
                     }
                     catch (Exception ex)
@@ -1050,6 +954,138 @@ public class TagService : BaseService, ITagService
     #endregion
 
     #region Validation & Helper Methods
+
+    /// <summary>
+    /// Helper: Validate tag name và kiểm tra trùng tên
+    /// </summary>
+    private async Task ValidateAndCheckDuplicateNameAsync(
+        string userId,
+        string? newName,
+        string currentName
+    )
+    {
+        if (!string.IsNullOrEmpty(newName) && newName != currentName)
+        {
+            var duplicateTag = await _tagRepository.GetByNameAsync(userId, newName);
+            if (duplicateTag != null)
+            {
+                throw new InvalidOperationException($"Tag với tên '{newName}' đã tồn tại");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Helper: Cập nhật các field của tag từ DTO
+    /// </summary>
+    private void UpdateTagFields(TagEntity existingTag, UpdateTagDto dto)
+    {
+        if (!string.IsNullOrEmpty(dto.Name))
+            existingTag.Name = dto.Name;
+        if (dto.Description != null)
+            existingTag.Description = dto.Description;
+        if (!string.IsNullOrEmpty(dto.Color))
+            existingTag.Color = dto.Color;
+        if (dto.Icon != null)
+            existingTag.Icon = dto.Icon;
+        if (dto.Type.HasValue)
+            existingTag.Type = dto.Type.Value;
+        if (dto.Order.HasValue)
+            existingTag.Order = dto.Order.Value;
+        if (dto.IsPinned.HasValue)
+            existingTag.IsPinned = dto.IsPinned.Value;
+        if (dto.IsActive.HasValue)
+            existingTag.IsActive = dto.IsActive.Value;
+    }
+
+    /// <summary>
+    /// Helper: Xử lý logic remove tag từ conversation
+    /// </summary>
+    private async Task<bool> ProcessTagRemovalAsync(
+        ConversationEntity conversation,
+        string userKey,
+        string tagId,
+        string conversationId,
+        string userId
+    )
+    {
+        var tagToRemove = conversation
+            .UserTags[userKey]
+            .FirstOrDefault(t => t.Equals(tagId, StringComparison.OrdinalIgnoreCase));
+
+        if (tagToRemove == null)
+        {
+            LogWarning(
+                "Tag {TagId} not found in conversation {ConversationId} for user {UserId}. Available tags: {Tags}",
+                correlationId: null,
+                args: new object[]
+                {
+                    tagId,
+                    conversationId,
+                    userId,
+                    string.Join(", ", conversation.UserTags[userKey]),
+                }
+            );
+            return false;
+        }
+
+        conversation.UserTags[userKey].Remove(tagToRemove);
+        LogInfo(
+            "Tag removal result: Removed, Remaining tags: {Count}",
+            correlationId: null,
+            args: new object[] { conversation.UserTags[userKey].Count }
+        );
+
+        if (conversation.UserTags[userKey].Count == 0)
+        {
+            conversation.UserTags.Remove(userKey);
+            LogInfo(
+                "Removed empty tag list for user {UserId}",
+                correlationId: null,
+                args: new object[] { userId }
+            );
+        }
+
+        await _conversationRepository.UpdateAsync(conversation);
+        await _tagRepository.DecrementConversationCountAsync(tagId);
+
+        LogInfo(
+            "Successfully removed tag {TagId} from conversation {ConversationId} for user {UserId}",
+            correlationId: null,
+            args: new object[] { tagId, conversationId, userId }
+        );
+        return true;
+    }
+
+    /// <summary>
+    /// Helper: Thử thêm tag vào conversation (for bulk operations)
+    /// </summary>
+    private async Task<bool> TryAddTagToConversationAsync(
+        string conversationId,
+        string userId,
+        string tagId
+    )
+    {
+        var conversation = await _conversationRepository.GetByIdAsync(conversationId);
+        if (conversation == null || !conversation.Participants.Contains(userId))
+        {
+            return false;
+        }
+
+        if (!conversation.UserTags.ContainsKey(userId))
+        {
+            conversation.UserTags[userId] = new List<string>();
+        }
+
+        if (conversation.UserTags[userId].Contains(tagId))
+        {
+            return false; // Already has tag
+        }
+
+        conversation.UserTags[userId].Add(tagId);
+        await _conversationRepository.UpdateAsync(conversation);
+        await _tagRepository.IncrementConversationCountAsync(tagId);
+        return true;
+    }
 
     /// <summary>
     /// Kiểm tra tag có tồn tại và thuộc về user không

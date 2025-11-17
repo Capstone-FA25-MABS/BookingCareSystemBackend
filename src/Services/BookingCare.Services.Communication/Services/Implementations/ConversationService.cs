@@ -902,6 +902,38 @@ public class ConversationService : BaseService, IConversationService
     }
 
     /// <summary>
+    /// Helper: Group conversation vào dictionary theo tag ID
+    /// </summary>
+    private void GroupConversationByTags(
+        Dictionary<string, List<ConversationResponse>> grouped,
+        ConversationResponse conversationDto,
+        List<string> tagIds
+    )
+    {
+        if (tagIds.Count == 0)
+        {
+            // Nhóm "Không có tag"
+            if (!grouped.ContainsKey("untagged"))
+            {
+                grouped["untagged"] = new List<ConversationResponse>();
+            }
+            grouped["untagged"].Add(conversationDto);
+        }
+        else
+        {
+            // Thêm vào các nhóm theo tag
+            foreach (var tagId in tagIds)
+            {
+                if (!grouped.ContainsKey(tagId))
+                {
+                    grouped[tagId] = new List<ConversationResponse>();
+                }
+                grouped[tagId].Add(conversationDto);
+            }
+        }
+    }
+
+    /// <summary>
     /// Get grouped conversations by tags
     /// </summary>
     public async Task<
@@ -937,27 +969,8 @@ public class ConversationService : BaseService, IConversationService
                         ? conversation.UserTags[userId]
                         : new List<string>();
 
-                    if (userTagIds.Count == 0)
-                    {
-                        // Nhóm "Không có tag"
-                        if (!grouped.ContainsKey("untagged"))
-                        {
-                            grouped["untagged"] = new List<ConversationResponse>();
-                        }
-                        grouped["untagged"].Add(conversationDto);
-                    }
-                    else
-                    {
-                        // Thêm vào các nhóm theo tag
-                        foreach (var tagId in userTagIds)
-                        {
-                            if (!grouped.ContainsKey(tagId))
-                            {
-                                grouped[tagId] = new List<ConversationResponse>();
-                            }
-                            grouped[tagId].Add(conversationDto);
-                        }
-                    }
+                    // Sử dụng helper method để group
+                    GroupConversationByTags(grouped, conversationDto, userTagIds);
                 }
 
                 // Enrich all conversations at once
