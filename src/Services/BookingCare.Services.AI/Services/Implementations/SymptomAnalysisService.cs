@@ -132,7 +132,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private bool ValidateFirstQuestion(GeminiAnalysisResult result, double maxConfidence, int questionsAskedCount)
     {
-        if (questionsAskedCount != 0 || !result.AnalysisComplete || 
+        if (questionsAskedCount != 0 || !result.AnalysisComplete ||
             maxConfidence >= 0.85 || result.RequiresImmediateAttention)
         {
             return false;
@@ -2119,7 +2119,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
         // Step 2: Replace multiple consecutive newlines (2+) with single newline
         // This handles \n\n, \n\n\n, etc. -> \n
-        normalized = Regex.Replace(normalized, @"\n{2,}", "\n");
+        normalized = Regex.Replace(normalized, @"\n{2,}", "\n", RegexOptions.None, TimeSpan.FromSeconds(2));
 
         // Step 3: Trim leading and trailing newlines (but keep content)
         normalized = normalized.Trim('\n');

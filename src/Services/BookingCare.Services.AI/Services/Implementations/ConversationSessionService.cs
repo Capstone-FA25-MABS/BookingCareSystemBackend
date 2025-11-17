@@ -324,7 +324,7 @@ public class ConversationSessionService : IConversationSessionService
 
         // Step 2: Replace multiple consecutive newlines (2+) with single newline
         // This handles \n\n, \n\n\n, etc. -> \n
-        normalized = Regex.Replace(normalized, @"\n{2,}", "\n");
+        normalized = Regex.Replace(normalized, @"\n{2,}", "\n", RegexOptions.None, TimeSpan.FromSeconds(2));
 
         // Step 3: Trim leading and trailing newlines (but keep content)
         normalized = normalized.Trim('\n');
