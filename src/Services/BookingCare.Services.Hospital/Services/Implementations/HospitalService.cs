@@ -21,9 +21,7 @@ public class HospitalService : IHospitalService
     private readonly HospitalServiceDependencies _dependencies;
     private readonly ILogger<HospitalService> _logger;
     private readonly IMemoryCache _cache;
-    private readonly ISubscriptionPlanRepository _subscriptionPlanRepository;
-    private readonly IHospitalSubscriptionService _hospitalSubscriptionService;
-    private readonly ISubscriptionUsageService _subscriptionUsageService;
+    private readonly SubscriptionServices _subscriptionServices;
     private static readonly object _circuitBreakerLock = new object();
     private static int _consecutiveFailures = 0;
     private static DateTime _lastFailureTime = DateTime.MinValue;
@@ -37,9 +35,7 @@ public class HospitalService : IHospitalService
         HospitalServiceDependencies dependencies,
         ILogger<HospitalService> logger,
         IMemoryCache cache,
-        ISubscriptionPlanRepository subscriptionPlanRepository,
-        IHospitalSubscriptionService hospitalSubscriptionService,
-        ISubscriptionUsageService subscriptionUsageService)
+        SubscriptionServices subscriptionServices)
     {
         _hospitalRepository = hospitalRepository;
         _hospitalImageRepository = hospitalImageRepository;
@@ -47,9 +43,7 @@ public class HospitalService : IHospitalService
         _dependencies = dependencies;
         _logger = logger;
         _cache = cache;
-        _subscriptionPlanRepository = subscriptionPlanRepository;
-        _hospitalSubscriptionService = hospitalSubscriptionService;
-        _subscriptionUsageService = subscriptionUsageService;
+        _subscriptionServices = subscriptionServices;
     }
 
     public async Task<HospitalProfileResponse?> GetByIdAsync(Guid id)
@@ -519,7 +513,7 @@ public class HospitalService : IHospitalService
         try
         {
             // Check subscription limit before adding specialty
-            var canAdd = await _subscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
+            var canAdd = await _subscriptionServices.SubscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
             if (!canAdd)
             {
                 throw new HospitalOperationException(
@@ -532,7 +526,7 @@ public class HospitalService : IHospitalService
             // Increment specialty count after successful addition (only if it's a new specialty)
             if (result)
             {
-                await _subscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
+                await _subscriptionServices.SubscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
             }
 
             return result;
@@ -556,7 +550,7 @@ public class HospitalService : IHospitalService
             // Decrement specialty count after successful removal
             if (result)
             {
-                await _subscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
+                await _subscriptionServices.SubscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
             }
 
             return result;
@@ -617,7 +611,7 @@ public class HospitalService : IHospitalService
                 if (specialtiesToAdd.Count > 0)
                 {
                     // Check if we can add all specialties
-                    var canAdd = await _subscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
+                    var canAdd = await _subscriptionServices.SubscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
                     if (!canAdd)
                     {
                         // Rollback: restore original specialties
@@ -631,14 +625,14 @@ public class HospitalService : IHospitalService
                     // Increment count for each added specialty
                     for (int i = 0; i < specialtiesToAdd.Count; i++)
                     {
-                        await _subscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
+                        await _subscriptionServices.SubscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
                     }
                 }
 
                 // Decrement count for each removed specialty
                 for (int i = 0; i < specialtiesToRemove.Count; i++)
                 {
-                    await _subscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
+                    await _subscriptionServices.SubscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
                 }
             }
 
@@ -1416,7 +1410,7 @@ public class HospitalService : IHospitalService
             _logger.LogInformation("Attempting to assign trial subscription for hospital {HospitalId}", hospitalId);
 
             // Find trial subscription plan (price = 0, MONTHLY, ACTIVE)
-            var allPlans = await _subscriptionPlanRepository.GetActiveAsync();
+            var allPlans = await _subscriptionServices.SubscriptionPlanRepository.GetActiveAsync();
             var trialPlan = allPlans.FirstOrDefault(p =>
                 p.Price == 0 &&
                 p.BillingCycle == "MONTHLY" &&
@@ -1437,7 +1431,7 @@ public class HospitalService : IHospitalService
                 EndDate = DateTime.UtcNow.AddMonths(1) // Trial for 1 month
             };
 
-            await _hospitalSubscriptionService.CreateAsync(subscriptionRequest);
+            await _subscriptionServices.HospitalSubscriptionService.CreateAsync(subscriptionRequest);
             _logger.LogInformation("Successfully assigned trial subscription '{PlanName}' to hospital {HospitalId}", trialPlan.Name, hospitalId);
         }
         catch (Exception ex)

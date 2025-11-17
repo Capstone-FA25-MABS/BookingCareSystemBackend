@@ -132,12 +132,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private bool ValidateFirstQuestion(GeminiAnalysisResult result, double maxConfidence, int questionsAskedCount)
     {
-        if (questionsAskedCount != 0 || !result.AnalysisComplete)
-        {
-            return false;
-        }
-
-        if (maxConfidence >= 0.85 || result.RequiresImmediateAttention)
+        if (questionsAskedCount != 0 || !result.AnalysisComplete || 
+            maxConfidence >= 0.85 || result.RequiresImmediateAttention)
         {
             return false;
         }
