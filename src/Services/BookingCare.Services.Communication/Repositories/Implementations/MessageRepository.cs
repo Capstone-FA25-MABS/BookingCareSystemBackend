@@ -1,9 +1,9 @@
-﻿using MongoDB.Driver;
-using BookingCare.Services.Communication.Data;
+﻿using BookingCare.Services.Communication.Data;
+using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
-using BookingCare.Services.Communication.Enums;
 using BookingCare.Services.Communication.Utils;
+using MongoDB.Driver;
 
 namespace BookingCare.Services.Communication.Repositories.Implementations;
 
@@ -30,7 +30,11 @@ public class MessageRepository : IMessageRepository
     /// <summary>
     /// Lấy danh sách tin nhắn theo conversation ID với phân trang
     /// </summary>
-    public async Task<IEnumerable<MessageEntity>> GetByConversationIdAsync(string conversationId, int page = 1, int pageSize = 50)
+    public async Task<IEnumerable<MessageEntity>> GetByConversationIdAsync(
+        string conversationId,
+        int page = 1,
+        int pageSize = 50
+    )
     {
         var skip = (page - 1) * pageSize;
         return await _messages
@@ -76,8 +80,8 @@ public class MessageRepository : IMessageRepository
     /// </summary>
     public async Task<bool> MarkAsReadAsync(string messageId, DateTime readAt)
     {
-        var update = Builders<MessageEntity>.Update
-            .Set(m => m.Status, MessageStatus.READ)
+        var update = Builders<MessageEntity>
+            .Update.Set(m => m.Status, MessageStatus.READ)
             .Set(m => m.ReadAt, readAt)
             .Set(m => m.UpdatedAt, DateTime.UtcNow);
 
@@ -88,16 +92,23 @@ public class MessageRepository : IMessageRepository
     /// <summary>
     /// Đánh dấu tất cả tin nhắn chưa đọc của user trong conversation là đã đọc
     /// </summary>
-    public async Task<bool> MarkAllAsReadAsync(string conversationId, string userId, DateTime readAt)
+    public async Task<bool> MarkAllAsReadAsync(
+        string conversationId,
+        string userId,
+        DateTime readAt
+    )
     {
+        // Normalize userId to uppercase for case-insensitive comparison
+        var normalizedUserId = userId.ToUpperInvariant();
+
         var filter = Builders<MessageEntity>.Filter.And(
             Builders<MessageEntity>.Filter.Eq(m => m.ConversationId, conversationId),
-            Builders<MessageEntity>.Filter.Eq(m => m.ReceiverId, userId),
+            Builders<MessageEntity>.Filter.Eq(m => m.ReceiverId, normalizedUserId),
             Builders<MessageEntity>.Filter.Eq(m => m.Status, MessageStatus.UNREAD)
         );
 
-        var update = Builders<MessageEntity>.Update
-            .Set(m => m.Status, MessageStatus.READ)
+        var update = Builders<MessageEntity>
+            .Update.Set(m => m.Status, MessageStatus.READ)
             .Set(m => m.ReadAt, readAt)
             .Set(m => m.UpdatedAt, DateTime.UtcNow);
 
@@ -110,16 +121,25 @@ public class MessageRepository : IMessageRepository
     /// </summary>
     public async Task<long> GetUnreadCountAsync(string conversationId, string userId)
     {
+        // Normalize userId to uppercase for case-insensitive comparison
+        var normalizedUserId = userId.ToUpperInvariant();
+
         return await _messages.CountDocumentsAsync(m =>
-            m.ConversationId == conversationId &&
-            m.ReceiverId == userId &&
-            m.Status == MessageStatus.UNREAD);
+            m.ConversationId == conversationId
+            && m.ReceiverId == normalizedUserId
+            && m.Status == MessageStatus.UNREAD
+        );
     }
 
     /// <summary>
     /// Tìm kiếm tin nhắn theo nội dung
     /// </summary>
-    public async Task<IEnumerable<MessageEntity>> SearchAsync(string conversationId, string searchTerm, int page = 1, int pageSize = 20)
+    public async Task<IEnumerable<MessageEntity>> SearchAsync(
+        string conversationId,
+        string searchTerm,
+        int page = 1,
+        int pageSize = 20
+    )
     {
         var skip = (page - 1) * pageSize;
         var filter = Builders<MessageEntity>.Filter.And(
@@ -135,11 +155,16 @@ public class MessageRepository : IMessageRepository
             .ToListAsync();
     }
 
-
     /// <summary>
     /// Lấy tin nhắn cho timeline với filter options
     /// </summary>
-    public async Task<IEnumerable<MessageEntity>> GetByConversationIdForTimelineAsync(string conversationId, DateTime? before = null, DateTime? after = null, int limit = 50, MessageType? messageTypeFilter = null)
+    public async Task<IEnumerable<MessageEntity>> GetByConversationIdForTimelineAsync(
+        string conversationId,
+        DateTime? before = null,
+        DateTime? after = null,
+        int limit = 50,
+        MessageType? messageTypeFilter = null
+    )
     {
         var filterBuilder = Builders<MessageEntity>.Filter;
         var filter = filterBuilder.Eq(m => m.ConversationId, conversationId);
@@ -147,7 +172,10 @@ public class MessageRepository : IMessageRepository
         // Apply message type filter
         if (messageTypeFilter.HasValue)
         {
-            filter = filterBuilder.And(filter, filterBuilder.Eq(m => m.Type, messageTypeFilter.Value));
+            filter = filterBuilder.And(
+                filter,
+                filterBuilder.Eq(m => m.Type, messageTypeFilter.Value)
+            );
         }
 
         // Apply time range filters
