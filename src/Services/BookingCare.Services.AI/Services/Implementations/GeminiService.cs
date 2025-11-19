@@ -316,15 +316,20 @@ public class GeminiService : IGeminiService
 
         if (models.Any())
         {
-            lock (_modelCacheLock)
-            {
-                _cachedModels.Clear();
-                _cachedModels.AddRange(models);
-                _modelCacheUpdatedAt = DateTime.UtcNow;
-            }
+            UpdateModelCache(models);
         }
 
         return models;
+    }
+
+    private static void UpdateModelCache(List<string> models)
+    {
+        lock (_modelCacheLock)
+        {
+            _cachedModels.Clear();
+            _cachedModels.AddRange(models);
+            _modelCacheUpdatedAt = DateTime.UtcNow;
+        }
     }
 
     /// <summary>
