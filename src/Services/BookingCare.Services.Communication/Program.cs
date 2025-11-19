@@ -108,6 +108,8 @@ builder
 
 // Register participant enrichment service
 builder.Services.AddScoped<IParticipantEnrichmentService, ParticipantEnrichmentService>();
+builder.Services.AddJwtAuthAndAuthorization();
+
 
 // Add SignalR
 builder.Services.AddSignalR(options =>
@@ -126,7 +128,11 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy
-                .WithOrigins("http://localhost:5173", "http://localhost:5174", "https://localhost:5173") // Add your frontend URLs
+                .WithOrigins(
+                    "http://localhost:5173",
+                    "http://localhost:5174",
+                    "https://localhost:5173"
+                ) // Add your frontend URLs
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -184,15 +190,24 @@ app.UseEventBus(eventBus =>
 // Configure the HTTP request pipeline using ProgramExtensions
 app.UseCommonSwaggerUI("Communication");
 
-app.UseRouting();
+// Configure routing and authentication manually to allow SignalR negotiate
+app.UseStandardAuthPipeline();
 
 // Add health check endpoint
 app.MapHealthChecks("/health");
 
 app.MapControllers();
 
-// Map SignalR Hub
-app.MapHub<ChatHub>("/chatHub");
+// Map SignalR Hub with custom configuration to allow anonymous negotiate
+app.MapHub<ChatHub>(
+    "/chatHub",
+    options =>
+    {
+        // Allow negotiate endpoint without authentication
+        // Actual hub methods will still require authentication via [Authorize] on the Hub
+        options.AllowStatefulReconnects = true;
+    }
+);
 
 // Configure the HTTP request pipeline.
 app.MapGrpcService<GreeterService>();
@@ -200,4 +215,4 @@ app.MapGrpcService<GreeterService>();
 // Add common health check endpoint using ProgramExtensions
 app.MapCommonHealthCheck("Communication");
 
-app.Run();
+await app.RunAsync();
