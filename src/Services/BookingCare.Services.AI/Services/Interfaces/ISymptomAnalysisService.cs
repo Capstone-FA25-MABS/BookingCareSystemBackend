@@ -19,8 +19,9 @@ public interface ISymptomAnalysisService
     /// Get conversation history for a session
     /// </summary>
     /// <param name="sessionId">Session ID</param>
+    /// <param name="userId">User ID (ownership verification)</param>
     /// <returns>List of conversation messages</returns>
-    Task<List<Models.DTOs.Requests.ConversationMessage>> GetConversationHistoryAsync(Guid sessionId);
+    Task<List<Models.DTOs.Requests.ConversationMessage>> GetConversationHistoryAsync(Guid sessionId, Guid userId);
 
     /// <summary>
     /// Get all conversation sessions for a user (requires authentication)

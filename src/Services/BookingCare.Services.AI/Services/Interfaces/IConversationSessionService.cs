@@ -13,20 +13,20 @@ public interface IConversationSessionService
     Task<Guid> GetOrCreateSessionAsync(Guid? sessionId, Guid userId, LocationContext? location);
 
     /// <summary>
-    /// Load conversation history for a session
+    /// Load conversation history for a session (verifies ownership)
     /// </summary>
-    Task<List<ConversationMessage>> LoadConversationHistoryAsync(Guid sessionId);
+    Task<List<ConversationMessage>> LoadConversationHistoryAsync(Guid sessionId, Guid userId);
 
     /// <summary>
     /// Save conversation history for a session
     /// </summary>
     Task SaveConversationHistoryAsync(
         Guid sessionId,
+        Guid userId,
         string userMessage,
         string aiMessage,
         LocationContext? location = null,
-        object? suggestions = null,
-        Guid? userId = null);
+        object? suggestions = null);
 
     /// <summary>
     /// Get all conversation sessions for a user (requires authenticated user)

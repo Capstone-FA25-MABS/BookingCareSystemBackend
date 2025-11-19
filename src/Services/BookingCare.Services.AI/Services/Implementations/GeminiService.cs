@@ -17,6 +17,10 @@ public class GeminiService : IGeminiService
     private readonly HttpClient _httpClient;
     private readonly GeminiSettings _settings;
     private readonly ILogger<GeminiService> _logger;
+    private static readonly TimeSpan ModelCacheDuration = TimeSpan.FromMinutes(15);
+    private static readonly object _modelCacheLock = new();
+    private static List<string> _cachedModels = new();
+    private static DateTime _modelCacheUpdatedAt = DateTime.MinValue;
 
     public GeminiService(
         HttpClient httpClient,
@@ -275,6 +279,17 @@ public class GeminiService : IGeminiService
     /// </summary>
     private async Task<List<string>> GetAvailableModelsAsync()
     {
+        lock (_modelCacheLock)
+        {
+            if (_cachedModels.Any() && DateTime.UtcNow - _modelCacheUpdatedAt < ModelCacheDuration)
+            {
+                _logger.LogDebug("Using cached Gemini models (cached {Minutes} minutes ago)",
+                    (DateTime.UtcNow - _modelCacheUpdatedAt).TotalMinutes.ToString("F1"));
+                return new List<string>(_cachedModels);
+            }
+        }
+
+        List<string> models = new();
         try
         {
             // Try v1beta first (for Google AI Studio API keys)
@@ -286,10 +301,11 @@ public class GeminiService : IGeminiService
 
             foreach (var endpoint in endpoints)
             {
-                var models = await TryFetchModelsFromEndpoint(endpoint);
-                if (models.Any())
+                var fetched = await TryFetchModelsFromEndpoint(endpoint);
+                if (fetched.Any())
                 {
-                    return models;
+                    models = fetched;
+                    break;
                 }
             }
         }
@@ -298,7 +314,16 @@ public class GeminiService : IGeminiService
             _logger.LogWarning(ex, "Failed to fetch available models, will use fallback models");
         }
 
-        return new List<string>();
+        if (models.Any())
+        {
+            lock (_modelCacheLock)
+            {
+                _cachedModels = models;
+                _modelCacheUpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        return models;
     }
 
     /// <summary>
@@ -715,7 +740,7 @@ public class GeminiService : IGeminiService
     private void AppendJsonOutputFormat(StringBuilder sb)
     {
         sb.AppendLine("   - Trả về JSON THUẦN (KHÔNG ```json), theo format ở trên");
-        sb.AppendLine("   - Đảm bảo JSON hợp lệ, có đủ các field: possibleDiseases, recommendedSpecialties, generalAdvice, nextQuestions, analysisComplete, requiresImmediateAttention");
+        sb.AppendLine("   - Đảm bảo JSON hợp lệ, có đủ các field: possibleDiseases, recommendedSpecialties, generalAdvice, nextQuestions, analysisComplete");
     }
 
     /// <summary>
@@ -723,12 +748,13 @@ public class GeminiService : IGeminiService
     /// </summary>
     private void AppendCoreRules(StringBuilder sb, int questionsAsked)
     {
+        var maxQuestions = AiConversationRules.MaxQuestionsPerSession;
         sb.AppendLine("Bạn là trợ lý y tế AI của BookingCare. Nhiệm vụ: Hỏi để khoanh vùng bệnh → Gợi ý chuyên khoa.");
         sb.AppendLine();
         sb.AppendLine("⛔ QUY TẮC TUYỆT ĐỐI:");
-        sb.AppendLine($"• Confidence < 0.8 VÀ câu hỏi < 3 (hiện tại: {questionsAsked}/3) → analysisComplete = false, HỎI THÊM");
+        sb.AppendLine($"• PHẢI HỎI ĐỦ {maxQuestions} CÂU trước khi kết luận (hiện tại: {questionsAsked}/{maxQuestions}). DÙ CONFIDENCE CAO vẫn phải hỏi tiếp cho đến khi đủ.");
+        sb.AppendLine($"• Nếu CHƯA ĐỦ {maxQuestions} câu → analysisComplete = false, nextQuestions = [1 câu HIGH priority duy nhất]");
         sb.AppendLine("• Triệu chứng mơ hồ (chỉ biết 'đau bụng', 'đau đầu') → HỎI vị trí/thời gian/mức độ");
-        sb.AppendLine("• Emergency (đau ngực dữ dội, khó thở, xuất huyết, ngất, đột quỵ) → KẾT LUẬN NGAY");
         sb.AppendLine();
         sb.AppendLine("🎯 QUY TẮC HỎI THÊM (QUAN TRỌNG):");
         AppendQuestionRules(sb);
@@ -759,10 +785,11 @@ public class GeminiService : IGeminiService
     /// </summary>
     private void AppendConfidenceRules(StringBuilder sb, int questionsAsked)
     {
+        var maxQuestions = AiConversationRules.MaxQuestionsPerSession;
         sb.AppendLine("📊 NGƯỠNG CONFIDENCE & REQUIREMENTS:");
-        sb.AppendLine($"• Hiện tại đã hỏi: {questionsAsked}/3 câu");
-        sb.AppendLine("• Confidence < 0.8 + Câu < 3 → analysisComplete = false, nextQuestions = [1 câu HIGH priority]");
-        sb.AppendLine("• Confidence >= 0.8 HOẶC Câu >= 3 → analysisComplete = true");
+        sb.AppendLine($"• Hiện tại đã hỏi: {questionsAsked}/{maxQuestions} câu");
+        sb.AppendLine($"• CHƯA ĐỦ {maxQuestions} câu → analysisComplete = false, nextQuestions BẮT BUỘC chứa đúng 1 câu HIGH priority tiếp theo");
+        sb.AppendLine($"• Sau khi đã hỏi ĐỦ {maxQuestions} câu → PHẢI kết luận (analysisComplete = true) với đầy đủ diseases / specialties / advice, dù confidence cao hay thấp");
         sb.AppendLine();
         AppendWhenConcluding(sb);
         sb.AppendLine();
@@ -786,7 +813,6 @@ public class GeminiService : IGeminiService
         sb.AppendLine("    {\"question\": \"Vị trí đau ở đâu?\", \"purpose\": \"Xác định vị trí\", \"priority\": \"HIGH\"}");
         sb.AppendLine("  ],");
         sb.AppendLine("  \"analysisComplete\": false,");
-        sb.AppendLine("  \"requiresImmediateAttention\": false");
         sb.AppendLine("}");
         sb.AppendLine();
         sb.AppendLine("✅ Khi KẾT LUẬN (analysisComplete = true), ĐẦY ĐỦ:");
@@ -804,7 +830,6 @@ public class GeminiService : IGeminiService
         sb.AppendLine("  ],");
         sb.AppendLine("  \"nextQuestions\": [],");
         sb.AppendLine("  \"analysisComplete\": true,");
-        sb.AppendLine("  \"requiresImmediateAttention\": false");
         sb.AppendLine("}");
         sb.AppendLine();
         sb.AppendLine("⚠️ TÓM TẮT:");
@@ -876,6 +901,7 @@ public class GeminiService : IGeminiService
     /// </summary>
     private void AppendConsultMoreHandling(StringBuilder sb, string userMessage, List<ConversationMessage> history, int questionsAsked)
     {
+        var maxQuestions = AiConversationRules.MaxQuestionsPerSession;
         bool isConsultMoreRequest = userMessage.Contains("tư vấn thêm", StringComparison.OrdinalIgnoreCase) ||
                                      userMessage.Contains("hỏi thêm", StringComparison.OrdinalIgnoreCase) ||
                                      userMessage.Contains("cần thêm thông tin", StringComparison.OrdinalIgnoreCase);
@@ -888,14 +914,14 @@ public class GeminiService : IGeminiService
         sb.AppendLine("⚠️ USER YÊU CẦU TƯ VẤN THÊM - XỬ LÝ ĐẶC BIỆT:");
         sb.AppendLine();
 
-        if (questionsAsked >= 3)
+        if (questionsAsked >= maxQuestions)
         {
-            sb.AppendLine($"• Đã hỏi đủ {questionsAsked}/3 câu → PHẢI kết luận với đầy đủ diseases/specialties/advice");
+            sb.AppendLine($"• Đã hỏi đủ {questionsAsked}/{maxQuestions} câu → PHẢI kết luận với đầy đủ diseases/specialties/advice");
             sb.AppendLine("• Dựa vào TẤT CẢ thông tin đã thu thập ở trên để đưa ra kết luận chính xác");
         }
         else
         {
-            sb.AppendLine($"• Mới hỏi {questionsAsked}/3 câu → HỎI THÊM 1 câu quan trọng");
+            sb.AppendLine($"• Mới hỏi {questionsAsked}/{maxQuestions} câu → HỎI THÊM 1 câu quan trọng");
             AppendWhenAskingMore(sb);
             sb.AppendLine("• Ví dụ: Nếu đã biết 'đau bụng vùng thượng vị' → hỏi 'mức độ đau? thời gian? có nóng rát không?'");
         }
@@ -907,6 +933,7 @@ public class GeminiService : IGeminiService
     /// </summary>
     private void AppendFinalGuidelines(StringBuilder sb)
     {
+        var maxQuestions = AiConversationRules.MaxQuestionsPerSession;
         sb.AppendLine();
         sb.AppendLine("==================================================");
         sb.AppendLine("✅ HƯỚNG DẪN CUỐI CÙNG:");
@@ -917,8 +944,8 @@ public class GeminiService : IGeminiService
         sb.AppendLine("   - Xác định THÔNG TIN CÒN THIẾU để khoanh vùng bệnh/chuyên khoa");
         sb.AppendLine();
         sb.AppendLine("2. QUYẾT ĐỊNH:");
-        sb.AppendLine("   - Nếu thiếu thông tin + câu hỏi < 3 → Hỏi thêm (analysisComplete=false)");
-        sb.AppendLine("   - Nếu đủ thông tin HOẶC đã hỏi >= 3 câu → Kết luận (analysisComplete=true)");
+        sb.AppendLine($"   - Nếu câu hỏi < {maxQuestions} → Hỏi thêm (analysisComplete=false)");
+        sb.AppendLine($"   - Khi đã hỏi đủ {maxQuestions} câu → Kết luận (analysisComplete=true), tổng hợp đầy đủ thông tin");
         sb.AppendLine();
         sb.AppendLine("3. KHI HỎI THÊM (analysisComplete=false):");
         AppendWhenAskingMore(sb);
@@ -1021,13 +1048,14 @@ public class GeminiService : IGeminiService
     {
         var sb = new StringBuilder();
         var questionsAsked = CountQuestionsInHistory(history ?? new List<ConversationMessage>());
+        var maxQuestions = AiConversationRules.MaxQuestionsPerSession;
 
         AppendCoreRules(sb, questionsAsked);
         AppendExamples(sb);
         AppendConfidenceRules(sb, questionsAsked);
         AppendJsonFormatSchema(sb);
 
-        sb.AppendLine("🚨 KHẨN CẤP (requiresImmediateAttention=true): Đau ngực dữ dội, khó thở, xuất huyết, ngất, đột quỵ");
+        sb.AppendLine("🚨 KHẨN CẤP: Đau ngực dữ dội, khó thở, xuất huyết, ngất, đột quỵ (Không trả cờ, chỉ đưa khuyến cáo trong message)");
         sb.AppendLine();
 
         AppendSpecialtyList(sb);

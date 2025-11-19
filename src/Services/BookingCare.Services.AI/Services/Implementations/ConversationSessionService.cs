@@ -68,39 +68,22 @@ public class ConversationSessionService : IConversationSessionService
         }
     }
 
-    public async Task<List<ConversationMessage>> LoadConversationHistoryAsync(Guid sessionId)
+    public async Task<List<ConversationMessage>> LoadConversationHistoryAsync(Guid sessionId, Guid userId)
     {
         try
         {
             var session = await _context.ConversationSessions
-                .FirstOrDefaultAsync(s => s.Id == sessionId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId);
 
-            if (session == null || string.IsNullOrWhiteSpace(session.ConversationHistory))
+            if (session == null)
             {
+                _logger.LogWarning("Session {SessionId} not found or not owned by user {UserId} when loading history",
+                    sessionId, userId);
                 return new List<ConversationMessage>();
             }
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip
-            };
-
-            var history = JsonSerializer.Deserialize<List<ConversationMessage>>(
-                session.ConversationHistory,
-                options
-            );
-
-            var result = history ?? new List<ConversationMessage>();
-
-            // Normalize line breaks in loaded messages (to fix old data with \r\n\r\n, \n\n issues)
-            foreach (var message in result)
-            {
-                if (!string.IsNullOrWhiteSpace(message.Content))
-                {
-                    message.Content = NormalizeLineBreaks(message.Content);
-                }
-            }
+            var result = ParseConversationHistory(session.ConversationHistory) ?? new List<ConversationMessage>();
 
             // Log để debug suggestions
             var aiMessagesWithSuggestions = result.Where(m => m.Role == "ai" && m.Suggestions != null).ToList();
@@ -121,28 +104,29 @@ public class ConversationSessionService : IConversationSessionService
 
     public async Task SaveConversationHistoryAsync(
         Guid sessionId,
+        Guid userId,
         string userMessage,
         string aiMessage,
         LocationContext? location = null,
-        object? suggestions = null,
-        Guid? userId = null)
+        object? suggestions = null)
     {
         try
         {
             var session = await _context.ConversationSessions
-                .FirstOrDefaultAsync(s => s.Id == sessionId);
+                .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId);
 
             if (session == null)
             {
-                _logger.LogWarning("Session {SessionId} not found for saving history", sessionId);
+                _logger.LogWarning("Session {SessionId} not found or not owned by user {UserId} when saving history",
+                    sessionId, userId);
                 return;
             }
 
-            // Load existing history
-            var history = await LoadConversationHistoryAsync(sessionId);
+            // Load existing history without issuing another DB call
+            var history = ParseConversationHistory(session.ConversationHistory) ?? new List<ConversationMessage>();
 
-            // Determine user role: "patient" if logged in, "guest" if not
-            var userRole = userId.HasValue ? "patient" : "guest";
+            // Authenticated endpoints guarantee a patient user
+            const string userRole = "patient";
 
             // Normalize line breaks before saving to database
             var normalizedUserMessage = NormalizeLineBreaks(userMessage);
@@ -219,24 +203,26 @@ public class ConversationSessionService : IConversationSessionService
     /// <summary>
     /// Parse conversation history from JSON string
     /// </summary>
-    private List<ConversationMessage>? ParseConversationHistory(string conversationHistory)
+    private List<ConversationMessage> ParseConversationHistory(string? conversationHistory)
     {
+        if (string.IsNullOrWhiteSpace(conversationHistory))
+        {
+            return new List<ConversationMessage>();
+        }
+
         try
         {
             var history = JsonSerializer.Deserialize<List<ConversationMessage>>(
                 conversationHistory,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-            );
+            ) ?? new List<ConversationMessage>();
 
-            if (history != null)
+            // Normalize line breaks in parsed messages (to fix old data)
+            foreach (var message in history)
             {
-                // Normalize line breaks in parsed messages (to fix old data)
-                foreach (var message in history)
+                if (!string.IsNullOrWhiteSpace(message.Content))
                 {
-                    if (!string.IsNullOrWhiteSpace(message.Content))
-                    {
-                        message.Content = NormalizeLineBreaks(message.Content);
-                    }
+                    message.Content = NormalizeLineBreaks(message.Content);
                 }
             }
 
@@ -245,7 +231,7 @@ public class ConversationSessionService : IConversationSessionService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error parsing conversation history");
-            return null;
+            return new List<ConversationMessage>();
         }
     }
 
@@ -366,7 +352,7 @@ public class ConversationSessionService : IConversationSessionService
         {
             var history = ParseConversationHistory(session.ConversationHistory);
 
-            if (history != null && history.Any())
+            if (history.Any())
             {
                 messageCount = history.Count;
                 title = ExtractSessionTitle(session, history);

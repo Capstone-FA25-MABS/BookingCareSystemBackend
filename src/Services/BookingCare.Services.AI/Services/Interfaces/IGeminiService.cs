@@ -33,7 +33,6 @@ public class GeminiAnalysisResult
     public List<GeminiSpecialty> RecommendedSpecialties { get; set; } = new();
     public List<string> GeneralAdvice { get; set; } = new();
     public bool AnalysisComplete { get; set; }
-    public bool RequiresImmediateAttention { get; set; }
 }
 
 public class GeminiDisease

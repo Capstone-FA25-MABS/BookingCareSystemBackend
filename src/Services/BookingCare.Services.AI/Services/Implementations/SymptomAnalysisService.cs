@@ -12,6 +12,11 @@ using Grpc.Core;
 
 namespace BookingCare.Services.AI.Services.Implementations;
 
+internal static class AiConversationRules
+{
+    public const int MaxQuestionsPerSession = 3;
+}
+
 /// <summary>
 /// Main service for symptom analysis and doctor/hospital recommendations
 /// </summary>
@@ -54,20 +59,6 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         _normalizedMatchDictCache = null;
     }
 
-    // Emergency detection keywords
-    private static readonly string[] EmergencyKeywords = new[]
-    {
-        "đau ngực dữ dội", "đau ngực đột ngột", "đau thắt ngực",
-        "khó thở", "thở gấp", "nghẹt thở", "không thở được",
-        "chảy máu nhiều", "mất máu", "xuất huyết",
-        "ngất xỉu", "bất tỉnh", "mất ý thức",
-        "đột quỵ", "tai biến", "liệt đột ngột",
-        "co giật", "động kinh",
-        "sốc phản vệ", "dị ứng nặng",
-        "đau bụng dữ dội đột ngột",
-        "nôn ra máu", "ho ra máu"
-    };
-
     public SymptomAnalysisService(
         IGeminiService geminiService,
         DoctorService.DoctorServiceClient doctorClient,
@@ -80,18 +71,6 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         _hospitalClient = hospitalClient;
         _logger = logger;
         _conversationSessionService = conversationSessionService;
-    }
-
-    /// <summary>
-    /// Detect emergency keywords in user message
-    /// </summary>
-    private bool DetectEmergency(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return false;
-
-        var lowerMessage = message.ToLowerInvariant();
-        return EmergencyKeywords.Any(keyword => lowerMessage.Contains(keyword.ToLowerInvariant()));
     }
 
     /// <summary>
@@ -132,8 +111,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private bool ValidateFirstQuestion(GeminiAnalysisResult result, double maxConfidence, int questionsAskedCount)
     {
-        if (questionsAskedCount != 0 || !result.AnalysisComplete ||
-            maxConfidence >= 0.85 || result.RequiresImmediateAttention)
+        if (questionsAskedCount != 0 || !result.AnalysisComplete)
         {
             return false;
         }
@@ -160,7 +138,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private void ForceAskMoreIfLowConfidence(GeminiAnalysisResult result, double maxConfidence, int questionsAskedCount)
     {
-        if (!result.AnalysisComplete || maxConfidence >= 0.8 || questionsAskedCount >= 3)
+        if (!result.AnalysisComplete || maxConfidence >= 0.8 ||
+            questionsAskedCount >= AiConversationRules.MaxQuestionsPerSession)
         {
             return;
         }
@@ -182,7 +161,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             "Bạn có thể mô tả thêm về thời gian xuất hiện và mức độ của triệu chứng không?",
             "Tăng độ tin cậy chẩn đoán");
 
-        _logger.LogInformation("Forced AI to ask follow-up question. Question count: {Count}/3", questionsAskedCount);
+        _logger.LogInformation("Forced AI to ask follow-up question. Question count: {Count}/{Limit}",
+            questionsAskedCount,
+            AiConversationRules.MaxQuestionsPerSession);
     }
 
     /// <summary>
@@ -207,7 +188,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private void BlockConclusionIfVeryLowConfidence(GeminiAnalysisResult result, double topConfidence, int questionsAskedCount)
     {
-        if (topConfidence >= 0.5 || questionsAskedCount >= 3 || !result.AnalysisComplete)
+        if (topConfidence >= 0.5 ||
+            questionsAskedCount >= AiConversationRules.MaxQuestionsPerSession ||
+            !result.AnalysisComplete)
         {
             return;
         }
@@ -250,13 +233,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             "⚠️ AI marked as complete but missing components. Diseases: {Diseases}/{MinDiseases}, Advice: {Advice}/{MinAdvice}, Specialties: {Specialties}",
             result.PossibleDiseases.Count, 1, result.GeneralAdvice.Count, 2, hasSpecialties ? "YES" : "NO");
 
-        if (questionsAskedCount < 3)
+        if (questionsAskedCount < AiConversationRules.MaxQuestionsPerSession)
         {
             EnforceIncompleteComponents(result, hasEnoughDiseases, hasEnoughAdvice, hasSpecialties);
         }
         else
         {
-            _logger.LogWarning("⚠️ Allowing incomplete conclusion because questions >= 3. User may have vague symptoms.");
+            _logger.LogWarning("⚠️ Allowing incomplete conclusion because questions >= {Limit}. User may have vague symptoms.",
+                AiConversationRules.MaxQuestionsPerSession);
         }
     }
 
@@ -265,7 +249,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private void EnforceIncompleteComponents(GeminiAnalysisResult result, bool hasEnoughDiseases, bool hasEnoughAdvice, bool hasSpecialties)
     {
-        _logger.LogWarning("⛔ ENFORCING: Incomplete components + questions < 3. FORCING to ask more!");
+        _logger.LogWarning("⛔ ENFORCING: Incomplete components + questions < {Limit}. FORCING to ask more!",
+            AiConversationRules.MaxQuestionsPerSession);
         result.AnalysisComplete = false;
 
         if (!hasEnoughDiseases) result.PossibleDiseases.Clear();
@@ -299,8 +284,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         ValidateCompleteness(result, questionsAskedCount);
 
         _logger.LogInformation(
-            "AI response validation completed. AnalysisComplete: {Complete}, Confidence: {Confidence}, Questions asked: {Count}/3, Next questions: {NextCount}",
-            result.AnalysisComplete, topConfidence, questionsAskedCount, result.NextQuestions.Count);
+            "AI response validation completed. AnalysisComplete: {Complete}, Confidence: {Confidence}, Questions asked: {Count}/{Limit}, Next questions: {NextCount}",
+            result.AnalysisComplete,
+            topConfidence,
+            questionsAskedCount,
+            AiConversationRules.MaxQuestionsPerSession,
+            result.NextQuestions.Count);
     }
 
     /// <summary>
@@ -316,7 +305,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 request.Location
             );
 
-            var history = await _conversationSessionService.LoadConversationHistoryAsync(sessionId);
+            var history = await _conversationSessionService.LoadConversationHistoryAsync(
+                sessionId,
+                request.UserId!.Value);
             _logger.LogInformation("Session loaded: {SessionId}, History count: {Count}", sessionId, history.Count);
 
             return (sessionId, history);
@@ -348,8 +339,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         SymptomAnalysisResponse response,
         bool analysisComplete,
         List<SpecialtyMatch> specialtyMatches,
-        LocationContext? location,
-        bool requiresImmediateAttention)
+        LocationContext? location)
     {
         var shouldRecommend = analysisComplete && specialtyMatches.Any(s => s.SpecialtyId != null);
         if (!shouldRecommend)
@@ -364,7 +354,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             .ToList();
 
         var doctorTask = GetDoctorRecommendationsAsync(specialtyIds, location, specialtyMatches);
-        var hospitalTask = GetHospitalRecommendationsAsync(specialtyIds, location, requiresImmediateAttention);
+        var hospitalTask = GetHospitalRecommendationsAsync(specialtyIds, location);
 
         await Task.WhenAll(doctorTask, hospitalTask);
 
@@ -401,11 +391,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             object? suggestionsData = BuildSuggestionsData(response);
             await _conversationSessionService.SaveConversationHistoryAsync(
                 sessionId,
+                request.UserId!.Value,
                 request.Message,
                 response.Message,
                 request.Location,
-                suggestionsData,
-                request.UserId
+                suggestionsData
             );
         }
         catch (Exception saveEx)
@@ -506,7 +496,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// <summary>
     /// Check if user is requesting more consultation
     /// </summary>
-    private (bool isConsultMore, bool isFollowUp, bool hasPreviousSuggestions) CheckConsultationRequest(
+    private (bool isConsultMore, bool isFollowUp) CheckConsultationRequest(
         string message,
         List<ConversationMessage> history)
     {
@@ -526,7 +516,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             message.Contains("như thế nào", StringComparison.OrdinalIgnoreCase)
         );
 
-        return (isConsultMore, isFollowUp, hasPreviousSuggestions);
+        return (isConsultMore, isFollowUp);
     }
 
     /// <summary>
@@ -545,13 +535,15 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
         if (isConsultMoreRequest || isFollowUpQuestion)
         {
-            if (followUpQuestionsCount >= 3)
+            if (followUpQuestionsCount >= AiConversationRules.MaxQuestionsPerSession)
             {
                 _logger.LogInformation("Already asked {Count} follow-up questions, forcing analysis complete", followUpQuestionsCount);
                 return (true, false);
             }
 
-            _logger.LogInformation("User is asking follow-up questions ({Count}/3)", followUpQuestionsCount);
+            _logger.LogInformation("User is asking follow-up questions ({Count}/{Limit})",
+                followUpQuestionsCount,
+                AiConversationRules.MaxQuestionsPerSession);
 
             if (!geminiResult.NextQuestions.Any() && isConsultMoreRequest)
             {
@@ -561,7 +553,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             return (false, true);
         }
 
-        if (questionsAskedCount >= 3)
+        if (questionsAskedCount >= AiConversationRules.MaxQuestionsPerSession)
         {
             _logger.LogInformation("Already asked {Count} questions, forcing analysis complete", questionsAskedCount);
             return (true, false);
@@ -610,8 +602,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private string BuildResponseMessage(
         bool shouldAskMoreQuestions,
-        GeminiAnalysisResult geminiResult,
-        bool requiresImmediateAttention)
+        GeminiAnalysisResult geminiResult)
     {
         string message;
 
@@ -634,7 +625,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         else
         {
             // Only build full conclusion if analysisComplete = true
-            message = BuildAIMessage(geminiResult, requiresImmediateAttention);
+            message = BuildAIMessage(geminiResult);
         }
 
         // Normalize line breaks before returning (to match DB format and avoid extra spacing)
@@ -694,17 +685,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // Step 0: Load session and history
             var (sessionId, conversationHistory) = await LoadSessionAndHistoryAsync(request);
 
-            // Step 1: Detect emergency
-            var isEmergencyDetected = DetectEmergency(request.Message);
-
-            // Step 2: Call Gemini AI
+            // Step 1: Call Gemini AI
             var geminiResponse = await _geminiService.AnalyzeSymptomsAsync(request.Message, conversationHistory);
             var geminiResult = _geminiService.ParseGeminiResponse(geminiResponse);
 
-            // Override emergency detection
-            var requiresImmediateAttention = isEmergencyDetected || geminiResult.RequiresImmediateAttention;
-
-            // Step 2.5: Validate and fix AI response if needed
+            // Step 2: Validate and fix AI response nếu cần
             var questionsAskedBeforeValidation = CountQuestionsInHistory(conversationHistory);
             ValidateAndFixAIResponse(geminiResult, questionsAskedBeforeValidation);
 
@@ -713,8 +698,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 .OrderByDescending(s => s.Confidence)
                 .FirstOrDefault()?.Confidence ?? 0;
 
-            var questionsAskedCount = CountQuestionsInHistory(conversationHistory);
-            var (isConsultMoreRequest, isFollowUpQuestion, hasPreviousSuggestions) =
+            var questionsAskedCount = questionsAskedBeforeValidation;
+            var (isConsultMoreRequest, isFollowUpQuestion) =
                 CheckConsultationRequest(request.Message, conversationHistory);
 
             var lastConsultMoreIndex = FindLastConsultMoreIndex(conversationHistory);
@@ -739,6 +724,13 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             );
             shouldAskMoreQuestions = shouldAskMore;
 
+            if (questionsAskedCount < AiConversationRules.MaxQuestionsPerSession)
+            {
+                analysisComplete = false;
+                shouldAskMoreQuestions = true;
+                EnsureFollowUpQuestion(geminiResult);
+            }
+
             // Step 4: Validate completeness if analysis is complete
             if (analysisComplete)
             {
@@ -760,7 +752,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 "Building response message: analysisComplete={Complete}, shouldAskMore={ShouldAsk}, NextQuestionsCount={QCount}",
                 geminiResult.AnalysisComplete, shouldAskMoreQuestions, geminiResult.NextQuestions.Count);
 
-            var baseMessage = BuildResponseMessage(shouldAskMoreQuestions, geminiResult, requiresImmediateAttention);
+            var baseMessage = BuildResponseMessage(shouldAskMoreQuestions, geminiResult);
 
             _logger.LogInformation("Built message preview: {Preview}",
                 baseMessage.Length > 100 ? baseMessage.Substring(0, 100) + "..." : baseMessage);
@@ -781,16 +773,23 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 }).ToList(),
                 NextQuestions = GetNextQuestions(shouldAskMoreQuestions, geminiResult),
                 GeneralAdvice = geminiResult.GeneralAdvice,
-                AnalysisComplete = analysisComplete,
-                RequiresImmediateAttention = requiresImmediateAttention
+                AnalysisComplete = analysisComplete
             };
 
             // Step 5: Map specialties from Gemini to DB
-            var specialtyMatches = await MapSpecialtiesToDbAsync(filteredSpecialties);
-            response.RecommendedSpecialties = specialtyMatches;
+            List<SpecialtyMatch> specialtyMatches = new();
+            if (analysisComplete && filteredSpecialties.Any())
+            {
+                specialtyMatches = await MapSpecialtiesToDbAsync(filteredSpecialties);
+                response.RecommendedSpecialties = specialtyMatches;
 
-            // Step 6: Get recommendations if analysis is complete
-            await AddRecommendationsIfNeededAsync(response, analysisComplete, specialtyMatches, request.Location, requiresImmediateAttention);
+                // Step 6: Get recommendations nếu cần
+                await AddRecommendationsIfNeededAsync(response, true, specialtyMatches, request.Location);
+            }
+            else
+            {
+                response.RecommendedSpecialties = new List<SpecialtyMatch>();
+            }
 
             // Step 7: Save conversation history
             await SaveConversationHistorySafelyAsync(sessionId, request, response);
@@ -821,15 +820,6 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         filteredSpecialties = new List<GeminiSpecialty>();
         shouldAskMoreQuestions = false;
 
-        // If emergency, always complete and recommend
-        if (geminiResult.RequiresImmediateAttention)
-        {
-            filteredSpecialties = geminiResult.RecommendedSpecialties
-                .OrderByDescending(s => s.Confidence)
-                .ToList();
-            return true;
-        }
-
         // Confidence > 0.8: Recommend 1 specialty immediately
         if (topSpecialtyConfidence > 0.8)
         {
@@ -855,17 +845,6 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         // Confidence < 0.5: Ask more questions
         shouldAskMoreQuestions = true;
         return false;
-    }
-
-    /// <summary>
-    /// Append emergency warning to message
-    /// </summary>
-    private void AppendEmergencyWarning(StringBuilder sb)
-    {
-        sb.AppendLine("⚠️ **KHẨN CẤP**: Các triệu chứng của bạn cần được chăm sóc y tế ngay lập tức. Vui lòng gọi **115** hoặc đến phòng cấp cứu gần nhất ngay bây giờ!");
-        sb.AppendLine();
-        sb.AppendLine("**Không nên chờ đợi** - đây là trường hợp khẩn cấp y tế.");
-        sb.AppendLine();
     }
 
     /// <summary>
@@ -960,14 +939,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
     }
 
-    private string BuildAIMessage(GeminiAnalysisResult result, bool requiresImmediateAttention)
+    private string BuildAIMessage(GeminiAnalysisResult result)
     {
         var sb = new StringBuilder();
-
-        if (requiresImmediateAttention)
-        {
-            AppendEmergencyWarning(sb);
-        }
 
         AppendPossibleDiseases(sb, result.PossibleDiseases);
         AppendGeneralAdvice(sb, result.GeneralAdvice);
@@ -1804,7 +1778,6 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private HospitalRecommendation ConvertToHospitalRecommendation(
         HospitalDto hospital,
         LocationContext? location,
-        bool isEmergency,
         int specialtyCount = 0)
     {
         return new HospitalRecommendation
@@ -1813,15 +1786,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             Name = hospital.Name,
             Address = hospital.Address,
             SpecialtyNames = hospital.SpecialtyNames ?? new List<string>(),
-            RecommendationScore = CalculateHospitalScore(hospital, location, isEmergency, specialtyCount),
+            RecommendationScore = CalculateHospitalScore(hospital, location, specialtyCount),
             ImageUrl = hospital.ImageUrl
         };
     }
 
     private async Task<List<HospitalRecommendation>> GetHospitalRecommendationsAsync(
         List<Guid> specialtyIds,
-        LocationContext? location,
-        bool isEmergency)
+        LocationContext? location)
     {
         try
         {
@@ -1844,7 +1816,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // Convert and rank hospitals
             var specialtyCount = specialtyIds.Count;
             var hospitals = allHospitals.Values
-                .Select(h => ConvertToHospitalRecommendation(h, location, isEmergency, specialtyCount))
+                .Select(h => ConvertToHospitalRecommendation(h, location, specialtyCount))
                 .OrderByDescending(h => h.RecommendationScore)
                 .Take(5) // Top 5 hospitals (increased from 3 to better cover multiple specialties)
                 .ToList();
@@ -1934,27 +1906,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         return 0.05; // Minimal score if no specialty match
     }
 
-    /// <summary>
-    /// Calculate emergency department score
-    /// </summary>
-    private double CalculateEmergencyScore(
-        HospitalDto hospital,
-        bool isEmergency)
-    {
-        bool hasEmergencyDept = (hospital.SpecialtyNames?.Count ?? 0) >= 10;
-
-        if (isEmergency)
-        {
-            return hasEmergencyDept ? 0.20 : 0.05; // Critical for emergency
-        }
-
-        return hasEmergencyDept ? 0.10 : 0.05; // Better equipped
-    }
-
     private double CalculateHospitalScore(
         HospitalDto hospital,
         LocationContext? location,
-        bool isEmergency,
         int specialtyCount = 0)
     {
         double score = 0;
@@ -1967,9 +1921,6 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
         // Specialty matching score (30%)
         score += CalculateHospitalSpecialtyScore(hospital, specialtyCount);
-
-        // Emergency department score (20%)
-        score += CalculateEmergencyScore(hospital, isEmergency);
 
         // Specialty diversity score (10%)
         var specialtyDiversity = Math.Min((hospital.SpecialtyNames?.Count ?? 0) / 20.0, 1.0);
@@ -2010,11 +1961,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
     #endregion
 
-    public async Task<List<ConversationMessage>> GetConversationHistoryAsync(Guid sessionId)
+    public async Task<List<ConversationMessage>> GetConversationHistoryAsync(Guid sessionId, Guid userId)
     {
         try
         {
-            return await _conversationSessionService.LoadConversationHistoryAsync(sessionId);
+            return await _conversationSessionService.LoadConversationHistoryAsync(sessionId, userId);
         }
         catch (Exception ex)
         {

@@ -140,7 +140,7 @@ public class SymptomAnalysisController : BaseApiController
     /// <param name="sessionId">Session ID</param>
     /// <returns>Conversation history</returns>
     [HttpGet("sessions/{sessionId}")]
-    [AllowAnonymous]
+    [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
@@ -148,13 +148,23 @@ public class SymptomAnalysisController : BaseApiController
     {
         try
         {
-            var conversationHistory = await _symptomAnalysisService.GetConversationHistoryAsync(sessionId);
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            var conversationHistory = await _symptomAnalysisService.GetConversationHistoryAsync(sessionId, accountId);
 
             return Success(new
             {
                 sessionId,
                 conversationHistory
             }, "Session retrieved successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new
+            {
+                success = false,
+                message = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
         }
         catch (Exception ex)
         {

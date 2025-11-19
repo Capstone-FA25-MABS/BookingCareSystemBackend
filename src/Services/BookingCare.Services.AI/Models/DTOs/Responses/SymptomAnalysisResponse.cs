@@ -53,7 +53,6 @@ public class SymptomAnalysisResponse
     /// <summary>
     /// Whether this requires immediate medical attention
     /// </summary>
-    public bool RequiresImmediateAttention { get; set; }
 
     /// <summary>
     /// Medical disclaimer
