@@ -5,6 +5,8 @@ using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using BookingCare.Services.ServiceMedical.Services.Grpc;
 using BookingCare.Services.ServiceMedical.Services.Implementations;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
+using BookingCare.Shared.Common.Interfaces;
+using BookingCare.Shared.Common.Services;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
@@ -33,6 +35,7 @@ builder.Services.AddScoped<IServiceCategoryRepository, ServiceCategoryRepository
 builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 
 // Add Services
+builder.Services.AddScoped<ILocationApiService, BookingCare.Shared.Common.Services.LocationApiService>();
 builder.Services.AddScoped<IServiceMedicalService, ServiceMedicalService>();
 builder.Services.AddScoped<IHospitalService, HospitalService>();
 
@@ -48,6 +51,7 @@ builder.Services.AddGrpcClient<BookingCare.Services.Hospital.SubscriptionUsageGr
 {
     options.Address = new Uri(hospitalAddress);
 });
+
 // Add API Versioning
 builder.Services.AddApiVersioning(opt =>
 {
@@ -107,7 +111,6 @@ app.UseRouting();
 app.MapControllers();
 
 // Configure gRPC services
-// Configure the HTTP request pipeline.
 app.MapGrpcService<ServiceMedicalGrpcService>();
 app.MapGet("/", () => "BookingCare Service Medical Service is running...");
 

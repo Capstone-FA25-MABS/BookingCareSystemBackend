@@ -1,8 +1,8 @@
-﻿using MongoDB.Driver;
-using BookingCare.Services.Communication.Data;
+﻿using BookingCare.Services.Communication.Data;
 using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Repositories.Interfaces;
 using BookingCare.Services.Communication.Utils;
+using MongoDB.Driver;
 
 namespace BookingCare.Services.Communication.Repositories.Implementations;
 
@@ -29,11 +29,17 @@ public class ConversationRepository : IConversationRepository
     /// <summary>
     /// Lấy danh sách cuộc hội thoại của user với phân trang
     /// </summary>
-    public async Task<IEnumerable<ConversationEntity>> GetByUserIdAsync(string userId, int page = 1, int pageSize = 20)
+    public async Task<IEnumerable<ConversationEntity>> GetByUserIdAsync(
+        string userId,
+        int page = 1,
+        int pageSize = 20
+    )
     {
+        // Normalize userId to uppercase for case-insensitive comparison
+        var normalizedUserId = userId.ToUpperInvariant();
         var skip = (page - 1) * pageSize;
         return await _conversations
-            .Find(c => c.Participants.Contains(userId) && c.IsActive)
+            .Find(c => c.Participants.Contains(normalizedUserId) && c.IsActive)
             .SortByDescending(c => c.UpdatedAt)
             .Skip(skip)
             .Limit(pageSize)
@@ -43,13 +49,21 @@ public class ConversationRepository : IConversationRepository
     /// <summary>
     /// Tìm cuộc hội thoại giữa 2 người dùng
     /// </summary>
-    public async Task<ConversationEntity?> GetConversationBetweenUsersAsync(string userId1, string userId2)
+    public async Task<ConversationEntity?> GetConversationBetweenUsersAsync(
+        string userId1,
+        string userId2
+    )
     {
+        // Normalize userIds to uppercase for case-insensitive comparison
+        var normalizedUserId1 = userId1.ToUpperInvariant();
+        var normalizedUserId2 = userId2.ToUpperInvariant();
         return await _conversations
-            .Find(c => c.Participants.Contains(userId1) &&
-                      c.Participants.Contains(userId2) &&
-                      c.Participants.Count == 2 &&
-                      c.IsActive)
+            .Find(c =>
+                c.Participants.Contains(normalizedUserId1)
+                && c.Participants.Contains(normalizedUserId2)
+                && c.Participants.Count == 2
+                && c.IsActive
+            )
             .FirstOrDefaultAsync();
     }
 
@@ -79,8 +93,8 @@ public class ConversationRepository : IConversationRepository
     /// </summary>
     public async Task<bool> DeleteAsync(string id)
     {
-        var update = Builders<ConversationEntity>.Update
-            .Set(c => c.IsActive, false)
+        var update = Builders<ConversationEntity>
+            .Update.Set(c => c.IsActive, false)
             .Set(c => c.UpdatedAt, DateTime.UtcNow);
 
         var result = await _conversations.UpdateOneAsync(c => c.Id == id, update);
@@ -92,8 +106,8 @@ public class ConversationRepository : IConversationRepository
     /// </summary>
     public async Task<bool> UpdateLastMessageAsync(string conversationId, LastMessage lastMessage)
     {
-        var update = Builders<ConversationEntity>.Update
-            .Set(c => c.LastMessage, lastMessage)
+        var update = Builders<ConversationEntity>
+            .Update.Set(c => c.LastMessage, lastMessage)
             .Set(c => c.UpdatedAt, DateTime.UtcNow);
 
         var result = await _conversations.UpdateOneAsync(c => c.Id == conversationId, update);
@@ -105,14 +119,10 @@ public class ConversationRepository : IConversationRepository
     /// </summary>
     public async Task<bool> BlockConversationAsync(string conversationId, string blockedBy)
     {
-        var blockedInfo = new BlockedInfo
-        {
-            By = blockedBy,
-            At = DateTime.UtcNow
-        };
+        var blockedInfo = new BlockedInfo { By = blockedBy, At = DateTime.UtcNow };
 
-        var update = Builders<ConversationEntity>.Update
-            .Set(c => c.Blocked, blockedInfo)
+        var update = Builders<ConversationEntity>
+            .Update.Set(c => c.Blocked, blockedInfo)
             .Set(c => c.UpdatedAt, DateTime.UtcNow);
 
         var result = await _conversations.UpdateOneAsync(c => c.Id == conversationId, update);
@@ -124,8 +134,8 @@ public class ConversationRepository : IConversationRepository
     /// </summary>
     public async Task<bool> UnblockConversationAsync(string conversationId)
     {
-        var update = Builders<ConversationEntity>.Update
-            .Unset(c => c.Blocked)
+        var update = Builders<ConversationEntity>
+            .Update.Unset(c => c.Blocked)
             .Set(c => c.UpdatedAt, DateTime.UtcNow);
 
         var result = await _conversations.UpdateOneAsync(c => c.Id == conversationId, update);
@@ -147,11 +157,18 @@ public class ConversationRepository : IConversationRepository
     /// <summary>
     /// Lấy cuộc hội thoại theo user ID với cursor-based pagination
     /// </summary>
-    public async Task<IEnumerable<ConversationEntity>> GetByUserIdWithCursorAsync(string userId, string? before = null, string? after = null, int limit = 20)
+    public async Task<IEnumerable<ConversationEntity>> GetByUserIdWithCursorAsync(
+        string userId,
+        string? before = null,
+        string? after = null,
+        int limit = 20
+    )
     {
+        // Normalize userId to uppercase for case-insensitive comparison
+        var normalizedUserId = userId.ToUpperInvariant();
         var filterBuilder = Builders<ConversationEntity>.Filter;
         var filter = filterBuilder.And(
-            filterBuilder.AnyEq(c => c.Participants, userId),
+            filterBuilder.AnyEq(c => c.Participants, normalizedUserId),
             filterBuilder.Eq(c => c.IsActive, true)
         );
 

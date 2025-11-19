@@ -48,6 +48,7 @@ builder.Services.AddScoped<IHospitalRegistrationRepository, HospitalRegistration
 builder.Services.AddScoped<IHospitalImageRepository, HospitalImageRepository>();
 
 // Register services
+builder.Services.AddScoped<BookingCare.Shared.Common.Interfaces.ILocationApiService, BookingCare.Shared.Common.Services.LocationApiService>();
 builder.Services.AddScoped<IHospitalService, HospitalService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionService>();

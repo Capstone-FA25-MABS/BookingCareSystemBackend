@@ -1,5 +1,5 @@
-﻿using MongoDB.Driver;
-using BookingCare.Services.Communication.Models.Entities;
+﻿using BookingCare.Services.Communication.Models.Entities;
+using MongoDB.Driver;
 
 namespace BookingCare.Services.Communication.Data;
 
@@ -32,4 +32,9 @@ public class CommunicationDbContext
     /// </summary>
     public IMongoCollection<CallLogEntity> CallLogs =>
         _database.GetCollection<CallLogEntity>("CallLogs");
+
+    /// <summary>
+    /// Collection chứa các tag/label cho cuộc hội thoại
+    /// </summary>
+    public IMongoCollection<TagEntity> Tags => _database.GetCollection<TagEntity>("Tags");
 }

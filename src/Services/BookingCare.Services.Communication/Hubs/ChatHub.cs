@@ -10,9 +10,10 @@ namespace BookingCare.Services.Communication.Hubs;
 
 /// <summary>
 /// SignalR Hub cho real-time chat communication
+/// NOTE: [Authorize] is removed from class level to allow negotiate endpoint
+/// Authorization is checked in OnConnectedAsync instead
 /// </summary>
-// [Authorize] // ⚠️ TODO: Temporarily disabled for testing SignalR connection
-[AllowAnonymous] // ⚠️ TODO: Enable authentication after connection test passes
+[AllowAnonymous]
 public class ChatHub : Hub
 {
     private readonly IMessageService _messageService;
@@ -36,47 +37,57 @@ public class ChatHub : Hub
 
     /// <summary>
     /// User kết nối vào hub
+    /// Authorization check is performed here instead of at class level
     /// </summary>
     public override async Task OnConnectedAsync()
     {
+
+
         var userId = GetUserId();
-        if (!string.IsNullOrEmpty(userId))
+        if (string.IsNullOrEmpty(userId))
         {
-            // Add connection to user mapping
-            UserConnections.AddOrUpdate(
-                userId,
-                new HashSet<string> { Context.ConnectionId },
-                (key, existingConnections) =>
-                {
-                    existingConnections.Add(Context.ConnectionId);
-                    return existingConnections;
-                }
+            _logger.LogWarning(
+                "❌ Connection attempt without valid userId from {ConnectionId}",
+                Context.ConnectionId
             );
-
-            ConnectionUsers[Context.ConnectionId] = userId;
-
-            // Add to user group for personal notifications
-            var userGroupName = GetUserGroupName(userId);
-            await Groups.AddToGroupAsync(Context.ConnectionId, userGroupName);
-            _logger.LogInformation(
-                "➕ User {UserId} connected with connection {ConnectionId} - Added to group: {UserGroup}",
-                userId,
-                Context.ConnectionId,
-                userGroupName
-            );
-
-            // 1. Send list of currently online users to the newly connected user
-            var onlineUsers = UserConnections.Keys.ToList();
-            await Clients.Caller.SendAsync("OnlineUsers", onlineUsers);
-
-            // 2. Notify other users that this user is now online
-            await Clients.Others.SendAsync("UserOnline", userId);
-            _logger.LogInformation(
-                "📤 User {UserId} is now online - Sent online users list ({Count} users) and notified others",
-                userId,
-                onlineUsers.Count
-            );
+            Context.Abort();
+            return;
         }
+
+        // Add connection to user mapping
+        UserConnections.AddOrUpdate(
+            userId,
+            new HashSet<string> { Context.ConnectionId },
+            (key, existingConnections) =>
+            {
+                existingConnections.Add(Context.ConnectionId);
+                return existingConnections;
+            }
+        );
+
+        ConnectionUsers[Context.ConnectionId] = userId;
+
+        // Add to user group for personal notifications
+        var userGroupName = GetUserGroupName(userId);
+        await Groups.AddToGroupAsync(Context.ConnectionId, userGroupName);
+        _logger.LogInformation(
+            "➕ User {UserId} connected with connection {ConnectionId} - Added to group: {UserGroup}",
+            userId,
+            Context.ConnectionId,
+            userGroupName
+        );
+
+        // 1. Send list of currently online users to the newly connected user
+        var onlineUsers = UserConnections.Keys.ToList();
+        await Clients.Caller.SendAsync("OnlineUsers", onlineUsers);
+
+        // 2. Notify other users that this user is now online
+        await Clients.Others.SendAsync("UserOnline", userId);
+        _logger.LogInformation(
+            "📤 User {UserId} is now online - Sent online users list ({Count} users) and notified others",
+            userId,
+            onlineUsers.Count
+        );
 
         await base.OnConnectedAsync();
     }
@@ -1050,7 +1061,6 @@ public class IceCandidateRequest
 public class CallBusyRequest
 {
     public string CallerId { get; set; } = string.Empty;
-
 }
 
 #endregion

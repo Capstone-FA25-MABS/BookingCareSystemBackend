@@ -63,6 +63,10 @@ public class MessageService : BaseService, IMessageService
                 ValidateRequiredString(request.SenderId, nameof(request.SenderId));
                 ValidateRequiredString(request.Content, nameof(request.Content));
 
+                // 🎯 Normalize senderId and receiverId to uppercase for case-insensitive comparison
+                var normalizedSenderId = request.SenderId.ToUpperInvariant();
+                var normalizedReceiverId = request.ReceiverId?.ToUpperInvariant();
+
                 // Check if conversation exists
                 var conversation = await _conversationRepository.GetByIdAsync(
                     request.ConversationId
@@ -76,7 +80,7 @@ public class MessageService : BaseService, IMessageService
 
                 // Check if user is in the conversation (case-insensitive)
                 var isParticipant = conversation.Participants.Any(p =>
-                    string.Equals(p, request.SenderId, StringComparison.OrdinalIgnoreCase)
+                    string.Equals(p, normalizedSenderId, StringComparison.OrdinalIgnoreCase)
                 );
 
                 if (!isParticipant)
@@ -86,8 +90,11 @@ public class MessageService : BaseService, IMessageService
                     );
                 }
 
-                // Tạo entity từ request
+                // Tạo entity từ request với normalized IDs
                 var messageEntity = _mapper.Map<MessageEntity>(request);
+                messageEntity.SenderId = normalizedSenderId;
+                messageEntity.ReceiverId = normalizedReceiverId;
+
                 var createdMessage = await _messageRepository.CreateAsync(messageEntity);
 
                 // Cập nhật last message cho conversation

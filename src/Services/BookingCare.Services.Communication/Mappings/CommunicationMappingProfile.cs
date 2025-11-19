@@ -1,6 +1,6 @@
 ﻿using AutoMapper;
-using BookingCare.Services.Communication.Models.Entities;
 using BookingCare.Services.Communication.Models.DTOs;
+using BookingCare.Services.Communication.Models.Entities;
 
 namespace BookingCare.Services.Communication.Mappings;
 
@@ -14,6 +14,7 @@ public class CommunicationMappingProfile : Profile
         CreateMessageMappings();
         CreateConversationMappings();
         CreateCallLogMappings();
+        CreateTagMappings();
     }
 
     /// <summary>
@@ -100,5 +101,25 @@ public class CommunicationMappingProfile : Profile
 
         // CallStatistics mappings
         CreateMap<Repositories.Interfaces.CallStatistics, CallStatisticsResponse>();
+    }
+
+    /// <summary>
+    /// Tạo mappings cho Tag
+    /// </summary>
+    private void CreateTagMappings()
+    {
+        // Tag Entity to DTO
+        CreateMap<TagEntity, TagDto>();
+
+        // Create DTO to Entity
+        CreateMap<CreateTagDto, TagEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.UserId, opt => opt.Ignore())
+            .ForMember(dest => dest.ConversationCount, opt => opt.Ignore())
+            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
+            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore());
+
+        // Update DTO không cần map vì ta update manually trong service
     }
 }
