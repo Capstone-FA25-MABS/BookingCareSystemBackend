@@ -777,10 +777,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             };
 
             // Step 5: Map specialties from Gemini to DB
-            List<SpecialtyMatch> specialtyMatches = new();
             if (analysisComplete && filteredSpecialties.Any())
             {
-                specialtyMatches = await MapSpecialtiesToDbAsync(filteredSpecialties);
+                var specialtyMatches = await MapSpecialtiesToDbAsync(filteredSpecialties);
                 response.RecommendedSpecialties = specialtyMatches;
 
                 // Step 6: Get recommendations nếu cần

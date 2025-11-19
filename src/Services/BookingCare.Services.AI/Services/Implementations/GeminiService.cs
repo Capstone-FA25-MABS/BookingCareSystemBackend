@@ -19,7 +19,7 @@ public class GeminiService : IGeminiService
     private readonly ILogger<GeminiService> _logger;
     private static readonly TimeSpan ModelCacheDuration = TimeSpan.FromMinutes(15);
     private static readonly object _modelCacheLock = new();
-    private static List<string> _cachedModels = new();
+    private static readonly List<string> _cachedModels = new();
     private static DateTime _modelCacheUpdatedAt = DateTime.MinValue;
 
     public GeminiService(
@@ -318,7 +318,8 @@ public class GeminiService : IGeminiService
         {
             lock (_modelCacheLock)
             {
-                _cachedModels = models;
+                _cachedModels.Clear();
+                _cachedModels.AddRange(models);
                 _modelCacheUpdatedAt = DateTime.UtcNow;
             }
         }
