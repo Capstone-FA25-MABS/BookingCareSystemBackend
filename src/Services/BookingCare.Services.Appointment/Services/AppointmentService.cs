@@ -181,6 +181,32 @@ public class AppointmentService : BaseService, IAppointmentService
         await _appointmentRepository.UpdateAppointmentAsync(appointment);
     }
 
+    /// <summary>
+    /// Release held slot via Redis cache
+    /// </summary>
+    private async Task ReleaseHeldSlotAsync(Guid doctorId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid userId)
+    {
+        try
+        {
+            LogInfo("Releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                null, doctorId, appointmentDate, appointmentTimeId, userId);
+
+            var database = _redisConnection.GetDatabase();
+            var dateStr = appointmentDate.ToString(DateFormat);
+            var cacheKey = CacheKeys.Format(CacheKeys.HeldSlot, doctorId, dateStr, (int)appointmentTimeId, userId);
+
+            await database.KeyDeleteAsync(cacheKey);
+
+            LogInfo("Successfully released held slot: {CacheKey}", null, cacheKey);
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                null, doctorId, appointmentDate, appointmentTimeId, userId);
+            // Don't throw - this is not critical for appointment creation
+        }
+    }
+
     #endregion
 
     #region Appointment Operations
@@ -229,6 +255,13 @@ public class AppointmentService : BaseService, IAppointmentService
                     request.DoctorId.Value,
                     request.AppointmentDate,
                     request.ServiceId);
+
+                // Release held slot for this appointment time
+                await ReleaseHeldSlotAsync(
+                    request.DoctorId.Value,
+                    request.AppointmentDate,
+                    request.AppointmentTimeId,
+                    request.PatientAccountId);
             }
 
             // If no payment (skipPayment = true), send booking success email immediately
