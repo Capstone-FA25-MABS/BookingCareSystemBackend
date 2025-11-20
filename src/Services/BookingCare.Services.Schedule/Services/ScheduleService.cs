@@ -26,6 +26,7 @@ public class ScheduleService : IScheduleService
     private readonly ServiceMedicalService.ServiceMedicalServiceClient _serviceMedicalClient;
     private readonly BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient _appointmentClient;
     private readonly IMapper _mapper;
+    private readonly IHoldSlotService _holdSlotService;
 
     public ScheduleService(
         IScheduleRepository repository,
@@ -34,7 +35,8 @@ public class ScheduleService : IScheduleService
         DoctorService.DoctorServiceClient doctorClient,
         ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient,
         BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient appointmentClient,
-        IMapper mapper)
+        IMapper mapper,
+        IHoldSlotService holdSlotService)
     {
         _repository = repository;
         _cacheService = cacheService;
@@ -43,6 +45,7 @@ public class ScheduleService : IScheduleService
         _serviceMedicalClient = serviceMedicalClient;
         _appointmentClient = appointmentClient;
         _mapper = mapper;
+        _holdSlotService = holdSlotService;
     }
 
     #region DoctorDailySchedule operations
@@ -287,7 +290,7 @@ public class ScheduleService : IScheduleService
 
     #region Available slots operations
 
-    public async Task<IEnumerable<AppointmentTimeDto>> GetAvailableSlotsAsync(GetAvailableSlotsRequest request)
+    public async Task<IEnumerable<AppointmentTimeDto>> GetAvailableSlotsAsync(GetAvailableSlotsRequest request, Guid? currentUserId = null)
     {
         // Validate doctor exists and is active
         var isDoctorValid = await ValidateDoctorAsync(request.DoctorId);
@@ -311,7 +314,9 @@ public class ScheduleService : IScheduleService
         var serviceIdStr = request.ServiceId?.ToString() ?? "null";
         var cacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.Date.ToString(DateFormat), serviceIdStr);
 
-        var cached = await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey);
+        // Note: We don't cache when currentUserId is provided because held slots are user-specific
+        // Only use cache for anonymous/general requests
+        var cached = currentUserId == null ? await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey) : null;
         if (cached != null)
         {
             _logger.LogDebug("Retrieved available slots for doctor {DoctorId} on {Date} from cache", request.DoctorId, request.Date);
@@ -350,7 +355,32 @@ public class ScheduleService : IScheduleService
             _logger.LogInformation("Returning {AvailableCount} available slots after filtering booked slots",
                 availableSlots.Count);
 
-            await _cacheService.SetAsync(cacheKey, availableSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+            // Filter out held slots by other users if currentUserId is provided
+            if (currentUserId.HasValue)
+            {
+                var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.DoctorId, request.Date, currentUserId.Value);
+                var heldTimeIds = new HashSet<int>(heldSlots.Select(hs => (int)hs));
+
+                var slotsBeforeHeldFilter = availableSlots.Count;
+                availableSlots = availableSlots.Where(slot =>
+                {
+                    var slotBytes = slot.Id.ToByteArray();
+                    var enumValue = BitConverter.ToInt32(slotBytes, 0);
+                    return !heldTimeIds.Contains(enumValue);
+                }).ToList();
+
+                _logger.LogInformation("Doctor {DoctorId} on {Date}: Filtered out {HeldSlots} held slots for user {UserId}",
+                    request.DoctorId, request.Date, slotsBeforeHeldFilter - availableSlots.Count, currentUserId.Value);
+            }
+
+            _logger.LogInformation("Returning {AvailableCount} available slots after filtering booked and held slots",
+                availableSlots.Count);
+
+            // Only cache if no user-specific filtering was applied
+            if (currentUserId == null)
+            {
+                await _cacheService.SetAsync(cacheKey, availableSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+            }
 
             return availableSlots;
         }
