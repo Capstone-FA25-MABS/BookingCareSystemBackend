@@ -40,6 +40,7 @@ builder.Services.AddAutoMapper(typeof(ScheduleMappingProfile));
 // Register repositories and services
 builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
+builder.Services.AddScoped<IHoldSlotService, HoldSlotService>();
 
 // Configure gRPC clients for inter-service communication following ASP.NET Core DI best practices
 var doctorAddress = builder.Configuration.GetSection("GrpcClients:Doctor:Address").Value ?? "http://localhost:6018";
