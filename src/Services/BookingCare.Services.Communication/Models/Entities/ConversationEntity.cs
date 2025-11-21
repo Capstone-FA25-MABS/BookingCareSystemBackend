@@ -34,6 +34,14 @@ public class ConversationEntity
     public BlockedInfo? Blocked { get; set; }
 
     /// <summary>
+    /// Tags riêng tư của từng user cho cuộc hội thoại
+    /// Key: UserId, Value: Danh sách TagId
+    /// Mỗi user có thể gán tags riêng mà không ảnh hưởng đến người khác
+    /// </summary>
+    [BsonElement("userTags")]
+    public Dictionary<string, List<string>> UserTags { get; set; } = new();
+
+    /// <summary>
     /// Thời gian tạo cuộc hội thoại
     /// </summary>
     [BsonElement("createdAt")]

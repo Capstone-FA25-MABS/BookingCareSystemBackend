@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Shared.Common.Enums;
-using System.Text.Json.Serialization;
 
 namespace BookingCare.Services.Appointment.Models.DTOs;
 
@@ -12,6 +12,12 @@ public class CreateAppointmentRequest
 {
     [Required(ErrorMessage = "Patient ID is required")]
     public required Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Account ID of the patient who booked the appointment
+    /// Links to the Account service for user authentication and authorization
+    /// </summary>
+    public Guid? PatientAccountId { get; set; }
 
     public Guid? DoctorId { get; set; }
 
@@ -305,5 +311,3 @@ public class GenerateRescheduleTokenRequest
     [Required(ErrorMessage = "Patient ID is required")]
     public required Guid PatientId { get; set; }
 }
-
-

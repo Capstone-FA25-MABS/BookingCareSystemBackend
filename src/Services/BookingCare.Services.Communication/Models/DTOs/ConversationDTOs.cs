@@ -225,6 +225,47 @@ public class CursorPaginatedResponse<T>
 }
 
 /// <summary>
+/// Response cho offset-based pagination (traditional pagination)
+/// </summary>
+public class PaginatedResponse<T>
+{
+    /// <summary>
+    /// Danh sách items trong trang hiện tại
+    /// </summary>
+    public List<T> Items { get; set; } = new();
+
+    /// <summary>
+    /// Tổng số items
+    /// </summary>
+    public int TotalCount { get; set; }
+
+    /// <summary>
+    /// Số trang hiện tại
+    /// </summary>
+    public int PageNumber { get; set; }
+
+    /// <summary>
+    /// Số items mỗi trang
+    /// </summary>
+    public int PageSize { get; set; }
+
+    /// <summary>
+    /// Tổng số trang
+    /// </summary>
+    public int TotalPages { get; set; }
+
+    /// <summary>
+    /// Có trang trước không
+    /// </summary>
+    public bool HasPrevious => PageNumber > 1;
+
+    /// <summary>
+    /// Có trang kế tiếp không
+    /// </summary>
+    public bool HasNext => PageNumber < TotalPages;
+}
+
+/// <summary>
 /// Request để chặn cuộc hội thoại
 /// </summary>
 public class BlockConversationRequest
