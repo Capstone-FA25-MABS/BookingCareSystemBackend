@@ -74,6 +74,19 @@ public class UpdateAppointmentStatusRequest
 }
 
 /// <summary>
+/// Request to update appointment result and automatically mark as completed
+/// </summary>
+public class UpdateAppointmentResultRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "Result is required")]
+    [MaxLength(4000, ErrorMessage = "Result cannot exceed 4000 characters")]
+    public required string Result { get; set; }
+}
+
+/// <summary>
 /// Request to cancel an appointment
 /// </summary>
 public class CancelAppointmentRequest
