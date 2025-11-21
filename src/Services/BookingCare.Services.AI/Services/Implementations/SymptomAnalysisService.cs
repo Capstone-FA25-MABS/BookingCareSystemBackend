@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
@@ -94,6 +95,215 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     }
 
     /// <summary>
+    /// Calculate maximum confidence from specialties and diseases
+    /// </summary>
+    private (double topConfidence, double maxConfidence) CalculateConfidenceValues(GeminiAnalysisResult result)
+    {
+        var topConfidence = result.RecommendedSpecialties
+            .OrderByDescending(s => s.Confidence)
+            .FirstOrDefault()?.Confidence ?? 0;
+
+        var topDiseaseConfidence = result.PossibleDiseases
+            .OrderByDescending(d => d.Confidence)
+            .FirstOrDefault()?.Confidence ?? 0;
+
+        var maxConfidence = Math.Max(topConfidence, topDiseaseConfidence);
+        return (topConfidence, maxConfidence);
+    }
+
+    /// <summary>
+    /// Add default question if missing
+    /// </summary>
+    private void AddDefaultQuestionIfMissing(GeminiAnalysisResult result, string question, string purpose)
+    {
+        if (!result.NextQuestions.Any())
+        {
+            result.NextQuestions.Add(new GeminiQuestion
+            {
+                Question = question,
+                Purpose = purpose,
+                Priority = "HIGH"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Rule 0: Validate first question - block early conclusion
+    /// </summary>
+    private bool ValidateFirstQuestion(GeminiAnalysisResult result, double maxConfidence, int questionsAskedCount)
+    {
+        if (questionsAskedCount != 0 || !result.AnalysisComplete ||
+            maxConfidence >= 0.85 || result.RequiresImmediateAttention)
+        {
+            return false;
+        }
+
+        _logger.LogWarning(
+            "⛔ AI tried to conclude on FIRST question with confidence {Confidence}. BLOCKING! Forcing to ask more.",
+            maxConfidence);
+
+        result.AnalysisComplete = false;
+        result.PossibleDiseases.Clear();
+        result.RecommendedSpecialties.Clear();
+        result.GeneralAdvice.Clear();
+
+        AddDefaultQuestionIfMissing(result,
+            "Để tư vấn chính xác, bạn có thể cho biết thêm về: vị trí chính xác, thời gian xuất hiện và mức độ của triệu chứng?",
+            "Thu thập thông tin cơ bản để đánh giá");
+
+        _logger.LogWarning("⛔ BLOCKED early conclusion on first question. Confidence: {Conf}", maxConfidence);
+        return true;
+    }
+
+    /// <summary>
+    /// Rule 1: Force to ask more if low confidence and questions < 3
+    /// </summary>
+    private void ForceAskMoreIfLowConfidence(GeminiAnalysisResult result, double maxConfidence, int questionsAskedCount)
+    {
+        if (!result.AnalysisComplete || maxConfidence >= 0.8 || questionsAskedCount >= 3)
+        {
+            return;
+        }
+
+        _logger.LogWarning(
+            "AI tried to conclude early with low confidence. MaxConfidence: {Confidence}, Questions: {Count}. Forcing to ask more.",
+            maxConfidence, questionsAskedCount);
+
+        result.AnalysisComplete = false;
+
+        if (maxConfidence < 0.5)
+        {
+            result.PossibleDiseases.Clear();
+            result.RecommendedSpecialties.Clear();
+            result.GeneralAdvice.Clear();
+        }
+
+        AddDefaultQuestionIfMissing(result,
+            "Bạn có thể mô tả thêm về thời gian xuất hiện và mức độ của triệu chứng không?",
+            "Tăng độ tin cậy chẩn đoán");
+
+        _logger.LogInformation("Forced AI to ask follow-up question. Question count: {Count}/3", questionsAskedCount);
+    }
+
+    /// <summary>
+    /// Rule 2: Add default question if analysis incomplete and no questions
+    /// </summary>
+    private void EnsureQuestionWhenIncomplete(GeminiAnalysisResult result)
+    {
+        if (result.AnalysisComplete || result.NextQuestions.Any())
+        {
+            return;
+        }
+
+        _logger.LogWarning("AI set analysisComplete = false but provided no nextQuestions. Adding default question.");
+
+        AddDefaultQuestionIfMissing(result,
+            "Bạn có thể cho biết thêm về các triệu chứng đi kèm hoặc yếu tố làm tăng/giảm triệu chứng không?",
+            "Thu thập thêm thông tin để đánh giá chính xác");
+    }
+
+    /// <summary>
+    /// Rule 3: Block conclusion if very low confidence
+    /// </summary>
+    private void BlockConclusionIfVeryLowConfidence(GeminiAnalysisResult result, double topConfidence, int questionsAskedCount)
+    {
+        if (topConfidence >= 0.5 || questionsAskedCount >= 3 || !result.AnalysisComplete)
+        {
+            return;
+        }
+
+        _logger.LogWarning(
+            "AI tried to conclude with very low confidence ({Confidence}) and only {Count} questions. Forcing to ask more.",
+            topConfidence, questionsAskedCount);
+
+        result.AnalysisComplete = false;
+
+        AddDefaultQuestionIfMissing(result,
+            "Để tư vấn chính xác hơn, bạn có thể cho biết triệu chứng xuất hiện khi nào và có yếu tố gì liên quan không?",
+            "Khoanh vùng chính xác hơn");
+    }
+
+    /// <summary>
+    /// Rule 4: Validate completeness when analysis is complete
+    /// </summary>
+    private void ValidateCompleteness(GeminiAnalysisResult result, int questionsAskedCount)
+    {
+        if (!result.AnalysisComplete)
+        {
+            return;
+        }
+
+        var hasEnoughDiseases = result.PossibleDiseases.Count >= 1;
+        var hasEnoughAdvice = result.GeneralAdvice.Count >= 2;
+        var hasSpecialties = result.RecommendedSpecialties.Any();
+
+        _logger.LogInformation(
+            "✅ Checking completion components: Diseases={DiseaseCount}, Advice={AdviceCount}, Specialties={SpecialtyCount}",
+            result.PossibleDiseases.Count, result.GeneralAdvice.Count, result.RecommendedSpecialties.Count);
+
+        if (hasEnoughDiseases && hasEnoughAdvice && hasSpecialties)
+        {
+            return;
+        }
+
+        _logger.LogWarning(
+            "⚠️ AI marked as complete but missing components. Diseases: {Diseases}/{MinDiseases}, Advice: {Advice}/{MinAdvice}, Specialties: {Specialties}",
+            result.PossibleDiseases.Count, 1, result.GeneralAdvice.Count, 2, hasSpecialties ? "YES" : "NO");
+
+        if (questionsAskedCount < 3)
+        {
+            EnforceIncompleteComponents(result, hasEnoughDiseases, hasEnoughAdvice, hasSpecialties);
+        }
+        else
+        {
+            _logger.LogWarning("⚠️ Allowing incomplete conclusion because questions >= 3. User may have vague symptoms.");
+        }
+    }
+
+    /// <summary>
+    /// Enforce incomplete components by clearing data and adding question
+    /// </summary>
+    private void EnforceIncompleteComponents(GeminiAnalysisResult result, bool hasEnoughDiseases, bool hasEnoughAdvice, bool hasSpecialties)
+    {
+        _logger.LogWarning("⛔ ENFORCING: Incomplete components + questions < 3. FORCING to ask more!");
+        result.AnalysisComplete = false;
+
+        if (!hasEnoughDiseases) result.PossibleDiseases.Clear();
+        if (!hasEnoughAdvice) result.GeneralAdvice.Clear();
+        if (!hasSpecialties) result.RecommendedSpecialties.Clear();
+
+        AddDefaultQuestionIfMissing(result,
+            "Để đưa ra tư vấn đầy đủ, bạn có thể mô tả rõ hơn về: vị trí chính xác, thời gian xuất hiện và các triệu chứng đi kèm?",
+            "Thu thập đủ thông tin để đưa ra kết luận đầy đủ");
+    }
+
+    /// <summary>
+    /// Validate and fix AI response to ensure quality and consistency
+    /// </summary>
+    private void ValidateAndFixAIResponse(GeminiAnalysisResult result, int questionsAskedCount)
+    {
+        var (topConfidence, maxConfidence) = CalculateConfidenceValues(result);
+
+        _logger.LogInformation(
+            "Validating AI response: MaxConfidence={MaxConf}, QuestionsAsked={QCount}, AnalysisComplete={Complete}",
+            maxConfidence, questionsAskedCount, result.AnalysisComplete);
+
+        if (ValidateFirstQuestion(result, maxConfidence, questionsAskedCount))
+        {
+            return;
+        }
+
+        ForceAskMoreIfLowConfidence(result, maxConfidence, questionsAskedCount);
+        EnsureQuestionWhenIncomplete(result);
+        BlockConclusionIfVeryLowConfidence(result, topConfidence, questionsAskedCount);
+        ValidateCompleteness(result, questionsAskedCount);
+
+        _logger.LogInformation(
+            "AI response validation completed. AnalysisComplete: {Complete}, Confidence: {Confidence}, Questions asked: {Count}/3, Next questions: {NextCount}",
+            result.AnalysisComplete, topConfidence, questionsAskedCount, result.NextQuestions.Count);
+    }
+
+    /// <summary>
     /// Load or create session and conversation history
     /// </summary>
     private async Task<(Guid sessionId, List<ConversationMessage> history)> LoadSessionAndHistoryAsync(SymptomAnalysisRequest request)
@@ -129,6 +339,114 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             return (sessionId, history);
         }
+    }
+
+    /// <summary>
+    /// Add recommendations to response if analysis is complete
+    /// </summary>
+    private async Task AddRecommendationsIfNeededAsync(
+        SymptomAnalysisResponse response,
+        bool analysisComplete,
+        List<SpecialtyMatch> specialtyMatches,
+        LocationContext? location,
+        bool requiresImmediateAttention)
+    {
+        var shouldRecommend = analysisComplete && specialtyMatches.Any(s => s.SpecialtyId != null);
+        if (!shouldRecommend)
+        {
+            response.Message = RemoveUnwantedSuggestionsQuestion(response.Message);
+            return;
+        }
+
+        var specialtyIds = specialtyMatches
+            .Where(s => s.SpecialtyId != null)
+            .Select(s => s.SpecialtyId!.Value)
+            .ToList();
+
+        var doctorTask = GetDoctorRecommendationsAsync(specialtyIds, location, specialtyMatches);
+        var hospitalTask = GetHospitalRecommendationsAsync(specialtyIds, location, requiresImmediateAttention);
+
+        await Task.WhenAll(doctorTask, hospitalTask);
+
+        response.RecommendedDoctors = doctorTask.Result;
+        response.RecommendedHospitals = hospitalTask.Result;
+
+        UpdateMessageWithRecommendations(response);
+    }
+
+    /// <summary>
+    /// Update response message with recommendations disclaimer
+    /// </summary>
+    private void UpdateMessageWithRecommendations(SymptomAnalysisResponse response)
+    {
+        response.Message = RemoveUnwantedSuggestionsQuestion(response.Message);
+
+        if (response.RecommendedDoctors.Any() || response.RecommendedHospitals.Any())
+        {
+            response.Message += "\n\nLưu ý:\n\n*Đây chỉ là gợi ý định hướng y tế, không thay thế chẩn đoán chính thức của bác sĩ. Vui lòng đến cơ sở y tế để được khám và điều trị chính xác.*";
+            response.Message += "\n\nDưới đây là gợi ý của mình về các bác sĩ và bệnh viện:";
+        }
+    }
+
+    /// <summary>
+    /// Save conversation history safely (non-blocking)
+    /// </summary>
+    private async Task SaveConversationHistorySafelyAsync(
+        Guid sessionId,
+        SymptomAnalysisRequest request,
+        SymptomAnalysisResponse response)
+    {
+        try
+        {
+            object? suggestionsData = BuildSuggestionsData(response);
+            await _conversationSessionService.SaveConversationHistoryAsync(
+                sessionId,
+                request.Message,
+                response.Message,
+                request.Location,
+                suggestionsData,
+                request.UserId
+            );
+        }
+        catch (Exception saveEx)
+        {
+            _logger.LogWarning(saveEx, "Failed to save conversation history, but continuing with response");
+        }
+    }
+
+    /// <summary>
+    /// Build suggestions data for saving
+    /// </summary>
+    private object? BuildSuggestionsData(SymptomAnalysisResponse response)
+    {
+        if (!response.RecommendedDoctors.Any() && !response.RecommendedHospitals.Any())
+        {
+            return null;
+        }
+
+        return new
+        {
+            doctors = response.RecommendedDoctors.Select(d => new
+            {
+                id = d.Id,
+                name = d.Name,
+                specialtyName = d.SpecialtyName,
+                hospitalName = d.HospitalName,
+                rating = d.Rating,
+                yearOfExperience = d.YearOfExperience,
+                serviceTypeName = d.ServiceTypeName,
+                price = d.Price,
+                avatarUrl = d.AvatarUrl
+            }).ToList(),
+            hospitals = response.RecommendedHospitals.Select(h => new
+            {
+                id = h.Id,
+                name = h.Name,
+                address = h.Address,
+                specialtyNames = h.SpecialtyNames,
+                imageUrl = h.ImageUrl
+            }).ToList()
+        };
     }
 
     /// <summary>
@@ -295,14 +613,32 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         GeminiAnalysisResult geminiResult,
         bool requiresImmediateAttention)
     {
-        if (shouldAskMoreQuestions)
+        string message;
+
+        // CRITICAL: Check analysisComplete first (after validation, this is the source of truth)
+        // If analysis is NOT complete, we MUST ask questions, not give conclusions
+        if (!geminiResult.AnalysisComplete || shouldAskMoreQuestions)
         {
-            return geminiResult.NextQuestions.Any()
-                ? geminiResult.NextQuestions.First().Question
-                : "Xin lỗi, tôi cần thêm thông tin để tư vấn chính xác hơn. Bạn có thể mô tả thêm về triệu chứng của mình không?";
+            // Return ONLY the question, no conclusions
+            if (geminiResult.NextQuestions.Any())
+            {
+                message = geminiResult.NextQuestions.First().Question;
+            }
+            else
+            {
+                // Fallback: If validation should have added a question but didn't
+                _logger.LogWarning("analysisComplete = false but no nextQuestions! Returning default question.");
+                message = "Bạn có thể cho biết thêm về vị trí, thời gian xuất hiện và mức độ của triệu chứng không?";
+            }
+        }
+        else
+        {
+            // Only build full conclusion if analysisComplete = true
+            message = BuildAIMessage(geminiResult, requiresImmediateAttention);
         }
 
-        return BuildAIMessage(geminiResult, requiresImmediateAttention);
+        // Normalize line breaks before returning (to match DB format and avoid extra spacing)
+        return NormalizeLineBreaks(message);
     }
 
     /// <summary>
@@ -368,6 +704,10 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // Override emergency detection
             var requiresImmediateAttention = isEmergencyDetected || geminiResult.RequiresImmediateAttention;
 
+            // Step 2.5: Validate and fix AI response if needed
+            var questionsAskedBeforeValidation = CountQuestionsInHistory(conversationHistory);
+            ValidateAndFixAIResponse(geminiResult, questionsAskedBeforeValidation);
+
             // Step 3: Analyze conversation state
             var topSpecialtyConfidence = geminiResult.RecommendedSpecialties
                 .OrderByDescending(s => s.Confidence)
@@ -416,7 +756,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             }
 
             // Step 5: Create base response
+            _logger.LogInformation(
+                "Building response message: analysisComplete={Complete}, shouldAskMore={ShouldAsk}, NextQuestionsCount={QCount}",
+                geminiResult.AnalysisComplete, shouldAskMoreQuestions, geminiResult.NextQuestions.Count);
+
             var baseMessage = BuildResponseMessage(shouldAskMoreQuestions, geminiResult, requiresImmediateAttention);
+
+            _logger.LogInformation("Built message preview: {Preview}",
+                baseMessage.Length > 100 ? baseMessage.Substring(0, 100) + "..." : baseMessage);
 
             // Remove unwanted question about suggesting doctors/hospitals from AI response
             // This question should not appear in follow-up conversations
@@ -442,100 +789,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             var specialtyMatches = await MapSpecialtiesToDbAsync(filteredSpecialties);
             response.RecommendedSpecialties = specialtyMatches;
 
-            // Step 6: If analysis is complete and specialties identified, get recommendations
-            // Always recommend when analysis is complete, regardless of follow-up status
-            // This ensures user gets doctor/hospital cards whenever we have enough info
-            var shouldRecommend = analysisComplete && specialtyMatches.Any(s => s.SpecialtyId != null);
+            // Step 6: Get recommendations if analysis is complete
+            await AddRecommendationsIfNeededAsync(response, analysisComplete, specialtyMatches, request.Location, requiresImmediateAttention);
 
-            if (shouldRecommend)
-            {
-                var specialtyIds = specialtyMatches
-                    .Where(s => s.SpecialtyId != null)
-                    .Select(s => s.SpecialtyId!.Value)
-                    .ToList();
-
-                // Get doctor and hospital recommendations in parallel for better performance
-                var doctorTask = GetDoctorRecommendationsAsync(
-                    specialtyIds,
-                    request.Location,
-                    specialtyMatches
-                );
-                var hospitalTask = GetHospitalRecommendationsAsync(
-                    specialtyIds,
-                    request.Location,
-                    requiresImmediateAttention
-                );
-
-                // Wait for both to complete in parallel
-                await Task.WhenAll(doctorTask, hospitalTask);
-
-                response.RecommendedDoctors = doctorTask.Result;
-                response.RecommendedHospitals = hospitalTask.Result;
-
-                // Add disclaimer and intro text to message if we have recommendations
-                // Remove unwanted question first, then add disclaimer
-                if (response.RecommendedDoctors.Any() || response.RecommendedHospitals.Any())
-                {
-                    // Remove unwanted question from message before adding disclaimer
-                    response.Message = RemoveUnwantedSuggestionsQuestion(response.Message);
-
-                    // Add disclaimer and intro text
-                    response.Message += "\n\nLưu ý:\n\n*Đây chỉ là gợi ý định hướng y tế, không thay thế chẩn đoán chính thức của bác sĩ. Vui lòng đến cơ sở y tế để được khám và điều trị chính xác.*";
-                    response.Message += "\n\nDưới đây là gợi ý của mình về các bác sĩ và bệnh viện:";
-                }
-                else
-                {
-                    // Even if no recommendations, remove unwanted question
-                    response.Message = RemoveUnwantedSuggestionsQuestion(response.Message);
-                }
-            }
-
-            // Step 7: Save conversation history with suggestions (non-blocking - don't fail if this fails)
-            try
-            {
-                // Prepare suggestions data for saving
-                object? suggestionsData = null;
-                if (response.RecommendedDoctors.Any() || response.RecommendedHospitals.Any())
-                {
-                    suggestionsData = new
-                    {
-                        doctors = response.RecommendedDoctors.Select(d => new
-                        {
-                            id = d.Id,
-                            name = d.Name,
-                            specialtyName = d.SpecialtyName,
-                            hospitalName = d.HospitalName,
-                            rating = d.Rating,
-                            yearOfExperience = d.YearOfExperience,
-                            serviceTypeName = d.ServiceTypeName,
-                            price = d.Price,
-                            avatarUrl = d.AvatarUrl
-                        }).ToList(),
-                        hospitals = response.RecommendedHospitals.Select(h => new
-                        {
-                            id = h.Id,
-                            name = h.Name,
-                            address = h.Address,
-                            specialtyNames = h.SpecialtyNames,
-                            imageUrl = h.ImageUrl
-                        }).ToList()
-                    };
-                }
-
-                await _conversationSessionService.SaveConversationHistoryAsync(
-                    sessionId,
-                    request.Message,
-                    response.Message,
-                    request.Location,
-                    suggestionsData,
-                    request.UserId
-                );
-            }
-            catch (Exception saveEx)
-            {
-                _logger.LogWarning(saveEx, "Failed to save conversation history, but continuing with response");
-                // Don't throw - saving history is not critical for the response
-            }
+            // Step 7: Save conversation history
+            await SaveConversationHistorySafelyAsync(sessionId, request, response);
 
             _logger.LogInformation("Symptom analysis completed. Recommendations: {DoctorCount} doctors, {HospitalCount} hospitals",
                 response.RecommendedDoctors.Count, response.RecommendedHospitals.Count);
@@ -664,8 +922,23 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         if (specialties.Any())
         {
-            var topSpecialty = specialties.OrderByDescending(s => s.Confidence).First();
-            sb.AppendLine($"**Chuyên khoa phù hợp**: {topSpecialty.SpecialtyName}");
+            // Sort by confidence descending
+            var sortedSpecialties = specialties.OrderByDescending(s => s.Confidence).ToList();
+
+            // If only 1 specialty
+            if (sortedSpecialties.Count == 1)
+            {
+                sb.AppendLine($"**Chuyên khoa phù hợp**: {sortedSpecialties[0].SpecialtyName}");
+            }
+            else
+            {
+                // Multiple specialties - format as list
+                sb.AppendLine("**Chuyên khoa phù hợp**:");
+                foreach (var specialty in sortedSpecialties)
+                {
+                    sb.AppendLine($"- {specialty.SpecialtyName} (độ tin cậy: {specialty.Confidence:P0})");
+                }
+            }
             sb.AppendLine();
         }
         else
@@ -1157,12 +1430,28 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // Get hospital addresses
             var hospitalAddressMap = await GetHospitalAddressesAsync(hospitalIds, location);
 
-            // Convert and rank doctors
-            return grpcResponse.Doctors
+            // Convert doctors to recommendations
+            var allDoctors = grpcResponse.Doctors
                 .Select(d => ConvertToDoctorRecommendation(d, specialtyMatches, location, hospitalAddressMap))
-                .OrderByDescending(d => d.RecommendationScore)
-                .Take(5) // Top 5 doctors
                 .ToList();
+
+            // Group by specialty and take top 5 per specialty to ensure diversity
+            // This ensures each recommended specialty gets representation
+            var doctorsPerSpecialty = allDoctors
+                .GroupBy(d => d.SpecialtyName)
+                .SelectMany(group => group
+                    .OrderByDescending(d => d.RecommendationScore)
+                    .Take(5) // Top 5 doctors per specialty
+                )
+                .OrderByDescending(d => d.RecommendationScore)
+                .Take(10) // Max 10 doctors total (2-3 specialties × 5 doctors)
+                .ToList();
+
+            _logger.LogInformation("Selected {Count} doctors across {SpecialtyCount} specialties",
+                doctorsPerSpecialty.Count,
+                doctorsPerSpecialty.Select(d => d.SpecialtyName).Distinct().Count());
+
+            return doctorsPerSpecialty;
         }
         catch (RpcException ex)
         {
@@ -1554,11 +1843,16 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             // Convert and rank hospitals
             var specialtyCount = specialtyIds.Count;
-            return allHospitals.Values
+            var hospitals = allHospitals.Values
                 .Select(h => ConvertToHospitalRecommendation(h, location, isEmergency, specialtyCount))
                 .OrderByDescending(h => h.RecommendationScore)
-                .Take(3) // Top 3 hospitals
+                .Take(5) // Top 5 hospitals (increased from 3 to better cover multiple specialties)
                 .ToList();
+
+            _logger.LogInformation("Selected {Count} hospitals with {SpecialtyCount} recommended specialties",
+                hospitals.Count, specialtyCount);
+
+            return hospitals;
         }
         catch (Exception ex)
         {
@@ -1805,6 +2099,32 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\n{3,}", "\n\n", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(2));
 
         return result.Trim();
+    }
+
+    /// <summary>
+    /// Normalize line breaks in message content
+    /// Converts \r\n\r\n, \n\n, \r\n to single \n
+    /// Removes consecutive empty lines
+    /// </summary>
+    private string NormalizeLineBreaks(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return content ?? string.Empty;
+        }
+
+        // Step 1: Normalize all line break types to \n
+        // Replace \r\n (Windows) and \r (old Mac) with \n
+        var normalized = content.Replace("\r\n", "\n").Replace("\r", "\n");
+
+        // Step 2: Replace multiple consecutive newlines (2+) with single newline
+        // This handles \n\n, \n\n\n, etc. -> \n
+        normalized = Regex.Replace(normalized, @"\n{2,}", "\n", RegexOptions.None, TimeSpan.FromSeconds(2));
+
+        // Step 3: Trim leading and trailing newlines (but keep content)
+        normalized = normalized.Trim('\n');
+
+        return normalized;
     }
 }
 

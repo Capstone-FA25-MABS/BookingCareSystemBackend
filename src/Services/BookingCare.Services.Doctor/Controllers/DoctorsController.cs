@@ -99,7 +99,30 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
-    /// Get doctor by account ID
+    /// Get current doctor profile (authenticated account)
+    /// </summary>
+    [HttpGet("profile")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetCurrentDoctorProfile()
+    {
+        try
+        {
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
+            if (doctor == null)
+            {
+                return NotFound("Doctor profile not found");
+            }
+            return Success(doctor, "Doctor profile retrieved successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Get doctor by account ID (legacy endpoint)
     /// </summary>
     [HttpGet("by-account")]
     [MapToApiVersion(ApiVersions.V1_0)]
@@ -370,6 +393,43 @@ public class DoctorsController : BaseApiController
     /// <summary>
     /// Update doctor information
     /// </summary>
+    /// <summary>
+    /// Update current doctor profile (authenticated account)
+    /// </summary>
+    [HttpPut("profile")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> UpdateCurrentDoctorProfile([FromBody] UpdateDoctorRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList());
+        }
+
+        try
+        {
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            // Get doctor by account ID
+            var doctor = await _doctorService.GetDoctorByAccountIdAsync(accountId);
+            if (doctor == null)
+            {
+                return NotFound("Doctor profile not found");
+            }
+
+            // Update the doctor
+            request.Id = doctor.Id; // Use the doctor ID from the account
+            var updatedDoctor = await _doctorService.UpdateDoctorAsync(request);
+            return Success<DoctorResponse>(updatedDoctor, "Doctor profile updated successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+    }
+
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateDoctor(Guid id, [FromBody] UpdateDoctorRequest request)

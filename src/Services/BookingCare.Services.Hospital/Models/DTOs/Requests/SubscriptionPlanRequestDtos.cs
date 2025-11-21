@@ -31,6 +31,9 @@ public class CreateSubscriptionPlanRequest
     [Range(-1, int.MaxValue, ErrorMessage = "Số lịch hẹn tối đa phải lớn hơn hoặc bằng -1 (-1 = không giới hạn)")]
     public int? MaxAppointments { get; set; } = 0; // null hoặc -1 = unlimited
 
+    [Range(-1, int.MaxValue, ErrorMessage = "Số dịch vụ tối đa phải lớn hơn hoặc bằng -1 (-1 = không giới hạn)")]
+    public int? MaxServices { get; set; } = 0; // null hoặc -1 = unlimited
+
     [MaxLength(5000, ErrorMessage = "Tính năng không được vượt quá 5000 ký tự")]
     public string? Features { get; set; }
 }
@@ -59,6 +62,9 @@ public class UpdateSubscriptionPlanRequest
 
     [Range(-1, int.MaxValue, ErrorMessage = "Số lịch hẹn tối đa phải lớn hơn hoặc bằng -1 (-1 = không giới hạn)")]
     public int? MaxAppointments { get; set; }
+
+    [Range(-1, int.MaxValue, ErrorMessage = "Số dịch vụ tối đa phải lớn hơn hoặc bằng -1 (-1 = không giới hạn)")]
+    public int? MaxServices { get; set; }
 
     [MaxLength(5000, ErrorMessage = "Tính năng không được vượt quá 5000 ký tự")]
     public string? Features { get; set; }

@@ -4,7 +4,11 @@ using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Models.Entities;
 using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
+using BookingCare.Services.Hospital;
 using BookingCare.Shared.Common.Interfaces;
+using Grpc.Core;
+using GrpcStatusCode = Grpc.Core.StatusCode;
+using ServiceMedicalHospitalBasicInfo = BookingCare.Services.ServiceMedical.Models.DTOs.Responses.HospitalBasicInfo;
 
 namespace BookingCare.Services.ServiceMedical.Services.Implementations
 {
@@ -15,6 +19,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private readonly IMapper _mapper;
         private readonly ILogger<ServiceMedicalService> _logger;
         private readonly IHospitalService _hospitalService;
+        private readonly SubscriptionUsageGrpc.SubscriptionUsageGrpcClient _subscriptionUsageClient;
         private readonly ILocationApiService _locationApiService;
 
         public ServiceMedicalService(
@@ -23,6 +28,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             IMapper mapper,
             ILogger<ServiceMedicalService> logger,
             IHospitalService hospitalService,
+            SubscriptionUsageGrpc.SubscriptionUsageGrpcClient subscriptionUsageClient,
             ILocationApiService locationApiService)
         {
             _categoryRepository = categoryRepository;
@@ -30,6 +36,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             _mapper = mapper;
             _logger = logger;
             _hospitalService = hospitalService;
+            _subscriptionUsageClient = subscriptionUsageClient;
             _locationApiService = locationApiService;
         }
 
@@ -232,12 +239,22 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     }
                 }
 
+                // Check subscription limit before creating service
+                await CheckAndValidateServiceLimitAsync(request.HospitalId);
+
                 var entity = _mapper.Map<ServiceEntity>(request);
                 var createdEntity = await _serviceRepository.CreateAsync(entity);
+
+                // Increment service count after successful creation
+                await IncrementServiceCountAsync(request.HospitalId);
 
                 // Load related data for response
                 var fullEntity = await _serviceRepository.GetByIdAsync(createdEntity.Id);
                 return _mapper.Map<ServiceResponse>(fullEntity);
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -298,7 +315,22 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                return await _serviceRepository.DeleteAsync(id);
+                // Get service to find hospital ID before deletion
+                var service = await _serviceRepository.GetByIdAsync(id);
+                if (service == null)
+                {
+                    return false;
+                }
+
+                var result = await _serviceRepository.DeleteAsync(id);
+
+                // Decrement service count after successful deletion
+                if (result)
+                {
+                    await DecrementServiceCountAsync(service.HospitalId);
+                }
+
+                return result;
             }
             catch (Exception ex)
             {
@@ -479,7 +511,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     // Map hospital basic info
                     if (hospitalDict.TryGetValue(service.HospitalId, out var hospital))
                     {
-                        serviceOptimized.Hospital = _mapper.Map<HospitalBasicInfo>(hospital);
+                        serviceOptimized.Hospital = _mapper.Map<ServiceMedicalHospitalBasicInfo>(hospital);
                     }
 
                     // Set parent category name for each service
@@ -901,7 +933,6 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
         #endregion
 
-
         #region Validation Operations
 
         public async Task<bool> ServiceCategoryExistsAsync(Guid id)
@@ -912,6 +943,92 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         public async Task<bool> ServiceExistsAsync(Guid id)
         {
             return await _serviceRepository.ExistsAsync(id);
+        }
+
+        #endregion
+
+        #region Private Helper Methods
+
+        /// <summary>
+        /// Check and validate service limit via gRPC
+        /// </summary>
+        private async Task CheckAndValidateServiceLimitAsync(Guid hospitalId)
+        {
+            try
+            {
+                var request = new CheckLimitRequest
+                {
+                    HospitalId = hospitalId.ToString()
+                };
+
+                var response = await _subscriptionUsageClient.CheckServiceLimitAsync(request);
+
+                if (!response.CanAdd)
+                {
+                    throw new InvalidOperationException(
+                        response.Message ?? "Bạn đã đạt giới hạn số lượng dịch vụ cho phép trong gói đăng ký. Vui lòng nâng cấp gói để thêm dịch vụ."
+                    );
+                }
+            }
+            catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.NotFound)
+            {
+                throw new InvalidOperationException("Không tìm thấy gói đăng ký cho bệnh viện này.");
+            }
+            catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.FailedPrecondition)
+            {
+                throw new InvalidOperationException(ex.Status.Detail ?? "Không thể thêm dịch vụ do giới hạn gói đăng ký.");
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error checking service limit via gRPC for hospital {HospitalId}", hospitalId);
+                // Don't block creation if subscription service is unavailable, but log the warning
+            }
+        }
+
+        /// <summary>
+        /// Increment service count via gRPC
+        /// </summary>
+        private async Task IncrementServiceCountAsync(Guid hospitalId)
+        {
+            try
+            {
+                var request = new IncrementRequest
+                {
+                    HospitalId = hospitalId.ToString()
+                };
+
+                await _subscriptionUsageClient.IncrementServiceCountAsync(request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error incrementing service count via gRPC for hospital {HospitalId}", hospitalId);
+                // Don't throw - service already created, just log the error
+            }
+        }
+
+        /// <summary>
+        /// Decrement service count via gRPC
+        /// </summary>
+        private async Task DecrementServiceCountAsync(Guid hospitalId)
+        {
+            try
+            {
+                var request = new IncrementRequest
+                {
+                    HospitalId = hospitalId.ToString()
+                };
+
+                await _subscriptionUsageClient.DecrementServiceCountAsync(request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error decrementing service count via gRPC for hospital {HospitalId}", hospitalId);
+                // Don't throw - service already deleted, just log the error
+            }
         }
 
         #endregion
