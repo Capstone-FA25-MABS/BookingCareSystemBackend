@@ -22,6 +22,7 @@ using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
 using Microsoft.Extensions.Options;
 using BookingCare.Shared.Cache.Constants;
 using RedisClient = StackExchange.Redis;
+using System.Globalization;
 
 namespace BookingCare.Services.Appointment.Services;
 
@@ -2293,6 +2294,237 @@ public class AppointmentService : BaseService, IAppointmentService
             };
 
         }, "GetAvailableDoctors");
+    }
+
+    public async Task<StaffHospitalStatisticsResponse> GetHospitalStaffStatisticsAsync(StaffHospitalStatisticsRequest request)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            ValidateRequired(request, nameof(request));
+            ValidateGuid(request.HospitalId, nameof(request.HospitalId));
+
+            var fromDate = request.GetFromDate();
+            var toDate = request.GetToDate();
+
+            if (fromDate > toDate)
+            {
+                throw new AppointmentException("FromDate must be earlier than or equal to ToDate");
+            }
+
+            LogInfo("Generating staff statistics for hospital {HospitalId} from {FromDate} to {ToDate} ({Period})",
+                null, request.HospitalId, fromDate, toDate, request.Period);
+
+            var appointments = await _appointmentRepository.GetAppointmentsForHospitalAsync(
+                request.HospitalId,
+                fromDate,
+                toDate);
+
+            var response = StaffHospitalStatisticsResponse.CreateEmpty(request.HospitalId, fromDate, toDate, request.Period);
+
+            if (!appointments.Any())
+            {
+                LogInfo("No appointments found for hospital {HospitalId} in provided range", null, request.HospitalId);
+                return response;
+            }
+
+            var patientFirstAppointments = await _appointmentRepository.GetPatientFirstAppointmentsAsync(request.HospitalId);
+
+            response.Overview = BuildHospitalOverview(appointments, patientFirstAppointments, fromDate, toDate);
+            response.AppointmentTrend = BuildAppointmentTrend(appointments, fromDate, toDate, request.Period);
+            response.NewPatientTrend = BuildNewPatientTrend(patientFirstAppointments, fromDate, toDate, request.Period);
+
+            return response;
+        }, "GetHospitalStaffStatistics");
+    }
+
+    private static HospitalAppointmentOverview BuildHospitalOverview(
+        List<AppointmentEntity> appointments,
+        Dictionary<Guid, DateTime> patientFirstAppointments,
+        DateTime fromDate,
+        DateTime toDate)
+    {
+        var total = appointments.Count;
+        var completed = appointments.Count(a => a.Status == AppointmentStatus.COMPLETED);
+        var confirmed = appointments.Count(a => a.Status == AppointmentStatus.CONFIRMED);
+        var pending = appointments.Count(a => a.Status == AppointmentStatus.PENDING);
+        var cancelled = appointments.Count(a => a.Status == AppointmentStatus.CANCELLED);
+        var rescheduled = appointments.Count(a => a.IsRescheduled);
+
+        var newPatients = patientFirstAppointments
+            .Count(kvp => kvp.Value >= fromDate && kvp.Value <= toDate);
+
+        return new HospitalAppointmentOverview
+        {
+            TotalAppointments = total,
+            CompletedAppointments = completed,
+            ConfirmedAppointments = confirmed,
+            PendingAppointments = pending,
+            CancelledAppointments = cancelled,
+            RescheduledAppointments = rescheduled,
+            NewPatients = newPatients,
+            NoShowRate = CalculateRate(cancelled, total),
+            RescheduleRate = CalculateRate(rescheduled, total)
+        };
+    }
+
+    private static List<AppointmentTrendPoint> BuildAppointmentTrend(
+        List<AppointmentEntity> appointments,
+        DateTime fromDate,
+        DateTime toDate,
+        StatisticsPeriod period)
+    {
+        var results = new List<AppointmentTrendPoint>();
+        var cursor = AlignToPeriodStart(fromDate.Date, period);
+        var endDate = toDate.Date;
+
+        while (cursor <= endDate)
+        {
+            var (periodStart, periodEnd, label) = GetPeriodBounds(cursor, period);
+
+            var periodAppointments = appointments
+                .Where(a =>
+                    a.AppointmentDate.Date >= periodStart.Date &&
+                    a.AppointmentDate.Date <= periodEnd.Date)
+                .ToList();
+
+            results.Add(new AppointmentTrendPoint
+            {
+                Label = label,
+                PeriodStart = periodStart,
+                PeriodEnd = periodEnd,
+                TotalAppointments = periodAppointments.Count,
+                CompletedAppointments = periodAppointments.Count(a => a.Status == AppointmentStatus.COMPLETED),
+                CancelledAppointments = periodAppointments.Count(a => a.Status == AppointmentStatus.CANCELLED),
+                RescheduledAppointments = periodAppointments.Count(a => a.IsRescheduled)
+            });
+
+            cursor = GetNextPeriod(periodStart, period);
+        }
+
+        return results;
+    }
+
+    private static List<NewPatientTrendPoint> BuildNewPatientTrend(
+        Dictionary<Guid, DateTime> patientFirstAppointments,
+        DateTime fromDate,
+        DateTime toDate,
+        StatisticsPeriod period)
+    {
+        var filteredFirstAppointments = patientFirstAppointments
+            .Where(kvp => kvp.Value >= fromDate && kvp.Value <= toDate)
+            .Select(kvp => kvp.Value)
+            .ToList();
+
+        var results = new List<NewPatientTrendPoint>();
+        var cursor = AlignToPeriodStart(fromDate.Date, period);
+        var endDate = toDate.Date;
+
+        while (cursor <= endDate)
+        {
+            var (periodStart, periodEnd, label) = GetPeriodBounds(cursor, period);
+
+            var newPatients = filteredFirstAppointments
+                .Count(date => date.Date >= periodStart.Date && date.Date <= periodEnd.Date);
+
+            results.Add(new NewPatientTrendPoint
+            {
+                Label = label,
+                PeriodStart = periodStart,
+                PeriodEnd = periodEnd,
+                NewPatients = newPatients
+            });
+
+            cursor = GetNextPeriod(periodStart, period);
+        }
+
+        return results;
+    }
+
+    private static decimal CalculateRate(int numerator, int denominator)
+    {
+        if (denominator == 0)
+        {
+            return 0;
+        }
+
+        return Math.Round((decimal)numerator / denominator * 100, 2, MidpointRounding.AwayFromZero);
+    }
+
+    private static DateTime AlignToPeriodStart(DateTime date, StatisticsPeriod period)
+    {
+        return period switch
+        {
+            StatisticsPeriod.Daily => date,
+            StatisticsPeriod.Weekly => date.AddDays(-(int)date.DayOfWeek).Date,
+            StatisticsPeriod.Monthly => new DateTime(date.Year, date.Month, 1),
+            StatisticsPeriod.Quarterly => new DateTime(date.Year, ((date.Month - 1) / 3) * 3 + 1, 1),
+            StatisticsPeriod.Yearly => new DateTime(date.Year, 1, 1),
+            _ => date
+        };
+    }
+
+    private static (DateTime start, DateTime end, string label) GetPeriodBounds(DateTime date, StatisticsPeriod period)
+    {
+        return period switch
+        {
+            StatisticsPeriod.Daily => (date, date, date.ToString("yyyy-MM-dd")),
+            StatisticsPeriod.Weekly => GetWeeklyPeriod(date),
+            StatisticsPeriod.Monthly => GetMonthlyPeriod(date),
+            StatisticsPeriod.Quarterly => GetQuarterlyPeriod(date),
+            StatisticsPeriod.Yearly => GetYearlyPeriod(date),
+            _ => (date, date, date.ToString("yyyy-MM-dd"))
+        };
+    }
+
+    private static (DateTime start, DateTime end, string label) GetWeeklyPeriod(DateTime date)
+    {
+        var startOfWeek = date.AddDays(-(int)date.DayOfWeek);
+        var endOfWeek = startOfWeek.AddDays(6);
+        return (startOfWeek, endOfWeek, $"W{GetWeekOfYear(startOfWeek)}-{startOfWeek.Year}");
+    }
+
+    private static (DateTime start, DateTime end, string label) GetMonthlyPeriod(DateTime date)
+    {
+        var startOfMonth = new DateTime(date.Year, date.Month, 1);
+        var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+        return (startOfMonth, endOfMonth, date.ToString("yyyy-MM"));
+    }
+
+    private static (DateTime start, DateTime end, string label) GetQuarterlyPeriod(DateTime date)
+    {
+        var quarter = (date.Month - 1) / 3 + 1;
+        var startOfQuarter = new DateTime(date.Year, (quarter - 1) * 3 + 1, 1);
+        var endOfQuarter = startOfQuarter.AddMonths(3).AddDays(-1);
+        return (startOfQuarter, endOfQuarter, $"{date.Year}-Q{quarter}");
+    }
+
+    private static (DateTime start, DateTime end, string label) GetYearlyPeriod(DateTime date)
+    {
+        var startOfYear = new DateTime(date.Year, 1, 1);
+        var endOfYear = new DateTime(date.Year, 12, 31);
+        return (startOfYear, endOfYear, date.Year.ToString());
+    }
+
+    private static DateTime GetNextPeriod(DateTime current, StatisticsPeriod period)
+    {
+        return period switch
+        {
+            StatisticsPeriod.Daily => current.AddDays(1),
+            StatisticsPeriod.Weekly => current.AddDays(7),
+            StatisticsPeriod.Monthly => current.AddMonths(1),
+            StatisticsPeriod.Quarterly => current.AddMonths(3),
+            StatisticsPeriod.Yearly => current.AddYears(1),
+            _ => current.AddDays(1)
+        };
+    }
+
+    private static int GetWeekOfYear(DateTime date)
+    {
+        var culture = CultureInfo.CurrentCulture;
+        return culture.Calendar.GetWeekOfYear(
+            date,
+            culture.DateTimeFormat.CalendarWeekRule,
+            culture.DateTimeFormat.FirstDayOfWeek);
     }
 
     /// <summary>

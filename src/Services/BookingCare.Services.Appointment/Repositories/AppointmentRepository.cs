@@ -463,6 +463,50 @@ public class AppointmentRepository : IAppointmentRepository
         }
     }
 
+    public async Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(Guid hospitalId, DateTime fromDate, DateTime toDate)
+    {
+        try
+        {
+            return await _context.Appointments
+                .AsNoTracking()
+                .Where(a =>
+                    a.HospitalId.HasValue &&
+                    a.HospitalId == hospitalId &&
+                    a.AppointmentDate >= fromDate &&
+                    a.AppointmentDate <= toDate)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting appointments for hospital {HospitalId}", hospitalId);
+            throw new AppointmentException("Failed to get hospital appointments", innerException: ex);
+        }
+    }
+
+    public async Task<Dictionary<Guid, DateTime>> GetPatientFirstAppointmentsAsync(Guid hospitalId)
+    {
+        try
+        {
+            var query = await _context.Appointments
+                .AsNoTracking()
+                .Where(a => a.HospitalId.HasValue && a.HospitalId == hospitalId)
+                .GroupBy(a => a.PatientId)
+                .Select(g => new
+                {
+                    PatientId = g.Key,
+                    FirstAppointmentAt = g.Min(a => a.CreatedAt)
+                })
+                .ToListAsync();
+
+            return query.ToDictionary(x => x.PatientId, x => x.FirstAppointmentAt);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting patient first appointments for hospital {HospitalId}", hospitalId);
+            throw new AppointmentException("Failed to get patient first appointments", innerException: ex);
+        }
+    }
+
     /// <summary>
     /// Get all booked appointment time IDs for a doctor on a specific date
     /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED

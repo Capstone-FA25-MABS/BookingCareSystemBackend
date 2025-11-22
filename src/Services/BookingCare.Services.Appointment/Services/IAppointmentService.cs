@@ -73,6 +73,8 @@ public interface IAppointmentService
         AppointmentTime? appointmentTimeId,
         bool checkAvailability = true);
 
+    Task<StaffHospitalStatisticsResponse> GetHospitalStaffStatisticsAsync(StaffHospitalStatisticsRequest request);
+
     // Validation operations
     Task<bool> ValidateAppointmentAsync(CreateAppointmentRequest request);
 

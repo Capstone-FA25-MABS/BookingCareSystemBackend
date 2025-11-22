@@ -299,4 +299,16 @@ public class AppointmentsController : BaseApiController
         return Success(result, $"Found {result.TotalCount} doctors");
     }
 
+    /// <summary>
+    /// Get dashboard statistics for hospital staff
+    /// </summary>
+    [HttpGet("staff/statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Staff, Admin")]
+    public async Task<IActionResult> GetHospitalStaffStatistics([FromQuery] StaffHospitalStatisticsRequest request)
+    {
+        var result = await _appointmentService.GetHospitalStaffStatisticsAsync(request);
+        return Success(result, "Staff statistics retrieved successfully");
+    }
+
 }
