@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Schedule.Models.DTOs;
@@ -32,8 +33,13 @@ public class HoldSlotResponse
 /// </summary>
 public class HoldSlotRequest
 {
+    [Required]
     public Guid DoctorId { get; set; }
+
+    [Required]
     public DateOnly Date { get; set; }
+
+    [Required]
     public AppointmentTime AppointmentTimeId { get; set; }
 }
 
@@ -42,7 +48,12 @@ public class HoldSlotRequest
 /// </summary>
 public class ReleaseSlotRequest
 {
+    [Required]
     public Guid DoctorId { get; set; }
+
+    [Required]
     public DateOnly Date { get; set; }
+
+    [Required]
     public AppointmentTime AppointmentTimeId { get; set; }
 }

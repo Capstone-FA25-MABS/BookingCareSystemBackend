@@ -334,8 +334,8 @@ public class ScheduleService : IScheduleService
                     return !heldTimeIds.Contains(enumValue);
                 }).ToList();
 
-                _logger.LogInformation("Filtered {HeldCount} held slots from cached data for doctor {DoctorId}",
-                    heldSlots.Count(), request.DoctorId);
+                _logger.LogInformation("Filtered {0} held slots from cached data for doctor {1}",
+                    heldSlots.Count, request.DoctorId);
             }
 
             return cachedList;
@@ -357,9 +357,6 @@ public class ScheduleService : IScheduleService
             var bookedSlotsResponse = await _appointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
             var bookedTimeIds = new HashSet<int>(bookedSlotsResponse.BookedAppointmentTimeIds);
 
-            _logger.LogInformation("Doctor {DoctorId} on {Date}: Found {TotalSlots} potential slots, {BookedSlots} already booked",
-                request.DoctorId, request.Date, allSlots.Count, bookedTimeIds.Count);
-
             // Filter out booked slots - only return slots that are NOT booked
             // We need to match AppointmentTimeDto.Id with AppointmentTime enum values
             var availableSlots = allSlots.Where(slot =>
@@ -370,8 +367,8 @@ public class ScheduleService : IScheduleService
                 return !bookedTimeIds.Contains(enumValue);
             }).ToList();
 
-            _logger.LogInformation("Returning {AvailableCount} available slots after filtering booked slots",
-                availableSlots.Count);
+            _logger.LogInformation("Doctor {DoctorId} on {Date}: Found {TotalSlots} potential slots, {BookedSlots} booked, {AvailableCount} available after filtering",
+                request.DoctorId, request.Date, allSlots.Count, bookedTimeIds.Count, availableSlots.Count);
 
             // Always filter out held slots for all users to ensure real-time availability
             var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.DoctorId, request.Date, currentUserId ?? Guid.Empty);
@@ -387,13 +384,10 @@ public class ScheduleService : IScheduleService
                     return !heldTimeIds.Contains(enumValue);
                 }).ToList();
 
-                _logger.LogInformation("Doctor {DoctorId} on {Date}: Filtered out {HeldSlots} held slots (User: {UserId})",
-                    request.DoctorId, request.Date, slotsBeforeHeldFilter - availableSlots.Count,
+                _logger.LogInformation("Doctor {DoctorId} on {Date}: Filtered out {HeldSlots} held slots, returning {FinalCount} available slots (User: {UserId})",
+                    request.DoctorId, request.Date, slotsBeforeHeldFilter - availableSlots.Count, availableSlots.Count,
                     currentUserId?.ToString() ?? "Anonymous");
             }
-
-            _logger.LogInformation("Returning {AvailableCount} available slots after filtering booked and held slots",
-                availableSlots.Count);
 
             // Cache for all users with short TTL (30 seconds) to balance performance and real-time data
             // Held slots will be filtered in real-time on each request

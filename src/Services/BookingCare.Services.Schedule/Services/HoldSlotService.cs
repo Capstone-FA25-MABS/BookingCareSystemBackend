@@ -110,9 +110,6 @@ public class HoldSlotService : BaseService, IHoldSlotService
 
             var heldSlots = new List<AppointmentTime>();
 
-            // Get all held slots for this doctor and date
-            var pattern = CacheKeys.Format(CacheKeys.HeldSlotsByDoctorDate, doctorId, date.ToString(DateFormat));
-
             // Note: This is a simplified implementation. In a real Redis implementation,
             // you would use SCAN with pattern matching to get all matching keys.
             // For now, we'll iterate through all defined appointment time values.
@@ -161,15 +158,12 @@ public class HoldSlotService : BaseService, IHoldSlotService
                 {
                     var userIdStr = keyParts[^1]; // Get last part (userId)
 
-                    if (Guid.TryParse(userIdStr, out var holdingUserId))
+                    if (Guid.TryParse(userIdStr, out var holdingUserId) && holdingUserId != currentUserId)
                     {
-                        if (holdingUserId != currentUserId)
-                        {
-                            // Slot is held by a DIFFERENT user
-                            LogDebug("Slot {AppointmentTimeId} is held by user {HoldingUserId}, not current user {CurrentUserId}",
-                                null, appointmentTimeId, holdingUserId, currentUserId);
-                            return true;
-                        }
+                        // Slot is held by a DIFFERENT user
+                        LogDebug("Slot {AppointmentTimeId} is held by user {HoldingUserId}, not current user {CurrentUserId}",
+                            null, appointmentTimeId, holdingUserId, currentUserId);
+                        return true;
                     }
                 }
             }

@@ -18,7 +18,7 @@ public class CreateAppointmentRequest
     /// Links to the Account service for user authentication and authorization
     /// </summary>
     [Required(ErrorMessage = "Patient Account ID is required")]
-    public Guid PatientAccountId { get; set; }
+    public required Guid PatientAccountId { get; set; }
 
     public Guid? DoctorId { get; set; }
 
