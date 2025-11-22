@@ -617,6 +617,22 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/HoldSlot/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6014
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/schedules/hold-slot/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/services/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
