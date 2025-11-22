@@ -2379,7 +2379,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
         while (cursor <= endDate)
         {
-            var (periodStart, periodEnd, label) = GetPeriodBounds(cursor, period);
+            var (periodStart, periodEnd, label) = StatisticsPeriodHelper.GetPeriodBounds(cursor, period);
 
             var periodAppointments = appointments
                 .Where(a =>
@@ -2398,7 +2398,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 RescheduledAppointments = periodAppointments.Count(a => a.IsRescheduled)
             });
 
-            cursor = GetNextPeriod(periodStart, period);
+            cursor = StatisticsPeriodHelper.GetNextPeriod(periodStart, period);
         }
 
         return results;
@@ -2421,7 +2421,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
         while (cursor <= endDate)
         {
-            var (periodStart, periodEnd, label) = GetPeriodBounds(cursor, period);
+            var (periodStart, periodEnd, label) = StatisticsPeriodHelper.GetPeriodBounds(cursor, period);
 
             var newPatients = filteredFirstAppointments
                 .Count(date => date.Date >= periodStart.Date && date.Date <= periodEnd.Date);
@@ -2434,7 +2434,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 NewPatients = newPatients
             });
 
-            cursor = GetNextPeriod(periodStart, period);
+            cursor = StatisticsPeriodHelper.GetNextPeriod(periodStart, period);
         }
 
         return results;
@@ -2452,80 +2452,18 @@ public class AppointmentService : BaseService, IAppointmentService
 
     private static DateTime AlignToPeriodStart(DateTime date, StatisticsPeriod period)
     {
+        var dateKind = date.Kind != DateTimeKind.Unspecified ? date.Kind : DateTimeKind.Utc;
         return period switch
         {
             StatisticsPeriod.Daily => date,
             StatisticsPeriod.Weekly => date.AddDays(-(int)date.DayOfWeek).Date,
-            StatisticsPeriod.Monthly => new DateTime(date.Year, date.Month, 1),
-            StatisticsPeriod.Quarterly => new DateTime(date.Year, ((date.Month - 1) / 3) * 3 + 1, 1),
-            StatisticsPeriod.Yearly => new DateTime(date.Year, 1, 1),
+            StatisticsPeriod.Monthly => new DateTime(date.Year, date.Month, 1, 0, 0, 0, dateKind),
+            StatisticsPeriod.Quarterly => new DateTime(date.Year, ((date.Month - 1) / 3) * 3 + 1, 1, 0, 0, 0, dateKind),
+            StatisticsPeriod.Yearly => new DateTime(date.Year, 1, 1, 0, 0, 0, dateKind),
             _ => date
         };
     }
 
-    private static (DateTime start, DateTime end, string label) GetPeriodBounds(DateTime date, StatisticsPeriod period)
-    {
-        return period switch
-        {
-            StatisticsPeriod.Daily => (date, date, date.ToString("yyyy-MM-dd")),
-            StatisticsPeriod.Weekly => GetWeeklyPeriod(date),
-            StatisticsPeriod.Monthly => GetMonthlyPeriod(date),
-            StatisticsPeriod.Quarterly => GetQuarterlyPeriod(date),
-            StatisticsPeriod.Yearly => GetYearlyPeriod(date),
-            _ => (date, date, date.ToString("yyyy-MM-dd"))
-        };
-    }
-
-    private static (DateTime start, DateTime end, string label) GetWeeklyPeriod(DateTime date)
-    {
-        var startOfWeek = date.AddDays(-(int)date.DayOfWeek);
-        var endOfWeek = startOfWeek.AddDays(6);
-        return (startOfWeek, endOfWeek, $"W{GetWeekOfYear(startOfWeek)}-{startOfWeek.Year}");
-    }
-
-    private static (DateTime start, DateTime end, string label) GetMonthlyPeriod(DateTime date)
-    {
-        var startOfMonth = new DateTime(date.Year, date.Month, 1);
-        var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
-        return (startOfMonth, endOfMonth, date.ToString("yyyy-MM"));
-    }
-
-    private static (DateTime start, DateTime end, string label) GetQuarterlyPeriod(DateTime date)
-    {
-        var quarter = (date.Month - 1) / 3 + 1;
-        var startOfQuarter = new DateTime(date.Year, (quarter - 1) * 3 + 1, 1);
-        var endOfQuarter = startOfQuarter.AddMonths(3).AddDays(-1);
-        return (startOfQuarter, endOfQuarter, $"{date.Year}-Q{quarter}");
-    }
-
-    private static (DateTime start, DateTime end, string label) GetYearlyPeriod(DateTime date)
-    {
-        var startOfYear = new DateTime(date.Year, 1, 1);
-        var endOfYear = new DateTime(date.Year, 12, 31);
-        return (startOfYear, endOfYear, date.Year.ToString());
-    }
-
-    private static DateTime GetNextPeriod(DateTime current, StatisticsPeriod period)
-    {
-        return period switch
-        {
-            StatisticsPeriod.Daily => current.AddDays(1),
-            StatisticsPeriod.Weekly => current.AddDays(7),
-            StatisticsPeriod.Monthly => current.AddMonths(1),
-            StatisticsPeriod.Quarterly => current.AddMonths(3),
-            StatisticsPeriod.Yearly => current.AddYears(1),
-            _ => current.AddDays(1)
-        };
-    }
-
-    private static int GetWeekOfYear(DateTime date)
-    {
-        var culture = CultureInfo.CurrentCulture;
-        return culture.Calendar.GetWeekOfYear(
-            date,
-            culture.DateTimeFormat.CalendarWeekRule,
-            culture.DateTimeFormat.FirstDayOfWeek);
-    }
 
     /// <summary>
     /// Fetch doctors from gRPC Doctor Service

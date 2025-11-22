@@ -1,10 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Appointment.Models.DTOs;
 
 public class StaffHospitalStatisticsRequest
 {
     [Required]
+    [JsonRequired]
     public Guid HospitalId { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
@@ -85,15 +88,6 @@ public class NewPatientTrendPoint
     public DateTime PeriodStart { get; set; }
     public DateTime PeriodEnd { get; set; }
     public int NewPatients { get; set; }
-}
-
-public enum StatisticsPeriod
-{
-    Daily,
-    Weekly,
-    Monthly,
-    Quarterly,
-    Yearly
 }
 
 
