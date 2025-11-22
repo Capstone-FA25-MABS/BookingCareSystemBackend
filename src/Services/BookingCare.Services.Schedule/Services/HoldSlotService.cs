@@ -140,24 +140,42 @@ public class HoldSlotService : BaseService, IHoldSlotService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            // Check all possible users for this slot (simplified approach)
-            // In a real implementation, you would use Redis SCAN to find matching keys
+            // Pattern to find ALL users holding this specific slot
+            var pattern = CacheKeys.Format(CacheKeys.HeldSlotByDoctorDateTimePattern,
+                doctorId, date.ToString(DateFormat), (int)appointmentTimeId);
 
-            // For now, we'll use a different approach: try to get the specific slot for current user
-            // and if it doesn't exist, check if any other user has it
-            var currentUserKey = CacheKeys.Format(CacheKeys.HeldSlot,
-                doctorId, date.ToString(DateFormat), (int)appointmentTimeId, currentUserId);
+            LogDebug("Checking if slot is held by other users with pattern: {Pattern}", null, pattern);
 
-            var currentUserHold = await _cacheService.GetAsync<HoldSlotDto>(currentUserKey);
-            if (currentUserHold != null)
+            // Get all keys matching this pattern (all users holding this slot)
+            var allKeysForThisSlot = await _cacheService.GetKeysByPatternAsync(pattern);
+
+            // Check each key to see if it belongs to a different user
+            foreach (var key in allKeysForThisSlot)
             {
-                // Current user holds this slot
-                return false;
+                // Extract userId from key format: prefix:held_slot:{doctorId}:{date}:{timeId}:{userId}
+                // Note: Key might have cache prefix, so we need to handle that
+                var keyParts = key.Split(':');
+
+                // Find the userId part (last segment after splitting by ':')
+                if (keyParts.Length > 0)
+                {
+                    var userIdStr = keyParts[^1]; // Get last part (userId)
+
+                    if (Guid.TryParse(userIdStr, out var holdingUserId))
+                    {
+                        if (holdingUserId != currentUserId)
+                        {
+                            // Slot is held by a DIFFERENT user
+                            LogDebug("Slot {AppointmentTimeId} is held by user {HoldingUserId}, not current user {CurrentUserId}",
+                                null, appointmentTimeId, holdingUserId, currentUserId);
+                            return true;
+                        }
+                    }
+                }
             }
 
-            // Check if slot is held by scanning pattern (simplified)
-            // In production, you would implement proper Redis SCAN functionality
-            // For now, we'll return false as we can't efficiently check all users
+            // No other user holds this slot
+            LogDebug("Slot {AppointmentTimeId} is not held by any other user", null, appointmentTimeId);
             return false;
 
         }, "IsSlotHeldByOtherUser");

@@ -314,13 +314,31 @@ public class ScheduleService : IScheduleService
         var serviceIdStr = request.ServiceId?.ToString() ?? "null";
         var cacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.Date.ToString(DateFormat), serviceIdStr);
 
-        // Note: We don't cache when currentUserId is provided because held slots are user-specific
-        // Only use cache for anonymous/general requests
-        var cached = currentUserId == null ? await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey) : null;
+        // Use cache for all users with short TTL (30s) to balance performance and real-time data
+        // Held slots will be filtered after cache retrieval to ensure real-time availability
+        var cached = await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey);
         if (cached != null)
         {
             _logger.LogDebug("Retrieved available slots for doctor {DoctorId} on {Date} from cache", request.DoctorId, request.Date);
-            return cached;
+            var cachedList = cached.ToList();
+
+            // Always filter held slots in real-time, even from cache
+            var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.DoctorId, request.Date, currentUserId ?? Guid.Empty);
+            if (heldSlots.Any())
+            {
+                var heldTimeIds = new HashSet<int>(heldSlots.Select(hs => (int)hs));
+                cachedList = cachedList.Where(slot =>
+                {
+                    var slotBytes = slot.Id.ToByteArray();
+                    var enumValue = BitConverter.ToInt32(slotBytes, 0);
+                    return !heldTimeIds.Contains(enumValue);
+                }).ToList();
+
+                _logger.LogInformation("Filtered {HeldCount} held slots from cached data for doctor {DoctorId}",
+                    heldSlots.Count(), request.DoctorId);
+            }
+
+            return cachedList;
         }
 
         // Get all potential available slots from schedule
@@ -355,13 +373,13 @@ public class ScheduleService : IScheduleService
             _logger.LogInformation("Returning {AvailableCount} available slots after filtering booked slots",
                 availableSlots.Count);
 
-            // Filter out held slots by other users if currentUserId is provided
-            if (currentUserId.HasValue)
+            // Always filter out held slots for all users to ensure real-time availability
+            var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.DoctorId, request.Date, currentUserId ?? Guid.Empty);
+            if (heldSlots.Any())
             {
-                var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.DoctorId, request.Date, currentUserId.Value);
                 var heldTimeIds = new HashSet<int>(heldSlots.Select(hs => (int)hs));
-
                 var slotsBeforeHeldFilter = availableSlots.Count;
+
                 availableSlots = availableSlots.Where(slot =>
                 {
                     var slotBytes = slot.Id.ToByteArray();
@@ -369,18 +387,17 @@ public class ScheduleService : IScheduleService
                     return !heldTimeIds.Contains(enumValue);
                 }).ToList();
 
-                _logger.LogInformation("Doctor {DoctorId} on {Date}: Filtered out {HeldSlots} held slots for user {UserId}",
-                    request.DoctorId, request.Date, slotsBeforeHeldFilter - availableSlots.Count, currentUserId.Value);
+                _logger.LogInformation("Doctor {DoctorId} on {Date}: Filtered out {HeldSlots} held slots (User: {UserId})",
+                    request.DoctorId, request.Date, slotsBeforeHeldFilter - availableSlots.Count,
+                    currentUserId?.ToString() ?? "Anonymous");
             }
 
             _logger.LogInformation("Returning {AvailableCount} available slots after filtering booked and held slots",
                 availableSlots.Count);
 
-            // Only cache if no user-specific filtering was applied
-            if (currentUserId == null)
-            {
-                await _cacheService.SetAsync(cacheKey, availableSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
-            }
+            // Cache for all users with short TTL (30 seconds) to balance performance and real-time data
+            // Held slots will be filtered in real-time on each request
+            await _cacheService.SetAsync(cacheKey, availableSlots, TimeSpan.FromSeconds(30));
 
             return availableSlots;
         }
