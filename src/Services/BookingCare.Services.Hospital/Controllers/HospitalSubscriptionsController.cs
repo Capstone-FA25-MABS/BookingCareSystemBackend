@@ -74,9 +74,11 @@ public class HospitalSubscriptionsController : ControllerBase
             if (subscription == null)
             {
                 _logger.LogInformation("No active subscription found for hospital {HospitalId}", hospitalId);
-                return NotFound(new
+                // Return 200 OK with null data instead of 404 NotFound
+                // This allows frontend to handle "no subscription yet" scenario gracefully
+                return Ok(new
                 {
-                    success = false,
+                    success = true,
                     message = $"No active subscription found for hospital {hospitalId}",
                     data = (object?)null
                 });

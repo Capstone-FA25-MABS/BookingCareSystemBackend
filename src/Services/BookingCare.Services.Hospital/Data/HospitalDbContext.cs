@@ -56,11 +56,13 @@ public class HospitalDbContext : DbContext
             entity.Property(e => e.MaxDoctors).HasDefaultValue(0);
             entity.Property(e => e.MaxSpecialties).HasDefaultValue(0);
             entity.Property(e => e.MaxAppointments).HasDefaultValue(0);
+            entity.Property(e => e.MaxServices).HasDefaultValue(0);
 
             // Allow null for unlimited (use -1 to represent null in database)
             entity.Property(e => e.MaxDoctors).IsRequired(false);
             entity.Property(e => e.MaxSpecialties).IsRequired(false);
             entity.Property(e => e.MaxAppointments).IsRequired(false);
+            entity.Property(e => e.MaxServices).IsRequired(false);
             entity.Property(e => e.Features).HasColumnType("NVARCHAR(MAX)");
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
@@ -77,6 +79,7 @@ public class HospitalDbContext : DbContext
             entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_max_doctors", "(max_doctors IS NULL OR max_doctors >= 0)"));
             entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_max_specialties", "(max_specialties IS NULL OR max_specialties >= 0)"));
             entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_max_appointments", "(max_appointments IS NULL OR max_appointments >= 0)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_max_services", "(max_services IS NULL OR max_services >= 0)"));
             entity.ToTable(t => t.HasCheckConstraint("CK_subscription_plans_status", "status IN ('ACTIVE', 'INACTIVE')"));
         });
 
@@ -92,6 +95,12 @@ public class HospitalDbContext : DbContext
                 .HasConversion<string>(); // Convert enum to string in database
             entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
+
+            // Usage counts - Track actual usage against subscription limits
+            entity.Property(e => e.DoctorCount).HasDefaultValue(0);
+            entity.Property(e => e.SpecialtyCount).HasDefaultValue(0);
+            entity.Property(e => e.AppointmentCount).HasDefaultValue(0);
+            entity.Property(e => e.ServiceCount).HasDefaultValue(0);
 
             // Foreign key relationships
             entity.HasOne(e => e.Hospital)

@@ -39,6 +39,83 @@ public class HospitalsController : BaseApiController
         _logger = logger;
     }
 
+    // ===== Dedicated endpoints for hospital specialties/service types (lightweight management) =====
+
+    [HttpGet("{hospitalId}/specialties")]
+    public async Task<IActionResult> GetHospitalSpecialties(Guid hospitalId)
+    {
+        try
+        {
+            var ids = await _hospitalService.GetHospitalSpecialtyIdsAsync(hospitalId);
+            return Success<List<Guid>>(ids, "Hospital specialties retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving specialties for hospital {HospitalId}", hospitalId);
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
+    public class UpdateIdsRequest
+    {
+        public List<Guid> Ids { get; set; } = new();
+    }
+
+    [HttpPut("{hospitalId}/specialties")]
+    public async Task<IActionResult> UpdateHospitalSpecialties(Guid hospitalId, [FromBody] UpdateIdsRequest request)
+    {
+        try
+        {
+            await _hospitalService.UpdateHospitalSpecialtiesAsync(hospitalId, request.Ids ?? new List<Guid>());
+            return Success<object?>(null, "Hospital specialties updated successfully");
+        }
+        catch (HospitalOperationException ex)
+        {
+            _logger.LogWarning(ex, "Hospital operation error updating specialties for hospital {HospitalId}: {Message}", hospitalId, ex.Message);
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating specialties for hospital {HospitalId}", hospitalId);
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
+    [HttpGet("{hospitalId}/service-types")]
+    public async Task<IActionResult> GetHospitalServiceTypes(Guid hospitalId)
+    {
+        try
+        {
+            var ids = await _hospitalService.GetHospitalServiceTypeIdsAsync(hospitalId);
+            return Success<List<Guid>>(ids, "Hospital service types retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving service types for hospital {HospitalId}", hospitalId);
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
+    [HttpPut("{hospitalId}/service-types")]
+    public async Task<IActionResult> UpdateHospitalServiceTypes(Guid hospitalId, [FromBody] UpdateIdsRequest request)
+    {
+        try
+        {
+            await _hospitalService.UpdateHospitalServiceTypesAsync(hospitalId, request.Ids ?? new List<Guid>());
+            return Success<object?>(null, "Hospital service types updated successfully");
+        }
+        catch (HospitalOperationException ex)
+        {
+            _logger.LogWarning(ex, "Hospital operation error updating service types for hospital {HospitalId}: {Message}", hospitalId, ex.Message);
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating service types for hospital {HospitalId}", hospitalId);
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
     [HttpGet("health")]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
@@ -139,6 +216,31 @@ public class HospitalsController : BaseApiController
         }
     }
 
+    /// <summary>
+    /// Get current hospital profile (single hospital for authenticated account)
+    /// </summary>
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetCurrentHospitalProfile()
+    {
+        try
+        {
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            var hospital = await _hospitalService.GetHospitalProfileByAccountIdAsync(accountId);
+            if (hospital == null)
+            {
+                return NotFound("Hospital profile not found");
+            }
+            return Success(hospital, "Hospital profile retrieved successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Get all hospitals by account ID (for accounts with multiple hospitals)
+    /// </summary>
     [HttpGet("account")]
     public async Task<IActionResult> GetHospitalsByAccountId()
     {
@@ -412,6 +514,61 @@ public class HospitalsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting hospital image {ImageId} for hospital {HospitalId}", imageId, id);
+            return StatusCode(500, new { Message = "Internal server error" });
+        }
+    }
+
+    /// <summary>
+    /// Update current hospital profile (authenticated account)
+    /// </summary>
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateCurrentHospitalProfile([FromBody] UpdateHospitalRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            var errors = ModelState
+                .Where(x => x.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToArray()
+                );
+            return BadRequest(new { Message = "Validation failed", Errors = errors });
+        }
+
+        try
+        {
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            // Get hospital by account ID
+            var hospital = await _hospitalService.GetHospitalProfileByAccountIdAsync(accountId);
+            if (hospital == null)
+            {
+                return NotFound("Hospital profile not found");
+            }
+
+            // Update the hospital
+            var updatedHospital = await _hospitalService.UpdateAsync(hospital.Id, request);
+            return Success(updatedHospital, "Hospital profile updated successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (HospitalNotFoundException ex)
+        {
+            return NotFound(new { Message = ex.Message });
+        }
+        catch (HospitalAlreadyExistsException ex)
+        {
+            return Conflict(new { Message = ex.Message });
+        }
+        catch (InvalidHospitalDataException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating hospital profile");
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }

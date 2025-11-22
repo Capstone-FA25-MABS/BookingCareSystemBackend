@@ -4,6 +4,7 @@ using BookingCare.Services.Hospital.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Hospital.Migrations
 {
     [DbContext(typeof(HospitalDbContext))]
-    partial class HospitalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251116035319_AddMaxServicesToSubscriptionPlan")]
+    partial class AddMaxServicesToSubscriptionPlan
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -297,23 +300,11 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("hospital_subscription_id");
 
-                    b.Property<int>("AppointmentCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("appointment_count");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<int>("DoctorCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("doctor_count");
 
                     b.Property<DateTime>("EndDate")
                         .ValueGeneratedOnAdd()
@@ -324,18 +315,6 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.Property<Guid>("HospitalId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("hospital_id");
-
-                    b.Property<int>("ServiceCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("service_count");
-
-                    b.Property<int>("SpecialtyCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("specialty_count");
 
                     b.Property<DateTime>("StartDate")
                         .ValueGeneratedOnAdd()
@@ -416,12 +395,6 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("max_doctors");
 
-                    b.Property<int?>("MaxServices")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("max_services");
-
                     b.Property<int?>("MaxSpecialties")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -464,8 +437,6 @@ namespace BookingCare.Services.Hospital.Migrations
                             t.HasCheckConstraint("CK_subscription_plans_max_appointments", "(max_appointments IS NULL OR max_appointments >= 0)");
 
                             t.HasCheckConstraint("CK_subscription_plans_max_doctors", "(max_doctors IS NULL OR max_doctors >= 0)");
-
-                            t.HasCheckConstraint("CK_subscription_plans_max_services", "(max_services IS NULL OR max_services >= 0)");
 
                             t.HasCheckConstraint("CK_subscription_plans_max_specialties", "(max_specialties IS NULL OR max_specialties >= 0)");
 

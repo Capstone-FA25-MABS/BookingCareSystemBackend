@@ -12,7 +12,8 @@ public class HospitalMappingProfile : Profile
         // Hospital mappings
         CreateMap<HospitalEntity, HospitalResponse>()
             .ForMember(dest => dest.Specialties, opt => opt.MapFrom(src => src.HospitalSpecialties))
-            .ForMember(dest => dest.ServiceTypes, opt => opt.Ignore()) // Not populated via direct mapping
+            // Map service types to simple ids so FE can preselect (similar to specialties)
+            .ForMember(dest => dest.ServiceTypes, opt => opt.MapFrom(src => src.HospitalServiceTypes))
             .ForMember(dest => dest.ServiceMedicals, opt => opt.Ignore()) // Not populated via direct mapping
             .ForMember(dest => dest.Images, opt => opt.MapFrom(src => src.HospitalImages))
             .ForMember(dest => dest.CurrentSubscription, opt => opt.MapFrom(src =>
@@ -105,8 +106,15 @@ public class HospitalMappingProfile : Profile
         // Hospital Specialty mappings
         CreateMap<HospitalSpecialtyEntity, HospitalSpecialtyResponse>();
 
-        // Note: HospitalServiceTypeResponse and HospitalServiceMedicalResponse are populated manually
-        // in HospitalService.GetByIdAsync via gRPC calls to Doctor and ServiceMedical services
+        // Map hospital service type ids (id-only mapping for lightweight responses)
+        CreateMap<HospitalServiceTypeEntity, HospitalServiceTypeResponse>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.ServiceTypeId))
+            .ForMember(dest => dest.Name, opt => opt.Ignore())
+            .ForMember(dest => dest.ImageUrl, opt => opt.Ignore())
+            .ForMember(dest => dest.DoctorCount, opt => opt.Ignore());
+
+        // Note: Full details for HospitalServiceTypeResponse and HospitalServiceMedicalResponse
+        // are still populated manually in HospitalService.GetByIdAsync via gRPC when needed.
 
         // Hospital Image mappings
         CreateMap<HospitalImageEntity, HospitalImageResponse>();

@@ -14,6 +14,7 @@ public interface IHospitalService
     Task<bool> DeleteAsync(Guid id);
     Task<List<HospitalResponse>> GetBySpecialtyAsync(Guid specialtyId);
     Task<List<HospitalResponse>> GetByAccountIdAsync(Guid accountId);
+    Task<HospitalProfileResponse?> GetHospitalProfileByAccountIdAsync(Guid accountId);
     Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId);
     Task<bool> RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId);
 
@@ -33,4 +34,10 @@ public interface IHospitalService
     // Hospital Image Management
     Task<HospitalImageResponse?> AddHospitalImageAsync(CreateHospitalImageRequest request);
     Task<bool> DeleteHospitalImageAsync(Guid hospitalId, Guid imageId);
+
+    // Fine-grained management for hospital relations
+    Task<List<Guid>> GetHospitalSpecialtyIdsAsync(Guid hospitalId);
+    Task UpdateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds);
+    Task<List<Guid>> GetHospitalServiceTypeIdsAsync(Guid hospitalId);
+    Task UpdateHospitalServiceTypesAsync(Guid hospitalId, List<Guid> serviceTypeIds);
 }
