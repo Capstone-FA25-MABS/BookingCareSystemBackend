@@ -34,13 +34,13 @@ public class HoldSlotResponse
 public class HoldSlotRequest
 {
     [Required]
-    public Guid DoctorId { get; set; }
+    public required Guid DoctorId { get; set; }
 
     [Required]
-    public DateOnly Date { get; set; }
+    public required DateOnly Date { get; set; }
 
     [Required]
-    public AppointmentTime AppointmentTimeId { get; set; }
+    public required AppointmentTime AppointmentTimeId { get; set; }
 }
 
 /// <summary>
@@ -49,11 +49,11 @@ public class HoldSlotRequest
 public class ReleaseSlotRequest
 {
     [Required]
-    public Guid DoctorId { get; set; }
+    public required Guid DoctorId { get; set; }
 
     [Required]
-    public DateOnly Date { get; set; }
+    public required DateOnly Date { get; set; }
 
     [Required]
-    public AppointmentTime AppointmentTimeId { get; set; }
+    public required AppointmentTime AppointmentTimeId { get; set; }
 }
