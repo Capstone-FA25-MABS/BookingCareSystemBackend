@@ -5,10 +5,8 @@ using BookingCare.Services.Schedule.Repositories;
 using BookingCare.Services.Schedule.Exceptions;
 using BookingCare.Shared.Cache.Abstractions;
 using BookingCare.Shared.Cache.Constants;
-using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.ServiceMedical.Protos;
-using BookingCare.Shared.Common.Exceptions.Domain;
 using AutoMapper;
 
 namespace BookingCare.Services.Schedule.Services;
@@ -22,9 +20,7 @@ public class ScheduleService : IScheduleService
     private readonly IScheduleRepository _repository;
     private readonly ICacheService _cacheService;
     private readonly ILogger<ScheduleService> _logger;
-    private readonly DoctorService.DoctorServiceClient _doctorClient;
-    private readonly ServiceMedicalService.ServiceMedicalServiceClient _serviceMedicalClient;
-    private readonly BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient _appointmentClient;
+    private readonly GrpcClients _grpcClients;
     private readonly IMapper _mapper;
     private readonly IHoldSlotService _holdSlotService;
 
@@ -32,18 +28,14 @@ public class ScheduleService : IScheduleService
         IScheduleRepository repository,
         ICacheService cacheService,
         ILogger<ScheduleService> logger,
-        DoctorService.DoctorServiceClient doctorClient,
-        ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient,
-        BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient appointmentClient,
+        GrpcClients grpcClients,
         IMapper mapper,
         IHoldSlotService holdSlotService)
     {
         _repository = repository;
         _cacheService = cacheService;
         _logger = logger;
-        _doctorClient = doctorClient;
-        _serviceMedicalClient = serviceMedicalClient;
-        _appointmentClient = appointmentClient;
+        _grpcClients = grpcClients;
         _mapper = mapper;
         _holdSlotService = holdSlotService;
     }
@@ -354,7 +346,7 @@ public class ScheduleService : IScheduleService
                 AppointmentDate = request.Date.ToString(DateFormat)
             };
 
-            var bookedSlotsResponse = await _appointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
+            var bookedSlotsResponse = await _grpcClients.AppointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
             var bookedTimeIds = new HashSet<int>(bookedSlotsResponse.BookedAppointmentTimeIds);
 
             // Filter out booked slots - only return slots that are NOT booked
@@ -428,7 +420,7 @@ public class ScheduleService : IScheduleService
                 Id = doctorId.ToString()
             };
 
-            var response = await _doctorClient.GetDoctorAsync(request);
+            var response = await _grpcClients.DoctorClient.GetDoctorAsync(request);
 
             if (response != null && !string.IsNullOrEmpty(response.Id))
             {
@@ -456,7 +448,7 @@ public class ScheduleService : IScheduleService
                 Id = serviceId.ToString()
             };
 
-            var response = await _serviceMedicalClient.ValidateServiceMedicalAsync(request);
+            var response = await _grpcClients.ServiceMedicalClient.ValidateServiceMedicalAsync(request);
 
             return response != null && response.IsValid && response.IsActive;
         }

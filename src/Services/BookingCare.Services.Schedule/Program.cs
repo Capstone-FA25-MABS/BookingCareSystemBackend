@@ -46,6 +46,8 @@ builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IHoldSlotService, HoldSlotService>();
 
 // Configure gRPC clients for inter-service communication following ASP.NET Core DI best practices
+// Register GrpcClients wrapper to reduce constructor parameter count
+builder.Services.AddScoped<GrpcClients>();
 var doctorAddress = builder.Configuration.GetSection("GrpcClients:Doctor:Address").Value ?? "http://localhost:6018";
 builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(options =>
 {
