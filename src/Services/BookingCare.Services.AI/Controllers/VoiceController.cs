@@ -1,9 +1,11 @@
+using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Services;
 using BookingCare.Services.AI.Workflows;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace BookingCare.Services.AI.Controllers;
 
@@ -18,12 +20,14 @@ public class VoiceController : BaseApiController
     private readonly IGeminiTranscriptionService _transcriptionService;
     private readonly IAudioTranscriptionWorkflow _audioWorkflow;
     private readonly string _audioTempPath;
+    private readonly long _maxFileSizeBytes;
 
     public VoiceController(
         ILogger<VoiceController> logger,
         IWebHostEnvironment environment,
         IGeminiTranscriptionService transcriptionService,
-        IAudioTranscriptionWorkflow audioWorkflow
+        IAudioTranscriptionWorkflow audioWorkflow,
+        IConfiguration configuration
     )
     {
         _logger = logger;
@@ -40,6 +44,13 @@ public class VoiceController : BaseApiController
             Directory.CreateDirectory(_audioTempPath);
             _logger.LogInformation("Created audio-temp directory: {Path}", _audioTempPath);
         }
+
+        // Read and validate max file size from configuration using shared helper
+        _maxFileSizeBytes = FileSizeLimitConfiguration.GetMaxFileSizeBytes(
+            configuration,
+            _logger,
+            "Voice:MaxFileSizeBytes"
+        );
     }
 
     /// <summary>
@@ -53,8 +64,8 @@ public class VoiceController : BaseApiController
     [HttpPost("upload")]
     [Authorize(Roles = "Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [RequestSizeLimit(100_000_000)] // 100 MB limit
-    [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)] // 100 MB limit for multipart forms
+    [RequestSizeLimit(FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
+    [RequestFormLimits(MultipartBodyLengthLimit = FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -69,9 +80,8 @@ public class VoiceController : BaseApiController
                 return BadRequest(new { message = "No audio file provided" });
             }
 
-            // Validate file size (max 100 MB)
-            const long maxFileSize = 100_000_000; // 100 MB
-            if (audio.Length > maxFileSize)
+            // Validate file size against configured limit
+            if (audio.Length > _maxFileSizeBytes)
             {
                 _logger.LogWarning(
                     "Upload attempt with file too large: {Size} bytes",
@@ -80,7 +90,7 @@ public class VoiceController : BaseApiController
                 return BadRequest(
                     new
                     {
-                        message = $"File size exceeds maximum limit of {maxFileSize / 1_000_000} MB",
+                        message = $"File size exceeds maximum limit of {_maxFileSizeBytes / 1_000_000} MB",
                     }
                 );
             }
@@ -330,8 +340,8 @@ public class VoiceController : BaseApiController
     [HttpPost("upload-and-transcribe")]
     [Authorize(Roles = "Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [RequestSizeLimit(100_000_000)] // 100 MB limit
-    [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)] // 100 MB limit for multipart forms
+    [RequestSizeLimit(FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
+    [RequestFormLimits(MultipartBodyLengthLimit = FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -349,9 +359,8 @@ public class VoiceController : BaseApiController
                 return BadRequest(new { message = "No audio file provided" });
             }
 
-            // Validate file size (max 100 MB)
-            const long maxFileSize = 100_000_000; // 100 MB
-            if (audio.Length > maxFileSize)
+            // Validate file size against configured limit
+            if (audio.Length > _maxFileSizeBytes)
             {
                 _logger.LogWarning(
                     "Upload and transcribe attempt with file too large: {Size} bytes",
@@ -360,7 +369,7 @@ public class VoiceController : BaseApiController
                 return BadRequest(
                     new
                     {
-                        message = $"File size exceeds maximum limit of {maxFileSize / 1_000_000} MB",
+                        message = $"File size exceeds maximum limit of {_maxFileSizeBytes / 1_000_000} MB",
                     }
                 );
             }
@@ -449,8 +458,8 @@ public class VoiceController : BaseApiController
     [HttpPost("process")]
     [Authorize(Roles = "Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [RequestSizeLimit(100_000_000)] // 100 MB limit
-    [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)] // 100 MB limit for multipart forms
+    [RequestSizeLimit(FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
+    [RequestFormLimits(MultipartBodyLengthLimit = FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

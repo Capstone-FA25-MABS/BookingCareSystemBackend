@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using BookingCare.Services.AI.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +17,7 @@ namespace BookingCare.Services.AI.Controllers
     {
         private readonly ILogger<CallRecordingsController> _logger;
         private readonly string _uploadPath;
+        private readonly long _maxFileSizeBytes;
 
         public CallRecordingsController(
             ILogger<CallRecordingsController> logger,
@@ -33,6 +35,13 @@ namespace BookingCare.Services.AI.Controllers
             {
                 Directory.CreateDirectory(_uploadPath);
             }
+
+            // Read and validate max file size from configuration using shared helper
+            _maxFileSizeBytes = FileSizeLimitConfiguration.GetMaxFileSizeBytes(
+                configuration,
+                _logger,
+                "CallRecordings:MaxFileSizeBytes"
+            );
         }
 
         /// <summary>
@@ -43,8 +52,10 @@ namespace BookingCare.Services.AI.Controllers
         /// <param name="conversationId">The conversation ID</param>
         /// <returns>Upload result with recording metadata</returns>
         [HttpPost("upload")]
-        [RequestSizeLimit(100_000_000)] // 100 MB limit
-        [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)] // 100 MB limit for multipart forms
+        [RequestSizeLimit(FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
+        [RequestFormLimits(
+            MultipartBodyLengthLimit = FileSizeLimitConfiguration.DefaultFileSizeBytes
+        )] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
         [ProducesResponseType(typeof(UploadRecordingResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UploadRecording(
@@ -81,6 +92,18 @@ namespace BookingCare.Services.AI.Controllers
                 {
                     return BadRequest(
                         new { success = false, message = $"Invalid file type: {file.ContentType}" }
+                    );
+                }
+
+                // Validate file size against configured limit
+                if (file.Length > _maxFileSizeBytes)
+                {
+                    return BadRequest(
+                        new
+                        {
+                            success = false,
+                            message = $"File size ({file.Length} bytes) exceeds maximum allowed size ({_maxFileSizeBytes} bytes)",
+                        }
                     );
                 }
 
