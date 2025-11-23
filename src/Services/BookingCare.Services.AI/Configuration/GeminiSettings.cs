@@ -6,12 +6,12 @@ namespace BookingCare.Services.AI.Configuration;
 public class GeminiSettings
 {
     public string ApiKey { get; set; } = string.Empty;
-    // Model options: "gemini-pro" (v1), "gemini-1.5-flash" (v1), "gemini-1.5-pro" (v1)
-    public string Model { get; set; } = "gemini-1.5-flash";
+    // Model options: "gemini-1.5-flash-latest" (fastest, recommended), "gemini-1.5-flash", "gemini-1.5-pro"
+    public string Model { get; set; } = "gemini-1.5-flash-latest";
     // Use v1 endpoint for stable models, v1beta for newer models
     public string ApiEndpoint { get; set; } = "https://generativelanguage.googleapis.com/v1/models";
-    public double Temperature { get; set; } = 0.7;
-    public int MaxTokens { get; set; } = 2048;
+    public double Temperature { get; set; } = 0.5;
+    public int MaxTokens { get; set; } = 4096;
     public int TopK { get; set; } = 40;
     public double TopP { get; set; } = 0.95;
 }

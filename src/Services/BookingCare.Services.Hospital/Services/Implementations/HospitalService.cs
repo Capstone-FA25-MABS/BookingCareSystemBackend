@@ -21,6 +21,7 @@ public class HospitalService : IHospitalService
     private readonly HospitalServiceDependencies _dependencies;
     private readonly ILogger<HospitalService> _logger;
     private readonly IMemoryCache _cache;
+    private readonly SubscriptionServices _subscriptionServices;
     private static readonly object _circuitBreakerLock = new object();
     private static int _consecutiveFailures = 0;
     private static DateTime _lastFailureTime = DateTime.MinValue;
@@ -33,7 +34,8 @@ public class HospitalService : IHospitalService
         IMapper mapper,
         HospitalServiceDependencies dependencies,
         ILogger<HospitalService> logger,
-        IMemoryCache cache)
+        IMemoryCache cache,
+        SubscriptionServices subscriptionServices)
     {
         _hospitalRepository = hospitalRepository;
         _hospitalImageRepository = hospitalImageRepository;
@@ -41,6 +43,7 @@ public class HospitalService : IHospitalService
         _dependencies = dependencies;
         _logger = logger;
         _cache = cache;
+        _subscriptionServices = subscriptionServices;
     }
 
     public async Task<HospitalProfileResponse?> GetByIdAsync(Guid id)
@@ -343,6 +346,9 @@ public class HospitalService : IHospitalService
                 }
             }
 
+            // Auto-assign trial subscription (Gói trải nghiệm)
+            await AssignTrialSubscriptionAsync(createdHospital.Id);
+
             // Reload hospital with relationships
             var hospitalWithRelations = await _hospitalRepository.GetByIdAsync(createdHospital.Id);
             var response = _mapper.Map<HospitalDetailResponse>(hospitalWithRelations);
@@ -454,8 +460,36 @@ public class HospitalService : IHospitalService
     {
         var hospitals = await _hospitalRepository.GetByAccountIdAsync(accountId);
         var hospitalResponses = _mapper.Map<List<HospitalResponse>>(hospitals);
+
+        // For account overview, return only basic info (exclude heavy relations)
+        foreach (var h in hospitalResponses)
+        {
+            h.Specialties = null;
+            h.ServiceTypes = null;
+            h.ServiceMedicals = null;
+        }
         await EnrichHospitalsWithStatusAsync(hospitalResponses);
         return hospitalResponses;
+    }
+
+    public async Task<HospitalProfileResponse?> GetHospitalProfileByAccountIdAsync(Guid accountId)
+    {
+        var hospitals = await _hospitalRepository.GetByAccountIdAsync(accountId);
+        if (hospitals == null || hospitals.Count == 0)
+        {
+            return null;
+        }
+
+        // Get the first hospital for this account (most cases: 1 account = 1 hospital)
+        var hospital = hospitals.First();
+
+        // Map to HospitalProfileResponse with full details
+        var profileResponse = _mapper.Map<HospitalProfileResponse>(hospital);
+
+        // Note: HospitalProfileResponse doesn't need status enrichment
+        // as it doesn't contain CurrentSubscription field
+
+        return profileResponse;
     }
 
     public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(IEnumerable<Guid> accountIds)
@@ -478,7 +512,28 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            return await _hospitalRepository.AddSpecialtyAsync(hospitalId, specialtyId);
+            // Check subscription limit before adding specialty
+            var canAdd = await _subscriptionServices.SubscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
+            if (!canAdd)
+            {
+                throw new HospitalOperationException(
+                    "Bạn đã đạt giới hạn số lượng chuyên khoa cho phép trong gói đăng ký. Vui lòng nâng cấp gói để thêm chuyên khoa."
+                );
+            }
+
+            var result = await _hospitalRepository.AddSpecialtyAsync(hospitalId, specialtyId);
+
+            // Increment specialty count after successful addition (only if it's a new specialty)
+            if (result)
+            {
+                await _subscriptionServices.SubscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
+            }
+
+            return result;
+        }
+        catch (HospitalOperationException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -490,7 +545,15 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            return await _hospitalRepository.RemoveSpecialtyAsync(hospitalId, specialtyId);
+            var result = await _hospitalRepository.RemoveSpecialtyAsync(hospitalId, specialtyId);
+
+            // Decrement specialty count after successful removal
+            if (result)
+            {
+                await _subscriptionServices.SubscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -498,41 +561,143 @@ public class HospitalService : IHospitalService
         }
     }
 
-    private async Task UpdateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds)
+    public async Task<List<Guid>> GetHospitalSpecialtyIdsAsync(Guid hospitalId)
     {
-        // Remove all existing specialties
-        var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
-        if (hospital?.HospitalSpecialties != null)
+        var cacheKey = $"hospital_specialties_{hospitalId}";
+
+        if (_cache.TryGetValue(cacheKey, out List<Guid>? cachedSpecialtyIds) && cachedSpecialtyIds != null)
         {
-            foreach (var specialty in hospital.HospitalSpecialties.ToList())
-            {
-                await RemoveSpecialtyAsync(hospitalId, specialty.SpecialtyId);
-            }
+            return cachedSpecialtyIds;
         }
 
-        // Add new specialties
-        foreach (var specialtyId in specialtyIds.Distinct())
+        // Optimized: Direct query IDs without loading full hospital entity
+        var specialtyIds = await _hospitalRepository.GetHospitalSpecialtyIdsAsync(hospitalId);
+
+        // Cache for 10 minutes
+        var cacheOptions = new MemoryCacheEntryOptions
         {
-            await AddSpecialtyAsync(hospitalId, specialtyId);
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+            SlidingExpiration = TimeSpan.FromMinutes(5),
+            Priority = CacheItemPriority.Normal
+        };
+        _cache.Set(cacheKey, specialtyIds, cacheOptions);
+
+        return specialtyIds;
+    }
+
+    public async Task UpdateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds)
+    {
+        try
+        {
+            _logger.LogInformation("Updating specialties for hospital {HospitalId}: {Count} specialties",
+                hospitalId, specialtyIds?.Count ?? 0);
+
+            // Get existing specialty IDs before update
+            var existingSpecialtyIds = await _hospitalRepository.GetHospitalSpecialtyIdsAsync(hospitalId);
+            var existingSpecialtyIdsSet = existingSpecialtyIds.ToHashSet();
+            var newSpecialtyIdsSet = (specialtyIds ?? new List<Guid>()).Distinct().ToHashSet();
+
+            // Calculate changes
+            var specialtiesToAdd = newSpecialtyIdsSet.Except(existingSpecialtyIdsSet).ToList();
+            var specialtiesToRemove = existingSpecialtyIdsSet.Except(newSpecialtyIdsSet).ToList();
+
+            // Optimized batch update - single transaction with change detection
+            await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(hospitalId, specialtyIds ?? new List<Guid>());
+
+            // Update subscription usage counts based on changes
+            if (specialtiesToAdd.Count > 0 || specialtiesToRemove.Count > 0)
+            {
+                // Check limit before adding (if adding specialties)
+                if (specialtiesToAdd.Count > 0)
+                {
+                    // Check if we can add all specialties
+                    var canAdd = await _subscriptionServices.SubscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
+                    if (!canAdd)
+                    {
+                        // Rollback: restore original specialties
+                        await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(hospitalId, existingSpecialtyIds);
+                        throw new HospitalOperationException(
+                            $"Bạn đã đạt giới hạn số lượng chuyên khoa cho phép trong gói đăng ký. " +
+                            $"Hiện tại: {existingSpecialtyIds.Count}, Giới hạn đã đạt. " +
+                            $"Vui lòng nâng cấp gói để thêm chuyên khoa.");
+                    }
+
+                    // Increment count for each added specialty
+                    for (int i = 0; i < specialtiesToAdd.Count; i++)
+                    {
+                        await _subscriptionServices.SubscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
+                    }
+                }
+
+                // Decrement count for each removed specialty
+                for (int i = 0; i < specialtiesToRemove.Count; i++)
+                {
+                    await _subscriptionServices.SubscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
+                }
+            }
+
+            // Clear related cache entries
+            var cacheKey = $"hospital_specialties_{hospitalId}";
+            _cache.Remove(cacheKey);
+
+            _logger.LogInformation("Successfully updated specialties for hospital {HospitalId}. Added: {Added}, Removed: {Removed}",
+                hospitalId, specialtiesToAdd.Count, specialtiesToRemove.Count);
+        }
+        catch (HospitalOperationException)
+        {
+            throw; // Re-throw HospitalOperationException as-is
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update specialties for hospital {HospitalId}", hospitalId);
+            throw new HospitalOperationException($"Failed to update specialties for hospital {hospitalId}", ex);
         }
     }
 
-    private async Task UpdateHospitalServiceTypesAsync(Guid hospitalId, List<Guid> serviceTypeIds)
+    public async Task<List<Guid>> GetHospitalServiceTypeIdsAsync(Guid hospitalId)
     {
-        // Remove all existing service types
-        var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
-        if (hospital?.HospitalServiceTypes != null)
+        var cacheKey = $"hospital_service_types_{hospitalId}";
+
+        if (_cache.TryGetValue(cacheKey, out List<Guid>? cachedServiceTypeIds) && cachedServiceTypeIds != null)
         {
-            foreach (var serviceType in hospital.HospitalServiceTypes.ToList())
-            {
-                await _hospitalRepository.RemoveServiceTypeAsync(hospitalId, serviceType.ServiceTypeId);
-            }
+            return cachedServiceTypeIds;
         }
 
-        // Add new service types
-        foreach (var serviceTypeId in serviceTypeIds.Distinct())
+        // Optimized: Direct query IDs without loading full hospital entity
+        var serviceTypeIds = await _hospitalRepository.GetHospitalServiceTypeIdsAsync(hospitalId);
+
+        // Cache for 10 minutes
+        var cacheOptions = new MemoryCacheEntryOptions
         {
-            await _hospitalRepository.AddServiceTypeAsync(hospitalId, serviceTypeId);
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+            SlidingExpiration = TimeSpan.FromMinutes(5),
+            Priority = CacheItemPriority.Normal
+        };
+        _cache.Set(cacheKey, serviceTypeIds, cacheOptions);
+
+        return serviceTypeIds;
+    }
+
+    public async Task UpdateHospitalServiceTypesAsync(Guid hospitalId, List<Guid> serviceTypeIds)
+    {
+        try
+        {
+            _logger.LogInformation("Updating service types for hospital {HospitalId}: {Count} service types",
+                hospitalId, serviceTypeIds?.Count ?? 0);
+
+            // Optimized batch update - single transaction with change detection
+            await _hospitalRepository.UpdateHospitalServiceTypesBatchAsync(hospitalId, serviceTypeIds ?? new List<Guid>());
+
+            // Clear related cache entries
+            var cacheKey = $"hospital_service_types_{hospitalId}";
+            _cache.Remove(cacheKey);
+
+            _logger.LogInformation("Successfully updated service types for hospital {HospitalId}", hospitalId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update service types for hospital {HospitalId}", hospitalId);
+            throw new HospitalOperationException($"Failed to update service types for hospital {hospitalId}", ex);
         }
     }
 
@@ -1226,6 +1391,53 @@ public class HospitalService : IHospitalService
         {
             _logger.LogError(ex, "Error deleting hospital image {ImageId} for hospital {HospitalId}", imageId, hospitalId);
             throw new HospitalOperationException($"Failed to delete hospital image {imageId} for hospital {hospitalId}", ex);
+        }
+    }
+
+    #endregion
+
+    #region Trial Subscription Assignment
+
+    /// <summary>
+    /// Automatically assigns a trial subscription plan (Gói trải nghiệm) to a newly created hospital.
+    /// The trial plan is identified as: price = 0, billing cycle = MONTHLY, status = ACTIVE
+    /// </summary>
+    /// <param name="hospitalId">The ID of the newly created hospital</param>
+    private async Task AssignTrialSubscriptionAsync(Guid hospitalId)
+    {
+        try
+        {
+            _logger.LogInformation("Attempting to assign trial subscription for hospital {HospitalId}", hospitalId);
+
+            // Find trial subscription plan (price = 0, MONTHLY, ACTIVE)
+            var allPlans = await _subscriptionServices.SubscriptionPlanRepository.GetActiveAsync();
+            var trialPlan = allPlans.FirstOrDefault(p =>
+                p.Price == 0 &&
+                p.BillingCycle == "MONTHLY" &&
+                p.Status == Status.ACTIVE);
+
+            if (trialPlan == null)
+            {
+                _logger.LogWarning("Trial subscription plan not found for hospital {HospitalId}. Please create a plan with price = 0 and billing cycle = MONTHLY", hospitalId);
+                return;
+            }
+
+            // Create hospital subscription for 1 month trial period
+            var subscriptionRequest = new CreateHospitalSubscriptionRequest
+            {
+                HospitalId = hospitalId,
+                SubscriptionId = trialPlan.Id,
+                StartDate = DateTime.UtcNow,
+                EndDate = DateTime.UtcNow.AddMonths(1) // Trial for 1 month
+            };
+
+            await _subscriptionServices.HospitalSubscriptionService.CreateAsync(subscriptionRequest);
+            _logger.LogInformation("Successfully assigned trial subscription '{PlanName}' to hospital {HospitalId}", trialPlan.Name, hospitalId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to assign trial subscription for hospital {HospitalId}. Hospital created successfully but without subscription.", hospitalId);
+            // Don't throw - hospital creation should succeed even if subscription assignment fails
         }
     }
 

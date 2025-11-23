@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using BookingCare.Services.AI.Data;
 using BookingCare.Services.AI.Exceptions;
 using BookingCare.Services.AI.Models.DTOs.Requests;
@@ -92,6 +93,15 @@ public class ConversationSessionService : IConversationSessionService
 
             var result = history ?? new List<ConversationMessage>();
 
+            // Normalize line breaks in loaded messages (to fix old data with \r\n\r\n, \n\n issues)
+            foreach (var message in result)
+            {
+                if (!string.IsNullOrWhiteSpace(message.Content))
+                {
+                    message.Content = NormalizeLineBreaks(message.Content);
+                }
+            }
+
             // Log để debug suggestions
             var aiMessagesWithSuggestions = result.Where(m => m.Role == "ai" && m.Suggestions != null).ToList();
             if (aiMessagesWithSuggestions.Any())
@@ -134,18 +144,22 @@ public class ConversationSessionService : IConversationSessionService
             // Determine user role: "patient" if logged in, "guest" if not
             var userRole = userId.HasValue ? "patient" : "guest";
 
+            // Normalize line breaks before saving to database
+            var normalizedUserMessage = NormalizeLineBreaks(userMessage);
+            var normalizedAiMessage = NormalizeLineBreaks(aiMessage);
+
             // Add new messages
             history.Add(new ConversationMessage
             {
                 Role = userRole,
-                Content = userMessage,
+                Content = normalizedUserMessage,
                 Timestamp = DateTime.UtcNow
             });
 
             var aiMessageObj = new ConversationMessage
             {
                 Role = "ai",
-                Content = aiMessage,
+                Content = normalizedAiMessage,
                 Timestamp = DateTime.UtcNow,
                 Suggestions = suggestions // Save suggestions with AI message
             };
@@ -209,10 +223,24 @@ public class ConversationSessionService : IConversationSessionService
     {
         try
         {
-            return JsonSerializer.Deserialize<List<ConversationMessage>>(
+            var history = JsonSerializer.Deserialize<List<ConversationMessage>>(
                 conversationHistory,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
             );
+
+            if (history != null)
+            {
+                // Normalize line breaks in parsed messages (to fix old data)
+                foreach (var message in history)
+                {
+                    if (!string.IsNullOrWhiteSpace(message.Content))
+                    {
+                        message.Content = NormalizeLineBreaks(message.Content);
+                    }
+                }
+            }
+
+            return history;
         }
         catch (Exception ex)
         {
@@ -276,6 +304,32 @@ public class ConversationSessionService : IConversationSessionService
         return dateTime.Kind == DateTimeKind.Local
             ? dateTime.ToUniversalTime()
             : DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+    }
+
+    /// <summary>
+    /// Normalize line breaks in message content
+    /// Converts \r\n\r\n, \n\n, \r\n to single \n
+    /// Removes consecutive empty lines
+    /// </summary>
+    private string NormalizeLineBreaks(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return content ?? string.Empty;
+        }
+
+        // Step 1: Normalize all line break types to \n
+        // Replace \r\n (Windows) and \r (old Mac) with \n
+        var normalized = content.Replace("\r\n", "\n").Replace("\r", "\n");
+
+        // Step 2: Replace multiple consecutive newlines (2+) with single newline
+        // This handles \n\n, \n\n\n, etc. -> \n
+        normalized = Regex.Replace(normalized, @"\n{2,}", "\n", RegexOptions.None, TimeSpan.FromSeconds(2));
+
+        // Step 3: Trim leading and trailing newlines (but keep content)
+        normalized = normalized.Trim('\n');
+
+        return normalized;
     }
 
     /// <summary>

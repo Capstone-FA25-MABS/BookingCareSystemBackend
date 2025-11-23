@@ -122,6 +122,19 @@ builder.Services.AddScoped<HospitalServiceDependencies>(sp =>
     );
 });
 
+// Register SubscriptionServices to reduce constructor parameters
+builder.Services.AddScoped<SubscriptionServices>(sp =>
+{
+    var subscriptionPlanRepository = sp.GetRequiredService<ISubscriptionPlanRepository>();
+    var hospitalSubscriptionService = sp.GetRequiredService<IHospitalSubscriptionService>();
+    var subscriptionUsageService = sp.GetRequiredService<ISubscriptionUsageService>();
+    return new SubscriptionServices(
+        subscriptionPlanRepository,
+        hospitalSubscriptionService,
+        subscriptionUsageService
+    );
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -136,6 +149,7 @@ app.MapControllers();
 // Map gRPC services
 app.MapGrpcService<HospitalGrpcService>();
 app.MapGrpcService<HospitalSubscriptionGrpcService>();
+app.MapGrpcService<SubscriptionUsageGrpcService>();
 
 // Default endpoint
 app.MapGet(

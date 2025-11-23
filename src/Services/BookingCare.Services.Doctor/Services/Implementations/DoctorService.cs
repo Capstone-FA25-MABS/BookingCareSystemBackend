@@ -10,7 +10,11 @@ using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Services.Favorite;
 using BookingCare.Services.Hospital;
 using BookingCare.Services.Review.Grpc;
+using Grpc.Core;
+using GrpcStatus = Grpc.Core.Status;
+using GrpcStatusCode = Grpc.Core.StatusCode;
 using BookingCare.Shared.Common.Enums;
+using CommonStatus = BookingCare.Shared.Common.Enums.Status;
 using BookingCare.Shared.Common.Services;
 using HospitalBasicInfo = BookingCare.Services.Doctor.Models.DTOs.Responses.HospitalBasicInfo;
 using BookingCare.Shared.EventBus.Abstractions;
@@ -31,6 +35,7 @@ public class DoctorService : BaseService, IDoctorService
     private readonly Lazy<AuthService.AuthServiceClient> _authClient;
     private readonly Lazy<HospitalService.HospitalServiceClient> _hospitalClient;
     private readonly Lazy<ReviewService.ReviewServiceClient> _reviewClient;
+    private readonly Lazy<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient> _subscriptionUsageClient;
 
     private readonly IEventBus _eventBus;
     public DoctorService(
@@ -47,10 +52,95 @@ public class DoctorService : BaseService, IDoctorService
         _authClient = new Lazy<AuthService.AuthServiceClient>(() => _serviceProvider.GetRequiredService<AuthService.AuthServiceClient>());
         _hospitalClient = new Lazy<HospitalService.HospitalServiceClient>(() => _serviceProvider.GetRequiredService<HospitalService.HospitalServiceClient>());
         _reviewClient = new Lazy<ReviewService.ReviewServiceClient>(() => _serviceProvider.GetRequiredService<ReviewService.ReviewServiceClient>());
+        _subscriptionUsageClient = new Lazy<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>(() => _serviceProvider.GetRequiredService<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>());
         _eventBus = eventBus;
     }
 
     #region Private Helper Methods
+
+    /// <summary>
+    /// Check and validate doctor limit via gRPC
+    /// </summary>
+    private async Task CheckAndValidateDoctorLimitAsync(Guid hospitalId)
+    {
+        try
+        {
+            var request = new BookingCare.Services.Hospital.CheckLimitRequest
+            {
+                HospitalId = hospitalId.ToString()
+            };
+
+            var response = await _subscriptionUsageClient.Value.CheckDoctorLimitAsync(request);
+
+            if (!response.CanAdd)
+            {
+                throw new InvalidOperationException(
+                    response.Message ?? "Bạn đã đạt giới hạn số lượng bác sĩ cho phép trong gói đăng ký. Vui lòng nâng cấp gói để thêm bác sĩ."
+                );
+            }
+        }
+        catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.NotFound)
+        {
+            throw new InvalidOperationException("Không tìm thấy gói đăng ký cho bệnh viện này.");
+        }
+        catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.FailedPrecondition)
+        {
+            throw new InvalidOperationException(ex.Status.Detail ?? "Không thể thêm bác sĩ do giới hạn gói đăng ký.");
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogWarning("Error checking doctor limit via gRPC for hospital {HospitalId}: {Error}", null, hospitalId, ex.Message);
+            // Don't block creation if subscription service is unavailable, but log the warning
+            // In production, you might want to throw here instead
+        }
+    }
+
+    /// <summary>
+    /// Increment doctor count via gRPC
+    /// </summary>
+    private async Task IncrementDoctorCountAsync(Guid hospitalId)
+    {
+        try
+        {
+            var request = new BookingCare.Services.Hospital.IncrementRequest
+            {
+                HospitalId = hospitalId.ToString()
+            };
+
+            await _subscriptionUsageClient.Value.IncrementDoctorCountAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogWarning("Error incrementing doctor count via gRPC for hospital {HospitalId}: {Error}", null, hospitalId, ex.Message);
+            // Don't throw - doctor already created, just log the error
+            // In production, you might want to implement retry logic or queue for later processing
+        }
+    }
+
+    /// <summary>
+    /// Decrement doctor count via gRPC
+    /// </summary>
+    private async Task DecrementDoctorCountAsync(Guid hospitalId)
+    {
+        try
+        {
+            var request = new BookingCare.Services.Hospital.IncrementRequest
+            {
+                HospitalId = hospitalId.ToString()
+            };
+
+            await _subscriptionUsageClient.Value.DecrementDoctorCountAsync(request);
+        }
+        catch (Exception ex)
+        {
+            LogWarning("Error decrementing doctor count via gRPC for hospital {HospitalId}: {Error}", null, hospitalId, ex.Message);
+            // Don't throw - doctor already deleted, just log the error
+        }
+    }
 
     /// <summary>
     /// Validate service types for duplicate prevention
@@ -99,11 +189,23 @@ public class DoctorService : BaseService, IDoctorService
         {
             await ValidateCreateDoctorRequest(request);
 
+            // Check subscription limit before creating doctor
+            if (request.HospitalId.HasValue)
+            {
+                await CheckAndValidateDoctorLimitAsync(request.HospitalId.Value);
+            }
+
             var doctor = CreateDoctorEntity(request);
             var createdDoctor = await _repository.Value.CreateDoctorAsync(doctor);
 
             await CreateDoctorPricesAsync(createdDoctor.Id, request.Prices);
             await CreateDoctorLanguagesAsync(createdDoctor.Id, request.LanguageIds);
+
+            // Increment doctor count after successful creation
+            if (request.HospitalId.HasValue)
+            {
+                await IncrementDoctorCountAsync(request.HospitalId.Value);
+            }
 
             return _mapper.Value.Map<DoctorResponse>(createdDoctor);
         }, nameof(CreateDoctorAsync));
@@ -509,7 +611,22 @@ public class DoctorService : BaseService, IDoctorService
     {
         return await ExecuteWithErrorHandling(async () =>
         {
-            return await _repository.Value.DeleteDoctorAsync(id);
+            // Get doctor to find hospital ID before deletion
+            var doctor = await _repository.Value.GetDoctorByIdAsync(id);
+            if (doctor == null)
+            {
+                throw DoctorNotFoundException.WithId(id);
+            }
+
+            var result = await _repository.Value.DeleteDoctorAsync(id);
+
+            // Decrement doctor count after successful deletion
+            if (result && doctor.HospitalId.HasValue)
+            {
+                await DecrementDoctorCountAsync(doctor.HospitalId.Value);
+            }
+
+            return result;
         }, nameof(DeleteDoctorAsync));
     }
 
@@ -1277,9 +1394,9 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Get account statuses for a list of account IDs
     /// </summary>
-    private async Task<Dictionary<Guid, Status>> GetAccountStatusesAsync(IEnumerable<Guid> accountIds)
+    private async Task<Dictionary<Guid, CommonStatus>> GetAccountStatusesAsync(IEnumerable<Guid> accountIds)
     {
-        var statusMap = new Dictionary<Guid, Status>();
+        var statusMap = new Dictionary<Guid, CommonStatus>();
 
         try
         {
@@ -1293,7 +1410,7 @@ public class DoctorService : BaseService, IDoctorService
                 if (Guid.TryParse(accountStatus.AccountId, out var accountId) && accountStatus.Found)
                 {
                     // Chuyển đổi từ int sang enum Status
-                    var status = (Status)accountStatus.Status;
+                    var status = (CommonStatus)accountStatus.Status;
                     statusMap[accountId] = status;
                 }
             }
@@ -1326,7 +1443,7 @@ public class DoctorService : BaseService, IDoctorService
             else
             {
                 // Nếu không tìm thấy status từ Auth service, set mặc định là ACTIVE
-                doctor.Status = Status.ACTIVE;
+                doctor.Status = CommonStatus.ACTIVE;
             }
         }
     }
@@ -1904,7 +2021,7 @@ public class DoctorService : BaseService, IDoctorService
             {
                 if (statusMap.TryGetValue(d.AccountId, out var status))
                 {
-                    return status == Status.ACTIVE;
+                    return status == CommonStatus.ACTIVE;
                 }
                 // If status not found in Auth Service, assume ACTIVE (fallback)
                 return true;
@@ -2366,7 +2483,7 @@ public class DoctorService : BaseService, IDoctorService
                 SpecialtyIds = specialtyIds,
                 ProvinceId = provinceId,
                 DistrictId = districtId,
-                Status = Status.ACTIVE, // Only active doctors
+                Status = CommonStatus.ACTIVE, // Only active doctors
                 PageNumber = 1,
                 PageSize = maxResults * 2, // Get more to account for location filtering
                 SortBy = "YearsOfExperience", // Sort by experience first
@@ -2400,7 +2517,7 @@ public class DoctorService : BaseService, IDoctorService
             {
                 if (statusMap.TryGetValue(d.AccountId, out var status))
                 {
-                    return status == Status.ACTIVE;
+                    return status == CommonStatus.ACTIVE;
                 }
                 return true; // Fallback: assume ACTIVE if status not found
             }).ToList();

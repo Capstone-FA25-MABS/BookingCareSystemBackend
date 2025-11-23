@@ -69,6 +69,12 @@ builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.Hos
     options.Address = new Uri(hospitalAddress);
 });
 
+// Add gRPC client for SubscriptionUsageGrpc
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>(options =>
+{
+    options.Address = new Uri(hospitalAddress);
+});
+
 var reviewAddress = builder.Configuration.GetSection("GrpcClients:Review:Address").Value ?? "http://localhost:6112";
 builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
 {

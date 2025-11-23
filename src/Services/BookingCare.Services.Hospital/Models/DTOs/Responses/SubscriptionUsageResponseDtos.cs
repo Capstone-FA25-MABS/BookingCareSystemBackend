@@ -10,25 +10,29 @@ public class SubscriptionUsageResponse
     public Guid? SubscriptionPlanId { get; set; }
     public string? SubscriptionPlanName { get; set; }
 
-    // Limits
-    public int MaxDoctors { get; set; }
-    public int MaxSpecialties { get; set; }
-    public int MaxAppointments { get; set; }
+    // Limits (null = unlimited)
+    public int? MaxDoctors { get; set; }
+    public int? MaxSpecialties { get; set; }
+    public int? MaxAppointments { get; set; }
+    public int? MaxServices { get; set; }
 
     // Current Usage
     public int CurrentDoctorCount { get; set; }
     public int CurrentSpecialtyCount { get; set; }
     public int CurrentAppointmentCount { get; set; }
+    public int CurrentServiceCount { get; set; }
 
     // Usage Percentages
     public decimal DoctorUsagePercentage { get; set; }
     public decimal SpecialtyUsagePercentage { get; set; }
     public decimal AppointmentUsagePercentage { get; set; }
+    public decimal ServiceUsagePercentage { get; set; }
 
     // Limit Status
     public bool IsDoctorLimitExceeded { get; set; }
     public bool IsSpecialtyLimitExceeded { get; set; }
     public bool IsAppointmentLimitExceeded { get; set; }
+    public bool IsServiceLimitExceeded { get; set; }
 
     // Subscription Info
     public DateTime? SubscriptionEndDate { get; set; }

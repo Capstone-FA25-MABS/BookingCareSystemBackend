@@ -33,10 +33,14 @@ public interface IHospitalRepository
     // Specialty Management
     Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId);
     Task<bool> RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+    Task UpdateHospitalSpecialtiesBatchAsync(Guid hospitalId, List<Guid> specialtyIds);
+    Task<List<Guid>> GetHospitalSpecialtyIdsAsync(Guid hospitalId);
 
     // ServiceType Management
     Task<bool> AddServiceTypeAsync(Guid hospitalId, Guid serviceTypeId);
     Task<bool> RemoveServiceTypeAsync(Guid hospitalId, Guid serviceTypeId);
+    Task UpdateHospitalServiceTypesBatchAsync(Guid hospitalId, List<Guid> serviceTypeIds);
+    Task<List<Guid>> GetHospitalServiceTypeIdsAsync(Guid hospitalId);
 
     // ServiceMedical Management
     Task<bool> AddServiceMedicalAsync(Guid hospitalId, Guid serviceMedicalId);

@@ -40,6 +40,48 @@ service HospitalSubscriptionGrpc {
   rpc UpgradeHospitalSubscription (UpgradeHospitalSubscriptionGrpcRequest) returns (HospitalSubscriptionGrpcResponse);
 }
 
+// The Subscription Usage service definition (for Doctor, Specialty, Service, Appointment services)
+service SubscriptionUsageGrpc {
+  // Check if hospital can add more doctors
+  rpc CheckDoctorLimit (CheckLimitRequest) returns (CheckLimitResponse);
+  
+  // Check if hospital can add more specialties
+  rpc CheckSpecialtyLimit (CheckLimitRequest) returns (CheckLimitResponse);
+  
+  // Check if hospital can add more services
+  rpc CheckServiceLimit (CheckLimitRequest) returns (CheckLimitResponse);
+  
+  // Check if hospital can add more appointments
+  rpc CheckAppointmentLimit (CheckAppointmentLimitRequest) returns (CheckLimitResponse);
+  
+  // Increment doctor count after successful creation
+  rpc IncrementDoctorCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Decrement doctor count after deletion
+  rpc DecrementDoctorCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Increment specialty count after successful creation
+  rpc IncrementSpecialtyCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Decrement specialty count after deletion
+  rpc DecrementSpecialtyCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Increment service count after successful creation
+  rpc IncrementServiceCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Decrement service count after deletion
+  rpc DecrementServiceCount (IncrementRequest) returns (IncrementResponse);
+  
+  // Increment appointment count after successful creation
+  rpc IncrementAppointmentCount (IncrementAppointmentRequest) returns (IncrementResponse);
+  
+  // Decrement appointment count after deletion
+  rpc DecrementAppointmentCount (IncrementAppointmentRequest) returns (IncrementResponse);
+  
+  // Get usage information for a hospital
+  rpc GetUsageByHospitalId (GetUsageRequest) returns (SubscriptionUsageGrpcResponse);
+}
+
 // The request message for getting a hospital by ID
 message GetHospitalRequest {
   string id = 1; // Guid as string
@@ -211,4 +253,72 @@ message SubscriptionPlanInfo {
   int32 max_doctors = 5;
   int32 max_appointments = 6;
   repeated string features = 7;
+}
+
+// ==================== Subscription Usage Messages ====================
+
+// Request message for checking limits
+message CheckLimitRequest {
+  string hospital_id = 1; // Guid as string
+}
+
+// Request message for checking appointment limit
+message CheckAppointmentLimitRequest {
+  string hospital_id = 1; // Guid as string
+  int32 additional_appointments = 2; // Default: 1
+}
+
+// Response message for checking limits
+message CheckLimitResponse {
+  bool can_add = 1;
+  string hospital_id = 2;
+  string message = 3; // Error message if cannot add
+}
+
+// Request message for increment/decrement operations
+message IncrementRequest {
+  string hospital_id = 1; // Guid as string
+}
+
+// Request message for increment/decrement appointment operations
+message IncrementAppointmentRequest {
+  string hospital_id = 1; // Guid as string
+  int32 count = 2; // Default: 1
+}
+
+// Response message for increment/decrement operations
+message IncrementResponse {
+  bool success = 1;
+  string message = 2;
+  string hospital_id = 3;
+}
+
+// Request message for getting usage
+message GetUsageRequest {
+  string hospital_id = 1; // Guid as string
+}
+
+// Response message for subscription usage
+message SubscriptionUsageGrpcResponse {
+  string hospital_id = 1;
+  bool has_active_subscription = 2;
+  string message = 3;
+  string subscription_plan_id = 4;
+  string subscription_plan_name = 5;
+  int32 max_doctors = 6;
+  int32 max_specialties = 7;
+  int32 max_appointments = 8;
+  int32 max_services = 9;
+  int32 current_doctor_count = 10;
+  int32 current_specialty_count = 11;
+  int32 current_appointment_count = 12;
+  int32 current_service_count = 13;
+  double doctor_usage_percentage = 14;
+  double specialty_usage_percentage = 15;
+  double service_usage_percentage = 16;
+  bool is_doctor_limit_exceeded = 17;
+  bool is_specialty_limit_exceeded = 18;
+  bool is_service_limit_exceeded = 19;
+  string subscription_end_date = 20;
+  int32 days_until_expiry = 21;
 }

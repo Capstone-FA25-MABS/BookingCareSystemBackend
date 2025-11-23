@@ -4,6 +4,7 @@ using BookingCare.Services.Hospital.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Hospital.Migrations
 {
     [DbContext(typeof(HospitalDbContext))]
-    partial class HospitalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251116040308_addMaxServicesColumn")]
+    partial class addMaxServicesColumn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -297,23 +300,11 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("hospital_subscription_id");
 
-                    b.Property<int>("AppointmentCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("appointment_count");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
-
-                    b.Property<int>("DoctorCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("doctor_count");
 
                     b.Property<DateTime>("EndDate")
                         .ValueGeneratedOnAdd()
@@ -324,18 +315,6 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.Property<Guid>("HospitalId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("hospital_id");
-
-                    b.Property<int>("ServiceCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("service_count");
-
-                    b.Property<int>("SpecialtyCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0)
-                        .HasColumnName("specialty_count");
 
                     b.Property<DateTime>("StartDate")
                         .ValueGeneratedOnAdd()
