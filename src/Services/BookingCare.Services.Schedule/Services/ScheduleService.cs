@@ -460,4 +460,199 @@ public class ScheduleService : IScheduleService
     }
 
     #endregion
+
+    #region ServiceMedicalDailySchedule operations
+
+    public async Task<ServiceMedicalDailyScheduleDto?> GetServiceMedicalDailyScheduleAsync(Guid serviceMedicalId, DateOnly date)
+    {
+        var cacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalDailySchedule, serviceMedicalId, date.ToString(DateFormat));
+
+        var cached = await _cacheService.GetAsync<ServiceMedicalDailyScheduleDto>(cacheKey);
+        if (cached != null)
+        {
+            _logger.LogDebug("Retrieved service medical {ServiceMedicalId} schedule for {Date} from cache", serviceMedicalId, date);
+            return cached;
+        }
+
+        var entity = await _repository.GetServiceMedicalDailyScheduleAsync(serviceMedicalId, date);
+        if (entity == null) return null;
+
+        var dto = _mapper.Map<ServiceMedicalDailyScheduleDto>(entity);
+        await _cacheService.SetAsync(cacheKey, dto, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+
+        return dto;
+    }
+
+    public async Task<IEnumerable<ServiceMedicalDailyScheduleDto>> GetServiceMedicalScheduleRangeAsync(GetServiceMedicalScheduleRequest request)
+    {
+        var cacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalScheduleRange,
+            request.ServiceMedicalId,
+            request.StartDate.ToString(DateFormat),
+            request.EndDate.ToString(DateFormat));
+
+        var cached = await _cacheService.GetAsync<IEnumerable<ServiceMedicalDailyScheduleDto>>(cacheKey);
+        if (cached != null)
+        {
+            _logger.LogDebug("Retrieved service medical {ServiceMedicalId} schedule range from cache", request.ServiceMedicalId);
+            return cached;
+        }
+
+        var entities = await _repository.GetServiceMedicalScheduleRangeAsync(request.ServiceMedicalId, request.StartDate, request.EndDate);
+        var dtos = _mapper.Map<List<ServiceMedicalDailyScheduleDto>>(entities);
+
+        await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+
+        return dtos;
+    }
+
+    public async Task<ServiceMedicalDailyScheduleDto> CreateOrUpdateServiceMedicalDailyScheduleAsync(CreateServiceMedicalDailyScheduleRequest request)
+    {
+        // Validate service medical exists and is active
+        var isServiceValid = await ValidateServiceMedicalAsync(request.ServiceMedicalId);
+        if (!isServiceValid)
+        {
+            _logger.LogWarning("Invalid or inactive service medical {ServiceMedicalId} attempted to create schedule", request.ServiceMedicalId);
+            throw ServiceNotAvailableException.WithId(request.ServiceMedicalId);
+        }
+
+        var entity = _mapper.Map<ServiceMedicalDailyScheduleEntity>(request);
+
+        var created = await _repository.CreateOrUpdateServiceMedicalDailyScheduleAsync(entity);
+
+        // Invalidate related caches
+        var dailyCacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalDailySchedule, request.ServiceMedicalId, request.ScheduleDate.ToString(DateFormat));
+        await _cacheService.RemoveAsync(dailyCacheKey);
+
+        // Invalidate available slots cache
+        var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalAvailableSlots, request.ServiceMedicalId, request.ScheduleDate.ToString(DateFormat));
+        await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
+
+        return _mapper.Map<ServiceMedicalDailyScheduleDto>(created);
+    }
+
+    public async Task DeleteServiceMedicalDailyScheduleAsync(Guid serviceMedicalId, DateOnly date)
+    {
+        await _repository.DeleteServiceMedicalDailyScheduleAsync(serviceMedicalId, date);
+
+        // Invalidate related caches
+        var dailyCacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalDailySchedule, serviceMedicalId, date.ToString(DateFormat));
+        await _cacheService.RemoveAsync(dailyCacheKey);
+
+        var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalAvailableSlots, serviceMedicalId, date.ToString(DateFormat));
+        await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
+    }
+
+    #endregion
+
+    #region ServiceMedicalScheduleException operations
+
+    public async Task<IEnumerable<ServiceMedicalScheduleExceptionDto>> GetServiceMedicalExceptionsAsync(Guid serviceMedicalId, DateOnly date)
+    {
+        var cacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalExceptions, serviceMedicalId, date.ToString(DateFormat));
+
+        var cached = await _cacheService.GetAsync<IEnumerable<ServiceMedicalScheduleExceptionDto>>(cacheKey);
+        if (cached != null)
+        {
+            _logger.LogDebug("Retrieved service medical {ServiceMedicalId} exceptions for {Date} from cache", serviceMedicalId, date);
+            return cached;
+        }
+
+        var entities = await _repository.GetServiceMedicalExceptionsAsync(serviceMedicalId, date);
+        var dtos = _mapper.Map<List<ServiceMedicalScheduleExceptionDto>>(entities);
+
+        await _cacheService.SetAsync(cacheKey, dtos, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+
+        return dtos;
+    }
+
+    public async Task<List<ServiceMedicalScheduleExceptionDto>> CreateServiceMedicalScheduleExceptionAsync(CreateServiceMedicalScheduleExceptionRequest request)
+    {
+        // Validate service medical exists and is active
+        var isServiceValid = await ValidateServiceMedicalAsync(request.ServiceMedicalId);
+        if (!isServiceValid)
+        {
+            _logger.LogWarning("Invalid or inactive service medical {ServiceMedicalId} attempted to create exception", request.ServiceMedicalId);
+            throw ServiceNotAvailableException.WithId(request.ServiceMedicalId);
+        }
+
+        var createdExceptions = new List<ServiceMedicalScheduleExceptionEntity>();
+
+        // Handle multiple appointment times or single day-off exception
+        if (request.AppointmentTimes == null || request.AppointmentTimes.Count == 0)
+        {
+            // Full day off - create single exception with null appointment time
+            var dayOffEntity = _mapper.Map<ServiceMedicalScheduleExceptionEntity>(request);
+            dayOffEntity.AppointmentTime = null;
+
+            var created = await _repository.CreateServiceMedicalScheduleExceptionAsync(dayOffEntity);
+            createdExceptions.Add(created);
+        }
+        else
+        {
+            // Create exception for each appointment time
+            foreach (var appointmentTime in request.AppointmentTimes)
+            {
+                var entity = _mapper.Map<ServiceMedicalScheduleExceptionEntity>(request);
+                entity.AppointmentTime = appointmentTime;
+
+                var created = await _repository.CreateServiceMedicalScheduleExceptionAsync(entity);
+                createdExceptions.Add(created);
+            }
+        }
+
+        // Invalidate related caches
+        var exceptionsCacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalExceptions, request.ServiceMedicalId, request.ExceptionDate.ToString(DateFormat));
+        await _cacheService.RemoveAsync(exceptionsCacheKey);
+
+        var availableSlotsCacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalAvailableSlots, request.ServiceMedicalId, request.ExceptionDate.ToString(DateFormat));
+        await _cacheService.RemoveByPatternAsync(availableSlotsCacheKey);
+
+        return createdExceptions.Select(e => _mapper.Map<ServiceMedicalScheduleExceptionDto>(e)).ToList();
+    }
+
+    public async Task DeleteServiceMedicalScheduleExceptionAsync(Guid id)
+    {
+        await _repository.DeleteServiceMedicalScheduleExceptionAsync(id);
+
+        // Pattern-based invalidation
+        await _cacheService.RemoveByPatternAsync("service_medical_exceptions:*");
+    }
+
+    #endregion
+
+    #region ServiceMedical Available slots operations
+
+    public async Task<IEnumerable<AppointmentTimeDto>> GetServiceMedicalAvailableSlotsAsync(GetServiceMedicalAvailableSlotsRequest request)
+    {
+        // Validate service medical exists and is active
+        var isServiceValid = await ValidateServiceMedicalAsync(request.ServiceMedicalId);
+        if (!isServiceValid)
+        {
+            _logger.LogWarning("Invalid or inactive service medical {ServiceMedicalId} attempted to get available slots", request.ServiceMedicalId);
+            throw ServiceNotAvailableException.WithId(request.ServiceMedicalId);
+        }
+
+        var cacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalAvailableSlots, request.ServiceMedicalId, request.Date.ToString(DateFormat));
+
+        var cached = await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey);
+        if (cached != null)
+        {
+            _logger.LogDebug("Retrieved available slots for service medical {ServiceMedicalId} on {Date} from cache", request.ServiceMedicalId, request.Date);
+            return cached;
+        }
+
+        // Get all potential available slots from schedule
+        var entities = await _repository.GetServiceMedicalAvailableSlotsAsync(request.ServiceMedicalId, request.Date);
+        var allSlots = entities.Select(BookingCare.Services.Schedule.Utilities.AppointmentTimeHelper.ConvertEnumToDto).ToList();
+
+        _logger.LogInformation("Service medical {ServiceMedicalId} on {Date}: Found {TotalSlots} available slots",
+            request.ServiceMedicalId, request.Date, allSlots.Count);
+
+        await _cacheService.SetAsync(cacheKey, allSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+
+        return allSlots;
+    }
+
+    #endregion
 }
+

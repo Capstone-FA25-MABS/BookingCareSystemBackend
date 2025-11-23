@@ -500,7 +500,7 @@
       "UpstreamPathTemplate": "/api/v{version}/paymentmethods/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
+//         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
     },
@@ -609,7 +609,55 @@
           "Port": 6014
         }
       ],
-      "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedule/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedules/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/DoctorScheduleExceptions/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6014
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedule-exceptions/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/ServiceMedicalSchedules/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6014
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/schedules/service-medical-schedules/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/ServiceMedicalScheduleExceptions/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6014
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/schedules/service-medical-schedule-exceptions/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -698,6 +746,6 @@
     }
   ],
   "GlobalConfiguration": {
-    "BaseUrl": "http://localhost:5000"
+    "BaseUrl": "http://localhost:5001"
   }
 }
