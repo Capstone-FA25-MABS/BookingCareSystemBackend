@@ -1,10 +1,11 @@
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Models.DTOs;
 using BookingCare.Services.AI.Services.Interfaces;
 using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
 
 namespace BookingCare.Services.AI.Services.Implementations;
 
@@ -97,9 +98,19 @@ public class AIService : IAIService
             promptBuilder.AppendLine($"- Bệnh nhân: {request.PatientName}");
 
         if (request.AppointmentDate.HasValue)
+        {
+
             promptBuilder.AppendLine(
                 $"- Ngày khám: {request.AppointmentDate.Value:dd/MM/yyyy HH:mm}"
             );
+        }
+        else
+        {
+            // Use Vietnam current time when appointment date is not provided
+            promptBuilder.AppendLine(
+                $"- Ngày khám: {GetVietnamNow():dd/MM/yyyy HH:mm}"
+            );
+        }
 
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**CUỘC TRÒ CHUYỆN:**");
@@ -358,4 +369,24 @@ public class AIService : IAIService
     }
 
     #endregion
+
+
+    // Helper: return current time in Vietnam timezone (handles Windows and Linux time zone ids)
+    private static DateTime GetVietnamNow()
+    {
+        try
+        {
+            var tz = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time")   // Windows
+                : TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");      // Linux/macOS (IANA)
+
+            // Convert from UTC to target timezone
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        }
+        catch
+        {
+            // Fallback: add +7 hours to UTC
+            return DateTime.UtcNow.AddHours(7);
+        }
+    }
 }
