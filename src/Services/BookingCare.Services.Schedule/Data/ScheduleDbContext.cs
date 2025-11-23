@@ -15,6 +15,8 @@ public class ScheduleDbContext : DbContext
     public DbSet<DoctorScheduleExceptionEntity> DoctorScheduleExceptions { get; set; }
     public DbSet<ClinicExceptionEntity> ClinicExceptions { get; set; }
     public DbSet<ServiceScheduleEntity> ServiceSchedules { get; set; }
+    public DbSet<ServiceMedicalDailyScheduleEntity> ServiceMedicalDailySchedules { get; set; }
+    public DbSet<ServiceMedicalScheduleExceptionEntity> ServiceMedicalScheduleExceptions { get; set; }
 
     public ScheduleDbContext(DbContextOptions<ScheduleDbContext> options) : base(options)
     {
@@ -63,9 +65,21 @@ public class ScheduleDbContext : DbContext
                 }
                 serviceSchedule.UpdatedAt = DateTime.UtcNow;
             }
+            else if (entityEntry.Entity is ServiceMedicalDailyScheduleEntity serviceMedicalSchedule)
+            {
+                if (entityEntry.State == EntityState.Added)
+                {
+                    serviceMedicalSchedule.CreatedAt = DateTime.UtcNow;
+                }
+                serviceMedicalSchedule.UpdatedAt = DateTime.UtcNow;
+            }
             else if (entityEntry.Entity is DoctorScheduleExceptionEntity exception && entityEntry.State == EntityState.Added)
             {
                 exception.CreatedAt = DateTime.UtcNow;
+            }
+            else if (entityEntry.Entity is ServiceMedicalScheduleExceptionEntity serviceMedicalException && entityEntry.State == EntityState.Added)
+            {
+                serviceMedicalException.CreatedAt = DateTime.UtcNow;
             }
         }
     }
