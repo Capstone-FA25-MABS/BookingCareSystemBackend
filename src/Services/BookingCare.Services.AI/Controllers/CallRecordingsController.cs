@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using BookingCare.Services.AI.Configuration;
+using BookingCare.Services.AI.Helpers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -67,12 +68,7 @@ namespace BookingCare.Services.AI.Controllers
         {
             try
             {
-                // Validate input
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest(new { success = false, message = "No file uploaded" });
-                }
-
+                // Validate input parameters
                 if (string.IsNullOrEmpty(appointmentId))
                 {
                     return BadRequest(
@@ -87,26 +83,29 @@ namespace BookingCare.Services.AI.Controllers
                     );
                 }
 
-                // Validate file type
-                var allowedTypes = new[] { "audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg" };
-                if (!allowedTypes.Contains(file.ContentType))
+                // Validate audio file with extended MIME types for call recordings
+                var allowedMimeTypes = new[]
                 {
+                    "audio/webm",
+                    "audio/ogg",
+                    "audio/mp4",
+                    "audio/mpeg",
+                };
+                var validationResult = AudioFileValidator.ValidateAudioFile(
+                    file,
+                    _maxFileSizeBytes,
+                    allowedMimeTypes
+                );
+
+                if (!validationResult.IsValid)
+                {
+                    AudioFileValidator.LogValidationResult(validationResult, _logger);
                     return BadRequest(
-                        new { success = false, message = $"Invalid file type: {file.ContentType}" }
+                        new { success = false, message = validationResult.ErrorMessage }
                     );
                 }
 
-                // Validate file size against configured limit
-                if (file.Length > _maxFileSizeBytes)
-                {
-                    return BadRequest(
-                        new
-                        {
-                            success = false,
-                            message = $"File size ({file.Length} bytes) exceeds maximum allowed size ({_maxFileSizeBytes} bytes)",
-                        }
-                    );
-                }
+                AudioFileValidator.LogValidationResult(validationResult, _logger, file);
 
                 _logger.LogInformation(
                     "Uploading call recording: AppointmentId={AppointmentId}, Size={Size} bytes, Type={ContentType}",

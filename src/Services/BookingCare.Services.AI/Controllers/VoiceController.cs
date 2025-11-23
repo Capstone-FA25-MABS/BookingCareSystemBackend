@@ -1,4 +1,5 @@
 using BookingCare.Services.AI.Configuration;
+using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Services;
 using BookingCare.Services.AI.Workflows;
 using BookingCare.Shared.Common.Controllers;
@@ -71,57 +72,15 @@ public class VoiceController : BaseApiController
     {
         try
         {
-            // Validate file exists
-            if (audio == null || audio.Length == 0)
+            // Validate audio file
+            var validationResult = AudioFileValidator.ValidateAudioFile(audio, _maxFileSizeBytes);
+            if (!validationResult.IsValid)
             {
-                _logger.LogWarning("Upload attempt with no file or empty file");
-                return BadRequest(new { message = "No audio file provided" });
+                AudioFileValidator.LogValidationResult(validationResult, _logger);
+                return BadRequest(new { message = validationResult.ErrorMessage });
             }
 
-            // Validate file size against configured limit
-            if (audio.Length > _maxFileSizeBytes)
-            {
-                _logger.LogWarning(
-                    "Upload attempt with file too large: {Size} bytes",
-                    audio.Length
-                );
-                return BadRequest(
-                    new
-                    {
-                        message = $"File size exceeds maximum limit of {_maxFileSizeBytes / 1_000_000} MB",
-                    }
-                );
-            }
-
-            // Validate MIME type
-            var allowedMimeTypes = new[] { "audio/webm", "audio/wav" };
-            if (!allowedMimeTypes.Contains(audio.ContentType.ToLowerInvariant()))
-            {
-                _logger.LogWarning(
-                    "Upload attempt with unsupported MIME type: {MimeType}",
-                    audio.ContentType
-                );
-                return BadRequest(
-                    new
-                    {
-                        message = $"Unsupported audio format. Only audio/webm and audio/wav are allowed. Received: {audio.ContentType}",
-                    }
-                );
-            }
-
-            // Validate file extension
-            var fileExtension = Path.GetExtension(audio.FileName).ToLowerInvariant();
-            var allowedExtensions = new[] { ".webm", ".wav" };
-            if (!allowedExtensions.Contains(fileExtension))
-            {
-                _logger.LogWarning(
-                    "Upload attempt with unsupported extension: {Extension}",
-                    fileExtension
-                );
-                return BadRequest(
-                    new { message = $"Unsupported file extension. Only .webm and .wav are allowed" }
-                );
-            }
+            AudioFileValidator.LogValidationResult(validationResult, _logger, audio);
 
             _logger.LogInformation(
                 "Uploading audio file: Name={FileName}, Size={Size} bytes, Type={ContentType}",
@@ -131,6 +90,7 @@ public class VoiceController : BaseApiController
             );
 
             // Generate unique filename
+            var fileExtension = Path.GetExtension(audio.FileName).ToLowerInvariant();
             var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
             var filePath = Path.Combine(_audioTempPath, uniqueFileName);
 
@@ -372,43 +332,15 @@ public class VoiceController : BaseApiController
     {
         try
         {
-            // Validate file exists
-            if (audio == null || audio.Length == 0)
+            // Validate audio file
+            var validationResult = AudioFileValidator.ValidateAudioFile(audio, _maxFileSizeBytes);
+            if (!validationResult.IsValid)
             {
-                _logger.LogWarning("Upload and transcribe attempt with no file or empty file");
-                return BadRequest(new { message = "No audio file provided" });
+                AudioFileValidator.LogValidationResult(validationResult, _logger);
+                return BadRequest(new { message = validationResult.ErrorMessage });
             }
 
-            // Validate file size against configured limit
-            if (audio.Length > _maxFileSizeBytes)
-            {
-                _logger.LogWarning(
-                    "Upload and transcribe attempt with file too large: {Size} bytes",
-                    audio.Length
-                );
-                return BadRequest(
-                    new
-                    {
-                        message = $"File size exceeds maximum limit of {_maxFileSizeBytes / 1_000_000} MB",
-                    }
-                );
-            }
-
-            // Validate MIME type
-            var allowedMimeTypes = new[] { "audio/webm", "audio/wav" };
-            if (!allowedMimeTypes.Contains(audio.ContentType.ToLowerInvariant()))
-            {
-                _logger.LogWarning(
-                    "Upload and transcribe attempt with unsupported MIME type: {MimeType}",
-                    audio.ContentType
-                );
-                return BadRequest(
-                    new
-                    {
-                        message = $"Unsupported audio format. Only audio/webm and audio/wav are allowed. Received: {audio.ContentType}",
-                    }
-                );
-            }
+            AudioFileValidator.LogValidationResult(validationResult, _logger, audio);
 
             _logger.LogInformation(
                 "Uploading and transcribing audio: Name={FileName}, Size={Size} bytes, Type={ContentType}",
