@@ -18,6 +18,7 @@ namespace BookingCare.Services.AI.Controllers
         private readonly ILogger<CallRecordingsController> _logger;
         private readonly string _uploadPath;
         private readonly long _maxFileSizeBytes;
+        private const string InternalServerErrorMessage = "Internal server error";
 
         public CallRecordingsController(
             ILogger<CallRecordingsController> logger,
@@ -128,29 +129,14 @@ namespace BookingCare.Services.AI.Controllers
 
                 _logger.LogInformation("Call recording saved: {FilePath}", filePath);
 
-                // TODO: Save metadata to database
-                // await _recordingRepository.SaveAsync(new CallRecording
-                // {
-                //     RecordingId = recordingId,
-                //     AppointmentId = appointmentId,
-                //     ConversationId = conversationId,
-                //     FilePath = filePath,
-                //     FileSize = file.Length,
-                //     ContentType = file.ContentType,
-                //     UploadedAt = DateTime.UtcNow
-                // });
-
-                // TODO: Upload to cloud storage (Azure Blob, AWS S3, etc.)
-                // var fileUrl = await _cloudStorageService.UploadAsync(filePath, fileName);
-
                 var response = new UploadRecordingResponse
                 {
                     Success = true,
                     Data = new RecordingData
                     {
                         RecordingId = recordingId,
-                        FileUrl = $"/api/call-recordings/{recordingId}", // Or cloud URL
-                        Duration = 0, // TODO: Extract from audio file metadata
+                        FileUrl = $"/api/call-recordings/{recordingId}",
+                        Duration = 0,
                         FileSize = file.Length,
                     },
                     Message = "Recording uploaded successfully",
@@ -161,7 +147,10 @@ namespace BookingCare.Services.AI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error uploading call recording");
-                return StatusCode(500, new { success = false, message = "Internal server error" });
+                return StatusCode(
+                    500,
+                    new { success = false, message = InternalServerErrorMessage }
+                );
             }
         }
 
@@ -175,11 +164,6 @@ namespace BookingCare.Services.AI.Controllers
         {
             try
             {
-                // TODO: Get file path from database
-                // var recording = await _recordingRepository.GetByIdAsync(recordingId);
-                // if (recording == null) return NotFound();
-
-                // For demo, search for file in upload directory
                 var files = Directory.GetFiles(_uploadPath, $"{recordingId}.*");
                 if (files.Length == 0)
                 {
@@ -188,7 +172,7 @@ namespace BookingCare.Services.AI.Controllers
 
                 var filePath = files[0];
                 var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                var contentType = "audio/webm"; // Or get from database
+                var contentType = "audio/webm";
 
                 return File(stream, contentType, enableRangeProcessing: true);
             }
@@ -199,7 +183,10 @@ namespace BookingCare.Services.AI.Controllers
                     "Error downloading call recording: {RecordingId}",
                     recordingId
                 );
-                return StatusCode(500, new { success = false, message = "Internal server error" });
+                return StatusCode(
+                    500,
+                    new { success = false, message = InternalServerErrorMessage }
+                );
             }
         }
 
@@ -222,16 +209,16 @@ namespace BookingCare.Services.AI.Controllers
                 // Delete file
                 System.IO.File.Delete(files[0]);
 
-                // TODO: Delete from database
-                // await _recordingRepository.DeleteAsync(recordingId);
-
                 _logger.LogInformation("Call recording deleted: {RecordingId}", recordingId);
                 return Ok(new { success = true, message = "Recording deleted successfully" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting call recording: {RecordingId}", recordingId);
-                return StatusCode(500, new { success = false, message = "Internal server error" });
+                return StatusCode(
+                    500,
+                    new { success = false, message = InternalServerErrorMessage }
+                );
             }
         }
 
@@ -245,10 +232,6 @@ namespace BookingCare.Services.AI.Controllers
         {
             try
             {
-                // TODO: Get from database
-                // var recording = await _recordingRepository.GetByAppointmentIdAsync(appointmentId);
-                // if (recording == null) return NotFound();
-
                 return NotFound(new { success = false, message = "Recording not found" });
             }
             catch (Exception ex)
@@ -258,7 +241,10 @@ namespace BookingCare.Services.AI.Controllers
                     "Error getting call recording for appointment: {AppointmentId}",
                     appointmentId
                 );
-                return StatusCode(500, new { success = false, message = "Internal server error" });
+                return StatusCode(
+                    500,
+                    new { success = false, message = InternalServerErrorMessage }
+                );
             }
         }
     }

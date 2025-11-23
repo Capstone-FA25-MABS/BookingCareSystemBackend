@@ -1,11 +1,11 @@
-using BookingCare.Services.AI.Configuration;
-using BookingCare.Services.AI.Models.DTOs;
-using BookingCare.Services.AI.Services.Interfaces;
-using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using BookingCare.Services.AI.Configuration;
+using BookingCare.Services.AI.Models.DTOs;
+using BookingCare.Services.AI.Services.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace BookingCare.Services.AI.Services.Implementations;
 
@@ -17,6 +17,7 @@ public class AIService : IAIService
     private readonly HttpClient _httpClient;
     private readonly GeminiConfiguration _geminiConfig;
     private readonly ILogger<AIService> _logger;
+    private const string SafetyThreshold = "BLOCK_MEDIUM_AND_ABOVE";
 
     public AIService(
         HttpClient httpClient,
@@ -81,7 +82,7 @@ public class AIService : IAIService
     /// <summary>
     /// Build medical summary prompt for Gemini AI
     /// </summary>
-    private string BuildMedicalSummaryPrompt(GenerateMedicalSummaryRequest request)
+    private static string BuildMedicalSummaryPrompt(GenerateMedicalSummaryRequest request)
     {
         var promptBuilder = new StringBuilder();
 
@@ -99,7 +100,6 @@ public class AIService : IAIService
 
         if (request.AppointmentDate.HasValue)
         {
-
             promptBuilder.AppendLine(
                 $"- Ngày khám: {request.AppointmentDate.Value:dd/MM/yyyy HH:mm}"
             );
@@ -107,9 +107,7 @@ public class AIService : IAIService
         else
         {
             // Use Vietnam current time when appointment date is not provided
-            promptBuilder.AppendLine(
-                $"- Ngày khám: {GetVietnamNow():dd/MM/yyyy HH:mm}"
-            );
+            promptBuilder.AppendLine($"- Ngày khám: {GetVietnamNow():dd/MM/yyyy HH:mm}");
         }
 
         promptBuilder.AppendLine();
@@ -197,7 +195,6 @@ public class AIService : IAIService
                         model
                     );
                     lastException = ex;
-                    continue;
                 }
                 catch (InvalidOperationException ex)
                 {
@@ -208,7 +205,6 @@ public class AIService : IAIService
                         model
                     );
                     lastException = ex;
-                    continue;
                 }
                 catch (JsonException ex)
                 {
@@ -219,7 +215,6 @@ public class AIService : IAIService
                         model
                     );
                     lastException = ex;
-                    continue;
                 }
             }
         }
@@ -256,22 +251,10 @@ public class AIService : IAIService
             },
             safetySettings = new[]
             {
-                new { category = "HARM_CATEGORY_HARASSMENT", threshold = "BLOCK_MEDIUM_AND_ABOVE" },
-                new
-                {
-                    category = "HARM_CATEGORY_HATE_SPEECH",
-                    threshold = "BLOCK_MEDIUM_AND_ABOVE",
-                },
-                new
-                {
-                    category = "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                    threshold = "BLOCK_MEDIUM_AND_ABOVE",
-                },
-                new
-                {
-                    category = "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    threshold = "BLOCK_MEDIUM_AND_ABOVE",
-                },
+                new { category = "HARM_CATEGORY_HARASSMENT", threshold = SafetyThreshold },
+                new { category = "HARM_CATEGORY_HATE_SPEECH", threshold = SafetyThreshold },
+                new { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = SafetyThreshold },
+                new { category = "HARM_CATEGORY_DANGEROUS_CONTENT", threshold = SafetyThreshold },
             },
         };
 
@@ -316,7 +299,7 @@ public class AIService : IAIService
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
         );
 
-        if (geminiResponse?.Candidates == null || geminiResponse.Candidates.Length == 0)
+        if (geminiResponse?.Candidates == null || geminiResponse.Candidates.Count == 0)
         {
             _logger.LogWarning(
                 "No candidates in response from {ApiVersion}/{Model}",
@@ -348,24 +331,24 @@ public class AIService : IAIService
 
     #region Gemini API Response Models
 
-    private class GeminiApiResponse
+    private sealed class GeminiApiResponseesponse
     {
-        public Candidate[]? Candidates { get; set; }
+        public Candidate[]? Candidates { get; set; } = Array.Empty<Candidate>();
     }
 
-    private class Candidate
+    private sealed class Candidatendidate
     {
-        public Content? Content { get; set; }
+        public Content? Content { get; set; } = new Content();
     }
 
-    private class Content
+    private sealed class ContentContent
     {
-        public Part[]? Parts { get; set; }
+        public Part[]? Parts { get; set; } = Array.Empty<Part>();
     }
 
-    private class Part
+    private sealed class Part
     {
-        public string? Text { get; set; }
+        public string? Text { get; set; } = string.Empty;
     }
 
     #endregion
@@ -377,8 +360,8 @@ public class AIService : IAIService
         try
         {
             var tz = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time")   // Windows
-                : TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");      // Linux/macOS (IANA)
+                ? TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time") // Windows
+                : TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh"); // Linux/macOS (IANA)
 
             // Convert from UTC to target timezone
             return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);

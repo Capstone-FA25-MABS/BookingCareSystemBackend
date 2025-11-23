@@ -53,11 +53,6 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateAppointment([FromBody] CreateAppointmentRequest request)
     {
-        // Replace this line in CreateAppointment method:
-        // request.AppointmentDate = "{ 11 / 12 / 2025 12:00:00 AM}";
-
-        // With the following line, using a valid DateTime assignment:
-        request.AppointmentDate = new DateTime(2025, 11, 18, 0, 0, 0);
         var appointmentId = await _appointmentService.CreateAppointmentAsync(
             request,
             request.SkipPayment
@@ -357,10 +352,11 @@ public class AppointmentsController : BaseApiController
     [HttpGet("staff/statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [Authorize(Roles = "Staff, Admin")]
-    public async Task<IActionResult> GetHospitalStaffStatistics([FromQuery] StaffHospitalStatisticsRequest request)
+    public async Task<IActionResult> GetHospitalStaffStatistics(
+        [FromQuery] StaffHospitalStatisticsRequest request
+    )
     {
         var result = await _appointmentService.GetHospitalStaffStatisticsAsync(request);
         return Success(result, "Staff statistics retrieved successfully");
     }
-
 }

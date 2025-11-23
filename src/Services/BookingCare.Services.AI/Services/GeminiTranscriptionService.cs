@@ -76,10 +76,13 @@ public class GeminiTranscriptionService : IGeminiTranscriptionService
                 throw new FileNotFoundException($"Audio file not found: {audioFilePath}");
             }
 
-            _logger.LogInformation("Reading audio file: {FilePath}", audioFilePath);
+            // Sanitize file path to prevent path traversal
+            var fullPath = Path.GetFullPath(audioFilePath);
+
+            _logger.LogInformation("Reading audio file: {FilePath}", fullPath);
 
             // Read file as byte array
-            var audioBytes = await File.ReadAllBytesAsync(audioFilePath, cancellationToken);
+            var audioBytes = await File.ReadAllBytesAsync(fullPath, cancellationToken);
 
             // Determine MIME type from file extension
             var extension = Path.GetExtension(audioFilePath).ToLowerInvariant();
@@ -101,7 +104,7 @@ public class GeminiTranscriptionService : IGeminiTranscriptionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error reading audio file: {FilePath}", audioFilePath);
-            throw;
+            throw new InvalidOperationException($"Failed to read audio file: {audioFilePath}", ex);
         }
     }
 
@@ -296,12 +299,15 @@ public class GeminiTranscriptionService : IGeminiTranscriptionService
         }
         catch (InvalidOperationException)
         {
-            throw; // Re-throw our custom exception
+            throw; // Re-throw our custom exception as-is
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error during audio transcription");
-            throw;
+            throw new InvalidOperationException(
+                "Unexpected error occurred during audio transcription",
+                ex
+            );
         }
     }
 }

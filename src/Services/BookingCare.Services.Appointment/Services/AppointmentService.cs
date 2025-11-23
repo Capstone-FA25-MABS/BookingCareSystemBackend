@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+﻿using System.Globalization;
+using AutoMapper;
 using BookingCare.Services.Appointment.Configuration;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Services.Appointment.Exceptions;
@@ -22,7 +23,6 @@ using Microsoft.Extensions.Options;
 using BookingBasicInfo = BookingCare.Services.Appointment.Models.Internal.DoctorBasicInfo;
 using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
 using RedisClient = StackExchange.Redis;
-using System.Globalization;
 
 namespace BookingCare.Services.Appointment.Services;
 
@@ -295,16 +295,33 @@ public class AppointmentService : BaseService, IAppointmentService
     /// <summary>
     /// Release held slot via Redis cache
     /// </summary>
-    private async Task ReleaseHeldSlotAsync(Guid doctorId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid userId)
+    private async Task ReleaseHeldSlotAsync(
+        Guid doctorId,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid userId
+    )
     {
         try
         {
-            LogInfo("Releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
-                null, doctorId, appointmentDate, appointmentTimeId, userId);
+            LogInfo(
+                "Releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                null,
+                doctorId,
+                appointmentDate,
+                appointmentTimeId,
+                userId
+            );
 
             var database = _redisConnection.GetDatabase();
             var dateStr = appointmentDate.ToString(DateFormat);
-            var cacheKey = CacheKeys.Format(CacheKeys.HeldSlot, doctorId, dateStr, (int)appointmentTimeId, userId);
+            var cacheKey = CacheKeys.Format(
+                CacheKeys.HeldSlot,
+                doctorId,
+                dateStr,
+                (int)appointmentTimeId,
+                userId
+            );
 
             await database.KeyDeleteAsync(cacheKey);
 
@@ -312,8 +329,15 @@ public class AppointmentService : BaseService, IAppointmentService
         }
         catch (Exception ex)
         {
-            LogError(ex, "Error releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
-                null, doctorId, appointmentDate, appointmentTimeId, userId);
+            LogError(
+                ex,
+                "Error releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                null,
+                doctorId,
+                appointmentDate,
+                appointmentTimeId,
+                userId
+            );
             // Don't throw - this is not critical for appointment creation
         }
     }
@@ -394,13 +418,15 @@ public class AppointmentService : BaseService, IAppointmentService
             await InvalidateAvailableSlotsCacheAsync(
                 request.DoctorId.Value,
                 request.AppointmentDate,
-                request.ServiceId);
+                request.ServiceId
+            );
 
             await ReleaseHeldSlotAsync(
-                    request.DoctorId.Value,
-                    request.AppointmentDate,
-                    request.AppointmentTimeId,
-                    request.PatientAccountId);
+                request.DoctorId.Value,
+                request.AppointmentDate,
+                request.AppointmentTimeId,
+                request.PatientAccountId
+            );
         }
 
         if (skipPayment)
@@ -2373,15 +2399,10 @@ public class AppointmentService : BaseService, IAppointmentService
                     );
                 }
 
-                // Update result and automatically set status to COMPLETED if not already
-                var targetStatus =
-                    existingAppointment.Status == AppointmentStatus.COMPLETED
-                        ? AppointmentStatus.COMPLETED
-                        : AppointmentStatus.COMPLETED;
-
+                // Update result and automatically set status to COMPLETED
                 var updated = await _appointmentRepository.UpdateAppointmentStatusAsync(
                     request.AppointmentId,
-                    targetStatus,
+                    AppointmentStatus.COMPLETED,
                     request.Result
                 );
 
@@ -3123,52 +3144,94 @@ public class AppointmentService : BaseService, IAppointmentService
         );
     }
 
-    public async Task<StaffHospitalStatisticsResponse> GetHospitalStaffStatisticsAsync(StaffHospitalStatisticsRequest request)
+    public async Task<StaffHospitalStatisticsResponse> GetHospitalStaffStatisticsAsync(
+        StaffHospitalStatisticsRequest request
+    )
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            ValidateRequired(request, nameof(request));
-            ValidateGuid(request.HospitalId, nameof(request.HospitalId));
-
-            var fromDate = request.GetFromDate();
-            var toDate = request.GetToDate();
-
-            if (fromDate > toDate)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new AppointmentException("FromDate must be earlier than or equal to ToDate");
-            }
+                ValidateRequired(request, nameof(request));
+                ValidateGuid(request.HospitalId, nameof(request.HospitalId));
 
-            LogInfo("Generating staff statistics for hospital {HospitalId} from {FromDate} to {ToDate} ({Period})",
-                null, request.HospitalId, fromDate, toDate, request.Period);
+                var fromDate = request.GetFromDate();
+                var toDate = request.GetToDate();
 
-            var appointments = await _appointmentRepository.GetAppointmentsForHospitalAsync(
-                request.HospitalId,
-                fromDate,
-                toDate);
+                if (fromDate > toDate)
+                {
+                    throw new AppointmentException(
+                        "FromDate must be earlier than or equal to ToDate"
+                    );
+                }
 
-            var response = StaffHospitalStatisticsResponse.CreateEmpty(request.HospitalId, fromDate, toDate, request.Period);
+                LogInfo(
+                    "Generating staff statistics for hospital {HospitalId} from {FromDate} to {ToDate} ({Period})",
+                    null,
+                    request.HospitalId,
+                    fromDate,
+                    toDate,
+                    request.Period
+                );
 
-            if (!appointments.Any())
-            {
-                LogInfo("No appointments found for hospital {HospitalId} in provided range", null, request.HospitalId);
+                var appointments = await _appointmentRepository.GetAppointmentsForHospitalAsync(
+                    request.HospitalId,
+                    fromDate,
+                    toDate
+                );
+
+                var response = StaffHospitalStatisticsResponse.CreateEmpty(
+                    request.HospitalId,
+                    fromDate,
+                    toDate,
+                    request.Period
+                );
+
+                if (!appointments.Any())
+                {
+                    LogInfo(
+                        "No appointments found for hospital {HospitalId} in provided range",
+                        null,
+                        request.HospitalId
+                    );
+                    return response;
+                }
+
+                var patientFirstAppointments =
+                    await _appointmentRepository.GetPatientFirstAppointmentsAsync(
+                        request.HospitalId
+                    );
+
+                response.Overview = BuildHospitalOverview(
+                    appointments,
+                    patientFirstAppointments,
+                    fromDate,
+                    toDate
+                );
+                response.AppointmentTrend = BuildAppointmentTrend(
+                    appointments,
+                    fromDate,
+                    toDate,
+                    request.Period
+                );
+                response.NewPatientTrend = BuildNewPatientTrend(
+                    patientFirstAppointments,
+                    fromDate,
+                    toDate,
+                    request.Period
+                );
+
                 return response;
-            }
-
-            var patientFirstAppointments = await _appointmentRepository.GetPatientFirstAppointmentsAsync(request.HospitalId);
-
-            response.Overview = BuildHospitalOverview(appointments, patientFirstAppointments, fromDate, toDate);
-            response.AppointmentTrend = BuildAppointmentTrend(appointments, fromDate, toDate, request.Period);
-            response.NewPatientTrend = BuildNewPatientTrend(patientFirstAppointments, fromDate, toDate, request.Period);
-
-            return response;
-        }, "GetHospitalStaffStatistics");
+            },
+            "GetHospitalStaffStatistics"
+        );
     }
 
     private static HospitalAppointmentOverview BuildHospitalOverview(
         List<AppointmentEntity> appointments,
         Dictionary<Guid, DateTime> patientFirstAppointments,
         DateTime fromDate,
-        DateTime toDate)
+        DateTime toDate
+    )
     {
         var total = appointments.Count;
         var completed = appointments.Count(a => a.Status == AppointmentStatus.COMPLETED);
@@ -3177,8 +3240,9 @@ public class AppointmentService : BaseService, IAppointmentService
         var cancelled = appointments.Count(a => a.Status == AppointmentStatus.CANCELLED);
         var rescheduled = appointments.Count(a => a.IsRescheduled);
 
-        var newPatients = patientFirstAppointments
-            .Count(kvp => kvp.Value >= fromDate && kvp.Value <= toDate);
+        var newPatients = patientFirstAppointments.Count(kvp =>
+            kvp.Value >= fromDate && kvp.Value <= toDate
+        );
 
         return new HospitalAppointmentOverview
         {
@@ -3190,7 +3254,7 @@ public class AppointmentService : BaseService, IAppointmentService
             RescheduledAppointments = rescheduled,
             NewPatients = newPatients,
             NoShowRate = CalculateRate(cancelled, total),
-            RescheduleRate = CalculateRate(rescheduled, total)
+            RescheduleRate = CalculateRate(rescheduled, total),
         };
     }
 
@@ -3198,7 +3262,8 @@ public class AppointmentService : BaseService, IAppointmentService
         List<AppointmentEntity> appointments,
         DateTime fromDate,
         DateTime toDate,
-        StatisticsPeriod period)
+        StatisticsPeriod period
+    )
     {
         var results = new List<AppointmentTrendPoint>();
         var cursor = AlignToPeriodStart(fromDate.Date, period);
@@ -3206,24 +3271,34 @@ public class AppointmentService : BaseService, IAppointmentService
 
         while (cursor <= endDate)
         {
-            var (periodStart, periodEnd, label) = StatisticsPeriodHelper.GetPeriodBounds(cursor, period);
+            var (periodStart, periodEnd, label) = StatisticsPeriodHelper.GetPeriodBounds(
+                cursor,
+                period
+            );
 
             var periodAppointments = appointments
                 .Where(a =>
-                    a.AppointmentDate.Date >= periodStart.Date &&
-                    a.AppointmentDate.Date <= periodEnd.Date)
+                    a.AppointmentDate.Date >= periodStart.Date
+                    && a.AppointmentDate.Date <= periodEnd.Date
+                )
                 .ToList();
 
-            results.Add(new AppointmentTrendPoint
-            {
-                Label = label,
-                PeriodStart = periodStart,
-                PeriodEnd = periodEnd,
-                TotalAppointments = periodAppointments.Count,
-                CompletedAppointments = periodAppointments.Count(a => a.Status == AppointmentStatus.COMPLETED),
-                CancelledAppointments = periodAppointments.Count(a => a.Status == AppointmentStatus.CANCELLED),
-                RescheduledAppointments = periodAppointments.Count(a => a.IsRescheduled)
-            });
+            results.Add(
+                new AppointmentTrendPoint
+                {
+                    Label = label,
+                    PeriodStart = periodStart,
+                    PeriodEnd = periodEnd,
+                    TotalAppointments = periodAppointments.Count,
+                    CompletedAppointments = periodAppointments.Count(a =>
+                        a.Status == AppointmentStatus.COMPLETED
+                    ),
+                    CancelledAppointments = periodAppointments.Count(a =>
+                        a.Status == AppointmentStatus.CANCELLED
+                    ),
+                    RescheduledAppointments = periodAppointments.Count(a => a.IsRescheduled),
+                }
+            );
 
             cursor = StatisticsPeriodHelper.GetNextPeriod(periodStart, period);
         }
@@ -3235,7 +3310,8 @@ public class AppointmentService : BaseService, IAppointmentService
         Dictionary<Guid, DateTime> patientFirstAppointments,
         DateTime fromDate,
         DateTime toDate,
-        StatisticsPeriod period)
+        StatisticsPeriod period
+    )
     {
         var filteredFirstAppointments = patientFirstAppointments
             .Where(kvp => kvp.Value >= fromDate && kvp.Value <= toDate)
@@ -3248,18 +3324,24 @@ public class AppointmentService : BaseService, IAppointmentService
 
         while (cursor <= endDate)
         {
-            var (periodStart, periodEnd, label) = StatisticsPeriodHelper.GetPeriodBounds(cursor, period);
+            var (periodStart, periodEnd, label) = StatisticsPeriodHelper.GetPeriodBounds(
+                cursor,
+                period
+            );
 
-            var newPatients = filteredFirstAppointments
-                .Count(date => date.Date >= periodStart.Date && date.Date <= periodEnd.Date);
+            var newPatients = filteredFirstAppointments.Count(date =>
+                date.Date >= periodStart.Date && date.Date <= periodEnd.Date
+            );
 
-            results.Add(new NewPatientTrendPoint
-            {
-                Label = label,
-                PeriodStart = periodStart,
-                PeriodEnd = periodEnd,
-                NewPatients = newPatients
-            });
+            results.Add(
+                new NewPatientTrendPoint
+                {
+                    Label = label,
+                    PeriodStart = periodStart,
+                    PeriodEnd = periodEnd,
+                    NewPatients = newPatients,
+                }
+            );
 
             cursor = StatisticsPeriodHelper.GetNextPeriod(periodStart, period);
         }
@@ -3285,12 +3367,19 @@ public class AppointmentService : BaseService, IAppointmentService
             StatisticsPeriod.Daily => date,
             StatisticsPeriod.Weekly => date.AddDays(-(int)date.DayOfWeek).Date,
             StatisticsPeriod.Monthly => new DateTime(date.Year, date.Month, 1, 0, 0, 0, dateKind),
-            StatisticsPeriod.Quarterly => new DateTime(date.Year, ((date.Month - 1) / 3) * 3 + 1, 1, 0, 0, 0, dateKind),
+            StatisticsPeriod.Quarterly => new DateTime(
+                date.Year,
+                ((date.Month - 1) / 3) * 3 + 1,
+                1,
+                0,
+                0,
+                0,
+                dateKind
+            ),
             StatisticsPeriod.Yearly => new DateTime(date.Year, 1, 1, 0, 0, 0, dateKind),
-            _ => date
+            _ => date,
         };
     }
-
 
     /// <summary>
     /// Fetch doctors from gRPC Doctor Service

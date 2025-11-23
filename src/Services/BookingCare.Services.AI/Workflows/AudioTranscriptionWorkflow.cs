@@ -66,7 +66,7 @@ public class AudioTranscriptionWorkflow : IAudioTranscriptionWorkflow
 
         try
         {
-            // Step 1: Validate audio MIME type
+            // Step 1: Validate audio MIME type and extension
             _logger.LogInformation(
                 "Processing audio file: Name={FileName}, Size={Size} bytes, Type={ContentType}",
                 audioFile.FileName,
@@ -80,13 +80,12 @@ public class AudioTranscriptionWorkflow : IAudioTranscriptionWorkflow
             // Step 2: Save file temporarily
             tempFilePath = await SaveFileTemporarilyAsync(audioFile, cancellationToken);
 
-            _logger.LogInformation("Audio file saved temporarily: {FilePath}", tempFilePath);
-
-            // Step 3: Call TranscribeAudioAsync (Gemini)
+            // Step 3: Call TranscribeAudioAsync (Gemini) and log result
             var transcript = await TranscribeAudioAsync(tempFilePath, cancellationToken);
 
             _logger.LogInformation(
-                "Transcription completed successfully: Length={Length} characters",
+                "Audio file processed and transcribed successfully: {FilePath}, Transcript length={Length} characters",
+                tempFilePath,
                 transcript.Length
             );
 
@@ -99,7 +98,10 @@ public class AudioTranscriptionWorkflow : IAudioTranscriptionWorkflow
                 "Error processing audio file: {FileName}",
                 audioFile?.FileName ?? "unknown"
             );
-            throw;
+            throw new InvalidOperationException(
+                $"Failed to process audio file: {audioFile?.FileName}",
+                ex
+            );
         }
         finally
         {
@@ -248,7 +250,10 @@ public class AudioTranscriptionWorkflow : IAudioTranscriptionWorkflow
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error while saving temporary file");
-            throw;
+            throw new InvalidOperationException(
+                "Unexpected error occurred while saving temporary file",
+                ex
+            );
         }
     }
 
@@ -287,10 +292,14 @@ public class AudioTranscriptionWorkflow : IAudioTranscriptionWorkflow
             _logger.LogError(ex, "Audio file not found: {AudioPath}", audioPath);
             throw new InvalidOperationException("Temporary audio file not found", ex);
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException ex) when (ex.InnerException != null)
         {
             _logger.LogError(ex, "Transcription failed for: {AudioPath}", audioPath);
-            throw;
+            throw new InvalidOperationException($"Transcription failed for file: {audioPath}", ex);
+        }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw if it's already our custom exception without inner exception
         }
         catch (Exception ex)
         {

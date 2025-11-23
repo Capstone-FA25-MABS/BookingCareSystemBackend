@@ -16,7 +16,6 @@ namespace BookingCare.Services.AI.Controllers;
 public class VoiceController : BaseApiController
 {
     private readonly ILogger<VoiceController> _logger;
-    private readonly IWebHostEnvironment _environment;
     private readonly IGeminiTranscriptionService _transcriptionService;
     private readonly IAudioTranscriptionWorkflow _audioWorkflow;
     private readonly string _audioTempPath;
@@ -31,12 +30,11 @@ public class VoiceController : BaseApiController
     )
     {
         _logger = logger;
-        _environment = environment;
         _transcriptionService = transcriptionService;
         _audioWorkflow = audioWorkflow;
 
         // Set up audio temp directory
-        _audioTempPath = Path.Combine(_environment.WebRootPath ?? "wwwroot", "audio-temp");
+        _audioTempPath = Path.Combine(environment.WebRootPath ?? "wwwroot", "audio-temp");
 
         // Ensure directory exists
         if (!Directory.Exists(_audioTempPath))
@@ -210,7 +208,18 @@ public class VoiceController : BaseApiController
                 return BadRequest(new { message = "Invalid filename" });
             }
 
-            var filePath = Path.Combine(_audioTempPath, fileName);
+            // Sanitize filename to prevent path traversal
+            var sanitizedFileName = Path.GetFileName(fileName);
+            var filePath = Path.Combine(_audioTempPath, sanitizedFileName);
+
+            // Verify the resulting path is within the expected directory
+            var fullPath = Path.GetFullPath(filePath);
+            var expectedDirectory = Path.GetFullPath(_audioTempPath);
+            if (!fullPath.StartsWith(expectedDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Path traversal attempt detected: {FileName}", fileName);
+                return BadRequest(new { message = "Invalid filename" });
+            }
 
             if (!System.IO.File.Exists(filePath))
             {
@@ -268,7 +277,18 @@ public class VoiceController : BaseApiController
                 return BadRequest(new { message = "Invalid filename" });
             }
 
-            var filePath = Path.Combine(_audioTempPath, fileName);
+            // Sanitize filename to prevent path traversal
+            var sanitizedFileName = Path.GetFileName(fileName);
+            var filePath = Path.Combine(_audioTempPath, sanitizedFileName);
+
+            // Verify the resulting path is within the expected directory
+            var fullPath = Path.GetFullPath(filePath);
+            var expectedDirectory = Path.GetFullPath(_audioTempPath);
+            if (!fullPath.StartsWith(expectedDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Path traversal attempt detected: {FileName}", fileName);
+                return BadRequest(new { message = "Invalid filename" });
+            }
 
             if (!System.IO.File.Exists(filePath))
             {
