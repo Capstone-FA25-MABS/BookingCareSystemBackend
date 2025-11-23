@@ -63,6 +63,12 @@ public static class CacheKeys
     public const string ServiceSchedules = "service_schedules:{0}"; // serviceId
     public const string ClinicExceptions = "clinic_exceptions:{0}:{1}"; // clinicId:date
 
+    // Service Medical Schedule related cache keys
+    public const string ServiceMedicalDailySchedule = "service_medical_schedule:daily:{0}:{1}"; // serviceMedicalId:date
+    public const string ServiceMedicalScheduleRange = "service_medical_schedule:range:{0}:{1}:{2}"; // serviceMedicalId:startDate:endDate
+    public const string ServiceMedicalExceptions = "service_medical_exceptions:{0}:{1}"; // serviceMedicalId:date
+    public const string ServiceMedicalAvailableSlots = "service_medical_available_slots:{0}:{1}"; // serviceMedicalId:date
+
     // Common patterns for bulk operations
     public const string UserPattern = "user:*";
     public const string DoctorPattern = "doctor:*";

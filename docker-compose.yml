@@ -260,6 +260,21 @@ services:
     networks:
       - bookingcare-network
 
+    # Databases
+  sqlserver-serviceMedical-service:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bookingcare_sqlserver_serviceMedical_service
+    ports:
+      - "1435:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=ServiceMedical@1234!
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_serviceMedical_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+
   mongodb:
     image: mongo:7
     ports:
@@ -484,6 +499,7 @@ volumes:
   sqlserver_hospital_data:
   sqlserver_user_data_v2:
   sqlserver_schedule_data:
+  sqlserver_serviceMedical_data:
   mongodb_data:
   rabbitmq_data:
     driver: local

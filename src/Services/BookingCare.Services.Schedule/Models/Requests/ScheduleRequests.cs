@@ -120,3 +120,73 @@ public class GetDoctorScheduleRequest
     [Required]
     public DateOnly EndDate { get; set; }
 }
+
+/// <summary>
+/// Request to create or update service medical daily schedule
+/// </summary>
+public class CreateServiceMedicalDailyScheduleRequest
+{
+    [Required]
+    [JsonRequired]
+    public Guid ServiceMedicalId { get; set; }
+
+    [Required]
+    [JsonRequired]
+    public DateOnly ScheduleDate { get; set; }
+
+    [Required]
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
+}
+
+/// <summary>
+/// Request to create service medical schedule exception
+/// </summary>
+public class CreateServiceMedicalScheduleExceptionRequest
+{
+    [Required]
+    [JsonRequired]
+    public Guid ServiceMedicalId { get; set; }
+
+    [Required]
+    [JsonRequired]
+    public DateOnly ExceptionDate { get; set; }
+
+    public List<AppointmentTime>? AppointmentTimes { get; set; } // NULL or empty for full day off
+
+    [Required]
+    [JsonRequired]
+    public ExceptionType ExceptionType { get; set; }
+
+    [Required]
+    public bool IsAvailable { get; set; } = false;
+
+    [StringLength(255)]
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Request to get service medical schedule for a date range
+/// </summary>
+public class GetServiceMedicalScheduleRequest
+{
+    [Required]
+    public Guid ServiceMedicalId { get; set; }
+
+    [Required]
+    public DateOnly StartDate { get; set; }
+
+    [Required]
+    public DateOnly EndDate { get; set; }
+}
+
+/// <summary>
+/// Request to get available slots for a service medical
+/// </summary>
+public class GetServiceMedicalAvailableSlotsRequest
+{
+    [Required]
+    public Guid ServiceMedicalId { get; set; }
+
+    [Required]
+    public DateOnly Date { get; set; }
+}
