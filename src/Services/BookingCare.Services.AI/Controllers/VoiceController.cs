@@ -54,6 +54,7 @@ public class VoiceController : BaseApiController
     [Authorize(Roles = "Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [RequestSizeLimit(100_000_000)] // 100 MB limit
+    [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)] // 100 MB limit for multipart forms
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -330,6 +331,7 @@ public class VoiceController : BaseApiController
     [Authorize(Roles = "Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [RequestSizeLimit(100_000_000)] // 100 MB limit
+    [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)] // 100 MB limit for multipart forms
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -448,6 +450,7 @@ public class VoiceController : BaseApiController
     [Authorize(Roles = "Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [RequestSizeLimit(100_000_000)] // 100 MB limit
+    [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)] // 100 MB limit for multipart forms
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

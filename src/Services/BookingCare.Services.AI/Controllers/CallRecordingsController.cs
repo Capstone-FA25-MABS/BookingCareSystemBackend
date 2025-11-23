@@ -44,6 +44,7 @@ namespace BookingCare.Services.AI.Controllers
         /// <returns>Upload result with recording metadata</returns>
         [HttpPost("upload")]
         [RequestSizeLimit(100_000_000)] // 100 MB limit
+        [RequestFormLimits(MultipartBodyLengthLimit = 100_000_000)] // 100 MB limit for multipart forms
         [ProducesResponseType(typeof(UploadRecordingResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UploadRecording(
