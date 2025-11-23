@@ -296,4 +296,151 @@ public class ScheduleRepository : IScheduleRepository
     }
 
     #endregion
+
+    #region ServiceMedicalDailySchedule operations
+
+    public async Task<ServiceMedicalDailyScheduleEntity?> GetServiceMedicalDailyScheduleAsync(Guid serviceMedicalId, DateOnly date)
+    {
+        return await _context.ServiceMedicalDailySchedules
+            .FirstOrDefaultAsync(x => x.ServiceMedicalId == serviceMedicalId && x.ScheduleDate == date);
+    }
+
+    public async Task<IEnumerable<ServiceMedicalDailyScheduleEntity>> GetServiceMedicalScheduleRangeAsync(Guid serviceMedicalId, DateOnly startDate, DateOnly endDate)
+    {
+        return await _context.ServiceMedicalDailySchedules
+            .Where(x => x.ServiceMedicalId == serviceMedicalId && x.ScheduleDate >= startDate && x.ScheduleDate <= endDate)
+            .OrderBy(x => x.ScheduleDate)
+            .ToListAsync();
+    }
+
+    public async Task<ServiceMedicalDailyScheduleEntity> CreateOrUpdateServiceMedicalDailyScheduleAsync(ServiceMedicalDailyScheduleEntity schedule)
+    {
+        var existing = await _context.ServiceMedicalDailySchedules
+            .FirstOrDefaultAsync(x => x.ServiceMedicalId == schedule.ServiceMedicalId && x.ScheduleDate == schedule.ScheduleDate);
+
+        if (existing != null)
+        {
+            existing.SchedulePatterns = schedule.SchedulePatterns;
+            existing.UpdatedAt = DateTime.UtcNow;
+            _context.ServiceMedicalDailySchedules.Update(existing);
+        }
+        else
+        {
+            _context.ServiceMedicalDailySchedules.Add(schedule);
+        }
+
+        await _context.SaveChangesAsync();
+        return existing ?? schedule;
+    }
+
+    public async Task DeleteServiceMedicalDailyScheduleAsync(Guid serviceMedicalId, DateOnly date)
+    {
+        var schedule = await _context.ServiceMedicalDailySchedules
+            .FirstOrDefaultAsync(x => x.ServiceMedicalId == serviceMedicalId && x.ScheduleDate == date);
+
+        if (schedule != null)
+        {
+            _context.ServiceMedicalDailySchedules.Remove(schedule);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    #endregion
+
+    #region ServiceMedicalScheduleException operations
+
+    public async Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetServiceMedicalExceptionsAsync(Guid serviceMedicalId, DateOnly date)
+    {
+        return await _context.ServiceMedicalScheduleExceptions
+            .Where(x => x.ServiceMedicalId == serviceMedicalId && x.ExceptionDate == date)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetServiceMedicalExceptionsRangeAsync(Guid serviceMedicalId, DateOnly startDate, DateOnly endDate)
+    {
+        return await _context.ServiceMedicalScheduleExceptions
+            .Where(x => x.ServiceMedicalId == serviceMedicalId && x.ExceptionDate >= startDate && x.ExceptionDate <= endDate)
+            .OrderBy(x => x.ExceptionDate)
+            .ToListAsync();
+    }
+
+    public async Task<ServiceMedicalScheduleExceptionEntity> CreateServiceMedicalScheduleExceptionAsync(ServiceMedicalScheduleExceptionEntity exception)
+    {
+        _context.ServiceMedicalScheduleExceptions.Add(exception);
+        await _context.SaveChangesAsync();
+        return exception;
+    }
+
+    public async Task DeleteServiceMedicalScheduleExceptionAsync(Guid id)
+    {
+        var exception = await _context.ServiceMedicalScheduleExceptions.FindAsync(id);
+        if (exception != null)
+        {
+            _context.ServiceMedicalScheduleExceptions.Remove(exception);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    #endregion
+
+    #region ServiceMedical Available slots operations
+
+    public async Task<IEnumerable<AppointmentTime>> GetServiceMedicalAvailableSlotsAsync(Guid serviceMedicalId, DateOnly date)
+    {
+        // Get service medical's schedule for the day
+        var serviceMedicalSchedule = await GetServiceMedicalDailyScheduleAsync(serviceMedicalId, date);
+        if (serviceMedicalSchedule == null)
+        {
+            return new List<AppointmentTime>();
+        }
+
+        // Get all slots from the patterns based on enum collection
+        var availableSlots = GetAppointmentTimesForPatterns(serviceMedicalSchedule.SchedulePatterns).ToList();
+
+        // Get service medical's exceptions for the day
+        var exceptions = await GetServiceMedicalExceptionsAsync(serviceMedicalId, date);
+
+        // Apply exceptions to filter available slots
+        availableSlots = ApplyServiceMedicalExceptionsToSlots(availableSlots, exceptions);
+
+        return availableSlots.OrderBy(x => (int)x);
+    }
+
+    private static List<AppointmentTime> ApplyServiceMedicalExceptionsToSlots(List<AppointmentTime> availableSlots, IEnumerable<ServiceMedicalScheduleExceptionEntity> exceptions)
+    {
+        foreach (var exception in exceptions)
+        {
+            if (exception.ExceptionType == ExceptionType.DAY_OFF)
+            {
+                // Service is off for the entire day
+                return new List<AppointmentTime>();
+            }
+
+            if (exception.AppointmentTime.HasValue && exception.AppointmentTime.Value != 0)
+            {
+                ProcessServiceMedicalSlotException(availableSlots, exception);
+            }
+        }
+
+        return availableSlots;
+    }
+
+    private static void ProcessServiceMedicalSlotException(List<AppointmentTime> availableSlots, ServiceMedicalScheduleExceptionEntity exception)
+    {
+        if (!exception.IsAvailable)
+        {
+            // Slot is not available - remove it regardless of exception type
+            availableSlots.Remove(exception.AppointmentTime!.Value);
+        }
+        else if (exception.ExceptionType == ExceptionType.UNBLOCK_SLOT)
+        {
+            // Slot is explicitly made available - add it if not already present
+            if (!availableSlots.Contains(exception.AppointmentTime!.Value))
+            {
+                availableSlots.Add(exception.AppointmentTime.Value);
+            }
+        }
+    }
+
+    #endregion
 }

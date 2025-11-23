@@ -52,6 +52,8 @@ public interface IAppointmentRepository
         Guid? doctorId = null,
         Guid? hospitalId = null,
         bool countAll = false);
+    Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(Guid hospitalId, DateTime fromDate, DateTime toDate);
+    Task<Dictionary<Guid, DateTime>> GetPatientFirstAppointmentsAsync(Guid hospitalId);
 
     // Background service operations
     /// <summary>

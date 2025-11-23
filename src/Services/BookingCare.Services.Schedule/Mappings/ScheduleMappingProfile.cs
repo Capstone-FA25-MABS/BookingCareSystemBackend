@@ -17,6 +17,8 @@ public class ScheduleMappingProfile : Profile
         ConfigureDoctorScheduleExceptionMappings();
         ConfigureClinicExceptionMappings();
         ConfigureServiceScheduleMappings();
+        ConfigureServiceMedicalDailyScheduleMappings();
+        ConfigureServiceMedicalScheduleExceptionMappings();
         ConfigureAppointmentTimeMappings();
     }
 
@@ -109,5 +111,51 @@ public class ScheduleMappingProfile : Profile
         // AppointmentTime enum to DTO mapping using shared helper
         CreateMap<AppointmentTime, AppointmentTimeDto>()
             .ConstructUsing((src, context) => BookingCare.Services.Schedule.Utilities.AppointmentTimeHelper.ConvertEnumToDto(src));
+    }
+
+    private void ConfigureServiceMedicalDailyScheduleMappings()
+    {
+        // Entity to DTO mapping
+        CreateMap<ServiceMedicalDailyScheduleEntity, ServiceMedicalDailyScheduleDto>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.ServiceMedicalId, opt => opt.MapFrom(src => src.ServiceMedicalId))
+            .ForMember(dest => dest.ScheduleDate, opt => opt.MapFrom(src => src.ScheduleDate))
+            .ForMember(dest => dest.SchedulePatterns, opt => opt.MapFrom(src => src.SchedulePatterns))
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
+            .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(src => src.UpdatedAt));
+
+        // Request to Entity mapping
+        CreateMap<CreateServiceMedicalDailyScheduleRequest, ServiceMedicalDailyScheduleEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.ServiceMedicalId, opt => opt.MapFrom(src => src.ServiceMedicalId))
+            .ForMember(dest => dest.ScheduleDate, opt => opt.MapFrom(src => src.ScheduleDate))
+            .ForMember(dest => dest.SchedulePatterns, opt => opt.MapFrom(src => src.SchedulePatterns));
+    }
+
+    private void ConfigureServiceMedicalScheduleExceptionMappings()
+    {
+        // Entity to DTO mapping
+        CreateMap<ServiceMedicalScheduleExceptionEntity, ServiceMedicalScheduleExceptionDto>()
+            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.ServiceMedicalId, opt => opt.MapFrom(src => src.ServiceMedicalId))
+            .ForMember(dest => dest.ExceptionDate, opt => opt.MapFrom(src => src.ExceptionDate))
+            .ForMember(dest => dest.AppointmentTime, opt => opt.MapFrom(src => src.AppointmentTime))
+            .ForMember(dest => dest.ExceptionType, opt => opt.MapFrom(src => src.ExceptionType.ToString()))
+            .ForMember(dest => dest.IsAvailable, opt => opt.MapFrom(src => src.IsAvailable))
+            .ForMember(dest => dest.Reason, opt => opt.MapFrom(src => src.Reason))
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
+
+        // Request to Entity mapping for creating exceptions
+        CreateMap<CreateServiceMedicalScheduleExceptionRequest, ServiceMedicalScheduleExceptionEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+            .ForMember(dest => dest.ServiceMedicalId, opt => opt.MapFrom(src => src.ServiceMedicalId))
+            .ForMember(dest => dest.ExceptionDate, opt => opt.MapFrom(src => src.ExceptionDate))
+            .ForMember(dest => dest.AppointmentTime, opt => opt.Ignore()) // Will be set manually for each appointment time
+            .ForMember(dest => dest.ExceptionType, opt => opt.MapFrom(src => src.ExceptionType))
+            .ForMember(dest => dest.IsAvailable, opt => opt.MapFrom(src => src.IsAvailable))
+            .ForMember(dest => dest.Reason, opt => opt.MapFrom(src => src.Reason));
     }
 }
