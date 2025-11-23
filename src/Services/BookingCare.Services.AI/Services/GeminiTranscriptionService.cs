@@ -121,181 +121,16 @@ public class GeminiTranscriptionService : IGeminiTranscriptionService
                 audioBytes.Length
             );
 
-            // Convert audio bytes to base64
-            var base64Audio = Convert.ToBase64String(audioBytes);
+            var jsonPayload = BuildTranscriptionRequestPayload(audioBytes, mimeType);
+            var httpClient = CreateConfiguredHttpClient();
 
-            // Build request payload for Gemini API
-            var requestPayload = new
-            {
-                contents = new[]
-                {
-                    new
-                    {
-                        parts = new object[]
-                        {
-                            new { inline_data = new { mime_type = mimeType, data = base64Audio } },
-                            new
-                            {
-                                text = "Please transcribe this audio file. Provide only the transcription text without any additional commentary.",
-                            },
-                        },
-                    },
-                },
-            };
-
-            // Serialize request
-            var jsonPayload = JsonSerializer.Serialize(
-                requestPayload,
-                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+            var transcript = await TryAllModelCombinationsAsync(
+                httpClient,
+                jsonPayload,
+                cancellationToken
             );
 
-            _logger.LogDebug("Request payload size: {Size} bytes", jsonPayload.Length);
-
-            // Create HTTP client
-            var httpClient = _httpClientFactory.CreateClient();
-            httpClient.Timeout = TimeSpan.FromMinutes(5); // Longer timeout for audio processing
-
-            // Models to try (prioritize models that support audio)
-            var modelsToTry = new[]
-            {
-                "gemini-2.5-flash", // Latest fast model for audio transcription
-                "gemini-2.0-flash", // Fallback fast model
-                "gemini-2.5-pro", // High quality model
-                "gemini-2.0-flash-lite", // Lite version
-            };
-
-            // API versions to try (v1 first as it's stable)
-            var apiVersions = new[] { "v1", "v1beta" };
-
-            Exception? lastException = null;
-
-            // Try different model and API version combinations
-            foreach (var model in modelsToTry)
-            {
-                foreach (var apiVersion in apiVersions)
-                {
-                    try
-                    {
-                        var requestUrl =
-                            $"{_apiEndpoint}/{apiVersion}/models/{model}:generateContent?key={_apiKey}";
-
-                        _logger.LogInformation(
-                            "Trying Gemini API: {ApiVersion}/models/{Model}",
-                            apiVersion,
-                            model
-                        );
-
-                        // Create HTTP request
-                        var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
-                        {
-                            Content = new StringContent(
-                                jsonPayload,
-                                Encoding.UTF8,
-                                "application/json"
-                            ),
-                        };
-
-                        // Send request
-                        var response = await httpClient.SendAsync(request, cancellationToken);
-
-                        // Read response
-                        var responseContent = await response.Content.ReadAsStringAsync(
-                            cancellationToken
-                        );
-
-                        if (!response.IsSuccessStatusCode)
-                        {
-                            // If 404, try next combination
-                            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                            {
-                                _logger.LogDebug(
-                                    "Model {Model} not found on {ApiVersion}, trying next",
-                                    model,
-                                    apiVersion
-                                );
-                                continue;
-                            }
-
-                            // Log error but continue trying
-                            _logger.LogWarning(
-                                "Gemini API failed: {ApiVersion}/{Model} - Status={StatusCode}",
-                                apiVersion,
-                                model,
-                                response.StatusCode
-                            );
-
-                            lastException = new HttpRequestException(
-                                $"Gemini API request failed with status {response.StatusCode}: {responseContent}"
-                            );
-                            continue;
-                        }
-
-                        // Success - parse response
-                        var geminiResponse = JsonSerializer.Deserialize<GeminiApiResponse>(
-                            responseContent,
-                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-                        );
-
-                        if (
-                            geminiResponse?.Candidates == null
-                            || geminiResponse.Candidates.Count == 0
-                        )
-                        {
-                            _logger.LogWarning("No candidates in response from {Model}", model);
-                            continue;
-                        }
-
-                        // Extract transcript
-                        var firstCandidate = geminiResponse.Candidates[0];
-                        var transcript = firstCandidate.Content?.Parts?.FirstOrDefault()?.Text;
-
-                        if (string.IsNullOrWhiteSpace(transcript))
-                        {
-                            _logger.LogWarning("Empty transcript from {Model}", model);
-                            continue;
-                        }
-
-                        _logger.LogInformation(
-                            "Transcription successful using {ApiVersion}/{Model}: Length={Length} characters",
-                            apiVersion,
-                            model,
-                            transcript.Length
-                        );
-
-                        return transcript.Trim();
-                    }
-                    catch (HttpRequestException ex)
-                    {
-                        _logger.LogDebug(
-                            ex,
-                            "HTTP error with {ApiVersion}/{Model}, trying next",
-                            apiVersion,
-                            model
-                        );
-                        lastException = ex;
-                    }
-                    catch (JsonException ex)
-                    {
-                        _logger.LogDebug(
-                            ex,
-                            "JSON error with {ApiVersion}/{Model}, trying next",
-                            apiVersion,
-                            model
-                        );
-                        lastException = ex;
-                    }
-                }
-            }
-
-            // All attempts failed
-            _logger.LogError(
-                lastException,
-                "All Gemini API attempts failed for audio transcription"
-            );
-            throw new InvalidOperationException(
-                $"Failed to transcribe audio after trying all available models. Last error: {lastException?.Message}",
-                lastException
-            );
+            return transcript;
         }
         catch (InvalidOperationException)
         {
@@ -309,5 +144,201 @@ public class GeminiTranscriptionService : IGeminiTranscriptionService
                 ex
             );
         }
+    }
+
+    private string BuildTranscriptionRequestPayload(byte[] audioBytes, string mimeType)
+    {
+        var base64Audio = Convert.ToBase64String(audioBytes);
+
+        var requestPayload = new
+        {
+            contents = new[]
+            {
+                new
+                {
+                    parts = new object[]
+                    {
+                        new { inline_data = new { mime_type = mimeType, data = base64Audio } },
+                        new
+                        {
+                            text = "Please transcribe this audio file. Provide only the transcription text without any additional commentary.",
+                        },
+                    },
+                },
+            },
+        };
+
+        var jsonPayload = JsonSerializer.Serialize(
+            requestPayload,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+        );
+
+        _logger.LogDebug("Request payload size: {Size} bytes", jsonPayload.Length);
+        return jsonPayload;
+    }
+
+    private HttpClient CreateConfiguredHttpClient()
+    {
+        var httpClient = _httpClientFactory.CreateClient();
+        httpClient.Timeout = TimeSpan.FromMinutes(5); // Longer timeout for audio processing
+        return httpClient;
+    }
+
+    private async Task<string> TryAllModelCombinationsAsync(
+        HttpClient httpClient,
+        string jsonPayload,
+        CancellationToken cancellationToken
+    )
+    {
+        var modelsToTry = new[]
+        {
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash-lite",
+        };
+
+        var apiVersions = new[] { "v1", "v1beta" };
+        Exception? lastException = null;
+
+        foreach (var model in modelsToTry)
+        {
+            foreach (var apiVersion in apiVersions)
+            {
+                try
+                {
+                    var transcript = await TryTranscribeWithModelAsync(
+                        httpClient,
+                        jsonPayload,
+                        model,
+                        apiVersion,
+                        cancellationToken
+                    );
+
+                    if (transcript != null)
+                        return transcript;
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogDebug(
+                        ex,
+                        "HTTP error with {ApiVersion}/{Model}, trying next",
+                        apiVersion,
+                        model
+                    );
+                    lastException = ex;
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogDebug(
+                        ex,
+                        "JSON error with {ApiVersion}/{Model}, trying next",
+                        apiVersion,
+                        model
+                    );
+                    lastException = ex;
+                }
+            }
+        }
+
+        _logger.LogError(lastException, "All Gemini API attempts failed for audio transcription");
+        throw new InvalidOperationException(
+            $"Failed to transcribe audio after trying all available models. Last error: {lastException?.Message}",
+            lastException
+        );
+    }
+
+    private async Task<string?> TryTranscribeWithModelAsync(
+        HttpClient httpClient,
+        string jsonPayload,
+        string model,
+        string apiVersion,
+        CancellationToken cancellationToken
+    )
+    {
+        var requestUrl =
+            $"{_apiEndpoint}/{apiVersion}/models/{model}:generateContent?key={_apiKey}";
+
+        _logger.LogInformation("Trying Gemini API: {ApiVersion}/models/{Model}", apiVersion, model);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
+        {
+            Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json"),
+        };
+
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return HandleUnsuccessfulResponse(response, responseContent, model, apiVersion);
+        }
+
+        return ExtractTranscriptFromResponse(responseContent, model, apiVersion);
+    }
+
+    private string? HandleUnsuccessfulResponse(
+        HttpResponseMessage response,
+        string responseContent,
+        string model,
+        string apiVersion
+    )
+    {
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _logger.LogDebug(
+                "Model {Model} not found on {ApiVersion}, trying next",
+                model,
+                apiVersion
+            );
+            return null;
+        }
+
+        _logger.LogWarning(
+            "Gemini API failed: {ApiVersion}/{Model} - Status={StatusCode}",
+            apiVersion,
+            model,
+            response.StatusCode
+        );
+
+        throw new HttpRequestException(
+            $"Gemini API request failed with status {response.StatusCode}: {responseContent}"
+        );
+    }
+
+    private string? ExtractTranscriptFromResponse(
+        string responseContent,
+        string model,
+        string apiVersion
+    )
+    {
+        var geminiResponse = JsonSerializer.Deserialize<GeminiApiResponse>(
+            responseContent,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+        );
+
+        if (geminiResponse?.Candidates == null || geminiResponse.Candidates.Count == 0)
+        {
+            _logger.LogWarning("No candidates in response from {Model}", model);
+            return null;
+        }
+
+        var firstCandidate = geminiResponse.Candidates[0];
+        var transcript = firstCandidate.Content?.Parts?.FirstOrDefault()?.Text;
+
+        if (string.IsNullOrWhiteSpace(transcript))
+        {
+            _logger.LogWarning("Empty transcript from {Model}", model);
+            return null;
+        }
+
+        _logger.LogInformation(
+            "Transcription successful using {ApiVersion}/{Model}: Length={Length} characters",
+            apiVersion,
+            model,
+            transcript.Length
+        );
+
+        return transcript.Trim();
     }
 }

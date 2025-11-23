@@ -21,6 +21,7 @@ public class VoiceController : BaseApiController
     private readonly IAudioTranscriptionWorkflow _audioWorkflow;
     private readonly string _audioTempPath;
     private readonly long _maxFileSizeBytes;
+    private const string InvalidFilenameMessage = "Invalid filename";
 
     public VoiceController(
         ILogger<VoiceController> logger,
@@ -165,7 +166,7 @@ public class VoiceController : BaseApiController
             )
             {
                 _logger.LogWarning("Invalid filename provided for deletion: {FileName}", fileName);
-                return BadRequest(new { message = "Invalid filename" });
+                return BadRequest(new { message = InvalidFilenameMessage });
             }
 
             // Sanitize filename to prevent path traversal
@@ -178,7 +179,7 @@ public class VoiceController : BaseApiController
             if (!fullPath.StartsWith(expectedDirectory, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("Path traversal attempt detected: {FileName}", fileName);
-                return BadRequest(new { message = "Invalid filename" });
+                return BadRequest(new { message = InvalidFilenameMessage });
             }
 
             if (!System.IO.File.Exists(filePath))
@@ -234,7 +235,7 @@ public class VoiceController : BaseApiController
                     "Invalid filename provided for transcription: {FileName}",
                     fileName
                 );
-                return BadRequest(new { message = "Invalid filename" });
+                return BadRequest(new { message = InvalidFilenameMessage });
             }
 
             // Sanitize filename to prevent path traversal
@@ -247,7 +248,7 @@ public class VoiceController : BaseApiController
             if (!fullPath.StartsWith(expectedDirectory, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogWarning("Path traversal attempt detected: {FileName}", fileName);
-                return BadRequest(new { message = "Invalid filename" });
+                return BadRequest(new { message = InvalidFilenameMessage });
             }
 
             if (!System.IO.File.Exists(filePath))
