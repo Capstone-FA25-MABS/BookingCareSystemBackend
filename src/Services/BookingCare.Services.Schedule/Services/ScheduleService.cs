@@ -5,10 +5,8 @@ using BookingCare.Services.Schedule.Repositories;
 using BookingCare.Services.Schedule.Exceptions;
 using BookingCare.Shared.Cache.Abstractions;
 using BookingCare.Shared.Cache.Constants;
-using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.ServiceMedical.Protos;
-using BookingCare.Shared.Common.Exceptions.Domain;
 using AutoMapper;
 
 namespace BookingCare.Services.Schedule.Services;
@@ -22,27 +20,24 @@ public class ScheduleService : IScheduleService
     private readonly IScheduleRepository _repository;
     private readonly ICacheService _cacheService;
     private readonly ILogger<ScheduleService> _logger;
-    private readonly DoctorService.DoctorServiceClient _doctorClient;
-    private readonly ServiceMedicalService.ServiceMedicalServiceClient _serviceMedicalClient;
-    private readonly BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient _appointmentClient;
+    private readonly GrpcClients _grpcClients;
     private readonly IMapper _mapper;
+    private readonly IHoldSlotService _holdSlotService;
 
     public ScheduleService(
         IScheduleRepository repository,
         ICacheService cacheService,
         ILogger<ScheduleService> logger,
-        DoctorService.DoctorServiceClient doctorClient,
-        ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient,
-        BookingCare.Services.Appointment.Protos.AppointmentService.AppointmentServiceClient appointmentClient,
-        IMapper mapper)
+        GrpcClients grpcClients,
+        IMapper mapper,
+        IHoldSlotService holdSlotService)
     {
         _repository = repository;
         _cacheService = cacheService;
         _logger = logger;
-        _doctorClient = doctorClient;
-        _serviceMedicalClient = serviceMedicalClient;
-        _appointmentClient = appointmentClient;
+        _grpcClients = grpcClients;
         _mapper = mapper;
+        _holdSlotService = holdSlotService;
     }
 
     #region DoctorDailySchedule operations
@@ -287,7 +282,7 @@ public class ScheduleService : IScheduleService
 
     #region Available slots operations
 
-    public async Task<IEnumerable<AppointmentTimeDto>> GetAvailableSlotsAsync(GetAvailableSlotsRequest request)
+    public async Task<IEnumerable<AppointmentTimeDto>> GetAvailableSlotsAsync(GetAvailableSlotsRequest request, Guid? currentUserId = null)
     {
         // Validate doctor exists and is active
         var isDoctorValid = await ValidateDoctorAsync(request.DoctorId);
@@ -311,11 +306,31 @@ public class ScheduleService : IScheduleService
         var serviceIdStr = request.ServiceId?.ToString() ?? "null";
         var cacheKey = CacheKeys.Format(CacheKeys.AvailableSlots, request.DoctorId, request.Date.ToString(DateFormat), serviceIdStr);
 
+        // Use cache for all users with short TTL (30s) to balance performance and real-time data
+        // Held slots will be filtered after cache retrieval to ensure real-time availability
         var cached = await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey);
         if (cached != null)
         {
             _logger.LogDebug("Retrieved available slots for doctor {DoctorId} on {Date} from cache", request.DoctorId, request.Date);
-            return cached;
+            var cachedList = cached.ToList();
+
+            // Always filter held slots in real-time, even from cache
+            var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.DoctorId, request.Date, currentUserId ?? Guid.Empty);
+            if (heldSlots.Any())
+            {
+                var heldTimeIds = new HashSet<int>(heldSlots.Select(hs => (int)hs));
+                cachedList = cachedList.Where(slot =>
+                {
+                    var slotBytes = slot.Id.ToByteArray();
+                    var enumValue = BitConverter.ToInt32(slotBytes, 0);
+                    return !heldTimeIds.Contains(enumValue);
+                }).ToList();
+
+                _logger.LogInformation("Filtered {0} held slots from cached data for doctor {1}",
+                    heldSlots.Count, request.DoctorId);
+            }
+
+            return cachedList;
         }
 
         // Get all potential available slots from schedule
@@ -331,11 +346,8 @@ public class ScheduleService : IScheduleService
                 AppointmentDate = request.Date.ToString(DateFormat)
             };
 
-            var bookedSlotsResponse = await _appointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
+            var bookedSlotsResponse = await _grpcClients.AppointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
             var bookedTimeIds = new HashSet<int>(bookedSlotsResponse.BookedAppointmentTimeIds);
-
-            _logger.LogInformation("Doctor {DoctorId} on {Date}: Found {TotalSlots} potential slots, {BookedSlots} already booked",
-                request.DoctorId, request.Date, allSlots.Count, bookedTimeIds.Count);
 
             // Filter out booked slots - only return slots that are NOT booked
             // We need to match AppointmentTimeDto.Id with AppointmentTime enum values
@@ -347,10 +359,31 @@ public class ScheduleService : IScheduleService
                 return !bookedTimeIds.Contains(enumValue);
             }).ToList();
 
-            _logger.LogInformation("Returning {AvailableCount} available slots after filtering booked slots",
-                availableSlots.Count);
+            _logger.LogInformation("Doctor {DoctorId} on {Date}: Found {TotalSlots} potential slots, {BookedSlots} booked, {AvailableCount} available after filtering",
+                request.DoctorId, request.Date, allSlots.Count, bookedTimeIds.Count, availableSlots.Count);
 
-            await _cacheService.SetAsync(cacheKey, availableSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+            // Always filter out held slots for all users to ensure real-time availability
+            var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.DoctorId, request.Date, currentUserId ?? Guid.Empty);
+            if (heldSlots.Any())
+            {
+                var heldTimeIds = new HashSet<int>(heldSlots.Select(hs => (int)hs));
+                var slotsBeforeHeldFilter = availableSlots.Count;
+
+                availableSlots = availableSlots.Where(slot =>
+                {
+                    var slotBytes = slot.Id.ToByteArray();
+                    var enumValue = BitConverter.ToInt32(slotBytes, 0);
+                    return !heldTimeIds.Contains(enumValue);
+                }).ToList();
+
+                _logger.LogInformation("Doctor {DoctorId} on {Date}: Filtered out {HeldSlots} held slots, returning {FinalCount} available slots (User: {UserId})",
+                    request.DoctorId, request.Date, slotsBeforeHeldFilter - availableSlots.Count, availableSlots.Count,
+                    currentUserId?.ToString() ?? "Anonymous");
+            }
+
+            // Cache for all users with short TTL (30 seconds) to balance performance and real-time data
+            // Held slots will be filtered in real-time on each request
+            await _cacheService.SetAsync(cacheKey, availableSlots, TimeSpan.FromSeconds(30));
 
             return availableSlots;
         }
@@ -387,7 +420,7 @@ public class ScheduleService : IScheduleService
                 Id = doctorId.ToString()
             };
 
-            var response = await _doctorClient.GetDoctorAsync(request);
+            var response = await _grpcClients.DoctorClient.GetDoctorAsync(request);
 
             if (response != null && !string.IsNullOrEmpty(response.Id))
             {
@@ -415,7 +448,7 @@ public class ScheduleService : IScheduleService
                 Id = serviceId.ToString()
             };
 
-            var response = await _serviceMedicalClient.ValidateServiceMedicalAsync(request);
+            var response = await _grpcClients.ServiceMedicalClient.ValidateServiceMedicalAsync(request);
 
             return response != null && response.IsValid && response.IsActive;
         }

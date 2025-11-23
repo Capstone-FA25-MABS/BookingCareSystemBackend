@@ -30,7 +30,7 @@ public interface IScheduleService
     Task DeleteServiceScheduleAsync(Guid id);
 
     // Available slots operations
-    Task<IEnumerable<AppointmentTimeDto>> GetAvailableSlotsAsync(GetAvailableSlotsRequest request);
+    Task<IEnumerable<AppointmentTimeDto>> GetAvailableSlotsAsync(GetAvailableSlotsRequest request, Guid? currentUserId = null);
 
     // ServiceMedicalDailySchedule operations
     Task<ServiceMedicalDailyScheduleDto?> GetServiceMedicalDailyScheduleAsync(Guid serviceMedicalId, DateOnly date);
