@@ -16,6 +16,7 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using Microsoft.EntityFrameworkCore;
+using BookingCare.Services.Notification.Protos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +47,8 @@ builder.Services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanReposito
 builder.Services.AddScoped<IHospitalSubscriptionRepository, HospitalSubscriptionRepository>();
 builder.Services.AddScoped<IHospitalRegistrationRepository, HospitalRegistrationRepository>();
 builder.Services.AddScoped<IHospitalImageRepository, HospitalImageRepository>();
+builder.Services.AddScoped<IAdminSignatureRepository, AdminSignatureRepository>();
+builder.Services.AddScoped<IContractSigningTokenRepository, ContractSigningTokenRepository>();
 
 // Register services
 builder.Services.AddScoped<BookingCare.Shared.Common.Interfaces.ILocationApiService, BookingCare.Shared.Common.Services.LocationApiService>();
@@ -55,6 +58,9 @@ builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionSer
 builder.Services.AddScoped<ISubscriptionUsageService, SubscriptionUsageService>();
 builder.Services.AddScoped<ILocationApiService, LocationApiService>();
 builder.Services.AddScoped<IHospitalRegistrationService, HospitalRegistrationService>();
+builder.Services.AddScoped<IAdminSignatureService, AdminSignatureService>();
+builder.Services.AddScoped<IContractGenerationService, ContractGenerationService>();
+builder.Services.AddScoped<IContractSigningService, ContractSigningService>();
 
 // Add Event Bus (RabbitMQ) for message queue
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "hospital-service-queue");
@@ -104,6 +110,13 @@ var serviceMedicalAddress =
 builder.Services.AddGrpcClient<ServiceMedicalService.ServiceMedicalServiceClient>(options =>
 {
     options.Address = new Uri(serviceMedicalAddress);
+});
+
+// Add gRPC client for OTP verification
+builder.Services.AddGrpcClient<OtpVerifier.OtpVerifierClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("GrpcClients:Notification").GetValue<string>("Address") ?? "http://localhost:6110";
+    o.Address = new Uri(endpoint);
 });
 
 // Register HospitalServiceDependencies to reduce constructor parameters
