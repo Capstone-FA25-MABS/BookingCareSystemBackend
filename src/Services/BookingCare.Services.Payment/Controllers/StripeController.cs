@@ -201,7 +201,12 @@ public class StripeController : BasePaymentGatewayController
                 );
             }
 
-            // Update payment status to COMPLETED
+            // Update payment status to COMPLETED and save PaymentIntentId
+            await PaymentService.UpdatePaymentIntentAsync(
+                paymentId,
+                session.PaymentIntentId ?? string.Empty
+            );
+
             await PaymentService.UpdateStatusAsync(
                 new Models.DTOs.Requests.UpdatePaymentStatusRequest
                 {
@@ -766,6 +771,189 @@ public class StripeController : BasePaymentGatewayController
             "expired" => "Payment session has expired",
             _ => "Unknown payment status",
         };
+
+    #endregion
+
+    #region Refund Operations
+
+    /// <summary>
+    /// Create a refund for a Stripe payment
+    /// </summary>
+    /// <param name="request">Refund request information</param>
+    /// <returns>Refund result</returns>
+    [HttpPost("refund")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> CreateRefund([FromBody] StripeRefundRequest request)
+    {
+        var requestId = GenerateRequestId();
+
+        try
+        {
+            Logger.LogInformation(
+                "Stripe Refund #{RequestId} - Creating refund for PaymentId: {PaymentId}",
+                requestId,
+                request.PaymentId
+            );
+
+            // Validate request
+            if (request.PaymentId == Guid.Empty)
+            {
+                return BadRequest("PaymentId is required");
+            }
+
+            // Get payment to validate
+            var payment = await PaymentService.GetByIdAsync(request.PaymentId);
+            if (payment == null)
+            {
+                Logger.LogWarning(
+                    "Stripe Refund #{RequestId} - Payment not found: {PaymentId}",
+                    requestId,
+                    request.PaymentId
+                );
+                return NotFound("Payment not found");
+            }
+
+            // Check if PaymentIntentId exists
+            if (string.IsNullOrEmpty(payment.PaymentIntentId))
+            {
+                Logger.LogWarning(
+                    "Stripe Refund #{RequestId} - PaymentIntentId not found for PaymentId: {PaymentId}",
+                    requestId,
+                    request.PaymentId
+                );
+                return BadRequest(
+                    "PaymentIntentId not found for this payment. Cannot process refund."
+                );
+            }
+
+            // Set PaymentIntentId from stored payment data
+            request.PaymentIntentId = payment.PaymentIntentId;
+
+            // Check if payment is already refunded
+            if (payment.Status == Enums.PaymentStatus.REFUNDED)
+            {
+                Logger.LogWarning(
+                    "Stripe Refund #{RequestId} - Payment already refunded: {PaymentId}",
+                    requestId,
+                    request.PaymentId
+                );
+                return BadRequest("Payment has already been refunded");
+            }
+
+            // Check if payment is completed
+            if (payment.Status != Enums.PaymentStatus.COMPLETED)
+            {
+                Logger.LogWarning(
+                    "Stripe Refund #{RequestId} - Payment not completed: {PaymentId}, Status: {Status}",
+                    requestId,
+                    request.PaymentId,
+                    payment.Status
+                );
+                return BadRequest("Only completed payments can be refunded");
+            }
+
+            // Create refund via Stripe
+            var refundResponse = await _stripeService.CreateRefundAsync(request);
+
+            if (!refundResponse.IsSuccess)
+            {
+                Logger.LogWarning(
+                    "Stripe Refund #{RequestId} - Refund failed: {PaymentId}, Status: {Status}",
+                    requestId,
+                    request.PaymentId,
+                    refundResponse.Status
+                );
+                return BadRequest($"Refund failed with status: {refundResponse.Status}");
+            }
+
+            // Update payment status to REFUNDED
+            await PaymentService.UpdateStatusAsync(
+                new Models.DTOs.Requests.UpdatePaymentStatusRequest
+                {
+                    Id = request.PaymentId,
+                    Status = Enums.PaymentStatus.REFUNDED,
+                }
+            );
+
+            Logger.LogInformation(
+                "Stripe Refund #{RequestId} - Refund successful: PaymentId: {PaymentId}, RefundId: {RefundId}",
+                requestId,
+                request.PaymentId,
+                refundResponse.RefundId
+            );
+
+            return Success(
+                new
+                {
+                    PaymentId = request.PaymentId,
+                    RefundId = refundResponse.RefundId,
+                    Status = refundResponse.Status,
+                    Amount = refundResponse.Amount,
+                    Currency = refundResponse.Currency,
+                    Reason = refundResponse.Reason,
+                    CreatedAt = refundResponse.CreatedAt,
+                    Message = "Refund processed successfully",
+                },
+                "Stripe refund created successfully"
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "Stripe Refund #{RequestId} - Error creating refund for PaymentId: {PaymentId}",
+                requestId,
+                request.PaymentId
+            );
+            return StatusCode(
+                500,
+                new { Message = "An error occurred while processing the refund" }
+            );
+        }
+    }
+
+    /// <summary>
+    /// Get refund information from Stripe
+    /// </summary>
+    /// <param name="refundId">Stripe refund ID</param>
+    /// <returns>Refund information</returns>
+    [HttpGet("refund/{refundId}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetRefund(string refundId)
+    {
+        var requestId = GenerateRequestId();
+
+        try
+        {
+            Logger.LogInformation(
+                "Stripe Refund Query #{RequestId} - Getting refund: {RefundId}",
+                requestId,
+                refundId
+            );
+
+            if (string.IsNullOrEmpty(refundId))
+            {
+                return BadRequest("RefundId is required");
+            }
+
+            var refund = await _stripeService.GetRefundAsync(refundId);
+
+            return Success(refund, "Refund information retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "Stripe Refund Query #{RequestId} - Error getting refund: {RefundId}",
+                requestId,
+                refundId
+            );
+            return StatusCode(
+                500,
+                new { Message = "An error occurred while retrieving refund information" }
+            );
+        }
+    }
 
     #endregion
 }

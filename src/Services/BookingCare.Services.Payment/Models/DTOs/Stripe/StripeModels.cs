@@ -261,3 +261,77 @@ public class StripeWebhookEvent
     /// </summary>
     public long Created { get; set; }
 }
+
+/// <summary>
+/// Request to create a Stripe refund
+/// </summary>
+public class StripeRefundRequest
+{
+    /// <summary>
+    /// Payment ID to refund
+    /// </summary>
+    [Required]
+    [JsonRequired]
+    public Guid PaymentId { get; set; }
+
+    /// <summary>
+    /// Refund amount (optional - full refund if not specified)
+    /// </summary>
+    public decimal? Amount { get; set; }
+
+    /// <summary>
+    /// Reason for refund
+    /// </summary>
+    public string? Reason { get; set; }
+
+    /// <summary>
+    /// Payment Intent ID from Stripe (auto-retrieved from payment record if not provided)
+    /// </summary>
+    public string PaymentIntentId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response from Stripe refund operation
+/// </summary>
+public class StripeRefundResponse
+{
+    /// <summary>
+    /// Refund ID from Stripe
+    /// </summary>
+    public string RefundId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Status of the refund
+    /// </summary>
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Refunded amount
+    /// </summary>
+    public decimal Amount { get; set; }
+
+    /// <summary>
+    /// Currency
+    /// </summary>
+    public string Currency { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Reason for refund
+    /// </summary>
+    public string? Reason { get; set; }
+
+    /// <summary>
+    /// Payment Intent ID
+    /// </summary>
+    public string PaymentIntentId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether refund is successful
+    /// </summary>
+    public bool IsSuccess => Status == "succeeded" || Status == "pending";
+
+    /// <summary>
+    /// Created timestamp
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
+}

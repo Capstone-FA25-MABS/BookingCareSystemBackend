@@ -43,4 +43,18 @@ public interface IStripeService
     /// <param name="sessionId">Stripe session ID</param>
     /// <returns>True if cancelled successfully</returns>
     Task<bool> CancelSessionAsync(string sessionId);
+
+    /// <summary>
+    /// Create a refund for a payment
+    /// </summary>
+    /// <param name="request">Refund request information</param>
+    /// <returns>Refund result</returns>
+    Task<StripeRefundResponse> CreateRefundAsync(StripeRefundRequest request);
+
+    /// <summary>
+    /// Get refund information from Stripe
+    /// </summary>
+    /// <param name="refundId">Stripe refund ID</param>
+    /// <returns>Refund information</returns>
+    Task<object> GetRefundAsync(string refundId);
 }

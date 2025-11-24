@@ -436,4 +436,112 @@ public class StripeService : BaseService, IStripeService
                 ?? new Dictionary<string, string>(),
         };
     }
+
+    /// <summary>
+    /// Create a refund for a payment
+    /// </summary>
+    public async Task<StripeRefundResponse> CreateRefundAsync(StripeRefundRequest request)
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo(
+                    "Creating Stripe refund for PaymentId: {PaymentId}, PaymentIntentId: {PaymentIntentId}",
+                    null,
+                    request.PaymentId,
+                    request.PaymentIntentId
+                );
+
+                // Validation
+                ValidateRequired(request, nameof(request));
+                ValidateGuid(request.PaymentId, nameof(request.PaymentId));
+                ValidateRequired(request.PaymentIntentId, nameof(request.PaymentIntentId));
+
+                if (request.Amount.HasValue && request.Amount.Value <= 0)
+                    throw new ArgumentException("Refund amount must be greater than 0");
+
+                // Create refund options
+                var refundOptions = new Stripe.RefundCreateOptions
+                {
+                    PaymentIntent = request.PaymentIntentId,
+                    Reason = request.Reason switch
+                    {
+                        "duplicate" => "duplicate",
+                        "fraudulent" => "fraudulent",
+                        "requested_by_customer" => "requested_by_customer",
+                        _ =>
+                            "requested_by_customer" // Default reason
+                        ,
+                    },
+                };
+
+                // Add amount if partial refund
+                if (request.Amount.HasValue)
+                {
+                    refundOptions.Amount = (long)request.Amount.Value;
+                }
+
+                // Add metadata
+                refundOptions.Metadata = new Dictionary<string, string>
+                {
+                    { "PaymentId", request.PaymentId.ToString() },
+                    { "RefundedAt", DateTime.UtcNow.ToString("O") },
+                };
+
+                // Create the refund
+                var refundService = new Stripe.RefundService();
+                var refund = await refundService.CreateAsync(refundOptions);
+
+                var response = new StripeRefundResponse
+                {
+                    RefundId = refund.Id,
+                    Status = refund.Status,
+                    Amount = refund.Amount,
+                    Currency = refund.Currency ?? _stripeConfig.Currency,
+                    Reason = refund.Reason,
+                    PaymentIntentId = refund.PaymentIntentId ?? request.PaymentIntentId,
+                    CreatedAt = refund.Created,
+                };
+
+                LogInfo(
+                    "Stripe refund created successfully - RefundId: {RefundId}, PaymentId: {PaymentId}, Status: {Status}",
+                    null,
+                    refund.Id,
+                    request.PaymentId,
+                    refund.Status
+                );
+
+                return response;
+            },
+            "CreateStripeRefund"
+        );
+    }
+
+    /// <summary>
+    /// Get refund information from Stripe
+    /// </summary>
+    public async Task<object> GetRefundAsync(string refundId)
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo("Getting Stripe refund: {RefundId}", null, refundId);
+
+                ValidateRequired(refundId, nameof(refundId));
+
+                var refundService = new Stripe.RefundService();
+                var refund = await refundService.GetAsync(refundId);
+
+                LogInfo(
+                    "Retrieved Stripe refund successfully - RefundId: {RefundId}, Status: {Status}",
+                    null,
+                    refundId,
+                    refund.Status
+                );
+
+                return refund;
+            },
+            "GetStripeRefund"
+        );
+    }
 }
