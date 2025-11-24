@@ -609,7 +609,7 @@
           "Port": 6014
         }
       ],
-      "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedules/{everything}",
+      "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedule/{everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
@@ -746,6 +746,6 @@
     }
   ],
   "GlobalConfiguration": {
-    "BaseUrl": "http://localhost:5001"
+    "BaseUrl": "http://localhost:5000"
   }
 }
