@@ -38,6 +38,9 @@ builder.Services.Configure<VNPayConfiguration>(
 builder.Services.Configure<PayOSConfiguration>(
     builder.Configuration.GetSection("PayOSConfiguration")
 );
+builder.Services.Configure<StripeConfiguration>(
+    builder.Configuration.GetSection("StripeConfiguration")
+);
 
 // Bind Frontend options for base URL resolution
 builder.Services.Configure<FrontendOptions>(
@@ -56,6 +59,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IVNPayService, VNPayService>();
 builder.Services.AddScoped<IPayOSService, PayOSService>();
+builder.Services.AddScoped<IStripeService, StripeService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
 builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
@@ -99,16 +103,13 @@ builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.Appointme
 );
 
 // Add gRPC client for Hospital Subscription Service (to create/upgrade subscriptions after payment)
-builder
-    .Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient>(
-        o =>
-        {
-            var hospitalServiceUrl =
-                "http://localhost:6104";
-            o.Address = new Uri(hospitalServiceUrl);
-        }
-    );
-
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient>(
+    o =>
+    {
+        var hospitalServiceUrl = "http://localhost:6104";
+        o.Address = new Uri(hospitalServiceUrl);
+    }
+);
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
