@@ -1,5 +1,6 @@
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
 using BookingCare.Services.Hospital.Models.DTOs.Responses;
+using BookingCare.Services.Hospital.Models.Entities;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Exceptions;
@@ -57,33 +58,13 @@ public class ContractGenerationService : BaseService, IContractGenerationService
             }
 
             // Prepare contract data
-            var contractData = new ContractDataDto
-            {
-                ContractNumber = GenerateContractNumber(registration.Id),
-                ContractDate = DateTime.Now,
-                EffectiveDate = DateTime.Now,
-                ExpiryDate = DateTime.Now.AddYears(1),
-
-                // Admin/Company info
-                AdminFullName = adminSignature.FullName,
-                AdminPosition = adminSignature.Position,
-                AdminSignatureUrl = adminSignature.SignatureImageUrl,
-                CompanyName = _configuration["Contract:CompanyName"] ?? "CÔNG TY TNHH BOOKINGCARE",
-                CompanyAddress = _configuration["Contract:CompanyAddress"] ?? "Hà Nội, Việt Nam",
-                CompanyTaxCode = _configuration["Contract:CompanyTaxCode"] ?? "0123456789",
-                CompanyPhone = _configuration["Contract:CompanyPhone"] ?? "1900-xxxx",
-                CompanyEmail = _configuration["Contract:CompanyEmail"] ?? "contact@bookingcare.vn",
-
-                // Hospital info
-                HospitalName = registration.HospitalName,
-                HospitalAddress = registration.Address,
-                HospitalTaxCode = registration.TaxCode,
-                HospitalPhone = registration.HospitalPhone,
-                HospitalEmail = registration.HospitalEmail,
-                RepresentativeName = registration.RepresentativeName,
-                RepresentativeEmail = registration.RepresentativeEmail,
-                RepresentativePhone = registration.RepresentativePhone
-            };
+            var contractData = BuildContractData(
+                registration,
+                adminSignature,
+                GenerateContractNumber(registration.Id),
+                DateTime.Now,
+                DateTime.Now,
+                DateTime.Now.AddYears(1));
 
             // Generate PDF
             var pdfBytes = await GenerateContractPdfAsync(contractData);
@@ -197,33 +178,13 @@ public class ContractGenerationService : BaseService, IContractGenerationService
                 }
 
                 // Prepare contract data using saved dates from registration
-                var contractData = new ContractDataDto
-                {
-                    ContractNumber = registration.ContractNumber!,
-                    ContractDate = registration.ContractDate ?? DateTime.Now,
-                    EffectiveDate = registration.ContractEffectiveDate ?? DateTime.Now,
-                    ExpiryDate = registration.ContractExpiryDate ?? DateTime.Now.AddYears(1),
-
-                    // Admin/Company info
-                    AdminFullName = adminSignature.FullName,
-                    AdminPosition = adminSignature.Position,
-                    AdminSignatureUrl = adminSignature.SignatureImageUrl,
-                    CompanyName = _configuration["Contract:CompanyName"] ?? "CÔNG TY TNHH BOOKINGCARE",
-                    CompanyAddress = _configuration["Contract:CompanyAddress"] ?? "Hà Nội, Việt Nam",
-                    CompanyTaxCode = _configuration["Contract:CompanyTaxCode"] ?? "0123456789",
-                    CompanyPhone = _configuration["Contract:CompanyPhone"] ?? "1900-xxxx",
-                    CompanyEmail = _configuration["Contract:CompanyEmail"] ?? "contact@bookingcare.vn",
-
-                    // Hospital info
-                    HospitalName = registration.HospitalName,
-                    HospitalAddress = registration.Address,
-                    HospitalTaxCode = registration.TaxCode,
-                    HospitalPhone = registration.HospitalPhone,
-                    HospitalEmail = registration.HospitalEmail,
-                    RepresentativeName = registration.RepresentativeName,
-                    RepresentativeEmail = registration.RepresentativeEmail,
-                    RepresentativePhone = registration.RepresentativePhone
-                };
+                var contractData = BuildContractData(
+                    registration,
+                    adminSignature,
+                    registration.ContractNumber!,
+                    registration.ContractDate ?? DateTime.Now,
+                    registration.ContractEffectiveDate ?? DateTime.Now,
+                    registration.ContractExpiryDate ?? DateTime.Now.AddYears(1));
 
                 // Download hospital signature image and convert to base64
                 byte[] hospitalSignatureBytes;
@@ -541,6 +502,47 @@ public class ContractGenerationService : BaseService, IContractGenerationService
             LogError(ex, "Error uploading contract file: {FileName}", null, fileName);
             throw new FileUploadException("Failed to upload contract file", ex);
         }
+    }
+
+    /// <summary>
+    /// Build ContractDataDto from registration and admin signature
+    /// Centralizes company info configuration to avoid code duplication
+    /// </summary>
+    private ContractDataDto BuildContractData(
+        HospitalRegistrationEntity registration,
+        AdminSignatureEntity adminSignature,
+        string contractNumber,
+        DateTime contractDate,
+        DateTime effectiveDate,
+        DateTime expiryDate)
+    {
+        return new ContractDataDto
+        {
+            ContractNumber = contractNumber,
+            ContractDate = contractDate,
+            EffectiveDate = effectiveDate,
+            ExpiryDate = expiryDate,
+
+            // Admin/Company info from configuration
+            AdminFullName = adminSignature.FullName,
+            AdminPosition = adminSignature.Position,
+            AdminSignatureUrl = adminSignature.SignatureImageUrl,
+            CompanyName = _configuration["Contract:CompanyName"] ?? "CÔNG TY TNHH BOOKINGCARE",
+            CompanyAddress = _configuration["Contract:CompanyAddress"] ?? "Hà Nội, Việt Nam",
+            CompanyTaxCode = _configuration["Contract:CompanyTaxCode"] ?? "0123456789",
+            CompanyPhone = _configuration["Contract:CompanyPhone"] ?? "1900-xxxx",
+            CompanyEmail = _configuration["Contract:CompanyEmail"] ?? "contact@bookingcare.vn",
+
+            // Hospital info from registration
+            HospitalName = registration.HospitalName,
+            HospitalAddress = registration.Address,
+            HospitalTaxCode = registration.TaxCode,
+            HospitalPhone = registration.HospitalPhone,
+            HospitalEmail = registration.HospitalEmail,
+            RepresentativeName = registration.RepresentativeName,
+            RepresentativeEmail = registration.RepresentativeEmail,
+            RepresentativePhone = registration.RepresentativePhone
+        };
     }
 
     #endregion
