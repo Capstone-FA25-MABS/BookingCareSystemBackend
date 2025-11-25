@@ -1955,7 +1955,7 @@ public class AppointmentService : BaseService, IAppointmentService
             if (entitiesByType.Count == 1)
             {
                 var appointmentType = entitiesByType[0].Key;
-                doctorRequest.ServiceTypeName = appointmentType == AppointmentType.IN_PERSON ? "Khám trực tiếp" : "Tư vấn online";
+                doctorRequest.ServiceTypeName = appointmentType == AppointmentType.IN_PERSON ? "Khám trực tiếp" : "Tư vấn trực tiếp";
             }
 
             var doctorsResponse = await _grpcClients.DoctorClient.GetDoctorsBasicInfoAsync(doctorRequest);
