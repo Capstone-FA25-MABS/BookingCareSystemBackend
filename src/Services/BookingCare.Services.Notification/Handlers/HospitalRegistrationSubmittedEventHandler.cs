@@ -2,8 +2,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Notification.Utils.Email;
 using BookingCare.Services.Notification.Exceptions;
-using BookingCare.Services.Notification.Services.Interfaces;
-using BookingCare.Services.Notification.Models.DTOs;
+using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Auth.Protos;
 
@@ -17,18 +16,18 @@ public class HospitalRegistrationSubmittedEventHandler : IIntegrationEventHandle
 {
     private readonly ILogger<HospitalRegistrationSubmittedEventHandler> _logger;
     private readonly EmailService _emailService;
-    private readonly INotificationService _notificationService;
+    private readonly IEventBus _eventBus;
     private readonly AuthService.AuthServiceClient _authGrpcClient;
 
     public HospitalRegistrationSubmittedEventHandler(
         ILogger<HospitalRegistrationSubmittedEventHandler> logger,
         EmailService emailService,
-        INotificationService notificationService,
+        IEventBus eventBus,
         AuthService.AuthServiceClient authGrpcClient)
     {
         _logger = logger;
         _emailService = emailService;
-        _notificationService = notificationService;
+        _eventBus = eventBus;
         _authGrpcClient = authGrpcClient;
     }
 
@@ -118,34 +117,37 @@ public class HospitalRegistrationSubmittedEventHandler : IIntegrationEventHandle
                 adminResponse.AccountIds.Count
             );
 
-            // Create notification for each admin
+            // Publish CreateInAppNotificationEvent for each admin
             var notificationTasks = adminResponse.AccountIds.Select(async adminId =>
             {
                 try
                 {
-                    var notificationDto = new CreateNotificationDto
+                    var notificationEvent = new CreateInAppNotificationEvent
                     {
                         UserId = adminId,
                         Type = NotificationType.HospitalRegistration,
-                        TitleVi = "Đăng ký hợp tác bệnh viện mới",
-                        TitleEn = "New Hospital Partnership Registration",
-                        ContentVi = $"Bệnh viện {@event.HospitalName} đã gửi đơn đăng ký hợp tác. Vui lòng xem xét và phê duyệt.",
-                        ContentEn = $"Hospital {@event.HospitalName} has submitted a partnership registration. Please review and approve.",
-                        ActionUrl = $"/admin/hospital-registrations",
-                        Metadata = new Dictionary<string, object>
+                        Content = new NotificationContent
                         {
-                            { "registrationId", @event.RegistrationId },
-                            { "hospitalName", @event.HospitalName },
-                            { "hospitalEmail", @event.HospitalEmail },
-                            { "hospitalPhone", @event.HospitalPhone },
-                            { "taxCode", @event.TaxCode }
+                            TitleVi = "Đăng ký hợp tác bệnh viện mới",
+                            TitleEn = "New Hospital Partnership Registration",
+                            ContentVi = $"Bệnh viện {@event.HospitalName} đã gửi đơn đăng ký hợp tác. Vui lòng xem xét và phê duyệt.",
+                            ContentEn = $"Hospital {@event.HospitalName} has submitted a partnership registration. Please review and approve.",
+                            ActionUrl = "/admin/hospital-registrations",
+                            Metadata = new Dictionary<string, object>
+                            {
+                                { "registrationId", @event.RegistrationId },
+                                { "hospitalName", @event.HospitalName },
+                                { "hospitalEmail", @event.HospitalEmail },
+                                { "hospitalPhone", @event.HospitalPhone },
+                                { "taxCode", @event.TaxCode }
+                            }
                         }
                     };
 
-                    await _notificationService.CreateNotificationAsync(notificationDto, cancellationToken);
+                    await _eventBus.PublishAsync(notificationEvent, null, cancellationToken);
 
                     _logger.LogDebug(
-                        "[HospitalRegistrationSubmittedEventHandler] Created notification for admin: {AdminId}",
+                        "[HospitalRegistrationSubmittedEventHandler] Published notification event for admin: {AdminId}",
                         adminId
                     );
                 }
@@ -153,7 +155,7 @@ public class HospitalRegistrationSubmittedEventHandler : IIntegrationEventHandle
                 {
                     _logger.LogError(
                         ex,
-                        "[HospitalRegistrationSubmittedEventHandler] Failed to create notification for admin: {AdminId}",
+                        "[HospitalRegistrationSubmittedEventHandler] Failed to publish notification event for admin: {AdminId}",
                         adminId
                     );
                 }
