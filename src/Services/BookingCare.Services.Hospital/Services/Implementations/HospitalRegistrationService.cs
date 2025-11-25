@@ -7,6 +7,7 @@ using BookingCare.Services.Hospital.Exceptions;
 using BookingCare.Services.Hospital.Enums;
 using BookingCare.Shared.FileUpload.Services;
 using BookingCare.Shared.FileUpload.Models;
+using BookingCare.Shared.FileUpload.Helpers;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.Common.Services;
@@ -19,16 +20,25 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
     private readonly IHospitalRegistrationRepository _registrationRepository;
     private readonly FileUploadOrchestrator _uploadOrchestrator;
     private readonly IEventBus _eventBus;
+    private readonly IContractGenerationService _contractGenerationService;
+    private readonly IContractSigningService _contractSigningService;
+    private readonly IContractSigningTokenRepository _tokenRepository;
 
     public HospitalRegistrationService(
         IHospitalRegistrationRepository registrationRepository,
         FileUploadOrchestrator uploadOrchestrator,
         IEventBus eventBus,
+        IContractGenerationService contractGenerationService,
+        IContractSigningService contractSigningService,
+        IContractSigningTokenRepository tokenRepository,
         ILogger<HospitalRegistrationService> logger) : base(logger)
     {
         _registrationRepository = registrationRepository;
         _uploadOrchestrator = uploadOrchestrator;
         _eventBus = eventBus;
+        _contractGenerationService = contractGenerationService;
+        _contractSigningService = contractSigningService;
+        _tokenRepository = tokenRepository;
     }
 
     public async Task<HospitalRegistrationResponseDto> CreateRegistrationAsync(CreateHospitalRegistrationRequestDto request)
@@ -90,7 +100,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 RegistrationId = created.Id,
                 LicenseFile = new FileUploadData
                 {
-                    FileName = SanitizeFileName(request.LicenseFile.FileName),
+                    FileName = FileNameSanitizer.Sanitize(request.LicenseFile.FileName),
                     ContentType = request.LicenseFile.ContentType,
                     FileData = licenseFileData,
                     Folder = "hospital-registrations/license-files",
@@ -98,7 +108,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 },
                 BusinessCertificateFile = new FileUploadData
                 {
-                    FileName = SanitizeFileName(request.BusinessCertificateFile.FileName),
+                    FileName = FileNameSanitizer.Sanitize(request.BusinessCertificateFile.FileName),
                     ContentType = request.BusinessCertificateFile.ContentType,
                     FileData = businessCertFileData,
                     Folder = "hospital-registrations/business-certificates",
@@ -106,7 +116,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 },
                 IdentityCardFile = new FileUploadData
                 {
-                    FileName = SanitizeFileName(request.IdentityCardFile.FileName),
+                    FileName = FileNameSanitizer.Sanitize(request.IdentityCardFile.FileName),
                     ContentType = request.IdentityCardFile.ContentType,
                     FileData = identityCardFileData,
                     Folder = "hospital-registrations/identity-cards",
@@ -361,22 +371,23 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 throw new InvalidRegistrationStatusException("Không thể phê duyệt đơn đăng ký đã bị từ chối");
             }
 
-            // Upload contract file
-            var contractFileResult = await UploadFileAsync(
-                request.ContractFile,
-                "hospital-registrations/contracts",
-                "ContractFile");
-
-            if (!contractFileResult.Success)
+            // NEW WORKFLOW: Contract must be signed before approval
+            if (registration.Status != RegistrationStatus.CONTRACT_SIGNED)
             {
-                throw new FileUploadException($"Không thể tải lên file hợp đồng: {contractFileResult.ErrorMessage}");
+                throw new InvalidRegistrationStatusException(
+                    $"Không thể phê duyệt đơn đăng ký với trạng thái {registration.Status}. " +
+                    "Hợp đồng phải được bệnh viện ký trước khi phê duyệt.");
             }
 
-            var contractFileUrl = contractFileResult.UploadResult!.CloudFrontUrl ?? contractFileResult.UploadResult!.FileUrl;
+            // Verify contract file exists (should be set when hospital signed)
+            if (string.IsNullOrEmpty(registration.ContractFile))
+            {
+                throw new InvalidRegistrationStatusException(
+                    "File hợp đồng đã ký không tồn tại. Vui lòng kiểm tra lại.");
+            }
 
             // Update registration status to CONFIRMED
             registration.Status = RegistrationStatus.CONFIRMED;
-            registration.ContractFile = contractFileUrl;
 
             var updated = await _registrationRepository.UpdateAsync(registration);
 
@@ -395,7 +406,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 HospitalPhone = updated.HospitalPhone,
                 Address = updated.Address,
                 TaxCode = updated.TaxCode,
-                ContractFileUrl = contractFileUrl!,
+                ContractFileUrl = updated.ContractFile!, // Use the signed contract file
                 GeneratedPassword = generatedPassword
             };
 
@@ -481,7 +492,15 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             TaxCode = entity.TaxCode,
             Status = entity.Status,
             StatusText = GetStatusText(entity.Status),
+
+            // Contract Information
+            ContractNumber = entity.ContractNumber,
             ContractFile = entity.ContractFile,
+            ContractDraftFile = entity.ContractDraftFile,
+            HospitalSignature = entity.HospitalSignature,
+            SignedAt = entity.SignedAt,
+            AdminSignatureId = entity.AdminSignatureId,
+
             HospitalId = entity.HospitalId,
             Reason = entity.Reason,
             CreatedAt = entity.CreatedAt,
@@ -505,12 +524,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         string folder,
         string entityType)
     {
-        // Sanitize file name to prevent non-ASCII character issues
-        var sanitizedFileName = SanitizeFileName(file.FileName);
-
-        // Create a wrapper with sanitized file name
-        var sanitizedFile = new SanitizedFormFileWrapper(file, sanitizedFileName);
-
+        // Note: FileUploadOrchestrator automatically sanitizes filenames to prevent ASCII issues
         var config = new FileUploadConfig
         {
             AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx" },
@@ -521,7 +535,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         };
 
         var uploadResult = await _uploadOrchestrator.UploadFileAsync(
-            sanitizedFile,
+            file,
             config,
             Guid.Empty,
             Logger,
@@ -578,79 +592,97 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         return (int)(randomValue % (uint)max);
     }
 
-    /// <summary>
-    /// Sanitizes file name to contain only ASCII characters
-    /// Removes diacritics and replaces non-ASCII characters with underscores
-    /// </summary>
-    private static string SanitizeFileName(string fileName)
+    public async Task<GenerateContractForRegistrationResponseDto> GenerateContractAsync(Guid registrationId, string adminId)
     {
-        if (string.IsNullOrWhiteSpace(fileName))
+        return await ExecuteWithErrorHandling(async () =>
         {
-            return $"file_{Guid.NewGuid():N}";
-        }
+            LogInfo("Generating contract for registration: {RegistrationId}", null, registrationId);
 
-        // Get file extension
-        var extension = Path.GetExtension(fileName);
-        var nameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
-
-        // Remove diacritics (Vietnamese accents)
-        var normalizedString = nameWithoutExtension.Normalize(System.Text.NormalizationForm.FormD);
-        var stringBuilder = new System.Text.StringBuilder();
-
-        foreach (var c in normalizedString)
-        {
-            var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
-            if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+            // Get registration
+            var registration = await _registrationRepository.GetByIdAsync(registrationId);
+            if (registration == null)
             {
-                // Keep only ASCII characters (letters, digits, dash, underscore)
-                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                    (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.')
-                {
-                    stringBuilder.Append(c);
-                }
-                else if (c == ' ')
-                {
-                    stringBuilder.Append('_');
-                }
+                throw new HospitalRegistrationNotFoundException(registrationId);
             }
-        }
 
-        var sanitizedName = stringBuilder.ToString();
+            // Validate status - must be PENDING
+            if (registration.Status != RegistrationStatus.PENDING)
+            {
+                throw new InvalidRegistrationStatusException(
+                    $"Cannot generate contract for registration with status {registration.Status}. Status must be PENDING.");
+            }
 
-        // If sanitization resulted in empty string, generate a unique name
-        if (string.IsNullOrWhiteSpace(sanitizedName))
-        {
-            sanitizedName = $"file_{Guid.NewGuid():N}";
-        }
+            // Generate contract
+            var contractResult = await _contractGenerationService.GenerateContractAsync(registrationId, adminId);
 
-        return sanitizedName + extension;
+            // Update registration with contract draft and dates
+            registration.ContractDraftFile = contractResult.ContractFileUrl;
+            registration.AdminSignatureId = contractResult.AdminSignatureId;
+            registration.ContractNumber = contractResult.ContractNumber;
+            registration.ContractDate = contractResult.GeneratedAt;
+            registration.ContractEffectiveDate = contractResult.GeneratedAt;
+            registration.ContractExpiryDate = contractResult.GeneratedAt.AddYears(1);
+            registration.Status = RegistrationStatus.CONTRACT_GENERATED;
+
+            await _registrationRepository.UpdateAsync(registration);
+
+            // Generate signing token and link
+            var signingLink = await _contractSigningService.GetSigningLinkAsync(registrationId);
+
+            // Get token expiry
+            var token = await _tokenRepository.GetActiveTokenByRegistrationIdAsync(registrationId);
+            var linkExpiresAt = token?.ExpiresAt ?? DateTime.UtcNow.AddDays(7);
+
+            // Publish event to send email with signing link
+            await PublishContractGeneratedEventAsync(registration, signingLink, linkExpiresAt);
+
+            LogInfo("Successfully generated contract for registration: {RegistrationId}", null, registrationId);
+
+            return new GenerateContractForRegistrationResponseDto
+            {
+                RegistrationId = registrationId,
+                ContractFileUrl = contractResult.ContractFileUrl,
+                ContractNumber = contractResult.ContractNumber,
+                SigningLink = signingLink,
+                GeneratedAt = contractResult.GeneratedAt,
+                LinkExpiresAt = linkExpiresAt,
+                Status = registration.Status.ToString()
+            };
+        }, "GenerateContractForRegistration");
     }
-}
 
-/// <summary>
-/// Wrapper class to provide a sanitized file name for IFormFile
-/// This prevents issues with non-ASCII characters in HTTP headers
-/// </summary>
-internal sealed class SanitizedFormFileWrapper : IFormFile
-{
-    private readonly IFormFile _originalFile;
-    private readonly string _sanitizedFileName;
-
-    public SanitizedFormFileWrapper(IFormFile originalFile, string sanitizedFileName)
+    private async Task PublishContractGeneratedEventAsync(
+        HospitalRegistrationEntity registration,
+        string signingLink,
+        DateTime linkExpiresAt)
     {
-        _originalFile = originalFile ?? throw new ArgumentNullException(nameof(originalFile));
-        _sanitizedFileName = sanitizedFileName ?? throw new ArgumentNullException(nameof(sanitizedFileName));
+        try
+        {
+            var @event = new HospitalContractGeneratedEvent
+            {
+                RegistrationId = registration.Id,
+                HospitalName = registration.HospitalName,
+                HospitalEmail = registration.HospitalEmail,
+                HospitalPhone = registration.HospitalPhone,
+                Address = registration.Address,
+                TaxCode = registration.TaxCode,
+                RepresentativeName = registration.RepresentativeName,
+                RepresentativeEmail = registration.RepresentativeEmail,
+                RepresentativePhone = registration.RepresentativePhone,
+                ContractNumber = registration.ContractNumber ?? string.Empty,
+                ContractDraftUrl = registration.ContractDraftFile ?? string.Empty,
+                SigningLink = signingLink,
+                LinkExpiresAt = linkExpiresAt
+            };
+
+            await _eventBus.PublishAsync(@event);
+
+            LogInfo("Published HospitalContractGeneratedEvent for registration: {RegistrationId}", null, registration.Id);
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error publishing contract generated event for registration: {RegistrationId}", null, registration.Id);
+            // Don't throw - event publishing failure shouldn't break the contract generation
+        }
     }
-
-    public string ContentType => _originalFile.ContentType;
-    public string ContentDisposition => $"form-data; name=\"file\"; filename=\"{_sanitizedFileName}\"";
-    public IHeaderDictionary Headers => _originalFile.Headers;
-    public long Length => _originalFile.Length;
-    public string Name => _originalFile.Name;
-    public string FileName => _sanitizedFileName;
-
-    public void CopyTo(Stream target) => _originalFile.CopyTo(target);
-    public Task CopyToAsync(Stream target, CancellationToken cancellationToken = default)
-        => _originalFile.CopyToAsync(target, cancellationToken);
-    public Stream OpenReadStream() => _originalFile.OpenReadStream();
 }
