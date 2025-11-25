@@ -109,7 +109,7 @@ public class AppointmentCancelledEventHandler
                 StringComparison.OrdinalIgnoreCase
             );
             _logger.LogInformation(
-                "Payment {PaymentId} uses payment method: {PaymentMethod}, IsStripe: {IsStripe}",
+                "Processing refund for Payment {PaymentId} using {PaymentMethod} (IsStripe: {IsStripe})",
                 payment.Id,
                 paymentMethod.Name,
                 isStripePayment
@@ -129,19 +129,15 @@ public class AppointmentCancelledEventHandler
                 {
                     bankAccountId = defaultBankAccount.Id;
                     hasBankAccount = true;
-                    _logger.LogInformation(
-                        "Patient {PatientId} has active bank account {BankAccountId}. Setting refund status to PENDING.",
-                        @event.PatientId,
-                        bankAccountId
-                    );
                 }
-                else
-                {
-                    _logger.LogInformation(
-                        "Patient {PatientId} has no active bank account. Setting refund status to WAITING.",
-                        @event.PatientId
-                    );
-                }
+
+                _logger.LogInformation(
+                    "Patient {PatientId} bank account status: HasActive={HasActive}, BankAccountId={BankAccountId}, RefundStatus={RefundStatus}",
+                    @event.PatientId,
+                    hasBankAccount,
+                    bankAccountId,
+                    hasBankAccount ? "PENDING" : "WAITING"
+                );
             }
             else
             {
@@ -311,15 +307,7 @@ public class AppointmentCancelledEventHandler
                 {
                     _logger.LogError(
                         ex,
-                        "Failed to process Stripe refund for Payment {PaymentId}, RefundHistory {RefundHistoryId}",
-                        payment.Id,
-                        refundHistory.Id
-                    );
-
-                    // Refund history already COMPLETED - cannot transition to PENDING
-                    // Log error for manual intervention instead
-                    _logger.LogError(
-                        "Stripe refund failed but refund history already COMPLETED. PaymentId: {PaymentId}, RefundHistoryId: {RefundHistoryId}. Manual intervention required.",
+                        "Stripe refund failed for Payment {PaymentId}, RefundHistory {RefundHistoryId} - already COMPLETED, manual intervention required",
                         payment.Id,
                         refundHistory.Id
                     );

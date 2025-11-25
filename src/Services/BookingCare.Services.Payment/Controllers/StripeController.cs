@@ -128,6 +128,7 @@ public class StripeController : BasePaymentGatewayController
         catch (UnauthorizedAccessException ex)
         {
             Logger.LogWarning(
+                ex,
                 "Stripe Webhook #{RequestId} - Signature validation failed: {Message}",
                 requestId,
                 ex.Message
@@ -236,65 +237,63 @@ public class StripeController : BasePaymentGatewayController
                 && Guid.TryParse(hospitalIdStr, out var hospitalId)
             )
             {
-                {
-                    var isUpgrade =
-                        session.Metadata.TryGetValue("IsUpgrade", out var isUpgradeStr)
-                        && bool.Parse(isUpgradeStr);
+                var isUpgrade =
+                    session.Metadata.TryGetValue("IsUpgrade", out var isUpgradeStr)
+                    && bool.Parse(isUpgradeStr);
 
-                    Guid? currentSubscriptionId = null;
-                    if (
-                        isUpgrade
-                        && session.Metadata.TryGetValue(
-                            "CurrentSubscriptionId",
-                            out var currentSubIdStr
-                        )
-                        && Guid.TryParse(currentSubIdStr, out var currentSubId)
+                Guid? currentSubscriptionId = null;
+                if (
+                    isUpgrade
+                    && session.Metadata.TryGetValue(
+                        "CurrentSubscriptionId",
+                        out var currentSubIdStr
                     )
-                    {
-                        currentSubscriptionId = currentSubId;
-                    }
-
-                    // Process subscription via gRPC in background
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await HandleSubscriptionPaymentSuccessAsync(
-                                _hospitalSubscriptionClient,
-                                subscriptionId,
-                                hospitalId,
-                                isUpgrade,
-                                currentSubscriptionId,
-                                requestId,
-                                GatewayName
-                            );
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.LogError(
-                                ex,
-                                "Stripe Success #{RequestId} - Failed to process subscription for HospitalId: {HospitalId}",
-                                requestId,
-                                hospitalId
-                            );
-                        }
-                    });
-
-                    // Redirect to subscription confirmation page
-                    var planType = session.Metadata.TryGetValue("PlanType", out var planTypeStr)
-                        ? planTypeStr.ToLowerInvariant()
-                        : "monthly";
-                    var frontendUrl =
-                        $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
-
-                    Logger.LogInformation(
-                        "Stripe Success #{RequestId} - Subscription payment successful, redirecting for HospitalId: {HospitalId}",
-                        requestId,
-                        hospitalId
-                    );
-
-                    return Redirect(frontendUrl);
+                    && Guid.TryParse(currentSubIdStr, out var currentSubId)
+                )
+                {
+                    currentSubscriptionId = currentSubId;
                 }
+
+                // Process subscription via gRPC in background
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await HandleSubscriptionPaymentSuccessAsync(
+                            _hospitalSubscriptionClient,
+                            subscriptionId,
+                            hospitalId,
+                            isUpgrade,
+                            currentSubscriptionId,
+                            requestId,
+                            GatewayName
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(
+                            ex,
+                            "Stripe Success #{RequestId} - Failed to process subscription for HospitalId: {HospitalId}",
+                            requestId,
+                            hospitalId
+                        );
+                    }
+                });
+
+                // Redirect to subscription confirmation page
+                var planType = session.Metadata.TryGetValue("PlanType", out var planTypeStr)
+                    ? planTypeStr.ToLowerInvariant()
+                    : "monthly";
+                var frontendUrl =
+                    $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
+
+                Logger.LogInformation(
+                    "Stripe Success #{RequestId} - Subscription payment successful, redirecting for HospitalId: {HospitalId}",
+                    requestId,
+                    hospitalId
+                );
+
+                return Redirect(frontendUrl);
             }
 
             // Regular appointment payment - use base handler
