@@ -631,7 +631,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 appointment.RescheduleToken = rescheduleResponse.RescheduleToken;
                 appointment.RescheduleTokenExpiry = rescheduleResponse.TokenExpiry;
             }
-           
+
             // Cancel appointment in repository
             var cancelled = await _appointmentRepository.CancelAppointmentAsync(
                 appointment,
