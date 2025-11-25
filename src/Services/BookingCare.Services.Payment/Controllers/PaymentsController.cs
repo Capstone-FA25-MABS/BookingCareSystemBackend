@@ -16,9 +16,7 @@ namespace BookingCare.Services.Payment.Controllers;
 public class PaymentsController(
     IPaymentService paymentService,
     IPaymentMethodService paymentMethodService,
-    IPayOSService payOSService,
-    IVNPayService vnPayService,
-    IStripeService stripeService,
+    PaymentGatewayServices gatewayServices,
     IPaymentValidationService validationService,
     BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient,
     ILogger<PaymentsController> logger
@@ -31,9 +29,9 @@ public class PaymentsController(
 
     private readonly IPaymentService _paymentService = paymentService;
     private readonly IPaymentMethodService _paymentMethodService = paymentMethodService;
-    private readonly IPayOSService _payOSService = payOSService;
-    private readonly IVNPayService _vnPayService = vnPayService;
-    private readonly IStripeService _stripeService = stripeService;
+    private readonly IPayOSService _payOSService = gatewayServices.PayOSService;
+    private readonly IVNPayService _vnPayService = gatewayServices.VNPayService;
+    private readonly IStripeService _stripeService = gatewayServices.StripeService;
     private readonly IPaymentValidationService _validationService = validationService;
     private readonly BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient _hospitalSubscriptionClient =
         hospitalSubscriptionClient;

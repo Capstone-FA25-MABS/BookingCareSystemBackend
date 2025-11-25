@@ -108,10 +108,10 @@ public class StripeService : BaseService, IStripeService
         );
     }
 
-    private void ValidateCheckoutRequest(StripePaymentRequest request)
+    private static void ValidateCheckoutRequest(StripePaymentRequest request)
     {
-        ValidateRequired(request, nameof(request));
-        ValidateGuid(request.PaymentId, nameof(request.PaymentId));
+        BaseService.ValidateRequired(request, nameof(request));
+        BaseService.ValidateGuid(request.PaymentId, nameof(request.PaymentId));
 
         if (request.Amount <= 0)
             throw new ArgumentException("Amount must be greater than 0");
@@ -200,7 +200,11 @@ public class StripeService : BaseService, IStripeService
         return metadata;
     }
 
-    private void AddOptionalMetadata(Dictionary<string, string> metadata, string key, Guid? value)
+    private static void AddOptionalMetadata(
+        Dictionary<string, string> metadata,
+        string key,
+        Guid? value
+    )
     {
         if (value.HasValue)
             metadata[key] = value.Value.ToString();

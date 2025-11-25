@@ -19,34 +19,22 @@ namespace BookingCare.Services.Payment.Handlers;
 public class AppointmentCancelledEventHandler
     : IIntegrationEventHandler<AppointmentCancelledIntegrationEvent>
 {
-    private readonly IPaymentRepository _paymentRepository;
-    private readonly IPaymentMethodRepository _paymentMethodRepository;
-    private readonly IBankAccountRepository _bankAccountRepository;
-    private readonly IRefundHistoryService _refundHistoryService;
-    private readonly IStripeService _stripeService;
-    private readonly IPaymentService _paymentService;
+    private readonly RefundDependencies _refundDependencies;
+    private readonly RefundProcessors _refundProcessors;
     private readonly IEventBus _eventBus;
     private readonly UserService.UserServiceClient _userGrpcClient;
     private readonly ILogger<AppointmentCancelledEventHandler> _logger;
 
     public AppointmentCancelledEventHandler(
-        IPaymentRepository paymentRepository,
-        IPaymentMethodRepository paymentMethodRepository,
-        IBankAccountRepository bankAccountRepository,
-        IRefundHistoryService refundHistoryService,
-        IStripeService stripeService,
-        IPaymentService paymentService,
+        RefundDependencies refundDependencies,
+        RefundProcessors refundProcessors,
         IEventBus eventBus,
         UserService.UserServiceClient userGrpcClient,
         ILogger<AppointmentCancelledEventHandler> logger
     )
     {
-        _paymentRepository = paymentRepository;
-        _paymentMethodRepository = paymentMethodRepository;
-        _bankAccountRepository = bankAccountRepository;
-        _refundHistoryService = refundHistoryService;
-        _stripeService = stripeService;
-        _paymentService = paymentService;
+        _refundDependencies = refundDependencies;
+        _refundProcessors = refundProcessors;
         _eventBus = eventBus;
         _userGrpcClient = userGrpcClient;
         _logger = logger;
@@ -66,7 +54,7 @@ public class AppointmentCancelledEventHandler
             );
 
             // Step 1: Find payment associated with this appointment
-            var payment = await _paymentRepository.GetByAppointmentIdAsync(@event.AppointmentId);
+            var payment = await _refundDependencies.PaymentRepository.GetByAppointmentIdAsync(@event.AppointmentId);
             if (payment == null)
             {
                 _logger.LogWarning(
@@ -92,7 +80,7 @@ public class AppointmentCancelledEventHandler
             }
 
             // Step 2: Check payment method to determine refund strategy
-            var paymentMethod = await _paymentMethodRepository.GetByIdAsync(
+            var paymentMethod = await _refundDependencies.PaymentMethodRepository.GetByIdAsync(
                 payment.PaymentMethodId
             );
             if (paymentMethod == null)
@@ -117,7 +105,7 @@ public class AppointmentCancelledEventHandler
             if (!isStripePayment)
             {
                 // Non-Stripe payment: Check if patient has a bank account for manual refund
-                var defaultBankAccount = await _bankAccountRepository.GetDefaultByUserIdAsync(
+                var defaultBankAccount = await _refundDependencies.BankAccountRepository.GetDefaultByUserIdAsync(
                     @event.PatientId
                 );
 
@@ -174,10 +162,7 @@ public class AppointmentCancelledEventHandler
                 @event,
                 payment,
                 refundHistory,
-                refundAmount,
-                refundReason,
-                hasBankAccount,
-                bankAccountId,
+                (refundAmount, refundReason, hasBankAccount, bankAccountId),
                 cancellationToken
             );
         }
@@ -234,7 +219,7 @@ public class AppointmentCancelledEventHandler
         {
             var oldAmount = payment.Amount;
             payment.Amount = newDoctorPrice;
-            await _paymentRepository.UpdateAsync(payment);
+            await _refundDependencies.PaymentRepository.UpdateAsync(payment);
 
             _logger.LogInformation(
                 "Doctor change refund for appointment {AppointmentId}: {OldDoctor} → {NewDoctor}, Refund: {RefundAmount} | Updated payment amount: {OldAmount} → {NewAmount} VND",
@@ -277,7 +262,7 @@ public class AppointmentCancelledEventHandler
             RefundReason = refundReason,
         };
 
-        var refundHistory = await _refundHistoryService.CreateAsync(createRefundRequest);
+        var refundHistory = await _refundProcessors.RefundHistoryService.CreateAsync(createRefundRequest);
         _logger.LogDebug(
             "Created refund history {RefundHistoryId} with status {Status} for payment {PaymentId}",
             refundHistory.Id,
@@ -316,7 +301,7 @@ public class AppointmentCancelledEventHandler
                 PaymentIntentId = payment.PaymentIntentId,
             };
 
-            var stripeRefundResponse = await _stripeService.CreateRefundAsync(stripeRefundRequest);
+            var stripeRefundResponse = await _refundProcessors.StripeService.CreateRefundAsync(stripeRefundRequest);
 
             if (stripeRefundResponse.IsSuccess)
             {
@@ -363,7 +348,7 @@ public class AppointmentCancelledEventHandler
             stripeRefundResponse.Amount
         );
 
-        await _refundHistoryService.UpdateStatusAsync(
+        await _refundProcessors.RefundHistoryService.UpdateStatusAsync(
             new UpdateRefundHistoryStatusRequest
             {
                 Id = refundHistory.Id,
@@ -373,7 +358,7 @@ public class AppointmentCancelledEventHandler
             }
         );
 
-        await _paymentService.UpdateStatusAsync(
+        await _refundProcessors.PaymentService.UpdateStatusAsync(
             new UpdatePaymentStatusRequest { Id = payment.Id, Status = PaymentStatus.REFUNDED }
         );
 
@@ -388,10 +373,12 @@ public class AppointmentCancelledEventHandler
         AppointmentCancelledIntegrationEvent @event,
         PaymentEntity payment,
         RefundHistoryResponse refundHistory,
-        decimal refundAmount,
-        string refundReason,
-        bool hasBankAccount,
-        Guid? bankAccountId,
+        (
+            decimal refundAmount,
+            string refundReason,
+            bool hasBankAccount,
+            Guid? bankAccountId
+        ) refundDetails,
         CancellationToken cancellationToken
     )
     {
@@ -407,12 +394,12 @@ public class AppointmentCancelledEventHandler
             PatientId = @event.PatientId,
             HospitalId = @event.HospitalId ?? Guid.Empty,
             PaymentId = payment.Id,
-            RefundAmount = refundAmount,
+            RefundAmount = refundDetails.refundAmount,
             OriginalAmount = payment.Amount,
             RefundPercentage = @event.RefundPercentage,
-            CancellationReason = refundReason,
-            HasBankAccount = hasBankAccount,
-            BankAccountId = bankAccountId,
+            CancellationReason = refundDetails.refundReason,
+            HasBankAccount = refundDetails.hasBankAccount,
+            BankAccountId = refundDetails.bankAccountId,
             RefundStatus = refundHistory.Status.ToString(),
             PatientEmail = patientEmail,
             PatientPhone = patientPhone,
@@ -431,7 +418,7 @@ public class AppointmentCancelledEventHandler
             payment.Id,
             payment.Amount,
             @event.RefundPercentage,
-            refundAmount,
+            refundDetails.refundAmount,
             refundHistory.Id
         );
 

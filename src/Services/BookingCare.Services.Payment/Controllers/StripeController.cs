@@ -833,7 +833,8 @@ public class StripeController : BasePaymentGatewayController
         if (string.IsNullOrEmpty(sessionId))
         {
             Logger.LogWarning(
-                $"Stripe {redirectType} #{requestId} - Missing session ID",
+                "Stripe {RedirectType} #{RequestId} - Missing session ID",
+                redirectType,
                 requestId
             );
             var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
@@ -852,7 +853,8 @@ public class StripeController : BasePaymentGatewayController
         if (session == null || session.Metadata == null)
         {
             Logger.LogWarning(
-                $"Stripe {redirectType} #{requestId} - Invalid session data or missing metadata",
+                "Stripe {RedirectType} #{RequestId} - Invalid session data or missing metadata",
+                redirectType,
                 requestId
             );
             var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
@@ -871,7 +873,8 @@ public class StripeController : BasePaymentGatewayController
         )
         {
             Logger.LogWarning(
-                $"Stripe {redirectType} #{requestId} - Invalid PaymentId in metadata",
+                "Stripe {RedirectType} #{RequestId} - Invalid PaymentId in metadata",
+                redirectType,
                 requestId
             );
             var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');

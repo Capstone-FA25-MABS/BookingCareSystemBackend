@@ -1,4 +1,5 @@
 using BookingCare.Services.Payment.Data;
+using BookingCare.Services.Payment.Controllers;
 using BookingCare.Services.Payment.Handlers;
 using BookingCare.Services.Payment.Mappings;
 using BookingCare.Services.Payment.Models.Configurations;
@@ -54,6 +55,10 @@ builder.Services.AddScoped<IPayOSPaymentMappingRepository, PayOSPaymentMappingRe
 builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
 builder.Services.AddScoped<IRefundHistoryRepository, RefundHistoryRepository>();
 
+// Add refund-related wrapper classes for constructor parameter reduction
+builder.Services.AddScoped<RefundDependencies>();
+builder.Services.AddScoped<RefundProcessors>();
+
 // Add services
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
@@ -64,6 +69,9 @@ builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
 builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
 builder.Services.AddScoped<IAppointmentDetailsService, AppointmentDetailsService>();
+
+// Add payment gateway wrapper class for constructor parameter reduction
+builder.Services.AddScoped<PaymentGatewayServices>();
 
 // Add background services
 builder.Services.AddHostedService<PayOSMappingCleanupService>();
