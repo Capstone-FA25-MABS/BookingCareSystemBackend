@@ -5,7 +5,6 @@ using BookingCare.Services.Schedule.Mappings;
 using BookingCare.Shared.Cache.Extensions;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 
 
@@ -34,14 +33,21 @@ builder.Services.AddSwaggerGen();
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
 
+// Add JWT Authentication and Authorization using centralized configuration
+// This includes: JWT auth, authorization, and frontend configuration
+builder.Services.AddJwtAuthAndAuthorization();
+
 // AutoMapper configuration
 builder.Services.AddAutoMapper(typeof(ScheduleMappingProfile));
 
 // Register repositories and services
 builder.Services.AddScoped<IScheduleRepository, ScheduleRepository>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
+builder.Services.AddScoped<IHoldSlotService, HoldSlotService>();
 
 // Configure gRPC clients for inter-service communication following ASP.NET Core DI best practices
+// Register GrpcClients wrapper to reduce constructor parameter count
+builder.Services.AddScoped<GrpcClients>();
 var doctorAddress = builder.Configuration.GetSection("GrpcClients:Doctor:Address").Value ?? "http://localhost:6018";
 builder.Services.AddGrpcClient<BookingCare.Services.Doctor.Protos.DoctorService.DoctorServiceClient>(options =>
 {
@@ -71,7 +77,7 @@ if (app.Environment.IsDevelopment())
 
 // Add global exception handling
 app.UseGlobalExceptionHandling();
-
+app.UseStandardAuthPipeline();
 // Apply database migrations
 using (var scope = app.Services.CreateScope())
 {
@@ -79,7 +85,6 @@ using (var scope = app.Services.CreateScope())
     await context.Database.MigrateAsync();
 }
 
-app.UseRouting();
 app.MapControllers();
 
 // Configure gRPC services
