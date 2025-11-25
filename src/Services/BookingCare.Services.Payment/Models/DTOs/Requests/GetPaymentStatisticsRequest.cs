@@ -1,4 +1,6 @@
-﻿namespace BookingCare.Services.Payment.Models.DTOs.Requests;
+﻿using BookingCare.Shared.Common.Enums;
+
+namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 
 // <summary>
 // Request DTO for payment statistics
@@ -61,35 +63,4 @@ public class GetPaymentStatisticsRequest
         var now = DateTime.Now;
         return new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month), 0, 0, 0, DateTimeKind.Local);
     }
-}
-
-/// <summary>
-/// Enum for statistics period
-/// </summary>
-public enum StatisticsPeriod
-{
-    /// <summary>
-    /// Daily statistics
-    /// </summary>
-    Daily,
-
-    /// <summary>
-    /// Weekly statistics
-    /// </summary>
-    Weekly,
-
-    /// <summary>
-    /// Monthly statistics
-    /// </summary>
-    Monthly,
-
-    /// <summary>
-    /// Quarterly statistics
-    /// </summary>
-    Quarterly,
-
-    /// <summary>
-    /// Yearly statistics
-    /// </summary>
-    Yearly
 }

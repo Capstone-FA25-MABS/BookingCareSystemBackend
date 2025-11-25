@@ -49,4 +49,11 @@ public interface ICacheService
     /// <param name="factory">Function to generate value if not cached</param>
     /// <param name="expiration">Expiration time (optional)</param>
     Task<T?> GetOrSetAsync<T>(string key, Func<Task<T?>> factory, TimeSpan? expiration = null) where T : class;
+
+    /// <summary>
+    /// Get all keys matching a pattern
+    /// </summary>
+    /// <param name="pattern">Pattern to match keys (e.g., "user:*")</param>
+    /// <returns>List of matching keys</returns>
+    Task<IEnumerable<string>> GetKeysByPatternAsync(string pattern);
 }

@@ -184,6 +184,31 @@ public class RedisCacheService : ICacheService
         return value;
     }
 
+    public Task<IEnumerable<string>> GetKeysByPatternAsync(string pattern)
+    {
+        if (!_options.Enabled)
+        {
+            _logger.LogDebug("Cache is disabled. Skipping get keys by pattern operation for pattern: {Pattern}", pattern);
+            return Task.FromResult(Enumerable.Empty<string>());
+        }
+
+        try
+        {
+            var server = _connectionMultiplexer.GetServer(_connectionMultiplexer.GetEndPoints()[0]);
+            var cachePattern = GetCacheKey(pattern);
+
+            var keys = server.Keys(_options.Database, cachePattern).Select(k => k.ToString()).ToList();
+
+            _logger.LogDebug("Found {Count} keys matching pattern: {Pattern}", keys.Count, cachePattern);
+            return Task.FromResult<IEnumerable<string>>(keys);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting keys for pattern: {Pattern}", pattern);
+            return Task.FromResult(Enumerable.Empty<string>());
+        }
+    }
+
     private string GetCacheKey(string key)
     {
         return $"{_options.KeyPrefix}{key}";

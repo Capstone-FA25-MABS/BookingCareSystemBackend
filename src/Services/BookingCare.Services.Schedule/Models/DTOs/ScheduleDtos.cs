@@ -64,3 +64,31 @@ public class ServiceScheduleDto
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
+
+/// <summary>
+/// DTO for service medical daily schedule
+/// </summary>
+public class ServiceMedicalDailyScheduleDto
+{
+    public Guid Id { get; set; }
+    public Guid ServiceMedicalId { get; set; }
+    public DateOnly ScheduleDate { get; set; }
+    public List<SchedulePatterns> SchedulePatterns { get; set; } = new();
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// DTO for service medical schedule exceptions
+/// </summary>
+public class ServiceMedicalScheduleExceptionDto
+{
+    public Guid Id { get; set; }
+    public Guid ServiceMedicalId { get; set; }
+    public DateOnly ExceptionDate { get; set; }
+    public AppointmentTime? AppointmentTime { get; set; }
+    public string ExceptionType { get; set; } = string.Empty;
+    public bool IsAvailable { get; set; }
+    public string? Reason { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
