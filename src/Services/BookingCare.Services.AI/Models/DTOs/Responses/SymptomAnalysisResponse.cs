@@ -64,6 +64,26 @@ public class SymptomAnalysisResponse
     /// Timestamp of analysis
     /// </summary>
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Number of questions asked so far (0-3)
+    /// </summary>
+    public int QuestionCount { get; set; }
+
+    /// <summary>
+    /// Disease conclusion (only available when AnalysisComplete = true)
+    /// </summary>
+    public DiseaseConclusion? Disease { get; set; }
+}
+
+/// <summary>
+/// Disease conclusion with confidence and reasoning
+/// </summary>
+public class DiseaseConclusion
+{
+    public string Name { get; set; } = string.Empty;
+    public double Confidence { get; set; } // 0-1
+    public List<string> Reasons { get; set; } = new();
 }
 
 /// <summary>

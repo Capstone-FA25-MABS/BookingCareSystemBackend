@@ -26,7 +26,10 @@ public interface IConversationSessionService
         string aiMessage,
         LocationContext? location = null,
         object? suggestions = null,
-        Guid? userId = null);
+        Guid? userId = null,
+        object? disease = null,
+        int? questionCount = null,
+        bool? analysisComplete = null);
 
     /// <summary>
     /// Get all conversation sessions for a user (requires authenticated user)

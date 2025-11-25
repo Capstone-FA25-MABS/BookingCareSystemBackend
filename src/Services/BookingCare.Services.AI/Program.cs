@@ -44,8 +44,9 @@ builder.Services.Configure<GeminiConfiguration>(options =>
     options.MaxTokens = 2048;
 });
 
+
 // Register Gemini Service (still needs HttpClient for Gemini API)
-builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+// builder.Services.AddHttpClient<IGeminiService, GeminiService>(); // TODO: Implement if needed
 
 // Register AI Service for medical summary generation
 builder.Services.AddHttpClient<IAIService, AIService>();
