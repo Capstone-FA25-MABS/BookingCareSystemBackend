@@ -206,12 +206,13 @@ public class StripeCallbackResponse : IPaymentCallbackResponse
     {
         get
         {
-            if (Metadata != null && Metadata.TryGetValue("PaymentId", out var paymentIdStr))
+            if (
+                Metadata != null
+                && Metadata.TryGetValue("PaymentId", out var paymentIdStr)
+                && Guid.TryParse(paymentIdStr, out var paymentId)
+            )
             {
-                if (Guid.TryParse(paymentIdStr, out var paymentId))
-                {
-                    return paymentId;
-                }
+                return paymentId;
             }
             return Guid.Empty;
         }

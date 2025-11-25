@@ -20,6 +20,8 @@ namespace BookingCare.Services.Payment.Controllers;
 public class StripeController : BasePaymentGatewayController
 {
     private const string GatewayName = "Stripe";
+    private const string SubscriptionPlanIdKey = "SubscriptionPlanId";
+    private const string CancelledStatus = "cancelled";
     private readonly IStripeService _stripeService;
     private readonly BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient _hospitalSubscriptionClient;
 
@@ -95,7 +97,7 @@ public class StripeController : BasePaymentGatewayController
                 // Check if this is a subscription payment
                 var isSubscription =
                     callbackResult.Metadata != null
-                    && callbackResult.Metadata.ContainsKey("SubscriptionPlanId");
+                    && callbackResult.Metadata.ContainsKey(SubscriptionPlanIdKey);
 
                 if (isSubscription)
                 {
@@ -225,18 +227,15 @@ public class StripeController : BasePaymentGatewayController
                 );
             }
 
-            // Check if this is a subscription payment
-            var isSubscription = session.Metadata.ContainsKey("SubscriptionPlanId");
-
-            if (isSubscription)
+            // Check if this is a subscription payment and handle subscription payment success
+            if (
+                session.Metadata.ContainsKey(SubscriptionPlanIdKey)
+                && session.Metadata.TryGetValue(SubscriptionPlanIdKey, out var subscriptionIdStr)
+                && Guid.TryParse(subscriptionIdStr, out var subscriptionId)
+                && session.Metadata.TryGetValue("HospitalId", out var hospitalIdStr)
+                && Guid.TryParse(hospitalIdStr, out var hospitalId)
+            )
             {
-                // Handle subscription payment success
-                if (
-                    session.Metadata.TryGetValue("SubscriptionPlanId", out var subscriptionIdStr)
-                    && Guid.TryParse(subscriptionIdStr, out var subscriptionId)
-                    && session.Metadata.TryGetValue("HospitalId", out var hospitalIdStr)
-                    && Guid.TryParse(hospitalIdStr, out var hospitalId)
-                )
                 {
                     var isUpgrade =
                         session.Metadata.TryGetValue("IsUpgrade", out var isUpgradeStr)
@@ -387,7 +386,7 @@ public class StripeController : BasePaymentGatewayController
                 if (payment != null)
                 {
                     // Check if this is a subscription payment
-                    var isSubscription = session.Metadata.ContainsKey("SubscriptionPlanId");
+                    var isSubscription = session.Metadata.ContainsKey(SubscriptionPlanIdKey);
 
                     if (isSubscription)
                     {
@@ -406,8 +405,8 @@ public class StripeController : BasePaymentGatewayController
                             hospitalId,
                             requestId,
                             GatewayName,
-                            "cancelled",
-                            session.Status ?? "cancelled"
+                            CancelledStatus,
+                            session.Status ?? CancelledStatus
                         );
                     }
 
@@ -418,7 +417,7 @@ public class StripeController : BasePaymentGatewayController
                         PaymentIntentId = session.PaymentIntentId ?? string.Empty,
                         Amount = session.AmountTotal ?? 0,
                         Currency = session.Currency ?? "vnd",
-                        Status = "cancelled",
+                        Status = CancelledStatus,
                         CustomerEmail = session.CustomerEmail,
                         PaymentMethodType = session.PaymentMethodTypes?.FirstOrDefault(),
                         Metadata =
@@ -594,11 +593,11 @@ public class StripeController : BasePaymentGatewayController
             var metadata = callbackResult.Metadata;
 
             if (
-                !metadata.TryGetValue("SubscriptionPlanId", out var subscriptionIdStr)
+                !metadata.TryGetValue(SubscriptionPlanIdKey, out var subscriptionIdStr)
                 || !Guid.TryParse(subscriptionIdStr, out var subscriptionId)
             )
             {
-                Logger.LogWarning(
+                Logger.LogError(
                     "Stripe Webhook #{RequestId} - Invalid SubscriptionPlanId in metadata",
                     requestId
                 );
@@ -629,10 +628,6 @@ public class StripeController : BasePaymentGatewayController
             {
                 currentSubscriptionId = currentSubId;
             }
-
-            var planType = metadata.TryGetValue("PlanType", out var planTypeStr)
-                ? planTypeStr
-                : "MONTHLY";
 
             if (callbackResult.IsSuccess)
             {

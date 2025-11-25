@@ -174,12 +174,11 @@ public class StripeService : BaseService, IStripeService
                 // Add custom metadata if provided
                 if (request.Metadata?.Any() == true)
                 {
-                    foreach (var kvp in request.Metadata)
+                    foreach (
+                        var kvp in request.Metadata.Where(kvp => !metadata.ContainsKey(kvp.Key))
+                    )
                     {
-                        if (!metadata.ContainsKey(kvp.Key))
-                        {
-                            metadata[kvp.Key] = kvp.Value;
-                        }
+                        metadata[kvp.Key] = kvp.Value;
                     }
                 }
 
@@ -200,12 +199,12 @@ public class StripeService : BaseService, IStripeService
                 };
 
                 // Add customer info if provided
-                if (request.CustomerInfo != null)
+                if (
+                    request.CustomerInfo != null
+                    && !string.IsNullOrEmpty(request.CustomerInfo.Email)
+                )
                 {
-                    if (!string.IsNullOrEmpty(request.CustomerInfo.Email))
-                    {
-                        options.CustomerEmail = request.CustomerInfo.Email;
-                    }
+                    options.CustomerEmail = request.CustomerInfo.Email;
                 }
 
                 // Create the session

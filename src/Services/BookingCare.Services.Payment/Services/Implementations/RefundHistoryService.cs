@@ -551,15 +551,16 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
                         paymentMethod?.Name.Equals("STRIPE", StringComparison.OrdinalIgnoreCase)
                         ?? false;
 
-                    if (!isStripePayment)
+                    // Non-Stripe payment: Must have bank account when completing refund
+                    if (
+                        !isStripePayment
+                        && !request.BankAccountId.HasValue
+                        && !existing.BankAccountId.HasValue
+                    )
                     {
-                        // Non-Stripe payment: Must have bank account when completing refund
-                        if (!request.BankAccountId.HasValue && !existing.BankAccountId.HasValue)
-                        {
-                            throw new InvalidOperationException(
-                                "Must have a bank account to complete refund"
-                            );
-                        }
+                        throw new InvalidOperationException(
+                            "Must have a bank account to complete refund"
+                        );
                     }
                     // Stripe payment: Bank account not required
                 }
