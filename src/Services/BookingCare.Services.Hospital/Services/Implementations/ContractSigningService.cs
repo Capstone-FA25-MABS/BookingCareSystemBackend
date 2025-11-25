@@ -347,12 +347,10 @@ public class ContractSigningService : BaseService, IContractSigningService
 
     #region Private Helper Methods
 
-    private string GenerateSecureToken()
+    private static string GenerateSecureToken()
     {
         // Generate a cryptographically secure random token
-        using var rng = RandomNumberGenerator.Create();
-        var tokenBytes = new byte[32];
-        rng.GetBytes(tokenBytes);
+        var tokenBytes = RandomNumberGenerator.GetBytes(32);
         return Convert.ToBase64String(tokenBytes)
             .Replace("+", "-")
             .Replace("/", "_")

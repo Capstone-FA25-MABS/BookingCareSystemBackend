@@ -230,14 +230,14 @@ public class ContractGenerationService : BaseService, IContractGenerationService
 
     #region Private Helper Methods
 
-    private string GenerateContractNumber(Guid registrationId)
+    private static string GenerateContractNumber(Guid registrationId)
     {
         var timestamp = DateTime.Now.ToString("yyyyMMdd");
-        var shortId = registrationId.ToString("N").Substring(0, 8).ToUpper();
+        var shortId = registrationId.ToString("N")[..8].ToUpper();
         return $"HĐ-BC-{timestamp}-{shortId}";
     }
 
-    private string GenerateContractHtml(ContractDataDto data, string adminSignatureBase64 = "", string hospitalSignatureBase64 = "", DateTime? hospitalSignedAt = null)
+    private static string GenerateContractHtml(ContractDataDto data, string adminSignatureBase64 = "", string hospitalSignatureBase64 = "", DateTime? hospitalSignedAt = null)
     {
         // Professional contract template in Vietnamese
         return $@"

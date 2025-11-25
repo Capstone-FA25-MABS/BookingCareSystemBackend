@@ -11,167 +11,96 @@ namespace BookingCare.Services.Hospital.Repositories.Implementations;
 public class ContractSigningTokenRepository : IContractSigningTokenRepository
 {
     private readonly HospitalDbContext _context;
-    private readonly ILogger<ContractSigningTokenRepository> _logger;
 
-    public ContractSigningTokenRepository(
-        HospitalDbContext context,
-        ILogger<ContractSigningTokenRepository> logger)
+    public ContractSigningTokenRepository(HospitalDbContext context)
     {
         _context = context;
-        _logger = logger;
     }
 
     public async Task<ContractSigningTokenEntity?> GetByIdAsync(Guid id)
     {
-        try
-        {
-            return await _context.ContractSigningTokens
-                .Include(t => t.Registration)
-                .FirstOrDefaultAsync(t => t.Id == id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting contract signing token by ID: {Id}", id);
-            throw;
-        }
+        return await _context.ContractSigningTokens
+            .Include(t => t.Registration)
+            .FirstOrDefaultAsync(t => t.Id == id);
     }
 
     public async Task<ContractSigningTokenEntity?> GetByTokenAsync(string token)
     {
-        try
-        {
-            return await _context.ContractSigningTokens
-                .Include(t => t.Registration)
-                .FirstOrDefaultAsync(t => t.Token == token);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting contract signing token by token string");
-            throw;
-        }
+        return await _context.ContractSigningTokens
+            .Include(t => t.Registration)
+            .FirstOrDefaultAsync(t => t.Token == token);
     }
 
     public async Task<ContractSigningTokenEntity?> GetByRegistrationIdAsync(Guid registrationId)
     {
-        try
-        {
-            return await _context.ContractSigningTokens
-                .Where(t => t.RegistrationId == registrationId)
-                .OrderByDescending(t => t.CreatedAt)
-                .FirstOrDefaultAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting contract signing token by registration ID: {RegistrationId}", registrationId);
-            throw;
-        }
+        return await _context.ContractSigningTokens
+            .Where(t => t.RegistrationId == registrationId)
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<ContractSigningTokenEntity?> GetActiveTokenByRegistrationIdAsync(Guid registrationId)
     {
-        try
-        {
-            var now = DateTime.UtcNow;
-            return await _context.ContractSigningTokens
-                .Where(t => t.RegistrationId == registrationId
-                    && !t.IsUsed
-                    && t.ExpiresAt > now)
-                .OrderByDescending(t => t.CreatedAt)
-                .FirstOrDefaultAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting active token by registration ID: {RegistrationId}", registrationId);
-            throw;
-        }
+        var now = DateTime.UtcNow;
+        return await _context.ContractSigningTokens
+            .Where(t => t.RegistrationId == registrationId
+                && !t.IsUsed
+                && t.ExpiresAt > now)
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<ContractSigningTokenEntity> CreateAsync(ContractSigningTokenEntity token)
     {
-        try
-        {
-            await _context.ContractSigningTokens.AddAsync(token);
-            await _context.SaveChangesAsync();
-            return token;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating contract signing token for registration: {RegistrationId}", token.RegistrationId);
-            throw;
-        }
+        await _context.ContractSigningTokens.AddAsync(token);
+        await _context.SaveChangesAsync();
+        return token;
     }
 
     public async Task<ContractSigningTokenEntity> MarkAsUsedAsync(Guid tokenId, string ipAddress, string userAgent)
     {
-        try
-        {
-            var token = await GetByIdAsync(tokenId);
-            if (token == null)
-            {
-                throw new InvalidOperationException($"Token with ID {tokenId} not found");
-            }
+        var token = await GetByIdAsync(tokenId)
+            ?? throw new InvalidOperationException($"Token with ID {tokenId} not found");
 
-            token.IsUsed = true;
-            token.UsedAt = DateTime.UtcNow;
-            token.SignedFromIp = ipAddress;
-            token.UserAgent = userAgent;
+        token.IsUsed = true;
+        token.UsedAt = DateTime.UtcNow;
+        token.SignedFromIp = ipAddress;
+        token.UserAgent = userAgent;
 
-            _context.ContractSigningTokens.Update(token);
-            await _context.SaveChangesAsync();
+        _context.ContractSigningTokens.Update(token);
+        await _context.SaveChangesAsync();
 
-            return token;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error marking token as used: {TokenId}", tokenId);
-            throw;
-        }
+        return token;
     }
 
     public async Task<int> DeleteExpiredTokensAsync()
     {
-        try
-        {
-            var now = DateTime.UtcNow;
-            var expiredTokens = await _context.ContractSigningTokens
-                .Where(t => t.ExpiresAt < now && !t.IsUsed)
-                .ToListAsync();
+        var now = DateTime.UtcNow;
+        var expiredTokens = await _context.ContractSigningTokens
+            .Where(t => t.ExpiresAt < now && !t.IsUsed)
+            .ToListAsync();
 
-            if (expiredTokens.Any())
-            {
-                _context.ContractSigningTokens.RemoveRange(expiredTokens);
-                await _context.SaveChangesAsync();
-            }
-
-            return expiredTokens.Count;
-        }
-        catch (Exception ex)
+        if (expiredTokens.Count != 0)
         {
-            _logger.LogError(ex, "Error deleting expired tokens");
-            throw;
+            _context.ContractSigningTokens.RemoveRange(expiredTokens);
+            await _context.SaveChangesAsync();
         }
+
+        return expiredTokens.Count;
     }
 
     public async Task InvalidateTokensByRegistrationIdAsync(Guid registrationId)
     {
-        try
-        {
-            var tokens = await _context.ContractSigningTokens
-                .Where(t => t.RegistrationId == registrationId && !t.IsUsed)
-                .ToListAsync();
+        var tokens = await _context.ContractSigningTokens
+            .Where(t => t.RegistrationId == registrationId && !t.IsUsed)
+            .ToListAsync();
 
-            foreach (var token in tokens)
-            {
-                token.IsUsed = true;
-                token.UsedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
-        }
-        catch (Exception ex)
+        foreach (var token in tokens)
         {
-            _logger.LogError(ex, "Error invalidating tokens for registration: {RegistrationId}", registrationId);
-            throw;
+            token.IsUsed = true;
+            token.UsedAt = DateTime.UtcNow;
         }
+
+        await _context.SaveChangesAsync();
     }
 }

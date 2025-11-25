@@ -18,20 +18,17 @@ public class HospitalContractSignedEventHandler : IIntegrationEventHandler<Hospi
     private readonly EmailService _emailService;
     private readonly IEventBus _eventBus;
     private readonly AuthService.AuthServiceClient _authGrpcClient;
-    private readonly IConfiguration _configuration;
 
     public HospitalContractSignedEventHandler(
         ILogger<HospitalContractSignedEventHandler> logger,
         EmailService emailService,
         IEventBus eventBus,
-        AuthService.AuthServiceClient authGrpcClient,
-        IConfiguration configuration)
+        AuthService.AuthServiceClient authGrpcClient)
     {
         _logger = logger;
         _emailService = emailService;
         _eventBus = eventBus;
         _authGrpcClient = authGrpcClient;
-        _configuration = configuration;
     }
 
     public async Task HandleAsync(HospitalContractSignedEvent @event, CancellationToken cancellationToken = default)

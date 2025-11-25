@@ -11,146 +11,78 @@ namespace BookingCare.Services.Hospital.Repositories.Implementations;
 public class AdminSignatureRepository : IAdminSignatureRepository
 {
     private readonly HospitalDbContext _context;
-    private readonly ILogger<AdminSignatureRepository> _logger;
 
-    public AdminSignatureRepository(
-        HospitalDbContext context,
-        ILogger<AdminSignatureRepository> logger)
+    public AdminSignatureRepository(HospitalDbContext context)
     {
         _context = context;
-        _logger = logger;
     }
 
     public async Task<AdminSignatureEntity?> GetByIdAsync(Guid id)
     {
-        try
-        {
-            return await _context.AdminSignatures
-                .FirstOrDefaultAsync(s => s.Id == id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting admin signature by ID: {Id}", id);
-            throw;
-        }
+        return await _context.AdminSignatures
+            .FirstOrDefaultAsync(s => s.Id == id);
     }
 
     public async Task<AdminSignatureEntity?> GetByAdminIdAsync(string adminId)
     {
-        try
-        {
-            return await _context.AdminSignatures
-                .Where(s => s.AdminId == adminId)
-                .OrderByDescending(s => s.CreatedAt)
-                .FirstOrDefaultAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting admin signature by admin ID: {AdminId}", adminId);
-            throw;
-        }
+        return await _context.AdminSignatures
+            .Where(s => s.AdminId == adminId)
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<AdminSignatureEntity?> GetActiveByAdminIdAsync(string adminId)
     {
-        try
-        {
-            return await _context.AdminSignatures
-                .Where(s => s.AdminId == adminId && s.IsActive)
-                .OrderByDescending(s => s.CreatedAt)
-                .FirstOrDefaultAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting active admin signature by admin ID: {AdminId}", adminId);
-            throw;
-        }
+        return await _context.AdminSignatures
+            .Where(s => s.AdminId == adminId && s.IsActive)
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<IEnumerable<AdminSignatureEntity>> GetAllAsync()
     {
-        try
-        {
-            return await _context.AdminSignatures
-                .OrderByDescending(s => s.CreatedAt)
-                .ToListAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting all admin signatures");
-            throw;
-        }
+        return await _context.AdminSignatures
+            .OrderByDescending(s => s.CreatedAt)
+            .ToListAsync();
     }
 
     public async Task<AdminSignatureEntity> CreateAsync(AdminSignatureEntity signature)
     {
-        try
-        {
-            await _context.AdminSignatures.AddAsync(signature);
-            await _context.SaveChangesAsync();
-            return signature;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating admin signature for admin: {AdminId}", signature.AdminId);
-            throw;
-        }
+        await _context.AdminSignatures.AddAsync(signature);
+        await _context.SaveChangesAsync();
+        return signature;
     }
 
     public async Task<AdminSignatureEntity> UpdateAsync(AdminSignatureEntity signature)
     {
-        try
-        {
-            _context.AdminSignatures.Update(signature);
-            await _context.SaveChangesAsync();
-            return signature;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating admin signature: {Id}", signature.Id);
-            throw;
-        }
+        _context.AdminSignatures.Update(signature);
+        await _context.SaveChangesAsync();
+        return signature;
     }
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        try
-        {
-            var signature = await GetByIdAsync(id);
-            if (signature == null)
-                return false;
+        var signature = await GetByIdAsync(id);
+        if (signature == null)
+            return false;
 
-            _context.AdminSignatures.Remove(signature);
-            await _context.SaveChangesAsync();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting admin signature: {Id}", id);
-            throw;
-        }
+        _context.AdminSignatures.Remove(signature);
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     public async Task DeactivateAllByAdminIdAsync(string adminId)
     {
-        try
-        {
-            var signatures = await _context.AdminSignatures
-                .Where(s => s.AdminId == adminId && s.IsActive)
-                .ToListAsync();
+        var signatures = await _context.AdminSignatures
+            .Where(s => s.AdminId == adminId && s.IsActive)
+            .ToListAsync();
 
-            foreach (var signature in signatures)
-            {
-                signature.IsActive = false;
-                signature.UpdatedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
-        }
-        catch (Exception ex)
+        foreach (var signature in signatures)
         {
-            _logger.LogError(ex, "Error deactivating signatures for admin: {AdminId}", adminId);
-            throw;
+            signature.IsActive = false;
+            signature.UpdatedAt = DateTime.UtcNow;
         }
+
+        await _context.SaveChangesAsync();
     }
 }

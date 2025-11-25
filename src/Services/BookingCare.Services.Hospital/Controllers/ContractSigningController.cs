@@ -76,16 +76,18 @@ public class ContractSigningController : BaseApiController
     [HttpPost("sign")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [AllowAnonymous]
-    public async Task<IActionResult> SignContract([FromBody] SignContractRequestDto request)
+    public async Task<IActionResult> SignContract(
+        [FromBody] SignContractRequestDto request,
+        [FromHeader(Name = "User-Agent")] string? userAgent = null)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        // Get IP address and user agent from request
+        // Set IP address and user agent from request context
         request.IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-        request.UserAgent = HttpContext.Request.Headers["User-Agent"].ToString();
+        request.UserAgent = userAgent;
 
         var result = await _contractSigningService.SignContractAsync(request);
 

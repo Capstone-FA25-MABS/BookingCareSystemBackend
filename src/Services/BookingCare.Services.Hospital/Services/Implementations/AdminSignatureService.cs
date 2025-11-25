@@ -100,11 +100,8 @@ public class AdminSignatureService : BaseService, IAdminSignatureService
         {
             LogInfo("Updating admin signature: {SignatureId}", null, id);
 
-            var signature = await _signatureRepository.GetByIdAsync(id);
-            if (signature == null)
-            {
-                throw new NotFoundException($"Admin signature with ID {id} not found", "SIGNATURE_NOT_FOUND");
-            }
+            var signature = await _signatureRepository.GetByIdAsync(id)
+                ?? throw new NotFoundException($"Admin signature with ID {id} not found", "SIGNATURE_NOT_FOUND");
 
             // Verify ownership
             if (signature.AdminId != adminId)
@@ -112,36 +109,13 @@ public class AdminSignatureService : BaseService, IAdminSignatureService
                 throw new UnauthorizedException("You are not authorized to update this signature", "UNAUTHORIZED_SIGNATURE_UPDATE");
             }
 
-            // Update fields if provided
-            if (!string.IsNullOrWhiteSpace(request.FullName))
-            {
-                signature.FullName = request.FullName;
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.Position))
-            {
-                signature.Position = request.Position;
-            }
-
-            if (request.IsActive.HasValue)
-            {
-                signature.IsActive = request.IsActive.Value;
-            }
+            // Update basic fields
+            UpdateSignatureFields(signature, request);
 
             // Upload new signature file if provided
             if (request.SignatureFile != null)
             {
-                ValidateSignatureFile(request.SignatureFile);
-
-                var uploadResult = await UploadSignatureFileAsync(request.SignatureFile, adminId);
-
-                if (!uploadResult.Success || uploadResult.UploadResult == null)
-                {
-                    throw new FileUploadException(
-                        uploadResult.ErrorMessage ?? "Failed to upload signature file");
-                }
-
-                signature.SignatureImageUrl = uploadResult.UploadResult?.CloudFrontUrl ?? uploadResult.UploadResult?.FileUrl ?? string.Empty;
+                await UpdateSignatureFileAsync(signature, request.SignatureFile, adminId);
             }
 
             var updatedSignature = await _signatureRepository.UpdateAsync(signature);
@@ -150,6 +124,40 @@ public class AdminSignatureService : BaseService, IAdminSignatureService
 
             return MapToResponseDto(updatedSignature);
         }, "UpdateAdminSignature");
+    }
+
+    /// <summary>
+    /// Update basic signature fields from request
+    /// </summary>
+    private static void UpdateSignatureFields(AdminSignatureEntity signature, UpdateAdminSignatureRequestDto request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.FullName))
+            signature.FullName = request.FullName;
+
+        if (!string.IsNullOrWhiteSpace(request.Position))
+            signature.Position = request.Position;
+
+        if (request.IsActive.HasValue)
+            signature.IsActive = request.IsActive.Value;
+    }
+
+    /// <summary>
+    /// Upload and update signature file
+    /// </summary>
+    private async Task UpdateSignatureFileAsync(AdminSignatureEntity signature, IFormFile signatureFile, string adminId)
+    {
+        ValidateSignatureFile(signatureFile);
+
+        var uploadResult = await UploadSignatureFileAsync(signatureFile, adminId);
+
+        if (!uploadResult.Success || uploadResult.UploadResult == null)
+        {
+            throw new FileUploadException(uploadResult.ErrorMessage ?? "Failed to upload signature file");
+        }
+
+        signature.SignatureImageUrl = uploadResult.UploadResult.CloudFrontUrl
+            ?? uploadResult.UploadResult.FileUrl
+            ?? string.Empty;
     }
 
     public async Task<bool> DeleteAsync(Guid id, string adminId)
@@ -180,7 +188,7 @@ public class AdminSignatureService : BaseService, IAdminSignatureService
 
     #region Private Helper Methods
 
-    private void ValidateSignatureFile(IFormFile file)
+    private static void ValidateSignatureFile(IFormFile file)
     {
         // Validate file size (max 5MB)
         const long maxFileSize = 5 * 1024 * 1024;
