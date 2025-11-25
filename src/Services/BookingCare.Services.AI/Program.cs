@@ -1,12 +1,14 @@
-using Microsoft.EntityFrameworkCore;
+using BookingCare.Services.AI.Configuration;
+using BookingCare.Services.AI.Data;
+using BookingCare.Services.AI.Services;
+using BookingCare.Services.AI.Services.Implementations;
+using BookingCare.Services.AI.Services.Interfaces;
+using BookingCare.Services.AI.Workflows;
+using BookingCare.Services.Doctor.Protos;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
-using BookingCare.Services.AI.Configuration;
-using BookingCare.Services.AI.Services.Interfaces;
-using BookingCare.Services.AI.Services.Implementations;
-using BookingCare.Services.AI.Data;
-using BookingCare.Services.Doctor.Protos;
 using Grpc.Net.Client;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,27 +33,55 @@ builder.Services.AddDbContext<AiDbContext>(options =>
 // Configure Gemini Settings
 builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("Gemini"));
 
+// Configure Gemini for Medical Summary (reuse existing config)
+builder.Services.Configure<GeminiConfiguration>(options =>
+{
+    var geminiSection = builder.Configuration.GetSection("Gemini");
+    options.ApiKey = geminiSection["ApiKey"] ?? string.Empty;
+    options.ApiEndpoint = "https://generativelanguage.googleapis.com";
+    options.Model = "gemini-1.5-pro"; // Use newer model for medical summary
+    options.Temperature = 0.3; // Lower temperature for more focused medical output
+    options.MaxTokens = 2048;
+});
+
 // Register Gemini Service (still needs HttpClient for Gemini API)
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
+// Register AI Service for medical summary generation
+builder.Services.AddHttpClient<IAIService, AIService>();
+
 // Register gRPC clients
-var doctorGrpcAddress = builder.Configuration["GrpcClients:Doctor:Address"] ?? builder.Configuration["Services:Doctor:GrpcUrl"] ?? "http://localhost:6108";
+var doctorGrpcAddress =
+    builder.Configuration["GrpcClients:Doctor:Address"]
+    ?? builder.Configuration["Services:Doctor:GrpcUrl"]
+    ?? "http://localhost:6108";
 builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(options =>
 {
     options.Address = new Uri(doctorGrpcAddress);
 });
 
-var hospitalGrpcAddress = builder.Configuration["GrpcClients:Hospital:Address"] ?? builder.Configuration["Services:Hospital:GrpcUrl"] ?? "http://localhost:6104";
-builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
-{
-    options.Address = new Uri(hospitalGrpcAddress);
-});
+var hospitalGrpcAddress =
+    builder.Configuration["GrpcClients:Hospital:Address"]
+    ?? builder.Configuration["Services:Hospital:GrpcUrl"]
+    ?? "http://localhost:6104";
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(
+    options =>
+    {
+        options.Address = new Uri(hospitalGrpcAddress);
+    }
+);
 
 // Register Conversation Session Service
 builder.Services.AddScoped<IConversationSessionService, ConversationSessionService>();
 
 // Register Symptom Analysis Service
 builder.Services.AddScoped<ISymptomAnalysisService, SymptomAnalysisService>();
+
+// Register Gemini Transcription Service
+builder.Services.AddScoped<IGeminiTranscriptionService, GeminiTranscriptionService>();
+
+// Register Audio Transcription Workflow
+builder.Services.AddScoped<IAudioTranscriptionWorkflow, AudioTranscriptionWorkflow>();
 
 // Add JWT Authentication and Authorization using centralized configuration
 // This includes: JWT auth, authorization policies, and AutoToken middleware

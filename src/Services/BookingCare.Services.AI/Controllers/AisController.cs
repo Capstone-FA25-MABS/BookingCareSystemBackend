@@ -1,31 +1,67 @@
-using Microsoft.AspNetCore.Mvc;
+using BookingCare.Services.AI.Models.DTOs;
+using BookingCare.Services.AI.Services.Interfaces;
+using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.AI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-[Authorize] // This requires authentication for all endpoints
-public class AisController : ControllerBase
+[Route("api/v{version:apiVersion}/[controller]")]
+[ApiVersion(ApiVersions.V1_0)]
+[Produces("application/json")]
+public class AisController : BaseApiController
 {
+    private readonly IAIService _aiService;
+
+    public AisController(IAIService aiService)
+    {
+        _aiService = aiService;
+    }
+
     [HttpGet("health")]
-    [AllowAnonymous] // Allow health check without authentication
+    [AllowAnonymous]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
-        return Ok(new { Status = "Healthy", Service = "AI", Timestamp = DateTime.UtcNow });
+        return Ok(
+            new
+            {
+                Status = "Healthy",
+                Service = "AI",
+                Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
+                Timestamp = DateTime.UtcNow,
+            }
+        );
     }
 
-    [HttpGet("{id}")]
-    public IActionResult GetAiResult(int id)
+    /// <summary>
+    /// Generate medical summary from conversation transcript using AI
+    /// </summary>
+    /// <param name="request">Request containing conversation transcript</param>
+    /// <returns>AI-generated medical summary for doctor review</returns>
+    /// <response code="200">Medical summary generated successfully</response>
+    /// <response code="400">Invalid request data or generation failed</response>
+    /// <response code="401">Unauthorized - user must be authenticated as Doctor/Staff/Admin</response>
+    [HttpPost("generate-medical-summary")]
+    [Authorize(Roles = "Doctor,Staff,Admin")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GenerateMedicalSummary(
+        [FromBody] GenerateMedicalSummaryRequest request
+    )
     {
-        // TODO: Implement AI logic
-        return Ok(new { AiResultId = id, Status = "Processed" });
-    }
+        var result = await _aiService.GenerateMedicalSummaryAsync(request);
 
-    [HttpPost]
-    public IActionResult CreateAiRequest([FromBody] object aiRequest)
-    {
-        // TODO: Save to DB or process AI request
-        return Ok(new { Message = "AI request created successfully!" });
+        if (!result.Success)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
+
+        return Success(result, "Medical summary generated successfully");
     }
 }

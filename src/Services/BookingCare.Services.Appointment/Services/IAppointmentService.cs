@@ -10,6 +10,7 @@ public interface IAppointmentService
 {
     // Appointment operations
     Task<Guid> CreateAppointmentAsync(CreateAppointmentRequest request, bool skipPayment = false);
+
     /// <summary>
     /// Get appointment by ID with enriched data for patient view
     /// </summary>
@@ -19,6 +20,12 @@ public interface IAppointmentService
 
     // Status operations
     Task<bool> UpdateAppointmentStatusAsync(UpdateAppointmentStatusRequest request);
+
+    /// <summary>
+    /// Update appointment result and automatically change status to COMPLETED
+    /// If status is not COMPLETED, it will be changed to COMPLETED
+    /// </summary>
+    Task<bool> UpdateAppointmentResultAsync(UpdateAppointmentResultRequest request);
 
     /// <summary>
     /// Cancel an appointment with validation
@@ -31,7 +38,9 @@ public interface IAppointmentService
     /// Used when patient clicks reschedule/choose new doctor button
     /// Appointment status remains unchanged until patient completes the reschedule flow
     /// </summary>
-    Task<GenerateRescheduleTokenResponse> GenerateRescheduleTokenAsync(GenerateRescheduleTokenRequest request);
+    Task<GenerateRescheduleTokenResponse> GenerateRescheduleTokenAsync(
+        GenerateRescheduleTokenRequest request
+    );
 
     /// <summary>
     /// Reschedule appointment with same doctor (Option 1)
@@ -71,7 +80,8 @@ public interface IAppointmentService
         Guid specialtyId,
         DateTime? appointmentDate,
         AppointmentTime? appointmentTimeId,
-        bool checkAvailability = true);
+        bool checkAvailability = true
+    );
 
     Task<StaffHospitalStatisticsResponse> GetHospitalStaffStatisticsAsync(StaffHospitalStatisticsRequest request);
 
@@ -83,5 +93,10 @@ public interface IAppointmentService
     /// Send appointment booking success email notification to patient
     /// This method is called by event handler when payment is successful
     /// </summary>
-    Task<bool> SendAppointmentBookingSuccessEmailAsync(Guid appointmentId, Guid patientId, string accountId, decimal amount = 0);
+    Task<bool> SendAppointmentBookingSuccessEmailAsync(
+        Guid appointmentId,
+        Guid patientId,
+        string accountId,
+        decimal amount = 0
+    );
 }

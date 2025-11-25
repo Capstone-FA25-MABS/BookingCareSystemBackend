@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
-using BookingCare.Services.Appointment.Services;
 using BookingCare.Services.Appointment.Models.DTOs;
+using BookingCare.Services.Appointment.Services;
 using BookingCare.Shared.Common.Controllers;
-using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Appointment.Controllers;
 
@@ -33,13 +33,15 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Health()
     {
-        return Ok(new
-        {
-            Status = "Healthy",
-            Service = "Appointment",
-            Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
-            Timestamp = DateTime.UtcNow
-        });
+        return Ok(
+            new
+            {
+                Status = "Healthy",
+                Service = "Appointment",
+                Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
+                Timestamp = DateTime.UtcNow,
+            }
+        );
     }
 
     /// <summary>
@@ -51,7 +53,10 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> CreateAppointment([FromBody] CreateAppointmentRequest request)
     {
-        var appointmentId = await _appointmentService.CreateAppointmentAsync(request, request.SkipPayment);
+        var appointmentId = await _appointmentService.CreateAppointmentAsync(
+            request,
+            request.SkipPayment
+        );
 
         if (appointmentId == Guid.Empty)
             return BadRequest("Failed to create appointment");
@@ -83,7 +88,9 @@ public class AppointmentsController : BaseApiController
     /// <returns>Paginated list of patient appointments with enriched data</returns>
     [HttpPost("patient")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetAppointmentsByPatient([FromBody] AppointmentQueryRequest query)
+    public async Task<IActionResult> GetAppointmentsByPatient(
+        [FromBody] AppointmentQueryRequest query
+    )
     {
         var appointments = await _appointmentService.GetAppointmentsByPatientAsync(query);
         return Success(appointments, "Patient appointments retrieved successfully");
@@ -97,7 +104,9 @@ public class AppointmentsController : BaseApiController
     [HttpPost("management")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [Authorize(Roles = "Admin,Staff,Doctor")]
-    public async Task<IActionResult> GetAppointmentsForManagement([FromBody] AppointmentQueryRequest query)
+    public async Task<IActionResult> GetAppointmentsForManagement(
+        [FromBody] AppointmentQueryRequest query
+    )
     {
         var appointments = await _appointmentService.GetAppointmentsForManagementAsync(query);
         return Success(appointments, "Management appointments retrieved successfully");
@@ -113,7 +122,8 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> UpdateAppointmentStatus(
         Guid id,
-        [FromBody] UpdateAppointmentStatusRequest request)
+        [FromBody] UpdateAppointmentStatusRequest request
+    )
     {
         if (id != request.Id)
             return BadRequest(IdMismatchErrorMessage);
@@ -124,6 +134,33 @@ public class AppointmentsController : BaseApiController
             return BadRequest("Failed to update appointment status");
 
         return Success("Appointment status updated successfully");
+    }
+
+    /// <summary>
+    /// Update appointment result and automatically mark as completed
+    /// If appointment status is not COMPLETED, it will be changed to COMPLETED
+    /// This is typically used when a doctor finishes examining a patient and records the result
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Result update request</param>
+    /// <returns>Success status</returns>
+    [HttpPut("result/{id:guid}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Doctor,Staff,Admin")]
+    public async Task<IActionResult> UpdateAppointmentResult(
+        Guid id,
+        [FromBody] UpdateAppointmentResultRequest request
+    )
+    {
+        if (id != request.AppointmentId)
+            return BadRequest(IdMismatchErrorMessage);
+
+        var success = await _appointmentService.UpdateAppointmentResultAsync(request);
+
+        if (!success)
+            return BadRequest("Failed to update appointment result");
+
+        return Success("Appointment result updated and marked as completed successfully");
     }
 
     /// <summary>
@@ -138,7 +175,8 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GenerateRescheduleToken(
         Guid id,
-        [FromBody] GenerateRescheduleTokenRequest request)
+        [FromBody] GenerateRescheduleTokenRequest request
+    )
     {
         if (id != request.AppointmentId)
             return BadRequest(IdMismatchErrorMessage);
@@ -164,7 +202,8 @@ public class AppointmentsController : BaseApiController
     [Authorize(Roles = "Staff, Patient")]
     public async Task<IActionResult> CancelAppointment(
         Guid id,
-        [FromBody] CancelAppointmentRequest request)
+        [FromBody] CancelAppointmentRequest request
+    )
     {
         if (id != request.AppointmentId)
             return BadRequest(IdMismatchErrorMessage);
@@ -185,7 +224,8 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> RescheduleSameDoctor(
         Guid id,
-        [FromBody] RescheduleSameDoctorRequest request)
+        [FromBody] RescheduleSameDoctorRequest request
+    )
     {
         if (id != request.AppointmentId)
             return BadRequest(IdMismatchErrorMessage);
@@ -211,14 +251,18 @@ public class AppointmentsController : BaseApiController
     [Authorize(Roles = "Staff, Admin")]
     public async Task<IActionResult> AssignNewDoctor(
         Guid id,
-        [FromBody] AssignNewDoctorRequest request)
+        [FromBody] AssignNewDoctorRequest request
+    )
     {
         if (id != request.AppointmentId)
             return BadRequest(IdMismatchErrorMessage);
 
         var confirmationUrl = await _appointmentService.AssignNewDoctorAsync(request);
 
-        return Success(new { confirmationUrl }, "Doctor assigned successfully. Patient will be notified.");
+        return Success(
+            new { confirmationUrl },
+            "Doctor assigned successfully. Patient will be notified."
+        );
     }
 
     /// <summary>
@@ -231,9 +275,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Success status</returns>
     [HttpPost("{id:guid}/request-refund")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> RequestRefund(
-        Guid id,
-        [FromBody] RequestRefundRequest request)
+    public async Task<IActionResult> RequestRefund(Guid id, [FromBody] RequestRefundRequest request)
     {
         if (id != request.AppointmentId)
             return BadRequest(IdMismatchErrorMessage);
@@ -243,7 +285,9 @@ public class AppointmentsController : BaseApiController
         if (!success)
             return BadRequest("Failed to create refund request");
 
-        return Success("Refund request submitted successfully. Payment Service will process your request.");
+        return Success(
+            "Refund request submitted successfully. Payment Service will process your request."
+        );
     }
 
     /// <summary>
@@ -258,7 +302,8 @@ public class AppointmentsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ChooseNewDoctor(
         Guid id,
-        [FromBody] ChooseNewDoctorRequest request)
+        [FromBody] ChooseNewDoctorRequest request
+    )
     {
         if (id != request.AppointmentId)
             return BadRequest(IdMismatchErrorMessage);
@@ -287,14 +332,16 @@ public class AppointmentsController : BaseApiController
         [FromQuery] Guid specialtyId,
         [FromQuery] DateTime? appointmentDate = null,
         [FromQuery] AppointmentTime? appointmentTimeId = null,
-        [FromQuery] bool checkAvailability = true)
+        [FromQuery] bool checkAvailability = true
+    )
     {
         var result = await _appointmentService.GetAvailableDoctorsAsync(
             hospitalId,
             specialtyId,
             appointmentDate,
             appointmentTimeId,
-            checkAvailability);
+            checkAvailability
+        );
 
         return Success(result, $"Found {result.TotalCount} doctors");
     }
@@ -305,10 +352,11 @@ public class AppointmentsController : BaseApiController
     [HttpGet("staff/statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [Authorize(Roles = "Staff, Admin")]
-    public async Task<IActionResult> GetHospitalStaffStatistics([FromQuery] StaffHospitalStatisticsRequest request)
+    public async Task<IActionResult> GetHospitalStaffStatistics(
+        [FromQuery] StaffHospitalStatisticsRequest request
+    )
     {
         var result = await _appointmentService.GetHospitalStaffStatisticsAsync(request);
         return Success(result, "Staff statistics retrieved successfully");
     }
-
 }
