@@ -165,7 +165,7 @@ public class StripeService : BaseService, IStripeService
         return lineItems;
     }
 
-    private Dictionary<string, string> PrepareMetadata(StripePaymentRequest request)
+    private static Dictionary<string, string> PrepareMetadata(StripePaymentRequest request)
     {
         var metadata = new Dictionary<string, string>
         {

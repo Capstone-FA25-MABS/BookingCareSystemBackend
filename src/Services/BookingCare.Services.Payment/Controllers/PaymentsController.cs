@@ -208,9 +208,7 @@ public class PaymentsController(
     public async Task<IActionResult> CreateAppointmentPayment(
         [FromBody] CreateAppointmentPaymentRequest request
     )
-
     {
-
         try
         {
             // Validate request

@@ -66,8 +66,10 @@ public class StripeController : BasePaymentGatewayController
             // Read raw body
             // S6932: Suppressed - Stripe webhook signature verification requires raw request body.
             // Model binding would modify the body and break signature validation.
+#pragma warning disable S6932
             using var reader = new StreamReader(Request.Body);
             var json = await reader.ReadToEndAsync();
+#pragma warning restore S6932
 
             // Get Stripe signature from header
             var stripeSignature = Request.Headers["Stripe-Signature"].ToString();

@@ -54,7 +54,9 @@ public class AppointmentCancelledEventHandler
             );
 
             // Step 1: Find payment associated with this appointment
-            var payment = await _refundDependencies.PaymentRepository.GetByAppointmentIdAsync(@event.AppointmentId);
+            var payment = await _refundDependencies.PaymentRepository.GetByAppointmentIdAsync(
+                @event.AppointmentId
+            );
             if (payment == null)
             {
                 _logger.LogWarning(
@@ -105,9 +107,10 @@ public class AppointmentCancelledEventHandler
             if (!isStripePayment)
             {
                 // Non-Stripe payment: Check if patient has a bank account for manual refund
-                var defaultBankAccount = await _refundDependencies.BankAccountRepository.GetDefaultByUserIdAsync(
-                    @event.PatientId
-                );
+                var defaultBankAccount =
+                    await _refundDependencies.BankAccountRepository.GetDefaultByUserIdAsync(
+                        @event.PatientId
+                    );
 
                 if (defaultBankAccount != null && defaultBankAccount.IsActive)
                 {
@@ -262,7 +265,9 @@ public class AppointmentCancelledEventHandler
             RefundReason = refundReason,
         };
 
-        var refundHistory = await _refundProcessors.RefundHistoryService.CreateAsync(createRefundRequest);
+        var refundHistory = await _refundProcessors.RefundHistoryService.CreateAsync(
+            createRefundRequest
+        );
         _logger.LogDebug(
             "Created refund history {RefundHistoryId} with status {Status} for payment {PaymentId}",
             refundHistory.Id,
@@ -301,7 +306,9 @@ public class AppointmentCancelledEventHandler
                 PaymentIntentId = payment.PaymentIntentId,
             };
 
-            var stripeRefundResponse = await _refundProcessors.StripeService.CreateRefundAsync(stripeRefundRequest);
+            var stripeRefundResponse = await _refundProcessors.StripeService.CreateRefundAsync(
+                stripeRefundRequest
+            );
 
             if (stripeRefundResponse.IsSuccess)
             {

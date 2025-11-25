@@ -1,5 +1,5 @@
-using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Controllers;
+using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Handlers;
 using BookingCare.Services.Payment.Mappings;
 using BookingCare.Services.Payment.Models.Configurations;
