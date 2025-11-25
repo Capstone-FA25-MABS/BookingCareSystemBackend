@@ -57,7 +57,9 @@ public class StripeController : BasePaymentGatewayController
     /// <returns>Webhook processing result</returns>
     [HttpPost("webhook")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> StripeWebhook()
+    public async Task<IActionResult> StripeWebhook(
+        [FromHeader(Name = "Stripe-Signature")] string? stripeSignature
+    )
     {
         var requestId = GenerateRequestId();
 
@@ -71,9 +73,6 @@ public class StripeController : BasePaymentGatewayController
             var json = await reader.ReadToEndAsync();
 #pragma warning restore S6932
 
-            // Get Stripe signature from header
-            var stripeSignature = Request.Headers["Stripe-Signature"].ToString();
-
             if (string.IsNullOrEmpty(stripeSignature))
             {
                 Logger.LogWarning(
@@ -86,7 +85,7 @@ public class StripeController : BasePaymentGatewayController
             Logger.LogInformation("Stripe Webhook #{RequestId} - Received event", requestId);
 
             // Process webhook
-            var callbackResult = await _stripeService.ProcessWebhookAsync(json, stripeSignature);
+            var callbackResult = await _stripeService.ProcessWebhookAsync(json, stripeSignature!);
 
             Logger.LogInformation(
                 "Stripe Webhook #{RequestId} - Processed event, Status: {Status}, PaymentId: {PaymentId}",
