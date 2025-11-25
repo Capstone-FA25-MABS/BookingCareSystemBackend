@@ -133,105 +133,21 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
                     request.HospitalId
                 );
 
-                // Validation
                 ValidateRequired(request, nameof(request));
 
-                // Check if payment exists and can be refunded
-                var payment = await _paymentRepository.GetByIdAsync(request.PaymentId);
-                if (payment == null)
-                {
-                    throw new NotFoundException("Payment", request.PaymentId);
-                }
+                // Validate payment and get payment details
+                var payment = await ValidateAndGetPaymentAsync(request);
 
-                // Validate that the HospitalId matches the payment's HospitalId (if payment has one)
-                if (payment.HospitalId.HasValue && payment.HospitalId.Value != request.HospitalId)
-                {
-                    throw new InvalidOperationException(
-                        $"Hospital ID mismatch. Payment belongs to hospital {payment.HospitalId}, but refund is for hospital {request.HospitalId}"
-                    );
-                }
-
-                // If payment doesn't have HospitalId (appointment payment), we still allow the refund with the provided HospitalId
-                // This handles cases where the hospital needs to process refunds for appointments
-
-                // Check if payment status is COMPLETED to allow refund
-                if (
-                    payment.Status != PaymentStatus.COMPLETED
-                    && payment.Status != PaymentStatus.REFUNDED
-                )
-                {
-                    throw new InvalidOperationException(
-                        $"Only payments with status COMPLETED can be refunded. Current payment status: {payment.Status}"
-                    );
-                }
-
-                // Check if refund amount does not exceed payment amount
-                if (request.RefundAmount > payment.Amount)
-                {
-                    throw new InvalidOperationException(
-                        $"Refund amount ({request.RefundAmount}) cannot exceed payment amount ({payment.Amount})"
-                    );
-                }
-
-                // Check payment method to determine refund status
-                var paymentMethod = await _paymentMethodRepository.GetByIdAsync(
-                    payment.PaymentMethodId
+                // Validate payment method and determine refund status
+                var (status, bankAccountId) = await DetermineRefundStatusAndBankAccountAsync(
+                    payment,
+                    request.UserId,
+                    request.BankAccountId,
+                    request.PaymentId
                 );
-                if (paymentMethod == null)
-                {
-                    throw new NotFoundException("PaymentMethod", payment.PaymentMethodId);
-                }
-
-                bool isStripePayment = paymentMethod.Name.Equals(
-                    "STRIPE",
-                    StringComparison.OrdinalIgnoreCase
-                );
-
-                RefundStatus status;
-                Guid? bankAccountId;
-
-                if (isStripePayment)
-                {
-                    // Stripe payment: Set status to COMPLETED immediately (automatic refund)
-                    // No bank account needed for Stripe refunds
-                    status = RefundStatus.COMPLETED;
-                    bankAccountId = null;
-
-                    LogInfo(
-                        "Stripe payment detected for Payment {PaymentId}. Setting refund status to COMPLETED.",
-                        null,
-                        request.PaymentId
-                    );
-                }
-                else
-                {
-                    // Non-Stripe payment: Determine status based on bank account
-                    (status, bankAccountId) = await DetermineRefundStatusAsync(
-                        request.UserId,
-                        request.BankAccountId
-                    );
-
-                    LogInfo(
-                        "Non-Stripe payment detected for Payment {PaymentId}. Status: {Status}, BankAccountId: {BankAccountId}",
-                        null,
-                        request.PaymentId,
-                        status,
-                        bankAccountId
-                    );
-                }
 
                 // Create entity
-                var entity = _mapper.Map<RefundHistoryEntity>(request);
-                entity.Status = status;
-                entity.BankAccountId = bankAccountId;
-                entity.HospitalId = request.HospitalId; // Ensure HospitalId is set
-
-                // Set transfer_date for COMPLETED status (required by CHECK constraint)
-                if (status == RefundStatus.COMPLETED)
-                {
-                    entity.TransferDate = DateTime.UtcNow;
-                }
-
+                var entity = CreateRefundHistoryEntity(request, status, bankAccountId);
                 var created = await _refundHistoryRepository.CreateAsync(entity);
 
                 LogInfo(
@@ -246,6 +162,105 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             },
             "CreateRefundHistory"
         );
+    }
+
+    private async Task<PaymentEntity> ValidateAndGetPaymentAsync(CreateRefundHistoryRequest request)
+    {
+        var payment = await _paymentRepository.GetByIdAsync(request.PaymentId);
+        if (payment == null)
+        {
+            throw new NotFoundException("Payment", request.PaymentId);
+        }
+
+        // Validate hospital ID match
+        if (payment.HospitalId.HasValue && payment.HospitalId.Value != request.HospitalId)
+        {
+            throw new InvalidOperationException(
+                $"Hospital ID mismatch. Payment belongs to hospital {payment.HospitalId}, but refund is for hospital {request.HospitalId}"
+            );
+        }
+
+        // Validate payment status
+        if (payment.Status != PaymentStatus.COMPLETED && payment.Status != PaymentStatus.REFUNDED)
+        {
+            throw new InvalidOperationException(
+                $"Only payments with status COMPLETED can be refunded. Current payment status: {payment.Status}"
+            );
+        }
+
+        // Validate refund amount
+        if (request.RefundAmount > payment.Amount)
+        {
+            throw new InvalidOperationException(
+                $"Refund amount ({request.RefundAmount}) cannot exceed payment amount ({payment.Amount})"
+            );
+        }
+
+        return payment;
+    }
+
+    private async Task<(
+        RefundStatus status,
+        Guid? bankAccountId
+    )> DetermineRefundStatusAndBankAccountAsync(
+        PaymentEntity payment,
+        Guid userId,
+        Guid? requestedBankAccountId,
+        Guid paymentId
+    )
+    {
+        var paymentMethod = await _paymentMethodRepository.GetByIdAsync(payment.PaymentMethodId);
+        if (paymentMethod == null)
+        {
+            throw new NotFoundException("PaymentMethod", payment.PaymentMethodId);
+        }
+
+        bool isStripePayment = paymentMethod.Name.Equals(
+            "STRIPE",
+            StringComparison.OrdinalIgnoreCase
+        );
+
+        if (isStripePayment)
+        {
+            LogInfo(
+                "Stripe payment detected for Payment {PaymentId}. Setting refund status to COMPLETED.",
+                null,
+                paymentId
+            );
+            return (RefundStatus.COMPLETED, null);
+        }
+
+        var (status, bankAccountId) = await DetermineRefundStatusAsync(
+            userId,
+            requestedBankAccountId
+        );
+        LogInfo(
+            "Non-Stripe payment detected for Payment {PaymentId}. Status: {Status}, BankAccountId: {BankAccountId}",
+            null,
+            paymentId,
+            status,
+            bankAccountId ?? (object)"None"
+        );
+        return (status, bankAccountId);
+    }
+
+    private RefundHistoryEntity CreateRefundHistoryEntity(
+        CreateRefundHistoryRequest request,
+        RefundStatus status,
+        Guid? bankAccountId
+    )
+    {
+        var entity = _mapper.Map<RefundHistoryEntity>(request);
+        entity.Status = status;
+        entity.BankAccountId = bankAccountId;
+        entity.HospitalId = request.HospitalId;
+
+        if (status == RefundStatus.COMPLETED)
+        {
+            entity.TransferDate = DateTime.UtcNow;
+        }
+
+        return entity;
     }
 
     /// <summary>

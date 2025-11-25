@@ -75,149 +75,19 @@ public class StripeService : BaseService, IStripeService
                     request.PaymentId
                 );
 
-                // Validation
-                ValidateRequired(request, nameof(request));
-                ValidateGuid(request.PaymentId, nameof(request.PaymentId));
+                ValidateCheckoutRequest(request);
 
-                if (request.Amount <= 0)
-                    throw new ArgumentException("Amount must be greater than 0");
-
-                // Prepare line items
-                var lineItems = new List<SessionLineItemOptions>();
-
-                if (request.LineItems?.Any() == true)
-                {
-                    foreach (var item in request.LineItems)
-                    {
-                        lineItems.Add(
-                            new SessionLineItemOptions
-                            {
-                                PriceData = new SessionLineItemPriceDataOptions
-                                {
-                                    Currency = _stripeConfig.Currency,
-                                    UnitAmount = (long)item.Price, // Amount in smallest currency unit (VND doesn't have decimals)
-                                    ProductData = new SessionLineItemPriceDataProductDataOptions
-                                    {
-                                        Name = item.Name,
-                                        Description = item.Description,
-                                    },
-                                },
-                                Quantity = item.Quantity,
-                            }
-                        );
-                    }
-                }
-                else
-                {
-                    // Default line item if none provided
-                    lineItems.Add(
-                        new SessionLineItemOptions
-                        {
-                            PriceData = new SessionLineItemPriceDataOptions
-                            {
-                                Currency = _stripeConfig.Currency,
-                                UnitAmount = (long)request.Amount,
-                                ProductData = new SessionLineItemPriceDataProductDataOptions
-                                {
-                                    Name = request.Description,
-                                },
-                            },
-                            Quantity = 1,
-                        }
-                    );
-                }
-
-                // Prepare metadata
-                var metadata = new Dictionary<string, string>
-                {
-                    { "PaymentId", request.PaymentId.ToString() },
-                };
-
-                // Add appointment-related metadata
-                if (request.AppointmentId.HasValue)
-                {
-                    metadata["AppointmentId"] = request.AppointmentId.Value.ToString();
-                }
-
-                if (request.PatientId.HasValue)
-                {
-                    metadata["PatientId"] = request.PatientId.Value.ToString();
-                }
-
-                // Add subscription-related metadata
-                if (request.SubscriptionPlanId.HasValue)
-                {
-                    metadata["SubscriptionPlanId"] = request.SubscriptionPlanId.Value.ToString();
-                }
-
-                if (request.HospitalId.HasValue)
-                {
-                    metadata["HospitalId"] = request.HospitalId.Value.ToString();
-                }
-
-                if (request.IsSubscriptionUpgrade)
-                {
-                    metadata["IsUpgrade"] = "true";
-                }
-
-                if (request.CurrentHospitalSubscriptionId.HasValue)
-                {
-                    metadata["CurrentSubscriptionId"] =
-                        request.CurrentHospitalSubscriptionId.Value.ToString();
-                }
-
-                if (!string.IsNullOrEmpty(request.PlanType))
-                {
-                    metadata["PlanType"] = request.PlanType;
-                }
-
-                // Add custom metadata if provided
-                if (request.Metadata?.Any() == true)
-                {
-                    foreach (
-                        var kvp in request.Metadata.Where(kvp => !metadata.ContainsKey(kvp.Key))
-                    )
-                    {
-                        metadata[kvp.Key] = kvp.Value;
-                    }
-                }
-
-                // Calculate expiration time
+                var lineItems = PrepareLineItems(request);
+                var metadata = PrepareMetadata(request);
                 var expiresAt = DateTime.UtcNow.AddMinutes(_stripeConfig.TimeoutInMinutes);
 
-                // Create session options
-                var options = new SessionCreateOptions
-                {
-                    PaymentMethodTypes = new List<string> { "card" },
-                    LineItems = lineItems,
-                    Mode = "payment",
-                    SuccessUrl = _stripeConfig.SuccessUrl + "?session_id={CHECKOUT_SESSION_ID}",
-                    CancelUrl = _stripeConfig.CancelUrl + "?session_id={CHECKOUT_SESSION_ID}",
-                    Metadata = metadata,
-                    ExpiresAt = expiresAt,
-                    PaymentIntentData = new SessionPaymentIntentDataOptions { Metadata = metadata },
-                };
-
-                // Add customer info if provided
-                if (
-                    request.CustomerInfo != null
-                    && !string.IsNullOrEmpty(request.CustomerInfo.Email)
-                )
-                {
-                    options.CustomerEmail = request.CustomerInfo.Email;
-                }
-
-                // Create the session
-                var service = new SessionService();
-                var session = await service.CreateAsync(options);
-
-                var response = new StripePaymentResponse
-                {
-                    SessionId = session.Id,
-                    CheckoutUrl = session.Url,
-                    ExpireAt = expiresAt,
-                    PaymentIntentId = session.PaymentIntentId ?? string.Empty,
-                };
+                var options = CreateSessionOptions(
+                    lineItems,
+                    metadata,
+                    expiresAt,
+                    request.CustomerInfo
+                );
+                var session = await new SessionService().CreateAsync(options);
 
                 LogInfo(
                     "Stripe checkout session created successfully - SessionId: {SessionId}, PaymentId: {PaymentId}",
@@ -226,10 +96,141 @@ public class StripeService : BaseService, IStripeService
                     request.PaymentId
                 );
 
-                return response;
+                return new StripePaymentResponse
+                {
+                    SessionId = session.Id,
+                    CheckoutUrl = session.Url,
+                    ExpireAt = expiresAt,
+                    PaymentIntentId = session.PaymentIntentId ?? string.Empty,
+                };
             },
             "CreateStripeCheckoutSession"
         );
+    }
+
+    private void ValidateCheckoutRequest(StripePaymentRequest request)
+    {
+        ValidateRequired(request, nameof(request));
+        ValidateGuid(request.PaymentId, nameof(request.PaymentId));
+
+        if (request.Amount <= 0)
+            throw new ArgumentException("Amount must be greater than 0");
+    }
+
+    private List<SessionLineItemOptions> PrepareLineItems(StripePaymentRequest request)
+    {
+        var lineItems = new List<SessionLineItemOptions>();
+
+        if (request.LineItems?.Any() == true)
+        {
+            foreach (var item in request.LineItems)
+            {
+                lineItems.Add(
+                    new SessionLineItemOptions
+                    {
+                        PriceData = new SessionLineItemPriceDataOptions
+                        {
+                            Currency = _stripeConfig.Currency,
+                            UnitAmount = (long)item.Price,
+                            ProductData = new SessionLineItemPriceDataProductDataOptions
+                            {
+                                Name = item.Name,
+                                Description = item.Description,
+                            },
+                        },
+                        Quantity = item.Quantity,
+                    }
+                );
+            }
+        }
+        else
+        {
+            lineItems.Add(
+                new SessionLineItemOptions
+                {
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        Currency = _stripeConfig.Currency,
+                        UnitAmount = (long)request.Amount,
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = request.Description,
+                        },
+                    },
+                    Quantity = 1,
+                }
+            );
+        }
+
+        return lineItems;
+    }
+
+    private Dictionary<string, string> PrepareMetadata(StripePaymentRequest request)
+    {
+        var metadata = new Dictionary<string, string>
+        {
+            { "PaymentId", request.PaymentId.ToString() },
+        };
+
+        AddOptionalMetadata(metadata, "AppointmentId", request.AppointmentId);
+        AddOptionalMetadata(metadata, "PatientId", request.PatientId);
+        AddOptionalMetadata(metadata, "SubscriptionPlanId", request.SubscriptionPlanId);
+        AddOptionalMetadata(metadata, "HospitalId", request.HospitalId);
+
+        if (request.IsSubscriptionUpgrade)
+            metadata["IsUpgrade"] = "true";
+
+        AddOptionalMetadata(
+            metadata,
+            "CurrentSubscriptionId",
+            request.CurrentHospitalSubscriptionId
+        );
+
+        if (!string.IsNullOrEmpty(request.PlanType))
+            metadata["PlanType"] = request.PlanType;
+
+        if (request.Metadata?.Any() == true)
+        {
+            foreach (var kvp in request.Metadata.Where(kvp => !metadata.ContainsKey(kvp.Key)))
+            {
+                metadata[kvp.Key] = kvp.Value;
+            }
+        }
+
+        return metadata;
+    }
+
+    private void AddOptionalMetadata(Dictionary<string, string> metadata, string key, Guid? value)
+    {
+        if (value.HasValue)
+            metadata[key] = value.Value.ToString();
+    }
+
+    private SessionCreateOptions CreateSessionOptions(
+        List<SessionLineItemOptions> lineItems,
+        Dictionary<string, string> metadata,
+        DateTime expiresAt,
+        StripeCustomerInfo? customerInfo
+    )
+    {
+        var options = new SessionCreateOptions
+        {
+            PaymentMethodTypes = new List<string> { "card" },
+            LineItems = lineItems,
+            Mode = "payment",
+            SuccessUrl = _stripeConfig.SuccessUrl + "?session_id={CHECKOUT_SESSION_ID}",
+            CancelUrl = _stripeConfig.CancelUrl + "?session_id={CHECKOUT_SESSION_ID}",
+            Metadata = metadata,
+            ExpiresAt = expiresAt,
+            PaymentIntentData = new SessionPaymentIntentDataOptions { Metadata = metadata },
+        };
+
+        if (customerInfo != null && !string.IsNullOrEmpty(customerInfo.Email))
+        {
+            options.CustomerEmail = customerInfo.Email;
+        }
+
+        return options;
     }
 
     /// <summary>

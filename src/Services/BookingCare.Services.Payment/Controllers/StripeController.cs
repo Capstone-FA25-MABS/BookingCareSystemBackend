@@ -64,6 +64,8 @@ public class StripeController : BasePaymentGatewayController
         try
         {
             // Read raw body
+            // S6932: Suppressed - Stripe webhook signature verification requires raw request body.
+            // Model binding would modify the body and break signature validation.
             using var reader = new StreamReader(Request.Body);
             var json = await reader.ReadToEndAsync();
 
@@ -163,53 +165,20 @@ public class StripeController : BasePaymentGatewayController
                 session_id
             );
 
-            if (string.IsNullOrEmpty(session_id))
-            {
-                Logger.LogWarning("Stripe Success #{RequestId} - Missing session ID", requestId);
-                var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
-                return Redirect(
-                    $"{baseUrl}?payment=failed&gateway={GatewayName}&error=missing_session"
-                );
-            }
+            // Validate session and extract payment ID
+            var (session, paymentId, errorResult) = await ValidateAndExtractSessionDataAsync(
+                session_id,
+                requestId,
+                "Success"
+            );
+            if (errorResult != null)
+                return errorResult;
 
-            // Get session details from Stripe
-            var sessionData = await _stripeService.GetSessionAsync(session_id);
-            var session = sessionData as Stripe.Checkout.Session;
-
-            if (session == null || session.Metadata == null)
-            {
-                Logger.LogWarning(
-                    "Stripe Success #{RequestId} - Invalid session data or missing metadata",
-                    requestId
-                );
-                var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
-                return Redirect(
-                    $"{baseUrl}?payment=failed&gateway={GatewayName}&error=invalid_session"
-                );
-            }
-
-            // Extract PaymentId from metadata
-            if (
-                !session.Metadata.TryGetValue("PaymentId", out var paymentIdStr)
-                || !Guid.TryParse(paymentIdStr, out var paymentId)
-            )
-            {
-                Logger.LogWarning(
-                    "Stripe Success #{RequestId} - Invalid PaymentId in metadata",
-                    requestId
-                );
-                var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
-                return Redirect(
-                    $"{baseUrl}?payment=failed&gateway={GatewayName}&error=invalid_payment"
-                );
-            }
-
-            // Update payment status to COMPLETED and save PaymentIntentId
+            // Update payment status
             await PaymentService.UpdatePaymentIntentAsync(
                 paymentId,
-                session.PaymentIntentId ?? string.Empty
+                session!.PaymentIntentId ?? string.Empty
             );
-
             await PaymentService.UpdateStatusAsync(
                 new Models.DTOs.Requests.UpdatePaymentStatusRequest
                 {
@@ -228,75 +197,12 @@ public class StripeController : BasePaymentGatewayController
                 );
             }
 
-            // Check if this is a subscription payment and handle subscription payment success
-            if (
-                session.Metadata.ContainsKey(SubscriptionPlanIdKey)
-                && session.Metadata.TryGetValue(SubscriptionPlanIdKey, out var subscriptionIdStr)
-                && Guid.TryParse(subscriptionIdStr, out var subscriptionId)
-                && session.Metadata.TryGetValue("HospitalId", out var hospitalIdStr)
-                && Guid.TryParse(hospitalIdStr, out var hospitalId)
-            )
-            {
-                var isUpgrade =
-                    session.Metadata.TryGetValue("IsUpgrade", out var isUpgradeStr)
-                    && bool.Parse(isUpgradeStr);
+            // Check for subscription payment
+            var subscriptionResult = await ProcessSubscriptionSuccessAsync(session, requestId);
+            if (subscriptionResult != null)
+                return subscriptionResult;
 
-                Guid? currentSubscriptionId = null;
-                if (
-                    isUpgrade
-                    && session.Metadata.TryGetValue(
-                        "CurrentSubscriptionId",
-                        out var currentSubIdStr
-                    )
-                    && Guid.TryParse(currentSubIdStr, out var currentSubId)
-                )
-                {
-                    currentSubscriptionId = currentSubId;
-                }
-
-                // Process subscription via gRPC in background
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await HandleSubscriptionPaymentSuccessAsync(
-                            _hospitalSubscriptionClient,
-                            subscriptionId,
-                            hospitalId,
-                            isUpgrade,
-                            currentSubscriptionId,
-                            requestId,
-                            GatewayName
-                        );
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(
-                            ex,
-                            "Stripe Success #{RequestId} - Failed to process subscription for HospitalId: {HospitalId}",
-                            requestId,
-                            hospitalId
-                        );
-                    }
-                });
-
-                // Redirect to subscription confirmation page
-                var planType = session.Metadata.TryGetValue("PlanType", out var planTypeStr)
-                    ? planTypeStr.ToLowerInvariant()
-                    : "monthly";
-                var frontendUrl =
-                    $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
-
-                Logger.LogInformation(
-                    "Stripe Success #{RequestId} - Subscription payment successful, redirecting for HospitalId: {HospitalId}",
-                    requestId,
-                    hospitalId
-                );
-
-                return Redirect(frontendUrl);
-            }
-
-            // Regular appointment payment - use base handler
+            // Regular appointment payment
             var callbackResponse = new StripeCallbackResponse
             {
                 SessionId = session.Id,
@@ -342,111 +248,79 @@ public class StripeController : BasePaymentGatewayController
                 session_id ?? "null"
             );
 
-            if (string.IsNullOrEmpty(session_id))
-            {
-                Logger.LogWarning("Stripe Cancel #{RequestId} - Missing session ID", requestId);
-                var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
-                return Redirect(
-                    $"{baseUrl}?payment=cancelled&gateway={GatewayName}&error=missing_session"
-                );
-            }
+            // Validate session and extract payment ID
+            var (session, paymentId, errorResult) = await ValidateAndExtractSessionDataAsync(
+                session_id,
+                requestId,
+                "Cancel"
+            );
+            if (errorResult != null)
+                return errorResult;
 
-            // Get session details from Stripe
-            var sessionData = await _stripeService.GetSessionAsync(session_id);
-            var session = sessionData as Stripe.Checkout.Session;
-
-            if (session == null || session.Metadata == null)
-            {
-                Logger.LogWarning("Stripe Cancel #{RequestId} - Invalid session data", requestId);
-                var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
-                return Redirect(
-                    $"{baseUrl}?payment=cancelled&gateway={GatewayName}&error=invalid_session"
-                );
-            }
-
-            // Extract PaymentId from metadata
-            if (
-                session.Metadata.TryGetValue("PaymentId", out var paymentIdStr)
-                && Guid.TryParse(paymentIdStr, out var paymentId)
-            )
-            {
-                // Update payment status to FAILED
-                await PaymentService.UpdateStatusAsync(
-                    new Models.DTOs.Requests.UpdatePaymentStatusRequest
-                    {
-                        Id = paymentId,
-                        Status = Enums.PaymentStatus.FAILED,
-                    }
-                );
-
-                // Get payment details
-                var payment = await GetPaymentWithValidation(paymentId, requestId, GatewayName);
-
-                if (payment != null)
+            // Update payment status to FAILED
+            await PaymentService.UpdateStatusAsync(
+                new Models.DTOs.Requests.UpdatePaymentStatusRequest
                 {
-                    // Check if this is a subscription payment
-                    var isSubscription = session.Metadata.ContainsKey(SubscriptionPlanIdKey);
-
-                    if (isSubscription)
-                    {
-                        // Subscription payment cancelled - redirect to subscription plan page
-                        var planType = session.Metadata.TryGetValue("PlanType", out var planTypeStr)
-                            ? planTypeStr.ToLowerInvariant()
-                            : "monthly";
-
-                        session.Metadata.TryGetValue("HospitalId", out var hospitalIdStr);
-                        var hospitalId = Guid.TryParse(hospitalIdStr, out var hId)
-                            ? hId
-                            : Guid.Empty;
-
-                        return HandleSubscriptionPaymentFailed(
-                            planType,
-                            hospitalId,
-                            requestId,
-                            GatewayName,
-                            CancelledStatus,
-                            session.Status ?? CancelledStatus
-                        );
-                    }
-
-                    // Regular appointment payment cancelled
-                    var callbackResponse = new StripeCallbackResponse
-                    {
-                        SessionId = session.Id,
-                        PaymentIntentId = session.PaymentIntentId ?? string.Empty,
-                        Amount = session.AmountTotal ?? 0,
-                        Currency = session.Currency ?? "vnd",
-                        Status = CancelledStatus,
-                        CustomerEmail = session.CustomerEmail,
-                        PaymentMethodType = session.PaymentMethodTypes?.FirstOrDefault(),
-                        Metadata =
-                            session.Metadata?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
-                            ?? new Dictionary<string, string>(),
-                    };
-
-                    if (payment.AppointmentId.HasValue)
-                    {
-                        return await HandleFailedPaymentAsync(
-                            payment,
-                            callbackResponse,
-                            requestId,
-                            GatewayName,
-                            payment.AppointmentId.Value,
-                            GetStripeResponseMessage,
-                            (p, r, reqId) => CreateStripeResponse(p.Id, r, reqId, false)
-                        );
-                    }
+                    Id = paymentId,
+                    Status = Enums.PaymentStatus.FAILED,
                 }
+            );
+
+            // Get payment details
+            var payment = await GetPaymentWithValidation(paymentId, requestId, GatewayName);
+            if (payment == null)
+            {
+                Logger.LogWarning(
+                    "Stripe Cancel #{RequestId} - Payment cancelled without valid payment data",
+                    requestId
+                );
+                var cancelBaseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
+                return Redirect(
+                    $"{cancelBaseUrl}?payment=cancelled&gateway={GatewayName}&sessionId={session_id}"
+                );
+            }
+
+            // Check for subscription payment
+            var subscriptionResult = await ProcessSubscriptionCancelAsync(session!, requestId);
+            if (subscriptionResult != null)
+                return subscriptionResult;
+
+            // Regular appointment payment cancelled
+            var callbackResponse = new StripeCallbackResponse
+            {
+                SessionId = session!.Id,
+                PaymentIntentId = session.PaymentIntentId ?? string.Empty,
+                Amount = session.AmountTotal ?? 0,
+                Currency = session.Currency ?? "vnd",
+                Status = CancelledStatus,
+                CustomerEmail = session.CustomerEmail,
+                PaymentMethodType = session.PaymentMethodTypes?.FirstOrDefault(),
+                Metadata =
+                    session.Metadata?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
+                    ?? new Dictionary<string, string>(),
+            };
+
+            if (payment.AppointmentId.HasValue)
+            {
+                return await HandleFailedPaymentAsync(
+                    payment,
+                    callbackResponse,
+                    requestId,
+                    GatewayName,
+                    payment.AppointmentId.Value,
+                    GetStripeResponseMessage,
+                    (p, r, reqId) => CreateStripeResponse(p.Id, r, reqId, false)
+                );
             }
 
             // Fallback redirect
             Logger.LogWarning(
-                "Stripe Cancel #{RequestId} - Payment cancelled without valid payment data",
+                "Stripe Cancel #{RequestId} - Payment cancelled without appointment ID",
                 requestId
             );
-            var cancelBaseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
+            var fallbackUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
             return Redirect(
-                $"{cancelBaseUrl}?payment=cancelled&gateway={GatewayName}&sessionId={session_id}"
+                $"{fallbackUrl}?payment=cancelled&gateway={GatewayName}&sessionId={session_id}"
             );
         }
         catch (Exception ex)
@@ -456,11 +330,8 @@ public class StripeController : BasePaymentGatewayController
                 "Stripe Cancel #{RequestId} - Error processing cancel callback",
                 requestId
             );
-
-            var errorBaseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
-            return Redirect(
-                $"{errorBaseUrl}?payment=cancelled&gateway={GatewayName}&error=processing_error"
-            );
+            var errorUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
+            return Redirect($"{errorUrl}?payment=error&gateway={GatewayName}");
         }
     }
 
@@ -947,6 +818,173 @@ public class StripeController : BasePaymentGatewayController
                 new { Message = "An error occurred while retrieving refund information" }
             );
         }
+    }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    private async Task<(
+        Stripe.Checkout.Session? session,
+        Guid paymentId,
+        IActionResult? errorResult
+    )> ValidateAndExtractSessionDataAsync(string? sessionId, string requestId, string redirectType)
+    {
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            Logger.LogWarning(
+                $"Stripe {redirectType} #{requestId} - Missing session ID",
+                requestId
+            );
+            var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
+            return (
+                null,
+                Guid.Empty,
+                Redirect(
+                    $"{baseUrl}?payment={redirectType.ToLower()}&gateway={GatewayName}&error=missing_session"
+                )
+            );
+        }
+
+        var sessionData = await _stripeService.GetSessionAsync(sessionId);
+        var session = sessionData as Stripe.Checkout.Session;
+
+        if (session == null || session.Metadata == null)
+        {
+            Logger.LogWarning(
+                $"Stripe {redirectType} #{requestId} - Invalid session data or missing metadata",
+                requestId
+            );
+            var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
+            return (
+                null,
+                Guid.Empty,
+                Redirect(
+                    $"{baseUrl}?payment={redirectType.ToLower()}&gateway={GatewayName}&error=invalid_session"
+                )
+            );
+        }
+
+        if (
+            !session.Metadata.TryGetValue("PaymentId", out var paymentIdStr)
+            || !Guid.TryParse(paymentIdStr, out var paymentId)
+        )
+        {
+            Logger.LogWarning(
+                $"Stripe {redirectType} #{requestId} - Invalid PaymentId in metadata",
+                requestId
+            );
+            var baseUrl = FrontendOptions.Client.BaseUrl.TrimEnd('/');
+            return (
+                null,
+                Guid.Empty,
+                Redirect(
+                    $"{baseUrl}?payment={redirectType.ToLower()}&gateway={GatewayName}&error=invalid_payment"
+                )
+            );
+        }
+
+        return (session, paymentId, null);
+    }
+
+    private async Task<IActionResult?> ProcessSubscriptionSuccessAsync(
+        Stripe.Checkout.Session session,
+        string requestId
+    )
+    {
+        if (!session.Metadata.ContainsKey(SubscriptionPlanIdKey))
+            return null;
+
+        if (
+            !session.Metadata.TryGetValue(SubscriptionPlanIdKey, out var subscriptionIdStr)
+            || !Guid.TryParse(subscriptionIdStr, out var subscriptionId)
+        )
+            return null;
+
+        if (
+            !session.Metadata.TryGetValue("HospitalId", out var hospitalIdStr)
+            || !Guid.TryParse(hospitalIdStr, out var hospitalId)
+        )
+            return null;
+
+        var isUpgrade =
+            session.Metadata.TryGetValue("IsUpgrade", out var isUpgradeStr)
+            && bool.Parse(isUpgradeStr);
+        Guid? currentSubscriptionId = null;
+
+        if (
+            isUpgrade
+            && session.Metadata.TryGetValue("CurrentSubscriptionId", out var currentSubIdStr)
+            && Guid.TryParse(currentSubIdStr, out var currentSubId)
+        )
+        {
+            currentSubscriptionId = currentSubId;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await HandleSubscriptionPaymentSuccessAsync(
+                    _hospitalSubscriptionClient,
+                    subscriptionId,
+                    hospitalId,
+                    isUpgrade,
+                    currentSubscriptionId,
+                    requestId,
+                    GatewayName
+                );
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(
+                    ex,
+                    "Stripe Success #{RequestId} - Failed to process subscription for HospitalId: {HospitalId}",
+                    requestId,
+                    hospitalId
+                );
+            }
+        });
+
+        var planType = session.Metadata.TryGetValue("PlanType", out var planTypeStr)
+            ? planTypeStr.ToLowerInvariant()
+            : "monthly";
+        var frontendUrl =
+            $"{FrontendOptions.Admin.BaseUrl}hospitals/subscription-plan?plan-type={planType}";
+
+        Logger.LogInformation(
+            "Stripe Success #{RequestId} - Subscription payment successful, redirecting for HospitalId: {HospitalId}",
+            requestId,
+            hospitalId
+        );
+        return Redirect(frontendUrl);
+    }
+
+    private async Task<IActionResult?> ProcessSubscriptionCancelAsync(
+        Stripe.Checkout.Session session,
+        string requestId
+    )
+    {
+        if (!session.Metadata.ContainsKey(SubscriptionPlanIdKey))
+            return null;
+
+        var planType = session.Metadata.TryGetValue("PlanType", out var planTypeStr)
+            ? planTypeStr.ToLowerInvariant()
+            : "monthly";
+        var hospitalId =
+            session.Metadata.TryGetValue("HospitalId", out var hospitalIdStr)
+            && Guid.TryParse(hospitalIdStr, out var hId)
+                ? hId
+                : Guid.Empty;
+
+        return HandleSubscriptionPaymentFailed(
+            planType,
+            hospitalId,
+            requestId,
+            GatewayName,
+            CancelledStatus,
+            session.Status ?? CancelledStatus
+        );
     }
 
     #endregion
