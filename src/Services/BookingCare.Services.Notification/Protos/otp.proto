@@ -6,6 +6,7 @@ package otp;
 
 service OtpVerifier {
   rpc Verify (VerifyRequest) returns (VerifyResponse);
+  rpc SendOtp (SendOtpRequest) returns (SendOtpResponse);
 }
 
 message VerifyRequest {
@@ -15,4 +16,16 @@ message VerifyRequest {
 
 message VerifyResponse {
   bool verified = 1;
+}
+
+message SendOtpRequest {
+  string email = 1;
+  string phone = 2;
+  string purpose = 3; // e.g., "CONTRACT_SIGNING", "LOGIN", "REGISTER"
+}
+
+message SendOtpResponse {
+  bool success = 1;
+  string message = 2;
+  string key = 3; // OTP key for verification
 }
