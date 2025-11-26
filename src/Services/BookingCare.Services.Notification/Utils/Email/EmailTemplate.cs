@@ -1,5 +1,5 @@
-﻿using BookingCare.Services.Notification.Models.DTOs;
-using System.Text.Json;
+﻿using System.Text.Json;
+using BookingCare.Services.Notification.Models.DTOs;
 
 namespace BookingCare.Services.Notification.Utils.Email;
 
@@ -19,10 +19,7 @@ public static class EmailTemplate
         try
         {
             // Try to parse as JSON array
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var features = JsonSerializer.Deserialize<List<FeatureItem>>(featuresJson, options);
 
             if (features == null || features.Count == 0)
@@ -37,16 +34,19 @@ public static class EmailTemplate
             }
 
             // Build feature items as simple div rows (no list)
-            var featuresHtml = string.Join("", features.Select(f =>
-            {
-                var icon = GetFeatureIcon(f.IconType);
-                var text = string.IsNullOrWhiteSpace(f.Text) ? "(Không có mô tả)" : f.Text;
-                var subtext = !string.IsNullOrWhiteSpace(f.Subtext)
-                    ? $"<div style=\"font-size:11px; color:#6b7280; margin-left:24px; margin-top:2px;\">{f.Subtext}</div>"
-                    : "";
-                return $@"
+            var featuresHtml = string.Join(
+                "",
+                features.Select(f =>
+                {
+                    var icon = GetFeatureIcon(f.IconType);
+                    var text = string.IsNullOrWhiteSpace(f.Text) ? "(Không có mô tả)" : f.Text;
+                    var subtext = !string.IsNullOrWhiteSpace(f.Subtext)
+                        ? $"<div style=\"font-size:11px; color:#6b7280; margin-left:24px; margin-top:2px;\">{f.Subtext}</div>"
+                        : "";
+                    return $@"
         <div class=""info-item"">{icon} {text}{subtext}</div>";
-            }));
+                })
+            );
 
             // Return as part of the same card with a separator
             return $@"
@@ -81,7 +81,7 @@ public static class EmailTemplate
             "heart" => "❤️",
             "shield" => "🛡️",
             "rocket" => "🚀",
-            _ => "✅"
+            _ => "✅",
         };
     }
 
@@ -149,7 +149,8 @@ public static class EmailTemplate
         string email,
         string password,
         string loginUrl,
-        string? hospitalName = null)
+        string? hospitalName = null
+    )
     {
         var hospitalInfo = !string.IsNullOrEmpty(hospitalName)
             ? $"<div class=\"info-item\"><strong>Bệnh viện:</strong> {hospitalName}</div>"
@@ -316,7 +317,8 @@ public static class EmailTemplate
         string patientName,
         DateTime appointmentDate,
         string cancellationReason,
-        decimal refundAmount)
+        decimal refundAmount
+    )
     {
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -378,7 +380,8 @@ public static class EmailTemplate
         string patientName,
         DateTime appointmentDate,
         string cancellationReason,
-        decimal refundAmount)
+        decimal refundAmount
+    )
     {
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -454,7 +457,8 @@ public static class EmailTemplate
         decimal refundAmount,
         string bankName,
         string accountNumber,
-        DateTime transferDate)
+        DateTime transferDate
+    )
     {
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -521,12 +525,14 @@ public static class EmailTemplate
         decimal refundAmount,
         string issueDescription,
         string? bankName,
-        string? accountNumber)
+        string? accountNumber
+    )
     {
         var bankInfoHtml = "";
         if (!string.IsNullOrEmpty(bankName) && !string.IsNullOrEmpty(accountNumber))
         {
-            bankInfoHtml = $@"
+            bankInfoHtml =
+                $@"
         <div class=""info-item""><strong>Ngân hàng hiện tại:</strong> {bankName}</div>
         <div class=""info-item""><strong>Số tài khoản:</strong> {accountNumber}</div>";
         }
@@ -602,7 +608,11 @@ public static class EmailTemplate
     /// <summary>
     /// Build email content for no refund case (0% refund due to late cancellation)
     /// </summary>
-    public static string BuildNoRefundEmailHtml(string patientName, DateTime appointmentDate, string cancellationReason)
+    public static string BuildNoRefundEmailHtml(
+        string patientName,
+        DateTime appointmentDate,
+        string cancellationReason
+    )
     {
         var appointmentDateStr = appointmentDate.ToString(DateTimeFormat);
 
@@ -667,7 +677,8 @@ public static class EmailTemplate
         DateTime appointmentDate,
         string cancellationReason,
         string? doctorName = null,
-        string? hospitalName = null)
+        string? hospitalName = null
+    )
     {
         var appointmentDateStr = appointmentDate.ToString(DateTimeFormat);
 
@@ -733,18 +744,22 @@ public static class EmailTemplate
     /// Fixed SonarQube issue: Reduced from 10 parameters to 1 parameter object
     /// Updated to use pure composition pattern with AppointmentData
     /// </summary>
-    public static string BuildAppointmentBookedSuccessEmailHtml(AppointmentBookingEmailData emailData)
+    public static string BuildAppointmentBookedSuccessEmailHtml(
+        AppointmentBookingEmailData emailData
+    )
     {
         var appointmentData = emailData.AppointmentData; // Direct access to avoid repetition
 
         var doctorInfoHtml = "";
         if (!string.IsNullOrEmpty(appointmentData.DoctorName))
         {
-            doctorInfoHtml = $@"
+            doctorInfoHtml =
+                $@"
         <div class=""info-item""><strong>Bác sĩ:</strong> {appointmentData.DoctorName}</div>";
             if (!string.IsNullOrEmpty(appointmentData.DoctorSpecialty))
             {
-                doctorInfoHtml += $@"
+                doctorInfoHtml +=
+                    $@"
         <div class=""info-item""><strong>Chuyên khoa:</strong> {appointmentData.DoctorSpecialty}</div>";
             }
         }
@@ -752,11 +767,13 @@ public static class EmailTemplate
         var hospitalInfoHtml = "";
         if (!string.IsNullOrEmpty(appointmentData.HospitalName))
         {
-            hospitalInfoHtml = $@"
+            hospitalInfoHtml =
+                $@"
         <div class=""info-item""><strong>Bệnh viện:</strong> {appointmentData.HospitalName}</div>";
             if (!string.IsNullOrEmpty(appointmentData.HospitalAddress))
             {
-                hospitalInfoHtml += $@"
+                hospitalInfoHtml +=
+                    $@"
         <div class=""info-item""><strong>Địa chỉ:</strong> {appointmentData.HospitalAddress}</div>";
             }
         }
@@ -764,7 +781,8 @@ public static class EmailTemplate
         var serviceInfoHtml = "";
         if (!string.IsNullOrEmpty(appointmentData.ServiceName))
         {
-            serviceInfoHtml = $@"
+            serviceInfoHtml =
+                $@"
         <div class=""info-item""><strong>Dịch vụ:</strong> {appointmentData.ServiceName}</div>";
         }
 
@@ -847,15 +865,22 @@ public static class EmailTemplate
     /// Build email content for staff-initiated cancellation with reschedule options
     /// Patient can choose from 4 options: reschedule same doctor, confirm new doctor, choose new doctor, or request refund
     /// </summary>
-    public static string BuildCancellationWithOptionsEmailHtml(CancellationWithOptionsEmailData data)
+    public static string BuildCancellationWithOptionsEmailHtml(
+        CancellationWithOptionsEmailData data
+    )
     {
-        var doctorInfo = !string.IsNullOrEmpty(data.DoctorName) ? $" với bác sĩ <strong>{data.DoctorName}</strong>" : "";
-        var hospitalInfo = !string.IsNullOrEmpty(data.HospitalName) ? $" tại <strong>{data.HospitalName}</strong>" : "";
+        var doctorInfo = !string.IsNullOrEmpty(data.DoctorName)
+            ? $" với bác sĩ <strong>{data.DoctorName}</strong>"
+            : "";
+        var hospitalInfo = !string.IsNullOrEmpty(data.HospitalName)
+            ? $" tại <strong>{data.HospitalName}</strong>"
+            : "";
 
         var refundInfo = "";
         if (data.PotentialRefundAmount.HasValue && data.PotentialRefundPercentage.HasValue)
         {
-            refundInfo = $@"
+            refundInfo =
+                $@"
         <div class=""refund-info"">
             <p>💰 <strong>Thông tin hoàn tiền (nếu chọn Option 4):</strong></p>
             <div class=""info-item"">Tỷ lệ hoàn: <strong>{data.PotentialRefundPercentage:N0}%</strong></div>
@@ -986,7 +1011,8 @@ public static class EmailTemplate
         decimal originalFee,
         string newDoctorName,
         decimal newFee,
-        decimal refundAmount)
+        decimal refundAmount
+    )
     {
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -1076,7 +1102,8 @@ public static class EmailTemplate
         decimal originalFee,
         string newDoctorName,
         decimal newFee,
-        decimal refundAmount)
+        decimal refundAmount
+    )
     {
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -1164,21 +1191,27 @@ public static class EmailTemplate
     /// <summary>
     /// Build email content for successful hospital subscription registration
     /// </summary>
-    public static string BuildHospitalSubscriptionCreatedEmailHtml(HospitalSubscriptionCreatedEmailData data)
+    public static string BuildHospitalSubscriptionCreatedEmailHtml(
+        HospitalSubscriptionCreatedEmailData data
+    )
     {
         var billingCycleDisplay = data.BillingCycle?.ToUpper() switch
         {
             "MONTHLY" => "Tháng",
             "QUARTERLY" => "Quý",
             "YEARLY" => "Năm",
-            _ => "Tháng"
+            _ => "Tháng",
         };
 
-        var maxDoctorsInfo = data.MaxDoctors.HasValue ? $@"
-        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.MaxDoctors} bác sĩ</div>" : "";
+        var maxDoctorsInfo = data.MaxDoctors.HasValue
+            ? $@"
+        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.MaxDoctors} bác sĩ</div>"
+            : "";
 
-        var maxAppointmentsInfo = data.MaxAppointmentsPerMonth.HasValue ? $@"
-        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.MaxAppointmentsPerMonth} lịch hẹn</div>" : "";
+        var maxAppointmentsInfo = data.MaxAppointmentsPerMonth.HasValue
+            ? $@"
+        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.MaxAppointmentsPerMonth} lịch hẹn</div>"
+            : "";
 
         var featuresInfo = BuildFeaturesHtml(data.Features);
 
@@ -1259,7 +1292,8 @@ public static class EmailTemplate
         string hospitalEmail,
         string hospitalPhone,
         string address,
-        string taxCode)
+        string taxCode
+    )
     {
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -1335,7 +1369,8 @@ public static class EmailTemplate
     /// </summary>
     public static string BuildHospitalRegistrationApprovedEmailHtml(
         string hospitalName,
-        string? contractFileUrl)
+        string? contractFileUrl
+    )
     {
         var contractSection = !string.IsNullOrEmpty(contractFileUrl)
             ? $@"<p class=""lead"">Hợp đồng hợp tác đã được đính kèm. Quý bệnh viện có thể tải về tại đây:</p>
@@ -1418,14 +1453,16 @@ public static class EmailTemplate
     /// <summary>
     /// Build email content for successful hospital subscription upgrade
     /// </summary>
-    public static string BuildHospitalSubscriptionUpgradedEmailHtml(HospitalSubscriptionUpgradedEmailData data)
+    public static string BuildHospitalSubscriptionUpgradedEmailHtml(
+        HospitalSubscriptionUpgradedEmailData data
+    )
     {
         var previousBillingCycleDisplay = data.PreviousBillingCycle?.ToUpper() switch
         {
             "MONTHLY" => "Tháng",
             "QUARTERLY" => "Quý",
             "YEARLY" => "Năm",
-            _ => "Tháng"
+            _ => "Tháng",
         };
 
         var newBillingCycleDisplay = data.NewBillingCycle?.ToUpper() switch
@@ -1433,17 +1470,24 @@ public static class EmailTemplate
             "MONTHLY" => "Tháng",
             "QUARTERLY" => "Quý",
             "YEARLY" => "Năm",
-            _ => "Tháng"
+            _ => "Tháng",
         };
 
-        var bonusDaysInfo = data.BonusDays > 0 ? $@"
-        <div class=""info-item""><strong>Số ngày thưởng (từ gói cũ):</strong> {data.BonusDays:N0} ngày</div>" : "";
+        var bonusDaysInfo =
+            data.BonusDays > 0
+                ? $@"
+        <div class=""info-item""><strong>Số ngày thưởng (từ gói cũ):</strong> {data.BonusDays:N0} ngày</div>"
+                : "";
 
-        var maxDoctorsInfo = data.NewMaxDoctors.HasValue ? $@"
-        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.NewMaxDoctors} bác sĩ</div>" : "";
+        var maxDoctorsInfo = data.NewMaxDoctors.HasValue
+            ? $@"
+        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.NewMaxDoctors} bác sĩ</div>"
+            : "";
 
-        var maxAppointmentsInfo = data.NewMaxAppointmentsPerMonth.HasValue ? $@"
-        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.NewMaxAppointmentsPerMonth} lịch hẹn</div>" : "";
+        var maxAppointmentsInfo = data.NewMaxAppointmentsPerMonth.HasValue
+            ? $@"
+        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.NewMaxAppointmentsPerMonth} lịch hẹn</div>"
+            : "";
 
         var featuresInfo = BuildFeaturesHtml(data.NewFeatures);
 
@@ -1540,7 +1584,8 @@ public static class EmailTemplate
     /// </summary>
     public static string BuildHospitalRegistrationRejectedEmailHtml(
         string hospitalName,
-        string reason)
+        string reason
+    )
     {
         return $@"<!DOCTYPE html>
 <html lang=""vi"">
@@ -1619,7 +1664,8 @@ public static class EmailTemplate
         string email,
         string generatedPassword,
         string loginUrl,
-        string? contractFileUrl)
+        string? contractFileUrl
+    )
     {
         var contractSection = !string.IsNullOrEmpty(contractFileUrl)
             ? $@"<div class=""contract-box"">
@@ -1712,5 +1758,103 @@ public static class EmailTemplate
 </body>
 </html>";
     }
-}
 
+    /// <summary>
+    /// Build email content for appointment result notification
+    /// </summary>
+    public static string BuildAppointmentResultEmailHtml(
+        string patientName,
+        DateTime appointmentDate,
+        string appointmentTime,
+        string resultUrl,
+        string? doctorName = null,
+        string? hospitalName = null
+    )
+    {
+        var appointmentDateFormatted = appointmentDate.ToString("dd/MM/yyyy");
+
+        var doctorInfo = !string.IsNullOrEmpty(doctorName)
+            ? $@"<div class=""info-item""><strong>Bác sĩ khám:</strong> {doctorName}</div>"
+            : "";
+
+        var hospitalInfo = !string.IsNullOrEmpty(hospitalName)
+            ? $@"<div class=""info-item""><strong>Bệnh viện:</strong> {hospitalName}</div>"
+            : "";
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Kết quả khám bệnh - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .result-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .appointment-details {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px; margin:20px 0; }}
+    .appointment-details strong {{ color:#166534; }}
+    .info-item {{ margin:8px 0; }}
+    .result-box {{ background:#fef3c7; border:2px solid #fbbf24; border-radius:8px; padding:20px; margin:20px 0; text-align:center; }}
+    .result-box strong {{ color:#92400e; font-size:16px; display:block; margin-bottom:12px; }}
+    .download-button {{ display:inline-block; padding:14px 28px; background:#10b981; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; margin:8px 0; }}
+    .download-button:hover {{ background:#059669; }}
+    .icon-text {{ display:inline-block; margin-right:8px; }}
+    .info-note {{ background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:16px; margin:20px 0; color:#1e40af; }}
+    .info-note strong {{ color:#1e3a8a; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Kết quả khám bệnh</div>
+    </div>
+    <div class=""content"">
+      <div class=""result-icon"">📋</div>
+      <p class=""greeting"">Kính gửi {patientName},</p>
+      <p class=""lead"">Bác sĩ đã hoàn tất quá trình khám bệnh và cập nhật kết quả cho buổi khám của bạn. Vui lòng xem chi tiết kết quả khám bên dưới.</p>
+      
+      <div class=""appointment-details"">
+        <p><strong>📅 Thông tin buổi khám:</strong></p>
+        <div class=""info-item""><strong>Ngày khám:</strong> {appointmentDateFormatted}</div>
+        <div class=""info-item""><strong>Giờ khám:</strong> {appointmentTime}</div>{doctorInfo}{hospitalInfo}
+      </div>
+      
+      <div class=""result-box"">
+        <strong>📄 Kết quả khám bệnh đã sẵn sàng</strong>
+        <p style=""margin:8px 0; color:#78350f;"">Nhấp vào nút bên dưới để xem kết quả khám bệnh chi tiết</p>
+        <a href=""{resultUrl}"" class=""download-button"" target=""_blank"">
+          <span class=""icon-text"">📥</span> Xem kết quả khám bệnh
+        </a>
+      </div>
+      
+      <div class=""info-note"">
+        <p><strong>ℹ️ Lưu ý quan trọng:</strong></p>
+        <ul style=""margin:8px 0; padding-left:20px;"">
+          <li>Vui lòng đọc kỹ kết quả và tuân thủ theo hướng dẫn của bác sĩ</li>
+          <li>Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ trực tiếp với bác sĩ hoặc bệnh viện</li>
+          <li>Lưu giữ kết quả này để theo dõi sức khỏe và tái khám (nếu cần)</li>
+          <li>Kết quả khám bệnh được lưu trữ bảo mật trên hệ thống BookingCare</li>
+        </ul>
+      </div>
+      
+      <p class=""muted"">Nếu bạn cần đặt lịch tái khám hoặc có bất kỳ câu hỏi nào, vui lòng liên hệ:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
+      <strong>📧 Email:</strong> support@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+}

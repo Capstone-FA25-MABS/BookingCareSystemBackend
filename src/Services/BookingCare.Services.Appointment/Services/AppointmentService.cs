@@ -19,6 +19,8 @@ using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.FileUpload.Models;
+using BookingCare.Shared.FileUpload.Services;
 using Microsoft.Extensions.Options;
 using BookingBasicInfo = BookingCare.Services.Appointment.Models.Internal.DoctorBasicInfo;
 using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
@@ -39,6 +41,7 @@ public class AppointmentService : BaseService, IAppointmentService
     private readonly RedisClient.IConnectionMultiplexer _redisConnection;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly FrontendConfiguration _frontendConfig;
+    private readonly IFileUploadService _fileUploadService;
 
     public AppointmentService(
         IAppointmentRepository appointmentRepository,
@@ -48,6 +51,7 @@ public class AppointmentService : BaseService, IAppointmentService
         RedisClient.IConnectionMultiplexer redisConnection,
         IHttpContextAccessor httpContextAccessor,
         IOptions<FrontendConfiguration> frontendConfig,
+        IFileUploadService fileUploadService,
         ILogger<AppointmentService> logger
     )
         : base(logger)
@@ -59,6 +63,7 @@ public class AppointmentService : BaseService, IAppointmentService
         _redisConnection = redisConnection;
         _httpContextAccessor = httpContextAccessor;
         _frontendConfig = frontendConfig.Value;
+        _fileUploadService = fileUploadService;
     }
 
     #region Helper Methods
@@ -2358,6 +2363,15 @@ public class AppointmentService : BaseService, IAppointmentService
                     request.Status
                 );
 
+                // Publish notification event if status is COMPLETED and result exists
+                if (
+                    request.Status == AppointmentStatus.COMPLETED
+                    && !string.IsNullOrEmpty(existingAppointment.Result)
+                )
+                {
+                    await PublishAppointmentResultNotificationAsync(existingAppointment);
+                }
+
                 return true;
             },
             "UpdateAppointmentStatus"
@@ -2366,8 +2380,8 @@ public class AppointmentService : BaseService, IAppointmentService
 
     /// <summary>
     /// Update appointment result and automatically change status to COMPLETED
-    /// If the appointment status is not COMPLETED, it will be changed to COMPLETED
-    /// This ensures that when a result is recorded, the appointment is marked as completed
+    /// Accepts result as text string, converts to .txt file, uploads to S3, and stores CloudFront URL
+    /// This is backward compatible - frontend sends text as before, backend handles S3 upload transparently
     /// </summary>
     public async Task<bool> UpdateAppointmentResultAsync(UpdateAppointmentResultRequest request)
     {
@@ -2375,7 +2389,7 @@ public class AppointmentService : BaseService, IAppointmentService
             async () =>
             {
                 LogInfo(
-                    "Updating appointment {AppointmentId} result and marking as completed",
+                    "Updating appointment {AppointmentId} result - converting text to file and uploading to S3",
                     null,
                     request.AppointmentId
                 );
@@ -2389,8 +2403,6 @@ public class AppointmentService : BaseService, IAppointmentService
                 }
 
                 // Validate that appointment can be completed
-                // Only PENDING, CONFIRMED appointments can be marked as COMPLETED
-                // CANCELLED appointments cannot be completed
                 if (existingAppointment.Status == AppointmentStatus.CANCELLED)
                 {
                     throw new InvalidAppointmentStatusTransitionException(
@@ -2399,28 +2411,202 @@ public class AppointmentService : BaseService, IAppointmentService
                     );
                 }
 
-                // Update result and automatically set status to COMPLETED
+                // Convert text to file and upload to S3
+                string resultUrl;
+                try
+                {
+                    // Convert text to byte array
+                    var textBytes = System.Text.Encoding.UTF8.GetBytes(request.Result);
+                    using var textStream = new MemoryStream(textBytes);
+
+                    var uploadRequest = new FileUploadRequest
+                    {
+                        FileStream = textStream,
+                        FileName =
+                            $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.txt",
+                        ContentType = "text/plain; charset=utf-8",
+                        Folder = "appointment-results",
+                        GenerateUniqueFileName = true,
+                        Metadata = new Dictionary<string, string>
+                        {
+                            ["AppointmentId"] = request.AppointmentId.ToString(),
+                            ["UploadedAt"] = DateTime.UtcNow.ToString("o"),
+                            ["UploadType"] = "TextConverted",
+                            ["TextLength"] = request.Result.Length.ToString(),
+                            ["OriginalFormat"] = "PlainText",
+                        },
+                    };
+
+                    LogInfo(
+                        "Converting result text to file for appointment {AppointmentId}, text length: {Length} characters",
+                        null,
+                        request.AppointmentId,
+                        request.Result.Length
+                    );
+
+                    var uploadResult = await _fileUploadService.UploadFileAsync(uploadRequest);
+
+                    if (!uploadResult.Success || string.IsNullOrEmpty(uploadResult.CloudFrontUrl))
+                    {
+                        throw new AppointmentException(
+                            $"Failed to upload result file to S3: {uploadResult.ErrorMessage ?? "Unknown error"}"
+                        );
+                    }
+
+                    resultUrl = uploadResult.CloudFrontUrl;
+
+                    LogInfo(
+                        "Successfully uploaded result file for appointment {AppointmentId} to {Url}",
+                        null,
+                        request.AppointmentId,
+                        resultUrl
+                    );
+                }
+                catch (Exception ex) when (ex is not AppointmentException)
+                {
+                    LogError(
+                        ex,
+                        "Error converting text to file and uploading for appointment {AppointmentId}",
+                        null,
+                        request.AppointmentId
+                    );
+                    throw new AppointmentException(
+                        "Failed to upload result file to S3",
+                        innerException: ex
+                    );
+                }
+
+                // Update result with CloudFront URL and set status to COMPLETED
                 var updated = await _appointmentRepository.UpdateAppointmentStatusAsync(
                     request.AppointmentId,
                     AppointmentStatus.COMPLETED,
-                    request.Result
+                    resultUrl
                 );
 
                 if (!updated)
                 {
-                    throw new AppointmentException("Failed to update appointment result");
+                    throw new AppointmentException(
+                        "Failed to update appointment result in database"
+                    );
                 }
 
                 LogInfo(
-                    "Successfully updated appointment {AppointmentId} result and status to COMPLETED",
+                    "Successfully updated appointment {AppointmentId} with result URL and status COMPLETED",
                     null,
                     request.AppointmentId
                 );
+
+                // Publish notification event for appointment result
+                await PublishAppointmentResultNotificationAsync(existingAppointment);
 
                 return true;
             },
             "UpdateAppointmentResult"
         );
+    }
+
+    /// <summary>
+    /// Publish appointment result notification event
+    /// </summary>
+    private async Task PublishAppointmentResultNotificationAsync(AppointmentEntity appointment)
+    {
+        try
+        {
+            // Get patient info
+            var patientResponse = await GetUserBasicInfoAsync(appointment.PatientId);
+            if (patientResponse == null)
+            {
+                LogWarning(
+                    "Failed to get patient info for appointment {AppointmentId}",
+                    null,
+                    appointment.Id
+                );
+                return;
+            }
+
+            // Get doctor info if available
+            string? doctorName = null;
+            if (appointment.DoctorId.HasValue)
+            {
+                var doctorInfo = await GetDoctorBasicInfoAsync(appointment.DoctorId.Value);
+                doctorName = doctorInfo.FullName;
+            }
+
+            // Get hospital info if available
+            string? hospitalName = null;
+            if (appointment.HospitalId.HasValue)
+            {
+                try
+                {
+                    var hospitalRequest = new GetHospitalBasicInfoRequest
+                    {
+                        Id = appointment.HospitalId.Value.ToString(),
+                    };
+                    var hospitalResponse =
+                        await _grpcClients.HospitalClient.GetHospitalBasicInfoAsync(
+                            hospitalRequest
+                        );
+                    hospitalName = hospitalResponse.Name;
+                }
+                catch (Exception ex)
+                {
+                    LogWarning("Failed to get hospital info: {Error}", null, ex.Message);
+                }
+            }
+
+            // Get appointment time display
+            var timeDisplay = GetAppointmentTimeDisplay(appointment.AppointmentTimeId);
+
+            // Publish event
+            var @event = new AppointmentResultUpdatedEvent
+            {
+                AppointmentId = appointment.Id,
+                PatientId = appointment.PatientId,
+                PatientEmail = patientResponse.Email,
+                PatientName = $"{patientResponse.FirstName} {patientResponse.LastName}".Trim(),
+                DoctorId = appointment.DoctorId,
+                DoctorName = doctorName,
+                HospitalName = hospitalName,
+                AppointmentDate = appointment.AppointmentDate,
+                AppointmentTime = timeDisplay,
+                ResultUrl = appointment.Result ?? string.Empty,
+                UpdatedAt = DateTime.UtcNow,
+            };
+
+            await _eventBus.PublishAsync(@event);
+
+            LogInfo(
+                "Published AppointmentResultUpdatedEvent for appointment {AppointmentId}",
+                null,
+                appointment.Id
+            );
+        }
+        catch (Exception ex)
+        {
+            LogError(
+                ex,
+                "Failed to publish appointment result notification event for appointment {AppointmentId}",
+                null,
+                appointment.Id
+            );
+        }
+    }
+
+    /// <summary>
+    /// Get appointment time display from enum
+    /// Example: AT_08_00_09_00 -> "08:00 - 09:00"
+    /// </summary>
+    private static string GetAppointmentTimeDisplay(AppointmentTime appointmentTimeId)
+    {
+        var timeString = appointmentTimeId.ToString();
+        var parts = timeString.Split('_');
+
+        if (parts.Length >= 5 && parts[0] == "AT")
+        {
+            return $"{parts[1]}:{parts[2]} - {parts[3]}:{parts[4]}";
+        }
+
+        return timeString; // Fallback to enum name
     }
 
     #endregion

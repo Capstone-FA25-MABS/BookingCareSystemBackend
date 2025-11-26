@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Shared.Common.Enums;
+using Microsoft.AspNetCore.Http;
 
 namespace BookingCare.Services.Appointment.Models.DTOs;
 
@@ -76,14 +77,19 @@ public class UpdateAppointmentStatusRequest
 
 /// <summary>
 /// Request to update appointment result and automatically mark as completed
+/// Accepts result as text string which will be converted to .txt file and uploaded to S3
 /// </summary>
 public class UpdateAppointmentResultRequest
 {
     [Required(ErrorMessage = "Appointment ID is required")]
     public required Guid AppointmentId { get; set; }
 
+    /// <summary>
+    /// Result text (will be converted to .txt file and uploaded to S3)
+    /// The CloudFront URL will be stored in the database
+    /// </summary>
     [Required(ErrorMessage = "Result is required")]
-    [MaxLength(4000, ErrorMessage = "Result cannot exceed 4000 characters")]
+    [MaxLength(10000, ErrorMessage = "Result cannot exceed 10000 characters")]
     public required string Result { get; set; }
 }
 
