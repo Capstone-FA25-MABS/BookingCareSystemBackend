@@ -119,40 +119,57 @@ public class AIService : IAIService
             "Hãy tóm tắt cuộc trò chuyện trên theo định dạng hồ sơ bệnh án chuyên nghiệp với template đẹp mắt như sau:"
         );
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("═══════════════════════════════════════════════════════════");
+
+        // Template header
+        AppendDoubleSeparator(promptBuilder);
         promptBuilder.AppendLine("                    📋 HỒ SƠ KHÁM BỆNH");
-        promptBuilder.AppendLine("═══════════════════════════════════════════════════════════");
+        AppendDoubleSeparator(promptBuilder);
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("## 🩺 TRIỆU CHỨNG");
-        promptBuilder.AppendLine("Mô tả các triệu chứng chính mà bệnh nhân trình bày:");
-        promptBuilder.AppendLine("• [Liệt kê từng triệu chứng với bullet points]");
-        promptBuilder.AppendLine("• Bao gồm thời gian xuất hiện, mức độ nghiêm trọng nếu có");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("## 📜 TIỀN SỬ BỆNH");
-        promptBuilder.AppendLine("Thông tin về tiền sử bệnh lý có liên quan:");
-        promptBuilder.AppendLine("• [Liệt kê các bệnh lý đã có]");
-        promptBuilder.AppendLine("• Thuốc đang sử dụng (nếu có)");
-        promptBuilder.AppendLine("• Dị ứng thuốc (nếu có)");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("## 🔍 KHÁM LÂM SÀNG");
-        promptBuilder.AppendLine("Kết quả khám lâm sàng:");
-        promptBuilder.AppendLine("• Các chỉ số sinh tồn (huyết áp, mạch, nhiệt độ nếu có)");
-        promptBuilder.AppendLine("• Kết quả khám chi tiết theo từng cơ quan/hệ thống");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("## 💊 CHẨN ĐOÁN SƠ BỘ");
+
+        // Medical sections
+        AppendMedicalSection(
+            promptBuilder,
+            "🩺 TRIỆU CHỨNG",
+            "Mô tả các triệu chứng chính mà bệnh nhân trình bày:",
+            new[]
+            {
+                "• [Liệt kê từng triệu chứng với bullet points]",
+                "• Bao gồm thời gian xuất hiện, mức độ nghiêm trọng nếu có"
+            }
+        );
+
+        AppendMedicalSection(
+            promptBuilder,
+            "📜 TIỀN SỬ BỆNH",
+            "Thông tin về tiền sử bệnh lý có liên quan:",
+            new[]
+            {
+                "• [Liệt kê các bệnh lý đã có]",
+                "• Thuốc đang sử dụng (nếu có)",
+                "• Dị ứng thuốc (nếu có)"
+            }
+        );
+
+        AppendMedicalSection(
+            promptBuilder,
+            "🔍 KHÁM LÂM SÀNG",
+            "Kết quả khám lâm sàng:",
+            new[]
+            {
+                "• Các chỉ số sinh tồn (huyết áp, mạch, nhiệt độ nếu có)",
+                "• Kết quả khám chi tiết theo từng cơ quan/hệ thống"
+            }
+        );
+
+        // Diagnosis section (slightly different format)
+        AppendSectionHeader(promptBuilder, "💊 CHẨN ĐOÁN SƠ BỘ");
         promptBuilder.AppendLine("**Chẩn đoán:** [Ghi rõ chẩn đoán của bác sĩ]");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**Đánh giá:** [Mức độ nghiêm trọng, tiên lượng]");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("## 💉 HƯỚNG XỬ TRÍ");
+        AppendSectionSeparator(promptBuilder);
+
+        // Treatment section with subsections
+        AppendSectionHeader(promptBuilder, "💉 HƯỚNG XỬ TRÍ");
         promptBuilder.AppendLine("### Đơn thuốc:");
         promptBuilder.AppendLine("1. [Tên thuốc] - [Liều lượng] - [Cách dùng]");
         promptBuilder.AppendLine("2. [Tên thuốc] - [Liều lượng] - [Cách dùng]");
@@ -160,33 +177,129 @@ public class AIService : IAIService
         promptBuilder.AppendLine("### Hướng dẫn điều trị:");
         promptBuilder.AppendLine("• [Các hướng dẫn chăm sóc tại nhà]");
         promptBuilder.AppendLine("• [Chế độ ăn uống, sinh hoạt]");
+        AppendSectionSeparator(promptBuilder);
+
+        AppendMedicalSection(
+            promptBuilder,
+            "⚠️ LƯU Ý ĐẶC BIỆT",
+            null,
+            new[]
+            {
+                "• [Các triệu chứng cần theo dõi]",
+                "• [Khi nào cần tái khám]",
+                "• [Các lưu ý quan trọng khác]"
+            },
+            addSeparatorAfter: false
+        );
+
+        // Template footer
+        AppendDoubleSeparator(promptBuilder);
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("## ⚠️ LƯU Ý ĐẶC BIỆT");
-        promptBuilder.AppendLine("• [Các triệu chứng cần theo dõi]");
-        promptBuilder.AppendLine("• [Khi nào cần tái khám]");
-        promptBuilder.AppendLine("• [Các lưu ý quan trọng khác]");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("═══════════════════════════════════════════════════════════");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("**HƯỚNG DẪN ĐỊNH DẠNG:**");
-        promptBuilder.AppendLine("- Sử dụng CHÍNH XÁC template trên với các ký hiệu đường kẻ (═, ─)");
-        promptBuilder.AppendLine("- Giữ nguyên các emoji (🩺, 📜, 🔍, 💊, 💉, ⚠️, 📋) để tạo điểm nhấn");
-        promptBuilder.AppendLine("- Sử dụng bullet points (•) cho các danh sách");
-        promptBuilder.AppendLine("- Sử dụng số thứ tự (1., 2., 3.) cho đơn thuốc");
-        promptBuilder.AppendLine("- Giữ khoảng cách và căn lề đẹp mắt");
-        promptBuilder.AppendLine("- Sử dụng **bold** cho tiêu đề quan trọng");
-        promptBuilder.AppendLine();
-        promptBuilder.AppendLine("**QUY TẮC NỘI DUNG:**");
-        promptBuilder.AppendLine("- Chỉ tóm tắt thông tin có trong cuộc trò chuyện, KHÔNG tự thêm thông tin");
-        promptBuilder.AppendLine("- Sử dụng ngôn ngữ y tế chuyên nghiệp nhưng dễ hiểu");
-        promptBuilder.AppendLine("- Nếu thiếu thông tin cho mục nào, ghi '*Không có thông tin*' với font chữ nghiêng");
-        promptBuilder.AppendLine("- Giữ tóm tắt ngắn gọn, súc tích nhưng đầy đủ thông tin");
-        promptBuilder.AppendLine("- Sử dụng tiếng Việt có dấu chính xác");
-        promptBuilder.AppendLine("- Thể hiện sự chuyên nghiệp và tỉ mỉ trong từng chi tiết");
+
+        // Formatting instructions
+        AppendInstructions(promptBuilder);
 
         return promptBuilder.ToString();
+    }
+
+    /// <summary>
+    /// Append a medical section with header, description and bullet points
+    /// </summary>
+    private static void AppendMedicalSection(
+        StringBuilder builder,
+        string title,
+        string? description,
+        string[] bulletPoints,
+        bool addSeparatorAfter = true
+    )
+    {
+        AppendSectionHeader(builder, title);
+
+        if (!string.IsNullOrEmpty(description))
+        {
+            builder.AppendLine(description);
+        }
+
+        foreach (var point in bulletPoints)
+        {
+            builder.AppendLine(point);
+        }
+
+        if (addSeparatorAfter)
+        {
+            AppendSectionSeparator(builder);
+        }
+        else
+        {
+            builder.AppendLine();
+        }
+    }
+
+    /// <summary>
+    /// Append section header with title
+    /// </summary>
+    private static void AppendSectionHeader(StringBuilder builder, string title)
+    {
+        builder.AppendLine($"## {title}");
+    }
+
+    /// <summary>
+    /// Append single-line separator
+    /// </summary>
+    private static void AppendSectionSeparator(StringBuilder builder)
+    {
+        builder.AppendLine();
+        builder.AppendLine("───────────────────────────────────────────────────────────");
+        builder.AppendLine();
+    }
+
+    /// <summary>
+    /// Append double-line separator (for header/footer)
+    /// </summary>
+    private static void AppendDoubleSeparator(StringBuilder builder)
+    {
+        builder.AppendLine("═══════════════════════════════════════════════════════════");
+    }
+
+    /// <summary>
+    /// Append formatting and content instructions
+    /// </summary>
+    private static void AppendInstructions(StringBuilder builder)
+    {
+        builder.AppendLine("**HƯỚNG DẪN ĐỊNH DẠNG:**");
+
+        var formatInstructions = new[]
+        {
+            "- Sử dụng CHÍNH XÁC template trên với các ký hiệu đường kẻ (═, ─)",
+            "- Giữ nguyên các emoji (🩺, 📜, 🔍, 💊, 💉, ⚠️, 📋) để tạo điểm nhấn",
+            "- Sử dụng bullet points (•) cho các danh sách",
+            "- Sử dụng số thứ tự (1., 2., 3.) cho đơn thuốc",
+            "- Giữ khoảng cách và căn lề đẹp mắt",
+            "- Sử dụng **bold** cho tiêu đề quan trọng"
+        };
+
+        foreach (var instruction in formatInstructions)
+        {
+            builder.AppendLine(instruction);
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("**QUY TẮC NỘI DUNG:**");
+
+        var contentRules = new[]
+        {
+            "- Chỉ tóm tắt thông tin có trong cuộc trò chuyện, KHÔNG tự thêm thông tin",
+            "- Sử dụng ngôn ngữ y tế chuyên nghiệp nhưng dễ hiểu",
+            "- Nếu thiếu thông tin cho mục nào, ghi '*Không có thông tin*' với font chữ nghiêng",
+            "- Giữ tóm tắt ngắn gọn, súc tích nhưng đầy đủ thông tin",
+            "- Sử dụng tiếng Việt có dấu chính xác",
+            "- Thể hiện sự chuyên nghiệp và tỉ mỉ trong từng chi tiết"
+        };
+
+        foreach (var rule in contentRules)
+        {
+            builder.AppendLine(rule);
+        }
     }
 
     /// <summary>

@@ -8,6 +8,8 @@ namespace BookingCare.Services.Appointment.Helpers;
 /// </summary>
 public static class MedicalReportHtmlGenerator
 {
+    // Timeout for regex operations to prevent ReDoS attacks
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
     /// <summary>
     /// Converts markdown-like medical report text to a beautiful HTML document
     /// </summary>
@@ -105,9 +107,6 @@ public static class MedicalReportHtmlGenerator
         // Footer
         html.AppendLine("        <div class=\"footer\">");
         html.AppendLine(
-            "            <div class=\"footer-note\">📌 Lưu ý: Đây là kết quả khám bệnh được tạo tự động bởi hệ thống AI. Vui lòng tham khảo ý kiến bác sĩ để có hướng điều trị chính xác nhất.</div>"
-        );
-        html.AppendLine(
             "            <div class=\"footer-info\">BookingCare - Nền tảng đặt lịch khám bệnh trực tuyến hàng đầu Việt Nam</div>"
         );
         html.AppendLine(
@@ -137,7 +136,8 @@ public static class MedicalReportHtmlGenerator
             html,
             @"##\s+(.+?)(\r?\n|$)",
             "<h2 class=\"section-title\">$1</h2>\n",
-            RegexOptions.Multiline
+            RegexOptions.Multiline,
+            RegexTimeout
         );
 
         // Convert subheaders (### TITLE -> <h3>TITLE</h3>)
@@ -145,21 +145,23 @@ public static class MedicalReportHtmlGenerator
             html,
             @"###\s+(.+?)(\r?\n|$)",
             "<h3 class=\"subsection-title\">$1</h3>\n",
-            RegexOptions.Multiline
+            RegexOptions.Multiline,
+            RegexTimeout
         );
 
         // Convert bold text (**text** -> <strong>text</strong>)
-        html = Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+        html = Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>", RegexOptions.None, RegexTimeout);
 
         // Convert italic text (*text* -> <em>text</em>)
-        html = Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>");
+        html = Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>", RegexOptions.None, RegexTimeout);
 
         // Convert bullet points (• text -> <li>text</li>)
         html = Regex.Replace(
             html,
             @"^•\s+(.+?)$",
             "<li>$1</li>",
-            RegexOptions.Multiline
+            RegexOptions.Multiline,
+            RegexTimeout
         );
 
         // Wrap consecutive <li> tags in <ul>
@@ -167,7 +169,8 @@ public static class MedicalReportHtmlGenerator
             html,
             @"(<li>.*?</li>\s*)+",
             m => @"<ul class=""bullet-list"">" + "\n" + m.Value + @"</ul>" + "\n",
-            RegexOptions.Singleline
+            RegexOptions.Singleline,
+            RegexTimeout
         );
 
         // Convert numbered lists (1. text -> <li>text</li> in <ol>)
@@ -175,7 +178,8 @@ public static class MedicalReportHtmlGenerator
             html,
             @"^\d+\.\s+(.+?)$",
             "<li class=\"numbered-item\">$1</li>",
-            RegexOptions.Multiline
+            RegexOptions.Multiline,
+            RegexTimeout
         );
 
         // Wrap consecutive numbered <li> tags in <ol>
@@ -183,7 +187,8 @@ public static class MedicalReportHtmlGenerator
             html,
             @"(<li class=""numbered-item"">.*?</li>\s*)+",
             m => @"<ol class=""numbered-list"">" + "\n" + m.Value + @"</ol>" + "\n",
-            RegexOptions.Singleline
+            RegexOptions.Singleline,
+            RegexTimeout
         );
 
         // Convert separator lines (─── or ═══)
@@ -191,30 +196,33 @@ public static class MedicalReportHtmlGenerator
             html,
             @"^[─═]{3,}$",
             "<hr class=\"separator\">",
-            RegexOptions.Multiline
+            RegexOptions.Multiline,
+            RegexTimeout
         );
 
         // Convert double line breaks to paragraphs
-        html = Regex.Replace(html, @"(\r?\n){2,}", "</p>\n<p>");
+        html = Regex.Replace(html, @"(\r?\n){2,}", "</p>\n<p>", RegexOptions.None, RegexTimeout);
 
         // Wrap in paragraph tags
         html = "<p>" + html + "</p>";
 
         // Clean up empty paragraphs
-        html = Regex.Replace(html, @"<p>\s*</p>", "");
+        html = Regex.Replace(html, @"<p>\s*</p>", "", RegexOptions.None, RegexTimeout);
 
         // Clean up paragraphs that only contain block elements
         html = Regex.Replace(
             html,
             @"<p>\s*(<h[23]|<hr|<ul|<ol)",
             "$1",
-            RegexOptions.Multiline
+            RegexOptions.Multiline,
+            RegexTimeout
         );
         html = Regex.Replace(
             html,
             @"(</h[23]>|</ul>|</ol>)\s*</p>",
             "$1",
-            RegexOptions.Multiline
+            RegexOptions.Multiline,
+            RegexTimeout
         );
 
         return html;
