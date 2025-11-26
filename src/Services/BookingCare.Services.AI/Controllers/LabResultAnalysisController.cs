@@ -59,7 +59,7 @@ public class LabResultAnalysisController : BaseApiController
             // Validate file type
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
             var fileExtension = Path.GetExtension(request.File.FileName).ToLowerInvariant();
-            
+
             if (!allowedExtensions.Contains(fileExtension))
             {
                 return BadRequest(new

@@ -7,7 +7,12 @@ using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital;
+using BookingCare.Shared.FileUpload.Models;
+using BookingCare.Shared.FileUpload.Services;
+using Docnet.Core;
+using Docnet.Core.Models;
 using Microsoft.Extensions.Options;
+using Tesseract;
 
 namespace BookingCare.Services.AI.Services.Implementations;
 
@@ -19,6 +24,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     private readonly DoctorService.DoctorServiceClient _doctorClient;
     private readonly BookingCare.Services.Hospital.HospitalService.HospitalServiceClient _hospitalClient;
     private readonly IConversationSessionService _sessionService;
+    private readonly IFileUploadService _fileUploadService;
     private readonly string _tesseractDataPath;
     private readonly string _tesseractLanguage;
 
@@ -32,6 +38,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         DoctorService.DoctorServiceClient doctorClient,
         BookingCare.Services.Hospital.HospitalService.HospitalServiceClient hospitalClient,
         IConversationSessionService sessionService,
+        IFileUploadService fileUploadService,
         IConfiguration configuration)
     {
         _logger = logger;
@@ -40,6 +47,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         _doctorClient = doctorClient;
         _hospitalClient = hospitalClient;
         _sessionService = sessionService;
+        _fileUploadService = fileUploadService;
         _tesseractDataPath = configuration["Tesseract:DataPath"] ?? "tessdata";
         _tesseractLanguage = configuration["Tesseract:Language"] ?? "vie+eng";
     }
@@ -96,46 +104,198 @@ public class LabResultAnalysisService : ILabResultAnalysisService
 
     private async Task<string> UploadToS3Async(IFormFile file, Guid? userId)
     {
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-        var fileName = $"lab-results/{userId}/{timestamp}/{file.FileName}";
-        
-        _logger.LogWarning("S3 upload not implemented yet. Using placeholder URL");
-        return $"https://s3.amazonaws.com/booking-care/{fileName}";
+        try
+        {
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+            var folder = $"uploads/ai/lab-results/{userId}/{timestamp}";
+
+            using var stream = file.OpenReadStream();
+            var uploadRequest = new FileUploadRequest
+            {
+                FileName = file.FileName,
+                FileStream = stream,
+                ContentType = file.ContentType,
+                Folder = folder,
+                GenerateUniqueFileName = true,
+                Metadata = new Dictionary<string, string>
+                {
+                    { "user-id", userId?.ToString() ?? "anonymous" },
+                    { "upload-timestamp", timestamp },
+                    { "file-type", "lab-result" }
+                }
+            };
+
+            var result = await _fileUploadService.UploadFileAsync(uploadRequest);
+
+            if (result.Success)
+            {
+                _logger.LogInformation("File uploaded successfully to S3. CloudFront URL: {Url}", result.CloudFrontUrl);
+                return result.CloudFrontUrl ?? result.FileUrl ?? string.Empty;
+            }
+
+            _logger.LogError("Failed to upload file to S3: {Error}", result.ErrorMessage);
+            throw new InvalidOperationException($"Failed to upload file to S3: {result.ErrorMessage}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading file to S3");
+            throw;
+        }
     }
 
     private async Task<string> ExtractTextFromImageAsync(IFormFile file)
     {
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        
+        if (extension == ".pdf")
+        {
+            return await ExtractTextFromPdfAsync(file);
+        }
+        else
+        {
+            return await ExtractTextFromImageFileAsync(file);
+        }
+    }
+
+    private async Task<string> ExtractTextFromPdfAsync(IFormFile file)
+    {
+        var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
+        var extractedTexts = new List<string>();
+        
         try
         {
-            _logger.LogWarning("Tesseract OCR not implemented yet. Using placeholder text.");
+            _logger.LogInformation("Starting PDF OCR extraction from file: {FileName}", file.FileName);
             
-            await Task.Delay(100);
+            // Save PDF to temp
+            using (var stream = new FileStream(tempPdfPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Load PDF using Docnet
+            using var docReader = DocLib.Instance.GetDocReader(tempPdfPath, new PageDimensions(1920, 1920));
             
-            return @"
-KẾT QUẢ XÉT NGHIỆM MÁU
-Bệnh viện Đa khoa Trung ương
+            // Process each page (limit to first 10 pages)
+            var pageCount = Math.Min(docReader.GetPageCount(), 10);
+            _logger.LogInformation("Processing {PageCount} pages from PDF", pageCount);
+            
+            for (int i = 0; i < pageCount; i++)
+            {
+                using var pageReader = docReader.GetPageReader(i);
+                var rawBytes = pageReader.GetImage();
+                var width = pageReader.GetPageWidth();
+                var height = pageReader.GetPageHeight();
+                
+                // Save page as PNG
+                var tempImagePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.png");
+                
+                try
+                {
+                    // Convert raw bytes to PNG
+                    using (var image = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                    {
+                        var bitmapData = image.LockBits(
+                            new System.Drawing.Rectangle(0, 0, width, height),
+                            System.Drawing.Imaging.ImageLockMode.WriteOnly,
+                            image.PixelFormat);
+                        
+                        System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, bitmapData.Scan0, rawBytes.Length);
+                        image.UnlockBits(bitmapData);
+                        
+                        image.Save(tempImagePath, System.Drawing.Imaging.ImageFormat.Png);
+                    }
+                    
+                    // OCR the image
+                    using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
+                    using var img = Pix.LoadFromFile(tempImagePath);
+                    using var ocrPage = engine.Process(img);
+                    
+                    var pageText = ocrPage.GetText();
+                    if (!string.IsNullOrWhiteSpace(pageText))
+                    {
+                        extractedTexts.Add(pageText);
+                        _logger.LogInformation("Extracted {Length} characters from page {PageNumber}", pageText.Length, i + 1);
+                    }
+                }
+                finally
+                {
+                    if (File.Exists(tempImagePath))
+                    {
+                        File.Delete(tempImagePath);
+                    }
+                }
+            }
+            
+            var combinedText = string.Join("\n\n", extractedTexts);
+            
+            if (string.IsNullOrWhiteSpace(combinedText))
+            {
+                throw new InvalidOperationException("Không thể trích xuất văn bản từ PDF. Vui lòng đảm bảo PDF chứa văn bản rõ ràng.");
+            }
+            
+            _logger.LogInformation("PDF OCR extraction completed. Total {Length} characters from {PageCount} pages", combinedText.Length, extractedTexts.Count);
+            return combinedText;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error extracting text from PDF: {Message}", ex.Message);
+            throw new InvalidOperationException($"Lỗi khi trích xuất văn bản từ PDF: {ex.Message}", ex);
+        }
+        finally
+        {
+            if (File.Exists(tempPdfPath))
+            {
+                File.Delete(tempPdfPath);
+            }
+        }
+    }
 
-Họ tên: Nguyễn Văn A
-Ngày xét nghiệm: 25/11/2025
+    private async Task<string> ExtractTextFromImageFileAsync(IFormFile file)
+    {
+        try
+        {
+            _logger.LogInformation("Starting image OCR extraction from file: {FileName}", file.FileName);
 
-CHỈ SỐ HUYẾT HỌC:
-- Hồng cầu (RBC): 4.5 x10^12/L (Bình thường: 4.0-5.5)
-- Bạch cầu (WBC): 12.5 x10^9/L (Bình thường: 4.0-10.0) *
-- Hemoglobin (Hb): 140 g/L (Bình thường: 130-170)
-- Tiểu cầu: 250 x10^9/L (Bình thường: 150-400)
+            // Save file to temporary location
+            var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(file.FileName));
+            
+            try
+            {
+                using (var stream = new FileStream(tempFilePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
 
-CHỈ SỐ SINH HÓA:
-- Glucose: 6.8 mmol/L (Bình thường: 3.9-6.1) *
-- Cholesterol: 5.2 mmol/L (Bình thường: <5.2)
-- Triglyceride: 1.8 mmol/L (Bình thường: <1.7) *
-
-* Chỉ số bất thường
-";
+                // Perform OCR using Tesseract
+                using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
+                using var img = Pix.LoadFromFile(tempFilePath);
+                using var page = engine.Process(img);
+                
+                var extractedText = page.GetText();
+                
+                _logger.LogInformation("Image OCR extraction completed. Extracted {Length} characters", extractedText.Length);
+                
+                if (string.IsNullOrWhiteSpace(extractedText))
+                {
+                    _logger.LogWarning("OCR extracted empty text from image");
+                    throw new InvalidOperationException("Không thể trích xuất văn bản từ ảnh. Vui lòng đảm bảo ảnh chứa văn bản rõ ràng.");
+                }
+                
+                return extractedText;
+            }
+            finally
+            {
+                // Clean up temporary file
+                if (File.Exists(tempFilePath))
+                {
+                    File.Delete(tempFilePath);
+                }
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error extracting text from image: {Message}", ex.Message);
-            throw new InvalidOperationException("Failed to extract text from image", ex);
+            throw new InvalidOperationException($"Lỗi khi trích xuất văn bản từ ảnh: {ex.Message}", ex);
         }
     }
 
@@ -149,7 +309,7 @@ CHỈ SỐ SINH HÓA:
     private string BuildAnalysisPrompt(string extractedText)
     {
         var promptBuilder = new StringBuilder();
-        
+
         promptBuilder.AppendLine("Bạn là bác sĩ AI chuyên phân tích kết quả xét nghiệm. Phân tích kết quả sau:");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**KẾT QUẢ XÉT NGHIỆM:**");
@@ -203,7 +363,7 @@ CHỈ SỐ SINH HÓA:
                 try
                 {
                     var url = $"{_geminiConfig.ApiEndpoint}/{apiVersion}/models/{model}:generateContent?key={_geminiConfig.ApiKey}";
-                    
+
                     var requestBody = new
                     {
                         contents = new[] { new { parts = new[] { new { text = prompt } } } },
@@ -216,7 +376,7 @@ CHỈ SỐ SINH HÓA:
 
                     var responseBody = await response.Content.ReadAsStringAsync();
                     var jsonResponse = JsonDocument.Parse(responseBody);
-                    
+
                     var text = jsonResponse.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
 
                     _logger.LogInformation("Successfully called Gemini API with {Model}", model);
@@ -239,7 +399,7 @@ CHỈ SỐ SINH HÓA:
         {
             var jsonStart = geminiResponse.IndexOf('{');
             var jsonEnd = geminiResponse.LastIndexOf('}');
-            
+
             if (jsonStart == -1 || jsonEnd == -1)
             {
                 throw new InvalidOperationException("No JSON found in Gemini response");
@@ -290,7 +450,7 @@ CHỈ SỐ SINH HÓA:
                     var diagnosis = item.TryGetProperty("possibleDiagnosis", out var diagProp) ? diagProp.GetString() ?? "" : "";
                     var name = item.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? "" : "";
 
-                    var specialtyMatches = specialtyNames.Count > 0 
+                    var specialtyMatches = specialtyNames.Count > 0
                         ? ConvertToSpecialtyMatches(specialtyNames, diagnosis, name)
                         : InferSpecialtiesFromDiagnosis(diagnosis, name);
 
@@ -363,43 +523,148 @@ CHỈ SỐ SINH HÓA:
         var specialties = new List<SpecialtyMatch>();
         var combinedText = $"{diagnosis} {indicatorName}".ToLower();
 
-        if (combinedText.Contains("đái tháo đường") || combinedText.Contains("glucose") || combinedText.Contains("đường huyết"))
+        // Fetch all specialties from database
+        List<string> allSpecialtyNames;
+        try
         {
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Nội tiết", Confidence = 0.9, Urgency = "NORMAL", Reasons = new List<string> { "Rối loạn chuyển hóa đường", "Cần kiểm tra HbA1c" } });
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Nội tổng quát", Confidence = 0.7, Urgency = "NORMAL", Reasons = new List<string> { "Đánh giá tổng quát sức khỏe" } });
+            var request = new GetAllSpecialtiesRequest();
+            var response = _doctorClient.GetAllSpecialtiesAsync(request).GetAwaiter().GetResult();
+            allSpecialtyNames = response.Specialties.Select(s => s.Name).ToList();
         }
-        else if (combinedText.Contains("nhiễm trùng") || combinedText.Contains("bạch cầu") || combinedText.Contains("wbc") || combinedText.Contains("viêm"))
+        catch (Exception ex)
         {
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Nội tổng quát", Confidence = 0.85, Urgency = "URGENT", Reasons = new List<string> { "Dấu hiệu nhiễm trùng", "Cần xác định nguyên nhân" } });
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Huyết học", Confidence = 0.7, Urgency = "NORMAL", Reasons = new List<string> { "Rối loạn bạch cầu" } });
+            _logger.LogWarning(ex, "Failed to fetch specialties from database, using fallback");
+            // Fallback to default specialty
+            specialties.Add(new SpecialtyMatch 
+            { 
+                SpecialtyName = "Nội tổng quát", 
+                Confidence = 0.6, 
+                Urgency = "NORMAL", 
+                Reasons = new List<string> { "Đánh giá tổng quát" } 
+            });
+            return specialties;
         }
-        else if (combinedText.Contains("cholesterol") || combinedText.Contains("triglyceride") || combinedText.Contains("lipid"))
+
+        // Define keyword mappings for specialty inference
+        var specialtyKeywords = new Dictionary<string, (List<string> Keywords, double Confidence, string Urgency, List<string> Reasons)>
         {
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Tim mạch", Confidence = 0.9, Urgency = "NORMAL", Reasons = new List<string> { "Rối loạn lipid máu", "Nguy cơ tim mạch" } });
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Nội tổng quát", Confidence = 0.75, Urgency = "NORMAL", Reasons = new List<string> { "Quản lý yếu tố nguy cơ" } });
+            ["Nội tiết"] = (
+                new List<string> { "đái tháo đường", "glucose", "đường huyết", "insulin", "tuyến giáp", "hormone" },
+                0.9,
+                "NORMAL",
+                new List<string> { "Rối loạn chuyển hóa đường", "Cần kiểm tra HbA1c" }
+            ),
+            ["Tim mạch"] = (
+                new List<string> { "cholesterol", "triglyceride", "lipid", "tim", "huyết áp", "mạch máu" },
+                0.9,
+                "NORMAL",
+                new List<string> { "Rối loạn lipid máu", "Nguy cơ tim mạch" }
+            ),
+            ["Huyết học"] = (
+                new List<string> { "hồng cầu", "bạch cầu", "wbc", "rbc", "hemoglobin", "thiếu máu", "tiểu cầu" },
+                0.9,
+                "NORMAL",
+                new List<string> { "Rối loạn hồng cầu/bạch cầu" }
+            ),
+            ["Tiêu hóa"] = (
+                new List<string> { "gan", "alt", "ast", "bilirubin", "tiêu hóa", "dạ dày", "ruột" },
+                0.85,
+                "NORMAL",
+                new List<string> { "Rối loạn chức năng gan" }
+            ),
+            ["Thận - Tiết niệu"] = (
+                new List<string> { "thận", "creatinine", "ure", "urea", "protein niệu" },
+                0.9,
+                "NORMAL",
+                new List<string> { "Rối loạn chức năng thận" }
+            ),
+            ["Nội khoa"] = (
+                new List<string> { "nhiễm trùng", "viêm", "sốt", "infection" },
+                0.85,
+                "URGENT",
+                new List<string> { "Dấu hiệu nhiễm trùng", "Cần xác định nguyên nhân" }
+            )
+        };
+
+        // Match keywords with database specialties
+        foreach (var kvp in specialtyKeywords)
+        {
+            var keywordSpecialtyName = kvp.Key;
+            var (keywords, confidence, urgency, reasons) = kvp.Value;
+
+            // Check if any keyword matches
+            if (keywords.Any(keyword => combinedText.Contains(keyword)))
+            {
+                // Find matching specialty in database (exact or fuzzy match)
+                var dbSpecialty = allSpecialtyNames.FirstOrDefault(s =>
+                    s.Equals(keywordSpecialtyName, StringComparison.OrdinalIgnoreCase) ||
+                    s.Contains(keywordSpecialtyName, StringComparison.OrdinalIgnoreCase) ||
+                    keywordSpecialtyName.Contains(s, StringComparison.OrdinalIgnoreCase));
+
+                if (dbSpecialty != null)
+                {
+                    specialties.Add(new SpecialtyMatch
+                    {
+                        SpecialtyName = dbSpecialty,
+                        Confidence = confidence,
+                        Urgency = urgency,
+                        Reasons = reasons
+                    });
+                }
+            }
         }
-        else if (combinedText.Contains("gan") || combinedText.Contains("alt") || combinedText.Contains("ast"))
+
+        // Always add "Nội tổng quát" or similar general specialty as fallback
+        if (specialties.Count == 0)
         {
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Tiêu hóa", Confidence = 0.85, Urgency = "NORMAL", Reasons = new List<string> { "Rối loạn chức năng gan" } });
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Nội tổng quát", Confidence = 0.7, Urgency = "NORMAL", Reasons = new List<string> { "Đánh giá tổng quát" } });
+            var generalSpecialty = allSpecialtyNames.FirstOrDefault(s =>
+                s.Contains("Nội", StringComparison.OrdinalIgnoreCase) &&
+                (s.Contains("tổng quát", StringComparison.OrdinalIgnoreCase) || s.Contains("khoa", StringComparison.OrdinalIgnoreCase)));
+
+            if (generalSpecialty != null)
+            {
+                specialties.Add(new SpecialtyMatch
+                {
+                    SpecialtyName = generalSpecialty,
+                    Confidence = 0.6,
+                    Urgency = "NORMAL",
+                    Reasons = new List<string> { "Đánh giá tổng quát" }
+                });
+            }
+            else
+            {
+                // Ultimate fallback - use first specialty from database
+                specialties.Add(new SpecialtyMatch
+                {
+                    SpecialtyName = allSpecialtyNames.FirstOrDefault() ?? "Nội tổng quát",
+                    Confidence = 0.5,
+                    Urgency = "NORMAL",
+                    Reasons = new List<string> { "Đánh giá tổng quát" }
+                });
+            }
         }
-        else if (combinedText.Contains("thận") || combinedText.Contains("creatinine") || combinedText.Contains("ure"))
+        else if (!specialties.Any(s => s.SpecialtyName.Contains("Nội", StringComparison.OrdinalIgnoreCase)))
         {
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Thận - Tiết niệu", Confidence = 0.9, Urgency = "NORMAL", Reasons = new List<string> { "Rối loạn chức năng thận" } });
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Nội tổng quát", Confidence = 0.7, Urgency = "NORMAL", Reasons = new List<string> { "Quản lý bệnh thận" } });
-        }
-        else if (combinedText.Contains("hồng cầu") || combinedText.Contains("hemoglobin") || combinedText.Contains("thiếu máu"))
-        {
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Huyết học", Confidence = 0.9, Urgency = "NORMAL", Reasons = new List<string> { "Rối loạn hồng cầu/hemoglobin" } });
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Nội tổng quát", Confidence = 0.7, Urgency = "NORMAL", Reasons = new List<string> { "Đánh giá nguyên nhân thiếu máu" } });
-        }
-        else
-        {
-            specialties.Add(new SpecialtyMatch { SpecialtyName = "Nội tổng quát", Confidence = 0.6, Urgency = "NORMAL", Reasons = new List<string> { "Đánh giá tổng quát" } });
+            // Add general internal medicine as secondary option
+            var generalSpecialty = allSpecialtyNames.FirstOrDefault(s =>
+                s.Contains("Nội", StringComparison.OrdinalIgnoreCase) &&
+                (s.Contains("tổng quát", StringComparison.OrdinalIgnoreCase) || s.Contains("khoa", StringComparison.OrdinalIgnoreCase)));
+
+            if (generalSpecialty != null && specialties.Count < 3)
+            {
+                specialties.Add(new SpecialtyMatch
+                {
+                    SpecialtyName = generalSpecialty,
+                    Confidence = 0.7,
+                    Urgency = "NORMAL",
+                    Reasons = new List<string> { "Đánh giá tổng quát sức khỏe" }
+                });
+            }
         }
 
         return specialties;
     }
+
 
     private async Task<List<DoctorRecommendation>> GetDoctorRecommendationsAsync(List<string> specialties, LocationContext? location)
     {
@@ -456,7 +721,7 @@ CHỈ SỐ SINH HÓA:
             if (specialtyIds.Count == 0) return new List<HospitalRecommendation>();
 
             var allHospitals = new List<HospitalReply>();
-            
+
             foreach (var specialtyId in specialtyIds.Take(3))
             {
                 try

@@ -23,7 +23,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private readonly GeminiConfiguration _geminiConfig;
     private readonly DoctorService.DoctorServiceClient _doctorClient;
     private readonly BookingCare.Services.Hospital.HospitalService.HospitalServiceClient _hospitalClient;
-    
+
     private const int MAX_QUESTIONS = 3;
     private const int MAX_DOCTOR_RECOMMENDATIONS = 10;
     private const int MAX_HOSPITAL_RECOMMENDATIONS = 5;
@@ -49,15 +49,15 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         try
         {
-            _logger.LogInformation("Starting symptom analysis for user {UserId}, session {SessionId}", 
+            _logger.LogInformation("Starting symptom analysis for user {UserId}, session {SessionId}",
                 request.UserId, request.SessionId);
 
             // Step 1: Get or create session in database
             var sessionId = await _sessionService.GetOrCreateSessionAsync(
-                request.SessionId, 
-                request.UserId ?? Guid.Empty, 
+                request.SessionId,
+                request.UserId ?? Guid.Empty,
                 request.Location);
-            
+
             var conversationHistory = request.ConversationHistory ?? new List<ConversationMessage>();
 
             // Step 2: Count how many questions AI has asked so far
@@ -68,7 +68,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             bool isAskingMode = questionCount < MAX_QUESTIONS;
 
             // Step 4: Build prompt for Gemini
-            string prompt = isAskingMode 
+            string prompt = isAskingMode
                 ? BuildAskingModePrompt(request.Message, conversationHistory)
                 : BuildConclusionModePrompt(request.Message, conversationHistory);
 
@@ -165,7 +165,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private int CountAIQuestions(List<ConversationMessage> history)
     {
         // Count all AI messages (frontend doesn't send suggestions in history)
-        return history.Count(m => 
+        return history.Count(m =>
             m.Role.Equals("ai", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -175,16 +175,16 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private string BuildAskingModePrompt(string userMessage, List<ConversationMessage> history)
     {
         var promptBuilder = new StringBuilder();
-        
+
         promptBuilder.AppendLine("Bạn là bác sĩ AI chuyên nghiệp. Nhiệm vụ của bạn là hỏi 1 câu hỏi để làm rõ triệu chứng của bệnh nhân.");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**LỊCH SỬ HỘI THOẠI:**");
-        
+
         foreach (var msg in history)
         {
             promptBuilder.AppendLine($"{msg.Role.ToUpper()}: {msg.Content}");
         }
-        
+
         promptBuilder.AppendLine($"USER: {userMessage}");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**YÊU CẦU:**");
@@ -208,16 +208,16 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private string BuildConclusionModePrompt(string userMessage, List<ConversationMessage> history)
     {
         var promptBuilder = new StringBuilder();
-        
+
         promptBuilder.AppendLine("Bạn là bác sĩ AI chuyên nghiệp. Dựa trên 3 câu hỏi và câu trả lời, hãy đưa ra kết luận.");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**LỊCH SỬ HỘI THOẠI:**");
-        
+
         foreach (var msg in history)
         {
             promptBuilder.AppendLine($"{msg.Role.ToUpper()}: {msg.Content}");
         }
-        
+
         promptBuilder.AppendLine($"USER: {userMessage}");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**DANH SÁCH CHUYÊN KHOA CÓ SẴN:**");
@@ -255,16 +255,35 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private string GetSpecialtyListText()
     {
-        // Common Vietnamese medical specialties
-        var specialties = new[]
+        try
+        {
+            // Fetch all specialties from database
+            var request = new GetAllSpecialtiesRequest();
+            var response = _doctorClient.GetAllSpecialtiesAsync(request).GetAwaiter().GetResult();
+            
+            var specialtyNames = response.Specialties.Select(s => s.Name).ToList();
+            
+            if (specialtyNames.Count > 0)
+            {
+                return string.Join(", ", specialtyNames);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch specialties from database, using fallback list");
+        }
+
+        // Fallback to common specialties if database call fails
+        var fallbackSpecialties = new[]
         {
             "Nội khoa", "Ngoại khoa", "Sản phụ khoa", "Nhi khoa", "Tim mạch",
             "Hô hấp", "Tiêu hóa", "Thần kinh", "Cơ xương khớp", "Da liễu",
             "Tai mũi họng", "Mắt", "Răng hàm mặt", "Tâm thần", "Nội tiết",
-            "Thận - Tiết niệu", "Ung bướu", "Chấn thương chỉnh hình", "Y học cổ truyền"
+            "Thận - Tiết niệu", "Ung bướu", "Chấn thương chỉnh hình", "Y học cổ truyền",
+            "Huyết học", "Dị ứng - Miễn dịch", "Phục hồi chức năng", "Gây mê hồi sức", "Dinh dưỡng"
         };
-        
-        return string.Join(", ", specialties);
+
+        return string.Join(", ", fallbackSpecialties);
     }
 
     /// <summary>
@@ -355,19 +374,19 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     "Visit https://ai.google.dev/gemini-api/docs/rate-limits for more information."
                 );
             }
-            
+
             // If model not found (404), just log and continue to next model
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 _logger.LogDebug("Model {Model} not found on {ApiVersion}, trying next", model, apiVersion);
                 throw new HttpRequestException($"Model not found: {model}");
             }
-            
+
             _logger.LogWarning("Gemini API failed: {StatusCode}, Response: {Response}", response.StatusCode, responseContent);
             throw new HttpRequestException($"Gemini API returned error: {response.StatusCode}");
         }
 
-        var geminiResponse = JsonSerializer.Deserialize<GeminiApiResponse>(responseContent, 
+        var geminiResponse = JsonSerializer.Deserialize<GeminiApiResponse>(responseContent,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         if (geminiResponse?.Candidates == null || geminiResponse.Candidates.Length == 0)
@@ -425,8 +444,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         {
             // Extract JSON from response (Gemini might add extra text)
             string jsonText = ExtractJsonFromText(geminiResponse);
-            
-            var questionData = JsonSerializer.Deserialize<AskingModeResponse>(jsonText, 
+
+            var questionData = JsonSerializer.Deserialize<AskingModeResponse>(jsonText,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             if (questionData == null || string.IsNullOrEmpty(questionData.Question))
@@ -455,7 +474,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error parsing asking mode response: {Response}", geminiResponse);
-            
+
             // Fallback: create a generic question
             return new SymptomAnalysisResponse
             {
@@ -481,8 +500,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// Parse Gemini response for conclusion mode
     /// </summary>
     private async Task<SymptomAnalysisResponse> ParseConclusionModeResponse(
-        string geminiResponse, 
-        Guid sessionId, 
+        string geminiResponse,
+        Guid sessionId,
         int questionCount,
         LocationContext? location)
     {
@@ -490,8 +509,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         {
             // Extract JSON from response
             string jsonText = ExtractJsonFromText(geminiResponse);
-            
-            var conclusionData = JsonSerializer.Deserialize<ConclusionModeResponse>(jsonText, 
+
+            var conclusionData = JsonSerializer.Deserialize<ConclusionModeResponse>(jsonText,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
             if (conclusionData == null)
@@ -536,7 +555,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             if (conclusionData.Specialties != null && conclusionData.Specialties.Count > 0)
             {
                 var specialtyIds = await MatchSpecialtiesToIds(conclusionData.Specialties);
-                
+
                 response.RecommendedSpecialties = conclusionData.Specialties.Select(s => new SpecialtyMatch
                 {
                     SpecialtyName = s.Name ?? "",
@@ -549,8 +568,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 {
                     response.RecommendedDoctors = await GetDoctorRecommendations(specialtyIds, location);
                     response.RecommendedHospitals = await GetHospitalRecommendations(
-                        specialtyIds, 
-                        conclusionData.Specialties.Select(s => s.Name ?? "").ToList(), 
+                        specialtyIds,
+                        conclusionData.Specialties.Select(s => s.Name ?? "").ToList(),
                         location);
                 }
             }
@@ -559,7 +578,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             var messageBuilder = new StringBuilder();
             messageBuilder.AppendLine($"Dựa trên các triệu chứng bạn mô tả, có thể bạn đang gặp vấn đề về **{response.Disease?.Name ?? "sức khỏe"}**.");
             messageBuilder.AppendLine();
-            
+
             if (response.GeneralAdvice.Count > 0)
             {
                 messageBuilder.AppendLine("**Lời khuyên:**");
@@ -627,7 +646,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             foreach (var specialty in specialties)
             {
                 // Try exact match first
-                var match = response.Specialties.FirstOrDefault(s => 
+                var match = response.Specialties.FirstOrDefault(s =>
                     s.Name.Equals(specialty.Name, StringComparison.OrdinalIgnoreCase));
 
                 if (match != null)
@@ -637,7 +656,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 }
 
                 // Try fuzzy match (contains)
-                match = response.Specialties.FirstOrDefault(s => 
+                match = response.Specialties.FirstOrDefault(s =>
                     s.Name.Contains(specialty.Name ?? "", StringComparison.OrdinalIgnoreCase) ||
                     (specialty.Name ?? "").Contains(s.Name, StringComparison.OrdinalIgnoreCase));
 
@@ -665,7 +684,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// Get doctor recommendations with location-based ranking
     /// </summary>
     private async Task<List<DoctorRecommendation>> GetDoctorRecommendations(
-        List<Guid> specialtyIds, 
+        List<Guid> specialtyIds,
         LocationContext? location)
     {
         try
@@ -758,7 +777,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // For now, use GetHospitalsBySpecialty for each specialty
             // TODO: Add FilterHospitalsBySpecialty gRPC method for better performance
             var allHospitals = new List<HospitalReply>();
-            
+
             foreach (var specialtyId in specialtyIds.Take(3)) // Limit to 3 specialties
             {
                 try
@@ -767,7 +786,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     {
                         SpecialtyId = specialtyId.ToString()
                     };
-                    
+
                     var response = await _hospitalClient.GetHospitalsBySpecialtyAsync(request);
                     allHospitals.AddRange(response.Hospitals);
                 }
@@ -817,7 +836,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         {
             var address = hospital.Address?.ToLowerInvariant() ?? "";
             var locationName = location.DisplayName.ToLowerInvariant();
-            
+
             if (address.Contains(locationName))
             {
                 score += 0.5;
@@ -849,7 +868,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 userMessage,
                 aiResponse.Message,
                 null, // location
-                aiResponse.AnalysisComplete ? new { 
+                aiResponse.AnalysisComplete ? new
+                {
                     doctors = aiResponse.RecommendedDoctors,
                     hospitals = aiResponse.RecommendedHospitals
                 } : null,

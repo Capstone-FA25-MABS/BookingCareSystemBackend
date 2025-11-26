@@ -7,6 +7,7 @@ using BookingCare.Services.AI.Workflows;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.FileUpload.Extensions;
 using Grpc.Net.Client;
 using Microsoft.EntityFrameworkCore;
 
@@ -86,6 +87,9 @@ builder.Services.AddScoped<IGeminiTranscriptionService, GeminiTranscriptionServi
 
 // Register Audio Transcription Workflow
 builder.Services.AddScoped<IAudioTranscriptionWorkflow, AudioTranscriptionWorkflow>();
+
+// Add S3 File Upload services
+builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add JWT Authentication and Authorization using centralized configuration
 // This includes: JWT auth, authorization policies, and AutoToken middleware
