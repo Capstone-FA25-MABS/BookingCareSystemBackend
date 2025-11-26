@@ -17,221 +17,10 @@ public static class MedicalReportHtmlGenerator
     private const string HtmlDivEnd = "        </div>";
 
     /// <summary>
-    /// Converts markdown-like medical report text to a beautiful HTML document
+    /// CSS styles for the medical report HTML
     /// </summary>
-    public static string GenerateHtmlReport(
-        string markdownContent,
-        string appointmentId,
-        string doctorName,
-        string patientName,
-        DateTime appointmentDate
-    )
-    {
-        var htmlContent = ConvertMarkdownToHtml(markdownContent);
-
-        var html = new StringBuilder();
-
-        html.AppendLine("<!DOCTYPE html>");
-        html.AppendLine("<html lang=\"vi\">");
-        html.AppendLine("<head>");
-        html.AppendLine("    <meta charset=\"UTF-8\">");
-        html.AppendLine(
-            "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-        );
-        html.AppendLine($"    <title>Kết Quả Khám Bệnh - {appointmentId}</title>");
-        html.AppendLine("    <style>");
-        html.AppendLine(GetCssStyles());
-        html.AppendLine("    </style>");
-        html.AppendLine("</head>");
-        html.AppendLine("<body>");
-        html.AppendLine("    <div class=\"container\">");
-
-        // Header
-        html.AppendLine("        <div class=\"header\">");
-        html.AppendLine("            <div class=\"logo-section\">");
-        html.AppendLine("                <div class=\"logo\">🏥</div>");
-        html.AppendLine(
-            "                <div class=\"clinic-name\">BOOKINGCARE MEDICAL CENTER</div>"
-        );
-        html.AppendLine(
-            "                <div class=\"clinic-subtitle\">Trung Tâm Y Tế Chuyên Nghiệp</div>"
-        );
-        html.AppendLine("            </div>");
-        html.AppendLine(
-            $"            <div class=\"report-id\">Mã hồ sơ: <span>#{appointmentId}</span></div>"
-        );
-        html.AppendLine(HtmlDivEnd);
-
-        // Patient Info Card
-        html.AppendLine("        <div class=\"info-card\">");
-        html.AppendLine("            <div class=\"info-title\">📋 Thông Tin Cuộc Hẹn</div>");
-        html.AppendLine("            <div class=\"info-grid\">");
-        html.AppendLine(HtmlInfoItemStart);
-        html.AppendLine(
-            "                    <span class=\"info-label\">👨\u200D⚕️ Bác sĩ khám:</span>"
-        );
-        html.AppendLine($"                    <span class=\"info-value\">{doctorName}</span>");
-        html.AppendLine(HtmlInfoItemEnd);
-        html.AppendLine(HtmlInfoItemStart);
-        html.AppendLine("                    <span class=\"info-label\">🙍 Bệnh nhân:</span>");
-        html.AppendLine($"                    <span class=\"info-value\">{patientName}</span>");
-        html.AppendLine(HtmlInfoItemEnd);
-        html.AppendLine(HtmlInfoItemStart);
-        html.AppendLine("                    <span class=\"info-label\">📅 Ngày khám:</span>");
-        html.AppendLine(
-            $"                    <span class=\"info-value\">{appointmentDate:dd/MM/yyyy HH:mm}</span>"
-        );
-        html.AppendLine(HtmlInfoItemEnd);
-        html.AppendLine(HtmlInfoItemStart);
-        html.AppendLine("                    <span class=\"info-label\">🖨️ Ngày in:</span>");
-        html.AppendLine(
-            $"                    <span class=\"info-value\">{DateTime.Now:dd/MM/yyyy HH:mm}</span>"
-        );
-        html.AppendLine(HtmlInfoItemEnd);
-        html.AppendLine("            </div>");
-        html.AppendLine(HtmlDivEnd);
-
-        // Medical Report Content
-        html.AppendLine("        <div class=\"report-content\">");
-        html.AppendLine(htmlContent);
-        html.AppendLine(HtmlDivEnd);
-
-        // Footer
-        html.AppendLine("        <div class=\"footer\">");
-        html.AppendLine(
-            "            <div class=\"footer-info\">BookingCare - Nền tảng đặt lịch khám bệnh trực tuyến hàng đầu Việt Nam</div>"
-        );
-        html.AppendLine(
-            $"            <div class=\"footer-info\">Tạo lúc: {DateTime.Now:dd/MM/yyyy HH:mm:ss}</div>"
-        );
-        html.AppendLine("        </div>");
-
-        html.AppendLine("    </div>");
-        html.AppendLine("</body>");
-        html.AppendLine("</html>");
-
-        return html.ToString();
-    }
-
-    /// <summary>
-    /// Converts markdown-like syntax to HTML
-    /// </summary>
-    private static string ConvertMarkdownToHtml(string markdown)
-    {
-        if (string.IsNullOrWhiteSpace(markdown))
-            return "";
-
-        var html = markdown;
-
-        // Convert headers with emojis (## 🩺 TITLE -> <h2>🩺 TITLE</h2>)
-        html = Regex.Replace(
-            html,
-            @"##\s+(.+?)(\r?\n|$)",
-            "<h2 class=\"section-title\">$1</h2>\n",
-            RegexOptions.Multiline,
-            RegexTimeout
-        );
-
-        // Convert subheaders (### TITLE -> <h3>TITLE</h3>)
-        html = Regex.Replace(
-            html,
-            @"###\s+(.+?)(\r?\n|$)",
-            "<h3 class=\"subsection-title\">$1</h3>\n",
-            RegexOptions.Multiline,
-            RegexTimeout
-        );
-
-        // Convert bold text (**text** -> <strong>text</strong>)
-        html = Regex.Replace(
-            html,
-            @"\*\*(.+?)\*\*",
-            "<strong>$1</strong>",
-            RegexOptions.None,
-            RegexTimeout
-        );
-
-        // Convert italic text (*text* -> <em>text</em>)
-        html = Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>", RegexOptions.None, RegexTimeout);
-
-        // Convert bullet points (• text -> <li>text</li>)
-        html = Regex.Replace(
-            html,
-            @"^•\s+(.+?)$",
-            "<li>$1</li>",
-            RegexOptions.Multiline,
-            RegexTimeout
-        );
-
-        // Wrap consecutive <li> tags in <ul>
-        html = Regex.Replace(
-            html,
-            @"(<li>.*?</li>\s*)+",
-            m => @"<ul class=""bullet-list"">" + "\n" + m.Value + @"</ul>" + "\n",
-            RegexOptions.Singleline,
-            RegexTimeout
-        );
-
-        // Convert numbered lists (1. text -> <li>text</li> in <ol>)
-        html = Regex.Replace(
-            html,
-            @"^\d+\.\s+(.+?)$",
-            "<li class=\"numbered-item\">$1</li>",
-            RegexOptions.Multiline,
-            RegexTimeout
-        );
-
-        // Wrap consecutive numbered <li> tags in <ol>
-        html = Regex.Replace(
-            html,
-            @"(<li class=""numbered-item"">.*?</li>\s*)+",
-            m => @"<ol class=""numbered-list"">" + "\n" + m.Value + @"</ol>" + "\n",
-            RegexOptions.Singleline,
-            RegexTimeout
-        );
-
-        // Convert separator lines (─── or ═══)
-        html = Regex.Replace(
-            html,
-            @"^[─═]{3,}$",
-            "<hr class=\"separator\">",
-            RegexOptions.Multiline,
-            RegexTimeout
-        );
-
-        // Convert double line breaks to paragraphs
-        html = Regex.Replace(html, @"(\r?\n){2,}", "</p>\n<p>", RegexOptions.None, RegexTimeout);
-
-        // Wrap in paragraph tags
-        html = "<p>" + html + "</p>";
-
-        // Clean up empty paragraphs
-        html = Regex.Replace(html, @"<p>\s*</p>", "", RegexOptions.None, RegexTimeout);
-
-        // Clean up paragraphs that only contain block elements
-        html = Regex.Replace(
-            html,
-            @"<p>\s*(<h[23]|<hr|<ul|<ol)",
-            "$1",
-            RegexOptions.Multiline,
-            RegexTimeout
-        );
-        html = Regex.Replace(
-            html,
-            @"(</h[23]>|</ul>|</ol>)\s*</p>",
-            "$1",
-            RegexOptions.Multiline,
-            RegexTimeout
-        );
-
-        return html;
-    }
-
-    /// <summary>
-    /// Returns the CSS styles for the medical report
-    /// </summary>
-    private static string GetCssStyles()
-    {
-        return @"
+    private const string CssStyles =
+        @"
         * {
             margin: 0;
             padding: 0;
@@ -537,5 +326,214 @@ public static class MedicalReportHtmlGenerator
             }
         }
         ";
+
+    /// <summary>
+    /// Converts markdown-like medical report text to a beautiful HTML document
+    /// </summary>
+    public static string GenerateHtmlReport(
+        string markdownContent,
+        string appointmentId,
+        string doctorName,
+        string patientName,
+        DateTime appointmentDate
+    )
+    {
+        var htmlContent = ConvertMarkdownToHtml(markdownContent);
+
+        var html = new StringBuilder();
+
+        html.AppendLine("<!DOCTYPE html>");
+        html.AppendLine("<html lang=\"vi\">");
+        html.AppendLine("<head>");
+        html.AppendLine("    <meta charset=\"UTF-8\">");
+        html.AppendLine(
+            "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+        );
+        html.AppendLine($"    <title>Kết Quả Khám Bệnh - {appointmentId}</title>");
+        html.AppendLine("    <style>");
+        html.AppendLine(CssStyles);
+        html.AppendLine("    </style>");
+        html.AppendLine("</head>");
+        html.AppendLine("<body>");
+        html.AppendLine("    <div class=\"container\">");
+
+        // Header
+        html.AppendLine("        <div class=\"header\">");
+        html.AppendLine("            <div class=\"logo-section\">");
+        html.AppendLine("                <div class=\"logo\">🏥</div>");
+        html.AppendLine(
+            "                <div class=\"clinic-name\">BOOKINGCARE MEDICAL CENTER</div>"
+        );
+        html.AppendLine(
+            "                <div class=\"clinic-subtitle\">Trung Tâm Y Tế Chuyên Nghiệp</div>"
+        );
+        html.AppendLine("            </div>");
+        html.AppendLine(
+            $"            <div class=\"report-id\">Mã hồ sơ: <span>#{appointmentId}</span></div>"
+        );
+        html.AppendLine(HtmlDivEnd);
+
+        // Patient Info Card
+        html.AppendLine("        <div class=\"info-card\">");
+        html.AppendLine("            <div class=\"info-title\">📋 Thông Tin Cuộc Hẹn</div>");
+        html.AppendLine("            <div class=\"info-grid\">");
+        html.AppendLine(HtmlInfoItemStart);
+        html.AppendLine(
+            "                    <span class=\"info-label\">👨\u200D⚕️ Bác sĩ khám:</span>"
+        );
+        html.AppendLine($"                    <span class=\"info-value\">{doctorName}</span>");
+        html.AppendLine(HtmlInfoItemEnd);
+        html.AppendLine(HtmlInfoItemStart);
+        html.AppendLine("                    <span class=\"info-label\">🙍 Bệnh nhân:</span>");
+        html.AppendLine($"                    <span class=\"info-value\">{patientName}</span>");
+        html.AppendLine(HtmlInfoItemEnd);
+        html.AppendLine(HtmlInfoItemStart);
+        html.AppendLine("                    <span class=\"info-label\">📅 Ngày khám:</span>");
+        html.AppendLine(
+            $"                    <span class=\"info-value\">{appointmentDate:dd/MM/yyyy HH:mm}</span>"
+        );
+        html.AppendLine(HtmlInfoItemEnd);
+        html.AppendLine(HtmlInfoItemStart);
+        html.AppendLine("                    <span class=\"info-label\">🖨️ Ngày in:</span>");
+        html.AppendLine(
+            $"                    <span class=\"info-value\">{DateTime.Now:dd/MM/yyyy HH:mm}</span>"
+        );
+        html.AppendLine(HtmlInfoItemEnd);
+        html.AppendLine("            </div>");
+        html.AppendLine(HtmlDivEnd);
+
+        // Medical Report Content
+        html.AppendLine("        <div class=\"report-content\">");
+        html.AppendLine(htmlContent);
+        html.AppendLine(HtmlDivEnd);
+
+        // Footer
+        html.AppendLine("        <div class=\"footer\">");
+        html.AppendLine(
+            "            <div class=\"footer-info\">BookingCare - Nền tảng đặt lịch khám bệnh trực tuyến hàng đầu Việt Nam</div>"
+        );
+        html.AppendLine(
+            $"            <div class=\"footer-info\">Tạo lúc: {DateTime.Now:dd/MM/yyyy HH:mm:ss}</div>"
+        );
+        html.AppendLine("        </div>");
+
+        html.AppendLine("    </div>");
+        html.AppendLine("</body>");
+        html.AppendLine("</html>");
+
+        return html.ToString();
+    }
+
+    /// <summary>
+    /// Converts markdown-like syntax to HTML
+    /// </summary>
+    private static string ConvertMarkdownToHtml(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return "";
+
+        var html = markdown;
+
+        // Convert headers with emojis (## 🩺 TITLE -> <h2>🩺 TITLE</h2>)
+        html = Regex.Replace(
+            html,
+            @"##\s+(.+?)(\r?\n|$)",
+            "<h2 class=\"section-title\">$1</h2>\n",
+            RegexOptions.Multiline,
+            RegexTimeout
+        );
+
+        // Convert subheaders (### TITLE -> <h3>TITLE</h3>)
+        html = Regex.Replace(
+            html,
+            @"###\s+(.+?)(\r?\n|$)",
+            "<h3 class=\"subsection-title\">$1</h3>\n",
+            RegexOptions.Multiline,
+            RegexTimeout
+        );
+
+        // Convert bold text (**text** -> <strong>text</strong>)
+        html = Regex.Replace(
+            html,
+            @"\*\*(.+?)\*\*",
+            "<strong>$1</strong>",
+            RegexOptions.None,
+            RegexTimeout
+        );
+
+        // Convert italic text (*text* -> <em>text</em>)
+        html = Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>", RegexOptions.None, RegexTimeout);
+
+        // Convert bullet points (• text -> <li>text</li>)
+        html = Regex.Replace(
+            html,
+            @"^•\s+(.+?)$",
+            "<li>$1</li>",
+            RegexOptions.Multiline,
+            RegexTimeout
+        );
+
+        // Wrap consecutive <li> tags in <ul>
+        html = Regex.Replace(
+            html,
+            @"(<li>.*?</li>\s*)+",
+            m => @"<ul class=""bullet-list"">" + "\n" + m.Value + @"</ul>" + "\n",
+            RegexOptions.Singleline,
+            RegexTimeout
+        );
+
+        // Convert numbered lists (1. text -> <li>text</li> in <ol>)
+        html = Regex.Replace(
+            html,
+            @"^\d+\.\s+(.+?)$",
+            "<li class=\"numbered-item\">$1</li>",
+            RegexOptions.Multiline,
+            RegexTimeout
+        );
+
+        // Wrap consecutive numbered <li> tags in <ol>
+        html = Regex.Replace(
+            html,
+            @"(<li class=""numbered-item"">.*?</li>\s*)+",
+            m => @"<ol class=""numbered-list"">" + "\n" + m.Value + @"</ol>" + "\n",
+            RegexOptions.Singleline,
+            RegexTimeout
+        );
+
+        // Convert separator lines (─── or ═══)
+        html = Regex.Replace(
+            html,
+            @"^[─═]{3,}$",
+            "<hr class=\"separator\">",
+            RegexOptions.Multiline,
+            RegexTimeout
+        );
+
+        // Convert double line breaks to paragraphs
+        html = Regex.Replace(html, @"(\r?\n){2,}", "</p>\n<p>", RegexOptions.None, RegexTimeout);
+
+        // Wrap in paragraph tags
+        html = "<p>" + html + "</p>";
+
+        // Clean up empty paragraphs
+        html = Regex.Replace(html, @"<p>\s*</p>", "", RegexOptions.None, RegexTimeout);
+
+        // Clean up paragraphs that only contain block elements
+        html = Regex.Replace(
+            html,
+            @"<p>\s*(<h[23]|<hr|<ul|<ol)",
+            "$1",
+            RegexOptions.Multiline,
+            RegexTimeout
+        );
+        html = Regex.Replace(
+            html,
+            @"(</h[23]>|</ul>|</ol>)\s*</p>",
+            "$1",
+            RegexOptions.Multiline,
+            RegexTimeout
+        );
+
+        return html;
     }
 }
