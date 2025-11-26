@@ -141,7 +141,10 @@ public class AppointmentResultNotificationEventHandler
                 @event.AppointmentId,
                 ex.Message
             );
-            throw;
+            throw new InvalidOperationException(
+                $"Failed to handle appointment result notification for AppointmentId: {@event.AppointmentId}",
+                ex
+            );
         }
     }
 }

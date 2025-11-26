@@ -10,6 +10,12 @@ public static class MedicalReportHtmlGenerator
 {
     // Timeout for regex operations to prevent ReDoS attacks
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
+
+    // HTML constants to avoid duplication
+    private const string HtmlInfoItemStart = "                <div class=\"info-item\">";
+    private const string HtmlInfoItemEnd = "                </div>";
+    private const string HtmlDivEnd = "        </div>";
+
     /// <summary>
     /// Converts markdown-like medical report text to a beautiful HTML document
     /// </summary>
@@ -29,10 +35,10 @@ public static class MedicalReportHtmlGenerator
         html.AppendLine("<html lang=\"vi\">");
         html.AppendLine("<head>");
         html.AppendLine("    <meta charset=\"UTF-8\">");
-        html.AppendLine("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
         html.AppendLine(
-            $"    <title>Kết Quả Khám Bệnh - {appointmentId}</title>"
+            "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
         );
+        html.AppendLine($"    <title>Kết Quả Khám Bệnh - {appointmentId}</title>");
         html.AppendLine("    <style>");
         html.AppendLine(GetCssStyles());
         html.AppendLine("    </style>");
@@ -43,9 +49,7 @@ public static class MedicalReportHtmlGenerator
         // Header
         html.AppendLine("        <div class=\"header\">");
         html.AppendLine("            <div class=\"logo-section\">");
-        html.AppendLine(
-            "                <div class=\"logo\">🏥</div>"
-        );
+        html.AppendLine("                <div class=\"logo\">🏥</div>");
         html.AppendLine(
             "                <div class=\"clinic-name\">BOOKINGCARE MEDICAL CENTER</div>"
         );
@@ -56,53 +60,41 @@ public static class MedicalReportHtmlGenerator
         html.AppendLine(
             $"            <div class=\"report-id\">Mã hồ sơ: <span>#{appointmentId}</span></div>"
         );
-        html.AppendLine("        </div>");
+        html.AppendLine(HtmlDivEnd);
 
         // Patient Info Card
         html.AppendLine("        <div class=\"info-card\">");
-        html.AppendLine(
-            "            <div class=\"info-title\">📋 Thông Tin Cuộc Hẹn</div>"
-        );
+        html.AppendLine("            <div class=\"info-title\">📋 Thông Tin Cuộc Hẹn</div>");
         html.AppendLine("            <div class=\"info-grid\">");
-        html.AppendLine("                <div class=\"info-item\">");
+        html.AppendLine(HtmlInfoItemStart);
         html.AppendLine(
-            "                    <span class=\"info-label\">👨‍⚕️ Bác sĩ khám:</span>"
+            "                    <span class=\"info-label\">👨\u200D⚕️ Bác sĩ khám:</span>"
         );
-        html.AppendLine(
-            $"                    <span class=\"info-value\">{doctorName}</span>"
-        );
-        html.AppendLine("                </div>");
-        html.AppendLine("                <div class=\"info-item\">");
-        html.AppendLine(
-            "                    <span class=\"info-label\">🙍 Bệnh nhân:</span>"
-        );
-        html.AppendLine(
-            $"                    <span class=\"info-value\">{patientName}</span>"
-        );
-        html.AppendLine("                </div>");
-        html.AppendLine("                <div class=\"info-item\">");
-        html.AppendLine(
-            "                    <span class=\"info-label\">📅 Ngày khám:</span>"
-        );
+        html.AppendLine($"                    <span class=\"info-value\">{doctorName}</span>");
+        html.AppendLine(HtmlInfoItemEnd);
+        html.AppendLine(HtmlInfoItemStart);
+        html.AppendLine("                    <span class=\"info-label\">🙍 Bệnh nhân:</span>");
+        html.AppendLine($"                    <span class=\"info-value\">{patientName}</span>");
+        html.AppendLine(HtmlInfoItemEnd);
+        html.AppendLine(HtmlInfoItemStart);
+        html.AppendLine("                    <span class=\"info-label\">📅 Ngày khám:</span>");
         html.AppendLine(
             $"                    <span class=\"info-value\">{appointmentDate:dd/MM/yyyy HH:mm}</span>"
         );
-        html.AppendLine("                </div>");
-        html.AppendLine("                <div class=\"info-item\">");
-        html.AppendLine(
-            "                    <span class=\"info-label\">🖨️ Ngày in:</span>"
-        );
+        html.AppendLine(HtmlInfoItemEnd);
+        html.AppendLine(HtmlInfoItemStart);
+        html.AppendLine("                    <span class=\"info-label\">🖨️ Ngày in:</span>");
         html.AppendLine(
             $"                    <span class=\"info-value\">{DateTime.Now:dd/MM/yyyy HH:mm}</span>"
         );
-        html.AppendLine("                </div>");
+        html.AppendLine(HtmlInfoItemEnd);
         html.AppendLine("            </div>");
-        html.AppendLine("        </div>");
+        html.AppendLine(HtmlDivEnd);
 
         // Medical Report Content
         html.AppendLine("        <div class=\"report-content\">");
         html.AppendLine(htmlContent);
-        html.AppendLine("        </div>");
+        html.AppendLine(HtmlDivEnd);
 
         // Footer
         html.AppendLine("        <div class=\"footer\">");
@@ -150,7 +142,13 @@ public static class MedicalReportHtmlGenerator
         );
 
         // Convert bold text (**text** -> <strong>text</strong>)
-        html = Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>", RegexOptions.None, RegexTimeout);
+        html = Regex.Replace(
+            html,
+            @"\*\*(.+?)\*\*",
+            "<strong>$1</strong>",
+            RegexOptions.None,
+            RegexTimeout
+        );
 
         // Convert italic text (*text* -> <em>text</em>)
         html = Regex.Replace(html, @"\*(.+?)\*", "<em>$1</em>", RegexOptions.None, RegexTimeout);

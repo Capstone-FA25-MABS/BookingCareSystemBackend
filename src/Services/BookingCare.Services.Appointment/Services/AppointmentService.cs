@@ -21,7 +21,6 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.FileUpload.Models;
 using BookingCare.Shared.FileUpload.Services;
-using Microsoft.Extensions.Options;
 using BookingBasicInfo = BookingCare.Services.Appointment.Models.Internal.DoctorBasicInfo;
 using GrpcCore = Grpc.Core; // Use alias to avoid namespace conflict
 using RedisClient = StackExchange.Redis;
@@ -48,10 +47,7 @@ public class AppointmentService : BaseService, IAppointmentService
         IAppointmentRepository appointmentRepository,
         IMapper mapper,
         IEventBus eventBus,
-        GrpcClientWrapper grpcClients,
-        RedisClient.IConnectionMultiplexer redisConnection,
-        IHttpContextAccessor httpContextAccessor,
-        IOptions<FrontendConfiguration> frontendConfig,
+        AppointmentServiceDependencies dependencies,
         IFileUploadService fileUploadService,
         ILogger<AppointmentService> logger
     )
@@ -60,10 +56,10 @@ public class AppointmentService : BaseService, IAppointmentService
         _appointmentRepository = appointmentRepository;
         _mapper = mapper;
         _eventBus = eventBus;
-        _grpcClients = grpcClients;
-        _redisConnection = redisConnection;
-        _httpContextAccessor = httpContextAccessor;
-        _frontendConfig = frontendConfig.Value;
+        _grpcClients = dependencies.GrpcClients;
+        _redisConnection = dependencies.RedisConnection;
+        _httpContextAccessor = dependencies.HttpContextAccessor;
+        _frontendConfig = dependencies.FrontendConfig;
         _fileUploadService = fileUploadService;
     }
 
@@ -2302,25 +2298,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 }
 
                 // Validate status transition
-                var canUpdate = existingAppointment.Status switch
-                {
-                    AppointmentStatus.PENDING => request.Status
-                        is AppointmentStatus.CONFIRMED
-                            or AppointmentStatus.CANCELLED,
-                    AppointmentStatus.CONFIRMED => request.Status
-                        is AppointmentStatus.COMPLETED
-                            or AppointmentStatus.CANCELLED,
-                    AppointmentStatus.COMPLETED => false, // Cannot change from completed
-                    AppointmentStatus.CANCELLED => false, // Cannot change from cancelled
-                    _ => false,
-                };
-                if (!canUpdate)
-                {
-                    throw new InvalidAppointmentStatusTransitionException(
-                        existingAppointment.Status.ToString(),
-                        request.Status.ToString()
-                    );
-                }
+                ValidateStatusTransition(existingAppointment.Status, request.Status);
 
                 var updated = await _appointmentRepository.UpdateAppointmentStatusAsync(
                     request.Id,
@@ -2332,30 +2310,8 @@ public class AppointmentService : BaseService, IAppointmentService
                     throw new AppointmentException("Failed to update appointment status");
                 }
 
-                // Invalidate available slots cache only for direct CANCELLED status update
-                // (when not going through CancelAppointmentAsync - edge case)
-                // Note:
-                // - COMPLETED appointments don't need cache invalidation (already past date)
-                // - Only invalidate for future appointments (can be booked again)
-                // - Normal cancellation flow goes through CancelAppointmentAsync which already handles cache
-                if (
-                    request.Status == AppointmentStatus.CANCELLED
-                    && existingAppointment.DoctorId.HasValue
-                    && existingAppointment.AppointmentDate.Date >= DateTime.UtcNow.Date
-                )
-                {
-                    await InvalidateAvailableSlotsCacheAsync(
-                        existingAppointment.DoctorId.Value,
-                        existingAppointment.AppointmentDate,
-                        existingAppointment.ServiceId
-                    );
-
-                    LogInfo(
-                        "Invalidated cache after direct status update to CANCELLED for appointment {AppointmentId}",
-                        null,
-                        request.Id
-                    );
-                }
+                // Handle cache invalidation and notifications
+                await HandlePostStatusUpdateActionsAsync(request, existingAppointment);
 
                 LogInfo(
                     "Successfully updated appointment {AppointmentId} status to {Status}",
@@ -2364,19 +2320,88 @@ public class AppointmentService : BaseService, IAppointmentService
                     request.Status
                 );
 
-                // Publish notification event if status is COMPLETED and result exists
-                if (
-                    request.Status == AppointmentStatus.COMPLETED
-                    && !string.IsNullOrEmpty(existingAppointment.Result)
-                )
-                {
-                    await PublishAppointmentResultNotificationAsync(existingAppointment);
-                }
-
                 return true;
             },
             "UpdateAppointmentStatus"
         );
+    }
+
+    /// <summary>
+    /// Validate appointment status transition
+    /// </summary>
+    private static void ValidateStatusTransition(
+        AppointmentStatus currentStatus,
+        AppointmentStatus newStatus
+    )
+    {
+        var canUpdate = currentStatus switch
+        {
+            AppointmentStatus.PENDING => newStatus
+                is AppointmentStatus.CONFIRMED
+                    or AppointmentStatus.CANCELLED,
+            AppointmentStatus.CONFIRMED => newStatus
+                is AppointmentStatus.COMPLETED
+                    or AppointmentStatus.CANCELLED,
+            AppointmentStatus.COMPLETED => false, // Cannot change from completed
+            AppointmentStatus.CANCELLED => false, // Cannot change from cancelled
+            _ => false,
+        };
+
+        if (!canUpdate)
+        {
+            throw new InvalidAppointmentStatusTransitionException(
+                currentStatus.ToString(),
+                newStatus.ToString()
+            );
+        }
+    }
+
+    /// <summary>
+    /// Handle post-status update actions like cache invalidation and notifications
+    /// </summary>
+    private async Task HandlePostStatusUpdateActionsAsync(
+        UpdateAppointmentStatusRequest request,
+        AppointmentEntity existingAppointment
+    )
+    {
+        // Invalidate available slots cache only for direct CANCELLED status update
+        // (when not going through CancelAppointmentAsync - edge case)
+        if (ShouldInvalidateCache(request.Status, existingAppointment))
+        {
+            await InvalidateAvailableSlotsCacheAsync(
+                existingAppointment.DoctorId!.Value,
+                existingAppointment.AppointmentDate,
+                existingAppointment.ServiceId
+            );
+
+            LogInfo(
+                "Invalidated cache after direct status update to CANCELLED for appointment {AppointmentId}",
+                null,
+                request.Id
+            );
+        }
+
+        // Publish notification event if status is COMPLETED and result exists
+        if (
+            request.Status == AppointmentStatus.COMPLETED
+            && !string.IsNullOrEmpty(existingAppointment.Result)
+        )
+        {
+            await PublishAppointmentResultNotificationAsync(existingAppointment);
+        }
+    }
+
+    /// <summary>
+    /// Determine if cache should be invalidated for the status update
+    /// </summary>
+    private static bool ShouldInvalidateCache(
+        AppointmentStatus newStatus,
+        AppointmentEntity appointment
+    )
+    {
+        return newStatus == AppointmentStatus.CANCELLED
+            && appointment.DoctorId.HasValue
+            && appointment.AppointmentDate.Date >= DateTime.UtcNow.Date;
     }
 
     /// <summary>
@@ -2395,131 +2420,16 @@ public class AppointmentService : BaseService, IAppointmentService
                     request.AppointmentId
                 );
 
-                var existingAppointment = await _appointmentRepository.GetAppointmentByIdAsync(
+                var existingAppointment = await GetAndValidateAppointmentForResultAsync(
                     request.AppointmentId
                 );
-                if (existingAppointment == null)
-                {
-                    throw new AppointmentNotFoundException(request.AppointmentId);
-                }
-
-                // Validate that appointment can be completed
-                if (existingAppointment.Status == AppointmentStatus.CANCELLED)
-                {
-                    throw new InvalidAppointmentStatusTransitionException(
-                        existingAppointment.Status.ToString(),
-                        AppointmentStatus.COMPLETED.ToString()
-                    );
-                }
-
-                // Get doctor and patient names for the HTML report
-                string doctorName = NoInformationText;
-                string patientName = NoInformationText;
-
-                if (existingAppointment.DoctorId.HasValue)
-                {
-                    try
-                    {
-                        var doctorInfo = await GetDoctorBasicInfoAsync(existingAppointment.DoctorId.Value);
-                        doctorName = doctorInfo.FullName ?? NoInformationText;
-                    }
-                    catch (Exception ex)
-                    {
-                        LogWarning("Failed to get doctor info: {Error}", null, ex.Message);
-                    }
-                }
-
-                try
-                {
-                    var patientInfo = await GetUserBasicInfoAsync(existingAppointment.PatientId);
-                    if (patientInfo != null)
-                    {
-                        patientName = $"{patientInfo.FirstName} {patientInfo.LastName}".Trim();
-                        if (string.IsNullOrEmpty(patientName))
-                        {
-                            patientName = NoInformationText;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogWarning("Failed to get patient info: {Error}", null, ex.Message);
-                }
-
-                // Convert markdown text to beautiful HTML medical report
-                string resultUrl;
-                try
-                {
-                    // Generate beautiful HTML report from markdown content
-                    var htmlContent = MedicalReportHtmlGenerator.GenerateHtmlReport(
-                        request.Result,
-                        existingAppointment.Id.ToString(),
-                        doctorName,
-                        patientName,
-                        existingAppointment.AppointmentDate
-                    );
-
-                    // Convert HTML to byte array
-                    var htmlBytes = System.Text.Encoding.UTF8.GetBytes(htmlContent);
-                    using var htmlStream = new MemoryStream(htmlBytes);
-
-                    var uploadRequest = new FileUploadRequest
-                    {
-                        FileStream = htmlStream,
-                        FileName =
-                            $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html",
-                        ContentType = "text/html; charset=utf-8",
-                        Folder = "appointment-results",
-                        GenerateUniqueFileName = true,
-                        Metadata = new Dictionary<string, string>
-                        {
-                            ["AppointmentId"] = request.AppointmentId.ToString(),
-                            ["UploadedAt"] = DateTime.UtcNow.ToString("o"),
-                            ["UploadType"] = "HtmlReport",
-                            ["ContentLength"] = htmlContent.Length.ToString(),
-                            ["OriginalFormat"] = "MarkdownToHtml",
-                        },
-                    };
-
-                    LogInfo(
-                        "Converting result to HTML medical report for appointment {AppointmentId}, doctor: {Doctor}, patient: {Patient}",
-                        null,
-                        request.AppointmentId,
-                        doctorName,
-                        patientName
-                    );
-
-                    var uploadResult = await _fileUploadService.UploadFileAsync(uploadRequest);
-
-                    if (!uploadResult.Success || string.IsNullOrEmpty(uploadResult.CloudFrontUrl))
-                    {
-                        throw new AppointmentException(
-                            $"Failed to upload result file to S3: {uploadResult.ErrorMessage ?? "Unknown error"}"
-                        );
-                    }
-
-                    resultUrl = uploadResult.CloudFrontUrl;
-
-                    LogInfo(
-                        "Successfully uploaded HTML medical report for appointment {AppointmentId} to {Url}",
-                        null,
-                        request.AppointmentId,
-                        resultUrl
-                    );
-                }
-                catch (Exception ex) when (ex is not AppointmentException)
-                {
-                    LogError(
-                        ex,
-                        "Error converting to HTML and uploading for appointment {AppointmentId}",
-                        null,
-                        request.AppointmentId
-                    );
-                    throw new AppointmentException(
-                        "Failed to upload HTML medical report to S3",
-                        innerException: ex
-                    );
-                }
+                var (doctorName, patientName) = await GetParticipantNamesAsync(existingAppointment);
+                var resultUrl = await GenerateAndUploadMedicalReportAsync(
+                    request,
+                    existingAppointment,
+                    doctorName,
+                    patientName
+                );
 
                 // Update result with CloudFront URL and set status to COMPLETED
                 var updated = await _appointmentRepository.UpdateAppointmentStatusAsync(
@@ -2548,6 +2458,159 @@ public class AppointmentService : BaseService, IAppointmentService
             },
             "UpdateAppointmentResult"
         );
+    }
+
+    /// <summary>
+    /// Get and validate appointment for result update
+    /// </summary>
+    private async Task<AppointmentEntity> GetAndValidateAppointmentForResultAsync(
+        Guid appointmentId
+    )
+    {
+        var existingAppointment = await _appointmentRepository.GetAppointmentByIdAsync(
+            appointmentId
+        );
+        if (existingAppointment == null)
+        {
+            throw new AppointmentNotFoundException(appointmentId);
+        }
+
+        // Validate that appointment can be completed
+        if (existingAppointment.Status == AppointmentStatus.CANCELLED)
+        {
+            throw new InvalidAppointmentStatusTransitionException(
+                existingAppointment.Status.ToString(),
+                AppointmentStatus.COMPLETED.ToString()
+            );
+        }
+
+        return existingAppointment;
+    }
+
+    /// <summary>
+    /// Get doctor and patient names for the medical report
+    /// </summary>
+    private async Task<(string doctorName, string patientName)> GetParticipantNamesAsync(
+        AppointmentEntity appointment
+    )
+    {
+        string doctorName = NoInformationText;
+        string patientName = NoInformationText;
+
+        if (appointment.DoctorId.HasValue)
+        {
+            try
+            {
+                var doctorInfo = await GetDoctorBasicInfoAsync(appointment.DoctorId.Value);
+                doctorName = doctorInfo.FullName ?? NoInformationText;
+            }
+            catch (Exception ex)
+            {
+                LogWarning("Failed to get doctor info: {Error}", null, ex.Message);
+            }
+        }
+
+        try
+        {
+            var patientInfo = await GetUserBasicInfoAsync(appointment.PatientId);
+            if (patientInfo != null)
+            {
+                patientName = $"{patientInfo.FirstName} {patientInfo.LastName}".Trim();
+                if (string.IsNullOrEmpty(patientName))
+                {
+                    patientName = NoInformationText;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWarning("Failed to get patient info: {Error}", null, ex.Message);
+        }
+
+        return (doctorName, patientName);
+    }
+
+    /// <summary>
+    /// Generate HTML medical report and upload to S3
+    /// </summary>
+    private async Task<string> GenerateAndUploadMedicalReportAsync(
+        UpdateAppointmentResultRequest request,
+        AppointmentEntity appointment,
+        string doctorName,
+        string patientName
+    )
+    {
+        try
+        {
+            // Generate beautiful HTML report from markdown content
+            var htmlContent = MedicalReportHtmlGenerator.GenerateHtmlReport(
+                request.Result,
+                appointment.Id.ToString(),
+                doctorName,
+                patientName,
+                appointment.AppointmentDate
+            );
+
+            // Convert HTML to byte array
+            var htmlBytes = System.Text.Encoding.UTF8.GetBytes(htmlContent);
+            using var htmlStream = new MemoryStream(htmlBytes);
+
+            var uploadRequest = new FileUploadRequest
+            {
+                FileStream = htmlStream,
+                FileName = $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html",
+                ContentType = "text/html; charset=utf-8",
+                Folder = "appointment-results",
+                GenerateUniqueFileName = true,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["AppointmentId"] = request.AppointmentId.ToString(),
+                    ["UploadedAt"] = DateTime.UtcNow.ToString("o"),
+                    ["UploadType"] = "HtmlReport",
+                    ["ContentLength"] = htmlContent.Length.ToString(),
+                    ["OriginalFormat"] = "MarkdownToHtml",
+                },
+            };
+
+            LogInfo(
+                "Converting result to HTML medical report for appointment {AppointmentId}, doctor: {Doctor}, patient: {Patient}",
+                null,
+                request.AppointmentId,
+                doctorName,
+                patientName
+            );
+
+            var uploadResult = await _fileUploadService.UploadFileAsync(uploadRequest);
+
+            if (!uploadResult.Success || string.IsNullOrEmpty(uploadResult.CloudFrontUrl))
+            {
+                throw new AppointmentException(
+                    $"Failed to upload result file to S3: {uploadResult.ErrorMessage ?? "Unknown error"}"
+                );
+            }
+
+            LogInfo(
+                "Successfully uploaded HTML medical report for appointment {AppointmentId} to {Url}",
+                null,
+                request.AppointmentId,
+                uploadResult.CloudFrontUrl
+            );
+
+            return uploadResult.CloudFrontUrl;
+        }
+        catch (Exception ex) when (ex is not AppointmentException)
+        {
+            LogError(
+                ex,
+                "Error converting to HTML and uploading for appointment {AppointmentId}",
+                null,
+                request.AppointmentId
+            );
+            throw new AppointmentException(
+                "Failed to upload HTML medical report to S3",
+                innerException: ex
+            );
+        }
     }
 
     /// <summary>
