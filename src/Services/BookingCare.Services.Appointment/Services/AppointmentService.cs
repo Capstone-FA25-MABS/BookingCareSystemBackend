@@ -34,6 +34,7 @@ namespace BookingCare.Services.Appointment.Services;
 public class AppointmentService : BaseService, IAppointmentService
 {
     private const string DateFormat = "yyyy-MM-dd";
+    private const string NoInformationText = "Không có thông tin";
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
     private readonly IEventBus _eventBus;
@@ -2412,15 +2413,15 @@ public class AppointmentService : BaseService, IAppointmentService
                 }
 
                 // Get doctor and patient names for the HTML report
-                string doctorName = "Không có thông tin";
-                string patientName = "Không có thông tin";
+                string doctorName = NoInformationText;
+                string patientName = NoInformationText;
 
                 if (existingAppointment.DoctorId.HasValue)
                 {
                     try
                     {
                         var doctorInfo = await GetDoctorBasicInfoAsync(existingAppointment.DoctorId.Value);
-                        doctorName = doctorInfo.FullName ?? "Không có thông tin";
+                        doctorName = doctorInfo.FullName ?? NoInformationText;
                     }
                     catch (Exception ex)
                     {
@@ -2436,7 +2437,7 @@ public class AppointmentService : BaseService, IAppointmentService
                         patientName = $"{patientInfo.FirstName} {patientInfo.LastName}".Trim();
                         if (string.IsNullOrEmpty(patientName))
                         {
-                            patientName = "Không có thông tin";
+                            patientName = NoInformationText;
                         }
                     }
                 }
