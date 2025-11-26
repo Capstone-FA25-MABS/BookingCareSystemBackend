@@ -2411,37 +2411,81 @@ public class AppointmentService : BaseService, IAppointmentService
                     );
                 }
 
-                // Convert text to file and upload to S3
+                // Get doctor and patient names for the HTML report
+                string doctorName = "Không có thông tin";
+                string patientName = "Không có thông tin";
+
+                if (existingAppointment.DoctorId.HasValue)
+                {
+                    try
+                    {
+                        var doctorInfo = await GetDoctorBasicInfoAsync(existingAppointment.DoctorId.Value);
+                        doctorName = doctorInfo.FullName ?? "Không có thông tin";
+                    }
+                    catch (Exception ex)
+                    {
+                        LogWarning("Failed to get doctor info: {Error}", null, ex.Message);
+                    }
+                }
+
+                try
+                {
+                    var patientInfo = await GetUserBasicInfoAsync(existingAppointment.PatientId);
+                    if (patientInfo != null)
+                    {
+                        patientName = $"{patientInfo.FirstName} {patientInfo.LastName}".Trim();
+                        if (string.IsNullOrEmpty(patientName))
+                        {
+                            patientName = "Không có thông tin";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogWarning("Failed to get patient info: {Error}", null, ex.Message);
+                }
+
+                // Convert markdown text to beautiful HTML medical report
                 string resultUrl;
                 try
                 {
-                    // Convert text to byte array
-                    var textBytes = System.Text.Encoding.UTF8.GetBytes(request.Result);
-                    using var textStream = new MemoryStream(textBytes);
+                    // Generate beautiful HTML report from markdown content
+                    var htmlContent = MedicalReportHtmlGenerator.GenerateHtmlReport(
+                        request.Result,
+                        existingAppointment.Id.ToString(),
+                        doctorName,
+                        patientName,
+                        existingAppointment.AppointmentDate
+                    );
+
+                    // Convert HTML to byte array
+                    var htmlBytes = System.Text.Encoding.UTF8.GetBytes(htmlContent);
+                    using var htmlStream = new MemoryStream(htmlBytes);
 
                     var uploadRequest = new FileUploadRequest
                     {
-                        FileStream = textStream,
+                        FileStream = htmlStream,
                         FileName =
-                            $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.txt",
-                        ContentType = "text/plain; charset=utf-8",
+                            $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html",
+                        ContentType = "text/html; charset=utf-8",
                         Folder = "appointment-results",
                         GenerateUniqueFileName = true,
                         Metadata = new Dictionary<string, string>
                         {
                             ["AppointmentId"] = request.AppointmentId.ToString(),
                             ["UploadedAt"] = DateTime.UtcNow.ToString("o"),
-                            ["UploadType"] = "TextConverted",
-                            ["TextLength"] = request.Result.Length.ToString(),
-                            ["OriginalFormat"] = "PlainText",
+                            ["UploadType"] = "HtmlReport",
+                            ["ContentLength"] = htmlContent.Length.ToString(),
+                            ["OriginalFormat"] = "MarkdownToHtml",
                         },
                     };
 
                     LogInfo(
-                        "Converting result text to file for appointment {AppointmentId}, text length: {Length} characters",
+                        "Converting result to HTML medical report for appointment {AppointmentId}, doctor: {Doctor}, patient: {Patient}",
                         null,
                         request.AppointmentId,
-                        request.Result.Length
+                        doctorName,
+                        patientName
                     );
 
                     var uploadResult = await _fileUploadService.UploadFileAsync(uploadRequest);
@@ -2456,7 +2500,7 @@ public class AppointmentService : BaseService, IAppointmentService
                     resultUrl = uploadResult.CloudFrontUrl;
 
                     LogInfo(
-                        "Successfully uploaded result file for appointment {AppointmentId} to {Url}",
+                        "Successfully uploaded HTML medical report for appointment {AppointmentId} to {Url}",
                         null,
                         request.AppointmentId,
                         resultUrl
@@ -2466,12 +2510,12 @@ public class AppointmentService : BaseService, IAppointmentService
                 {
                     LogError(
                         ex,
-                        "Error converting text to file and uploading for appointment {AppointmentId}",
+                        "Error converting to HTML and uploading for appointment {AppointmentId}",
                         null,
                         request.AppointmentId
                     );
                     throw new AppointmentException(
-                        "Failed to upload result file to S3",
+                        "Failed to upload HTML medical report to S3",
                         innerException: ex
                     );
                 }

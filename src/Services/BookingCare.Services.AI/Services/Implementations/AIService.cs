@@ -87,7 +87,7 @@ public class AIService : IAIService
         var promptBuilder = new StringBuilder();
 
         promptBuilder.AppendLine(
-            "Bạn là một trợ lý y tế AI chuyên nghiệp. Nhiệm vụ của bạn là tóm tắt cuộc trò chuyện khám bệnh giữa bác sĩ và bệnh nhân thành một hồ sơ y tế có cấu trúc."
+            "Bạn là một trợ lý y tế AI chuyên nghiệp. Nhiệm vụ của bạn là tóm tắt cuộc trò chuyện khám bệnh giữa bác sĩ và bệnh nhân thành một hồ sơ y tế có cấu trúc, đẹp mắt và chuyên nghiệp."
         );
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**THÔNG TIN CUỘC HẸN:**");
@@ -116,36 +116,75 @@ public class AIService : IAIService
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**YÊU CẦU TÓM TẮT:**");
         promptBuilder.AppendLine(
-            "Hãy tóm tắt cuộc trò chuyện trên theo định dạng hồ sơ bệnh án chuyên nghiệp với các mục sau:"
+            "Hãy tóm tắt cuộc trò chuyện trên theo định dạng hồ sơ bệnh án chuyên nghiệp với template đẹp mắt như sau:"
         );
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine(
-            "1. **TRIỆU CHỨNG (Symptoms):** Các triệu chứng mà bệnh nhân trình bày"
-        );
-        promptBuilder.AppendLine(
-            "2. **TIỀN SỬ BỆNH (Medical History):** Tiền sử bệnh lý có liên quan được đề cập"
-        );
-        promptBuilder.AppendLine(
-            "3. **KHÁM LÂM SÀNG (Clinical Examination):** Kết quả khám nếu có"
-        );
-        promptBuilder.AppendLine(
-            "4. **CHẨN ĐOÁN SƠ BỘ (Preliminary Diagnosis):** Chẩn đoán hoặc đánh giá của bác sĩ"
-        );
-        promptBuilder.AppendLine(
-            "5. **HƯỚNG XỬ TRÍ (Treatment Plan):** Đề xuất điều trị, toa thuốc, hoặc hướng dẫn"
-        );
-        promptBuilder.AppendLine(
-            "6. **LƯU Ý (Notes):** Các lưu ý khác cho bệnh nhân hoặc theo dõi tiếp"
-        );
+        promptBuilder.AppendLine("═══════════════════════════════════════════════════════════");
+        promptBuilder.AppendLine("                    📋 HỒ SƠ KHÁM BỆNH");
+        promptBuilder.AppendLine("═══════════════════════════════════════════════════════════");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("**LƯU Ý:**");
-        promptBuilder.AppendLine(
-            "- Chỉ tóm tắt thông tin có trong cuộc trò chuyện, KHÔNG tự thêm thông tin"
-        );
+        promptBuilder.AppendLine("## 🩺 TRIỆU CHỨNG");
+        promptBuilder.AppendLine("Mô tả các triệu chứng chính mà bệnh nhân trình bày:");
+        promptBuilder.AppendLine("• [Liệt kê từng triệu chứng với bullet points]");
+        promptBuilder.AppendLine("• Bao gồm thời gian xuất hiện, mức độ nghiêm trọng nếu có");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("## 📜 TIỀN SỬ BỆNH");
+        promptBuilder.AppendLine("Thông tin về tiền sử bệnh lý có liên quan:");
+        promptBuilder.AppendLine("• [Liệt kê các bệnh lý đã có]");
+        promptBuilder.AppendLine("• Thuốc đang sử dụng (nếu có)");
+        promptBuilder.AppendLine("• Dị ứng thuốc (nếu có)");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("## 🔍 KHÁM LÂM SÀNG");
+        promptBuilder.AppendLine("Kết quả khám lâm sàng:");
+        promptBuilder.AppendLine("• Các chỉ số sinh tồn (huyết áp, mạch, nhiệt độ nếu có)");
+        promptBuilder.AppendLine("• Kết quả khám chi tiết theo từng cơ quan/hệ thống");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("## 💊 CHẨN ĐOÁN SƠ BỘ");
+        promptBuilder.AppendLine("**Chẩn đoán:** [Ghi rõ chẩn đoán của bác sĩ]");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("**Đánh giá:** [Mức độ nghiêm trọng, tiên lượng]");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("## 💉 HƯỚNG XỬ TRÍ");
+        promptBuilder.AppendLine("### Đơn thuốc:");
+        promptBuilder.AppendLine("1. [Tên thuốc] - [Liều lượng] - [Cách dùng]");
+        promptBuilder.AppendLine("2. [Tên thuốc] - [Liều lượng] - [Cách dùng]");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("### Hướng dẫn điều trị:");
+        promptBuilder.AppendLine("• [Các hướng dẫn chăm sóc tại nhà]");
+        promptBuilder.AppendLine("• [Chế độ ăn uống, sinh hoạt]");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("───────────────────────────────────────────────────────────");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("## ⚠️ LƯU Ý ĐẶC BIỆT");
+        promptBuilder.AppendLine("• [Các triệu chứng cần theo dõi]");
+        promptBuilder.AppendLine("• [Khi nào cần tái khám]");
+        promptBuilder.AppendLine("• [Các lưu ý quan trọng khác]");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("═══════════════════════════════════════════════════════════");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("**HƯỚNG DẪN ĐỊNH DẠNG:**");
+        promptBuilder.AppendLine("- Sử dụng CHÍNH XÁC template trên với các ký hiệu đường kẻ (═, ─)");
+        promptBuilder.AppendLine("- Giữ nguyên các emoji (🩺, 📜, 🔍, 💊, 💉, ⚠️, 📋) để tạo điểm nhấn");
+        promptBuilder.AppendLine("- Sử dụng bullet points (•) cho các danh sách");
+        promptBuilder.AppendLine("- Sử dụng số thứ tự (1., 2., 3.) cho đơn thuốc");
+        promptBuilder.AppendLine("- Giữ khoảng cách và căn lề đẹp mắt");
+        promptBuilder.AppendLine("- Sử dụng **bold** cho tiêu đề quan trọng");
+        promptBuilder.AppendLine();
+        promptBuilder.AppendLine("**QUY TẮC NỘI DUNG:**");
+        promptBuilder.AppendLine("- Chỉ tóm tắt thông tin có trong cuộc trò chuyện, KHÔNG tự thêm thông tin");
         promptBuilder.AppendLine("- Sử dụng ngôn ngữ y tế chuyên nghiệp nhưng dễ hiểu");
-        promptBuilder.AppendLine("- Nếu thiếu thông tin cho mục nào, ghi 'Không có thông tin'");
-        promptBuilder.AppendLine("- Giữ tóm tắt ngắn gọn, súc tích (khoảng 200-400 từ)");
-        promptBuilder.AppendLine("- Sử dụng tiếng Việt có dấu");
+        promptBuilder.AppendLine("- Nếu thiếu thông tin cho mục nào, ghi '*Không có thông tin*' với font chữ nghiêng");
+        promptBuilder.AppendLine("- Giữ tóm tắt ngắn gọn, súc tích nhưng đầy đủ thông tin");
+        promptBuilder.AppendLine("- Sử dụng tiếng Việt có dấu chính xác");
+        promptBuilder.AppendLine("- Thể hiện sự chuyên nghiệp và tỉ mỉ trong từng chi tiết");
 
         return promptBuilder.ToString();
     }
