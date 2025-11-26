@@ -78,6 +78,9 @@ builder.Services.AddScoped<IConversationSessionService, ConversationSessionServi
 // Register Symptom Analysis Service
 builder.Services.AddScoped<ISymptomAnalysisService, SymptomAnalysisService>();
 
+// Register Lab Result Analysis Service
+builder.Services.AddHttpClient<ILabResultAnalysisService, LabResultAnalysisService>();
+
 // Register Gemini Transcription Service
 builder.Services.AddScoped<IGeminiTranscriptionService, GeminiTranscriptionService>();
 
