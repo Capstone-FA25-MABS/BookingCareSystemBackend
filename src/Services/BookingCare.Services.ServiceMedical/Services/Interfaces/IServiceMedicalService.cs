@@ -29,6 +29,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
         // CRUD Operations
         Task<ServiceResponse> CreateServiceAsync(CreateServiceRequest request);
         Task<ServiceResponse?> GetServiceByIdAsync(Guid id);
+        Task<ServiceWithHospitalResponse?> GetServiceWithHospitalByIdAsync(Guid id);
         Task<ServiceResponse> UpdateServiceAsync(UpdateServiceRequest request);
         Task<bool> DeleteServiceAsync(Guid id);
 
@@ -57,6 +58,15 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
 
         Task<bool> ServiceCategoryExistsAsync(Guid id);
         Task<bool> ServiceExistsAsync(Guid id);
+
+        #endregion
+
+        #region gRPC Optimized Operations
+
+        /// <summary>
+        /// Get basic info for multiple services by IDs (batch operation for gRPC performance)
+        /// </summary>
+        Task<List<ServiceBasicInfoDto>> GetServicesBasicInfoByIdsAsync(IEnumerable<Guid> ids);
 
         #endregion
     }

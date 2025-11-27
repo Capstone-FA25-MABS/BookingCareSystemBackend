@@ -5,6 +5,7 @@ using BookingCare.Services.ServiceMedical.Models.Entities;
 using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using BookingCare.Services.Hospital;
+using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Interfaces;
 using Grpc.Core;
 using GrpcStatusCode = Grpc.Core.StatusCode;
@@ -21,6 +22,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private readonly IHospitalService _hospitalService;
         private readonly SubscriptionUsageGrpc.SubscriptionUsageGrpcClient _subscriptionUsageClient;
         private readonly ILocationApiService _locationApiService;
+        private readonly ReviewService.ReviewServiceClient _reviewServiceClient;
 
         public ServiceMedicalService(
             IServiceCategoryRepository categoryRepository,
@@ -29,7 +31,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             ILogger<ServiceMedicalService> logger,
             IHospitalService hospitalService,
             SubscriptionUsageGrpc.SubscriptionUsageGrpcClient subscriptionUsageClient,
-            ILocationApiService locationApiService)
+            ILocationApiService locationApiService,
+            ReviewService.ReviewServiceClient reviewServiceClient)
         {
             _categoryRepository = categoryRepository;
             _serviceRepository = serviceRepository;
@@ -38,6 +41,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             _hospitalService = hospitalService;
             _subscriptionUsageClient = subscriptionUsageClient;
             _locationApiService = locationApiService;
+            _reviewServiceClient = reviewServiceClient;
         }
 
         #region ServiceCategory Operations
@@ -274,6 +278,88 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             {
                 _logger.LogError(ex, "Error getting service by id: {Id}", id);
                 throw new InvalidOperationException($"Failed to retrieve service with ID '{id}'", ex);
+            }
+        }
+
+        public async Task<ServiceWithHospitalResponse?> GetServiceWithHospitalByIdAsync(Guid id)
+        {
+            try
+            {
+                var entity = await _serviceRepository.GetByIdAsync(id);
+                if (entity == null)
+                {
+                    return null;
+                }
+
+                // Map basic service info
+                var serviceResponse = _mapper.Map<ServiceWithHospitalResponse>(entity);
+
+                // Get hospital information
+                var hospitals = await _hospitalService.GetHospitalsByIdsAsync(new List<Guid> { entity.HospitalId });
+                if (hospitals.Any())
+                {
+                    serviceResponse.Hospital = _mapper.Map<HospitalInfoResponse>(hospitals.First());
+                }
+
+                // Get service category information
+                if (entity.ServiceCategoryId.HasValue)
+                {
+                    var category = await _categoryRepository.GetByIdAsync(entity.ServiceCategoryId.Value);
+                    if (category != null)
+                    {
+                        serviceResponse.ServiceCategory = _mapper.Map<ServiceCategoryResponse>(category);
+                    }
+                }
+
+                // Get review statistics from Review service via gRPC
+                serviceResponse.ReviewStatistics = await GetServiceReviewStatisticsAsync(id);
+
+                return serviceResponse;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting service with hospital by id: {Id}", id);
+                throw new InvalidOperationException($"Failed to retrieve service with hospital information for ID '{id}'", ex);
+            }
+        }
+
+        /// <summary>
+        /// Get review statistics for a service from Review service via gRPC
+        /// </summary>
+        private async Task<ServiceReviewStatisticsResponse?> GetServiceReviewStatisticsAsync(Guid serviceId)
+        {
+            try
+            {
+                var request = new GetServiceStatisticsRequest
+                {
+                    ServiceId = serviceId.ToString()
+                };
+
+                var response = await _reviewServiceClient.GetServiceDetailedStatisticsAsync(request);
+
+                return new ServiceReviewStatisticsResponse
+                {
+                    AverageRating = response.AverageRating,
+                    TotalReviews = response.TotalReviews
+                };
+            }
+            catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.NotFound)
+            {
+                _logger.LogInformation("No review statistics found for service: {ServiceId}", serviceId);
+                return new ServiceReviewStatisticsResponse
+                {
+                    AverageRating = 0,
+                    TotalReviews = 0
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get review statistics for service: {ServiceId}. Returning default values.", serviceId);
+                return new ServiceReviewStatisticsResponse
+                {
+                    AverageRating = 0,
+                    TotalReviews = 0
+                };
             }
         }
 
@@ -1028,6 +1114,34 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             {
                 _logger.LogWarning(ex, "Error decrementing service count via gRPC for hospital {HospitalId}", hospitalId);
                 // Don't throw - service already deleted, just log the error
+            }
+        }
+
+        #endregion
+
+        #region gRPC Optimized Operations
+
+        /// <summary>
+        /// Get basic info for multiple services by IDs (batch operation for gRPC performance)
+        /// Uses projection at repository level for optimal database query
+        /// </summary>
+        public async Task<List<ServiceBasicInfoDto>> GetServicesBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+        {
+            try
+            {
+                var idList = ids.ToList();
+                if (!idList.Any())
+                {
+                    return new List<ServiceBasicInfoDto>();
+                }
+
+                // Repository uses projection to only SELECT required columns
+                return await _serviceRepository.GetServicesBasicInfoByIdsAsync(idList);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting services basic info by IDs");
+                throw;
             }
         }
 

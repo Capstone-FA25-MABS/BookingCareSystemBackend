@@ -12,6 +12,18 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Responses
 
         // Hospital Information
         public HospitalInfoResponse? Hospital { get; set; }
+
+        // Review Statistics
+        public ServiceReviewStatisticsResponse? ReviewStatistics { get; set; }
+    }
+
+    /// <summary>
+    /// Service review statistics response model
+    /// </summary>
+    public class ServiceReviewStatisticsResponse
+    {
+        public double AverageRating { get; set; }
+        public long TotalReviews { get; set; }
     }
 
     /// <summary>
