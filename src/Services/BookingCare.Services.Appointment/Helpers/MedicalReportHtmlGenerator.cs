@@ -360,7 +360,6 @@ public static class MedicalReportHtmlGenerator
         // Header
         html.AppendLine("        <div class=\"header\">");
         html.AppendLine("            <div class=\"logo-section\">");
-        html.AppendLine("                <div class=\"logo\">🏥</div>");
         html.AppendLine(
             "                <div class=\"clinic-name\">BOOKINGCARE MEDICAL CENTER</div>"
         );
@@ -375,26 +374,26 @@ public static class MedicalReportHtmlGenerator
 
         // Patient Info Card
         html.AppendLine("        <div class=\"info-card\">");
-        html.AppendLine("            <div class=\"info-title\">📋 Thông Tin Cuộc Hẹn</div>");
+        html.AppendLine("            <div class=\"info-title\">Thông Tin Cuộc Hẹn</div>");
         html.AppendLine("            <div class=\"info-grid\">");
         html.AppendLine(HtmlInfoItemStart);
         html.AppendLine(
-            "                    <span class=\"info-label\">👨\u200D⚕️ Bác sĩ khám:</span>"
+            "                    <span class=\"info-label\">\u200D Bác sĩ khám:</span>"
         );
         html.AppendLine($"                    <span class=\"info-value\">{doctorName}</span>");
         html.AppendLine(HtmlInfoItemEnd);
         html.AppendLine(HtmlInfoItemStart);
-        html.AppendLine("                    <span class=\"info-label\">🙍 Bệnh nhân:</span>");
+        html.AppendLine("                    <span class=\"info-label\"> Bệnh nhân:</span>");
         html.AppendLine($"                    <span class=\"info-value\">{patientName}</span>");
         html.AppendLine(HtmlInfoItemEnd);
         html.AppendLine(HtmlInfoItemStart);
-        html.AppendLine("                    <span class=\"info-label\">📅 Ngày khám:</span>");
+        html.AppendLine("                    <span class=\"info-label\"> Ngày khám:</span>");
         html.AppendLine(
             $"                    <span class=\"info-value\">{appointmentDate:dd/MM/yyyy HH:mm}</span>"
         );
         html.AppendLine(HtmlInfoItemEnd);
         html.AppendLine(HtmlInfoItemStart);
-        html.AppendLine("                    <span class=\"info-label\">🖨️ Ngày in:</span>");
+        html.AppendLine("                    <span class=\"info-label\"> Ngày in:</span>");
         html.AppendLine(
             $"                    <span class=\"info-value\">{DateTime.Now:dd/MM/yyyy HH:mm}</span>"
         );
