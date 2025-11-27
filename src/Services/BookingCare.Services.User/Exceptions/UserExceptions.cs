@@ -40,6 +40,14 @@ public class PhoneAlreadyExistsException : ConflictException
     }
 }
 
+public class PatientRelativeNotFoundException : NotFoundException
+{
+    public PatientRelativeNotFoundException(Guid relativeId)
+        : base("PatientRelative", relativeId.ToString(), "PATIENT_RELATIVE_NOT_FOUND")
+    {
+    }
+}
+
 
 
 
