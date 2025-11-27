@@ -6,6 +6,7 @@ using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BookingCare.Services.Schedule.Enums;
 
 namespace BookingCare.Services.Schedule.Controllers;
 
@@ -71,13 +72,15 @@ public class HoldSlotController : BaseApiController
     /// <summary>
     /// Get remaining time for a held slot
     /// </summary>
-    /// <param name="doctorId">Doctor ID</param>
+    /// <param name="targetId">Target ID (Doctor or ServiceMedical)</param>
+    /// <param name="targetType">Target type (0 = Doctor, 1 = ServiceMedical)</param>
     /// <param name="date">Date</param>
     /// <param name="appointmentTimeId">Appointment time ID</param>
     /// <returns>Remaining seconds</returns>
     [HttpGet("remaining-time")]
     public async Task<IActionResult> GetRemainingTime(
-        [FromQuery] Guid doctorId,
+        [FromQuery] Guid targetId,
+        [FromQuery] HoldSlotTargetType targetType,
         [FromQuery] DateOnly date,
         [FromQuery] AppointmentTime appointmentTimeId)
     {
@@ -85,7 +88,7 @@ public class HoldSlotController : BaseApiController
         var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
         var remainingSeconds = await _holdSlotService.GetRemainingTimeAsync(
-            doctorId, date, appointmentTimeId, userId);
+            targetId, targetType, date, appointmentTimeId, userId);
 
         return Success(new { RemainingSeconds = remainingSeconds }, "Thời gian còn lại");
     }
