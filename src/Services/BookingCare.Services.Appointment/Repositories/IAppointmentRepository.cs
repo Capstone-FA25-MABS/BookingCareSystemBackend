@@ -14,8 +14,9 @@ public interface IAppointmentRepository
     Task<AppointmentEntity?> GetAppointmentByIdAsync(Guid id);
     Task<AppointmentEntity> CreateAppointmentAsync(AppointmentEntity appointment);
     Task<(List<AppointmentEntity> Appointments, int TotalCount)> GetAppointmentsAsync(AppointmentQueryRequest query, Role role);
-    Task<bool> HasConflictingAppointmentAsync(Guid patientId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null);
+    Task<bool> HasConflictingAppointmentAsync(Guid patientId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid? relativeId = null, Guid? excludeAppointmentId = null);
     Task<bool> IsDoctorAvailableAsync(Guid doctorId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null);
+    Task<bool> IsServiceMedicalAvailableAsync(Guid serviceId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null);
 
     // Status operations
     Task<bool> UpdateAppointmentStatusAsync(Guid appointmentId, AppointmentStatus status, string? result = null);
@@ -46,12 +47,17 @@ public interface IAppointmentRepository
     /// <summary>
     /// Get counts for all appointment statuses for a specific user or organization
     /// Supports filtering by PatientId, DoctorId, HospitalId, or all (for ADMIN)
+    /// Also supports additional filters like date range, appointment type, and forRelative
     /// </summary>
     Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
         Guid? patientId = null,
         Guid? doctorId = null,
         Guid? hospitalId = null,
-        bool countAll = false);
+        bool countAll = false,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        AppointmentType? appointmentType = null,
+        bool? forRelative = null);
     Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(Guid hospitalId, DateTime fromDate, DateTime toDate);
     Task<Dictionary<Guid, DateTime>> GetPatientFirstAppointmentsAsync(Guid hospitalId);
 
@@ -69,6 +75,12 @@ public interface IAppointmentRepository
     /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
     /// </summary>
     Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(Guid doctorId, DateOnly appointmentDate);
+
+    /// <summary>
+    /// Get all booked appointment time IDs for a service medical on a specific date
+    /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
+    /// </summary>
+    Task<List<AppointmentTime>> GetBookedAppointmentTimesByServiceAsync(Guid serviceId, DateOnly appointmentDate);
 
     /// <summary>
     /// NEW: Get completed appointments by patient with optional doctor or service filter (for Review service validation)
