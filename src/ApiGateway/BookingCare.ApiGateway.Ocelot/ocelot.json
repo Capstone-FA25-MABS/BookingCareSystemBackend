@@ -770,7 +770,23 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/avatar/{everything}",
-      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/PatientRelatives/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6016
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/patient-relatives/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
