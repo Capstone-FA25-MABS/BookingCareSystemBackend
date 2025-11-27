@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.Appointment.Configuration;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Services.Appointment.Exceptions;
@@ -293,7 +292,7 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// Release held slot via Redis cache
+    /// Release held slot via Redis cache for Doctor booking
     /// </summary>
     private async Task ReleaseHeldSlotAsync(
         Guid doctorId,
@@ -302,12 +301,40 @@ public class AppointmentService : BaseService, IAppointmentService
         Guid userId
     )
     {
+        await ReleaseHeldSlotAsync(doctorId, "doctor", appointmentDate, appointmentTimeId, userId);
+    }
+
+    /// <summary>
+    /// Release held slot via Redis cache for ServiceMedical booking
+    /// </summary>
+    private async Task ReleaseServiceMedicalHeldSlotAsync(
+        Guid serviceMedicalId,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid userId
+    )
+    {
+        await ReleaseHeldSlotAsync(serviceMedicalId, "service", appointmentDate, appointmentTimeId, userId);
+    }
+
+    /// <summary>
+    /// Release held slot via Redis cache (generic for both Doctor and ServiceMedical)
+    /// </summary>
+    private async Task ReleaseHeldSlotAsync(
+        Guid targetId,
+        string targetTypePrefix,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid userId
+    )
+    {
         try
         {
             LogInfo(
-                "Releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                "Releasing held slot for {TargetType} {TargetId} on {Date} at {AppointmentTimeId} by user {UserId}",
                 null,
-                doctorId,
+                targetTypePrefix,
+                targetId,
                 appointmentDate,
                 appointmentTimeId,
                 userId
@@ -315,9 +342,12 @@ public class AppointmentService : BaseService, IAppointmentService
 
             var database = _redisConnection.GetDatabase();
             var dateStr = appointmentDate.ToString(DateFormat);
+
+            // Cache key format must match HoldSlotService: held_slot:{targetTypePrefix}_{targetId}:{date}:{appointmentTimeId}:{userId}
+            // HoldSlotService uses: CacheKeys.Format(CacheKeys.HeldSlot, $"{targetTypePrefix}_{request.TargetId}", date, appointmentTimeId, userId)
             var cacheKey = CacheKeys.Format(
                 CacheKeys.HeldSlot,
-                doctorId,
+                $"{targetTypePrefix}_{targetId}",
                 dateStr,
                 (int)appointmentTimeId,
                 userId
@@ -331,9 +361,10 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogError(
                 ex,
-                "Error releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                "Error releasing held slot for {TargetType} {TargetId} on {Date} at {AppointmentTimeId} by user {UserId}",
                 null,
-                doctorId,
+                targetTypePrefix,
+                targetId,
                 appointmentDate,
                 appointmentTimeId,
                 userId
@@ -353,50 +384,82 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         await ValidateAppointmentAsync(request);
 
-        if (request.HospitalId.HasValue)
-        {
-            await CheckAndValidateAppointmentLimitAsync(request.HospitalId.Value);
-        }
+        //if (request.HospitalId.HasValue)
+        //{
+        //    await CheckAndValidateAppointmentLimitAsync(request.HospitalId.Value);
+        //}
     }
 
     /// <summary>
-    /// Check for appointment conflicts
+    /// Check for appointment conflicts (for both self and relative bookings)
     /// </summary>
     private async Task CheckAppointmentConflictsAsync(CreateAppointmentRequest request)
     {
         var hasConflict = await _appointmentRepository.HasConflictingAppointmentAsync(
             request.PatientId,
             request.AppointmentDate,
-            request.AppointmentTimeId
+            request.AppointmentTimeId,
+            request.RelativeId // Pass relativeId to check correct conflict
         );
         if (hasConflict)
         {
+            if (request.RelativeId.HasValue)
+            {
+                throw new AppointmentConflictException(
+                    request.RelativeId.Value,
+                    request.AppointmentDate,
+                    "Người thân đã có lịch hẹn vào thời gian này"
+                );
+            }
             throw new AppointmentConflictException(request.PatientId, request.AppointmentDate);
         }
     }
 
     /// <summary>
-    /// Check doctor availability and set appointment status
+    /// Check availability and set appointment status
+    /// For Doctor booking: Check doctor availability in database
+    /// For ServiceMedical booking: Check service availability in database
+    /// This is the final check to prevent race conditions (held slot is just a soft lock)
     /// </summary>
-    private async Task CheckDoctorAvailabilityAndSetStatusAsync(CreateAppointmentRequest request)
+    private async Task CheckAvailabilityAndSetStatusAsync(CreateAppointmentRequest request)
     {
-        if (!request.DoctorId.HasValue)
+        // Doctor booking - check doctor availability
+        if (request.DoctorId.HasValue)
         {
-            request.Status = AppointmentStatus.PENDING;
+            var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
+                request.DoctorId.Value,
+                request.AppointmentDate,
+                request.AppointmentTimeId
+            );
+            if (!isDoctorAvailable)
+            {
+                throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate);
+            }
+
+            request.Status = AppointmentStatus.CONFIRMED;
             return;
         }
 
-        var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
-            request.DoctorId.Value,
-            request.AppointmentDate,
-            request.AppointmentTimeId
-        );
-        if (!isDoctorAvailable)
+        // ServiceMedical booking (no doctor) - check service availability
+        // This is the final check to prevent race conditions when multiple users book same slot
+        if (request.ServiceId.HasValue)
         {
-            throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate);
+            var isServiceAvailable = await _appointmentRepository.IsServiceMedicalAvailableAsync(
+                request.ServiceId.Value,
+                request.AppointmentDate,
+                request.AppointmentTimeId
+            );
+            if (!isServiceAvailable)
+            {
+                throw new ServiceMedicalNotAvailableException(request.ServiceId.Value, request.AppointmentDate);
+            }
+
+            request.Status = AppointmentStatus.CONFIRMED;
+            return;
         }
 
-        request.Status = AppointmentStatus.CONFIRMED;
+        // No doctor and no service - set to pending (should not happen in normal flow)
+        request.Status = AppointmentStatus.PENDING;
     }
 
     /// <summary>
@@ -413,6 +476,7 @@ public class AppointmentService : BaseService, IAppointmentService
             await IncrementAppointmentCountAsync(request.HospitalId.Value);
         }
 
+        // Handle Doctor booking
         if (request.DoctorId.HasValue)
         {
             await InvalidateAvailableSlotsCacheAsync(
@@ -423,6 +487,21 @@ public class AppointmentService : BaseService, IAppointmentService
 
             await ReleaseHeldSlotAsync(
                 request.DoctorId.Value,
+                request.AppointmentDate,
+                request.AppointmentTimeId,
+                request.PatientAccountId
+            );
+        }
+        // Handle ServiceMedical booking (when no doctor is specified but service is)
+        else if (request.ServiceId.HasValue)
+        {
+            await InvalidateServiceMedicalSlotsCacheAsync(
+                request.ServiceId.Value,
+                request.AppointmentDate
+            );
+
+            await ReleaseServiceMedicalHeldSlotAsync(
+                request.ServiceId.Value,
                 request.AppointmentDate,
                 request.AppointmentTimeId,
                 request.PatientAccountId
@@ -473,7 +552,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
                 await ValidateAppointmentBeforeCreationAsync(request);
                 await CheckAppointmentConflictsAsync(request);
-                await CheckDoctorAvailabilityAndSetStatusAsync(request);
+                await CheckAvailabilityAndSetStatusAsync(request);
 
                 var appointmentEntity = _mapper.Map<AppointmentEntity>(request);
                 await _appointmentRepository.CreateAppointmentAsync(appointmentEntity);
@@ -561,15 +640,20 @@ public class AppointmentService : BaseService, IAppointmentService
                 };
 
                 // Include status counts if requested
+                // Pass all filters to ensure counts match the filtered results
                 if (query.IncludeStatusCounts && query.PatientId.HasValue)
                 {
                     response.StatusCounts = await GetStatusCountsAsync(
                         query.PatientId.Value,
                         Role.PATIENT,
-                        null
+                        null,
+                        query.FromDate,
+                        query.ToDate,
+                        query.AppointmentType,
+                        query.ForRelative
                     );
                     LogInfo(
-                        "Included status counts for patient {PatientId}",
+                        "Included status counts for patient {PatientId} with filters",
                         null,
                         query.PatientId.Value
                     );
@@ -713,21 +797,8 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         await FetchAndMapDoctorInfoAsync(responses, entities, "appointments enrichment");
 
-        // TODO: Batch fetch Service info when available
-        var serviceIds = entities
-            .Where(e => e.ServiceId.HasValue)
-            .Select(e => e.ServiceId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (serviceIds.Any())
-        {
-            LogInfo(
-                "TODO: Batch fetch {Count} services for appointments enrichment",
-                null,
-                serviceIds.Count
-            );
-        }
+        // Batch fetch Service info for service medical appointments
+        await FetchAndMapServiceInfoAsync(responses, entities, "appointments enrichment");
 
         // Batch fetch Hospital info to avoid N+1 problem
         var hospitalIds = entities
@@ -800,7 +871,7 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// Enrich appointments for Staff/Admin role - shows both patient and doctor info
+    /// Enrich appointments for Staff/Admin role - shows patient, relative, doctor, and service info
     /// </summary>
     private async Task EnrichForStaffRoleAsync(
         List<AppointmentResponse> responses,
@@ -808,7 +879,9 @@ public class AppointmentService : BaseService, IAppointmentService
     )
     {
         await FetchAndMapPatientInfoAsync(responses, entities, "staff view");
+        await FetchAndMapRelativeInfoAsync(responses, entities, "staff view");
         await FetchAndMapDoctorInfoAsync(responses, entities, "staff view");
+        await FetchAndMapServiceInfoAsync(responses, entities, "staff view");
     }
 
     #endregion
@@ -858,25 +931,38 @@ public class AppointmentService : BaseService, IAppointmentService
                 }
 
                 // Invalidate available slots cache after successful cancellation
-                // Only invalidate if:
-                // 1. Appointment has doctor assigned
-                // 2. Appointment date is in the future (slot can be booked again)
-                if (
-                    appointment.DoctorId.HasValue
-                    && appointment.AppointmentDate.Date >= DateTime.UtcNow.Date
-                )
+                // Only invalidate if appointment date is in the future (slot can be booked again)
+                if (appointment.AppointmentDate.Date >= DateTime.UtcNow.Date)
                 {
-                    await InvalidateAvailableSlotsCacheAsync(
-                        appointment.DoctorId.Value,
-                        appointment.AppointmentDate,
-                        appointment.ServiceId
-                    );
+                    // Doctor appointment - invalidate doctor slots cache
+                    if (appointment.DoctorId.HasValue)
+                    {
+                        await InvalidateAvailableSlotsCacheAsync(
+                            appointment.DoctorId.Value,
+                            appointment.AppointmentDate,
+                            appointment.ServiceId
+                        );
 
-                    LogInfo(
-                        "Invalidated available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
-                        null,
-                        appointment.Id
-                    );
+                        LogInfo(
+                            "Invalidated doctor available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
+                            null,
+                            appointment.Id
+                        );
+                    }
+                    // Service Medical appointment (no doctor) - invalidate service slots cache
+                    else if (appointment.ServiceId.HasValue)
+                    {
+                        await InvalidateServiceMedicalSlotsCacheAsync(
+                            appointment.ServiceId.Value,
+                            appointment.AppointmentDate
+                        );
+
+                        LogInfo(
+                            "Invalidated service medical available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
+                            null,
+                            appointment.Id
+                        );
+                    }
                 }
 
                 // Publish appropriate event based on refund percentage and reschedule options
@@ -1090,11 +1176,12 @@ public class AppointmentService : BaseService, IAppointmentService
         }
 
         // Validate appointment is in the future
-        if (!RefundPolicyHelper.IsCancellationAllowed(appointment.AppointmentDate, DateTime.UtcNow))
+        // Use full appointment DateTime (date + time slot) for accurate comparison
+        if (!RefundPolicyHelper.IsCancellationAllowed(appointment.AppointmentDate, appointment.AppointmentTimeId, DateTime.UtcNow))
         {
             throw new AppointmentException(
                 $"Cannot cancel appointment that has already passed. "
-                    + $"Appointment was scheduled for {appointment.AppointmentDate:yyyy-MM-dd HH:mm} UTC."
+                    + $"Appointment was scheduled for {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.AppointmentTimeId} UTC."
             );
         }
 
@@ -1103,6 +1190,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
     /// <summary>
     /// Calculate cancellation details including refund percentage
+    /// Uses full appointment DateTime (date + time slot) for accurate calculation
     /// </summary>
     private CancellationDetails CalculateCancellationDetails(
         CancelAppointmentRequest request,
@@ -1112,18 +1200,28 @@ public class AppointmentService : BaseService, IAppointmentService
         var now = DateTime.UtcNow;
         var isStaffCancellation = request.CancelledByStaffId.HasValue;
         var cancelledBy = isStaffCancellation ? "Staff" : "Patient";
+
+        // Use full appointment DateTime (date + time slot) for accurate refund calculation
         var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(
             appointment.AppointmentDate,
+            appointment.AppointmentTimeId,
             now,
             isStaffCancellation
         );
-        var hoursUntilAppointment = (appointment.AppointmentDate - now).TotalHours;
+
+        // Get refund info with full DateTime for accurate hours calculation
+        var refundInfo = RefundPolicyHelper.GetRefundInfo(
+            appointment.AppointmentDate,
+            appointment.AppointmentTimeId,
+            now,
+            isStaffCancellation
+        );
 
         LogInfo(
-            "Appointment {AppointmentId} cancellation: {Hours} hours before appointment, {Refund}% refund, IsStaffCancellation: {IsStaff}",
+            "Appointment {AppointmentId} cancellation: {Hours:F1} hours before appointment, {Refund}% refund, IsStaffCancellation: {IsStaff}",
             null,
             appointment.Id,
-            hoursUntilAppointment,
+            refundInfo.HoursUntilAppointment,
             refundPercentage,
             isStaffCancellation
         );
@@ -1937,13 +2035,14 @@ public class AppointmentService : BaseService, IAppointmentService
                     "request refund"
                 );
 
-                // Calculate refund percentage
+                // Calculate refund percentage using full appointment DateTime (date + time slot)
                 var now = DateTime.UtcNow;
                 var isStaffCancellation =
                     !string.IsNullOrEmpty(appointment.CancelledBy)
                     && appointment.CancelledBy == "Staff";
                 var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(
                     appointment.AppointmentDate,
+                    appointment.AppointmentTimeId,
                     now,
                     isStaffCancellation
                 );
@@ -2650,6 +2749,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
     /// <summary>
     /// Batch fetch and map doctor information to appointments to avoid N+1 problem
+    /// Note: ConsultationFee is now taken from entity.Amount (stored at booking time) instead of gRPC
     /// </summary>
     private async Task FetchAndMapDoctorInfoAsync(
         List<AppointmentResponse> responses,
@@ -2670,26 +2770,9 @@ public class AppointmentService : BaseService, IAppointmentService
 
         try
         {
-            // Group entities by AppointmentType to minimize gRPC calls
-            // For each unique AppointmentType, get doctor prices with that service type
-            var entitiesByType = entities
-                .Where(e => e.DoctorId.HasValue)
-                .GroupBy(e => e.AppointmentType)
-                .ToList();
-
+            // Fetch doctor basic info without prices (prices are stored in entity.Amount)
             var doctorRequest = new GetDoctorsBasicInfoRequest();
             doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
-
-            // If all appointments have same type, fetch prices in single call
-            // Otherwise, fetch without prices and make separate calls per type
-            if (entitiesByType.Count == 1)
-            {
-                var appointmentType = entitiesByType[0].Key;
-                doctorRequest.ServiceTypeName =
-                    appointmentType == AppointmentType.IN_PERSON
-                        ? "Khám trực tiếp"
-                        : "Tư vấn online";
-            }
 
             var doctorsResponse = await _grpcClients.DoctorClient.GetDoctorsBasicInfoAsync(
                 doctorRequest
@@ -2720,11 +2803,8 @@ public class AppointmentService : BaseService, IAppointmentService
                         HospitalId = !string.IsNullOrEmpty(doctorInfo.HospitalId)
                             ? Guid.Parse(doctorInfo.HospitalId)
                             : null,
-                        // Add consultation fee if returned from gRPC
-                        ConsultationFee =
-                            doctorInfo.ConsultationFee > 0
-                                ? (decimal)doctorInfo.ConsultationFee
-                                : null,
+                        // Use Amount from entity (stored at booking time) for accurate historical data
+                        ConsultationFee = entity.Amount,
                     };
                 }
             }
@@ -2733,6 +2813,69 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogWarning(
                 "gRPC error batch fetching doctors for {Context}: {Error}",
+                null,
+                context,
+                rpcEx.Status.Detail
+            );
+        }
+    }
+
+    /// <summary>
+    /// Batch fetch and map service medical information to appointments to avoid N+1 problem
+    /// </summary>
+    private async Task FetchAndMapServiceInfoAsync(
+        List<AppointmentResponse> responses,
+        List<AppointmentEntity> entities,
+        string context
+    )
+    {
+        var serviceIds = entities
+            .Where(e => e.ServiceId.HasValue)
+            .Select(e => e.ServiceId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!serviceIds.Any())
+        {
+            return;
+        }
+
+        try
+        {
+            var serviceRequest = new ServiceMedical.Protos.GetServicesBasicInfoRequest();
+            serviceRequest.Ids.AddRange(serviceIds.Select(id => id.ToString()));
+
+            var servicesResponse = await _grpcClients.ServiceMedicalClient.GetServicesBasicInfoAsync(
+                serviceRequest
+            );
+            var serviceDict = servicesResponse.Services.ToDictionary(s => Guid.Parse(s.Id), s => s);
+
+            LogInfo("Batch fetched {Count} services for {Context}", null, serviceDict.Count, context);
+
+            // Map service info to appointments
+            for (int i = 0; i < responses.Count; i++)
+            {
+                var entity = entities[i];
+                if (
+                    entity.ServiceId.HasValue
+                    && serviceDict.TryGetValue(entity.ServiceId.Value, out var serviceInfo)
+                )
+                {
+                    responses[i].ServiceInfo = new ServiceInfo
+                    {
+                        Id = Guid.Parse(serviceInfo.Id),
+                        Name = serviceInfo.Name,
+                        // Use Amount from entity (stored at booking time) for accurate historical data
+                        Price = entity.Amount,
+                        ImageUrl = serviceInfo.ImageUrl,
+                    };
+                }
+            }
+        }
+        catch (GrpcCore.RpcException rpcEx)
+        {
+            LogWarning(
+                "gRPC error batch fetching services for {Context}: {Error}",
                 null,
                 context,
                 rpcEx.Status.Detail
@@ -2795,6 +2938,81 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogWarning(
                 "gRPC error batch fetching patients for {Context}: {Error}",
+                null,
+                context,
+                rpcEx.Status.Detail
+            );
+        }
+    }
+
+    /// <summary>
+    /// Batch fetch and map relative information to appointments to avoid N+1 problem
+    /// Only fetches for appointments that have RelativeId set
+    /// </summary>
+    private async Task FetchAndMapRelativeInfoAsync(
+        List<AppointmentResponse> responses,
+        List<AppointmentEntity> entities,
+        string context
+    )
+    {
+        var relativeIds = entities
+            .Where(e => e.RelativeId.HasValue)
+            .Select(e => e.RelativeId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!relativeIds.Any())
+        {
+            return;
+        }
+
+        try
+        {
+            var relativeRequest = new GetRelativesBasicInfoRequest();
+            relativeRequest.Ids.AddRange(relativeIds.Select(id => id.ToString()));
+
+            var relativesResponse = await _grpcClients.UserClient.GetRelativesBasicInfoAsync(
+                relativeRequest
+            );
+            var relativeDict = relativesResponse.Relatives
+                .Where(r => r.Found)
+                .ToDictionary(r => Guid.Parse(r.Id), r => r);
+
+            LogInfo(
+                "Batch fetched {Count} relatives for {Context}",
+                null,
+                relativeDict.Count,
+                context
+            );
+
+            // Map relative info to appointments
+            for (int i = 0; i < responses.Count; i++)
+            {
+                var entity = entities[i];
+                if (entity.RelativeId.HasValue && relativeDict.TryGetValue(entity.RelativeId.Value, out var relativeInfo))
+                {
+                    responses[i].RelativeInfo = new RelativeInfo
+                    {
+                        Id = Guid.Parse(relativeInfo.Id),
+                        FirstName = relativeInfo.FirstName,
+                        LastName = relativeInfo.LastName,
+                        FullName = relativeInfo.FullName,
+                        Gender = relativeInfo.Gender,
+                        DateOfBirth = DateTime.TryParse(relativeInfo.DateOfBirth, out var dob) ? dob : null,
+                        Age = DateTime.TryParse(relativeInfo.DateOfBirth, out var dobAge)
+                            ? (int)((DateTime.Today - dobAge).TotalDays / 365.25)
+                            : null,
+                        Phone = relativeInfo.Phone,
+                        Relationship = relativeInfo.Relationship,
+                        RelationshipDisplay = relativeInfo.RelationshipDisplay,
+                    };
+                }
+            }
+        }
+        catch (GrpcCore.RpcException rpcEx)
+        {
+            LogWarning(
+                "gRPC error batch fetching relatives for {Context}: {Error}",
                 null,
                 context,
                 rpcEx.Status.Detail
@@ -2883,6 +3101,51 @@ public class AppointmentService : BaseService, IAppointmentService
                 "Failed to invalidate available slots cache for doctor {DoctorId} on {Date}: {Error}",
                 null,
                 doctorId,
+                DateOnly.FromDateTime(appointmentDate).ToString(DateFormat),
+                ex.Message
+            );
+        }
+    }
+
+    /// <summary>
+    /// Invalidate service medical available slots cache
+    /// IMPORTANT: Available slots cache is stored by Schedule Service with prefix "BookingCare:Schedule:"
+    /// </summary>
+    private async Task InvalidateServiceMedicalSlotsCacheAsync(
+        Guid serviceMedicalId,
+        DateTime appointmentDate
+    )
+    {
+        try
+        {
+            var dateStr = DateOnly.FromDateTime(appointmentDate).ToString(DateFormat);
+
+            // Cache key format: service_medical_available_slots:{serviceMedicalId}:{date}
+            var cacheKey = CacheKeys.Format(
+                CacheKeys.ServiceMedicalAvailableSlots,
+                serviceMedicalId,
+                dateStr
+            );
+
+            // Add Schedule Service prefix to match where cache was created
+            var fullCacheKey = $"BookingCare:Schedule:{cacheKey}";
+            await RemoveCacheDirectlyAsync(fullCacheKey);
+
+            LogInfo(
+                "Successfully invalidated service medical available slots cache for service {ServiceMedicalId} on {Date}",
+                null,
+                serviceMedicalId,
+                dateStr
+            );
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't throw - cache invalidation failure should not fail appointment operations
+            LogError(
+                ex,
+                "Failed to invalidate service medical available slots cache for service {ServiceMedicalId} on {Date}: {Error}",
+                null,
+                serviceMedicalId,
                 DateOnly.FromDateTime(appointmentDate).ToString(DateFormat),
                 ex.Message
             );
@@ -2989,11 +3252,16 @@ public class AppointmentService : BaseService, IAppointmentService
     /// Get counts for all statuses for a specific user or organization
     /// Uses optimized repository method with single DB query
     /// Supports Patient, Doctor, Staff (by Hospital), and Admin (all) roles
+    /// Also supports additional filters like date range, appointment type, and forRelative
     /// </summary>
     private async Task<AppointmentStatusCounts> GetStatusCountsAsync(
         Guid? userId,
         Role role,
-        Guid? hospitalId = null
+        Guid? hospitalId = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        AppointmentType? appointmentType = null,
+        bool? forRelative = null
     )
     {
         try
@@ -3040,7 +3308,11 @@ public class AppointmentService : BaseService, IAppointmentService
                 patientId,
                 doctorId,
                 staffHospitalId,
-                countAll
+                countAll,
+                fromDate,
+                toDate,
+                appointmentType,
+                forRelative
             );
 
             var counts = new AppointmentStatusCounts
