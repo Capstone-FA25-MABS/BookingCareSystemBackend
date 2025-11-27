@@ -44,5 +44,5 @@ public interface IScheduleService
     Task DeleteServiceMedicalScheduleExceptionAsync(Guid id);
 
     // Available slots for service medical operations
-    Task<IEnumerable<AppointmentTimeDto>> GetServiceMedicalAvailableSlotsAsync(GetServiceMedicalAvailableSlotsRequest request);
+    Task<IEnumerable<AppointmentTimeDto>> GetServiceMedicalAvailableSlotsAsync(GetServiceMedicalAvailableSlotsRequest request, Guid? currentUserId = null);
 }

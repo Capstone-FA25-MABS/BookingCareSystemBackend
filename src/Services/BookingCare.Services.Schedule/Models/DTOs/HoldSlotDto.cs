@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Schedule.Enums;
 
 namespace BookingCare.Services.Schedule.Models.DTOs;
 
@@ -8,7 +9,16 @@ namespace BookingCare.Services.Schedule.Models.DTOs;
 /// </summary>
 public class HoldSlotDto
 {
-    public Guid DoctorId { get; set; }
+    /// <summary>
+    /// Target ID (can be DoctorId or ServiceMedicalId based on TargetType)
+    /// </summary>
+    public Guid TargetId { get; set; }
+
+    /// <summary>
+    /// Type of target (Doctor or ServiceMedical)
+    /// </summary>
+    public HoldSlotTargetType TargetType { get; set; } = HoldSlotTargetType.Doctor;
+
     public DateOnly Date { get; set; }
     public AppointmentTime AppointmentTimeId { get; set; }
     public Guid UserId { get; set; }
@@ -33,8 +43,16 @@ public class HoldSlotResponse
 /// </summary>
 public class HoldSlotRequest
 {
+    /// <summary>
+    /// Target ID (can be DoctorId or ServiceMedicalId based on TargetType)
+    /// </summary>
     [Required]
-    public required Guid DoctorId { get; set; }
+    public required Guid TargetId { get; set; }
+
+    /// <summary>
+    /// Type of target (Doctor or ServiceMedical). Defaults to Doctor for backward compatibility.
+    /// </summary>
+    public HoldSlotTargetType TargetType { get; set; } = HoldSlotTargetType.Doctor;
 
     [Required]
     public required DateOnly Date { get; set; }
@@ -48,8 +66,16 @@ public class HoldSlotRequest
 /// </summary>
 public class ReleaseSlotRequest
 {
+    /// <summary>
+    /// Target ID (can be DoctorId or ServiceMedicalId based on TargetType)
+    /// </summary>
     [Required]
-    public required Guid DoctorId { get; set; }
+    public required Guid TargetId { get; set; }
+
+    /// <summary>
+    /// Type of target (Doctor or ServiceMedical). Defaults to Doctor for backward compatibility.
+    /// </summary>
+    public HoldSlotTargetType TargetType { get; set; } = HoldSlotTargetType.Doctor;
 
     [Required]
     public required DateOnly Date { get; set; }
