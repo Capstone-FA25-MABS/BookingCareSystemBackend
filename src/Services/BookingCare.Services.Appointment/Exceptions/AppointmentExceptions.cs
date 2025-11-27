@@ -41,6 +41,16 @@ public class AppointmentConflictException : ConflictException
         Details["PatientId"] = patientId;
         Details["AppointmentDate"] = appointmentDate;
     }
+
+    /// <summary>
+    /// Constructor for relative conflict with custom message
+    /// </summary>
+    public AppointmentConflictException(Guid relativeId, DateTime appointmentDate, string customMessage)
+        : base(customMessage, "APPOINTMENT_CONFLICT")
+    {
+        Details["RelativeId"] = relativeId;
+        Details["AppointmentDate"] = appointmentDate;
+    }
 }
 
 /// <summary>
@@ -52,6 +62,19 @@ public class DoctorNotAvailableException : ConflictException
         : base($"Doctor is not available on {appointmentDate:yyyy-MM-dd} at the specified time slot.", "DOCTOR_NOT_AVAILABLE")
     {
         Details["DoctorId"] = doctorId;
+        Details["AppointmentDate"] = appointmentDate;
+    }
+}
+
+/// <summary>
+/// Exception thrown when service medical slot is not available for appointment
+/// </summary>
+public class ServiceMedicalNotAvailableException : ConflictException
+{
+    public ServiceMedicalNotAvailableException(Guid serviceId, DateTime appointmentDate)
+        : base($"Service medical slot is not available on {appointmentDate:yyyy-MM-dd} at the specified time slot.", "SERVICE_MEDICAL_NOT_AVAILABLE")
+    {
+        Details["ServiceId"] = serviceId;
         Details["AppointmentDate"] = appointmentDate;
     }
 }
