@@ -308,6 +308,55 @@ ILogger<AppointmentGrpcService> logger)
     }
 
     /// <summary>
+    /// Checks which appointment time slots are already booked for a service medical on a specific date
+    /// Returns slots with status PENDING, CONFIRMED, or COMPLETED
+    /// </summary>
+    public override async Task<CheckBookedSlotsResponse> CheckServiceBookedSlots(
+        CheckServiceBookedSlotsRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogDebug("Checking booked slots for service {ServiceId} on {Date}",
+                request.ServiceId, request.AppointmentDate);
+
+            // Parse the GUID and date
+            if (!Guid.TryParse(request.ServiceId, out var serviceId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid service ID format"));
+            }
+
+            if (!DateTime.TryParse(request.AppointmentDate, out var appointmentDate))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid appointment date format"));
+            }
+
+            // Get all appointments for this service on this date with PENDING, CONFIRMED, or COMPLETED status
+            var bookedSlots = await _appointmentRepository.GetBookedAppointmentTimesByServiceAsync(
+                serviceId,
+                DateOnly.FromDateTime(appointmentDate));
+
+            var response = new CheckBookedSlotsResponse();
+            response.BookedAppointmentTimeIds.AddRange(bookedSlots.Select(slot => (int)slot));
+
+            _logger.LogDebug("Found {Count} booked slots for service {ServiceId} on {Date}",
+                response.BookedAppointmentTimeIds.Count, request.ServiceId, request.AppointmentDate);
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking booked slots for service {ServiceId} on {Date}",
+                request.ServiceId, request.AppointmentDate);
+            throw new RpcException(new Status(StatusCode.Internal, "An error occurred while checking booked slots"));
+        }
+    }
+
+    /// <summary>
     /// NEW: Check if patient has completed appointment history with doctor or service (for Review service validation)
     /// </summary>
     public override async Task<CheckPatientAppointmentHistoryResponse> CheckPatientAppointmentHistory(
