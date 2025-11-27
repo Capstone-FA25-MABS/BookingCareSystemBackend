@@ -93,6 +93,13 @@ builder.Services.AddGrpcClient<BookingCare.Services.Payment.Protos.PaymentServic
     o.Address = new Uri(endpoint);
 });
 
+// Add gRPC client for ServiceMedical service  
+builder.Services.AddGrpcClient<BookingCare.Services.ServiceMedical.Protos.ServiceMedicalService.ServiceMedicalServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:ServiceMedical").GetValue<string>(GrpcUrlConfigKey) ?? "http://localhost:6115";
+    o.Address = new Uri(endpoint);
+});
+
 // Register gRPC client wrapper to reduce constructor parameters
 builder.Services.AddScoped<GrpcClientWrapper>();
 
