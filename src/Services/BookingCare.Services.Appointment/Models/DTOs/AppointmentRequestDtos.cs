@@ -20,6 +20,12 @@ public class CreateAppointmentRequest
     [Required(ErrorMessage = "Patient Account ID is required")]
     public required Guid PatientAccountId { get; set; }
 
+    /// <summary>
+    /// Relative ID when booking for a family member (null = booking for self)
+    /// References PatientRelatives table in User Service
+    /// </summary>
+    public Guid? RelativeId { get; set; }
+
     public Guid? DoctorId { get; set; }
 
     public Guid? ServiceId { get; set; }
@@ -56,6 +62,13 @@ public class CreateAppointmentRequest
     /// If false (default), payment will be required and email will be sent after successful payment.
     /// </summary>
     public bool SkipPayment { get; set; } = false;
+
+    /// <summary>
+    /// Original consultation/service fee at the time of booking (before any discounts)
+    /// This is the actual price from Doctor's consultation fee or ServiceMedical's price
+    /// Used for statistics and reporting purposes
+    /// </summary>
+    public decimal? Amount { get; set; }
 }
 
 /// <summary>
@@ -307,6 +320,14 @@ public class AppointmentQueryRequest
     /// Include counts for all statuses in the response
     /// </summary>
     public bool IncludeStatusCounts { get; set; } = false;
+
+    /// <summary>
+    /// Filter for appointments booked for relatives
+    /// true = only appointments for relatives
+    /// false = only appointments for self
+    /// null = all appointments (default)
+    /// </summary>
+    public bool? ForRelative { get; set; }
 }
 
 /// <summary>

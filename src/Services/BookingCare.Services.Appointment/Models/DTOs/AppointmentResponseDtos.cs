@@ -11,6 +11,12 @@ public class AppointmentResponse
     public Guid Id { get; set; }
     public Guid PatientId { get; set; }
     public Guid? PatientAccountId { get; set; }
+
+    /// <summary>
+    /// Relative ID when booking for a family member (null = booking for self)
+    /// </summary>
+    public Guid? RelativeId { get; set; }
+
     public DateTime AppointmentDate { get; set; }
     public AppointmentTime AppointmentTimeId { get; set; }
     public AppointmentType AppointmentType { get; set; }
@@ -25,7 +31,13 @@ public class AppointmentResponse
     // Additional IDs for convenience (used for fetching available doctors, etc.)
     public Guid? SpecialtyId { get; set; }
 
-    // Payment information from gRPC call
+    /// <summary>
+    /// Original consultation/service fee at the time of booking (before any discounts)
+    /// This is stored in the database for statistics and reporting
+    /// </summary>
+    public decimal? Amount { get; set; }
+
+    // Payment information from gRPC call (deprecated - use Amount instead)
     public decimal? ConsultationFees { get; set; }
 
     // Cancellation information
@@ -34,6 +46,7 @@ public class AppointmentResponse
 
     // Related entities information populated via gRPC calls based on user role
     public PatientInfo? PatientInfo { get; set; }
+    public RelativeInfo? RelativeInfo { get; set; }
     public DoctorInfo? DoctorInfo { get; set; }
     public ServiceInfo? ServiceInfo { get; set; }
     public HospitalInfo? HospitalInfo { get; set; }
@@ -50,6 +63,23 @@ public class PatientInfo
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? AvatarUrl { get; set; }
+}
+
+/// <summary>
+/// Relative (family member) information from gRPC call
+/// </summary>
+public class RelativeInfo
+{
+    public Guid Id { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? FullName { get; set; }
+    public string? Gender { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public int? Age { get; set; }
+    public string? Phone { get; set; }
+    public string? Relationship { get; set; }
+    public string? RelationshipDisplay { get; set; }
 }
 
 /// <summary>
@@ -70,15 +100,14 @@ public class DoctorInfo
 }
 
 /// <summary>
-/// Service information from gRPC call (to be implemented)
+/// Service information from gRPC call
 /// </summary>
 public class ServiceInfo
 {
     public Guid Id { get; set; }
     public string? Name { get; set; }
-    public string? Description { get; set; }
     public decimal? Price { get; set; }
-    public string? Category { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 /// <summary>
