@@ -189,7 +189,9 @@ public class ReviewRepository : IReviewRepository
     public async Task<PagedReviewsResponse> GetReviewsByHospitalAsync(
         Guid hospitalId,
         int page = 1,
-        int pageSize = 10
+        int pageSize = 10,
+        int? minRating = null,
+        int? maxRating = null
     )
     {
         var request = new GetReviewsRequest
@@ -197,6 +199,8 @@ public class ReviewRepository : IReviewRepository
             HospitalId = hospitalId,
             Page = page,
             PageSize = pageSize,
+            MinRating = minRating,
+            MaxRating = maxRating,
         };
         return await GetReviewsAsync(request);
     }

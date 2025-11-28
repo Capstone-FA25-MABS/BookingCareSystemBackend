@@ -88,11 +88,15 @@ public interface IReviewRepository
     /// <param name="hospitalId">The hospital ID</param>
     /// <param name="page">Page number</param>
     /// <param name="pageSize">Page size</param>
+    /// <param name="minRating">Minimum rating filter</param>
+    /// <param name="maxRating">Maximum rating filter</param>
     /// <returns>Paginated reviews for the hospital</returns>
     Task<PagedReviewsResponse> GetReviewsByHospitalAsync(
         Guid hospitalId,
         int page = 1,
-        int pageSize = 10
+        int pageSize = 10,
+        int? minRating = null,
+        int? maxRating = null
     );
 
     /// <summary>

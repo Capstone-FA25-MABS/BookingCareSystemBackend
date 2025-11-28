@@ -187,16 +187,26 @@ public class ReviewsController : BaseApiController
     /// <param name="hospitalId">Hospital ID</param>
     /// <param name="page">Page number</param>
     /// <param name="pageSize">Page size</param>
+    /// <param name="minRating">Minimum rating filter (1-5)</param>
+    /// <param name="maxRating">Maximum rating filter (1-5)</param>
     /// <returns>Paginated reviews for the hospital</returns>
     [HttpGet("hospital/{hospitalId:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetReviewsByHospital(
         Guid hospitalId,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10
+        [FromQuery] int pageSize = 10,
+        [FromQuery] int? minRating = null,
+        [FromQuery] int? maxRating = null
     )
     {
-        var result = await _reviewService.GetReviewsByHospitalAsync(hospitalId, page, pageSize);
+        var result = await _reviewService.GetReviewsByHospitalAsync(
+            hospitalId,
+            page,
+            pageSize,
+            minRating,
+            maxRating
+        );
         return Success(result, "Hospital reviews retrieved successfully");
     }
 
