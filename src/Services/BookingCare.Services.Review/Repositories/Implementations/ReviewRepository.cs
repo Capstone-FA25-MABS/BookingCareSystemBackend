@@ -1,8 +1,8 @@
 using AutoMapper;
 using BookingCare.Services.Review.Data;
+using BookingCare.Services.Review.Enums;
 using BookingCare.Services.Review.Models.DTOs;
 using BookingCare.Services.Review.Models.Entities;
-using BookingCare.Services.Review.Enums;
 using BookingCare.Services.Review.Repositories.Interfaces;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -184,6 +184,24 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
+    /// Gets reviews for a specific hospital
+    /// </summary>
+    public async Task<PagedReviewsResponse> GetReviewsByHospitalAsync(
+        Guid hospitalId,
+        int page = 1,
+        int pageSize = 10
+    )
+    {
+        var request = new GetReviewsRequest
+        {
+            HospitalId = hospitalId,
+            Page = page,
+            PageSize = pageSize,
+        };
+        return await GetReviewsAsync(request);
+    }
+
+    /// <summary>
     /// Adds a reply to a review
     /// </summary>
     public async Task<ReviewEntity?> AddReplyAsync(string reviewId, ReplyEntity reply)
@@ -262,17 +280,25 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
+    /// Gets the average rating for a hospital
+    /// </summary>
+    public async Task<double> GetAverageRatingByHospitalAsync(Guid hospitalId)
+    {
+        return await GetAverageRatingByHospitalIdAsync(hospitalId);
+    }
+
+    /// <summary>
     /// Generic method to get average rating for any target type
     /// </summary>
-    private async Task<double> GetAverageRatingAsync(string targetIdField, string targetIdValue, string targetType)
+    private async Task<double> GetAverageRatingAsync(
+        string targetIdField,
+        string targetIdValue,
+        string targetType
+    )
     {
         var matchStage = new BsonDocument(
             "$match",
-            new BsonDocument
-            {
-                { targetIdField, targetIdValue },
-                { "targetType", targetType },
-            }
+            new BsonDocument { { targetIdField, targetIdValue }, { "targetType", targetType } }
         );
 
         var groupStage = new BsonDocument(
@@ -322,6 +348,15 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
+    /// Gets the total count of reviews for a hospital
+    /// </summary>
+    public async Task<long> GetReviewCountByHospitalAsync(Guid hospitalId)
+    {
+        var filter = Builders<ReviewEntity>.Filter.Eq(r => r.HospitalId, hospitalId);
+        return await _reviews.CountDocumentsAsync(filter);
+    }
+
+    /// <summary>
     /// Gets comprehensive statistics for a doctor
     /// </summary>
     public async Task<ReviewStatisticsResponse> GetDoctorStatisticsAsync(Guid doctorId)
@@ -338,19 +373,51 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
+    /// Gets comprehensive statistics for a hospital
+    /// </summary>
+    public async Task<ReviewStatisticsResponse> GetHospitalStatisticsAsync(Guid hospitalId)
+    {
+        return await GetStatisticsByHospitalIdAsync(hospitalId);
+    }
+
+    /// <summary>
     /// Gets detailed statistics with rating distribution for a doctor (single endpoint)
     /// </summary>
-    public async Task<ReviewDetailedStatisticsResponse> GetDoctorDetailedStatisticsAsync(Guid doctorId)
+    public async Task<ReviewDetailedStatisticsResponse> GetDoctorDetailedStatisticsAsync(
+        Guid doctorId
+    )
     {
-        return await GetDetailedStatisticsAsync("doctorId", doctorId.ToString(), "DOCTOR", doctorId);
+        return await GetDetailedStatisticsAsync(
+            "doctorId",
+            doctorId.ToString(),
+            "DOCTOR",
+            doctorId
+        );
     }
 
     /// <summary>
     /// Gets detailed statistics with rating distribution for a service (single endpoint)
     /// </summary>
-    public async Task<ReviewDetailedStatisticsResponse> GetServiceDetailedStatisticsAsync(Guid serviceId)
+    public async Task<ReviewDetailedStatisticsResponse> GetServiceDetailedStatisticsAsync(
+        Guid serviceId
+    )
     {
-        return await GetDetailedStatisticsAsync("serviceId", serviceId.ToString(), "SERVICE", serviceId);
+        return await GetDetailedStatisticsAsync(
+            "serviceId",
+            serviceId.ToString(),
+            "SERVICE",
+            serviceId
+        );
+    }
+
+    /// <summary>
+    /// Gets detailed statistics with rating distribution for a hospital (single endpoint)
+    /// </summary>
+    public async Task<ReviewDetailedStatisticsResponse> GetHospitalDetailedStatisticsAsync(
+        Guid hospitalId
+    )
+    {
+        return await GetDetailedStatisticsByHospitalIdAsync(hospitalId);
     }
 
     /// <summary>
@@ -360,15 +427,12 @@ public class ReviewRepository : IReviewRepository
         string targetIdField,
         string targetIdValue,
         string targetType,
-        Guid targetId)
+        Guid targetId
+    )
     {
         var matchStage = new BsonDocument(
             "$match",
-            new BsonDocument
-            {
-                { targetIdField, targetIdValue },
-                { "targetType", targetType },
-            }
+            new BsonDocument { { targetIdField, targetIdValue }, { "targetType", targetType } }
         );
 
         var groupStage = new BsonDocument(
@@ -377,7 +441,7 @@ public class ReviewRepository : IReviewRepository
             {
                 { "_id", BsonNull.Value },
                 { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) }
+                { "totalReviews", new BsonDocument("$sum", 1) },
             }
         );
 
@@ -396,7 +460,7 @@ public class ReviewRepository : IReviewRepository
             {
                 TargetId = targetId,
                 AverageRating = 0.0,
-                TotalReviews = 0
+                TotalReviews = 0,
             };
         }
 
@@ -409,7 +473,7 @@ public class ReviewRepository : IReviewRepository
         {
             TargetId = targetId,
             AverageRating = Math.Round(averageRating, 2),
-            TotalReviews = totalReviews
+            TotalReviews = totalReviews,
         };
     }
 
@@ -420,15 +484,12 @@ public class ReviewRepository : IReviewRepository
         string targetIdField,
         string targetIdValue,
         string targetType,
-        Guid targetId)
+        Guid targetId
+    )
     {
         var matchStage = new BsonDocument(
             "$match",
-            new BsonDocument
-            {
-                { targetIdField, targetIdValue },
-                { "targetType", targetType },
-            }
+            new BsonDocument { { targetIdField, targetIdValue }, { "targetType", targetType } }
         );
 
         var groupStage = new BsonDocument(
@@ -509,7 +570,7 @@ public class ReviewRepository : IReviewRepository
             {
                 { "_id", "$doctorId" },
                 { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) }
+                { "totalReviews", new BsonDocument("$sum", 1) },
             }
         );
 
@@ -540,7 +601,7 @@ public class ReviewRepository : IReviewRepository
                 {
                     TargetId = doctorId,
                     AverageRating = Math.Round(averageRating, 2),
-                    TotalReviews = totalReviews
+                    TotalReviews = totalReviews,
                 };
             }
         }
@@ -554,7 +615,7 @@ public class ReviewRepository : IReviewRepository
                 {
                     TargetId = doctorId,
                     AverageRating = 0.0,
-                    TotalReviews = 0
+                    TotalReviews = 0,
                 };
             }
         }
@@ -586,7 +647,7 @@ public class ReviewRepository : IReviewRepository
             {
                 { "_id", "$serviceId" },
                 { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) }
+                { "totalReviews", new BsonDocument("$sum", 1) },
             }
         );
 
@@ -617,7 +678,7 @@ public class ReviewRepository : IReviewRepository
                 {
                     TargetId = serviceId,
                     AverageRating = Math.Round(averageRating, 2),
-                    TotalReviews = totalReviews
+                    TotalReviews = totalReviews,
                 };
             }
         }
@@ -631,12 +692,285 @@ public class ReviewRepository : IReviewRepository
                 {
                     TargetId = serviceId,
                     AverageRating = 0.0,
-                    TotalReviews = 0
+                    TotalReviews = 0,
                 };
             }
         }
 
         return response;
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple hospitals in a single query
+    /// </summary>
+    public async Task<BatchHospitalsStatisticsResponse> GetBatchHospitalsStatisticsAsync(
+        List<Guid> hospitalIds
+    )
+    {
+        var hospitalIdsStrings = hospitalIds.Select(id => id.ToString()).ToList();
+
+        var matchStage = new BsonDocument(
+            "$match",
+            new BsonDocument
+            {
+                { "hospitalId", new BsonDocument("$in", new BsonArray(hospitalIdsStrings)) },
+            }
+        );
+
+        var groupStage = new BsonDocument(
+            "$group",
+            new BsonDocument
+            {
+                { "_id", "$hospitalId" },
+                { "averageRating", new BsonDocument("$avg", "$rating") },
+                { "totalReviews", new BsonDocument("$sum", 1) },
+            }
+        );
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var results = await cursor.ToListAsync();
+
+        var response = new BatchHospitalsStatisticsResponse();
+
+        // Create a set of hospitals that have reviews
+        var foundHospitalIds = new HashSet<Guid>();
+
+        // Add hospitals that have reviews
+        foreach (var result in results)
+        {
+            var hospitalIdString = result["_id"].AsString;
+            if (Guid.TryParse(hospitalIdString, out var hospitalId))
+            {
+                foundHospitalIds.Add(hospitalId);
+
+                var averageRating = result.Contains("averageRating")
+                    ? result["averageRating"].ToDouble()
+                    : 0.0;
+                var totalReviews = result["totalReviews"].ToInt64();
+
+                response.HospitalStatistics[hospitalId] = new ReviewStatisticsResponse
+                {
+                    TargetId = hospitalId,
+                    AverageRating = Math.Round(averageRating, 2),
+                    TotalReviews = totalReviews,
+                };
+            }
+        }
+
+        // Add hospitals that don't have reviews with 0 values
+        foreach (var hospitalId in hospitalIds)
+        {
+            if (!foundHospitalIds.Contains(hospitalId))
+            {
+                response.HospitalStatistics[hospitalId] = new ReviewStatisticsResponse
+                {
+                    TargetId = hospitalId,
+                    AverageRating = 0.0,
+                    TotalReviews = 0,
+                };
+            }
+        }
+
+        return response;
+    }
+
+    /// <summary>
+    /// Helper method to get average rating by hospital ID
+    /// </summary>
+    private async Task<double> GetAverageRatingByHospitalIdAsync(Guid hospitalId)
+    {
+        var matchStage = new BsonDocument(
+            "$match",
+            new BsonDocument { { "hospitalId", hospitalId.ToString() } }
+        );
+
+        var groupStage = new BsonDocument(
+            "$group",
+            new BsonDocument
+            {
+                { "_id", BsonNull.Value },
+                { "averageRating", new BsonDocument("$avg", "$rating") },
+            }
+        );
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var result = await cursor.FirstOrDefaultAsync();
+
+        if (result != null && result.Contains("averageRating"))
+        {
+            return result["averageRating"].ToDouble();
+        }
+
+        return 0.0;
+    }
+
+    /// <summary>
+    /// Helper method to get statistics by hospital ID
+    /// </summary>
+    private async Task<ReviewStatisticsResponse> GetStatisticsByHospitalIdAsync(Guid hospitalId)
+    {
+        var matchStage = new BsonDocument(
+            "$match",
+            new BsonDocument { { "hospitalId", hospitalId.ToString() } }
+        );
+
+        var groupStage = new BsonDocument(
+            "$group",
+            new BsonDocument
+            {
+                { "_id", BsonNull.Value },
+                { "averageRating", new BsonDocument("$avg", "$rating") },
+                { "totalReviews", new BsonDocument("$sum", 1) },
+            }
+        );
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var result = await cursor.FirstOrDefaultAsync();
+
+        if (
+            result == null
+            || !result.Contains("totalReviews")
+            || result["totalReviews"].ToInt64() == 0
+        )
+        {
+            return new ReviewStatisticsResponse
+            {
+                TargetId = hospitalId,
+                AverageRating = 0.0,
+                TotalReviews = 0,
+            };
+        }
+
+        var averageRating = result.Contains("averageRating")
+            ? result["averageRating"].ToDouble()
+            : 0.0;
+        var totalReviews = result["totalReviews"].ToInt64();
+
+        return new ReviewStatisticsResponse
+        {
+            TargetId = hospitalId,
+            AverageRating = Math.Round(averageRating, 2),
+            TotalReviews = totalReviews,
+        };
+    }
+
+    /// <summary>
+    /// Helper method to get detailed statistics by hospital ID
+    /// </summary>
+    private async Task<ReviewDetailedStatisticsResponse> GetDetailedStatisticsByHospitalIdAsync(
+        Guid hospitalId
+    )
+    {
+        var matchStage = new BsonDocument(
+            "$match",
+            new BsonDocument { { "hospitalId", hospitalId.ToString() } }
+        );
+
+        var facetStage = new BsonDocument(
+            "$facet",
+            new BsonDocument
+            {
+                {
+                    "statistics",
+                    new BsonArray
+                    {
+                        new BsonDocument(
+                            "$group",
+                            new BsonDocument
+                            {
+                                { "_id", BsonNull.Value },
+                                { "averageRating", new BsonDocument("$avg", "$rating") },
+                                { "totalReviews", new BsonDocument("$sum", 1) },
+                            }
+                        ),
+                    }
+                },
+                {
+                    "ratingDistribution",
+                    new BsonArray
+                    {
+                        new BsonDocument(
+                            "$group",
+                            new BsonDocument
+                            {
+                                { "_id", "$rating" },
+                                { "count", new BsonDocument("$sum", 1) },
+                            }
+                        ),
+                        new BsonDocument("$sort", new BsonDocument("_id", 1)),
+                    }
+                },
+            }
+        );
+
+        var pipeline = new[] { matchStage, facetStage };
+
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var result = await cursor.FirstOrDefaultAsync();
+
+        if (result == null)
+        {
+            return new ReviewDetailedStatisticsResponse
+            {
+                TargetId = hospitalId,
+                AverageRating = 0.0,
+                TotalReviews = 0,
+                RatingDistribution = new Dictionary<int, long>
+                {
+                    { 1, 0 },
+                    { 2, 0 },
+                    { 3, 0 },
+                    { 4, 0 },
+                    { 5, 0 },
+                },
+            };
+        }
+
+        var statistics = result["statistics"].AsBsonArray;
+        var ratingDistributionArray = result["ratingDistribution"].AsBsonArray;
+
+        double averageRating = 0.0;
+        long totalReviews = 0;
+
+        if (statistics.Count > 0)
+        {
+            var statsDoc = statistics[0].AsBsonDocument;
+            averageRating = statsDoc.Contains("averageRating")
+                ? statsDoc["averageRating"].ToDouble()
+                : 0.0;
+            totalReviews = statsDoc["totalReviews"].ToInt64();
+        }
+
+        var ratingDistribution = new Dictionary<int, long>
+        {
+            { 1, 0 },
+            { 2, 0 },
+            { 3, 0 },
+            { 4, 0 },
+            { 5, 0 },
+        };
+
+        foreach (var item in ratingDistributionArray)
+        {
+            var doc = item.AsBsonDocument;
+            var rating = doc["_id"].ToInt32();
+            var count = doc["count"].ToInt64();
+            ratingDistribution[rating] = count;
+        }
+
+        return new ReviewDetailedStatisticsResponse
+        {
+            TargetId = hospitalId,
+            AverageRating = Math.Round(averageRating, 2),
+            TotalReviews = totalReviews,
+            RatingDistribution = ratingDistribution,
+        };
     }
 
     /// <summary>
@@ -656,10 +990,7 @@ public class ReviewRepository : IReviewRepository
     /// <summary>
     /// Checks if a patient has already reviewed a specific service
     /// </summary>
-    public async Task<ReviewEntity?> GetExistingServiceReviewAsync(
-        Guid patientId,
-        Guid serviceId
-    )
+    public async Task<ReviewEntity?> GetExistingServiceReviewAsync(Guid patientId, Guid serviceId)
     {
         var filter = Builders<ReviewEntity>.Filter.And(
             Builders<ReviewEntity>.Filter.Eq(r => r.PatientId, patientId),
