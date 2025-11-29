@@ -469,46 +469,7 @@ public class ReviewRepository : IReviewRepository
             new BsonDocument { { targetIdField, targetIdValue }, { "targetType", targetType } }
         );
 
-        var groupStage = new BsonDocument(
-            "$group",
-            new BsonDocument
-            {
-                { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
-            }
-        );
-
-        var pipeline = new[] { matchStage, groupStage };
-
-        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
-        var result = await cursor.FirstOrDefaultAsync();
-
-        if (
-            result == null
-            || !result.Contains("totalReviews")
-            || result["totalReviews"].ToInt64() == 0
-        )
-        {
-            return new ReviewStatisticsResponse
-            {
-                TargetId = targetId,
-                AverageRating = 0.0,
-                TotalReviews = 0,
-            };
-        }
-
-        var averageRating = result.Contains("averageRating")
-            ? result["averageRating"].ToDouble()
-            : 0.0;
-        var totalReviews = result["totalReviews"].ToInt64();
-
-        return new ReviewStatisticsResponse
-        {
-            TargetId = targetId,
-            AverageRating = Math.Round(averageRating, 2),
-            TotalReviews = totalReviews,
-        };
+        return await ProcessStatisticsAggregationAsync(matchStage, targetId);
     }
 
     /// <summary>
@@ -523,6 +484,18 @@ public class ReviewRepository : IReviewRepository
     {
         var matchStage = new BsonDocument("$match", new BsonDocument { { fieldName, fieldValue } });
 
+        return await ProcessStatisticsAggregationAsync(matchStage, targetId);
+    }
+
+    /// <summary>
+    /// Helper method to process statistics aggregation pipeline
+    /// Eliminates code duplication between different statistics methods
+    /// </summary>
+    private async Task<ReviewStatisticsResponse> ProcessStatisticsAggregationAsync(
+        BsonDocument matchStage,
+        Guid targetId
+    )
+    {
         var groupStage = new BsonDocument(
             "$group",
             new BsonDocument
