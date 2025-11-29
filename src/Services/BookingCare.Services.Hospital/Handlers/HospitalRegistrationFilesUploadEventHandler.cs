@@ -2,6 +2,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Shared.FileUpload.Services;
+using BookingCare.Shared.FileUpload.Wrappers;
 
 namespace BookingCare.Services.Hospital.Handlers;
 
@@ -167,70 +168,6 @@ public class HospitalRegistrationFilesUploadEventHandler : IIntegrationEventHand
                 fileData.EntityType
             );
             return null;
-        }
-    }
-}
-
-/// <summary>
-/// Wrapper class to convert Stream to IFormFile for FileUploadOrchestrator
-/// Owns the stream and will dispose it when this wrapper is disposed
-/// </summary>
-internal sealed class FormFileWrapper : IFormFile, IDisposable
-{
-    private readonly Stream _stream;
-    private readonly string _fileName;
-    private readonly string _contentType;
-    private bool _disposed;
-
-    public FormFileWrapper(Stream stream, string fileName, string contentType)
-    {
-        _stream = stream ?? throw new ArgumentNullException(nameof(stream));
-        _fileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
-        _contentType = contentType ?? throw new ArgumentNullException(nameof(contentType));
-    }
-
-    public string ContentType => _contentType;
-    public string ContentDisposition => $"form-data; name=\"file\"; filename=\"{_fileName}\"";
-    public IHeaderDictionary Headers => new HeaderDictionary();
-    public long Length => _stream.Length;
-    public string Name => "file";
-    public string FileName => _fileName;
-
-    public void CopyTo(Stream target)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _stream.Position = 0; // Reset position before copying
-        _stream.CopyTo(target);
-        _stream.Position = 0; // Reset for potential reuse
-    }
-
-    public async Task CopyToAsync(Stream target, CancellationToken cancellationToken = default)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _stream.Position = 0; // Reset position before copying
-        await _stream.CopyToAsync(target, cancellationToken);
-        _stream.Position = 0; // Reset for potential reuse
-    }
-
-    public Stream OpenReadStream()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _stream.Position = 0; // Reset position
-        return _stream;
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    private void Dispose(bool disposing)
-    {
-        if (!_disposed && disposing)
-        {
-            _stream?.Dispose();
-            _disposed = true;
         }
     }
 }

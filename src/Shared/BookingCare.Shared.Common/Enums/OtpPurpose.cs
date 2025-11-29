@@ -6,7 +6,9 @@ namespace BookingCare.Shared.Common.Enums;
 public enum OtpPurpose
 {
     REGISTER,
-    FORGOT_PASSWORD
+    FORGOT_PASSWORD,
+    LOGIN,
+    CONTRACT_SIGNING
 }
 
 public static class OtpPurposeExtensions
@@ -20,6 +22,8 @@ public static class OtpPurposeExtensions
         {
             OtpPurpose.REGISTER => "register",
             OtpPurpose.FORGOT_PASSWORD => "forgot-password",
+            OtpPurpose.LOGIN => "login",
+            OtpPurpose.CONTRACT_SIGNING => "contract-signing",
             _ => "register"
         };
     }

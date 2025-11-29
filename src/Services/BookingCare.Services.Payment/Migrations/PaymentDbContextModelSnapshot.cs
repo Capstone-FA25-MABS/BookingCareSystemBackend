@@ -171,6 +171,11 @@ namespace BookingCare.Services.Payment.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("patient_id");
 
+                    b.Property<string>("PaymentIntentId")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("payment_intent_id");
+
                     b.Property<Guid>("PaymentMethodId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("payment_method_id");
@@ -287,6 +292,14 @@ namespace BookingCare.Services.Payment.Migrations
                             Description = "Thanh toán qua PayOS",
                             ImageUrl = "https://payos.vn/docs/img/logo.svg",
                             Name = "PAYOS",
+                            Status = "ACTIVE"
+                        },
+                        new
+                        {
+                            Id = new Guid("88888888-8888-8888-8888-888888888888"),
+                            Description = "Thanh toán qua Stripe",
+                            ImageUrl = "https://images.ctfassets.net/fzn2n1nzq965/HTTOloNPhisV9P4hlMPNA/cacf1bb88b9fc492dfad34378d844280/Stripe_icon_-_square.svg",
+                            Name = "STRIPE",
                             Status = "ACTIVE"
                         });
                 });
