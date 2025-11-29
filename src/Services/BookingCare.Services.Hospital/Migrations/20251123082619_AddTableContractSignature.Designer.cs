@@ -4,6 +4,7 @@ using BookingCare.Services.Hospital.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Hospital.Migrations
 {
     [DbContext(typeof(HospitalDbContext))]
-    partial class HospitalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251123082619_AddTableContractSignature")]
+    partial class AddTableContractSignature
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -249,21 +252,9 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("business_certificate_file");
 
-                    b.Property<DateTime?>("ContractDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("contract_date");
-
                     b.Property<string>("ContractDraftFile")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("contract_draft_file");
-
-                    b.Property<DateTime?>("ContractEffectiveDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("contract_effective_date");
-
-                    b.Property<DateTime?>("ContractExpiryDate")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("contract_expiry_date");
 
                     b.Property<string>("ContractFile")
                         .HasColumnType("nvarchar(max)")

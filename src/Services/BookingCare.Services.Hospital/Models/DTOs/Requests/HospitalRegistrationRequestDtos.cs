@@ -83,11 +83,15 @@ public class UpdateRegistrationStatusRequestDto
 
 /// <summary>
 /// Request DTO for approving hospital registration
+/// NOTE: Contract file is no longer required as it's already signed by hospital
 /// </summary>
 public class ApproveRegistrationRequestDto
 {
-    [Required(ErrorMessage = "File hợp đồng là bắt buộc")]
-    public IFormFile ContractFile { get; set; } = null!;
+    /// <summary>
+    /// Optional approval notes from admin
+    /// </summary>
+    [MaxLength(500, ErrorMessage = "Ghi chú không được vượt quá 500 ký tự")]
+    public string? ApprovalNotes { get; set; }
 }
 
 /// <summary>
