@@ -956,7 +956,8 @@ public class PaymentsController(
     }
 
     /// <summary>
-    /// Get payment statistics
+    /// Get payment statistics for subscription revenue
+    /// Admin dashboard shows ONLY subscription revenue (not appointment payments)
     /// If FromDate/ToDate not provided: default to last 6 months and monthly statistics
     /// </summary>
     [HttpGet("statistics")]
@@ -975,7 +976,7 @@ public class PaymentsController(
             if (usingDefaults)
             {
                 _logger.LogInformation(
-                    "Using default date range for statistics: {FromDate} to {ToDate}, Period: {Period}",
+                    "Using default date range for subscription revenue statistics: {FromDate} to {ToDate}, Period: {Period}",
                     fromDate,
                     toDate,
                     request.Period
@@ -995,17 +996,20 @@ public class PaymentsController(
             var statistics = await _paymentService.GetPaymentStatisticsAsync(request);
 
             var message = usingDefaults
-                ? $"Get payment statistics successful (default: {statistics.DateRange})"
-                : "Get payment statistics successful";
+                ? $"Get subscription revenue statistics successful (default: {statistics.DateRange})"
+                : "Get subscription revenue statistics successful";
 
             return Success(statistics, message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting payment statistics");
+            _logger.LogError(ex, "Error getting subscription revenue statistics");
             return StatusCode(
                 500,
-                new { Message = "An error occurred while retrieving payment statistics" }
+                new
+                {
+                    Message = "An error occurred while retrieving subscription revenue statistics",
+                }
             );
         }
     }
