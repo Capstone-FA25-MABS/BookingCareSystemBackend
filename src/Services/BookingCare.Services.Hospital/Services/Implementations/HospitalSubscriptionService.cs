@@ -470,7 +470,7 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
         }
     }
 
-    private async Task ValidateUpgradeRequestAsync(
+    private Task ValidateUpgradeRequestAsync(
         HospitalSubscriptionEntity currentSubscription,
         SubscriptionPlanEntity currentPlan,
         SubscriptionPlanEntity newPlan
@@ -505,6 +505,8 @@ public class HospitalSubscriptionService : IHospitalSubscriptionService
                     + $"Vui lòng đợi gói hiện tại hết hạn trước khi đăng ký gói mới."
             );
         }
+
+        return Task.CompletedTask;
     }
 
     private double CalculateBonusDaysForUpgrade(

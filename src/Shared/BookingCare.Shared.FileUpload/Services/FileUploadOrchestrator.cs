@@ -1,5 +1,7 @@
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.FileUpload.Models;
+using BookingCare.Shared.FileUpload.Helpers;
+using BookingCare.Shared.FileUpload.Wrappers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -72,8 +74,12 @@ public class FileUploadOrchestrator
     {
         try
         {
+            // Sanitize file name to prevent non-ASCII character issues
+            var sanitizedFileName = FileNameSanitizer.Sanitize(file.FileName);
+            var sanitizedFile = new SanitizedFormFileWrapper(file, sanitizedFileName);
+
             // Validate file
-            if (!FileValidationHelper.ValidateFile(file, config.AllowedExtensions, config.MaxSizeInMB, out var errorMessage))
+            if (!FileValidationHelper.ValidateFile(sanitizedFile, config.AllowedExtensions, config.MaxSizeInMB, out var errorMessage))
             {
                 return new FileUploadOrchestratorResult
                 {
@@ -85,9 +91,9 @@ public class FileUploadOrchestrator
             // Upload to S3
             var request = new FileUploadRequest
             {
-                FileStream = file.OpenReadStream(),
-                FileName = file.FileName,
-                ContentType = file.ContentType,
+                FileStream = sanitizedFile.OpenReadStream(),
+                FileName = sanitizedFile.FileName,
+                ContentType = sanitizedFile.ContentType,
                 Folder = config.Folder,
                 GenerateUniqueFileName = true
             };

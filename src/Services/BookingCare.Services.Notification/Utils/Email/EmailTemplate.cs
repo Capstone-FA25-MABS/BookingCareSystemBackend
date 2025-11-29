@@ -1760,6 +1760,252 @@ public static class EmailTemplate
     }
 
     /// <summary>
+    /// Build email content for contract generated - send signing link to hospital
+    /// </summary>
+    public static string BuildContractGeneratedEmailHtml(
+        string hospitalName,
+        string representativeName,
+        string contractNumber,
+        string signingLink,
+        DateTime linkExpiresAt)
+    {
+        var expiryDateStr = linkExpiresAt.ToString("dd/MM/yyyy HH:mm");
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"">
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+  <title>Hợp Đồng Hợp Tác - BookingCare</title>
+  <style>
+    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; }}
+    .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+    .header {{ background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 30px 20px; text-align: center; }}
+    .header h1 {{ margin: 0; font-size: 28px; font-weight: 600; }}
+    .header p {{ margin: 10px 0 0 0; font-size: 14px; opacity: 0.95; }}
+    .content {{ padding: 30px; }}
+    .greeting {{ font-size: 16px; color: #1f2937; margin-bottom: 20px; }}
+    .info-box {{ background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+    .info-box strong {{ color: #1e40af; }}
+    .contract-details {{ background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+    .contract-details h3 {{ margin: 0 0 15px 0; color: #1f2937; font-size: 18px; }}
+    .detail-item {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }}
+    .detail-item:last-child {{ border-bottom: none; }}
+    .detail-label {{ color: #6b7280; font-weight: 500; }}
+    .detail-value {{ color: #1f2937; font-weight: 600; }}
+    .cta-button {{ display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; margin: 20px 0; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3); transition: transform 0.2s; }}
+    .cta-button:hover {{ transform: translateY(-2px); }}
+    .warning-box {{ background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+    .warning-box strong {{ color: #92400e; }}
+    .steps {{ margin: 20px 0; }}
+    .step {{ display: flex; margin: 15px 0; }}
+    .step-number {{ background-color: #3b82f6; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; margin-right: 15px; flex-shrink: 0; }}
+    .step-content {{ flex: 1; }}
+    .step-title {{ font-weight: 600; color: #1f2937; margin-bottom: 5px; }}
+    .step-desc {{ color: #6b7280; font-size: 14px; }}
+    .footer {{ background-color: #f9fafb; padding: 20px; text-align: center; color: #6b7280; font-size: 13px; border-top: 1px solid #e5e7eb; }}
+    .button-container {{ text-align: center; margin: 30px 0; }}
+  </style>
+</head>
+<body>
+  <div class=""container"">
+    <div class=""header"">
+      <h1>📄 Hợp Đồng Hợp Tác</h1>
+      <p>Vui lòng ký hợp đồng để hoàn tất đăng ký</p>
+    </div>
+    
+    <div class=""content"">
+      <div class=""greeting"">
+        Kính gửi <strong>{representativeName}</strong>,<br>
+        Đại diện <strong>{hospitalName}</strong>
+      </div>
+      
+      <p>Chúng tôi rất vui mừng thông báo rằng hợp đồng hợp tác giữa <strong>{hospitalName}</strong> và <strong>BookingCare</strong> đã được tạo thành công!</p>
+      
+      <div class=""contract-details"">
+        <h3>📋 Thông Tin Hợp Đồng</h3>
+        <div class=""detail-item"">
+          <span class=""detail-label"">Số hợp đồng:</span>
+          <span class=""detail-value"">{contractNumber}</span>
+        </div>
+        <div class=""detail-item"">
+          <span class=""detail-label"">Bệnh viện:</span>
+          <span class=""detail-value"">{hospitalName}</span>
+        </div>
+        <div class=""detail-item"">
+          <span class=""detail-label"">Người đại diện:</span>
+          <span class=""detail-value"">{representativeName}</span>
+        </div>
+        <div class=""detail-item"">
+          <span class=""detail-label"">Link hết hạn:</span>
+          <span class=""detail-value"">{expiryDateStr}</span>
+        </div>
+      </div>
+      
+      <div class=""info-box"">
+        <strong>🔔 Bước tiếp theo:</strong> Vui lòng ký hợp đồng điện tử để hoàn tất quá trình đăng ký hợp tác.
+      </div>
+      
+      <div class=""steps"">
+        <h3 style=""color: #1f2937; margin-bottom: 15px;"">📝 Hướng Dẫn Ký Hợp Đồng:</h3>
+        
+        <div class=""step"">
+          <div class=""step-number"">1</div>
+          <div class=""step-content"">
+            <div class=""step-title"">Truy cập link ký hợp đồng</div>
+            <div class=""step-desc"">Click vào nút bên dưới để mở trang ký hợp đồng</div>
+          </div>
+        </div>
+        
+        <div class=""step"">
+          <div class=""step-number"">2</div>
+          <div class=""step-content"">
+            <div class=""step-title"">Xem xét nội dung hợp đồng</div>
+            <div class=""step-desc"">Đọc kỹ các điều khoản và điều kiện trong hợp đồng</div>
+          </div>
+        </div>
+        
+        <div class=""step"">
+          <div class=""step-number"">3</div>
+          <div class=""step-content"">
+            <div class=""step-title"">Vẽ chữ ký điện tử</div>
+            <div class=""step-desc"">Sử dụng chuột hoặc màn hình cảm ứng để vẽ chữ ký của bạn</div>
+          </div>
+        </div>
+        
+        <div class=""step"">
+          <div class=""step-number"">4</div>
+          <div class=""step-content"">
+            <div class=""step-title"">Xác thực bằng OTP</div>
+            <div class=""step-desc"">Nhập mã OTP được gửi đến email của bạn để xác nhận chữ ký</div>
+          </div>
+        </div>
+        
+        <div class=""step"">
+          <div class=""step-number"">5</div>
+          <div class=""step-content"">
+            <div class=""step-title"">Hoàn tất</div>
+            <div class=""step-desc"">Sau khi ký, admin sẽ xem xét và phê duyệt trong thời gian sớm nhất</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class=""button-container"">
+        <a href=""{signingLink}"" class=""cta-button"">✍️ Ký Hợp Đồng Ngay</a>
+      </div>
+      
+      <div class=""warning-box"">
+        <strong>⚠️ Lưu ý quan trọng:</strong>
+        <ul style=""margin: 10px 0; padding-left: 20px;"">
+          <li>Link ký hợp đồng chỉ có hiệu lực đến <strong>{expiryDateStr}</strong></li>
+          <li>Mỗi link chỉ có thể sử dụng một lần duy nhất</li>
+          <li>Vui lòng không chia sẻ link này với người khác</li>
+          <li>Nếu link hết hạn, vui lòng liên hệ admin để nhận link mới</li>
+        </ul>
+      </div>
+      
+      <p style=""color: #6b7280; font-size: 14px; margin-top: 30px;"">
+        Nếu bạn gặp bất kỳ vấn đề nào trong quá trình ký hợp đồng, vui lòng liên hệ với chúng tôi qua email 
+        <a href=""mailto:support@bookingcare.vn"" style=""color: #3b82f6;"">support@bookingcare.vn</a> 
+        hoặc hotline <strong>1900-xxxx</strong>.
+      </p>
+    </div>
+    
+    <div class=""footer"">
+      Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
+    </div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for contract signed confirmation - send to hospital
+    /// </summary>
+    public static string BuildContractSignedConfirmationEmailHtml(
+        string hospitalName,
+        string representativeName,
+        string contractNumber,
+        DateTime signedAt)
+    {
+        var signedAtStr = signedAt.ToString("dd/MM/yyyy HH:mm");
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"">
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+  <title>Xác Nhận Ký Hợp Đồng Thành Công - BookingCare</title>
+  <style>
+    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; }}
+    .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+    .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }}
+    .header h1 {{ margin: 0; font-size: 28px; font-weight: 600; }}
+    .header p {{ margin: 10px 0 0 0; font-size: 14px; opacity: 0.95; }}
+    .content {{ padding: 30px; }}
+    .success-icon {{ text-align: center; font-size: 64px; margin: 20px 0; }}
+    .contract-details {{ background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #86efac; }}
+    .contract-details h3 {{ margin: 0 0 15px 0; color: #166534; font-size: 18px; }}
+    .detail-item {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #d1fae5; }}
+    .detail-item:last-child {{ border-bottom: none; }}
+    .detail-label {{ color: #047857; font-weight: 500; }}
+    .detail-value {{ color: #166534; font-weight: 600; }}
+    .info-box {{ background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; }}
+    .footer {{ background-color: #f9fafb; padding: 20px; text-align: center; color: #6b7280; font-size: 13px; border-top: 1px solid #e5e7eb; }}
+  </style>
+</head>
+<body>
+  <div class=""container"">
+    <div class=""header"">
+      <h1>🎉 Ký Hợp Đồng Thành Công!</h1>
+      <p>Xác nhận ký hợp đồng hợp tác với BookingCare</p>
+    </div>
+    
+    <div class=""content"">
+      <div class=""success-icon"">✍️</div>
+      
+      <p style=""text-align: center; font-size: 18px; color: #166534; font-weight: 600; margin: 20px 0;"">
+        Chúc mừng! Bạn đã ký hợp đồng hợp tác thành công với BookingCare.
+      </p>
+      
+      <div class=""contract-details"">
+        <h3>📋 Thông Tin Hợp Đồng</h3>
+        <div class=""detail-item"">
+          <span class=""detail-label"">Số hợp đồng:</span>
+          <span class=""detail-value"">{contractNumber}</span>
+        </div>
+        <div class=""detail-item"">
+          <span class=""detail-label"">Bệnh viện:</span>
+          <span class=""detail-value"">{hospitalName}</span>
+        </div>
+        <div class=""detail-item"">
+          <span class=""detail-label"">Người đại diện:</span>
+          <span class=""detail-value"">{representativeName}</span>
+        </div>
+        <div class=""detail-item"">
+          <span class=""detail-label"">Thời gian ký:</span>
+          <span class=""detail-value"">{signedAtStr}</span>
+        </div>
+      </div>
+      
+      <div class=""info-box"">
+        <strong>📋 Bước tiếp theo:</strong> Đội ngũ BookingCare sẽ xem xét và phê duyệt hợp đồng trong thời gian sớm nhất. Bạn sẽ nhận được email thông báo khi quá trình hoàn tất.
+      </div>
+      
+      <p style=""color: #6b7280; font-size: 14px; margin-top: 30px;"">
+        Cảm ơn bạn đã tin tưởng và lựa chọn BookingCare làm đối tác. Chúng tôi sẽ liên hệ với bạn sớm nhất để hoàn tất các thủ tục còn lại.
+      </p>
+    </div>
+    
+    <div class=""footer"">
+      Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
+    </div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
     /// Build email content for appointment result notification
     /// </summary>
     public static string BuildAppointmentResultEmailHtml(

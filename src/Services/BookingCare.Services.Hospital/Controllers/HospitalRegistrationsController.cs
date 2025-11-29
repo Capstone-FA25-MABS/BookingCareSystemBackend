@@ -3,6 +3,7 @@ using BookingCare.Services.Hospital.Models.DTOs.Responses;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -101,10 +102,35 @@ public class HospitalRegistrationsController : BaseApiController
     }
 
     /// <summary>
-    /// Approve hospital registration and trigger account creation (Admin only)
+    /// Generate contract for a pending registration (Admin only)
     /// </summary>
     /// <param name="id">Registration ID</param>
-    /// <param name="request">Approval request with contract file</param>
+    /// <returns>Contract generation result with signing link</returns>
+    [HttpPost("{id:guid}/generate-contract")]
+    [Authorize(Policy = "Role:Admin")]
+    [ProducesResponseType(typeof(GenerateContractForRegistrationResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GenerateContract(Guid id)
+    {
+        try
+        {
+            var adminId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            var result = await _registrationService.GenerateContractAsync(id, adminId.ToString());
+            return Success(result, "Hợp đồng đã được tạo thành công. Email với link ký hợp đồng đã được gửi đến bệnh viện.");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Approve hospital registration and trigger account creation (Admin only)
+    /// NOTE: Contract must be signed by hospital before approval
+    /// </summary>
+    /// <param name="id">Registration ID</param>
+    /// <param name="request">Approval request with optional notes</param>
     /// <returns>Updated registration</returns>
     [HttpPost("{id:guid}/approve")]
     //[Authorize(Roles = "ADMIN")]
@@ -113,7 +139,7 @@ public class HospitalRegistrationsController : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ApproveRegistration(
         Guid id,
-        [FromForm] ApproveRegistrationRequestDto request)
+        [FromBody] ApproveRegistrationRequestDto request)
     {
         var result = await _registrationService.ApproveRegistrationAsync(id, request);
         return Success(result, "Đơn đăng ký đã được phê duyệt. Hệ thống đang tạo tài khoản cho bệnh viện...");

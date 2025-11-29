@@ -103,6 +103,8 @@ builder.Services.AddIntegrationEventHandler<HospitalSubscriptionUpgradedEventHan
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationSubmittedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationStatusUpdatedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalAccountCreatedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalContractGeneratedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalContractSignedEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -193,6 +195,10 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to hospital account created event for sending credentials email
     eventBus.Subscribe<HospitalAccountCreatedEvent, HospitalAccountCreatedEventHandler>();
+
+    // Subscribe to hospital contract events for sending contract-related emails
+    eventBus.Subscribe<HospitalContractGeneratedEvent, HospitalContractGeneratedEventHandler>();
+    eventBus.Subscribe<HospitalContractSignedEvent, HospitalContractSignedEventHandler>();
 });
 
 await app.RunAsync();
