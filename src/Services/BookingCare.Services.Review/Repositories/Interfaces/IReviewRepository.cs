@@ -91,6 +91,10 @@ public interface IReviewRepository
     /// <param name="minRating">Minimum rating filter</param>
     /// <param name="maxRating">Maximum rating filter</param>
     /// <returns>Paginated reviews for the hospital</returns>
+    /// <remarks>
+    /// This is a specialized method for hospital reviews with rating filters.
+    /// Uses GetReviewsRequest internally for flexible filtering.
+    /// </remarks>
     Task<PagedReviewsResponse> GetReviewsByHospitalAsync(
         Guid hospitalId,
         int page = 1,

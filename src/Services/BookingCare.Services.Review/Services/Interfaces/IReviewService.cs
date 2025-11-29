@@ -82,14 +82,18 @@ public interface IReviewService
     );
 
     /// <summary>
-    /// Gets reviews for a specific hospital
+    /// Gets reviews for a specific hospital with optional rating filters and user enrichment
     /// </summary>
     /// <param name="hospitalId">The hospital ID</param>
     /// <param name="page">Page number</param>
     /// <param name="pageSize">Page size</param>
-    /// <param name="minRating">Minimum rating filter</param>
+    /// <param name="minRating">Minimum rating filter (e.g., 4 for testimonials)</param>
     /// <param name="maxRating">Maximum rating filter</param>
-    /// <returns>Paginated reviews for the hospital</returns>
+    /// <returns>Paginated reviews with enriched patient and author information</returns>
+    /// <remarks>
+    /// Service layer adds: validation, user enrichment, and business logic.
+    /// Supports filtering by rating for testimonial displays.
+    /// </remarks>
     Task<PagedReviewsResponse> GetReviewsByHospitalAsync(
         Guid hospitalId,
         int page = 1,
