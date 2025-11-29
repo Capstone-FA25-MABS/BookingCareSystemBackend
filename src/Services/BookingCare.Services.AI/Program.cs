@@ -40,14 +40,18 @@ builder.Services.Configure<GeminiConfiguration>(options =>
     var geminiSection = builder.Configuration.GetSection("Gemini");
     options.ApiKey = geminiSection["ApiKey"] ?? string.Empty;
     options.ApiEndpoint = "https://generativelanguage.googleapis.com";
-    options.Model = "gemini-1.5-pro"; // Use newer model for medical summary
+    options.Model = geminiSection["Model"] ?? "gemini-2.0-flash-exp"; // Use model from config or default to 2.0
     options.Temperature = 0.3; // Lower temperature for more focused medical output
-    options.MaxTokens = 2048;
+    options.MaxTokens = 8192;
 });
 
+// Configure AILabTools for Dermatology Analysis
+builder.Services.Configure<AILabToolsConfiguration>(builder.Configuration.GetSection("AILabTools"));
 
-// Register Gemini Service (still needs HttpClient for Gemini API)
-// builder.Services.AddHttpClient<IGeminiService, GeminiService>(); // TODO: Implement if needed
+
+
+// Register Gemini Service for text generation and translation
+builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
 // Register AI Service for medical summary generation
 builder.Services.AddHttpClient<IAIService, AIService>();
@@ -82,6 +86,9 @@ builder.Services.AddScoped<ISymptomAnalysisService, SymptomAnalysisService>();
 // Register Lab Result Analysis Service
 builder.Services.AddHttpClient<ILabResultAnalysisService, LabResultAnalysisService>();
 
+// Register Dermatology Analysis Service
+builder.Services.AddHttpClient<IDermatologyAnalysisService, DermatologyAnalysisService>();
+
 // Register Gemini Transcription Service
 builder.Services.AddScoped<IGeminiTranscriptionService, GeminiTranscriptionService>();
 
@@ -90,6 +97,9 @@ builder.Services.AddScoped<IAudioTranscriptionWorkflow, AudioTranscriptionWorkfl
 
 // Add S3 File Upload services
 builder.Services.AddS3FileUpload(builder.Configuration);
+
+// Add Memory Cache for token caching
+builder.Services.AddMemoryCache();
 
 // Add JWT Authentication and Authorization using centralized configuration
 // This includes: JWT auth, authorization policies, and AutoToken middleware
