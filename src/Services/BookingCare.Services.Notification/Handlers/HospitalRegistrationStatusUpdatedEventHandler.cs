@@ -16,8 +16,8 @@ public class HospitalRegistrationStatusUpdatedEventHandler : IIntegrationEventHa
 
     // Status enum: 0=PENDING, 1=CONFIRMED, 2=CANCELLED
     private const int STATUS_PENDING = 0;
-    private const int STATUS_CONFIRMED = 1;
-    private const int STATUS_CANCELLED = 2;
+    private const int STATUS_CONFIRMED = 3;
+    private const int STATUS_CANCELLED = 4;
 
     public HospitalRegistrationStatusUpdatedEventHandler(
         ILogger<HospitalRegistrationStatusUpdatedEventHandler> logger,

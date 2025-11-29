@@ -25,3 +25,24 @@ public sealed class RoleHandler : AuthorizationHandler<RoleRequirement>
     }
 }
 
+/// <summary>
+/// Handler for multiple roles requirement with case-insensitive comparison (OR logic)
+/// </summary>
+public sealed class MultipleRolesHandler : AuthorizationHandler<MultipleRolesRequirement>
+{
+    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, MultipleRolesRequirement requirement)
+    {
+        var userRoles = context.User?.Claims
+            .Where(c => c.Type == ClaimTypes.Role)
+            .Select(c => c.Value)
+            .ToList() ?? new List<string>();
+
+        // Check if user has at least one of the required roles (case-insensitive)
+        var hasAnyRole = requirement.RoleNames.Any(requiredRole =>
+            userRoles.Any(userRole => string.Equals(userRole, requiredRole, StringComparison.OrdinalIgnoreCase)));
+
+        if (hasAnyRole) context.Succeed(requirement);
+        return Task.CompletedTask;
+    }
+}
+

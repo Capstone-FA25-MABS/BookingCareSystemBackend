@@ -58,6 +58,11 @@ public class PaymentResponse
     public PaymentStatus Status { get; set; }
 
     /// <summary>
+    /// Payment Intent ID from payment gateway (for refunds and tracking)
+    /// </summary>
+    public string? PaymentIntentId { get; set; }
+
+    /// <summary>
     /// Creation time
     /// </summary>
     public DateTime CreatedAt { get; set; }

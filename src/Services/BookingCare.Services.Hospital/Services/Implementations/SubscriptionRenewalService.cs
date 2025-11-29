@@ -1,5 +1,4 @@
 using BookingCare.Services.Hospital.Repositories.Interfaces;
-using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Enums;
 using BookingCare.Services.Hospital.Models.Entities;
 
@@ -108,7 +107,7 @@ public class SubscriptionRenewalService : BackgroundService
         }
     }
 
-    private async Task SendExpiryNotificationAsync(HospitalSubscriptionEntity subscription, int daysUntilExpiry)
+    private Task SendExpiryNotificationAsync(HospitalSubscriptionEntity subscription, int daysUntilExpiry)
     {
         try
         {
@@ -132,6 +131,8 @@ public class SubscriptionRenewalService : BackgroundService
             _logger.LogError(ex, "Error sending expiry notification for subscription {SubscriptionId}",
                 subscription.HospitalSubscriptionId);
         }
+
+        return Task.CompletedTask;
     }
 
     private async Task UpdateSubscriptionAsync(HospitalSubscriptionEntity subscription)
