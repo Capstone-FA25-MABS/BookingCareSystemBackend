@@ -315,7 +315,7 @@ public class ReviewRepository : IReviewRepository
             new BsonDocument
             {
                 { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
+                { AverageRatingField, new BsonDocument("$avg", "$rating") },
             }
         );
 
@@ -324,9 +324,9 @@ public class ReviewRepository : IReviewRepository
         var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
         var result = await cursor.FirstOrDefaultAsync();
 
-        if (result != null && result.Contains("averageRating"))
+        if (result != null && result.Contains(AverageRatingField))
         {
-            return result["averageRating"].ToDouble();
+            return result[AverageRatingField].ToDouble();
         }
 
         return 0.0;
@@ -345,7 +345,7 @@ public class ReviewRepository : IReviewRepository
             new BsonDocument
             {
                 { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
+                { AverageRatingField, new BsonDocument("$avg", "$rating") },
             }
         );
 
@@ -354,9 +354,9 @@ public class ReviewRepository : IReviewRepository
         var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
         var result = await cursor.FirstOrDefaultAsync();
 
-        if (result != null && result.Contains("averageRating"))
+        if (result != null && result.Contains(AverageRatingField))
         {
-            return result["averageRating"].ToDouble();
+            return result[AverageRatingField].ToDouble();
         }
 
         return 0.0;
