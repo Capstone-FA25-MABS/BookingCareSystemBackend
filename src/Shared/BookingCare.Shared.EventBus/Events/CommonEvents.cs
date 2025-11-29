@@ -1288,3 +1288,50 @@ public class FileUploadData
     public string EntityType { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Event published when admin generates a contract for hospital registration
+/// </summary>
+public class HospitalContractGeneratedEvent : HospitalRegistrationEventBase
+{
+    /// <summary>
+    /// Contract number (e.g., HĐHT-2024-001)
+    /// </summary>
+    public string ContractNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// URL of the contract draft file
+    /// </summary>
+    public string ContractDraftUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Signing link for hospital to sign the contract
+    /// </summary>
+    public string SigningLink { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the signing link expires
+    /// </summary>
+    public DateTime LinkExpiresAt { get; set; }
+}
+
+/// <summary>
+/// Event published when a hospital signs the partnership contract
+/// </summary>
+public class HospitalContractSignedEvent : HospitalRegistrationEventBase
+{
+    /// <summary>
+    /// Contract number (e.g., HĐHT-2024-001)
+    /// </summary>
+    public string ContractNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the contract was signed
+    /// </summary>
+    public DateTime SignedAt { get; set; }
+
+    /// <summary>
+    /// URL of the signed contract file
+    /// </summary>
+    public string SignedContractUrl { get; set; } = string.Empty;
+}
+

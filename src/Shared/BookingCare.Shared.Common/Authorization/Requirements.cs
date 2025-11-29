@@ -14,3 +14,12 @@ public sealed class RoleRequirement : IAuthorizationRequirement
     public RoleRequirement(string roleName) => RoleName = roleName;
 }
 
+/// <summary>
+/// Requirement for multiple roles with OR logic (user must have at least one of the roles)
+/// </summary>
+public sealed class MultipleRolesRequirement : IAuthorizationRequirement
+{
+    public string[] RoleNames { get; }
+    public MultipleRolesRequirement(params string[] roleNames) => RoleNames = roleNames;
+}
+

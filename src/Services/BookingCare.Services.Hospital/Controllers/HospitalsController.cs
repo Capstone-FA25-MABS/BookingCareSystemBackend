@@ -1,4 +1,3 @@
-using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
@@ -7,7 +6,6 @@ using BookingCare.Services.Hospital.Exceptions;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.FileUpload.Services;
-using BookingCare.Shared.FileUpload.Models;
 using Microsoft.AspNetCore.Authorization;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
 
@@ -851,7 +849,7 @@ public class HospitalsController : BaseApiController
             return null;
         }
 
-        var imageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+        var imageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl ?? string.Empty;
 
         var createImageRequest = new CreateHospitalImageRequest
         {
