@@ -22,6 +22,117 @@ namespace BookingCare.Services.Hospital.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.AdminSignatureEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AdminId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("admin_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("full_name");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Position")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("position");
+
+                    b.Property<string>("SignatureImageUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("signature_image_url");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminId");
+
+                    b.ToTable("admin_signatures");
+                });
+
+            modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.ContractSigningTokenEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsUsed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_used");
+
+                    b.Property<Guid>("RegistrationId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("registration_id");
+
+                    b.Property<string>("SignedFromIp")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)")
+                        .HasColumnName("signed_from_ip");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("token");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("used_at");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("user_agent");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RegistrationId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("contract_signing_tokens");
+                });
+
             modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.HospitalEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -129,14 +240,39 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("address");
 
+                    b.Property<Guid?>("AdminSignatureId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("admin_signature_id");
+
                     b.Property<string>("BusinessCertificateFile")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("business_certificate_file");
 
+                    b.Property<DateTime?>("ContractDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("contract_date");
+
+                    b.Property<string>("ContractDraftFile")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("contract_draft_file");
+
+                    b.Property<DateTime?>("ContractEffectiveDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("contract_effective_date");
+
+                    b.Property<DateTime?>("ContractExpiryDate")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("contract_expiry_date");
+
                     b.Property<string>("ContractFile")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("contract_file");
+
+                    b.Property<string>("ContractNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("contract_number");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -165,6 +301,10 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("hospital_phone");
+
+                    b.Property<string>("HospitalSignature")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("hospital_signature");
 
                     b.Property<string>("IdentityCardFile")
                         .IsRequired()
@@ -198,6 +338,10 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("representative_phone");
 
+                    b.Property<DateTime?>("SignedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("signed_at");
+
                     b.Property<int>("Status")
                         .HasColumnType("int")
                         .HasColumnName("status");
@@ -215,6 +359,8 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasDefaultValueSql("GETDATE()");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AdminSignatureId");
 
                     b.HasIndex("HospitalEmail");
 
@@ -297,11 +443,23 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("hospital_subscription_id");
 
+                    b.Property<int>("AppointmentCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("appointment_count");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<int>("DoctorCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("doctor_count");
 
                     b.Property<DateTime>("EndDate")
                         .ValueGeneratedOnAdd()
@@ -312,6 +470,18 @@ namespace BookingCare.Services.Hospital.Migrations
                     b.Property<Guid>("HospitalId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("hospital_id");
+
+                    b.Property<int>("ServiceCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("service_count");
+
+                    b.Property<int>("SpecialtyCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("specialty_count");
 
                     b.Property<DateTime>("StartDate")
                         .ValueGeneratedOnAdd()
@@ -392,6 +562,12 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("max_doctors");
 
+                    b.Property<int?>("MaxServices")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("max_services");
+
                     b.Property<int?>("MaxSpecialties")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -435,12 +611,25 @@ namespace BookingCare.Services.Hospital.Migrations
 
                             t.HasCheckConstraint("CK_subscription_plans_max_doctors", "(max_doctors IS NULL OR max_doctors >= 0)");
 
+                            t.HasCheckConstraint("CK_subscription_plans_max_services", "(max_services IS NULL OR max_services >= 0)");
+
                             t.HasCheckConstraint("CK_subscription_plans_max_specialties", "(max_specialties IS NULL OR max_specialties >= 0)");
 
                             t.HasCheckConstraint("CK_subscription_plans_price", "price >= 0");
 
                             t.HasCheckConstraint("CK_subscription_plans_status", "status IN ('ACTIVE', 'INACTIVE')");
                         });
+                });
+
+            modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.ContractSigningTokenEntity", b =>
+                {
+                    b.HasOne("BookingCare.Services.Hospital.Models.Entities.HospitalRegistrationEntity", "Registration")
+                        .WithMany()
+                        .HasForeignKey("RegistrationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Registration");
                 });
 
             modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.HospitalImageEntity", b =>
@@ -456,10 +645,17 @@ namespace BookingCare.Services.Hospital.Migrations
 
             modelBuilder.Entity("BookingCare.Services.Hospital.Models.Entities.HospitalRegistrationEntity", b =>
                 {
+                    b.HasOne("BookingCare.Services.Hospital.Models.Entities.AdminSignatureEntity", "AdminSignature")
+                        .WithMany()
+                        .HasForeignKey("AdminSignatureId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("BookingCare.Services.Hospital.Models.Entities.HospitalEntity", "Hospital")
                         .WithMany()
                         .HasForeignKey("HospitalId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AdminSignature");
 
                     b.Navigation("Hospital");
                 });

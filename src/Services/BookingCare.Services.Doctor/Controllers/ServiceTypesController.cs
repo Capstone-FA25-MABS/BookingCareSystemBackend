@@ -98,14 +98,14 @@ public class ServiceTypesController : BaseImageUploadController
     }
 
     /// <summary>
-    /// Get all service types
+    /// Get all service types (active only) - Optimized for performance
     /// </summary>
     [HttpGet("all")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetAllServiceTypes()
     {
-        var serviceTypes = await _serviceTypeService.GetAllServiceTypesAsync();
-        return Success<List<ServiceTypeResponse>>(serviceTypes, "Lấy tất cả loại dịch vụ thành công");
+        var serviceTypes = await _serviceTypeService.GetActiveServiceTypesSimpleAsync();
+        return Success<List<ServiceTypeSimpleResponse>>(serviceTypes, "Lấy tất cả loại dịch vụ thành công");
     }
 
     /// <summary>

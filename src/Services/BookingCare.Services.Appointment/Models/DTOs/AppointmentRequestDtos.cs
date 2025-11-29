@@ -1,7 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Shared.Common.Enums;
-using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http;
 
 namespace BookingCare.Services.Appointment.Models.DTOs;
 
@@ -12,6 +13,13 @@ public class CreateAppointmentRequest
 {
     [Required(ErrorMessage = "Patient ID is required")]
     public required Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Account ID of the patient who booked the appointment
+    /// Links to the Account service for user authentication and authorization
+    /// </summary>
+    [Required(ErrorMessage = "Patient Account ID is required")]
+    public required Guid PatientAccountId { get; set; }
 
     public Guid? DoctorId { get; set; }
 
@@ -64,6 +72,24 @@ public class UpdateAppointmentStatusRequest
 
     [Required(ErrorMessage = "Result is required")]
     [MaxLength(4000, ErrorMessage = "Result cannot exceed 4000 characters")]
+    public required string Result { get; set; }
+}
+
+/// <summary>
+/// Request to update appointment result and automatically mark as completed
+/// Accepts result as text string which will be converted to .txt file and uploaded to S3
+/// </summary>
+public class UpdateAppointmentResultRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// Result text (will be converted to .txt file and uploaded to S3)
+    /// The CloudFront URL will be stored in the database
+    /// </summary>
+    [Required(ErrorMessage = "Result is required")]
+    [MaxLength(10000, ErrorMessage = "Result cannot exceed 10000 characters")]
     public required string Result { get; set; }
 }
 
@@ -305,5 +331,3 @@ public class GenerateRescheduleTokenRequest
     [Required(ErrorMessage = "Patient ID is required")]
     public required Guid PatientId { get; set; }
 }
-
-

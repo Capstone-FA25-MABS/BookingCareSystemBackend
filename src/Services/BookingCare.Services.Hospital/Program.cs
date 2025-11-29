@@ -16,6 +16,7 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using Microsoft.EntityFrameworkCore;
+using BookingCare.Services.Notification.Protos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,14 +46,20 @@ builder.Services.AddScoped<ISubscriptionPlanRepository, SubscriptionPlanReposito
 builder.Services.AddScoped<IHospitalSubscriptionRepository, HospitalSubscriptionRepository>();
 builder.Services.AddScoped<IHospitalRegistrationRepository, HospitalRegistrationRepository>();
 builder.Services.AddScoped<IHospitalImageRepository, HospitalImageRepository>();
+builder.Services.AddScoped<IAdminSignatureRepository, AdminSignatureRepository>();
+builder.Services.AddScoped<IContractSigningTokenRepository, ContractSigningTokenRepository>();
 
 // Register services
+builder.Services.AddScoped<BookingCare.Shared.Common.Interfaces.ILocationApiService, BookingCare.Shared.Common.Services.LocationApiService>();
 builder.Services.AddScoped<IHospitalService, HospitalService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<IHospitalSubscriptionService, HospitalSubscriptionService>();
 builder.Services.AddScoped<ISubscriptionUsageService, SubscriptionUsageService>();
 builder.Services.AddScoped<ILocationApiService, LocationApiService>();
 builder.Services.AddScoped<IHospitalRegistrationService, HospitalRegistrationService>();
+builder.Services.AddScoped<IAdminSignatureService, AdminSignatureService>();
+builder.Services.AddScoped<IContractGenerationService, ContractGenerationService>();
+builder.Services.AddScoped<IContractSigningService, ContractSigningService>();
 
 // Add Event Bus (RabbitMQ) for message queue
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "hospital-service-queue");
@@ -104,6 +111,13 @@ builder.Services.AddGrpcClient<ServiceMedicalService.ServiceMedicalServiceClient
     options.Address = new Uri(serviceMedicalAddress);
 });
 
+// Add gRPC client for OTP verification
+builder.Services.AddGrpcClient<OtpVerifier.OtpVerifierClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("GrpcClients:Notification").GetValue<string>("Address") ?? "http://localhost:6110";
+    o.Address = new Uri(endpoint);
+});
+
 // Register HospitalServiceDependencies to reduce constructor parameters
 builder.Services.AddScoped<HospitalServiceDependencies>(sp =>
 {
@@ -117,6 +131,19 @@ builder.Services.AddScoped<HospitalServiceDependencies>(sp =>
         doctorClient,
         serviceMedicalClient,
         locationApiService
+    );
+});
+
+// Register SubscriptionServices to reduce constructor parameters
+builder.Services.AddScoped<SubscriptionServices>(sp =>
+{
+    var subscriptionPlanRepository = sp.GetRequiredService<ISubscriptionPlanRepository>();
+    var hospitalSubscriptionService = sp.GetRequiredService<IHospitalSubscriptionService>();
+    var subscriptionUsageService = sp.GetRequiredService<ISubscriptionUsageService>();
+    return new SubscriptionServices(
+        subscriptionPlanRepository,
+        hospitalSubscriptionService,
+        subscriptionUsageService
     );
 });
 
@@ -134,6 +161,7 @@ app.MapControllers();
 // Map gRPC services
 app.MapGrpcService<HospitalGrpcService>();
 app.MapGrpcService<HospitalSubscriptionGrpcService>();
+app.MapGrpcService<SubscriptionUsageGrpcService>();
 
 // Default endpoint
 app.MapGet(

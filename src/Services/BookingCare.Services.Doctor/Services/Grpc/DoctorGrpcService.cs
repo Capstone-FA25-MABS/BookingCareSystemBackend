@@ -84,6 +84,106 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         }
     }
 
+    /// <summary>
+    /// Map basic doctor fields from gRPC request
+    /// </summary>
+    private Models.DTOs.Requests.CreateDoctorRequest MapBasicDoctorFields(Protos.CreateDoctorRequest request, Guid accountId)
+    {
+        return new Models.DTOs.Requests.CreateDoctorRequest
+        {
+            AccountId = accountId,
+            Email = request.Email,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address,
+            Bio = string.IsNullOrWhiteSpace(request.Bio) ? null : request.Bio,
+            YearsOfExperience = request.YearsOfExperience,
+            AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl
+        };
+    }
+
+    /// <summary>
+    /// Map optional IDs from gRPC request
+    /// </summary>
+    private void MapOptionalIds(Protos.CreateDoctorRequest request, Models.DTOs.Requests.CreateDoctorRequest create)
+    {
+        if (Guid.TryParse(request.SpecialtyId, out var specialtyId))
+        {
+            create.SpecialtyId = specialtyId;
+        }
+
+        if (Guid.TryParse(request.PositionId, out var positionId))
+        {
+            create.PositionId = positionId;
+        }
+
+        if (Guid.TryParse(request.HospitalId, out var hospitalId))
+        {
+            create.HospitalId = hospitalId;
+        }
+    }
+
+    /// <summary>
+    /// Map gender from gRPC request
+    /// </summary>
+    private void MapGender(Protos.CreateDoctorRequest request, Models.DTOs.Requests.CreateDoctorRequest create)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Gender) &&
+            Enum.TryParse<Shared.Common.Enums.Gender>(request.Gender, true, out var gender))
+        {
+            create.Gender = gender;
+        }
+    }
+
+    /// <summary>
+    /// Map language IDs from gRPC request
+    /// </summary>
+    private void MapLanguageIds(Protos.CreateDoctorRequest request, Models.DTOs.Requests.CreateDoctorRequest create)
+    {
+        if (request.LanguageIds == null || request.LanguageIds.Count == 0)
+        {
+            return;
+        }
+
+        create.LanguageIds = request.LanguageIds
+            .Where(id => Guid.TryParse(id, out _))
+            .Select(Guid.Parse)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Map prices from gRPC request
+    /// </summary>
+    private void MapPrices(Protos.CreateDoctorRequest request, Models.DTOs.Requests.CreateDoctorRequest create)
+    {
+        if (request.Prices == null || request.Prices.Count == 0)
+        {
+            return;
+        }
+
+        create.Prices = request.Prices
+            .Where(p => Guid.TryParse(p.ServiceTypeId, out _))
+            .Select(p => new Models.DTOs.Requests.DoctorPriceRequest
+            {
+                ServiceTypeId = Guid.Parse(p.ServiceTypeId),
+                Amount = (decimal)p.Amount
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Build create doctor request from gRPC request
+    /// </summary>
+    private Models.DTOs.Requests.CreateDoctorRequest BuildCreateDoctorRequest(Protos.CreateDoctorRequest request, Guid accountId)
+    {
+        var create = MapBasicDoctorFields(request, accountId);
+        MapOptionalIds(request, create);
+        MapGender(request, create);
+        MapLanguageIds(request, create);
+        MapPrices(request, create);
+        return create;
+    }
+
     public override async Task<Protos.DoctorResponse> CreateDoctor(Protos.CreateDoctorRequest request, ServerCallContext context)
     {
         try
@@ -93,55 +193,18 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
                 throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid account ID format"));
             }
 
-            var create = new Models.DTOs.Requests.CreateDoctorRequest
-            {
-                AccountId = accountId,
-                Email = request.Email,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address,
-                Bio = string.IsNullOrWhiteSpace(request.Bio) ? null : request.Bio,
-                YearsOfExperience = request.YearsOfExperience,
-                AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl
-            };
-
-            if (Guid.TryParse(request.SpecialtyId, out var specialtyId)) create.SpecialtyId = specialtyId;
-            if (Guid.TryParse(request.PositionId, out var positionId)) create.PositionId = positionId;
-            if (Guid.TryParse(request.HospitalId, out var hospitalId)) create.HospitalId = hospitalId;
-
-            if (!string.IsNullOrWhiteSpace(request.Gender) && Enum.TryParse<Shared.Common.Enums.Gender>(request.Gender, true, out var gender))
-            {
-                create.Gender = gender;
-            }
-
-            // Map language IDs
-            if (request.LanguageIds != null && request.LanguageIds.Count > 0)
-            {
-                create.LanguageIds = request.LanguageIds
-                    .Where(id => Guid.TryParse(id, out _))
-                    .Select(Guid.Parse)
-                    .ToList();
-            }
-
-            // Map prices
-            if (request.Prices != null && request.Prices.Count > 0)
-            {
-                create.Prices = request.Prices
-                    .Where(p => Guid.TryParse(p.ServiceTypeId, out _))
-                    .Select(p => new Models.DTOs.Requests.DoctorPriceRequest
-                    {
-                        ServiceTypeId = Guid.Parse(p.ServiceTypeId),
-                        Amount = (decimal)p.Amount
-                    })
-                    .ToList();
-            }
-
+            var create = BuildCreateDoctorRequest(request, accountId);
             var doctor = await _doctorService.CreateDoctorAsync(create);
             return MapToGrpcDoctorResponse(doctor);
         }
         catch (RpcException)
         {
             throw;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "[DoctorGrpcService] Invalid operation in CreateDoctor for email {Email}: {Message}", request.Email, ex.Message);
+            throw new RpcException(new Status(StatusCode.FailedPrecondition, ex.Message));
         }
         catch (Exception ex)
         {

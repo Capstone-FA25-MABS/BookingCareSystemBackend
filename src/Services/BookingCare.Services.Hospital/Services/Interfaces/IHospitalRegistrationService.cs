@@ -13,5 +13,10 @@ public interface IHospitalRegistrationService
     Task<bool> DeleteRegistrationAsync(Guid id);
     Task<HospitalRegistrationResponseDto> ApproveRegistrationAsync(Guid id, ApproveRegistrationRequestDto request);
     Task<HospitalRegistrationResponseDto> RejectRegistrationAsync(Guid id, RejectRegistrationRequestDto request);
+
+    /// <summary>
+    /// Generate contract for a pending registration
+    /// </summary>
+    Task<GenerateContractForRegistrationResponseDto> GenerateContractAsync(Guid registrationId, string adminId);
 }
 

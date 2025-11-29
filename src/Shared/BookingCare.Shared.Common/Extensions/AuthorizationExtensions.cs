@@ -40,6 +40,7 @@ public static class AuthorizationExtensions
         services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
         services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
         services.AddSingleton<IAuthorizationHandler, RoleHandler>();
+        services.AddSingleton<IAuthorizationHandler, MultipleRolesHandler>();
         return services;
     }
 

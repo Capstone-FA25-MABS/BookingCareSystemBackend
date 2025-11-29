@@ -1,15 +1,15 @@
 using AutoMapper;
+using BookingCare.Services.Payment.Enums;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Models.DTOs.Responses;
 using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Repositories.Interfaces;
 using BookingCare.Services.Payment.Services.Interfaces;
-using BookingCare.Services.Payment.Enums;
-using BookingCare.Shared.Common.Services;
+using BookingCare.Services.User.Protos;
 using BookingCare.Shared.Common.Exceptions;
+using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
-using BookingCare.Services.User.Protos;
 
 namespace BookingCare.Services.Payment.Services.Implementations;
 
@@ -20,6 +20,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
 {
     private readonly IRefundHistoryRepository _refundHistoryRepository;
     private readonly IPaymentRepository _paymentRepository;
+    private readonly IPaymentMethodRepository _paymentMethodRepository;
     private readonly IBankAccountRepository _bankAccountRepository;
     private readonly IEventBus _eventBus;
     private readonly UserService.UserServiceClient _userGrpcClient;
@@ -28,14 +29,18 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     public RefundHistoryService(
         IRefundHistoryRepository refundHistoryRepository,
         IPaymentRepository paymentRepository,
+        IPaymentMethodRepository paymentMethodRepository,
         IBankAccountRepository bankAccountRepository,
         IEventBus eventBus,
         UserService.UserServiceClient userGrpcClient,
         IMapper mapper,
-        ILogger<RefundHistoryService> logger) : base(logger)
+        ILogger<RefundHistoryService> logger
+    )
+        : base(logger)
     {
         _refundHistoryRepository = refundHistoryRepository;
         _paymentRepository = paymentRepository;
+        _paymentMethodRepository = paymentMethodRepository;
         _bankAccountRepository = bankAccountRepository;
         _eventBus = eventBus;
         _userGrpcClient = userGrpcClient;
@@ -100,7 +105,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
             RefundHistories = mappedItems,
             TotalCount = pagedResult.TotalCount,
             PageNumber = pagedResult.PageNumber,
-            PageSize = pagedResult.PageSize
+            PageSize = pagedResult.PageSize,
         };
 
         // Populate status counts if requested
@@ -117,112 +122,212 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     /// </summary>
     public async Task<RefundHistoryResponse> CreateAsync(CreateRefundHistoryRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo(
+                    "Creating refund history for Payment: {PaymentId}, User: {UserId}, Hospital: {HospitalId}",
+                    null,
+                    request.PaymentId,
+                    request.UserId,
+                    request.HospitalId
+                );
+
+                ValidateRequired(request, nameof(request));
+
+                // Validate payment and get payment details
+                var payment = await ValidateAndGetPaymentAsync(request);
+
+                // Validate payment method and determine refund status
+                var (status, bankAccountId) = await DetermineRefundStatusAndBankAccountAsync(
+                    payment,
+                    request.UserId,
+                    request.BankAccountId,
+                    request.PaymentId
+                );
+
+                // Create entity
+                var entity = CreateRefundHistoryEntity(request, status, bankAccountId);
+                var created = await _refundHistoryRepository.CreateAsync(entity);
+
+                LogInfo(
+                    "Refund history created successfully with ID: {Id}, Status: {Status}, Hospital: {HospitalId}",
+                    null,
+                    created.Id,
+                    created.Status,
+                    created.HospitalId
+                );
+
+                return _mapper.Map<RefundHistoryResponse>(created);
+            },
+            "CreateRefundHistory"
+        );
+    }
+
+    private async Task<PaymentEntity> ValidateAndGetPaymentAsync(CreateRefundHistoryRequest request)
+    {
+        var payment = await _paymentRepository.GetByIdAsync(request.PaymentId);
+        if (payment == null)
         {
-            LogInfo("Creating refund history for Payment: {PaymentId}, User: {UserId}, Hospital: {HospitalId}",
-                null, request.PaymentId, request.UserId, request.HospitalId);
+            throw new NotFoundException("Payment", request.PaymentId);
+        }
 
-            // Validation
-            ValidateRequired(request, nameof(request));
+        // Validate hospital ID match
+        if (payment.HospitalId.HasValue && payment.HospitalId.Value != request.HospitalId)
+        {
+            throw new InvalidOperationException(
+                $"Hospital ID mismatch. Payment belongs to hospital {payment.HospitalId}, but refund is for hospital {request.HospitalId}"
+            );
+        }
 
-            // Check if payment exists and can be refunded
-            var payment = await _paymentRepository.GetByIdAsync(request.PaymentId);
-            if (payment == null)
-            {
-                throw new NotFoundException("Payment", request.PaymentId);
-            }
+        // Validate payment status
+        if (payment.Status != PaymentStatus.COMPLETED && payment.Status != PaymentStatus.REFUNDED)
+        {
+            throw new InvalidOperationException(
+                $"Only payments with status COMPLETED can be refunded. Current payment status: {payment.Status}"
+            );
+        }
 
-            // Validate that the HospitalId matches the payment's HospitalId (if payment has one)
-            if (payment.HospitalId.HasValue && payment.HospitalId.Value != request.HospitalId)
-            {
-                throw new InvalidOperationException($"Hospital ID mismatch. Payment belongs to hospital {payment.HospitalId}, but refund is for hospital {request.HospitalId}");
-            }
+        // Validate refund amount
+        if (request.RefundAmount > payment.Amount)
+        {
+            throw new InvalidOperationException(
+                $"Refund amount ({request.RefundAmount}) cannot exceed payment amount ({payment.Amount})"
+            );
+        }
 
-            // If payment doesn't have HospitalId (appointment payment), we still allow the refund with the provided HospitalId
-            // This handles cases where the hospital needs to process refunds for appointments
+        return payment;
+    }
 
-            // Check if payment status is COMPLETED to allow refund
-            if (payment.Status != PaymentStatus.COMPLETED && payment.Status != PaymentStatus.REFUNDED)
-            {
-                throw new InvalidOperationException($"Only payments with status COMPLETED can be refunded. Current payment status: {payment.Status}");
-            }
+    private async Task<(
+        RefundStatus status,
+        Guid? bankAccountId
+    )> DetermineRefundStatusAndBankAccountAsync(
+        PaymentEntity payment,
+        Guid userId,
+        Guid? requestedBankAccountId,
+        Guid paymentId
+    )
+    {
+        var paymentMethod = await _paymentMethodRepository.GetByIdAsync(payment.PaymentMethodId);
+        if (paymentMethod == null)
+        {
+            throw new NotFoundException("PaymentMethod", payment.PaymentMethodId);
+        }
 
-            // Check if refund amount does not exceed payment amount
-            if (request.RefundAmount > payment.Amount)
-            {
-                throw new InvalidOperationException($"Refund amount ({request.RefundAmount}) cannot exceed payment amount ({payment.Amount})");
-            }
+        bool isStripePayment = paymentMethod.Name.Equals(
+            "STRIPE",
+            StringComparison.OrdinalIgnoreCase
+        );
 
-            // Automatically determine status and bank account
-            var (status, bankAccountId) = await DetermineRefundStatusAsync(request.UserId, request.BankAccountId);
+        if (isStripePayment)
+        {
+            LogInfo(
+                "Stripe payment detected for Payment {PaymentId}. Setting refund status to COMPLETED.",
+                null,
+                paymentId
+            );
+            return (RefundStatus.COMPLETED, null);
+        }
 
-            // Create entity
-            var entity = _mapper.Map<RefundHistoryEntity>(request);
-            entity.Status = status;
-            entity.BankAccountId = bankAccountId;
-            entity.HospitalId = request.HospitalId; // Ensure HospitalId is set
+        var (status, bankAccountId) = await DetermineRefundStatusAsync(
+            userId,
+            requestedBankAccountId
+        );
+        LogInfo(
+            "Non-Stripe payment detected for Payment {PaymentId}. Status: {Status}, BankAccountId: {BankAccountId}",
+            null,
+            paymentId,
+            status,
+            bankAccountId ?? (object)"None"
+        );
+        return (status, bankAccountId);
+    }
 
-            var created = await _refundHistoryRepository.CreateAsync(entity);
+    private RefundHistoryEntity CreateRefundHistoryEntity(
+        CreateRefundHistoryRequest request,
+        RefundStatus status,
+        Guid? bankAccountId
+    )
+    {
+        var entity = _mapper.Map<RefundHistoryEntity>(request);
+        entity.Status = status;
+        entity.BankAccountId = bankAccountId;
+        entity.HospitalId = request.HospitalId;
 
-            LogInfo("Refund history created successfully with ID: {Id}, Status: {Status}, Hospital: {HospitalId}",
-                null, created.Id, created.Status, created.HospitalId);
+        if (status == RefundStatus.COMPLETED)
+        {
+            entity.TransferDate = DateTime.UtcNow;
+        }
 
-            return _mapper.Map<RefundHistoryResponse>(created);
-        }, "CreateRefundHistory");
+        return entity;
     }
 
     /// <summary>
     /// Update refund history status
     /// </summary>
-    public async Task<RefundHistoryResponse> UpdateStatusAsync(UpdateRefundHistoryStatusRequest request)
+    public async Task<RefundHistoryResponse> UpdateStatusAsync(
+        UpdateRefundHistoryStatusRequest request
+    )
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Updating refund history with ID: {Id} to status: {Status}",
-                null, request.Id, request.Status);
-
-            ValidateRequired(request, nameof(request));
-
-            var existing = await _refundHistoryRepository.GetByIdAsync(request.Id);
-            if (existing == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new NotFoundException("RefundHistory", request.Id);
-            }
+                LogInfo(
+                    "Updating refund history with ID: {Id} to status: {Status}",
+                    null,
+                    request.Id,
+                    request.Status
+                );
 
-            // Validate status transition
-            ValidateStatusTransition(existing.Status, request.Status);
+                ValidateRequired(request, nameof(request));
 
-            // Validate business rules for each status
-            await ValidateStatusUpdateAsync(existing, request);
+                var existing = await _refundHistoryRepository.GetByIdAsync(request.Id);
+                if (existing == null)
+                {
+                    throw new NotFoundException("RefundHistory", request.Id);
+                }
 
-            // Update entity
-            existing.Status = request.Status;
+                // Validate status transition
+                ValidateStatusTransition(existing.Status, request.Status);
 
-            if (request.BankAccountId.HasValue)
-                existing.BankAccountId = request.BankAccountId.Value;
+                // Validate business rules for each status
+                await ValidateStatusUpdateAsync(existing, request);
 
-            if (request.TransferDate.HasValue)
-                existing.TransferDate = request.TransferDate.Value;
+                // Update entity
+                existing.Status = request.Status;
 
-            if (!string.IsNullOrEmpty(request.StaffNotes))
-                existing.StaffNotes = request.StaffNotes;
+                if (request.BankAccountId.HasValue)
+                    existing.BankAccountId = request.BankAccountId.Value;
 
-            if (request.ProcessedByStaffId.HasValue)
-                existing.ProcessedByStaffId = request.ProcessedByStaffId.Value;
+                if (request.TransferDate.HasValue)
+                    existing.TransferDate = request.TransferDate.Value;
 
-            // Automatically set transfer date when status = COMPLETED
-            if (request.Status == RefundStatus.COMPLETED && !existing.TransferDate.HasValue)
-            {
-                existing.TransferDate = DateTime.UtcNow;
-            }
+                if (!string.IsNullOrEmpty(request.StaffNotes))
+                    existing.StaffNotes = request.StaffNotes;
 
-            var updated = await _refundHistoryRepository.UpdateAsync(existing);
+                if (request.ProcessedByStaffId.HasValue)
+                    existing.ProcessedByStaffId = request.ProcessedByStaffId.Value;
 
-            LogInfo("Refund history updated successfully with ID: {Id}, Status: {Status}",
-                null, updated.Id, updated.Status);
+                // Automatically set transfer date when status = COMPLETED
+                if (request.Status == RefundStatus.COMPLETED && !existing.TransferDate.HasValue)
+                {
+                    existing.TransferDate = DateTime.UtcNow;
+                }
 
-            return _mapper.Map<RefundHistoryResponse>(updated);
-        }, "UpdateRefundHistoryStatus");
+                var updated = await _refundHistoryRepository.UpdateAsync(existing);
+
+                LogInfo(
+                    "Refund history updated successfully with ID: {Id}, Status: {Status}",
+                    null,
+                    updated.Id,
+                    updated.Status
+                );
+
+                return _mapper.Map<RefundHistoryResponse>(updated);
+            },
+            "UpdateRefundHistoryStatus"
+        );
     }
 
     /// <summary>
@@ -230,27 +335,32 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Deleting refund history with ID: {Id}", null, id);
-
-            var existing = await _refundHistoryRepository.GetByIdAsync(id);
-            if (existing == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                return false;
-            }
+                LogInfo("Deleting refund history with ID: {Id}", null, id);
 
-            // Only allow deletion when status = WAITING
-            if (existing.Status != RefundStatus.WAITING)
-            {
-                throw new InvalidOperationException($"Only refund histories with status WAITING can be deleted. Current status: {existing.Status}");
-            }
+                var existing = await _refundHistoryRepository.GetByIdAsync(id);
+                if (existing == null)
+                {
+                    return false;
+                }
 
-            var result = await _refundHistoryRepository.DeleteAsync(id);
+                // Only allow deletion when status = WAITING
+                if (existing.Status != RefundStatus.WAITING)
+                {
+                    throw new InvalidOperationException(
+                        $"Only refund histories with status WAITING can be deleted. Current status: {existing.Status}"
+                    );
+                }
 
-            LogInfo("Refund history deleted successfully with ID: {Id}", null, id);
-            return result;
-        }, "DeleteRefundHistory");
+                var result = await _refundHistoryRepository.DeleteAsync(id);
+
+                LogInfo("Refund history deleted successfully with ID: {Id}", null, id);
+                return result;
+            },
+            "DeleteRefundHistory"
+        );
     }
 
     /// <summary>
@@ -258,39 +368,51 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     /// </summary>
     public async Task<int> ProcessWaitingRefundsAsync()
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Processing WAITING refund histories", null);
-
-            var waitingRefunds = await _refundHistoryRepository.GetPendingProcessAsync();
-            int processedCount = 0;
-
-            foreach (var refund in waitingRefunds)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                try
-                {
-                    // Get user's default bank account
-                    var defaultBankAccount = await _bankAccountRepository.GetDefaultByUserIdAsync(refund.UserId);
-                    if (defaultBankAccount != null)
-                    {
-                        refund.Status = RefundStatus.PENDING;
-                        refund.BankAccountId = defaultBankAccount.Id;
-                        await _refundHistoryRepository.UpdateAsync(refund);
-                        processedCount++;
+                LogInfo("Processing WAITING refund histories", null);
 
-                        LogInfo("Refund history {Id} moved to PENDING with bank account {BankAccountId}",
-                            null, refund.Id, defaultBankAccount.Id);
+                var waitingRefunds = await _refundHistoryRepository.GetPendingProcessAsync();
+                int processedCount = 0;
+
+                foreach (var refund in waitingRefunds)
+                {
+                    try
+                    {
+                        // Get user's default bank account
+                        var defaultBankAccount =
+                            await _bankAccountRepository.GetDefaultByUserIdAsync(refund.UserId);
+                        if (defaultBankAccount != null)
+                        {
+                            refund.Status = RefundStatus.PENDING;
+                            refund.BankAccountId = defaultBankAccount.Id;
+                            await _refundHistoryRepository.UpdateAsync(refund);
+                            processedCount++;
+
+                            LogInfo(
+                                "Refund history {Id} moved to PENDING with bank account {BankAccountId}",
+                                null,
+                                refund.Id,
+                                defaultBankAccount.Id
+                            );
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogError(ex, "Error processing refund history {Id}", null, refund.Id);
                     }
                 }
-                catch (Exception ex)
-                {
-                    LogError(ex, "Error processing refund history {Id}", null, refund.Id);
-                }
-            }
 
-            LogInfo("Processed {Count} refund histories from WAITING to PENDING", null, processedCount);
-            return processedCount;
-        }, "ProcessWaitingRefunds");
+                LogInfo(
+                    "Processed {Count} refund histories from WAITING to PENDING",
+                    null,
+                    processedCount
+                );
+                return processedCount;
+            },
+            "ProcessWaitingRefunds"
+        );
     }
 
     /// <summary>
@@ -327,9 +449,13 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     /// <summary>
     /// Get list of refund histories by user ID with status PENDING and COMPLETED only
     /// </summary>
-    public async Task<IEnumerable<RefundHistoryResponse>> GetProcessableRefundsByUserIdAsync(Guid userId)
+    public async Task<IEnumerable<RefundHistoryResponse>> GetProcessableRefundsByUserIdAsync(
+        Guid userId
+    )
     {
-        var refundHistories = await _refundHistoryRepository.GetProcessableRefundsByUserIdAsync(userId);
+        var refundHistories = await _refundHistoryRepository.GetProcessableRefundsByUserIdAsync(
+            userId
+        );
         return _mapper.Map<IEnumerable<RefundHistoryResponse>>(refundHistories);
     }
 
@@ -338,12 +464,17 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     /// <summary>
     /// Determine refund status based on user bank account
     /// </summary>
-    private async Task<(RefundStatus status, Guid? bankAccountId)> DetermineRefundStatusAsync(Guid userId, Guid? requestedBankAccountId)
+    private async Task<(RefundStatus status, Guid? bankAccountId)> DetermineRefundStatusAsync(
+        Guid userId,
+        Guid? requestedBankAccountId
+    )
     {
         // If a specific bank account is provided
         if (requestedBankAccountId.HasValue)
         {
-            var bankAccount = await _bankAccountRepository.GetByIdAsync(requestedBankAccountId.Value);
+            var bankAccount = await _bankAccountRepository.GetByIdAsync(
+                requestedBankAccountId.Value
+            );
             if (bankAccount != null && bankAccount.UserId == userId && bankAccount.IsActive)
             {
                 return (RefundStatus.PENDING, requestedBankAccountId.Value);
@@ -366,23 +497,36 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     /// </summary>
     private static void ValidateStatusTransition(RefundStatus currentStatus, RefundStatus newStatus)
     {
+        // Allow same status transition (for updating notes/details only)
+        if (currentStatus == newStatus)
+        {
+            return;
+        }
+
         var validTransitions = new Dictionary<RefundStatus, RefundStatus[]>
         {
             [RefundStatus.WAITING] = [RefundStatus.PENDING, RefundStatus.COMPLETED],
             [RefundStatus.PENDING] = [RefundStatus.COMPLETED, RefundStatus.WAITING],
-            [RefundStatus.COMPLETED] = [] // Cannot transition from COMPLETED to another status
+            [RefundStatus.COMPLETED] =
+            [] // Cannot transition from COMPLETED to another status
+            ,
         };
 
         if (!validTransitions[currentStatus].Contains(newStatus))
         {
-            throw new InvalidOperationException($"Cannot transition from status {currentStatus} to {newStatus}");
+            throw new InvalidOperationException(
+                $"Cannot transition from status {currentStatus} to {newStatus}"
+            );
         }
     }
 
     /// <summary>
     /// Validate business rules when updating status
     /// </summary>
-    private async Task ValidateStatusUpdateAsync(RefundHistoryEntity existing, UpdateRefundHistoryStatusRequest request)
+    private async Task ValidateStatusUpdateAsync(
+        RefundHistoryEntity existing,
+        UpdateRefundHistoryStatusRequest request
+    )
     {
         switch (request.Status)
         {
@@ -390,23 +534,50 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
                 // Must have bank account when moving to PENDING
                 if (!request.BankAccountId.HasValue && !existing.BankAccountId.HasValue)
                 {
-                    throw new InvalidOperationException("Must have a bank account to move to status PENDING");
+                    throw new InvalidOperationException(
+                        "Must have a bank account to move to status PENDING"
+                    );
                 }
 
                 // Validate bank account belongs to user and is active
                 var bankAccountId = request.BankAccountId ?? existing.BankAccountId!.Value;
                 var bankAccount = await _bankAccountRepository.GetByIdAsync(bankAccountId);
-                if (bankAccount == null || bankAccount.UserId != existing.UserId || !bankAccount.IsActive)
+                if (
+                    bankAccount == null
+                    || bankAccount.UserId != existing.UserId
+                    || !bankAccount.IsActive
+                )
                 {
-                    throw new InvalidOperationException("Bank account is invalid or does not belong to user");
+                    throw new InvalidOperationException(
+                        "Bank account is invalid or does not belong to user"
+                    );
                 }
                 break;
 
             case RefundStatus.COMPLETED:
-                // Must have bank account when completing refund
-                if (!request.BankAccountId.HasValue && !existing.BankAccountId.HasValue)
+                // Check if this is a Stripe payment - no bank account required
+                var payment = await _paymentRepository.GetByIdAsync(existing.PaymentId);
+                if (payment != null)
                 {
-                    throw new InvalidOperationException("Must have a bank account to complete refund");
+                    var paymentMethod = await _paymentMethodRepository.GetByIdAsync(
+                        payment.PaymentMethodId
+                    );
+                    bool isStripePayment =
+                        paymentMethod?.Name.Equals("STRIPE", StringComparison.OrdinalIgnoreCase)
+                        ?? false;
+
+                    // Non-Stripe payment: Must have bank account when completing refund
+                    if (
+                        !isStripePayment
+                        && !request.BankAccountId.HasValue
+                        && !existing.BankAccountId.HasValue
+                    )
+                    {
+                        throw new InvalidOperationException(
+                            "Must have a bank account to complete refund"
+                        );
+                    }
+                    // Stripe payment: Bank account not required
                 }
 
                 // Transfer date will be set automatically if not provided
@@ -423,105 +594,131 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     /// Updates refund status to COMPLETED, updates payment status to REFUNDED,
     /// and sends notification to patient
     /// </summary>
-    public async Task<RefundHistoryResponse> MarkAsTransferredAsync(Guid refundHistoryId, string? staffNotes = null)
+    public async Task<RefundHistoryResponse> MarkAsTransferredAsync(
+        Guid refundHistoryId,
+        string? staffNotes = null
+    )
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            // Get existing refund history
-            var refundHistory = await _refundHistoryRepository.GetByIdAsync(refundHistoryId);
-            if (refundHistory == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new NotFoundException($"Refund history with ID {refundHistoryId} was not found");
-            }
-
-            // Validate current status
-            if (refundHistory.Status != RefundStatus.PENDING)
-            {
-                throw new InvalidOperationException($"Can only mark refunds with status PENDING as transferred. Current status: {refundHistory.Status}");
-            }
-
-            // Validate bank account exists
-            if (!refundHistory.BankAccountId.HasValue)
-            {
-                throw new InvalidOperationException("Cannot mark as transferred without bank account information");
-            }
-
-            // Get bank account details
-            var bankAccount = await _bankAccountRepository.GetByIdAsync(refundHistory.BankAccountId.Value);
-            if (bankAccount == null)
-            {
-                throw new NotFoundException("Bank account not found");
-            }
-
-            // Update refund history status
-            refundHistory.Status = RefundStatus.COMPLETED;
-            refundHistory.TransferDate = DateTime.UtcNow;
-            refundHistory.StaffNotes = staffNotes;
-            refundHistory.UpdatedAt = DateTime.UtcNow;
-
-            await _refundHistoryRepository.UpdateAsync(refundHistory);
-
-            // Update payment status to REFUNDED
-            var payment = await _paymentRepository.GetByIdAsync(refundHistory.PaymentId);
-            if (payment != null)
-            {
-                payment.Status = PaymentStatus.REFUNDED;
-                await _paymentRepository.UpdateAsync(payment);
-            }
-
-            // Get user information for notification
-            string? userEmail = null;
-            string? userPhone = null;
-            string? userFullName = null;
-
-            try
-            {
-                var userRequest = new GetUserBasicInfoRequest { Id = refundHistory.UserId.ToString() };
-                var userResponse = await _userGrpcClient.GetUserBasicInfoAsync(userRequest);
-
-                if (userResponse != null)
+                // Get existing refund history
+                var refundHistory = await _refundHistoryRepository.GetByIdAsync(refundHistoryId);
+                if (refundHistory == null)
                 {
-                    userEmail = userResponse.Email;
-                    userPhone = userResponse.Phone;
-                    userFullName = userResponse.FirstName + userResponse.LastName;
+                    throw new NotFoundException(
+                        $"Refund history with ID {refundHistoryId} was not found"
+                    );
                 }
-            }
-            catch (Exception ex)
-            {
-                LogError(ex, "Failed to get user info for userId {UserId}", "GetUserInfo", refundHistory.UserId);
-                // Continue anyway - notification handler will handle missing info
-            }
 
-            // Publish completed event for notification
-            var completedEvent = new RefundHistoryCompletedIntegrationEvent
-            {
-                RefundHistoryId = refundHistory.Id,
-                PaymentId = refundHistory.PaymentId,
-                UserId = refundHistory.UserId,
-                UserEmail = userEmail,
-                UserPhone = userPhone,
-                UserFullName = userFullName,
-                RefundAmount = refundHistory.RefundAmount,
-                BankAccountId = refundHistory.BankAccountId.Value,
-                BankAccount = new BankAccountInfo
+                // Validate current status
+                if (refundHistory.Status != RefundStatus.PENDING)
                 {
-                    BankCode = bankAccount.BankCode,
-                    BankName = bankAccount.BankName,
-                    AccountNumber = MaskAccountNumber(bankAccount.AccountNumber),
-                    AccountName = bankAccount.AccountName
-                },
-                TransferDate = refundHistory.TransferDate!.Value,
-                ProcessedByStaffId = refundHistory.ProcessedByStaffId,
-                StaffNotes = staffNotes,
-                CompletedAt = DateTime.UtcNow
-            };
+                    throw new InvalidOperationException(
+                        $"Can only mark refunds with status PENDING as transferred. Current status: {refundHistory.Status}"
+                    );
+                }
 
-            await _eventBus.PublishAsync(completedEvent);
+                // Validate bank account exists
+                if (!refundHistory.BankAccountId.HasValue)
+                {
+                    throw new InvalidOperationException(
+                        "Cannot mark as transferred without bank account information"
+                    );
+                }
 
-            LogInfo("Marked refund {RefundHistoryId} as transferred successfully", null, refundHistoryId);
+                // Get bank account details
+                var bankAccount = await _bankAccountRepository.GetByIdAsync(
+                    refundHistory.BankAccountId.Value
+                );
+                if (bankAccount == null)
+                {
+                    throw new NotFoundException("Bank account not found");
+                }
 
-            return _mapper.Map<RefundHistoryResponse>(refundHistory);
-        }, "MarkAsTransferred");
+                // Update refund history status
+                refundHistory.Status = RefundStatus.COMPLETED;
+                refundHistory.TransferDate = DateTime.UtcNow;
+                refundHistory.StaffNotes = staffNotes;
+                refundHistory.UpdatedAt = DateTime.UtcNow;
+
+                await _refundHistoryRepository.UpdateAsync(refundHistory);
+
+                // Update payment status to REFUNDED
+                var payment = await _paymentRepository.GetByIdAsync(refundHistory.PaymentId);
+                if (payment != null)
+                {
+                    payment.Status = PaymentStatus.REFUNDED;
+                    await _paymentRepository.UpdateAsync(payment);
+                }
+
+                // Get user information for notification
+                string? userEmail = null;
+                string? userPhone = null;
+                string? userFullName = null;
+
+                try
+                {
+                    var userRequest = new GetUserBasicInfoRequest
+                    {
+                        Id = refundHistory.UserId.ToString(),
+                    };
+                    var userResponse = await _userGrpcClient.GetUserBasicInfoAsync(userRequest);
+
+                    if (userResponse != null)
+                    {
+                        userEmail = userResponse.Email;
+                        userPhone = userResponse.Phone;
+                        userFullName = userResponse.FirstName + userResponse.LastName;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogError(
+                        ex,
+                        "Failed to get user info for userId {UserId}",
+                        "GetUserInfo",
+                        refundHistory.UserId
+                    );
+                    // Continue anyway - notification handler will handle missing info
+                }
+
+                // Publish completed event for notification
+                var completedEvent = new RefundHistoryCompletedIntegrationEvent
+                {
+                    RefundHistoryId = refundHistory.Id,
+                    PaymentId = refundHistory.PaymentId,
+                    UserId = refundHistory.UserId,
+                    UserEmail = userEmail,
+                    UserPhone = userPhone,
+                    UserFullName = userFullName,
+                    RefundAmount = refundHistory.RefundAmount,
+                    BankAccountId = refundHistory.BankAccountId.Value,
+                    BankAccount = new BankAccountInfo
+                    {
+                        BankCode = bankAccount.BankCode,
+                        BankName = bankAccount.BankName,
+                        AccountNumber = MaskAccountNumber(bankAccount.AccountNumber),
+                        AccountName = bankAccount.AccountName,
+                    },
+                    TransferDate = refundHistory.TransferDate!.Value,
+                    ProcessedByStaffId = refundHistory.ProcessedByStaffId,
+                    StaffNotes = staffNotes,
+                    CompletedAt = DateTime.UtcNow,
+                };
+
+                await _eventBus.PublishAsync(completedEvent);
+
+                LogInfo(
+                    "Marked refund {RefundHistoryId} as transferred successfully",
+                    null,
+                    refundHistoryId
+                );
+
+                return _mapper.Map<RefundHistoryResponse>(refundHistory);
+            },
+            "MarkAsTransferred"
+        );
     }
 
     /// <summary>
@@ -530,78 +727,95 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     /// </summary>
     public async Task ReportBankIssueAsync(Guid refundHistoryId, string issueDescription)
     {
-        await ExecuteWithErrorHandling(async () =>
-        {
-            // Get existing refund history
-            var refundHistory = await _refundHistoryRepository.GetByIdAsync(refundHistoryId);
-            if (refundHistory == null)
+        await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new NotFoundException($"Refund history with ID {refundHistoryId} was not found");
-            }
-
-            // Validate status
-            if (refundHistory.Status != RefundStatus.PENDING)
-            {
-                throw new InvalidOperationException($"Can only report issues for refunds with status PENDING. Current status: {refundHistory.Status}");
-            }
-
-            // Get bank account info if available
-            BankAccountInfo? bankAccountInfo = null;
-            if (refundHistory.BankAccountId.HasValue)
-            {
-                var bankAccount = await _bankAccountRepository.GetByIdAsync(refundHistory.BankAccountId.Value);
-                if (bankAccount != null)
+                // Get existing refund history
+                var refundHistory = await _refundHistoryRepository.GetByIdAsync(refundHistoryId);
+                if (refundHistory == null)
                 {
-                    bankAccountInfo = new BankAccountInfo
+                    throw new NotFoundException(
+                        $"Refund history with ID {refundHistoryId} was not found"
+                    );
+                }
+
+                // Validate status
+                if (refundHistory.Status != RefundStatus.PENDING)
+                {
+                    throw new InvalidOperationException(
+                        $"Can only report issues for refunds with status PENDING. Current status: {refundHistory.Status}"
+                    );
+                }
+
+                // Get bank account info if available
+                BankAccountInfo? bankAccountInfo = null;
+                if (refundHistory.BankAccountId.HasValue)
+                {
+                    var bankAccount = await _bankAccountRepository.GetByIdAsync(
+                        refundHistory.BankAccountId.Value
+                    );
+                    if (bankAccount != null)
                     {
-                        BankCode = bankAccount.BankCode,
-                        BankName = bankAccount.BankName,
-                        AccountNumber = MaskAccountNumber(bankAccount.AccountNumber),
-                        AccountName = bankAccount.AccountName
-                    };
+                        bankAccountInfo = new BankAccountInfo
+                        {
+                            BankCode = bankAccount.BankCode,
+                            BankName = bankAccount.BankName,
+                            AccountNumber = MaskAccountNumber(bankAccount.AccountNumber),
+                            AccountName = bankAccount.AccountName,
+                        };
+                    }
                 }
-            }
 
-            // Get user information for notification
-            string? userEmail = null;
-            string? userPhone = null;
+                // Get user information for notification
+                string? userEmail = null;
+                string? userPhone = null;
 
-            try
-            {
-                var userRequest = new GetUserBasicInfoRequest { Id = refundHistory.UserId.ToString() };
-                var userResponse = await _userGrpcClient.GetUserBasicInfoAsync(userRequest);
-
-                if (userResponse != null)
+                try
                 {
-                    userEmail = userResponse.Email;
-                    userPhone = userResponse.Phone;
+                    var userRequest = new GetUserBasicInfoRequest
+                    {
+                        Id = refundHistory.UserId.ToString(),
+                    };
+                    var userResponse = await _userGrpcClient.GetUserBasicInfoAsync(userRequest);
+
+                    if (userResponse != null)
+                    {
+                        userEmail = userResponse.Email;
+                        userPhone = userResponse.Phone;
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                LogError(ex, "Failed to get user info for userId {UserId}", "GetUserInfo", refundHistory.UserId);
-                // Continue anyway - notification handler will handle missing info
-            }
+                catch (Exception ex)
+                {
+                    LogError(
+                        ex,
+                        "Failed to get user info for userId {UserId}",
+                        "GetUserInfo",
+                        refundHistory.UserId
+                    );
+                    // Continue anyway - notification handler will handle missing info
+                }
 
-            // Publish bank issue event for notification
-            var issueEvent = new RefundHistoryBankIssueReportedIntegrationEvent
-            {
-                RefundHistoryId = refundHistory.Id,
-                UserId = refundHistory.UserId,
-                UserEmail = userEmail,
-                UserPhone = userPhone,
-                RefundAmount = refundHistory.RefundAmount,
-                BankAccount = bankAccountInfo,
-                IssueDescription = issueDescription,
-                ReportedAt = DateTime.UtcNow
-            };
+                // Publish bank issue event for notification
+                var issueEvent = new RefundHistoryBankIssueReportedIntegrationEvent
+                {
+                    RefundHistoryId = refundHistory.Id,
+                    UserId = refundHistory.UserId,
+                    UserEmail = userEmail,
+                    UserPhone = userPhone,
+                    RefundAmount = refundHistory.RefundAmount,
+                    BankAccount = bankAccountInfo,
+                    IssueDescription = issueDescription,
+                    ReportedAt = DateTime.UtcNow,
+                };
 
-            await _eventBus.PublishAsync(issueEvent);
+                await _eventBus.PublishAsync(issueEvent);
 
-            LogInfo("Reported bank issue for refund {RefundHistoryId}", null, refundHistoryId);
+                LogInfo("Reported bank issue for refund {RefundHistoryId}", null, refundHistoryId);
 
-            return Task.CompletedTask;
-        }, "ReportBankIssue");
+                return Task.CompletedTask;
+            },
+            "ReportBankIssue"
+        );
     }
 
     /// <summary>
@@ -626,14 +840,16 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
     {
         try
         {
-            var statusCountsDict = await _refundHistoryRepository.GetStatusCountsByHospitalAsync(hospitalId);
+            var statusCountsDict = await _refundHistoryRepository.GetStatusCountsByHospitalAsync(
+                hospitalId
+            );
 
             var counts = new RefundStatusCounts
             {
                 Waiting = statusCountsDict.GetValueOrDefault(RefundStatus.WAITING, 0),
                 Pending = statusCountsDict.GetValueOrDefault(RefundStatus.PENDING, 0),
                 Completed = statusCountsDict.GetValueOrDefault(RefundStatus.COMPLETED, 0),
-                Rejected = statusCountsDict.GetValueOrDefault(RefundStatus.REJECTED, 0)
+                Rejected = statusCountsDict.GetValueOrDefault(RefundStatus.REJECTED, 0),
             };
 
             counts.Total = counts.Waiting + counts.Pending + counts.Completed + counts.Rejected;
@@ -642,7 +858,12 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
         }
         catch (Exception ex)
         {
-            LogError(ex, "Failed to get status counts for hospitalId {HospitalId}", "GetStatusCounts", hospitalId);
+            LogError(
+                ex,
+                "Failed to get status counts for hospitalId {HospitalId}",
+                "GetStatusCounts",
+                hospitalId
+            );
             return new RefundStatusCounts();
         }
     }

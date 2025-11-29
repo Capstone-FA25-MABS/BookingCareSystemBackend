@@ -152,6 +152,7 @@ public class SubscriptionPlanService : ISubscriptionPlanService
             plan.MaxDoctors = plan.MaxDoctors == -1 ? null : plan.MaxDoctors;
             plan.MaxSpecialties = plan.MaxSpecialties == -1 ? null : plan.MaxSpecialties;
             plan.MaxAppointments = plan.MaxAppointments == -1 ? null : plan.MaxAppointments;
+            plan.MaxServices = plan.MaxServices == -1 ? null : plan.MaxServices;
 
             plan.Status = Status.ACTIVE;
             plan.CreatedAt = DateTime.Now;
@@ -208,6 +209,7 @@ public class SubscriptionPlanService : ISubscriptionPlanService
             if (request.MaxDoctors == null) existingPlan.MaxDoctors = null;
             if (request.MaxSpecialties == null) existingPlan.MaxSpecialties = null;
             if (request.MaxAppointments == null) existingPlan.MaxAppointments = null;
+            if (request.MaxServices == null) existingPlan.MaxServices = null;
 
             existingPlan.UpdatedAt = DateTime.Now;
 
@@ -332,6 +334,11 @@ public class SubscriptionPlanService : ISubscriptionPlanService
         {
             throw new InvalidSubscriptionPlanDataException("Max appointments must be non-negative");
         }
+
+        if (request.MaxServices < 0)
+        {
+            throw new InvalidSubscriptionPlanDataException("Max services must be non-negative");
+        }
     }
 
     private static void ValidatePrice(decimal price)
@@ -450,6 +457,11 @@ public class SubscriptionPlanService : ISubscriptionPlanService
         if (request.MaxAppointments.HasValue && request.MaxAppointments.Value < -1)
         {
             throw new InvalidSubscriptionPlanDataException("Max appointments value is invalid (use -1 for unlimited)");
+        }
+
+        if (request.MaxServices.HasValue && request.MaxServices.Value < -1)
+        {
+            throw new InvalidSubscriptionPlanDataException("Max services value is invalid (use -1 for unlimited)");
         }
     }
 

@@ -34,4 +34,19 @@ public interface IScheduleRepository
 
     // Available slots operations
     Task<IEnumerable<AppointmentTime>> GetAvailableSlotsAsync(Guid doctorId, DateOnly date, Guid? serviceId = null);
+
+    // ServiceMedicalDailySchedule operations
+    Task<ServiceMedicalDailyScheduleEntity?> GetServiceMedicalDailyScheduleAsync(Guid serviceMedicalId, DateOnly date);
+    Task<IEnumerable<ServiceMedicalDailyScheduleEntity>> GetServiceMedicalScheduleRangeAsync(Guid serviceMedicalId, DateOnly startDate, DateOnly endDate);
+    Task<ServiceMedicalDailyScheduleEntity> CreateOrUpdateServiceMedicalDailyScheduleAsync(ServiceMedicalDailyScheduleEntity schedule);
+    Task DeleteServiceMedicalDailyScheduleAsync(Guid serviceMedicalId, DateOnly date);
+
+    // ServiceMedicalScheduleException operations
+    Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetServiceMedicalExceptionsAsync(Guid serviceMedicalId, DateOnly date);
+    Task<IEnumerable<ServiceMedicalScheduleExceptionEntity>> GetServiceMedicalExceptionsRangeAsync(Guid serviceMedicalId, DateOnly startDate, DateOnly endDate);
+    Task<ServiceMedicalScheduleExceptionEntity> CreateServiceMedicalScheduleExceptionAsync(ServiceMedicalScheduleExceptionEntity exception);
+    Task DeleteServiceMedicalScheduleExceptionAsync(Guid id);
+
+    // Available slots for service medical operations
+    Task<IEnumerable<AppointmentTime>> GetServiceMedicalAvailableSlotsAsync(Guid serviceMedicalId, DateOnly date);
 }

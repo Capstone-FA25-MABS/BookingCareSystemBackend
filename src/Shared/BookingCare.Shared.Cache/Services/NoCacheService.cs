@@ -50,4 +50,10 @@ public class NoCacheService : ICacheService
         _logger.LogDebug("Cache is disabled. GetOrSetAsync called for key: {Key}, executing factory", key);
         return await factory();
     }
+
+    public Task<IEnumerable<string>> GetKeysByPatternAsync(string pattern)
+    {
+        _logger.LogDebug("Cache is disabled. GetKeysByPatternAsync called for pattern: {Pattern}", pattern);
+        return Task.FromResult(Enumerable.Empty<string>());
+    }
 }

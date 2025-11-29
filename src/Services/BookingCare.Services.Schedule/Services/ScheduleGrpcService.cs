@@ -1,8 +1,5 @@
 using BookingCare.Services.Schedule.Protos;
-using BookingCare.Services.Schedule.Services;
-using BookingCare.Services.Schedule.Models.DTOs;
 using Grpc.Core;
-using Microsoft.Extensions.Logging;
 using Google.Protobuf.WellKnownTypes;
 using ModelRequests = BookingCare.Services.Schedule.Models.Requests;
 

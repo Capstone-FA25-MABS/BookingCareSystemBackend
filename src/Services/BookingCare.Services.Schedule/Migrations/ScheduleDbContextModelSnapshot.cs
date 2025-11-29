@@ -144,6 +144,101 @@ namespace BookingCare.Services.Schedule.Migrations
                     b.ToTable("doctor_schedule_exceptions");
                 });
 
+            modelBuilder.Entity("BookingCare.Services.Schedule.Models.Entities.ServiceMedicalDailyScheduleEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<DateOnly>("ScheduleDate")
+                        .HasColumnType("date")
+                        .HasColumnName("schedule_date");
+
+                    b.Property<string>("SchedulePatterns")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("schedule_patterns");
+
+                    b.Property<Guid>("ServiceMedicalId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("service_medical_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleDate");
+
+                    b.HasIndex("ServiceMedicalId");
+
+                    b.HasIndex("ServiceMedicalId", "ScheduleDate")
+                        .IsUnique();
+
+                    b.ToTable("service_medical_daily_schedules");
+                });
+
+            modelBuilder.Entity("BookingCare.Services.Schedule.Models.Entities.ServiceMedicalScheduleExceptionEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<int?>("AppointmentTime")
+                        .HasColumnType("int")
+                        .HasColumnName("appointment_time");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<DateOnly>("ExceptionDate")
+                        .HasColumnType("date")
+                        .HasColumnName("exception_date");
+
+                    b.Property<string>("ExceptionType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("exception_type");
+
+                    b.Property<bool>("IsAvailable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_available");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ServiceMedicalId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("service_medical_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExceptionType");
+
+                    b.HasIndex("ServiceMedicalId", "ExceptionDate");
+
+                    b.ToTable("service_medical_schedule_exceptions");
+                });
+
             modelBuilder.Entity("BookingCare.Services.Schedule.Models.Entities.ServiceScheduleEntity", b =>
                 {
                     b.Property<Guid>("Id")

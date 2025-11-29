@@ -1,3 +1,4 @@
+using BookingCare.Services.Payment.Controllers;
 using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Handlers;
 using BookingCare.Services.Payment.Mappings;
@@ -37,6 +38,9 @@ builder.Services.Configure<VNPayConfiguration>(
 builder.Services.Configure<PayOSConfiguration>(
     builder.Configuration.GetSection("PayOSConfiguration")
 );
+builder.Services.Configure<StripeConfiguration>(
+    builder.Configuration.GetSection("StripeConfiguration")
+);
 
 // Bind Frontend options for base URL resolution
 builder.Services.Configure<FrontendOptions>(
@@ -50,15 +54,23 @@ builder.Services.AddScoped<IPayOSPaymentMappingRepository, PayOSPaymentMappingRe
 builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
 builder.Services.AddScoped<IRefundHistoryRepository, RefundHistoryRepository>();
 
+// Add refund-related wrapper classes for constructor parameter reduction
+builder.Services.AddScoped<RefundDependencies>();
+builder.Services.AddScoped<RefundProcessors>();
+
 // Add services
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 builder.Services.AddScoped<IVNPayService, VNPayService>();
 builder.Services.AddScoped<IPayOSService, PayOSService>();
+builder.Services.AddScoped<IStripeService, StripeService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
 builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
 builder.Services.AddScoped<IAppointmentDetailsService, AppointmentDetailsService>();
+
+// Add payment gateway wrapper class for constructor parameter reduction
+builder.Services.AddScoped<PaymentGatewayServices>();
 
 // Add background services
 builder.Services.AddHostedService<PayOSMappingCleanupService>();
@@ -98,16 +110,13 @@ builder.Services.AddGrpcClient<BookingCare.Services.Appointment.Protos.Appointme
 );
 
 // Add gRPC client for Hospital Subscription Service (to create/upgrade subscriptions after payment)
-builder
-    .Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient>(
-        o =>
-        {
-            var hospitalServiceUrl =
-                "http://localhost:6104";
-            o.Address = new Uri(hospitalServiceUrl);
-        }
-    );
-
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient>(
+    o =>
+    {
+        var hospitalServiceUrl = "http://localhost:6104";
+        o.Address = new Uri(hospitalServiceUrl);
+    }
+);
 
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();

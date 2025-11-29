@@ -78,5 +78,43 @@ internal static class ScheduleModelBuilderExtensions
             entity.Property(e => e.Reason).HasMaxLength(255);
             entity.HasIndex(e => new { e.ClinicId, e.ExceptionDate });
         });
+
+        // ServiceMedicalDailyScheduleEntity
+        modelBuilder.Entity<ServiceMedicalDailyScheduleEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.ServiceMedicalId).IsRequired();
+            entity.Property(e => e.ScheduleDate).IsRequired();
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql(GetDateSql);
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql(GetDateSql);
+
+            entity.Property(e => e.SchedulePatterns)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, new System.Text.Json.JsonSerializerOptions()),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<SchedulePatterns>>(v, new System.Text.Json.JsonSerializerOptions()) ?? new List<SchedulePatterns>())
+                .HasColumnType("nvarchar(max)")
+                .IsRequired();
+
+            entity.HasIndex(e => new { e.ServiceMedicalId, e.ScheduleDate }).IsUnique();
+            entity.HasIndex(e => e.ServiceMedicalId);
+            entity.HasIndex(e => e.ScheduleDate);
+        });
+
+        // ServiceMedicalScheduleExceptionEntity
+        modelBuilder.Entity<ServiceMedicalScheduleExceptionEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.ServiceMedicalId).IsRequired();
+            entity.Property(e => e.ExceptionDate).IsRequired();
+            entity.Property(e => e.ExceptionType).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(e => e.IsAvailable).HasDefaultValue(false);
+            entity.Property(e => e.Reason).HasMaxLength(255);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql(GetDateSql);
+            entity.Property(e => e.AppointmentTime).HasConversion<int>();
+            entity.HasIndex(e => new { e.ServiceMedicalId, e.ExceptionDate });
+            entity.HasIndex(e => e.ExceptionType);
+        });
     }
 }

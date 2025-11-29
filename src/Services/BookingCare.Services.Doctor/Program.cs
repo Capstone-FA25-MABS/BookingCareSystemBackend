@@ -38,6 +38,7 @@ builder.Services.AddScoped<ILanguageRepository, LanguageRepository>();
 builder.Services.AddScoped<IServiceTypeRepository, ServiceTypeRepository>();
 
 // Service registration
+builder.Services.AddScoped<BookingCare.Shared.Common.Interfaces.ILocationApiService, BookingCare.Shared.Common.Services.LocationApiService>();
 builder.Services.AddScoped<IDoctorService, DoctorService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
@@ -63,6 +64,12 @@ builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
 
 var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6104";
 builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
+{
+    options.Address = new Uri(hospitalAddress);
+});
+
+// Add gRPC client for SubscriptionUsageGrpc
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>(options =>
 {
     options.Address = new Uri(hospitalAddress);
 });

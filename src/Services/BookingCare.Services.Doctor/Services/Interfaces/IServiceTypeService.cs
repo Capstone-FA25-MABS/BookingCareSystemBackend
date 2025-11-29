@@ -20,6 +20,7 @@ public interface IServiceTypeService
 
     // Optimized methods for simple responses
     Task<List<ServiceTypeSimpleResponse>> GetActiveServiceTypesSimpleAsync();
+    Task<List<ServiceTypeSimpleResponse>> GetAllServiceTypesSimpleAsync();
 
     // Validation operations
     Task<bool> ServiceTypeExistsAsync(Guid id);

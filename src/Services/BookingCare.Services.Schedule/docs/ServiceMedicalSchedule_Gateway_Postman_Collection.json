@@ -1,0 +1,285 @@
+{
+  "info": {
+    "name": "Service Medical Schedule API (via Gateway)",
+    "description": "Collection for testing Service Medical Schedule endpoints through API Gateway",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gatewayUrl",
+      "value": "http://localhost:5001",
+      "type": "string"
+    },
+    {
+      "key": "serviceMedicalId",
+      "value": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Service Medical Schedules (via Gateway)",
+      "item": [
+        {
+          "name": "1. Create Service Medical Daily Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceMedicalId\": \"{{serviceMedicalId}}\",\n  \"scheduleDate\": \"2025-11-25\",\n  \"schedulePatterns\": [1, 2]\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedules",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedules"]
+            },
+            "description": "Create or update service medical daily schedule via API Gateway.\n\nSchedule Patterns:\n- 1 = MORNING (8:00-12:00)\n- 2 = AFTERNOON (13:00-17:00)\n- 3 = EVENING (17:00-21:00)\n- 4 = FULL_DAY (8:00-21:00)"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get Service Medical Daily Schedule",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedules/{{serviceMedicalId}}/daily/2025-11-25",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedules", "{{serviceMedicalId}}", "daily", "2025-11-25"]
+            },
+            "description": "Get service medical's schedule for a specific date via API Gateway"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get Service Medical Schedule Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedules/{{serviceMedicalId}}/range?startDate=2025-11-25&endDate=2025-11-30",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedules", "{{serviceMedicalId}}", "range"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2025-11-25"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2025-11-30"
+                }
+              ]
+            },
+            "description": "Get service medical's schedule for a date range via API Gateway"
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedules/{{serviceMedicalId}}/available-slots?date=2025-11-25",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedules", "{{serviceMedicalId}}", "available-slots"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-11-25"
+                }
+              ]
+            },
+            "description": "Get available time slots for a service medical on a specific date via API Gateway"
+          },
+          "response": []
+        },
+        {
+          "name": "5. Delete Service Medical Daily Schedule",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedules/{{serviceMedicalId}}/daily/2025-11-25",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedules", "{{serviceMedicalId}}", "daily", "2025-11-25"]
+            },
+            "description": "Delete service medical's daily schedule via API Gateway"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Service Medical Schedule Exceptions (via Gateway)",
+      "item": [
+        {
+          "name": "1. Create Exception - Block Multiple Slots",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceMedicalId\": \"{{serviceMedicalId}}\",\n  \"exceptionDate\": \"2025-11-25\",\n  \"appointmentTimes\": [1, 2, 3],\n  \"exceptionType\": 1,\n  \"isAvailable\": false,\n  \"reason\": \"Equipment maintenance\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedule-exceptions",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedule-exceptions"]
+            },
+            "description": "Create exceptions to block multiple time slots via API Gateway.\n\nException Types:\n- 1 = BLOCK_SLOT\n- 2 = UNBLOCK_SLOT\n- 3 = DAY_OFF\n- 4 = CAPACITY_CHANGE"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Create Exception - Day Off",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceMedicalId\": \"{{serviceMedicalId}}\",\n  \"exceptionDate\": \"2025-11-26\",\n  \"appointmentTimes\": null,\n  \"exceptionType\": 3,\n  \"isAvailable\": false,\n  \"reason\": \"Service not available\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedule-exceptions",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedule-exceptions"]
+            },
+            "description": "Create a day-off exception via API Gateway"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Create Exception - Unblock Slot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceMedicalId\": \"{{serviceMedicalId}}\",\n  \"exceptionDate\": \"2025-11-25\",\n  \"appointmentTimes\": [17],\n  \"exceptionType\": 2,\n  \"isAvailable\": true,\n  \"reason\": \"Extra capacity added\"\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedule-exceptions",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedule-exceptions"]
+            },
+            "description": "Create exception to unblock/reopen a time slot via API Gateway"
+          },
+          "response": []
+        },
+        {
+          "name": "4. Get Service Medical Exceptions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedule-exceptions/{{serviceMedicalId}}/2025-11-25",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedule-exceptions", "{{serviceMedicalId}}", "2025-11-25"]
+            },
+            "description": "Get all exceptions for a service medical on a specific date via API Gateway"
+          },
+          "response": []
+        },
+        {
+          "name": "5. Delete Exception",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/service-medical-schedule-exceptions/{{exceptionId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "service-medical-schedule-exceptions", "{{exceptionId}}"]
+            },
+            "description": "Delete a specific exception by ID via API Gateway"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Doctor Schedules (via Gateway)",
+      "item": [
+        {
+          "name": "1. Create Doctor Daily Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": \"{{doctorId}}\",\n  \"scheduleDate\": \"2025-11-25\",\n  \"schedulePatterns\": [1, 2]\n}"
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/doctor-schedules",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "doctor-schedules"]
+            },
+            "description": "Create or update doctor daily schedule via API Gateway"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Get Doctor Daily Schedule",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/doctor-schedules/{{doctorId}}/daily/2025-11-25",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "doctor-schedules", "{{doctorId}}", "daily", "2025-11-25"]
+            },
+            "description": "Get doctor's schedule for a specific date via API Gateway"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Get Doctor Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/v1/doctor-schedules/{{doctorId}}/available-slots?date=2025-11-25",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "v1", "doctor-schedules", "{{doctorId}}", "available-slots"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-11-25"
+                }
+              ]
+            },
+            "description": "Get available time slots for a doctor via API Gateway"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

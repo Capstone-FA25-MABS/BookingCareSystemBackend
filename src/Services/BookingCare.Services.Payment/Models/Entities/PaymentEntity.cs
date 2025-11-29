@@ -70,6 +70,14 @@ public class PaymentEntity
     public PaymentStatus Status { get; set; } = PaymentStatus.PENDING;
 
     /// <summary>
+    /// Payment Intent ID from payment gateway (Stripe, PayPal, etc.)
+    /// Used for refunds and transaction tracking
+    /// </summary>
+    [MaxLength(255)]
+    [Column("payment_intent_id")]
+    public string? PaymentIntentId { get; set; }
+
+    /// <summary>
     /// Creation time
     /// </summary>
     [Required]
