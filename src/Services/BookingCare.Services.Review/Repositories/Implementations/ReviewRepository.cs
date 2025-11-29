@@ -17,6 +17,11 @@ public class ReviewRepository : IReviewRepository
     private readonly IMongoCollection<ReviewEntity> _reviews;
     private readonly IMapper _mapper;
 
+    // MongoDB field name constants (SonarQube S1192)
+    private const string TotalReviewsField = "totalReviews";
+    private const string AverageRatingField = "averageRating";
+    private const string RatingDistributionField = "ratingDistribution";
+
     public ReviewRepository(IReviewDbContext dbContext, IMapper mapper)
     {
         _reviews = dbContext.GetCollection<ReviewEntity>("reviews");
@@ -501,8 +506,8 @@ public class ReviewRepository : IReviewRepository
             new BsonDocument
             {
                 { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
+                { AverageRatingField, new BsonDocument("$avg", "$rating") },
+                { TotalReviewsField, new BsonDocument("$sum", 1) },
             }
         );
 
@@ -513,8 +518,8 @@ public class ReviewRepository : IReviewRepository
 
         if (
             result == null
-            || !result.Contains("totalReviews")
-            || result["totalReviews"].ToInt64() == 0
+            || !result.Contains(TotalReviewsField)
+            || result[TotalReviewsField].ToInt64() == 0
         )
         {
             return new ReviewStatisticsResponse
@@ -525,10 +530,10 @@ public class ReviewRepository : IReviewRepository
             };
         }
 
-        var averageRating = result.Contains("averageRating")
-            ? result["averageRating"].ToDouble()
+        var averageRating = result.Contains(AverageRatingField)
+            ? result[AverageRatingField].ToDouble()
             : 0.0;
-        var totalReviews = result["totalReviews"].ToInt64();
+        var totalReviews = result[TotalReviewsField].ToInt64();
 
         return new ReviewStatisticsResponse
         {
@@ -558,9 +563,9 @@ public class ReviewRepository : IReviewRepository
             new BsonDocument
             {
                 { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
-                { "ratingDistribution", new BsonDocument("$push", "$rating") },
+                { AverageRatingField, new BsonDocument("$avg", "$rating") },
+                { TotalReviewsField, new BsonDocument("$sum", 1) },
+                { RatingDistributionField, new BsonDocument("$push", "$rating") },
             }
         );
 
@@ -571,8 +576,8 @@ public class ReviewRepository : IReviewRepository
 
         if (
             result == null
-            || !result.Contains("totalReviews")
-            || result["totalReviews"].ToInt64() == 0
+            || !result.Contains(TotalReviewsField)
+            || result[TotalReviewsField].ToInt64() == 0
         )
         {
             return new ReviewDetailedStatisticsResponse
@@ -584,13 +589,13 @@ public class ReviewRepository : IReviewRepository
             };
         }
 
-        var averageRating = result.Contains("averageRating")
-            ? result["averageRating"].ToDouble()
+        var averageRating = result.Contains(AverageRatingField)
+            ? result[AverageRatingField].ToDouble()
             : 0.0;
-        var totalReviews = result["totalReviews"].ToInt64();
+        var totalReviews = result[TotalReviewsField].ToInt64();
 
         // Calculate rating distribution
-        var ratings = result["ratingDistribution"].AsBsonArray.Select(r => r.ToInt32()).ToList();
+        var ratings = result[RatingDistributionField].AsBsonArray.Select(r => r.ToInt32()).ToList();
         var ratingDistribution = new Dictionary<int, long>();
 
         for (int i = 1; i <= 5; i++)
@@ -630,8 +635,8 @@ public class ReviewRepository : IReviewRepository
             new BsonDocument
             {
                 { "_id", "$doctorId" },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
+                { AverageRatingField, new BsonDocument("$avg", "$rating") },
+                { TotalReviewsField, new BsonDocument("$sum", 1) },
             }
         );
 
@@ -653,10 +658,10 @@ public class ReviewRepository : IReviewRepository
             {
                 foundDoctorIds.Add(doctorId);
 
-                var averageRating = result.Contains("averageRating")
-                    ? result["averageRating"].ToDouble()
+                var averageRating = result.Contains(AverageRatingField)
+                    ? result[AverageRatingField].ToDouble()
                     : 0.0;
-                var totalReviews = result["totalReviews"].ToInt64();
+                var totalReviews = result[TotalReviewsField].ToInt64();
 
                 response.DoctorStatistics[doctorId] = new ReviewStatisticsResponse
                 {
@@ -707,8 +712,8 @@ public class ReviewRepository : IReviewRepository
             new BsonDocument
             {
                 { "_id", "$serviceId" },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
+                { AverageRatingField, new BsonDocument("$avg", "$rating") },
+                { TotalReviewsField, new BsonDocument("$sum", 1) },
             }
         );
 
@@ -730,10 +735,10 @@ public class ReviewRepository : IReviewRepository
             {
                 foundServiceIds.Add(serviceId);
 
-                var averageRating = result.Contains("averageRating")
-                    ? result["averageRating"].ToDouble()
+                var averageRating = result.Contains(AverageRatingField)
+                    ? result[AverageRatingField].ToDouble()
                     : 0.0;
-                var totalReviews = result["totalReviews"].ToInt64();
+                var totalReviews = result[TotalReviewsField].ToInt64();
 
                 response.ServiceStatistics[serviceId] = new ReviewStatisticsResponse
                 {
@@ -783,8 +788,8 @@ public class ReviewRepository : IReviewRepository
             new BsonDocument
             {
                 { "_id", "$hospitalId" },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
+                { AverageRatingField, new BsonDocument("$avg", "$rating") },
+                { TotalReviewsField, new BsonDocument("$sum", 1) },
             }
         );
 
@@ -806,10 +811,10 @@ public class ReviewRepository : IReviewRepository
             {
                 foundHospitalIds.Add(hospitalId);
 
-                var averageRating = result.Contains("averageRating")
-                    ? result["averageRating"].ToDouble()
+                var averageRating = result.Contains(AverageRatingField)
+                    ? result[AverageRatingField].ToDouble()
                     : 0.0;
-                var totalReviews = result["totalReviews"].ToInt64();
+                var totalReviews = result[TotalReviewsField].ToInt64();
 
                 response.HospitalStatistics[hospitalId] = new ReviewStatisticsResponse
                 {
@@ -820,18 +825,15 @@ public class ReviewRepository : IReviewRepository
             }
         }
 
-        // Add hospitals that don't have reviews with 0 values
-        foreach (var hospitalId in hospitalIds)
+        // Add hospitals that don't have reviews with 0 values (Fix S3267: Use LINQ Where)
+        foreach (var hospitalId in hospitalIds.Where(id => !foundHospitalIds.Contains(id)))
         {
-            if (!foundHospitalIds.Contains(hospitalId))
+            response.HospitalStatistics[hospitalId] = new ReviewStatisticsResponse
             {
-                response.HospitalStatistics[hospitalId] = new ReviewStatisticsResponse
-                {
-                    TargetId = hospitalId,
-                    AverageRating = 0.0,
-                    TotalReviews = 0,
-                };
-            }
+                TargetId = hospitalId,
+                AverageRating = 0.0,
+                TotalReviews = 0,
+            };
         }
 
         return response;
@@ -878,14 +880,14 @@ public class ReviewRepository : IReviewRepository
                             new BsonDocument
                             {
                                 { "_id", BsonNull.Value },
-                                { "averageRating", new BsonDocument("$avg", "$rating") },
-                                { "totalReviews", new BsonDocument("$sum", 1) },
+                                { AverageRatingField, new BsonDocument("$avg", "$rating") },
+                                { TotalReviewsField, new BsonDocument("$sum", 1) },
                             }
                         ),
                     }
                 },
                 {
-                    "ratingDistribution",
+                    RatingDistributionField,
                     new BsonArray
                     {
                         new BsonDocument(
@@ -926,7 +928,7 @@ public class ReviewRepository : IReviewRepository
         }
 
         var statistics = result["statistics"].AsBsonArray;
-        var ratingDistributionArray = result["ratingDistribution"].AsBsonArray;
+        var ratingDistributionArray = result[RatingDistributionField].AsBsonArray;
 
         double averageRating = 0.0;
         long totalReviews = 0;
@@ -934,10 +936,10 @@ public class ReviewRepository : IReviewRepository
         if (statistics.Count > 0)
         {
             var statsDoc = statistics[0].AsBsonDocument;
-            averageRating = statsDoc.Contains("averageRating")
-                ? statsDoc["averageRating"].ToDouble()
+            averageRating = statsDoc.Contains(AverageRatingField)
+                ? statsDoc[AverageRatingField].ToDouble()
                 : 0.0;
-            totalReviews = statsDoc["totalReviews"].ToInt64();
+            totalReviews = statsDoc[TotalReviewsField].ToInt64();
         }
 
         var ratingDistribution = new Dictionary<int, long>
@@ -949,9 +951,9 @@ public class ReviewRepository : IReviewRepository
             { 5, 0 },
         };
 
-        foreach (var item in ratingDistributionArray)
+        // Fix S3267: Use LINQ Select instead of foreach loop
+        foreach (var doc in ratingDistributionArray.Select(item => item.AsBsonDocument))
         {
-            var doc = item.AsBsonDocument;
             var rating = doc["_id"].ToInt32();
             var count = doc["count"].ToInt64();
             ratingDistribution[rating] = count;
