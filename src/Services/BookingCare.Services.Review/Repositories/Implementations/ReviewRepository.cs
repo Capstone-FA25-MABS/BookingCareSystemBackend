@@ -328,6 +328,36 @@ public class ReviewRepository : IReviewRepository
     }
 
     /// <summary>
+    /// Generic method to get average rating by a single field (without targetType filter)
+    /// Used for hospital reviews where we filter by hospitalId only
+    /// </summary>
+    private async Task<double> GetAverageRatingByFieldAsync(string fieldName, string fieldValue)
+    {
+        var matchStage = new BsonDocument("$match", new BsonDocument { { fieldName, fieldValue } });
+
+        var groupStage = new BsonDocument(
+            "$group",
+            new BsonDocument
+            {
+                { "_id", BsonNull.Value },
+                { "averageRating", new BsonDocument("$avg", "$rating") },
+            }
+        );
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var result = await cursor.FirstOrDefaultAsync();
+
+        if (result != null && result.Contains("averageRating"))
+        {
+            return result["averageRating"].ToDouble();
+        }
+
+        return 0.0;
+    }
+
+    /// <summary>
     /// Gets the total count of reviews for a doctor
     /// </summary>
     public async Task<long> GetReviewCountByDoctorAsync(Guid doctorId)
@@ -438,6 +468,60 @@ public class ReviewRepository : IReviewRepository
             "$match",
             new BsonDocument { { targetIdField, targetIdValue }, { "targetType", targetType } }
         );
+
+        var groupStage = new BsonDocument(
+            "$group",
+            new BsonDocument
+            {
+                { "_id", BsonNull.Value },
+                { "averageRating", new BsonDocument("$avg", "$rating") },
+                { "totalReviews", new BsonDocument("$sum", 1) },
+            }
+        );
+
+        var pipeline = new[] { matchStage, groupStage };
+
+        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
+        var result = await cursor.FirstOrDefaultAsync();
+
+        if (
+            result == null
+            || !result.Contains("totalReviews")
+            || result["totalReviews"].ToInt64() == 0
+        )
+        {
+            return new ReviewStatisticsResponse
+            {
+                TargetId = targetId,
+                AverageRating = 0.0,
+                TotalReviews = 0,
+            };
+        }
+
+        var averageRating = result.Contains("averageRating")
+            ? result["averageRating"].ToDouble()
+            : 0.0;
+        var totalReviews = result["totalReviews"].ToInt64();
+
+        return new ReviewStatisticsResponse
+        {
+            TargetId = targetId,
+            AverageRating = Math.Round(averageRating, 2),
+            TotalReviews = totalReviews,
+        };
+    }
+
+    /// <summary>
+    /// Generic method to get statistics by a single field (without targetType filter)
+    /// Used for hospital reviews where we filter by hospitalId only
+    /// </summary>
+    private async Task<ReviewStatisticsResponse> GetStatisticsByFieldAsync(
+        string fieldName,
+        string fieldValue,
+        Guid targetId
+    )
+    {
+        var matchStage = new BsonDocument("$match", new BsonDocument { { fieldName, fieldValue } });
 
         var groupStage = new BsonDocument(
             "$group",
@@ -785,31 +869,7 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     private async Task<double> GetAverageRatingByHospitalIdAsync(Guid hospitalId)
     {
-        var matchStage = new BsonDocument(
-            "$match",
-            new BsonDocument { { "hospitalId", hospitalId.ToString() } }
-        );
-
-        var groupStage = new BsonDocument(
-            "$group",
-            new BsonDocument
-            {
-                { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-            }
-        );
-
-        var pipeline = new[] { matchStage, groupStage };
-
-        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
-        var result = await cursor.FirstOrDefaultAsync();
-
-        if (result != null && result.Contains("averageRating"))
-        {
-            return result["averageRating"].ToDouble();
-        }
-
-        return 0.0;
+        return await GetAverageRatingByFieldAsync("hospitalId", hospitalId.ToString());
     }
 
     /// <summary>
@@ -817,51 +877,7 @@ public class ReviewRepository : IReviewRepository
     /// </summary>
     private async Task<ReviewStatisticsResponse> GetStatisticsByHospitalIdAsync(Guid hospitalId)
     {
-        var matchStage = new BsonDocument(
-            "$match",
-            new BsonDocument { { "hospitalId", hospitalId.ToString() } }
-        );
-
-        var groupStage = new BsonDocument(
-            "$group",
-            new BsonDocument
-            {
-                { "_id", BsonNull.Value },
-                { "averageRating", new BsonDocument("$avg", "$rating") },
-                { "totalReviews", new BsonDocument("$sum", 1) },
-            }
-        );
-
-        var pipeline = new[] { matchStage, groupStage };
-
-        var cursor = await _reviews.AggregateAsync<BsonDocument>(pipeline);
-        var result = await cursor.FirstOrDefaultAsync();
-
-        if (
-            result == null
-            || !result.Contains("totalReviews")
-            || result["totalReviews"].ToInt64() == 0
-        )
-        {
-            return new ReviewStatisticsResponse
-            {
-                TargetId = hospitalId,
-                AverageRating = 0.0,
-                TotalReviews = 0,
-            };
-        }
-
-        var averageRating = result.Contains("averageRating")
-            ? result["averageRating"].ToDouble()
-            : 0.0;
-        var totalReviews = result["totalReviews"].ToInt64();
-
-        return new ReviewStatisticsResponse
-        {
-            TargetId = hospitalId,
-            AverageRating = Math.Round(averageRating, 2),
-            TotalReviews = totalReviews,
-        };
+        return await GetStatisticsByFieldAsync("hospitalId", hospitalId.ToString(), hospitalId);
     }
 
     /// <summary>
