@@ -235,13 +235,13 @@
       ],
       "UpstreamPathTemplate": "/api/hubs/{everything}",
       "UpstreamHttpMethod": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS"
-      ]
-    },
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+              ]
+            },
     {
       "DownstreamPathTemplate": "/api/v1/hospitals/{everything}",
       "DownstreamScheme": "http",
@@ -483,7 +483,7 @@
         //"AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
-    },
+            },
     {
       "DownstreamPathTemplate": "/chatHub/{everything}",
       "DownstreamScheme": "http",
@@ -734,13 +734,13 @@
       ],
       "UpstreamPathTemplate": "/api/noti-hubs/{everything}",
       "UpstreamHttpMethod": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS"
-      ]
-    },
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+              ]
+            },
     {
       "DownstreamPathTemplate": "/api/v{version}/payments/{everything}",
       "DownstreamScheme": "http",
@@ -784,7 +784,7 @@
         //         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
-    },
+            },
     {
       "DownstreamPathTemplate": "/api/v{version}/payos/{everything}",
       "DownstreamScheme": "http",

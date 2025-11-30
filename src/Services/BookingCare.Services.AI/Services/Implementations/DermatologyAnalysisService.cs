@@ -2,13 +2,10 @@ using System.Text;
 using System.Text.Json;
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Exceptions;
+using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
-using BookingCare.Services.Doctor.Protos;
-using BookingCare.Services.Hospital;
-using BookingCare.Shared.FileUpload.Models;
-using BookingCare.Shared.FileUpload.Services;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
@@ -22,39 +19,38 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
     private readonly ILogger<DermatologyAnalysisService> _logger;
     private readonly HttpClient _httpClient;
     private readonly AILabToolsConfiguration _aiLabToolsConfig;
-    private readonly GeminiConfiguration _geminiConfig;
-    private readonly IMemoryCache _cache;
-    private readonly DoctorService.DoctorServiceClient _doctorClient;
-    private readonly HospitalService.HospitalServiceClient _hospitalClient;
     private readonly IConversationSessionService _sessionService;
-    private readonly IFileUploadService _fileUploadService;
-    private readonly IGeminiService _geminiService;
+    private readonly GeminiApiHelper _geminiApiHelper;
+    private readonly ServiceGeminiConfiguration _serviceConfig;
+    private readonly IMemoryCache _cache;
+    private readonly RecommendationHelper _recommendationHelper;
+    private readonly FileUploadHelper _fileUploadHelper;
 
-    private const int MAX_DOCTOR_RECOMMENDATIONS = 10;
-    private const int MAX_HOSPITAL_RECOMMENDATIONS = 5;
+    private const string CACHE_KEY_PREFIX = "gemini_disease_translation_";
+    private static readonly TimeSpan TranslationCacheDuration = TimeSpan.FromDays(30);
+    private static readonly TimeSpan ConclusionCacheDuration = TimeSpan.FromDays(7);
+    private static readonly TimeSpan AdviceCacheDuration = TimeSpan.FromDays(7);
 
     public DermatologyAnalysisService(
         ILogger<DermatologyAnalysisService> logger,
         HttpClient httpClient,
         IOptions<AILabToolsConfiguration> aiLabToolsConfig,
-        IOptions<GeminiConfiguration> geminiConfig,
-        IMemoryCache cache,
-        DoctorService.DoctorServiceClient doctorClient,
-        HospitalService.HospitalServiceClient hospitalClient,
         IConversationSessionService sessionService,
-        IFileUploadService fileUploadService,
-        IGeminiService geminiService)
+        GeminiApiHelper geminiApiHelper,
+        IOptions<GeminiServicesConfiguration> geminiServicesConfig,
+        IMemoryCache cache,
+        RecommendationHelper recommendationHelper,
+        FileUploadHelper fileUploadHelper)
     {
         _logger = logger;
         _httpClient = httpClient;
         _aiLabToolsConfig = aiLabToolsConfig.Value;
-        _geminiConfig = geminiConfig.Value;
-        _cache = cache;
-        _doctorClient = doctorClient;
-        _hospitalClient = hospitalClient;
         _sessionService = sessionService;
-        _fileUploadService = fileUploadService;
-        _geminiService = geminiService;
+        _geminiApiHelper = geminiApiHelper;
+        _serviceConfig = geminiServicesConfig.Value.DermatologyAnalysis;
+        _cache = cache;
+        _recommendationHelper = recommendationHelper;
+        _fileUploadHelper = fileUploadHelper;
 
         // Configure HttpClient timeout
         _httpClient.Timeout = TimeSpan.FromSeconds(_aiLabToolsConfig.RequestTimeoutSeconds);
@@ -78,7 +74,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             _logger.LogInformation("Using session {SessionId}", actualSessionId);
 
             // Step 2: Upload image to S3
-            var imageUrl = await UploadToS3Async(file, userId);
+            var imageUrl = await _fileUploadHelper.UploadToS3Async(file, userId, "dermatology");
             _logger.LogInformation("Uploaded image to {ImageUrl}", imageUrl);
 
             // Step 3: Analyze with AILabTools API
@@ -88,10 +84,11 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             // Step 4: Map to response model
             var response = MapToResponse(actualSessionId, imageUrl, aiLabToolsResult);
 
-            // Step 5: Get doctor and hospital recommendations
+            // Step 5: Get doctor and hospital recommendations (parallel)
             var dermatologySpecialty = new List<string> { "Da liễu", "Dermatology" };
-            response.RecommendedDoctors = await GetDoctorRecommendationsAsync(dermatologySpecialty, location);
-            response.RecommendedHospitals = await GetHospitalRecommendationsAsync(dermatologySpecialty, location);
+            var (doctors, hospitals) = await _recommendationHelper.GetRecommendationsAsync(dermatologySpecialty, location);
+            response.RecommendedDoctors = doctors;
+            response.RecommendedHospitals = hospitals;
 
             // Step 6: Save to session
             await SaveDermatologyAnalysisAsync(actualSessionId, userId, file.FileName, imageUrl, response, location);
@@ -105,51 +102,6 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             throw new SymptomAnalysisException("Failed to analyze dermatology image", ex);
         }
     }
-
-    #region S3 Upload
-
-    private async Task<string> UploadToS3Async(IFormFile file, Guid? userId)
-    {
-        try
-        {
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-            var folder = $"uploads/ai/dermatology/{userId}/{timestamp}";
-
-            using var stream = file.OpenReadStream();
-            var uploadRequest = new FileUploadRequest
-            {
-                FileName = file.FileName,
-                FileStream = stream,
-                ContentType = file.ContentType,
-                Folder = folder,
-                GenerateUniqueFileName = true,
-                Metadata = new Dictionary<string, string>
-                {
-                    { "user-id", userId?.ToString() ?? "anonymous" },
-                    { "upload-timestamp", timestamp },
-                    { "file-type", "dermatology" }
-                }
-            };
-
-            var result = await _fileUploadService.UploadFileAsync(uploadRequest);
-
-            if (result.Success)
-            {
-                _logger.LogInformation("File uploaded successfully to S3. CloudFront URL: {Url}", result.CloudFrontUrl);
-                return result.CloudFrontUrl ?? result.FileUrl ?? string.Empty;
-            }
-
-            _logger.LogError("Failed to upload file to S3: {Error}", result.ErrorMessage);
-            throw new InvalidOperationException($"Failed to upload file to S3: {result.ErrorMessage}");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error uploading file to S3");
-            throw;
-        }
-    }
-
-    #endregion
 
     #region AILabTools API Integration
 
@@ -167,7 +119,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             var url = $"{_aiLabToolsConfig.ApiBaseUrl}/api/portrait/analysis/skin-disease-detection";
 
             using var formData = new MultipartFormDataContent();
-            
+
             // Add image file
             using var fileStream = file.OpenReadStream();
             var fileContent = new StreamContent(fileStream);
@@ -203,7 +155,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
         try
         {
             _logger.LogInformation("Parsing AILabTools response: {Response}", responseJson);
-            
+
             var jsonDoc = JsonDocument.Parse(responseJson);
             var root = jsonDoc.RootElement;
 
@@ -218,7 +170,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             // Check error_code (not "code")
             if (root.TryGetProperty("error_code", out var errorCode) && errorCode.GetInt32() == 0)
             {
-                if (root.TryGetProperty("data", out var data) && 
+                if (root.TryGetProperty("data", out var data) &&
                     data.TryGetProperty("results_english", out var resultsEnglish))
                 {
                     // results_english is an object with disease names as keys and confidence as values
@@ -244,9 +196,9 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
                         // Determine malignancy risk based on disease name and confidence
                         var diseaseNameLower = topDiseaseName.ToLower();
-                        
+
                         // High-risk conditions (melanoma, carcinoma, etc.)
-                        if (diseaseNameLower.Contains("melanoma") || 
+                        if (diseaseNameLower.Contains("melanoma") ||
                             diseaseNameLower.Contains("carcinoma") ||
                             diseaseNameLower.Contains("cancer") ||
                             diseaseNameLower.Contains("malignant"))
@@ -261,7 +213,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                             diagnosis.Severity = "Nặng";
                         }
                         // Medium-risk conditions
-                        else if (diseaseNameLower.Contains("keratosis") || 
+                        else if (diseaseNameLower.Contains("keratosis") ||
                                  diseaseNameLower.Contains("nevus") ||
                                  diseaseNameLower.Contains("mole") ||
                                  diseaseNameLower.Contains("wart"))
@@ -312,14 +264,14 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                         errorMessage = msg.GetString() ?? errorMessage;
                     }
                 }
-                
-                var actualErrorCode = root.TryGetProperty("error_code", out var errorCodeProp) 
-                    ? errorCodeProp.GetInt32() 
+
+                var actualErrorCode = root.TryGetProperty("error_code", out var errorCodeProp)
+                    ? errorCodeProp.GetInt32()
                     : -1;
-                
-                _logger.LogError("AILabTools API returned error. Code: {Code}, Message: {Message}, Full Response: {Response}", 
+
+                _logger.LogError("AILabTools API returned error. Code: {Code}, Message: {Message}, Full Response: {Response}",
                     actualErrorCode, errorMessage, responseJson);
-                
+
                 throw new InvalidOperationException($"AILabTools API returned error (code: {actualErrorCode}): {errorMessage}");
             }
 
@@ -329,11 +281,11 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                 if (!string.IsNullOrEmpty(diagnosis.ConditionName))
                 {
                     _logger.LogInformation("Generating general advice for: {DiseaseName}", diagnosis.ConditionName);
-                    var adviceText = await _geminiService.GenerateGeneralAdviceAsync(
+                    var adviceText = await GenerateGeneralAdviceAsync(
                         diagnosis.ConditionName,
                         diagnosis.Severity ?? "Nhẹ"
                     );
-                    
+
                     // Parse advice text into list (split by newlines or bullet points)
                     var generatedAdvice = adviceText
                         .Split('\n')
@@ -342,7 +294,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                         .Distinct() // Remove duplicates
                         .Take(5) // Limit to 5 advice items
                         .ToList();
-                    
+
                     if (generatedAdvice.Count > 0)
                     {
                         advice.AddRange(generatedAdvice);
@@ -365,19 +317,19 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             string? detailedConclusion = null;
             try
             {
-                if (!string.IsNullOrEmpty(diagnosis.ConditionName) && 
-                    !string.IsNullOrEmpty(diagnosis.Severity) && 
+                if (!string.IsNullOrEmpty(diagnosis.ConditionName) &&
+                    !string.IsNullOrEmpty(diagnosis.Severity) &&
                     !string.IsNullOrEmpty(malignancyRisk.RiskCategory))
                 {
                     _logger.LogInformation("Generating detailed conclusion for: {DiseaseName}", diagnosis.ConditionName);
-                    detailedConclusion = await _geminiService.GenerateDermatologyConclusionAsync(
+                    detailedConclusion = await GenerateDermatologyConclusionAsync(
                         diagnosis.ConditionName,
                         diagnosis.Confidence,
                         diagnosis.Severity,
                         malignancyRisk.RiskCategory
                     );
-                    
-                    _logger.LogInformation("Successfully generated detailed conclusion. Length: {Length} characters", 
+
+                    _logger.LogInformation("Successfully generated detailed conclusion. Length: {Length} characters",
                         detailedConclusion?.Length ?? 0);
                 }
                 else
@@ -389,7 +341,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to generate detailed conclusion for {DiseaseName}. Will use fallback.", diagnosis.ConditionName);
-                
+
                 // Use fallback conclusion
                 detailedConclusion = $@"## Thông tin về {diagnosis.ConditionName}
 
@@ -449,158 +401,7 @@ Tổn thương được đánh giá ở mức độ **{diagnosis.Severity}** v�
         };
     }
 
-    #endregion
 
-    #region Doctor and Hospital Recommendations
-
-    private async Task<List<DoctorRecommendation>> GetDoctorRecommendationsAsync(
-        List<string> specialtyNames,
-        LocationContext? location)
-    {
-        try
-        {
-            var specialtyIds = await MatchSpecialtiesToIdsAsync(specialtyNames);
-            if (specialtyIds.Count == 0)
-            {
-                _logger.LogWarning("No specialty IDs found for dermatology");
-                return new List<DoctorRecommendation>();
-            }
-
-            var request = new FilterDoctorsForRecommendationRequest
-            {
-                MaxResults = MAX_DOCTOR_RECOMMENDATIONS * 2
-            };
-            request.SpecialtyIds.AddRange(specialtyIds.Select(id => id.ToString()));
-
-            if (location != null && !string.IsNullOrEmpty(location.ProvinceId))
-            {
-                request.ProvinceId = location.ProvinceId;
-            }
-
-            var response = await _doctorClient.FilterDoctorsForRecommendationAsync(request);
-
-            return response.Doctors
-                .Select(x => new { Doctor = x, Score = CalculateDoctorScore(x, location) })
-                .OrderByDescending(x => x.Score)
-                .Take(MAX_DOCTOR_RECOMMENDATIONS)
-                .Select(x => new DoctorRecommendation
-                {
-                    Id = x.Doctor.Id,
-                    Name = x.Doctor.FullName,
-                    SpecialtyName = x.Doctor.SpecialtyName,
-                    HospitalName = x.Doctor.HospitalName,
-                    Rating = x.Doctor.Rating,
-                    YearOfExperience = x.Doctor.YearsOfExperience,
-                    ServiceTypeName = x.Doctor.ServiceTypeName,
-                    Price = x.Doctor.ConsultationFee > 0 ? $"{x.Doctor.ConsultationFee:N0} VNĐ" : null,
-                    AvatarUrl = x.Doctor.AvatarUrl,
-                    RecommendationScore = x.Score
-                })
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting doctor recommendations");
-            return new List<DoctorRecommendation>();
-        }
-    }
-
-    private async Task<List<HospitalRecommendation>> GetHospitalRecommendationsAsync(
-        List<string> specialtyNames,
-        LocationContext? location)
-    {
-        try
-        {
-            var specialtyIds = await MatchSpecialtiesToIdsAsync(specialtyNames);
-            if (specialtyIds.Count == 0) return new List<HospitalRecommendation>();
-
-            var allHospitals = new List<HospitalReply>();
-
-            foreach (var specialtyId in specialtyIds.Take(3))
-            {
-                try
-                {
-                    var request = new GetHospitalsBySpecialtyRequest
-                    {
-                        SpecialtyId = specialtyId.ToString()
-                    };
-                    var response = await _hospitalClient.GetHospitalsBySpecialtyAsync(request);
-                    allHospitals.AddRange(response.Hospitals);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error getting hospitals for specialty {SpecialtyId}", specialtyId);
-                }
-            }
-
-            return allHospitals
-                .GroupBy(h => h.Id)
-                .Select(g => g.First())
-                .Select(h => new HospitalRecommendation
-                {
-                    Id = h.Id,
-                    Name = h.Name,
-                    Address = h.Address,
-                    SpecialtyNames = specialtyNames,
-                    ImageUrl = h.AvatarUrl,
-                    RecommendationScore = CalculateHospitalScore(h, location)
-                })
-                .OrderByDescending(h => h.RecommendationScore)
-                .Take(MAX_HOSPITAL_RECOMMENDATIONS)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting hospital recommendations");
-            return new List<HospitalRecommendation>();
-        }
-    }
-
-    private async Task<List<Guid>> MatchSpecialtiesToIdsAsync(List<string> specialtyNames)
-    {
-        var specialtyIds = new List<Guid>();
-
-        try
-        {
-            var request = new GetAllSpecialtiesRequest();
-            var response = await _doctorClient.GetAllSpecialtiesAsync(request);
-
-            foreach (var specialtyName in specialtyNames)
-            {
-                var match = response.Specialties.FirstOrDefault(s =>
-                    s.Name.Equals(specialtyName, StringComparison.OrdinalIgnoreCase) ||
-                    s.Name.Contains(specialtyName, StringComparison.OrdinalIgnoreCase) ||
-                    specialtyName.Contains(s.Name, StringComparison.OrdinalIgnoreCase));
-
-                if (match != null)
-                {
-                    specialtyIds.Add(Guid.Parse(match.Id));
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error matching specialties to IDs");
-        }
-
-        return specialtyIds;
-    }
-
-    private double CalculateDoctorScore(DoctorRecommendationInfo doctor, LocationContext? location)
-    {
-        double score = 0;
-        if (location != null && !string.IsNullOrEmpty(location.ProvinceId)) score += 0.4;
-        score += (doctor.Rating / 5.0) * 0.3;
-        score += Math.Min(doctor.YearsOfExperience / 20.0, 1.0) * 0.1;
-        return score;
-    }
-
-    private double CalculateHospitalScore(HospitalReply hospital, LocationContext? location)
-    {
-        double score = 0.5; // Base score
-        // Can be enhanced with location matching, ratings, etc.
-        return score;
-    }
 
     #endregion
 
@@ -664,7 +465,7 @@ Tổn thương được đánh giá ở mức độ **{diagnosis.Severity}** v�
         {
             messageBuilder.AppendLine($"**Chẩn đoán khả năng:** {response.Diagnosis.ConditionName}");
             messageBuilder.AppendLine($"**Độ tin cậy:** {response.Diagnosis.Confidence:P0}");
-            
+
             if (!string.IsNullOrEmpty(response.Diagnosis.Severity))
             {
                 messageBuilder.AppendLine($"**Mức độ nghiêm trọng:** {response.Diagnosis.Severity}");
@@ -732,19 +533,260 @@ Tổn thương được đánh giá ở mức độ **{diagnosis.Severity}** v�
         try
         {
             // Use Gemini AI to translate disease name
-            var vietnameseName = await _geminiService.TranslateDiseaseNameAsync(englishName);
+            var vietnameseName = await TranslateDiseaseNameAsync(englishName);
             return vietnameseName;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to translate disease name using Gemini AI: {DiseaseName}", englishName);
-            
+
             // Fallback: return the English name with proper capitalization
             return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
                 englishName.ToLower().Replace("_", " ")
             );
         }
     }
+
+    #region Gemini AI Helper Methods
+
+    /// <summary>
+    /// Translate disease name from English to Vietnamese with medical context
+    /// </summary>
+    private async Task<string> TranslateDiseaseNameAsync(
+        string englishDiseaseName,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Check cache first
+            var cacheKey = $"{CACHE_KEY_PREFIX}{englishDiseaseName.ToLower()}";
+            if (_cache.TryGetValue<string>(cacheKey, out var cachedTranslation))
+            {
+                _logger.LogInformation("Using cached translation for: {DiseaseName}", englishDiseaseName);
+                return cachedTranslation!;
+            }
+
+            _logger.LogInformation("Translating disease name: {DiseaseName}", englishDiseaseName);
+
+            var prompt = $@"Bạn là một chuyên gia y khoa. Hãy dịch tên bệnh da liễu sau từ tiếng Anh sang tiếng Việt.
+Chỉ trả về tên bệnh bằng tiếng Việt, không giải thích thêm.
+
+Tên bệnh (tiếng Anh): {englishDiseaseName}
+
+Lưu ý:
+- Nếu là tên bệnh chuyên môn, hãy dùng thuật ngữ y khoa tiếng Việt chính xác
+- Nếu không có thuật ngữ tiếng Việt phổ biến, hãy giữ nguyên tên tiếng Anh
+- Trả về ngắn gọn, chỉ tên bệnh
+
+Tên bệnh (tiếng Việt):";
+
+            var translation = await GenerateTextAsync(prompt, temperature: 0.1, cancellationToken);
+
+            // Clean up the translation (remove quotes, extra whitespace, etc.)
+            translation = translation.Trim().Trim('"', '\'', '.', ',');
+
+            // Cache the translation
+            _cache.Set(cacheKey, translation, TranslationCacheDuration);
+
+            _logger.LogInformation("Translated '{English}' to '{Vietnamese}'", englishDiseaseName, translation);
+
+            return translation;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error translating disease name: {DiseaseName}", englishDiseaseName);
+
+            // Fallback: return the English name with proper capitalization
+            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
+                englishDiseaseName.ToLower().Replace("_", " ")
+            );
+        }
+    }
+
+    /// <summary>
+    /// Generate detailed medical conclusion for dermatology diagnosis (500-800 words)
+    /// </summary>
+    private async Task<string> GenerateDermatologyConclusionAsync(
+        string diseaseName,
+        double confidence,
+        string severity,
+        string riskCategory,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Check cache first
+            var cacheKey = $"gemini_conclusion_{diseaseName.ToLower()}_{severity}_{riskCategory}";
+            if (_cache.TryGetValue<string>(cacheKey, out var cachedConclusion))
+            {
+                _logger.LogInformation("Using cached conclusion for: {DiseaseName}", diseaseName);
+                return cachedConclusion!;
+            }
+
+            _logger.LogInformation("Generating detailed conclusion for: {DiseaseName}", diseaseName);
+
+            var confidencePercent = (confidence * 100).ToString("F0");
+
+            var prompt = $@"Bạn là một bác sĩ da liễu chuyên nghiệp. Hãy viết một kết luận y khoa chi tiết về bệnh da liễu sau đây.
+
+THÔNG TIN CHẨN ĐOÁN:
+- Tên bệnh: {diseaseName}
+- Độ tin cậy: {confidencePercent}%
+- Mức độ nghiêm trọng: {severity}
+- Nguy cơ ác tính: {riskCategory}
+
+YÊU CẦU:
+1. Viết bằng tiếng Việt, dùng thuật ngữ y khoa chính xác nhưng dễ hiểu
+2. Độ dài: 500-800 từ
+3. Chia thành các sections sau (dùng markdown headers):
+
+## Mô tả bệnh
+- Giải thích bệnh là gì
+- Đặc điểm nhận dạng trên da
+- Tần suất gặp
+
+## Nguyên nhân
+- Các nguyên nhân chính gây bệnh
+- Yếu tố nguy cơ
+- Cơ chế bệnh sinh (nếu có)
+
+## Triệu chứng
+- Các triệu chứng điển hình
+- Dấu hiệu cần chú ý
+- Biến chứng có thể xảy ra
+
+## Điều trị
+- Phương pháp điều trị chính
+- Thuốc thường dùng (nếu có)
+- Thời gian điều trị dự kiến
+- Lưu ý khi điều trị
+
+## Tiên lượng
+- Khả năng khỏi bệnh
+- Nguy cơ tái phát
+- Các biện pháp phòng ngừa
+
+LƯU Ý:
+- Không đưa ra chẩn đoán chắc chắn, chỉ cung cấp thông tin tham khảo
+- Nhấn mạnh cần đến gặp bác sĩ da liễu để được thăm khám trực tiếp
+- Viết theo phong cách chuyên nghiệp nhưng dễ hiểu cho người bệnh
+- Không dùng bullet points quá nhiều, ưu tiên viết thành đoạn văn
+
+Hãy viết kết luận chi tiết:";
+
+            var conclusion = await GenerateTextAsync(prompt, temperature: 0.4, cancellationToken);
+
+            // Cache the conclusion for 7 days
+            _cache.Set(cacheKey, conclusion, ConclusionCacheDuration);
+
+            _logger.LogInformation("Generated conclusion for '{DiseaseName}': Length={Length} characters",
+                diseaseName, conclusion.Length);
+
+            return conclusion;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating dermatology conclusion for: {DiseaseName}", diseaseName);
+
+            // Fallback: return a basic conclusion
+            return $@"## Thông tin về {diseaseName}
+
+Dựa trên phân tích hình ảnh, tổn thương da có khả năng là {diseaseName} với độ tin cậy {(confidence * 100):F0}%.
+
+**Lưu ý quan trọng:** Đây chỉ là kết quả phân tích sơ bộ từ hình ảnh. Để có chẩn đoán chính xác và phương pháp điều trị phù hợp, bạn cần đến gặp bác sĩ da liễu để được thăm khám trực tiếp.
+
+Bác sĩ sẽ:
+- Khám lâm sàng chi tiết
+- Đánh giá toàn diện tình trạng da
+- Có thể chỉ định các xét nghiệm cần thiết
+- Đưa ra phương án điều trị phù hợp với tình trạng cụ thể của bạn
+
+Vui lòng không tự ý điều trị mà hãy tìm đến các cơ sở y tế uy tín để được tư vấn và điều trị đúng cách.";
+        }
+    }
+
+    /// <summary>
+    /// Generate general advice for a specific skin condition (3-5 bullet points)
+    /// </summary>
+    private async Task<string> GenerateGeneralAdviceAsync(
+        string diseaseName,
+        string severity,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Check cache first
+            var cacheKey = $"gemini_advice_{diseaseName.ToLower()}_{severity}";
+            if (_cache.TryGetValue<string>(cacheKey, out var cachedAdvice))
+            {
+                _logger.LogInformation("Using cached advice for: {DiseaseName}", diseaseName);
+                return cachedAdvice!;
+            }
+
+            _logger.LogInformation("Generating general advice for: {DiseaseName}", diseaseName);
+
+            var prompt = $@"Bạn là một bác sĩ da liễu. Hãy đưa ra 3-5 lời khuyên chăm sóc da cụ thể cho bệnh nhân bị {diseaseName} (mức độ: {severity}).
+
+YÊU CẦU:
+- Viết bằng tiếng Việt
+- Mỗi lời khuyên là một câu ngắn gọn, dễ hiểu
+- Tập trung vào: vệ sinh da, chế độ ăn uống, sinh hoạt, điều cần tránh
+- Phù hợp với mức độ nghiêm trọng {severity}
+- Không đưa ra lời khuyên về thuốc cụ thể
+- Mỗi lời khuyên trên một dòng, bắt đầu bằng dấu gạch ngang (-)
+
+Ví dụ format:
+- Giữ vệ sinh da sạch sẽ, rửa mặt 2 lần/ngày
+- Tránh chạm tay vào vùng da bị tổn thương
+- Sử dụng kem chống nắng SPF 30+ khi ra ngoài
+
+Hãy đưa ra 3-5 lời khuyên cho {diseaseName}:";
+
+            var advice = await GenerateTextAsync(prompt, temperature: 0.3, cancellationToken);
+
+            // Cache the advice for 7 days
+            _cache.Set(cacheKey, advice, AdviceCacheDuration);
+
+            _logger.LogInformation("Generated advice for '{DiseaseName}'", diseaseName);
+
+            return advice;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating general advice for: {DiseaseName}", diseaseName);
+
+            // Fallback: return generic advice
+            return @"- Theo dõi tổn thương da và đến gặp bác sĩ nếu có thay đổi
+- Giữ vệ sinh da sạch sẽ
+- Tránh tiếp xúc trực tiếp với ánh nắng mặt trời";
+        }
+    }
+
+    /// <summary>
+    /// Generate text using Gemini AI with custom prompt
+    /// </summary>
+    private async Task<string> GenerateTextAsync(
+        string prompt,
+        double temperature = 0.3,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _geminiApiHelper.CallGeminiApiAsync(
+                prompt,
+                _serviceConfig,
+                temperature: temperature,
+                maxOutputTokens: null, // Use default from common config
+                cancellationToken: cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calling Gemini API");
+            throw;
+        }
+    }
+
+    #endregion
 
     #endregion
 

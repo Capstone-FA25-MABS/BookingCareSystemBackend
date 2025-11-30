@@ -2,13 +2,10 @@ using System.Text;
 using System.Text.Json;
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Exceptions;
+using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
-using BookingCare.Services.Doctor.Protos;
-using BookingCare.Services.Hospital;
-using BookingCare.Shared.FileUpload.Models;
-using BookingCare.Shared.FileUpload.Services;
 using Docnet.Core;
 using Docnet.Core.Models;
 using Microsoft.Extensions.Options;
@@ -19,35 +16,29 @@ namespace BookingCare.Services.AI.Services.Implementations;
 public class LabResultAnalysisService : ILabResultAnalysisService
 {
     private readonly ILogger<LabResultAnalysisService> _logger;
-    private readonly HttpClient _httpClient;
-    private readonly GeminiConfiguration _geminiConfig;
-    private readonly DoctorService.DoctorServiceClient _doctorClient;
-    private readonly BookingCare.Services.Hospital.HospitalService.HospitalServiceClient _hospitalClient;
+    private readonly GeminiApiHelper _geminiApiHelper;
+    private readonly ServiceGeminiConfiguration _serviceConfig;
     private readonly IConversationSessionService _sessionService;
-    private readonly IFileUploadService _fileUploadService;
+    private readonly RecommendationHelper _recommendationHelper;
+    private readonly FileUploadHelper _fileUploadHelper;
     private readonly string _tesseractDataPath;
     private readonly string _tesseractLanguage;
 
-    private const int MAX_DOCTOR_RECOMMENDATIONS = 10;
-    private const int MAX_HOSPITAL_RECOMMENDATIONS = 5;
-
     public LabResultAnalysisService(
         ILogger<LabResultAnalysisService> logger,
-        HttpClient httpClient,
-        IOptions<GeminiConfiguration> geminiConfig,
-        DoctorService.DoctorServiceClient doctorClient,
-        BookingCare.Services.Hospital.HospitalService.HospitalServiceClient hospitalClient,
+        GeminiApiHelper geminiApiHelper,
+        IOptions<GeminiServicesConfiguration> geminiServicesConfig,
         IConversationSessionService sessionService,
-        IFileUploadService fileUploadService,
+        RecommendationHelper recommendationHelper,
+        FileUploadHelper fileUploadHelper,
         IConfiguration configuration)
     {
         _logger = logger;
-        _httpClient = httpClient;
-        _geminiConfig = geminiConfig.Value;
-        _doctorClient = doctorClient;
-        _hospitalClient = hospitalClient;
+        _geminiApiHelper = geminiApiHelper;
+        _serviceConfig = geminiServicesConfig.Value.LabResultAnalysis;
         _sessionService = sessionService;
-        _fileUploadService = fileUploadService;
+        _recommendationHelper = recommendationHelper;
+        _fileUploadHelper = fileUploadHelper;
         _tesseractDataPath = configuration["Tesseract:DataPath"] ?? "tessdata";
         _tesseractLanguage = configuration["Tesseract:Language"] ?? "vie+eng";
     }
@@ -65,7 +56,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             var actualSessionId = await _sessionService.GetOrCreateSessionAsync(sessionId, userId ?? Guid.Empty, location);
             _logger.LogInformation("Using session {SessionId}", actualSessionId);
 
-            var imageUrl = await UploadToS3Async(file, userId);
+            var imageUrl = await _fileUploadHelper.UploadToS3Async(file, userId, "lab-results");
             _logger.LogInformation("Uploaded image to {ImageUrl}", imageUrl);
 
             var extractedText = await ExtractTextFromImageAsync(file);
@@ -74,8 +65,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             var aiAnalysis = await AnalyzeWithGeminiAsync(extractedText);
             _logger.LogInformation("Gemini analysis completed");
 
-            var doctors = await GetDoctorRecommendationsAsync(aiAnalysis.Specialties, location);
-            var hospitals = await GetHospitalRecommendationsAsync(aiAnalysis.Specialties, location);
+            var (doctors, hospitals) = await _recommendationHelper.GetRecommendationsAsync(aiAnalysis.Specialties, location);
 
             var response = new LabResultAnalysisResponse
             {
@@ -102,51 +92,12 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
-    private async Task<string> UploadToS3Async(IFormFile file, Guid? userId)
-    {
-        try
-        {
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-            var folder = $"uploads/ai/lab-results/{userId}/{timestamp}";
 
-            using var stream = file.OpenReadStream();
-            var uploadRequest = new FileUploadRequest
-            {
-                FileName = file.FileName,
-                FileStream = stream,
-                ContentType = file.ContentType,
-                Folder = folder,
-                GenerateUniqueFileName = true,
-                Metadata = new Dictionary<string, string>
-                {
-                    { "user-id", userId?.ToString() ?? "anonymous" },
-                    { "upload-timestamp", timestamp },
-                    { "file-type", "lab-result" }
-                }
-            };
-
-            var result = await _fileUploadService.UploadFileAsync(uploadRequest);
-
-            if (result.Success)
-            {
-                _logger.LogInformation("File uploaded successfully to S3. CloudFront URL: {Url}", result.CloudFrontUrl);
-                return result.CloudFrontUrl ?? result.FileUrl ?? string.Empty;
-            }
-
-            _logger.LogError("Failed to upload file to S3: {Error}", result.ErrorMessage);
-            throw new InvalidOperationException($"Failed to upload file to S3: {result.ErrorMessage}");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error uploading file to S3");
-            throw;
-        }
-    }
 
     private async Task<string> ExtractTextFromImageAsync(IFormFile file)
     {
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        
+
         if (extension == ".pdf")
         {
             return await ExtractTextFromPdfAsync(file);
@@ -161,11 +112,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
         var extractedTexts = new List<string>();
-        
+
         try
         {
             _logger.LogInformation("Starting PDF OCR extraction from file: {FileName}", file.FileName);
-            
+
             // Save PDF to temp
             using (var stream = new FileStream(tempPdfPath, FileMode.Create))
             {
@@ -174,21 +125,21 @@ public class LabResultAnalysisService : ILabResultAnalysisService
 
             // Load PDF using Docnet
             using var docReader = DocLib.Instance.GetDocReader(tempPdfPath, new PageDimensions(1920, 1920));
-            
+
             // Process each page (limit to first 10 pages)
             var pageCount = Math.Min(docReader.GetPageCount(), 10);
             _logger.LogInformation("Processing {PageCount} pages from PDF", pageCount);
-            
+
             for (int i = 0; i < pageCount; i++)
             {
                 using var pageReader = docReader.GetPageReader(i);
                 var rawBytes = pageReader.GetImage();
                 var width = pageReader.GetPageWidth();
                 var height = pageReader.GetPageHeight();
-                
+
                 // Save page as PNG
                 var tempImagePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.png");
-                
+
                 try
                 {
                     // Convert raw bytes to PNG
@@ -198,18 +149,18 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                             new System.Drawing.Rectangle(0, 0, width, height),
                             System.Drawing.Imaging.ImageLockMode.WriteOnly,
                             image.PixelFormat);
-                        
+
                         System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, bitmapData.Scan0, rawBytes.Length);
                         image.UnlockBits(bitmapData);
-                        
+
                         image.Save(tempImagePath, System.Drawing.Imaging.ImageFormat.Png);
                     }
-                    
+
                     // OCR the image
                     using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
                     using var img = Pix.LoadFromFile(tempImagePath);
                     using var ocrPage = engine.Process(img);
-                    
+
                     var pageText = ocrPage.GetText();
                     if (!string.IsNullOrWhiteSpace(pageText))
                     {
@@ -225,14 +176,14 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                     }
                 }
             }
-            
+
             var combinedText = string.Join("\n\n", extractedTexts);
-            
+
             if (string.IsNullOrWhiteSpace(combinedText))
             {
                 throw new InvalidOperationException("Không thể trích xuất văn bản từ PDF. Vui lòng đảm bảo PDF chứa văn bản rõ ràng.");
             }
-            
+
             _logger.LogInformation("PDF OCR extraction completed. Total {Length} characters from {PageCount} pages", combinedText.Length, extractedTexts.Count);
             return combinedText;
         }
@@ -258,7 +209,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
 
             // Save file to temporary location
             var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(file.FileName));
-            
+
             try
             {
                 using (var stream = new FileStream(tempFilePath, FileMode.Create))
@@ -270,17 +221,17 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
                 using var img = Pix.LoadFromFile(tempFilePath);
                 using var page = engine.Process(img);
-                
+
                 var extractedText = page.GetText();
-                
+
                 _logger.LogInformation("Image OCR extraction completed. Extracted {Length} characters", extractedText.Length);
-                
+
                 if (string.IsNullOrWhiteSpace(extractedText))
                 {
                     _logger.LogWarning("OCR extracted empty text from image");
                     throw new InvalidOperationException("Không thể trích xuất văn bản từ ảnh. Vui lòng đảm bảo ảnh chứa văn bản rõ ràng.");
                 }
-                
+
                 return extractedText;
             }
             finally
@@ -303,7 +254,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     {
         var prompt = BuildAnalysisPrompt(extractedText);
         var geminiResponse = await CallGeminiApiAsync(prompt);
-        return ParseGeminiResponse(geminiResponse);
+        return await ParseGeminiResponseAsync(geminiResponse);
     }
 
     private string BuildAnalysisPrompt(string extractedText)
@@ -347,53 +298,15 @@ public class LabResultAnalysisService : ILabResultAnalysisService
 
     private async Task<string> CallGeminiApiAsync(string prompt)
     {
-        if (string.IsNullOrEmpty(_geminiConfig.ApiKey))
-        {
-            throw new InvalidOperationException("Gemini API key is not configured");
-        }
-
-        var modelsToTry = new[] { "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash" };
-        var apiVersions = new[] { "v1beta", "v1" };
-        Exception? lastException = null;
-
-        foreach (var apiVersion in apiVersions)
-        {
-            foreach (var model in modelsToTry)
-            {
-                try
-                {
-                    var url = $"{_geminiConfig.ApiEndpoint}/{apiVersion}/models/{model}:generateContent?key={_geminiConfig.ApiKey}";
-
-                    var requestBody = new
-                    {
-                        contents = new[] { new { parts = new[] { new { text = prompt } } } },
-                        generationConfig = new { temperature = 0.3, maxOutputTokens = 8192, topP = 0.95, topK = 40 }
-                    };
-
-                    var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-                    var response = await _httpClient.PostAsync(url, jsonContent);
-                    response.EnsureSuccessStatusCode();
-
-                    var responseBody = await response.Content.ReadAsStringAsync();
-                    var jsonResponse = JsonDocument.Parse(responseBody);
-
-                    var text = jsonResponse.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
-
-                    _logger.LogInformation("Successfully called Gemini API with {Model}", model);
-                    return text ?? string.Empty;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Failed with {ApiVersion}/{Model}", apiVersion, model);
-                    lastException = ex;
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Failed to call Gemini API. Last error: {lastException?.Message}", lastException);
+        return await _geminiApiHelper.CallGeminiApiAsync(
+            prompt,
+            _serviceConfig,
+            temperature: null, // Use default from common config
+            maxOutputTokens: null, // Use default from common config
+            cancellationToken: default);
     }
 
-    private GeminiLabAnalysis ParseGeminiResponse(string geminiResponse)
+    private async Task<GeminiLabAnalysis> ParseGeminiResponseAsync(string geminiResponse)
     {
         try
         {
@@ -452,7 +365,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
 
                     var specialtyMatches = specialtyNames.Count > 0
                         ? ConvertToSpecialtyMatches(specialtyNames, diagnosis, name)
-                        : InferSpecialtiesFromDiagnosis(diagnosis, name);
+                        : await InferSpecialtiesFromDiagnosisAsync(diagnosis, name);
 
                     analysis.AbnormalIndicators.Add(new AbnormalLabIndicator
                     {
@@ -518,29 +431,27 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         return matches;
     }
 
-    private List<SpecialtyMatch> InferSpecialtiesFromDiagnosis(string diagnosis, string indicatorName)
+    private async Task<List<SpecialtyMatch>> InferSpecialtiesFromDiagnosisAsync(string diagnosis, string indicatorName)
     {
         var specialties = new List<SpecialtyMatch>();
         var combinedText = $"{diagnosis} {indicatorName}".ToLower();
 
-        // Fetch all specialties from database
+        // Fetch all specialties from database using RecommendationHelper (with caching)
         List<string> allSpecialtyNames;
         try
         {
-            var request = new GetAllSpecialtiesRequest();
-            var response = _doctorClient.GetAllSpecialtiesAsync(request).GetAwaiter().GetResult();
-            allSpecialtyNames = response.Specialties.Select(s => s.Name).ToList();
+            allSpecialtyNames = await _recommendationHelper.GetAllSpecialtyNamesAsync();
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to fetch specialties from database, using fallback");
             // Fallback to default specialty
-            specialties.Add(new SpecialtyMatch 
-            { 
-                SpecialtyName = "Nội tổng quát", 
-                Confidence = 0.6, 
-                Urgency = "NORMAL", 
-                Reasons = new List<string> { "Đánh giá tổng quát" } 
+            specialties.Add(new SpecialtyMatch
+            {
+                SpecialtyName = "Nội tổng quát",
+                Confidence = 0.6,
+                Urgency = "NORMAL",
+                Reasons = new List<string> { "Đánh giá tổng quát" }
             });
             return specialties;
         }
@@ -666,149 +577,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     }
 
 
-    private async Task<List<DoctorRecommendation>> GetDoctorRecommendationsAsync(List<string> specialties, LocationContext? location)
-    {
-        if (specialties.Count == 0) return new List<DoctorRecommendation>();
 
-        try
-        {
-            var specialtyIds = await MatchSpecialtiesToIdsAsync(specialties);
-            if (specialtyIds.Count == 0) return new List<DoctorRecommendation>();
-
-            var request = new FilterDoctorsForRecommendationRequest { MaxResults = MAX_DOCTOR_RECOMMENDATIONS * 2 };
-            request.SpecialtyIds.AddRange(specialtyIds.Select(id => id.ToString()));
-
-            if (location != null && !string.IsNullOrEmpty(location.ProvinceId))
-            {
-                request.ProvinceId = location.ProvinceId;
-            }
-
-            var response = await _doctorClient.FilterDoctorsForRecommendationAsync(request);
-
-            return response.Doctors
-                .Select(x => new { Doctor = x, Score = CalculateDoctorScore(x, location) })
-                .OrderByDescending(x => x.Score)
-                .Take(MAX_DOCTOR_RECOMMENDATIONS)
-                .Select(x => new DoctorRecommendation
-                {
-                    Id = x.Doctor.Id,
-                    Name = x.Doctor.FullName,
-                    SpecialtyName = x.Doctor.SpecialtyName,
-                    HospitalName = x.Doctor.HospitalName,
-                    Rating = x.Doctor.Rating,
-                    YearOfExperience = x.Doctor.YearsOfExperience,
-                    ServiceTypeName = x.Doctor.ServiceTypeName,
-                    Price = x.Doctor.ConsultationFee > 0 ? $"{x.Doctor.ConsultationFee:N0} VNĐ" : null,
-                    AvatarUrl = x.Doctor.AvatarUrl,
-                    RecommendationScore = x.Score
-                })
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting doctor recommendations");
-            return new List<DoctorRecommendation>();
-        }
-    }
-
-    private async Task<List<HospitalRecommendation>> GetHospitalRecommendationsAsync(List<string> specialties, LocationContext? location)
-    {
-        if (specialties.Count == 0) return new List<HospitalRecommendation>();
-
-        try
-        {
-            var specialtyIds = await MatchSpecialtiesToIdsAsync(specialties);
-            if (specialtyIds.Count == 0) return new List<HospitalRecommendation>();
-
-            var allHospitals = new List<HospitalReply>();
-
-            foreach (var specialtyId in specialtyIds.Take(3))
-            {
-                try
-                {
-                    var request = new GetHospitalsBySpecialtyRequest { SpecialtyId = specialtyId.ToString() };
-                    var response = await _hospitalClient.GetHospitalsBySpecialtyAsync(request);
-                    allHospitals.AddRange(response.Hospitals);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error getting hospitals for specialty {SpecialtyId}", specialtyId);
-                }
-            }
-
-            return allHospitals
-                .GroupBy(h => h.Id)
-                .Select(g => g.First())
-                .Select(h => new HospitalRecommendation
-                {
-                    Id = h.Id,
-                    Name = h.Name,
-                    Address = h.Address,
-                    SpecialtyNames = specialties,
-                    ImageUrl = h.AvatarUrl,
-                    RecommendationScore = CalculateHospitalScore(h, location)
-                })
-                .OrderByDescending(h => h.RecommendationScore)
-                .Take(MAX_HOSPITAL_RECOMMENDATIONS)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting hospital recommendations");
-            return new List<HospitalRecommendation>();
-        }
-    }
-
-    private async Task<List<Guid>> MatchSpecialtiesToIdsAsync(List<string> specialtyNames)
-    {
-        var specialtyIds = new List<Guid>();
-
-        try
-        {
-            var request = new GetAllSpecialtiesRequest();
-            var response = await _doctorClient.GetAllSpecialtiesAsync(request);
-
-            foreach (var specialtyName in specialtyNames)
-            {
-                var match = response.Specialties.FirstOrDefault(s =>
-                    s.Name.Equals(specialtyName, StringComparison.OrdinalIgnoreCase) ||
-                    s.Name.Contains(specialtyName, StringComparison.OrdinalIgnoreCase) ||
-                    specialtyName.Contains(s.Name, StringComparison.OrdinalIgnoreCase));
-
-                if (match != null)
-                {
-                    specialtyIds.Add(Guid.Parse(match.Id));
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error matching specialties to IDs");
-        }
-
-        return specialtyIds;
-    }
-
-    private double CalculateDoctorScore(DoctorRecommendationInfo doctor, LocationContext? location)
-    {
-        double score = 0;
-        if (location != null && !string.IsNullOrEmpty(location.ProvinceId)) score += 0.4;
-        score += (doctor.Rating / 5.0) * 0.3;
-        score += Math.Min(doctor.YearsOfExperience / 20.0, 1.0) * 0.1;
-        return score;
-    }
-
-    private double CalculateHospitalScore(HospitalReply hospital, LocationContext? location)
-    {
-        double score = 0.5;
-        if (location != null && !string.IsNullOrEmpty(location.DisplayName))
-        {
-            var address = hospital.Address?.ToLowerInvariant() ?? "";
-            var locationName = location.DisplayName.ToLowerInvariant();
-            if (address.Contains(locationName)) score += 0.5;
-        }
-        return score;
-    }
 
     private async Task SaveLabResultAnalysisAsync(Guid sessionId, Guid? userId, string fileName, string imageUrl, LabResultAnalysisResponse response, LocationContext? location)
     {

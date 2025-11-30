@@ -25,7 +25,7 @@ public interface ISymptomAnalysisService
     Task<List<ConversationMessage>> GetConversationHistoryAsync(Guid sessionId);
 
     /// <summary>
-    /// Get all conversation sessions for a user
+    /// Get all conversation sessions for a user 
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <returns>List of session summaries</returns>

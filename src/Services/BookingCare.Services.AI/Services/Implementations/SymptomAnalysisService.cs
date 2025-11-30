@@ -2,12 +2,10 @@ using System.Text;
 using System.Text.Json;
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Exceptions;
+using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
-using BookingCare.Services.Doctor.Protos;
-using BookingCare.Services.Hospital;
-using Grpc.Core;
 using Microsoft.Extensions.Options;
 
 namespace BookingCare.Services.AI.Services.Implementations;
@@ -19,30 +17,27 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 {
     private readonly IConversationSessionService _sessionService;
     private readonly ILogger<SymptomAnalysisService> _logger;
-    private readonly HttpClient _httpClient;
-    private readonly GeminiConfiguration _geminiConfig;
-    private readonly DoctorService.DoctorServiceClient _doctorClient;
-    private readonly BookingCare.Services.Hospital.HospitalService.HospitalServiceClient _hospitalClient;
+    private readonly GeminiApiHelper _geminiApiHelper;
+    private readonly ServiceGeminiConfiguration _serviceConfig;
+    private readonly GeminiConfiguration _commonConfig;
+    private readonly RecommendationHelper _recommendationHelper;
 
-    private const int MAX_QUESTIONS = 3;
-    private const int MAX_DOCTOR_RECOMMENDATIONS = 10;
-    private const int MAX_HOSPITAL_RECOMMENDATIONS = 5;
-    private const string SafetyThreshold = "BLOCK_MEDIUM_AND_ABOVE";
+    private const int MAX_QUESTIONS = 6; // Support extended consultation: 3 initial + 3 additional questions
 
     public SymptomAnalysisService(
         IConversationSessionService sessionService,
         ILogger<SymptomAnalysisService> logger,
-        HttpClient httpClient,
-        IOptions<GeminiConfiguration> geminiConfig,
-        DoctorService.DoctorServiceClient doctorClient,
-        BookingCare.Services.Hospital.HospitalService.HospitalServiceClient hospitalClient)
+        GeminiApiHelper geminiApiHelper,
+        IOptions<GeminiServicesConfiguration> geminiServicesConfig,
+        IOptions<GeminiConfiguration> commonConfig,
+        RecommendationHelper recommendationHelper)
     {
         _sessionService = sessionService;
         _logger = logger;
-        _httpClient = httpClient;
-        _geminiConfig = geminiConfig.Value;
-        _doctorClient = doctorClient;
-        _hospitalClient = hospitalClient;
+        _geminiApiHelper = geminiApiHelper;
+        _serviceConfig = geminiServicesConfig.Value.SymptomAnalysis;
+        _commonConfig = commonConfig.Value;
+        _recommendationHelper = recommendationHelper;
     }
 
     public async Task<SymptomAnalysisResponse> AnalyzeSymptomsAsync(SymptomAnalysisRequest request)
@@ -61,16 +56,63 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             var conversationHistory = request.ConversationHistory ?? new List<ConversationMessage>();
 
             // Step 2: Count how many questions AI has asked so far
-            int questionCount = CountAIQuestions(conversationHistory);
-            _logger.LogInformation("Question count: {QuestionCount}/{MaxQuestions}", questionCount, MAX_QUESTIONS);
+            int totalQuestions = CountAIQuestions(conversationHistory);
+            _logger.LogInformation("Total questions asked: {TotalQuestions}", totalQuestions);
+            _logger.LogInformation("Conversation history count: {Count}", conversationHistory.Count);
 
-            // Step 3: Determine mode (asking or conclusion)
-            bool isAskingMode = questionCount < MAX_QUESTIONS;
+            // Step 3: Determine if we're in conclusion mode
+            // Conclusion mode triggers when we've completed 3 questions in a round
+            // totalQuestions = 3 (after Q1, Q2, Q3) → first conclusion (Round 1)
+            // totalQuestions = 6 (after Q4, Q5, Q6) → second conclusion (Round 2)
+            bool isConclusionMode = (totalQuestions % 3) == 0 && totalQuestions > 0 && totalQuestions <= 6;
 
-            // Step 4: Build prompt for Gemini
-            string prompt = isAskingMode
-                ? BuildAskingModePrompt(request.Message, conversationHistory)
-                : BuildConclusionModePrompt(request.Message, conversationHistory);
+            // Step 4: Calculate current round and question number
+            // For conclusion mode: round is based on COMPLETED rounds
+            // For asking mode: round is based on CURRENT round in progress
+            int currentRound;
+            int questionInRound;
+
+            if (isConclusionMode)
+            {
+                // At conclusion: totalQuestions = 3 → Round 1, totalQuestions = 6 → Round 2
+                currentRound = totalQuestions / 3; // 3/3=1, 6/3=2
+                questionInRound = 3; // Always 3 at conclusion
+            }
+            else
+            {
+                // During asking: calculate which round and question we're on
+                // IMPORTANT: totalQuestions includes both questions AND conclusions
+                // Pattern: Q1, Q2, Q3, Conclusion (4 messages per round)
+                // We need to subtract conclusions to get actual question count
+                int numConclusions = totalQuestions / 4; // 0-3→0, 4-7→1, 8+→2
+                int actualQuestions = totalQuestions - numConclusions;
+
+                currentRound = (actualQuestions / 3) + 1; // 0-2→1, 3-5→2
+                questionInRound = (actualQuestions % 3) + 1; // 0→1, 1→2, 2→3
+
+                // Examples:
+                // totalQuestions=0: numConclusions=0, actualQuestions=0, round=1, question=1 ✓
+                // totalQuestions=1: numConclusions=0, actualQuestions=1, round=1, question=2 ✓
+                // totalQuestions=2: numConclusions=0, actualQuestions=2, round=1, question=3 ✓
+                // totalQuestions=4: numConclusions=1, actualQuestions=3, round=2, question=1 ✓ (after Round 1 conclusion)
+                // totalQuestions=5: numConclusions=1, actualQuestions=4, round=2, question=2 ✓
+                // totalQuestions=6: numConclusions=1, actualQuestions=5, round=2, question=3 ✓
+            }
+
+            _logger.LogInformation(
+                "🔍 DEBUG - Round: {Round}, QuestionInRound: {QuestionInRound}, TotalQuestions: {TotalQuestions}, IsConclusionMode: {IsConclusionMode}",
+                currentRound, questionInRound, totalQuestions, isConclusionMode);
+
+            // Step 4: Build prompt for Gemini (pre-fetch specialty list for conclusion mode)
+            Task<string>? specialtyListTask = null;
+            if (isConclusionMode)
+            {
+                specialtyListTask = _recommendationHelper.GetSpecialtyListTextAsync();
+            }
+
+            string prompt = isConclusionMode
+                ? await BuildConclusionModePromptAsync(request.Message, conversationHistory, specialtyListTask!)
+                : BuildAskingModePrompt(request.Message, conversationHistory);
 
             // Step 5: Call Gemini API
             string geminiResponse = await CallGeminiApiAsync(prompt);
@@ -78,16 +120,22 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             // Step 6: Parse response
             SymptomAnalysisResponse response;
-            if (isAskingMode)
+            if (isConclusionMode)
             {
-                response = ParseAskingModeResponse(geminiResponse, sessionId, questionCount);
+                response = await ParseConclusionModeResponse(
+                    geminiResponse,
+                    sessionId,
+                    currentRound,
+                    questionInRound,
+                    totalQuestions,
+                    request.Location);
             }
             else
             {
-                response = await ParseConclusionModeResponse(geminiResponse, sessionId, questionCount, request.Location);
+                response = ParseAskingModeResponse(geminiResponse, sessionId, questionInRound);
             }
 
-            // Step 7: Save conversation to database
+            // Step 7: Prepare data for saving and return response (save in background)
             object? suggestions = null;
             object? disease = null;
 
@@ -110,17 +158,27 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 }
             }
 
-            await _sessionService.SaveConversationHistoryAsync(
-                sessionId: sessionId,
-                userMessage: request.Message,
-                aiMessage: response.Message,
-                location: request.Location,
-                suggestions: suggestions,
-                userId: request.UserId,
-                disease: disease,
-                questionCount: response.QuestionCount,
-                analysisComplete: response.AnalysisComplete
-            );
+            // Save conversation to database
+            // Changed from fire-and-forget to awaited to ensure data is saved properly
+            try
+            {
+                await _sessionService.SaveConversationHistoryAsync(
+                    sessionId: sessionId,
+                    userMessage: request.Message,
+                    aiMessage: response.Message,
+                    location: request.Location,
+                    suggestions: suggestions,
+                    userId: request.UserId,
+                    disease: disease,
+                    questionCount: response.QuestionCount,
+                    analysisComplete: response.AnalysisComplete
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving conversation for session {SessionId}", sessionId);
+                // Don't throw - saving conversation failure shouldn't break the flow
+            }
 
             _logger.LogInformation("Symptom analysis completed successfully for session {SessionId}", sessionId);
             return response;
@@ -205,7 +263,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// <summary>
     /// Build prompt for conclusion mode (= 3 questions)
     /// </summary>
-    private string BuildConclusionModePrompt(string userMessage, List<ConversationMessage> history)
+    private async Task<string> BuildConclusionModePromptAsync(string userMessage, List<ConversationMessage> history, Task<string> specialtyListTask)
     {
         var promptBuilder = new StringBuilder();
 
@@ -221,14 +279,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         promptBuilder.AppendLine($"USER: {userMessage}");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**DANH SÁCH CHUYÊN KHOA CÓ SẴN:**");
-        promptBuilder.AppendLine(GetSpecialtyListText());
+        promptBuilder.AppendLine(await specialtyListTask);
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**YÊU CẦU:**");
         promptBuilder.AppendLine("1. Xác định bệnh có thể (tên tiếng Việt)");
         promptBuilder.AppendLine("2. Đánh giá độ tin cậy (0-1, ví dụ: 0.85)");
         promptBuilder.AppendLine("3. Giải thích lý do chẩn đoán (2-3 lý do)");
         promptBuilder.AppendLine("4. Đưa ra lời khuyên cụ thể (2-3 lời khuyên)");
-        promptBuilder.AppendLine("5. Chọn 1-3 chuyên khoa phù hợp nhất từ danh sách (phải khớp chính xác tên)");
+        promptBuilder.AppendLine("5. Chọn 1 chuyên khoa phù hợp nhất từ danh sách (phải khớp chính xác tên)");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**TRẢ VỀ JSON (chỉ JSON, không có text khác):**");
         promptBuilder.AppendLine("{");
@@ -250,205 +308,51 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         return promptBuilder.ToString();
     }
 
-    /// <summary>
-    /// Get specialty list text for prompt
-    /// </summary>
-    private string GetSpecialtyListText()
-    {
-        try
-        {
-            // Fetch all specialties from database
-            var request = new GetAllSpecialtiesRequest();
-            var response = _doctorClient.GetAllSpecialtiesAsync(request).GetAwaiter().GetResult();
-            
-            var specialtyNames = response.Specialties.Select(s => s.Name).ToList();
-            
-            if (specialtyNames.Count > 0)
-            {
-                return string.Join(", ", specialtyNames);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to fetch specialties from database, using fallback list");
-        }
-
-        // Fallback to common specialties if database call fails
-        var fallbackSpecialties = new[]
-        {
-            "Nội khoa", "Ngoại khoa", "Sản phụ khoa", "Nhi khoa", "Tim mạch",
-            "Hô hấp", "Tiêu hóa", "Thần kinh", "Cơ xương khớp", "Da liễu",
-            "Tai mũi họng", "Mắt", "Răng hàm mặt", "Tâm thần", "Nội tiết",
-            "Thận - Tiết niệu", "Ung bướu", "Chấn thương chỉnh hình", "Y học cổ truyền",
-            "Huyết học", "Dị ứng - Miễn dịch", "Phục hồi chức năng", "Gây mê hồi sức", "Dinh dưỡng"
-        };
-
-        return string.Join(", ", fallbackSpecialties);
-    }
 
     /// <summary>
-    /// Call Gemini API with retry logic
+    /// Call Gemini API with retry logic using GeminiApiHelper
     /// </summary>
     private async Task<string> CallGeminiApiAsync(string prompt)
     {
-        if (string.IsNullOrEmpty(_geminiConfig.ApiKey))
-        {
-            throw new InvalidOperationException("Gemini API key is not configured");
-        }
-
-        // Try multiple models and API versions for compatibility
-        // v1beta supports more models than v1
-        var modelsToTry = new[]
-        {
-            "gemini-2.5-pro",      // Latest pro model (works on v1beta)
-            "gemini-2.5-flash",    // Latest flash model
-            "gemini-2.0-flash",    // Fallback flash
-            "gemini-1.5-pro",      // Stable pro
-            "gemini-1.5-flash",    // Stable flash
-        };
-
-        var apiVersions = new[] { "v1beta", "v1" }; // Try v1beta first
-        Exception? lastException = null;
-
-        foreach (var apiVersion in apiVersions)
-        {
-            foreach (var model in modelsToTry)
-            {
-                try
-                {
-                    var url = $"{_geminiConfig.ApiEndpoint}/{apiVersion}/models/{model}:generateContent?key={_geminiConfig.ApiKey}";
-                    var result = await CallGeminiApiWithUrlAsync(url, prompt, model, apiVersion);
-                    return result;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Failed with {ApiVersion}/{Model}, trying next", apiVersion, model);
-                    lastException = ex;
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Failed to call Gemini API with any model. Last error: {lastException?.Message}", lastException);
-    }
-
-    /// <summary>
-    /// Call Gemini API with specific URL
-    /// </summary>
-    private async Task<string> CallGeminiApiWithUrlAsync(string url, string prompt, string model, string apiVersion)
-    {
-        var requestBody = new
-        {
-            contents = new[] { new { parts = new[] { new { text = prompt } } } },
-            generationConfig = new
-            {
-                temperature = 0.3,
-                maxOutputTokens = 8192, // Increased for longer conclusion responses
-                topP = 0.95,
-                topK = 40,
-            },
-            safetySettings = new[]
-            {
-                new { category = "HARM_CATEGORY_HARASSMENT", threshold = SafetyThreshold },
-                new { category = "HARM_CATEGORY_HATE_SPEECH", threshold = SafetyThreshold },
-                new { category = "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold = SafetyThreshold },
-                new { category = "HARM_CATEGORY_DANGEROUS_CONTENT", threshold = SafetyThreshold },
-            },
-        };
-
-        var jsonContent = JsonSerializer.Serialize(requestBody);
-        var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-        _logger.LogInformation("Calling Gemini API: {ApiVersion}/models/{Model}", apiVersion, model);
-
-        var response = await _httpClient.PostAsync(url, httpContent);
-        var responseContent = await response.Content.ReadAsStringAsync();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            // If quota exceeded (429), throw specific error
-            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-            {
-                _logger.LogWarning("Gemini API quota exceeded. Response: {Response}", responseContent);
-                throw new InvalidOperationException(
-                    "Gemini API quota exceeded. Please check your billing plan or wait for quota reset. " +
-                    "Visit https://ai.google.dev/gemini-api/docs/rate-limits for more information."
-                );
-            }
-
-            // If model not found (404), just log and continue to next model
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                _logger.LogDebug("Model {Model} not found on {ApiVersion}, trying next", model, apiVersion);
-                throw new HttpRequestException($"Model not found: {model}");
-            }
-
-            _logger.LogWarning("Gemini API failed: {StatusCode}, Response: {Response}", response.StatusCode, responseContent);
-            throw new HttpRequestException($"Gemini API returned error: {response.StatusCode}");
-        }
-
-        var geminiResponse = JsonSerializer.Deserialize<GeminiApiResponse>(responseContent,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-        if (geminiResponse?.Candidates == null || geminiResponse.Candidates.Length == 0)
-        {
-            _logger.LogWarning("Gemini API returned no candidates. Response: {Response}", responseContent);
-            throw new InvalidOperationException("Gemini API returned no candidates");
-        }
-
-        var generatedText = geminiResponse.Candidates[0]?.Content?.Parts?[0]?.Text;
-
-        if (string.IsNullOrEmpty(generatedText))
-        {
-            _logger.LogWarning("Gemini API returned empty text. Full response: {Response}", responseContent);
-            throw new InvalidOperationException("Gemini API returned empty text");
-        }
-
-        _logger.LogInformation("Successfully called Gemini using {ApiVersion}/{Model}", apiVersion, model);
-        return generatedText;
+        return await _geminiApiHelper.CallGeminiApiAsync(
+            prompt,
+            _serviceConfig,
+            temperature: null, // Use default from common config
+            maxOutputTokens: null, // Use default from common config
+            cancellationToken: default);
     }
 
     #endregion
 
-    #region Gemini Response Models
-
-    private class GeminiApiResponse
-    {
-        public Candidate[]? Candidates { get; set; }
-    }
-
-    private class Candidate
-    {
-        public Content? Content { get; set; }
-    }
-
-    private class Content
-    {
-        public Part[]? Parts { get; set; }
-    }
-
-    private class Part
-    {
-        public string? Text { get; set; }
-    }
-
-    #endregion
 
     #region Response Parsing
 
     /// <summary>
     /// Parse Gemini response for asking mode
+    /// Optimized JSON parsing using JsonDocument for better performance
     /// </summary>
-    private SymptomAnalysisResponse ParseAskingModeResponse(string geminiResponse, Guid sessionId, int questionCount)
+    private SymptomAnalysisResponse ParseAskingModeResponse(string geminiResponse, Guid sessionId, int questionInRound)
     {
         try
         {
             // Extract JSON from response (Gemini might add extra text)
             string jsonText = ExtractJsonFromText(geminiResponse);
 
-            var questionData = JsonSerializer.Deserialize<AskingModeResponse>(jsonText,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            // Use JsonDocument for faster parsing when we only need specific fields
+            using var doc = JsonDocument.Parse(jsonText);
+            var root = doc.RootElement;
 
-            if (questionData == null || string.IsNullOrEmpty(questionData.Question))
+            var question = root.TryGetProperty("question", out var questionProp)
+                ? questionProp.GetString()
+                : null;
+            var purpose = root.TryGetProperty("purpose", out var purposeProp)
+                ? purposeProp.GetString()
+                : null;
+            var priority = root.TryGetProperty("priority", out var priorityProp)
+                ? priorityProp.GetString()
+                : null;
+
+            if (string.IsNullOrEmpty(question))
             {
                 throw new InvalidOperationException("Failed to parse question from Gemini response");
             }
@@ -456,18 +360,18 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             return new SymptomAnalysisResponse
             {
                 SessionId = sessionId,
-                Message = questionData.Question,
+                Message = question,
                 NextQuestions = new List<FollowUpQuestion>
                 {
                     new FollowUpQuestion
                     {
-                        Question = questionData.Question,
-                        Purpose = questionData.Purpose ?? "Để xác định chính xác tình trạng của bạn",
-                        Priority = questionData.Priority ?? "MEDIUM"
+                        Question = question,
+                        Purpose = purpose ?? "Để xác định chính xác tình trạng của bạn",
+                        Priority = priority ?? "MEDIUM"
                     }
                 },
                 AnalysisComplete = false,
-                QuestionCount = questionCount + 1,
+                QuestionCount = questionInRound, // Question number in current round (1-3)
                 Timestamp = DateTime.UtcNow
             };
         }
@@ -490,7 +394,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     }
                 },
                 AnalysisComplete = false,
-                QuestionCount = questionCount + 1,
+                QuestionCount = questionInRound,
                 Timestamp = DateTime.UtcNow
             };
         }
@@ -502,7 +406,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private async Task<SymptomAnalysisResponse> ParseConclusionModeResponse(
         string geminiResponse,
         Guid sessionId,
-        int questionCount,
+        int currentRound,
+        int questionInRound,
+        int totalQuestions,
         LocationContext? location)
     {
         try
@@ -523,7 +429,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             {
                 SessionId = sessionId,
                 AnalysisComplete = true,
-                QuestionCount = MAX_QUESTIONS,
+                QuestionCount = 3, // Always 3 at conclusion (end of round)
+                CurrentRound = currentRound, // 1 or 2
+                MaxQuestions = 3, // Always 3 questions per round
                 Timestamp = DateTime.UtcNow
             };
 
@@ -551,10 +459,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // Set advice
             response.GeneralAdvice = conclusionData.Advice ?? new List<string>();
 
-            // Set specialties and get recommendations
+            // Set specialties and get recommendations in parallel with message building
+            Task<(List<DoctorRecommendation> Doctors, List<HospitalRecommendation> Hospitals)>? recommendationsTask = null;
             if (conclusionData.Specialties != null && conclusionData.Specialties.Count > 0)
             {
-                var specialtyIds = await MatchSpecialtiesToIds(conclusionData.Specialties);
+                var specialtyNames = conclusionData.Specialties
+                    .Select(s => s.Name ?? "")
+                    .Where(n => !string.IsNullOrEmpty(n))
+                    .ToList();
 
                 response.RecommendedSpecialties = conclusionData.Specialties.Select(s => new SpecialtyMatch
                 {
@@ -563,18 +475,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     Reasons = s.Reasons ?? new List<string>()
                 }).ToList();
 
-                // Get doctor and hospital recommendations
-                if (specialtyIds.Count > 0)
+                // Start getting recommendations in parallel
+                if (specialtyNames.Count > 0)
                 {
-                    response.RecommendedDoctors = await GetDoctorRecommendations(specialtyIds, location);
-                    response.RecommendedHospitals = await GetHospitalRecommendations(
-                        specialtyIds,
-                        conclusionData.Specialties.Select(s => s.Name ?? "").ToList(),
-                        location);
+                    recommendationsTask = _recommendationHelper.GetRecommendationsAsync(specialtyNames, location);
                 }
             }
 
-            // Build message
+            // Build message while recommendations are being fetched
             var messageBuilder = new StringBuilder();
             messageBuilder.AppendLine($"Dựa trên các triệu chứng bạn mô tả, có thể bạn đang gặp vấn đề về **{response.Disease?.Name ?? "sức khỏe"}**.");
             messageBuilder.AppendLine();
@@ -600,6 +508,33 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             response.Message = messageBuilder.ToString();
 
+            // Wait for recommendations if they were requested
+            if (recommendationsTask != null)
+            {
+                var (doctors, hospitals) = await recommendationsTask;
+                response.RecommendedDoctors = doctors;
+                response.RecommendedHospitals = hospitals;
+            }
+
+            // Set CanRequestMoreQuestions flag
+            // Allow more questions only if:
+            // 1. This is the first round conclusion (currentRound == 1)
+            // 2. Confidence is below 90% (0.9)
+            // 3. Disease conclusion exists
+            if (response.Disease != null)
+            {
+                response.CanRequestMoreQuestions =
+                    currentRound == 1 &&
+                    response.Disease.Confidence < 0.9;
+
+                _logger.LogInformation(
+                    "Conclusion: Disease={Disease}, Confidence={Confidence}, Round={Round}, CanRequestMore={CanRequestMore}",
+                    response.Disease.Name,
+                    response.Disease.Confidence,
+                    currentRound,
+                    response.CanRequestMoreQuestions);
+            }
+
             return response;
         }
         catch (Exception ex)
@@ -611,242 +546,28 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
     /// <summary>
     /// Extract JSON from text (handles cases where Gemini adds extra text)
+    /// Optimized using Span for better performance
     /// </summary>
     private string ExtractJsonFromText(string text)
     {
+        if (string.IsNullOrWhiteSpace(text))
+            return text;
+
         // Try to find JSON object in the text
         int startIndex = text.IndexOf('{');
+        if (startIndex < 0)
+            return text;
+
         int endIndex = text.LastIndexOf('}');
+        if (endIndex <= startIndex)
+            return text;
 
-        if (startIndex >= 0 && endIndex > startIndex)
-        {
-            return text.Substring(startIndex, endIndex - startIndex + 1);
-        }
-
-        return text;
+        // Use Span<char> for better performance on large strings
+        return text.AsSpan(startIndex, endIndex - startIndex + 1).ToString();
     }
 
     #endregion
 
-    #region Specialty Matching
-
-    /// <summary>
-    /// Match specialty names from Gemini to actual specialty IDs in database
-    /// </summary>
-    private async Task<List<Guid>> MatchSpecialtiesToIds(List<SpecialtyData> specialties)
-    {
-        var specialtyIds = new List<Guid>();
-
-        try
-        {
-            // Call Doctor service to get all specialties
-            var request = new GetAllSpecialtiesRequest();
-            var response = await _doctorClient.GetAllSpecialtiesAsync(request);
-
-            foreach (var specialty in specialties)
-            {
-                // Try exact match first
-                var match = response.Specialties.FirstOrDefault(s =>
-                    s.Name.Equals(specialty.Name, StringComparison.OrdinalIgnoreCase));
-
-                if (match != null)
-                {
-                    specialtyIds.Add(Guid.Parse(match.Id));
-                    continue;
-                }
-
-                // Try fuzzy match (contains)
-                match = response.Specialties.FirstOrDefault(s =>
-                    s.Name.Contains(specialty.Name ?? "", StringComparison.OrdinalIgnoreCase) ||
-                    (specialty.Name ?? "").Contains(s.Name, StringComparison.OrdinalIgnoreCase));
-
-                if (match != null)
-                {
-                    specialtyIds.Add(Guid.Parse(match.Id));
-                }
-            }
-
-            _logger.LogInformation("Matched {Count} specialties to IDs", specialtyIds.Count);
-        }
-        catch (RpcException ex)
-        {
-            _logger.LogError(ex, "Error calling Doctor service to get specialties");
-        }
-
-        return specialtyIds;
-    }
-
-    #endregion
-
-    #region Doctor and Hospital Recommendations
-
-    /// <summary>
-    /// Get doctor recommendations with location-based ranking
-    /// </summary>
-    private async Task<List<DoctorRecommendation>> GetDoctorRecommendations(
-        List<Guid> specialtyIds,
-        LocationContext? location)
-    {
-        try
-        {
-            var request = new FilterDoctorsForRecommendationRequest
-            {
-                MaxResults = MAX_DOCTOR_RECOMMENDATIONS * 2 // Get more for better ranking
-            };
-
-            request.SpecialtyIds.AddRange(specialtyIds.Select(id => id.ToString()));
-
-            if (location != null && !string.IsNullOrEmpty(location.ProvinceId))
-            {
-                request.ProvinceId = location.ProvinceId;
-                request.DistrictId = location.DistrictId ?? "";
-            }
-
-            var response = await _doctorClient.FilterDoctorsForRecommendationAsync(request);
-
-            // Rank doctors
-            var rankedDoctors = response.Doctors
-                .Select(d => new
-                {
-                    Doctor = d,
-                    Score = CalculateDoctorScore(d, location)
-                })
-                .OrderByDescending(x => x.Score)
-                .Take(MAX_DOCTOR_RECOMMENDATIONS)
-                .Select(x => new DoctorRecommendation
-                {
-                    Id = x.Doctor.Id,
-                    Name = x.Doctor.FullName,
-                    SpecialtyName = x.Doctor.SpecialtyName,
-                    HospitalName = x.Doctor.HospitalName,
-                    Rating = x.Doctor.Rating,
-                    YearOfExperience = x.Doctor.YearsOfExperience,
-                    ServiceTypeName = x.Doctor.ServiceTypeName,
-                    Price = x.Doctor.ConsultationFee > 0 ? $"{x.Doctor.ConsultationFee:N0} VNĐ" : null,
-                    AvatarUrl = x.Doctor.AvatarUrl,
-                    RecommendationScore = x.Score
-                })
-                .ToList();
-
-            _logger.LogInformation("Found {Count} doctor recommendations", rankedDoctors.Count);
-            return rankedDoctors;
-        }
-        catch (RpcException ex)
-        {
-            _logger.LogError(ex, "Error calling Doctor service for recommendations");
-            return new List<DoctorRecommendation>();
-        }
-    }
-
-    /// <summary>
-    /// Calculate doctor recommendation score
-    /// Priority: Location (60%) > Rating (30%) > Experience (10%)
-    /// </summary>
-    private double CalculateDoctorScore(DoctorRecommendationInfo doctor, LocationContext? location)
-    {
-        double score = 0;
-
-        // 1. Location match (60% weight)
-        if (location != null && !string.IsNullOrEmpty(location.ProvinceId))
-        {
-            // Note: DoctorRecommendationInfo doesn't have location fields in proto
-            // We rely on the gRPC service to filter by location already
-            // So we give base score for doctors returned
-            score += 0.4;
-        }
-
-        // 2. Rating (30% weight)
-        score += (doctor.Rating / 5.0) * 0.3;
-
-        // 3. Experience (10% weight)
-        score += Math.Min(doctor.YearsOfExperience / 20.0, 1.0) * 0.1;
-
-        return score;
-    }
-
-    /// <summary>
-    /// Get hospital recommendations with location-based ranking
-    /// </summary>
-    private async Task<List<HospitalRecommendation>> GetHospitalRecommendations(
-        List<Guid> specialtyIds,
-        List<string> specialtyNames,
-        LocationContext? location)
-    {
-        try
-        {
-            // For now, use GetHospitalsBySpecialty for each specialty
-            // TODO: Add FilterHospitalsBySpecialty gRPC method for better performance
-            var allHospitals = new List<HospitalReply>();
-
-            foreach (var specialtyId in specialtyIds.Take(3)) // Limit to 3 specialties
-            {
-                try
-                {
-                    var request = new GetHospitalsBySpecialtyRequest
-                    {
-                        SpecialtyId = specialtyId.ToString()
-                    };
-
-                    var response = await _hospitalClient.GetHospitalsBySpecialtyAsync(request);
-                    allHospitals.AddRange(response.Hospitals);
-                }
-                catch (RpcException ex)
-                {
-                    _logger.LogWarning(ex, "Error getting hospitals for specialty {SpecialtyId}", specialtyId);
-                }
-            }
-
-            // Remove duplicates and rank
-            var uniqueHospitals = allHospitals
-                .GroupBy(h => h.Id)
-                .Select(g => g.First())
-                .Select(h => new HospitalRecommendation
-                {
-                    Id = h.Id,
-                    Name = h.Name,
-                    Address = h.Address,
-                    SpecialtyNames = specialtyNames, // Use specialty names from Gemini response
-                    ImageUrl = h.AvatarUrl,
-                    RecommendationScore = CalculateHospitalScoreBasic(h, location)
-                })
-                .OrderByDescending(h => h.RecommendationScore)
-                .Take(MAX_HOSPITAL_RECOMMENDATIONS)
-                .ToList();
-
-            _logger.LogInformation("Found {Count} hospital recommendations", uniqueHospitals.Count);
-            return uniqueHospitals;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error calling Hospital service for recommendations");
-            return new List<HospitalRecommendation>();
-        }
-    }
-
-    /// <summary>
-    /// Calculate hospital recommendation score (basic version)
-    /// Priority: Location matching based on address string
-    /// </summary>
-    private double CalculateHospitalScoreBasic(HospitalReply hospital, LocationContext? location)
-    {
-        double score = 0.5; // Base score
-
-        // Simple location matching based on address string
-        if (location != null && !string.IsNullOrEmpty(location.DisplayName))
-        {
-            var address = hospital.Address?.ToLowerInvariant() ?? "";
-            var locationName = location.DisplayName.ToLowerInvariant();
-
-            if (address.Contains(locationName))
-            {
-                score += 0.5;
-            }
-        }
-
-        return score;
-    }
-
-    #endregion
 
     #region Conversation Saving
 

@@ -66,14 +66,29 @@ public class SymptomAnalysisResponse
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Number of questions asked so far (0-3)
+    /// Number of questions asked in current round (1-3)
     /// </summary>
     public int QuestionCount { get; set; }
+
+    /// <summary>
+    /// Current consultation round (1 or 2)
+    /// </summary>
+    public int CurrentRound { get; set; }
+
+    /// <summary>
+    /// Maximum questions per round (always 3)
+    /// </summary>
+    public int MaxQuestions { get; set; } = 3;
 
     /// <summary>
     /// Disease conclusion (only available when AnalysisComplete = true)
     /// </summary>
     public DiseaseConclusion? Disease { get; set; }
+
+    /// <summary>
+    /// Whether user can request more questions (true when round 1 && confidence < 90%)
+    /// </summary>
+    public bool CanRequestMoreQuestions { get; set; }
 }
 
 /// <summary>

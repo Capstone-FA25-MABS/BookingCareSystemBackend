@@ -1,5 +1,6 @@
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Data;
+using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Services;
 using BookingCare.Services.AI.Services.Implementations;
 using BookingCare.Services.AI.Services.Interfaces;
@@ -31,30 +32,22 @@ builder.Services.AddDbContext<AiDbContext>(options =>
     options.UseSqlServer(connectionString);
 });
 
-// Configure Gemini Settings
-builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("Gemini"));
+// Configure Gemini common settings
+builder.Services.Configure<GeminiConfiguration>(builder.Configuration.GetSection("Gemini"));
 
-// Configure Gemini for Medical Summary (reuse existing config)
-builder.Services.Configure<GeminiConfiguration>(options =>
-{
-    var geminiSection = builder.Configuration.GetSection("Gemini");
-    options.ApiKey = geminiSection["ApiKey"] ?? string.Empty;
-    options.ApiEndpoint = "https://generativelanguage.googleapis.com";
-    options.Model = geminiSection["Model"] ?? "gemini-2.0-flash-exp"; // Use model from config or default to 2.0
-    options.Temperature = 0.3; // Lower temperature for more focused medical output
-    options.MaxTokens = 8192;
-});
+// Configure Gemini Services (each service has its own API key)
+builder.Services.Configure<GeminiServicesConfiguration>(builder.Configuration.GetSection("GeminiServices"));
 
 // Configure AILabTools for Dermatology Analysis
 builder.Services.Configure<AILabToolsConfiguration>(builder.Configuration.GetSection("AILabTools"));
 
 
 
-// Register Gemini Service for text generation and translation
-builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+// Register GeminiApiHelper (shared helper for all Gemini API calls)
+builder.Services.AddHttpClient<GeminiApiHelper>();
 
 // Register AI Service for medical summary generation
-builder.Services.AddHttpClient<IAIService, AIService>();
+builder.Services.AddScoped<IAIService, AIService>();
 
 // Register gRPC clients
 var doctorGrpcAddress =
@@ -77,6 +70,10 @@ builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.Hos
     }
 );
 
+// Register Helper Services
+builder.Services.AddScoped<RecommendationHelper>();
+builder.Services.AddScoped<FileUploadHelper>();
+
 // Register Conversation Session Service
 builder.Services.AddScoped<IConversationSessionService, ConversationSessionService>();
 
@@ -84,7 +81,7 @@ builder.Services.AddScoped<IConversationSessionService, ConversationSessionServi
 builder.Services.AddScoped<ISymptomAnalysisService, SymptomAnalysisService>();
 
 // Register Lab Result Analysis Service
-builder.Services.AddHttpClient<ILabResultAnalysisService, LabResultAnalysisService>();
+builder.Services.AddScoped<ILabResultAnalysisService, LabResultAnalysisService>();
 
 // Register Dermatology Analysis Service
 builder.Services.AddHttpClient<IDermatologyAnalysisService, DermatologyAnalysisService>();
