@@ -447,4 +447,23 @@ public class ConversationSessionService : IConversationSessionService
                 ex);
         }
     }
+
+    public async Task<bool> CheckIfLabResultExistsAsync(Guid sessionId)
+    {
+        try
+        {
+            var history = await LoadConversationHistoryAsync(sessionId);
+            
+            // Check if any patient message contains "Đã gửi file xét nghiệm:"
+            return history.Any(m => 
+                m.Role == "patient" && 
+                m.Content != null && 
+                m.Content.Contains("Đã gửi file xét nghiệm:"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking if lab result exists for session {SessionId}", sessionId);
+            return false; // Default to allowing upload if check fails
+        }
+    }
 }

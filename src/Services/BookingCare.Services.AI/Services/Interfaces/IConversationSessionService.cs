@@ -40,4 +40,9 @@ public interface IConversationSessionService
     /// Delete a conversation session (requires authenticated user and ownership verification)
     /// </summary>
     Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId);
+
+    /// <summary>
+    /// Check if a lab result has already been uploaded in this session
+    /// </summary>
+    Task<bool> CheckIfLabResultExistsAsync(Guid sessionId);
 }
