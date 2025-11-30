@@ -1,10 +1,10 @@
-using Grpc.Core;
 using AutoMapper;
-using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Exceptions;
+using BookingCare.Services.Hospital.Models.DTOs;
+using BookingCare.Services.Hospital.Services.Interfaces;
+using Grpc.Core;
 using CommonStatus = BookingCare.Shared.Common.Enums.Status;
 using GrpcStatus = Grpc.Core.Status;
-using BookingCare.Services.Hospital.Models.DTOs;
 
 namespace BookingCare.Services.Hospital.Services;
 
@@ -15,13 +15,16 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
 
     public HospitalGrpcService(
         IHospitalService hospitalService,
-        ILogger<HospitalGrpcService> logger)
+        ILogger<HospitalGrpcService> logger
+    )
     {
         _hospitalService = hospitalService;
         _logger = logger;
     }
 
-    private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.Entities.HospitalEntity hospital)
+    private static HospitalReply MapToHospitalReply(
+        BookingCare.Services.Hospital.Models.Entities.HospitalEntity hospital
+    )
     {
         var dto = new HospitalMappingDto
         {
@@ -35,13 +38,15 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             BackgroundUrl = hospital.BackgroundUrl,
             AvatarUrl = hospital.AvatarUrl,
             CreatedAt = hospital.CreatedAt,
-            UpdatedAt = hospital.UpdatedAt
+            UpdatedAt = hospital.UpdatedAt,
         };
 
         return MapToHospitalReplyInternal(dto);
     }
 
-    private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalDetailResponse hospital)
+    private static HospitalReply MapToHospitalReply(
+        BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalDetailResponse hospital
+    )
     {
         var dto = new HospitalMappingDto
         {
@@ -55,7 +60,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             BackgroundUrl = hospital.BackgroundUrl,
             AvatarUrl = hospital.AvatarUrl,
             CreatedAt = hospital.CreatedAt,
-            UpdatedAt = hospital.UpdatedAt
+            UpdatedAt = hospital.UpdatedAt,
         };
 
         return MapToHospitalReplyInternal(dto);
@@ -76,11 +81,13 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             AvatarUrl = dto.AvatarUrl ?? "",
             Status = "ACTIVE", // Status is now managed by Auth service
             CreatedAt = dto.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-            UpdatedAt = dto.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            UpdatedAt = dto.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
         };
     }
 
-    private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalResponse hospital)
+    private static HospitalReply MapToHospitalReply(
+        BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalResponse hospital
+    )
     {
         return new HospitalReply
         {
@@ -95,11 +102,13 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             AvatarUrl = hospital.AvatarUrl ?? "",
             Status = "ACTIVE", // Status is now managed by Auth service
             CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-            UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
         };
     }
 
-    private static HospitalReply MapToHospitalReply(BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalProfileResponse hospital)
+    private static HospitalReply MapToHospitalReply(
+        BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalProfileResponse hospital
+    )
     {
         return new HospitalReply
         {
@@ -114,30 +123,42 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             AvatarUrl = hospital.AvatarUrl ?? "",
             Status = "ACTIVE", // Status is now managed by Auth service
             CreatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), // Default value since not included
-            UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") // Default value since not included
+            UpdatedAt = DateTime.UtcNow.ToString(
+                "yyyy-MM-ddTHH:mm:ss.fffZ"
+            ) // Default value since not included
+            ,
         };
     }
 
-    public override async Task<HospitalReply> GetHospital(GetHospitalRequest request, ServerCallContext context)
+    public override async Task<HospitalReply> GetHospital(
+        GetHospitalRequest request,
+        ServerCallContext context
+    )
     {
         try
         {
             if (!Guid.TryParse(request.Id, out var hospitalId))
             {
-                throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+                throw new RpcException(
+                    new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format")
+                );
             }
 
             var hospital = await _hospitalService.GetByIdAsync(hospitalId);
             if (hospital == null)
             {
-                throw new RpcException(new GrpcStatus(StatusCode.NotFound, $"Hospital with ID {request.Id} not found"));
+                throw new RpcException(
+                    new GrpcStatus(StatusCode.NotFound, $"Hospital with ID {request.Id} not found")
+                );
             }
 
             return MapToHospitalReply(hospital);
         }
         catch (HospitalNotFoundException)
         {
-            throw new RpcException(new GrpcStatus(StatusCode.NotFound, $"Hospital with ID {request.Id} not found"));
+            throw new RpcException(
+                new GrpcStatus(StatusCode.NotFound, $"Hospital with ID {request.Id} not found")
+            );
         }
         catch (Exception ex)
         {
@@ -146,20 +167,22 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
     }
 
-    public override async Task<HospitalListReply> GetHospitalsBySpecialty(GetHospitalsBySpecialtyRequest request, ServerCallContext context)
+    public override async Task<HospitalListReply> GetHospitalsBySpecialty(
+        GetHospitalsBySpecialtyRequest request,
+        ServerCallContext context
+    )
     {
         try
         {
             if (!Guid.TryParse(request.SpecialtyId, out var specialtyId))
             {
-                throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+                throw new RpcException(
+                    new GrpcStatus(StatusCode.InvalidArgument, "Invalid specialty ID format")
+                );
             }
 
             var hospitals = await _hospitalService.GetBySpecialtyAsync(specialtyId);
-            var reply = new HospitalListReply
-            {
-                TotalCount = hospitals.Count()
-            };
+            var reply = new HospitalListReply { TotalCount = hospitals.Count() };
 
             foreach (var hospital in hospitals)
             {
@@ -170,12 +193,19 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting hospitals by specialty {SpecialtyId}", request.SpecialtyId);
+            _logger.LogError(
+                ex,
+                "Error getting hospitals by specialty {SpecialtyId}",
+                request.SpecialtyId
+            );
             throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
         }
     }
 
-    public override async Task<HospitalBasicListReply> GetHospitalsList(GetHospitalsListRequest request, ServerCallContext context)
+    public override async Task<HospitalBasicListReply> GetHospitalsList(
+        GetHospitalsListRequest request,
+        ServerCallContext context
+    )
     {
         try
         {
@@ -183,7 +213,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             var filter = new Models.DTOs.Requests.HospitalFilterRequest
             {
                 Page = request.Page > 0 ? request.Page : 1,
-                PageSize = request.PageSize > 0 ? request.PageSize : 50
+                PageSize = request.PageSize > 0 ? request.PageSize : 50,
             };
 
             // Note: Status filtering is now handled by Auth service, not in database query
@@ -193,17 +223,19 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             {
                 Page = filter.Page,
                 PageSize = filter.PageSize,
-                TotalCount = hospitalsResponse.TotalCount
+                TotalCount = hospitalsResponse.TotalCount,
             };
 
             foreach (var hospital in hospitalsResponse.Hospitals)
             {
-                reply.Hospitals.Add(new HospitalBasicReply
-                {
-                    Id = hospital.Id.ToString(),
-                    Name = hospital.Name,
-                    Address = hospital.Address
-                });
+                reply.Hospitals.Add(
+                    new HospitalBasicReply
+                    {
+                        Id = hospital.Id.ToString(),
+                        Name = hospital.Name,
+                        Address = hospital.Address,
+                    }
+                );
             }
 
             return reply;
@@ -215,26 +247,32 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
     }
 
-    public override async Task<HospitalReply> CreateHospital(CreateHospitalGrpcRequest grpcRequest, ServerCallContext context)
+    public override async Task<HospitalReply> CreateHospital(
+        CreateHospitalGrpcRequest grpcRequest,
+        ServerCallContext context
+    )
     {
         try
         {
             if (!Guid.TryParse(grpcRequest.AccountId, out var accountId))
             {
-                throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, "Invalid account ID format"));
+                throw new RpcException(
+                    new GrpcStatus(StatusCode.InvalidArgument, "Invalid account ID format")
+                );
             }
 
-            var createRequest = new BookingCare.Services.Hospital.Models.DTOs.Requests.CreateHospitalRequest
-            {
-                AccountId = accountId,
-                Name = grpcRequest.Name,
-                Address = grpcRequest.Address,
-                Phone = grpcRequest.Phone,
-                Email = grpcRequest.Email,
-                Description = grpcRequest.Description,
-                BackgroundUrl = grpcRequest.BackgroundUrl,
-                AvatarUrl = grpcRequest.AvatarUrl
-            };
+            var createRequest =
+                new BookingCare.Services.Hospital.Models.DTOs.Requests.CreateHospitalRequest
+                {
+                    AccountId = accountId,
+                    Name = grpcRequest.Name,
+                    Address = grpcRequest.Address,
+                    Phone = grpcRequest.Phone,
+                    Email = grpcRequest.Email,
+                    Description = grpcRequest.Description,
+                    BackgroundUrl = grpcRequest.BackgroundUrl,
+                    AvatarUrl = grpcRequest.AvatarUrl,
+                };
 
             var hospital = await _hospitalService.CreateAsync(createRequest);
 
@@ -255,13 +293,18 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
     }
 
-    public override async Task<DeleteHospitalReply> DeleteHospital(DeleteHospitalRequest request, ServerCallContext context)
+    public override async Task<DeleteHospitalReply> DeleteHospital(
+        DeleteHospitalRequest request,
+        ServerCallContext context
+    )
     {
         try
         {
             if (!Guid.TryParse(request.Id, out var hospitalId))
             {
-                throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+                throw new RpcException(
+                    new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format")
+                );
             }
 
             var result = await _hospitalService.DeleteAsync(hospitalId);
@@ -269,7 +312,7 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             return new DeleteHospitalReply
             {
                 Success = result,
-                Message = result ? "Hospital deleted successfully" : "Failed to delete hospital"
+                Message = result ? "Hospital deleted successfully" : "Failed to delete hospital",
             };
         }
         catch (HospitalNotFoundException ex)
@@ -283,19 +326,26 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
     }
 
-    public override async Task<HospitalBasicInfoResponse> GetHospitalBasicInfo(GetHospitalBasicInfoRequest request, ServerCallContext context)
+    public override async Task<HospitalBasicInfoResponse> GetHospitalBasicInfo(
+        GetHospitalBasicInfoRequest request,
+        ServerCallContext context
+    )
     {
         try
         {
             if (!Guid.TryParse(request.Id, out var id))
             {
-                throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+                throw new RpcException(
+                    new GrpcStatus(StatusCode.InvalidArgument, "Invalid hospital ID format")
+                );
             }
 
             var hospital = await _hospitalService.GetHospitalBasicInfoByIdAsync(id);
             if (hospital == null)
             {
-                throw new RpcException(new GrpcStatus(StatusCode.NotFound, $"Hospital with ID {id} not found"));
+                throw new RpcException(
+                    new GrpcStatus(StatusCode.NotFound, $"Hospital with ID {id} not found")
+                );
             }
 
             return MapToHospitalBasicInfoResponse(hospital);
@@ -311,7 +361,10 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
     }
 
-    public override async Task<HospitalsBasicInfoResponse> GetHospitalsBasicInfo(GetHospitalsBasicInfoRequest request, ServerCallContext context)
+    public override async Task<HospitalsBasicInfoResponse> GetHospitalsBasicInfo(
+        GetHospitalsBasicInfoRequest request,
+        ServerCallContext context
+    )
     {
         try
         {
@@ -320,7 +373,12 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             {
                 if (!Guid.TryParse(idStr, out var id))
                 {
-                    throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, $"Invalid hospital ID format: {idStr}"));
+                    throw new RpcException(
+                        new GrpcStatus(
+                            StatusCode.InvalidArgument,
+                            $"Invalid hospital ID format: {idStr}"
+                        )
+                    );
                 }
                 ids.Add(id);
             }
@@ -346,7 +404,9 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
     }
 
-    private static HospitalBasicInfoResponse MapToHospitalBasicInfoResponse(BookingCare.Services.Hospital.Models.Entities.HospitalEntity hospital)
+    private static HospitalBasicInfoResponse MapToHospitalBasicInfoResponse(
+        BookingCare.Services.Hospital.Models.Entities.HospitalEntity hospital
+    )
     {
         return new HospitalBasicInfoResponse
         {
@@ -355,15 +415,70 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             Address = hospital.Address,
             Phone = hospital.Phone ?? string.Empty,
             Email = hospital.Email,
-            AvatarUrl = hospital.AvatarUrl ?? string.Empty
+            AvatarUrl = hospital.AvatarUrl ?? string.Empty,
         };
     }
 
-    public override async Task<HospitalBatchResponse> GetHospitalsByAccountIds(GetHospitalsByAccountIdsRequest request, ServerCallContext context)
+    /// <summary>
+    /// Get hospital names only - optimized for minimal data transfer
+    /// </summary>
+    public override async Task<HospitalNamesResponse> GetHospitalNames(
+        GetHospitalNamesRequest request,
+        ServerCallContext context
+    )
     {
         try
         {
-            _logger.LogInformation("[HospitalGrpcService] gRPC GetHospitalsByAccountIds called for {Count} account IDs", request.AccountIds.Count);
+            var ids = new List<Guid>();
+            foreach (var idStr in request.Ids)
+            {
+                if (!Guid.TryParse(idStr, out var id))
+                {
+                    throw new RpcException(
+                        new GrpcStatus(
+                            StatusCode.InvalidArgument,
+                            $"Invalid hospital ID format: {idStr}"
+                        )
+                    );
+                }
+                ids.Add(id);
+            }
+
+            // Query only ID and Name for optimal performance
+            var hospitalNames = await _hospitalService.GetHospitalNamesByIdsAsync(ids);
+            var response = new HospitalNamesResponse();
+
+            foreach (var hospital in hospitalNames)
+            {
+                response.Hospitals.Add(
+                    new HospitalNameInfo { Id = hospital.Key.ToString(), Name = hospital.Value }
+                );
+            }
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetHospitalNames");
+            throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    public override async Task<HospitalBatchResponse> GetHospitalsByAccountIds(
+        GetHospitalsByAccountIdsRequest request,
+        ServerCallContext context
+    )
+    {
+        try
+        {
+            _logger.LogInformation(
+                "[HospitalGrpcService] gRPC GetHospitalsByAccountIds called for {Count} account IDs",
+                request.AccountIds.Count
+            );
 
             // Validate account IDs
             var accountIds = new List<Guid>();
@@ -371,7 +486,12 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             {
                 if (!Guid.TryParse(accountIdString, out var accountId))
                 {
-                    throw new RpcException(new GrpcStatus(StatusCode.InvalidArgument, $"Invalid account ID format: {accountIdString}"));
+                    throw new RpcException(
+                        new GrpcStatus(
+                            StatusCode.InvalidArgument,
+                            $"Invalid account ID format: {accountIdString}"
+                        )
+                    );
                 }
                 accountIds.Add(accountId);
             }
@@ -384,18 +504,23 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
 
             foreach (var hospital in hospitals)
             {
-                grpcResponse.Hospitals.Add(new HospitalBasicInfo
-                {
-                    AccountId = hospital.AccountId.ToString(),
-                    Email = hospital.Email,
-                    FullName = hospital.Name,
-                    AvatarUrl = hospital.AvatarUrl ?? string.Empty,
-                    Phone = hospital.Phone ?? string.Empty,
-                    Address = hospital.Address
-                });
+                grpcResponse.Hospitals.Add(
+                    new HospitalBasicInfo
+                    {
+                        AccountId = hospital.AccountId.ToString(),
+                        Email = hospital.Email,
+                        FullName = hospital.Name,
+                        AvatarUrl = hospital.AvatarUrl ?? string.Empty,
+                        Phone = hospital.Phone ?? string.Empty,
+                        Address = hospital.Address,
+                    }
+                );
             }
 
-            _logger.LogInformation("[HospitalGrpcService] Retrieved {Count} hospitals for batch request", hospitals.Count);
+            _logger.LogInformation(
+                "[HospitalGrpcService] Retrieved {Count} hospitals for batch request",
+                hospitals.Count
+            );
             return grpcResponse;
         }
         catch (RpcException)
@@ -404,7 +529,10 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[HospitalGrpcService] Error getting hospitals by account IDs batch");
+            _logger.LogError(
+                ex,
+                "[HospitalGrpcService] Error getting hospitals by account IDs batch"
+            );
             throw new RpcException(new GrpcStatus(StatusCode.Internal, "Internal server error"));
         }
     }

@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using BookingCare.Services.Payment.Data;
+﻿using BookingCare.Services.Payment.Data;
 using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Repositories.Interfaces;
 using BookingCare.Shared.Common.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 
@@ -23,8 +23,7 @@ public class BankAccountRepository : IBankAccountRepository
     /// </summary>
     public async Task<BankAccountEntity?> GetByIdAsync(Guid id)
     {
-        return await _context.BankAccounts
-            .FirstOrDefaultAsync(x => x.Id == id);
+        return await _context.BankAccounts.FirstOrDefaultAsync(x => x.Id == id);
     }
 
     /// <summary>
@@ -32,8 +31,8 @@ public class BankAccountRepository : IBankAccountRepository
     /// </summary>
     public async Task<IEnumerable<BankAccountEntity>> GetByUserIdAsync(Guid userId)
     {
-        return await _context.BankAccounts
-            .Where(x => x.UserId == userId && x.IsActive)
+        return await _context
+            .BankAccounts.Where(x => x.UserId == userId && x.IsActive)
             .OrderByDescending(x => x.IsDefault)
             .ThenByDescending(x => x.CreatedAt)
             .ToListAsync();
@@ -42,10 +41,14 @@ public class BankAccountRepository : IBankAccountRepository
     /// <summary>
     /// Get bank accounts of a user with pagination
     /// </summary>
-    public async Task<PagedResult<BankAccountEntity>> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, bool? activeOnly = null)
+    public async Task<PagedResult<BankAccountEntity>> GetPagedByUserIdAsync(
+        Guid userId,
+        int page,
+        int pageSize,
+        bool? activeOnly = null
+    )
     {
-        var query = _context.BankAccounts
-            .Where(x => x.UserId == userId);
+        var query = _context.BankAccounts.Where(x => x.UserId == userId);
 
         if (activeOnly.HasValue && activeOnly.Value)
         {
@@ -66,7 +69,7 @@ public class BankAccountRepository : IBankAccountRepository
             Items = items,
             TotalCount = totalCount,
             PageNumber = page,
-            PageSize = pageSize
+            PageSize = pageSize,
         };
     }
 
@@ -75,17 +78,23 @@ public class BankAccountRepository : IBankAccountRepository
     /// </summary>
     public async Task<BankAccountEntity?> GetDefaultByUserIdAsync(Guid userId)
     {
-        return await _context.BankAccounts
-            .FirstOrDefaultAsync(x => x.UserId == userId && x.IsDefault && x.IsActive);
+        return await _context.BankAccounts.FirstOrDefaultAsync(x =>
+            x.UserId == userId && x.IsDefault && x.IsActive
+        );
     }
 
     /// <summary>
     /// Check if an account number already exists (across users)
     /// </summary>
-    public async Task<bool> AccountNumberExistsAsync(string accountNumber, string bankCode, Guid? excludeId = null)
+    public async Task<bool> AccountNumberExistsAsync(
+        string accountNumber,
+        string bankCode,
+        Guid? excludeId = null
+    )
     {
-        var query = _context.BankAccounts
-            .Where(x => x.AccountNumber == accountNumber && x.BankCode == bankCode);
+        var query = _context.BankAccounts.Where(x =>
+            x.AccountNumber == accountNumber && x.BankCode == bankCode
+        );
 
         if (excludeId.HasValue)
         {
@@ -98,10 +107,16 @@ public class BankAccountRepository : IBankAccountRepository
     /// <summary>
     /// Check if an account number already exists for a specific user
     /// </summary>
-    public async Task<bool> AccountNumberExistsForUserAsync(string accountNumber, string bankCode, Guid userId, Guid? excludeId = null)
+    public async Task<bool> AccountNumberExistsForUserAsync(
+        string accountNumber,
+        string bankCode,
+        Guid userId,
+        Guid? excludeId = null
+    )
     {
-        var query = _context.BankAccounts
-            .Where(x => x.AccountNumber == accountNumber && x.BankCode == bankCode && x.UserId == userId);
+        var query = _context.BankAccounts.Where(x =>
+            x.AccountNumber == accountNumber && x.BankCode == bankCode && x.UserId == userId
+        );
 
         if (excludeId.HasValue)
         {
@@ -114,12 +129,15 @@ public class BankAccountRepository : IBankAccountRepository
     /// <summary>
     /// Find bank account by accountNumber, bankCode and userId (includes inactive)
     /// </summary>
-    public async Task<BankAccountEntity?> FindByAccountNumberAndUserAsync(string accountNumber, string bankCode, Guid userId)
+    public async Task<BankAccountEntity?> FindByAccountNumberAndUserAsync(
+        string accountNumber,
+        string bankCode,
+        Guid userId
+    )
     {
-        return await _context.BankAccounts
-            .FirstOrDefaultAsync(x => x.AccountNumber == accountNumber &&
-                                     x.BankCode == bankCode &&
-                                     x.UserId == userId);
+        return await _context.BankAccounts.FirstOrDefaultAsync(x =>
+            x.AccountNumber == accountNumber && x.BankCode == bankCode && x.UserId == userId
+        );
     }
 
     /// <summary>
@@ -127,8 +145,7 @@ public class BankAccountRepository : IBankAccountRepository
     /// </summary>
     public async Task<bool> HasRefundHistoriesAsync(Guid bankAccountId)
     {
-        return await _context.RefundHistories
-            .AnyAsync(r => r.BankAccountId == bankAccountId);
+        return await _context.RefundHistories.AnyAsync(r => r.BankAccountId == bankAccountId);
     }
 
     /// <summary>
@@ -178,16 +195,20 @@ public class BankAccountRepository : IBankAccountRepository
         try
         {
             // Unset default for all other accounts of the user
-            await _context.BankAccounts
-                .Where(x => x.UserId == userId && x.Id != bankAccountId)
-                .ExecuteUpdateAsync(x => x.SetProperty(p => p.IsDefault, false)
-                                         .SetProperty(p => p.UpdatedAt, DateTime.UtcNow));
+            await _context
+                .BankAccounts.Where(x => x.UserId == userId && x.Id != bankAccountId)
+                .ExecuteUpdateAsync(x =>
+                    x.SetProperty(p => p.IsDefault, false)
+                        .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                );
 
             // Set the selected account as default
-            await _context.BankAccounts
-                .Where(x => x.Id == bankAccountId)
-                .ExecuteUpdateAsync(x => x.SetProperty(p => p.IsDefault, true)
-                                         .SetProperty(p => p.UpdatedAt, DateTime.UtcNow));
+            await _context
+                .BankAccounts.Where(x => x.Id == bankAccountId)
+                .ExecuteUpdateAsync(x =>
+                    x.SetProperty(p => p.IsDefault, true)
+                        .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                );
 
             await transaction.CommitAsync();
         }
@@ -203,7 +224,14 @@ public class BankAccountRepository : IBankAccountRepository
     /// </summary>
     public async Task<int> CountByUserIdAsync(Guid userId)
     {
-        return await _context.BankAccounts
-            .CountAsync(x => x.UserId == userId);
+        return await _context.BankAccounts.CountAsync(x => x.UserId == userId);
+    }
+
+    public async Task<BankAccountEntity?> GetFirstByHospitalIdAsync(Guid hospitalId)
+    {
+        return await _context
+            .BankAccounts.Where(x => x.UserId == hospitalId && x.IsActive)
+            .OrderByDescending(x => x.IsDefault)
+            .FirstOrDefaultAsync();
     }
 }

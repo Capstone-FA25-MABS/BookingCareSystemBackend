@@ -20,16 +20,25 @@ public interface IHospitalService
 
     // Optimized methods for gRPC performance
     Task<Models.Entities.HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id);
-    Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
+    Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(
+        IEnumerable<Guid> ids
+    );
+
+    // Get hospital names only (minimal data for optimal performance)
+    Task<Dictionary<Guid, string>> GetHospitalNamesByIdsAsync(IEnumerable<Guid> ids);
 
     // Optimized methods for simple responses
     Task<List<HospitalSimpleResponse>> GetActiveHospitalsSimpleAsync();
 
     // Optimized method for hospital list with essential fields and filters
-    Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter);
+    Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListAsync(
+        HospitalListOptimizedFilterRequest filter
+    );
 
     // Get hospitals by account IDs (batch operation for admin management)
-    Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(IEnumerable<Guid> accountIds);
+    Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(
+        IEnumerable<Guid> accountIds
+    );
 
     // Hospital Image Management
     Task<HospitalImageResponse?> AddHospitalImageAsync(CreateHospitalImageRequest request);

@@ -1,5 +1,5 @@
-using BookingCare.Services.Hospital.Models.Entities;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
+using BookingCare.Services.Hospital.Models.Entities;
 
 namespace BookingCare.Services.Hospital.Repositories.Interfaces;
 
@@ -8,7 +8,9 @@ public interface IHospitalRepository
     Task<HospitalEntity?> GetByIdAsync(Guid id);
     Task<HospitalEntity?> GetByEmailAsync(string email);
     Task<List<HospitalEntity>> GetAllAsync();
-    Task<(List<HospitalEntity> hospitals, int totalCount)> GetFilteredAsync(HospitalFilterRequest filter);
+    Task<(List<HospitalEntity> hospitals, int totalCount)> GetFilteredAsync(
+        HospitalFilterRequest filter
+    );
     Task<HospitalEntity> CreateAsync(HospitalEntity hospital);
     Task<HospitalEntity> UpdateAsync(HospitalEntity hospital);
     Task<bool> DeleteAsync(Guid id);
@@ -21,11 +23,16 @@ public interface IHospitalRepository
     Task<HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id);
     Task<List<HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids);
 
+    // Get hospital names only (minimal data for optimal performance)
+    Task<Dictionary<Guid, string>> GetHospitalNamesByIdsAsync(IEnumerable<Guid> ids);
+
     // Optimized methods for simple responses
     Task<List<HospitalEntity>> GetActiveHospitalsSimpleAsync();
 
     // Optimized method for hospital list with essential fields and filters
-    Task<(List<HospitalEntity> hospitals, int totalCount)> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter);
+    Task<(List<HospitalEntity> hospitals, int totalCount)> GetOptimizedHospitalListAsync(
+        HospitalListOptimizedFilterRequest filter
+    );
 
     // Get hospitals by account IDs (batch operation for admin management)
     Task<List<HospitalEntity>> GetByAccountIdsAsync(IEnumerable<Guid> accountIds);

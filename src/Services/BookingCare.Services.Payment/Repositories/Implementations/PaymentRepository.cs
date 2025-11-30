@@ -250,4 +250,41 @@ public class PaymentRepository : IPaymentRepository
 
         return await query.OrderBy(p => p.CreatedAt).ToListAsync();
     }
+
+    public async Task<List<PaymentEntity>> GetCompletedPaymentsByHospitalAndPeriodAsync(
+        Guid hospitalId,
+        DateTime periodStart,
+        DateTime periodEnd
+    )
+    {
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
+            .Where(p =>
+                p.HospitalId == hospitalId
+                && p.Status == PaymentStatus.COMPLETED
+                && p.TransactionType == TransactionType.APPOINTMENT
+                && p.CreatedAt >= periodStart
+                && p.CreatedAt <= periodEnd
+            )
+            .OrderBy(p => p.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<Guid>> GetHospitalIdsWithCompletedPaymentsAsync(
+        DateTime periodStart,
+        DateTime periodEnd
+    )
+    {
+        return await _context
+            .Payments.Where(p =>
+                p.HospitalId.HasValue
+                && p.Status == PaymentStatus.COMPLETED
+                && p.TransactionType == TransactionType.APPOINTMENT
+                && p.CreatedAt >= periodStart
+                && p.CreatedAt <= periodEnd
+            )
+            .Select(p => p.HospitalId!.Value)
+            .Distinct()
+            .ToListAsync();
+    }
 }
