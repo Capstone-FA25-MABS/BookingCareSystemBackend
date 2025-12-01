@@ -50,7 +50,7 @@ public class DermatologyAnalysisController : BaseApiController
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(object), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
-    [RequestSizeLimit(20 * 1024 * 1024)] // 20MB limit for AILabTools
+    [RequestSizeLimit(16 * 1024 * 1024)] // 16MB limit: 15MB file + 1MB buffer for multipart form overhead
     public async Task<IActionResult> AnalyzeSkinImage(
         [FromForm] IFormFile file,
         [FromForm] Guid? sessionId = null,
@@ -77,8 +77,9 @@ public class DermatologyAnalysisController : BaseApiController
                 });
             }
 
-            // Validate file size (max 15MB)
-            const long maxFileSize = 15 * 1024 * 1024;
+            // Validate file size (max 15MB for dermatology images)
+            // Typical smartphone images are 2-5MB, but we allow up to 15MB for high-quality medical images
+            const long maxFileSize = 15 * 1024 * 1024; // 15MB
             if (file.Length > maxFileSize)
             {
                 return BadRequest(new { error = "File size exceeds 15MB limit" });

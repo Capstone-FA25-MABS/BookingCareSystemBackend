@@ -314,12 +314,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private async Task<string> CallGeminiApiAsync(string prompt)
     {
-        return await _geminiApiHelper.CallGeminiApiAsync(
+        return await _geminiApiHelper.CallGeminiApiWithDefaultsAsync(
             prompt,
-            _serviceConfig,
-            temperature: null, // Use default from common config
-            maxOutputTokens: null, // Use default from common config
-            cancellationToken: default);
+            _serviceConfig);
     }
 
     #endregion

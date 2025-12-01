@@ -45,7 +45,7 @@ public class LabResultAnalysisController : BaseApiController
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(object), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
-    [RequestSizeLimit(10 * 1024 * 1024)] // 10MB limit
+    [RequestSizeLimit(11 * 1024 * 1024)] // 11MB limit: 10MB file + 1MB buffer for multipart form overhead
     public async Task<IActionResult> AnalyzeLabResult([FromForm] LabResultAnalysisRequest request)
     {
         try
@@ -75,8 +75,10 @@ public class LabResultAnalysisController : BaseApiController
                 });
             }
 
-            // Validate file size (10MB max)
-            if (request.File.Length > 10 * 1024 * 1024)
+            // Validate file size (10MB max for lab result images/PDFs)
+            // Typical smartphone images are 2-5MB, PDF lab results are usually 1-5MB
+            const long maxFileSize = 10 * 1024 * 1024; // 10MB
+            if (request.File.Length > maxFileSize)
             {
                 return BadRequest(new
                 {

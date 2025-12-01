@@ -295,4 +295,20 @@ public class GeminiApiHelper
     }
 
     #endregion
+
+    /// <summary>
+    /// Helper method to call Gemini API with default parameters (temperature and maxOutputTokens from common config)
+    /// </summary>
+    public async Task<string> CallGeminiApiWithDefaultsAsync(
+        string prompt,
+        ServiceGeminiConfiguration serviceConfig,
+        CancellationToken cancellationToken = default)
+    {
+        return await CallGeminiApiAsync(
+            prompt,
+            serviceConfig,
+            temperature: null, // Use default from common config
+            maxOutputTokens: null, // Use default from common config
+            cancellationToken: cancellationToken);
+    }
 }

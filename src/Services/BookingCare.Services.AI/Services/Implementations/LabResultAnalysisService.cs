@@ -195,8 +195,6 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     private async Task<string> ExtractTextFromPdfAsync(IFormFile file)
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
-        var extractedTexts = new List<string>();
-
         try
         {
             _logger.LogInformation("Starting PDF OCR extraction from file: {FileName}", file.FileName);
@@ -207,69 +205,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 await file.CopyToAsync(stream);
             }
 
-            // Load PDF using Docnet
-            using var docReader = DocLib.Instance.GetDocReader(tempPdfPath, new PageDimensions(1920, 1920));
-
-            // Process each page (limit to first 10 pages)
-            var pageCount = Math.Min(docReader.GetPageCount(), 10);
-            _logger.LogInformation("Processing {PageCount} pages from PDF", pageCount);
-
-            for (int i = 0; i < pageCount; i++)
-            {
-                using var pageReader = docReader.GetPageReader(i);
-                var rawBytes = pageReader.GetImage();
-                var width = pageReader.GetPageWidth();
-                var height = pageReader.GetPageHeight();
-
-                // Save page as PNG
-                var tempImagePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.png");
-
-                try
-                {
-                    // Convert raw bytes to PNG
-                    using (var image = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
-                    {
-                        var bitmapData = image.LockBits(
-                            new System.Drawing.Rectangle(0, 0, width, height),
-                            System.Drawing.Imaging.ImageLockMode.WriteOnly,
-                            image.PixelFormat);
-
-                        System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, bitmapData.Scan0, rawBytes.Length);
-                        image.UnlockBits(bitmapData);
-
-                        image.Save(tempImagePath, System.Drawing.Imaging.ImageFormat.Png);
-                    }
-
-                    // OCR the image
-                    using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
-                    using var img = Pix.LoadFromFile(tempImagePath);
-                    using var ocrPage = engine.Process(img);
-
-                    var pageText = ocrPage.GetText();
-                    if (!string.IsNullOrWhiteSpace(pageText))
-                    {
-                        extractedTexts.Add(pageText);
-                        _logger.LogInformation("Extracted {Length} characters from page {PageNumber}", pageText.Length, i + 1);
-                    }
-                }
-                finally
-                {
-                    if (File.Exists(tempImagePath))
-                    {
-                        File.Delete(tempImagePath);
-                    }
-                }
-            }
-
-            var combinedText = string.Join("\n\n", extractedTexts);
-
-            if (string.IsNullOrWhiteSpace(combinedText))
-            {
-                throw new InvalidOperationException("Không thể trích xuất văn bản từ PDF. Vui lòng đảm bảo PDF chứa văn bản rõ ràng.");
-            }
-
-            _logger.LogInformation("PDF OCR extraction completed. Total {Length} characters from {PageCount} pages", combinedText.Length, extractedTexts.Count);
-            return combinedText;
+            return await ExtractTextFromPdfFileAsync(tempPdfPath);
         }
         catch (Exception ex)
         {
@@ -288,8 +224,6 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     private async Task<string> ExtractTextFromPdfStreamAsync(Stream stream)
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
-        var extractedTexts = new List<string>();
-
         try
         {
             _logger.LogInformation("Starting PDF OCR extraction from stream");
@@ -300,69 +234,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 await stream.CopyToAsync(fileStream);
             }
 
-            // Load PDF using Docnet
-            using var docReader = DocLib.Instance.GetDocReader(tempPdfPath, new PageDimensions(1920, 1920));
-
-            // Process each page (limit to first 10 pages)
-            var pageCount = Math.Min(docReader.GetPageCount(), 10);
-            _logger.LogInformation("Processing {PageCount} pages from PDF", pageCount);
-
-            for (int i = 0; i < pageCount; i++)
-            {
-                using var pageReader = docReader.GetPageReader(i);
-                var rawBytes = pageReader.GetImage();
-                var width = pageReader.GetPageWidth();
-                var height = pageReader.GetPageHeight();
-
-                // Save page as PNG
-                var tempImagePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.png");
-
-                try
-                {
-                    // Convert raw bytes to PNG
-                    using (var image = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
-                    {
-                        var bitmapData = image.LockBits(
-                            new System.Drawing.Rectangle(0, 0, width, height),
-                            System.Drawing.Imaging.ImageLockMode.WriteOnly,
-                            image.PixelFormat);
-
-                        System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, bitmapData.Scan0, rawBytes.Length);
-                        image.UnlockBits(bitmapData);
-
-                        image.Save(tempImagePath, System.Drawing.Imaging.ImageFormat.Png);
-                    }
-
-                    // OCR the image
-                    using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
-                    using var img = Pix.LoadFromFile(tempImagePath);
-                    using var ocrPage = engine.Process(img);
-
-                    var pageText = ocrPage.GetText();
-                    if (!string.IsNullOrWhiteSpace(pageText))
-                    {
-                        extractedTexts.Add(pageText);
-                        _logger.LogInformation("Extracted {Length} characters from page {PageNumber}", pageText.Length, i + 1);
-                    }
-                }
-                finally
-                {
-                    if (File.Exists(tempImagePath))
-                    {
-                        File.Delete(tempImagePath);
-                    }
-                }
-            }
-
-            var combinedText = string.Join("\n\n", extractedTexts);
-
-            if (string.IsNullOrWhiteSpace(combinedText))
-            {
-                throw new InvalidOperationException("Không thể trích xuất văn bản từ PDF. Vui lòng đảm bảo PDF chứa văn bản rõ ràng.");
-            }
-
-            _logger.LogInformation("PDF OCR extraction completed. Total {Length} characters from {PageCount} pages", combinedText.Length, extractedTexts.Count);
-            return combinedText;
+            return await ExtractTextFromPdfFileAsync(tempPdfPath);
         }
         catch (Exception ex)
         {
@@ -378,102 +250,153 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+    private async Task<string> ExtractTextFromPdfFileAsync(string pdfPath)
+    {
+        var extractedTexts = new List<string>();
+
+        // Load PDF using Docnet
+        using var docReader = DocLib.Instance.GetDocReader(pdfPath, new PageDimensions(1920, 1920));
+
+        // Process each page (limit to first 10 pages)
+        var pageCount = Math.Min(docReader.GetPageCount(), 10);
+        _logger.LogInformation("Processing {PageCount} pages from PDF", pageCount);
+
+        for (int i = 0; i < pageCount; i++)
+        {
+            using var pageReader = docReader.GetPageReader(i);
+            var rawBytes = pageReader.GetImage();
+            var width = pageReader.GetPageWidth();
+            var height = pageReader.GetPageHeight();
+
+            // Save page as PNG
+            var tempImagePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.png");
+
+            try
+            {
+                // Convert raw bytes to PNG
+                using (var image = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                {
+                    var bitmapData = image.LockBits(
+                        new System.Drawing.Rectangle(0, 0, width, height),
+                        System.Drawing.Imaging.ImageLockMode.WriteOnly,
+                        image.PixelFormat);
+
+                    System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, bitmapData.Scan0, rawBytes.Length);
+                    image.UnlockBits(bitmapData);
+
+                    image.Save(tempImagePath, System.Drawing.Imaging.ImageFormat.Png);
+                }
+
+                // OCR the image
+                using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
+                using var img = Pix.LoadFromFile(tempImagePath);
+                using var ocrPage = engine.Process(img);
+
+                var pageText = ocrPage.GetText();
+                if (!string.IsNullOrWhiteSpace(pageText))
+                {
+                    extractedTexts.Add(pageText);
+                    _logger.LogInformation("Extracted {Length} characters from page {PageNumber}", pageText.Length, i + 1);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempImagePath))
+                {
+                    File.Delete(tempImagePath);
+                }
+            }
+        }
+
+        var combinedText = string.Join("\n\n", extractedTexts);
+
+        if (string.IsNullOrWhiteSpace(combinedText))
+        {
+            throw new InvalidOperationException("Không thể trích xuất văn bản từ PDF. Vui lòng đảm bảo PDF chứa văn bản rõ ràng.");
+        }
+
+        _logger.LogInformation("PDF OCR extraction completed. Total {Length} characters from {PageCount} pages", combinedText.Length, extractedTexts.Count);
+        return combinedText;
+    }
+
     private async Task<string> ExtractTextFromImageStreamAsync(Stream stream, string fileName)
     {
+        var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(fileName));
         try
         {
             _logger.LogInformation("Starting image OCR extraction from stream: {FileName}", fileName);
 
             // Save stream to temporary location
-            var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(fileName));
-
-            try
+            using (var fileStream = new FileStream(tempFilePath, FileMode.Create))
             {
-                using (var fileStream = new FileStream(tempFilePath, FileMode.Create))
-                {
-                    await stream.CopyToAsync(fileStream);
-                }
-
-                // Perform OCR using Tesseract
-                using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
-                using var img = Pix.LoadFromFile(tempFilePath);
-                using var page = engine.Process(img);
-
-                var extractedText = page.GetText();
-
-                _logger.LogInformation("Image OCR extraction completed. Extracted {Length} characters", extractedText.Length);
-
-                if (string.IsNullOrWhiteSpace(extractedText))
-                {
-                    _logger.LogWarning("OCR extracted empty text from image");
-                    throw new InvalidOperationException("Không thể trích xuất văn bản từ ảnh. Vui lòng đảm bảo ảnh chứa văn bản rõ ràng.");
-                }
-
-                return extractedText;
+                await stream.CopyToAsync(fileStream);
             }
-            finally
-            {
-                // Clean up temporary file
-                if (File.Exists(tempFilePath))
-                {
-                    File.Delete(tempFilePath);
-                }
-            }
+
+            return ExtractTextFromImagePath(tempFilePath);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error extracting text from image stream: {Message}", ex.Message);
             throw new InvalidOperationException($"Lỗi khi trích xuất văn bản từ ảnh: {ex.Message}", ex);
         }
+        finally
+        {
+            // Clean up temporary file
+            if (File.Exists(tempFilePath))
+            {
+                File.Delete(tempFilePath);
+            }
+        }
     }
 
     private async Task<string> ExtractTextFromImageFileAsync(IFormFile file)
     {
+        var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(file.FileName));
         try
         {
             _logger.LogInformation("Starting image OCR extraction from file: {FileName}", file.FileName);
 
             // Save file to temporary location
-            var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(file.FileName));
-
-            try
+            using (var stream = new FileStream(tempFilePath, FileMode.Create))
             {
-                using (var stream = new FileStream(tempFilePath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                // Perform OCR using Tesseract
-                using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
-                using var img = Pix.LoadFromFile(tempFilePath);
-                using var page = engine.Process(img);
-
-                var extractedText = page.GetText();
-
-                _logger.LogInformation("Image OCR extraction completed. Extracted {Length} characters", extractedText.Length);
-
-                if (string.IsNullOrWhiteSpace(extractedText))
-                {
-                    _logger.LogWarning("OCR extracted empty text from image");
-                    throw new InvalidOperationException("Không thể trích xuất văn bản từ ảnh. Vui lòng đảm bảo ảnh chứa văn bản rõ ràng.");
-                }
-
-                return extractedText;
+                await file.CopyToAsync(stream);
             }
-            finally
-            {
-                // Clean up temporary file
-                if (File.Exists(tempFilePath))
-                {
-                    File.Delete(tempFilePath);
-                }
-            }
+
+            return ExtractTextFromImagePath(tempFilePath);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error extracting text from image: {Message}", ex.Message);
             throw new InvalidOperationException($"Lỗi khi trích xuất văn bản từ ảnh: {ex.Message}", ex);
         }
+        finally
+        {
+            // Clean up temporary file
+            if (File.Exists(tempFilePath))
+            {
+                File.Delete(tempFilePath);
+            }
+        }
+    }
+
+    private string ExtractTextFromImagePath(string imagePath)
+    {
+        // Perform OCR using Tesseract
+        using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
+        using var img = Pix.LoadFromFile(imagePath);
+        using var page = engine.Process(img);
+
+        var extractedText = page.GetText();
+
+        _logger.LogInformation("Image OCR extraction completed. Extracted {Length} characters", extractedText.Length);
+
+        if (string.IsNullOrWhiteSpace(extractedText))
+        {
+            _logger.LogWarning("OCR extracted empty text from image");
+            throw new InvalidOperationException("Không thể trích xuất văn bản từ ảnh. Vui lòng đảm bảo ảnh chứa văn bản rõ ràng.");
+        }
+
+        return extractedText;
     }
 
     private async Task<GeminiLabAnalysis> AnalyzeWithGeminiAsync(string extractedText)
@@ -533,12 +456,9 @@ public class LabResultAnalysisService : ILabResultAnalysisService
 
     private async Task<string> CallGeminiApiAsync(string prompt)
     {
-        return await _geminiApiHelper.CallGeminiApiAsync(
+        return await _geminiApiHelper.CallGeminiApiWithDefaultsAsync(
             prompt,
-            _serviceConfig,
-            temperature: null, // Use default from common config
-            maxOutputTokens: null, // Use default from common config
-            cancellationToken: default);
+            _serviceConfig);
     }
 
     private async Task<GeminiLabAnalysis> ParseGeminiResponseAsync(string geminiResponse)
