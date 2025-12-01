@@ -657,6 +657,15 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 }
             }
 
+            if (doctorIds.Count == 0)
+            {
+                return new CheckDoctorsWorkingSlotResponse
+                {
+                    Success = false,
+                    Message = "No valid doctor IDs found"
+                };
+            }
+
             var response = new CheckDoctorsWorkingSlotResponse
             {
                 Success = true,
