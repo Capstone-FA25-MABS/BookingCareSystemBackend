@@ -33,6 +33,7 @@ public class AppointmentService : BaseService, IAppointmentService
 {
     private const string DateFormat = "yyyy-MM-dd";
     private const string NoInformationText = "Không có thông tin";
+    private const string STAFF_VIEW_CONTEXT = "staff view";
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
     private readonly IEventBus _eventBus;
@@ -446,10 +447,10 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         await ValidateAppointmentAsync(request);
 
-        //if (request.HospitalId.HasValue)
-        //{
-        //    await CheckAndValidateAppointmentLimitAsync(request.HospitalId.Value);
-        //}
+        if (request.HospitalId.HasValue)
+        {
+            await CheckAndValidateAppointmentLimitAsync(request.HospitalId.Value);
+        }
     }
 
     /// <summary>
@@ -982,11 +983,11 @@ public class AppointmentService : BaseService, IAppointmentService
         List<AppointmentEntity> entities
     )
     {
-        await FetchAndMapPatientInfoAsync(responses, entities, "staff view");
-        await FetchAndMapRelativeInfoAsync(responses, entities, "staff view");
-        await FetchAndMapDoctorInfoAsync(responses, entities, "staff view");
-        await FetchAndMapServiceInfoAsync(responses, entities, "staff view");
-        await FetchAndMapSpecialtyInfoAsync(responses, entities, "staff view");
+        await FetchAndMapPatientInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
+        await FetchAndMapRelativeInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
+        await FetchAndMapDoctorInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
+        await FetchAndMapServiceInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
+        await FetchAndMapSpecialtyInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
     }
 
     #endregion
@@ -4510,10 +4511,6 @@ public class AppointmentService : BaseService, IAppointmentService
                     }
                 }
 
-                // Remove duplicates: if a doctor is in both lists, keep only in recommended
-                //var recommendedIds = recommendedDoctors.Select(d => d.Id).ToHashSet();
-                //previousDoctors = previousDoctors.Where(d => !recommendedIds.Contains(d.Id)).ToList();
-
                 LogInfo(
                     "[GetDoctorsForAssignment] Found {RecommendedCount} recommended and {PreviousCount} previous doctors",
                     null, recommendedDoctors.Count, previousDoctors.Count);
@@ -4777,7 +4774,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// Map gRPC doctor responses to DoctorForAssignment DTOs
     /// </summary>
     private static List<DoctorForAssignment> MapGrpcDoctorsToAssignment(
-        IEnumerable<Doctor.Protos.DoctorForAssignmentResponse> grpcDoctors,
+        IEnumerable<DoctorForAssignmentInfo> grpcDoctors,
         Dictionary<Guid, int> bookingCountMap,
         Dictionary<Guid, bool> availabilityMap)
     {

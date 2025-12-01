@@ -295,7 +295,7 @@ public class DoctorRepository : IDoctorRepository
     /// <summary>
     /// Apply only search term filter (name search)
     /// </summary>
-    private IQueryable<DoctorEntity> ApplySearchTermFilter(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    private static IQueryable<DoctorEntity> ApplySearchTermFilter(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
     {
         if (!string.IsNullOrEmpty(query.SearchTerm))
         {

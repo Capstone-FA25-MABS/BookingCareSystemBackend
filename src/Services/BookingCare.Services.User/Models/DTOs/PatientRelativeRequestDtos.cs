@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.User.Models.DTOs;
@@ -17,9 +18,11 @@ public abstract class PatientRelativeRequestBase
     public string LastName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Giới tính là bắt buộc")]
+    [JsonRequired]
     public Gender Gender { get; set; }
 
     [Required(ErrorMessage = "Ngày sinh là bắt buộc")]
+    [JsonRequired]
     public DateTime DateOfBirth { get; set; }
 
     [Phone]
@@ -28,6 +31,7 @@ public abstract class PatientRelativeRequestBase
     public string? Phone { get; set; }
 
     [Required(ErrorMessage = "Mối quan hệ là bắt buộc")]
+    [JsonRequired]
     public Relationship Relationship { get; set; }
 
     [MaxLength(20, ErrorMessage = "Số BHYT không được vượt quá 20 ký tự")]

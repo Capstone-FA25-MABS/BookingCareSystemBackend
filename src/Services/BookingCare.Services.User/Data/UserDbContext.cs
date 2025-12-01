@@ -5,6 +5,7 @@ namespace BookingCare.Services.User.Data;
 
 public class UserDbContext : DbContext
 {
+    private const string SQL_GETDATE = "GETDATE()";
     public DbSet<UserEntity> Users { get; set; }
     public DbSet<PatientRelativeEntity> PatientRelatives { get; set; }
 
@@ -53,10 +54,10 @@ public class UserDbContext : DbContext
                 .HasDefaultValue("https://bookingcaree.com/user-avatar-default.png");
 
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETDATE()");
+                .HasDefaultValueSql(SQL_GETDATE);
 
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("GETDATE()");
+                .HasDefaultValueSql(SQL_GETDATE);
 
             // One User can have many PatientRelatives
             entity.HasMany<PatientRelativeEntity>()
@@ -107,10 +108,10 @@ public class UserDbContext : DbContext
                 .HasMaxLength(500);
 
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETDATE()");
+                .HasDefaultValueSql(SQL_GETDATE);
 
             entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("GETDATE()");
+                .HasDefaultValueSql(SQL_GETDATE);
 
             // Index for faster lookup by UserId
             entity.HasIndex(e => e.UserId)

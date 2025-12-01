@@ -37,25 +37,9 @@ builder.Services.AddScoped<ILocationApiService, BookingCare.Shared.Common.Servic
 builder.Services.AddScoped<IServiceMedicalService, ServiceMedicalService>();
 builder.Services.AddScoped<IHospitalService, HospitalService>();
 
-// Add gRPC client for Hospital Service
-var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6104";
-builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
-{
-    options.Address = new Uri(hospitalAddress);
-});
-
-// Add gRPC client for SubscriptionUsageGrpc
-builder.Services.AddGrpcClient<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>(options =>
-{
-    options.Address = new Uri(hospitalAddress);
-});
-
-// Add gRPC client for Review Service
-var reviewAddress = builder.Configuration.GetSection("GrpcClients:Review:Address").Value ?? "http://localhost:6112";
-builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
-{
-    options.Address = new Uri(reviewAddress);
-});
+// Add gRPC clients using extension methods
+builder.Services.AddHospitalGrpcClients(builder.Configuration);
+builder.Services.AddReviewGrpcClient(builder.Configuration);
 
 // Add API Versioning
 builder.Services.AddApiVersioning(opt =>

@@ -8,6 +8,7 @@ namespace BookingCare.Services.Doctor.Services.Grpc;
 
 public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 {
+    private const string INVALID_SPECIALTY_ID_FORMAT = "Invalid specialty ID format";
     private readonly IDoctorService _doctorService;
     private readonly ISpecialtyService _specialtyService;
     private readonly ReviewService.ReviewServiceClient _reviewClient;
@@ -387,7 +388,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             if (!Guid.TryParse(request.Id, out var id))
             {
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+                throw new RpcException(new Status(StatusCode.InvalidArgument, INVALID_SPECIALTY_ID_FORMAT));
             }
 
             var specialty = await _specialtyService.GetSpecialtyByIdAsync(id);

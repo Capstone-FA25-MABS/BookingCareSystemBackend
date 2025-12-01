@@ -63,23 +63,9 @@ builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(options =>
     options.Address = new Uri(authAddress);
 });
 
-var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6104";
-builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
-{
-    options.Address = new Uri(hospitalAddress);
-});
-
-// Add gRPC client for SubscriptionUsageGrpc
-builder.Services.AddGrpcClient<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>(options =>
-{
-    options.Address = new Uri(hospitalAddress);
-});
-
-var reviewAddress = builder.Configuration.GetSection("GrpcClients:Review:Address").Value ?? "http://localhost:6112";
-builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
-{
-    options.Address = new Uri(reviewAddress);
-});
+// Add gRPC clients using extension methods
+builder.Services.AddHospitalGrpcClients(builder.Configuration);
+builder.Services.AddReviewGrpcClient(builder.Configuration);
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();

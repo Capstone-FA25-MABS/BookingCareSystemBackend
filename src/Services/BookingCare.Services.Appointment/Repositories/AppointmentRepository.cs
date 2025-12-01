@@ -868,11 +868,11 @@ public class AppointmentRepository : IAppointmentRepository
     /// <summary>
     /// Get completed appointments for a patient at a specific hospital and specialty
     /// Used to find previous doctors who treated this patient
-    /// Note: actualPatientId can be either PatientId (booking for self) or PatientRelativeId (booking for family member)
+    /// Note: patientId can be either PatientId (booking for self) or PatientRelativeId (booking for family member)
     /// We search both fields to find all appointments for this actual patient
     /// </summary>
     public async Task<List<AppointmentEntity>> GetCompletedAppointmentsForPatientAsync(
-        Guid actualPatientId,
+        Guid patientId,
         Guid hospitalId,
         Guid specialtyId)
     {
@@ -882,7 +882,7 @@ public class AppointmentRepository : IAppointmentRepository
             // 1. PatientId matches (patient booked for themselves)
             // 2. OR PatientRelativeId matches (someone booked for this patient as a relative)
             return await _context.Appointments
-                .Where(a => (a.PatientId == actualPatientId || a.RelativeId == actualPatientId)
+                .Where(a => (a.PatientId == patientId || a.RelativeId == patientId)
                     && a.HospitalId == hospitalId
                     && a.SpecialtyId == specialtyId
                     && a.Status == AppointmentStatus.COMPLETED
@@ -895,14 +895,13 @@ public class AppointmentRepository : IAppointmentRepository
         {
             _logger.LogError(ex,
                 "Error getting completed appointments for patient {PatientId}, hospital {HospitalId}, specialty {SpecialtyId}",
-                actualPatientId, hospitalId, specialtyId);
+                patientId, hospitalId, specialtyId);
             throw new AppointmentException("Failed to get completed appointments for patient", innerException: ex);
         }
     }
 
     /// <summary>
     /// Get booking counts (completed appointments) for multiple doctors
-    /// </summary>
     public async Task<Dictionary<Guid, int>> GetDoctorBookingCountsAsync(List<Guid> doctorIds)
     {
         try

@@ -298,7 +298,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var hospitals = await _hospitalService.GetHospitalsByIdsAsync(new List<Guid> { entity.HospitalId });
                 if (hospitals.Any())
                 {
-                    serviceResponse.Hospital = _mapper.Map<HospitalInfoResponse>(hospitals.First());
+                    serviceResponse.Hospital = _mapper.Map<HospitalInfoResponse>(hospitals[0]);
                 }
 
                 // Get service category information
@@ -345,7 +345,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             }
             catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.NotFound)
             {
-                _logger.LogInformation("No review statistics found for service: {ServiceId}", serviceId);
+                _logger.LogInformation(ex, "No review statistics found for service: {ServiceId}", serviceId);
                 return new ServiceReviewStatisticsResponse
                 {
                     AverageRating = 0,
@@ -1141,7 +1141,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting services basic info by IDs");
-                throw;
+                throw new InvalidOperationException("Failed to get services basic info by IDs", ex);
             }
         }
 
