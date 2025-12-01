@@ -61,7 +61,7 @@ public class HospitalRepository : IHospitalRepository
         return (hospitals, totalCount);
     }
 
-    private IQueryable<HospitalEntity> ApplyFilters(
+    private static IQueryable<HospitalEntity> ApplyFilters(
         IQueryable<HospitalEntity> query,
         HospitalFilterRequest filter
     )
@@ -82,7 +82,7 @@ public class HospitalRepository : IHospitalRepository
         return query;
     }
 
-    private IQueryable<HospitalEntity> ApplySorting(
+    private static IQueryable<HospitalEntity> ApplySorting(
         IQueryable<HospitalEntity> query,
         HospitalFilterRequest filter
     )
@@ -105,7 +105,7 @@ public class HospitalRepository : IHospitalRepository
         };
     }
 
-    private IQueryable<HospitalEntity> ApplyPagination(
+    private static IQueryable<HospitalEntity> ApplyPagination(
         IQueryable<HospitalEntity> query,
         HospitalFilterRequest filter
     )
@@ -395,9 +395,9 @@ public class HospitalRepository : IHospitalRepository
     /// <summary>
     /// Get specialty information directly from database for performance optimization
     /// </summary>
-    public Task<Dictionary<Guid, (string Name, string? ImageUrl)>> GetSpecialtyInfoByIdsAsync(
-        List<Guid> specialtyIds
-    )
+    public static Task<
+        Dictionary<Guid, (string Name, string? ImageUrl)>
+    > GetSpecialtyInfoByIdsAsync(List<Guid> specialtyIds)
     {
         if (specialtyIds == null || !specialtyIds.Any())
         {

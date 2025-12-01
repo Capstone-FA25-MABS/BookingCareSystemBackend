@@ -66,25 +66,6 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
         return MapToHospitalReplyInternal(dto);
     }
 
-    private static HospitalReply MapToHospitalReplyInternal(HospitalMappingDto dto)
-    {
-        return new HospitalReply
-        {
-            Id = dto.Id.ToString(),
-            AccountId = dto.AccountId.ToString(),
-            Name = dto.Name,
-            Address = dto.Address,
-            Phone = dto.Phone ?? "",
-            Email = dto.Email,
-            Description = dto.Description,
-            BackgroundUrl = dto.BackgroundUrl ?? "",
-            AvatarUrl = dto.AvatarUrl ?? "",
-            Status = "ACTIVE", // Status is now managed by Auth service
-            CreatedAt = dto.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-            UpdatedAt = dto.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-        };
-    }
-
     private static HospitalReply MapToHospitalReply(
         BookingCare.Services.Hospital.Models.DTOs.Responses.HospitalResponse hospital
     )
@@ -103,6 +84,25 @@ public class HospitalGrpcService : HospitalService.HospitalServiceBase
             Status = "ACTIVE", // Status is now managed by Auth service
             CreatedAt = hospital.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
             UpdatedAt = hospital.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+        };
+    }
+
+    private static HospitalReply MapToHospitalReplyInternal(HospitalMappingDto dto)
+    {
+        return new HospitalReply
+        {
+            Id = dto.Id.ToString(),
+            AccountId = dto.AccountId.ToString(),
+            Name = dto.Name,
+            Address = dto.Address,
+            Phone = dto.Phone ?? "",
+            Email = dto.Email,
+            Description = dto.Description,
+            BackgroundUrl = dto.BackgroundUrl ?? "",
+            AvatarUrl = dto.AvatarUrl ?? "",
+            Status = "ACTIVE", // Status is now managed by Auth service
+            CreatedAt = dto.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            UpdatedAt = dto.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
         };
     }
 

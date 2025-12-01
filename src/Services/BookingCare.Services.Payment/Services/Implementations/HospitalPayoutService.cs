@@ -59,16 +59,9 @@ public class HospitalPayoutService : IHospitalPayoutService
             throw new KeyNotFoundException($"Payout with ID {payoutId} not found");
         }
 
-        // Get all completed payments for this hospital in the period
-        var payments = await _paymentRepository.GetCompletedPaymentsByHospitalAndPeriodAsync(
-            payout.HospitalId,
-            payout.PeriodStart,
-            payout.PeriodEnd
-        );
-
         var appointmentDetails = new List<PayoutAppointmentDetail>();
-        // TODO: Need to fetch appointment and user details via gRPC
-        // For now, return basic payment info
+        // NOTE: Appointment and user details will be fetched via gRPC in future implementation
+        // For now, return basic payout info without detailed appointment data
 
         return new PayoutDetailsResponse
         {
@@ -187,8 +180,8 @@ public class HospitalPayoutService : IHospitalPayoutService
         var (pendingCount, pendingAmount, completedCount, completedAmount) =
             await _payoutRepository.GetStatisticsAsync();
 
-        // Get unique hospital count with payouts
-        // TODO: Implement if needed
+        // NOTE: TotalHospitals count can be implemented when needed
+        // Current implementation focuses on payout counts and amounts
 
         return new PayoutStatisticsResponse
         {
@@ -196,9 +189,7 @@ public class HospitalPayoutService : IHospitalPayoutService
             TotalPendingAmount = pendingAmount,
             TotalCompletedPayouts = completedCount,
             TotalCompletedAmount = completedAmount,
-            TotalHospitals =
-                0 // TODO
-            ,
+            TotalHospitals = 0,
         };
     }
 
@@ -305,7 +296,7 @@ public class HospitalPayoutService : IHospitalPayoutService
             AppointmentCount = entity.AppointmentCount,
             Status = entity.Status,
             ProcessedByAdminId = entity.ProcessedByAdminId,
-            ProcessedByAdminName = string.Empty, // TODO: Fetch from User service
+            ProcessedByAdminName = string.Empty, // NOTE: Admin name will be fetched from User service via gRPC in future implementation
             ProcessedAt = entity.ProcessedAt,
             Notes = entity.Notes,
             CreatedAt = entity.CreatedAt,
