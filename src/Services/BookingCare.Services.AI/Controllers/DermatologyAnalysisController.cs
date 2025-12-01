@@ -2,6 +2,7 @@ using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
@@ -29,7 +30,7 @@ public class DermatologyAnalysisController : BaseApiController
     }
 
     /// <summary>
-    /// Analyze skin image for dermatological conditions
+    /// Analyze skin image for dermatological conditions (requires Patient authentication)
     /// </summary>
     /// <param name="file">Skin image file (jpg, png, etc.)</param>
     /// <param name="sessionId">Optional session ID for tracking</param>
@@ -37,12 +38,17 @@ public class DermatologyAnalysisController : BaseApiController
     /// <param name="districtId">Optional district ID for location-based recommendations</param>
     /// <param name="locationDisplayName">Optional location display name</param>
     /// <returns>Dermatology analysis with diagnosis, malignancy assessment, and recommendations</returns>
+    /// <response code="200">Analysis completed successfully</response>
+    /// <response code="400">Invalid request data</response>
+    /// <response code="401">Unauthorized - user must be authenticated as Patient</response>
+    /// <response code="500">Internal server error</response>
     [HttpPost("analyze")]
-    [AllowAnonymous] // Allow both authenticated and anonymous users
+    [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ApiResponse<DermatologyAnalysisResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     [RequestSizeLimit(20 * 1024 * 1024)] // 20MB limit for AILabTools
     public async Task<IActionResult> AnalyzeSkinImage(
@@ -78,16 +84,8 @@ public class DermatologyAnalysisController : BaseApiController
                 return BadRequest(new { error = "File size exceeds 15MB limit" });
             }
 
-            // Get user ID from claims if authenticated
-            Guid? userId = null;
-            if (User.Identity?.IsAuthenticated == true)
-            {
-                var userIdClaim = User.FindFirst("sub") ?? User.FindFirst("userId");
-                if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var parsedUserId))
-                {
-                    userId = parsedUserId;
-                }
-            }
+            // Get authenticated user ID from JWT claims using JwtHelper
+            var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
             // Build location context
             LocationContext? location = null;
@@ -112,6 +110,16 @@ public class DermatologyAnalysisController : BaseApiController
                 sessionId);
 
             return Success(result, "Phân tích ảnh da thành công");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access attempt: {Message}", ex.Message);
+            return Unauthorized(new
+            {
+                success = false,
+                message = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
         }
         catch (InvalidOperationException ex)
         {

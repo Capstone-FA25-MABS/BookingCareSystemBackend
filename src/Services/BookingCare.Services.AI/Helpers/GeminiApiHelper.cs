@@ -185,15 +185,70 @@ public class GeminiApiHelper
         if (geminiResponse?.Candidates == null || geminiResponse.Candidates.Length == 0)
         {
             _logger.LogWarning("Gemini API returned no candidates. Response: {Response}", responseContent);
+
+            // Check for prompt feedback (safety issues)
+            if (geminiResponse?.PromptFeedback != null)
+            {
+                var blockReason = geminiResponse.PromptFeedback.BlockReason;
+                var safetyRatings = geminiResponse.PromptFeedback.SafetyRatings;
+                _logger.LogWarning("Prompt was blocked. BlockReason: {BlockReason}, SafetyRatings: {SafetyRatings}",
+                    blockReason, safetyRatings != null ? string.Join(", ", safetyRatings.Select(r => $"{r.Category}:{r.Probability}")) : "none");
+
+                throw new InvalidOperationException(
+                    $"Gemini API blocked the prompt. Reason: {blockReason}. " +
+                    $"This may be due to safety filters. Please review your prompt content.");
+            }
+
             throw new InvalidOperationException("Gemini API returned no candidates");
         }
 
-        var generatedText = geminiResponse.Candidates[0]?.Content?.Parts?[0]?.Text;
+        var candidate = geminiResponse.Candidates[0];
+
+        // Check finish reason (SAFETY, MAX_TOKENS, STOP, etc.)
+        if (!string.IsNullOrEmpty(candidate.FinishReason))
+        {
+            if (candidate.FinishReason == "SAFETY")
+            {
+                var safetyRatings = candidate.SafetyRatings;
+                _logger.LogWarning("Gemini API blocked response due to safety. SafetyRatings: {SafetyRatings}",
+                    safetyRatings != null ? string.Join(", ", safetyRatings.Select(r => $"{r.Category}:{r.Probability}")) : "none");
+                throw new InvalidOperationException(
+                    "Gemini API blocked the response due to safety filters. " +
+                    "The generated content may have been flagged as inappropriate. " +
+                    "Please try rephrasing your prompt.");
+            }
+
+            if (candidate.FinishReason != "STOP" && candidate.FinishReason != "MAX_TOKENS")
+            {
+                _logger.LogWarning("Gemini API finished with reason: {FinishReason}", candidate.FinishReason);
+            }
+        }
+
+        var generatedText = candidate.Content?.Parts?[0]?.Text;
 
         if (string.IsNullOrEmpty(generatedText))
         {
-            _logger.LogWarning("Gemini API returned empty text. Full response: {Response}", responseContent);
-            throw new InvalidOperationException("Gemini API returned empty text");
+            var finishReason = candidate.FinishReason ?? "unknown";
+            var safetyRatings = candidate.SafetyRatings;
+            var logMessage = $"Gemini API returned empty text. FinishReason: {finishReason}";
+
+            if (safetyRatings != null && safetyRatings.Length > 0)
+            {
+                logMessage += $", SafetyRatings: {string.Join(", ", safetyRatings.Select(r => $"{r.Category}:{r.Probability}"))}";
+            }
+
+            _logger.LogWarning("{LogMessage}. Full response: {Response}", logMessage, responseContent);
+
+            if (finishReason == "SAFETY")
+            {
+                throw new InvalidOperationException(
+                    "Gemini API returned empty text due to safety filters. " +
+                    "The content may have been blocked. Please try rephrasing your prompt.");
+            }
+
+            throw new InvalidOperationException(
+                $"Gemini API returned empty text. FinishReason: {finishReason}. " +
+                "This may indicate an issue with the prompt or API response format.");
         }
 
         _logger.LogInformation("Successfully called Gemini using {ApiVersion}/{Model}, generated {Length} characters",
@@ -207,11 +262,14 @@ public class GeminiApiHelper
     private class GeminiApiResponse
     {
         public Candidate[]? Candidates { get; set; }
+        public PromptFeedback? PromptFeedback { get; set; }
     }
 
     private class Candidate
     {
         public Content? Content { get; set; }
+        public string? FinishReason { get; set; }
+        public SafetyRating[]? SafetyRatings { get; set; }
     }
 
     private class Content
@@ -222,6 +280,18 @@ public class GeminiApiHelper
     private class Part
     {
         public string? Text { get; set; }
+    }
+
+    private class PromptFeedback
+    {
+        public string? BlockReason { get; set; }
+        public SafetyRating[]? SafetyRatings { get; set; }
+    }
+
+    private class SafetyRating
+    {
+        public string? Category { get; set; }
+        public string? Probability { get; set; }
     }
 
     #endregion

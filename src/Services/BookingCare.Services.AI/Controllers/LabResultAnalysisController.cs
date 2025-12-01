@@ -2,11 +2,11 @@ using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace BookingCare.Services.AI.Controllers;
 
@@ -30,15 +30,20 @@ public class LabResultAnalysisController : BaseApiController
     }
 
     /// <summary>
-    /// Analyze lab result image and get medical insights
+    /// Analyze lab result image and get medical insights (requires Patient authentication)
     /// </summary>
     /// <param name="request">Lab result analysis request with file</param>
     /// <returns>Analysis response with normal/abnormal indicators and recommendations</returns>
+    /// <response code="200">Analysis completed successfully</response>
+    /// <response code="400">Invalid request data</response>
+    /// <response code="401">Unauthorized - user must be authenticated as Patient</response>
+    /// <response code="500">Internal server error</response>
     [HttpPost("analyze")]
-    [AllowAnonymous]
+    [Authorize(Policy = "Role:Patient")] // Require Patient role
     [MapToApiVersion(ApiVersions.V1_0)]
     [ProducesResponseType(typeof(ApiResponse<LabResultAnalysisResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10MB limit
     public async Task<IActionResult> AnalyzeLabResult([FromForm] LabResultAnalysisRequest request)
@@ -81,13 +86,8 @@ public class LabResultAnalysisController : BaseApiController
                 });
             }
 
-            // Get user ID from claims (if authenticated)
-            Guid? userId = null;
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var parsedUserId))
-            {
-                userId = parsedUserId;
-            }
+            // Get authenticated user ID from JWT claims using JwtHelper
+            var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
             _logger.LogInformation(
                 "Analyzing lab result for user {UserId}, file: {FileName}, size: {Size} bytes",
@@ -103,6 +103,16 @@ public class LabResultAnalysisController : BaseApiController
                 request.SessionId);
 
             return Success(response, "Phân tích kết quả xét nghiệm thành công");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access attempt: {Message}", ex.Message);
+            return Unauthorized(new
+            {
+                success = false,
+                message = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
         }
         catch (InvalidOperationException ex)
         {

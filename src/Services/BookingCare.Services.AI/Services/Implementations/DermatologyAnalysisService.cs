@@ -28,7 +28,6 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
     private const string CACHE_KEY_PREFIX = "gemini_disease_translation_";
     private static readonly TimeSpan TranslationCacheDuration = TimeSpan.FromDays(30);
-    private static readonly TimeSpan ConclusionCacheDuration = TimeSpan.FromDays(7);
     private static readonly TimeSpan AdviceCacheDuration = TimeSpan.FromDays(7);
 
     public DermatologyAnalysisService(
@@ -161,10 +160,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
             // Parse diagnosis information
             var diagnosis = new SkinConditionDiagnosis();
-            var malignancyRisk = new MalignancyAssessment();
             var advice = new List<string>();
-            var biopsyRecommended = false;
-            var biopsyReason = string.Empty;
 
             // AILabTools actual response structure: { "error_code": 0, "data": { "results_english": { "disease_name": confidence, ... } } }
             // Check error_code (not "code")
@@ -194,7 +190,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                         diagnosis.ConditionName = await MapDiseaseNameToVietnamese(topDiseaseName);
                         diagnosis.Confidence = topConfidence;
 
-                        // Determine malignancy risk based on disease name and confidence
+                        // Determine severity based on disease name (for advice generation)
                         var diseaseNameLower = topDiseaseName.ToLower();
 
                         // High-risk conditions (melanoma, carcinoma, etc.)
@@ -203,12 +199,6 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                             diseaseNameLower.Contains("cancer") ||
                             diseaseNameLower.Contains("malignant"))
                         {
-                            malignancyRisk.SuspicionLevel = 0.8;
-                            malignancyRisk.RiskCategory = "Cao";
-                            malignancyRisk.UrgencyLevel = "URGENT";
-                            malignancyRisk.RiskFactors.Add("Tổn thương nghi ngờ ác tính");
-                            biopsyRecommended = true;
-                            biopsyReason = "Phát hiện tổn thương nghi ngờ ác tính. Cần sinh thiết NGAY để xác định chính xác.";
                             advice.Add("Cần đến gặp bác sĩ da liễu NGAY để được thăm khám và sinh thiết");
                             diagnosis.Severity = "Nặng";
                         }
@@ -218,22 +208,12 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                                  diseaseNameLower.Contains("mole") ||
                                  diseaseNameLower.Contains("wart"))
                         {
-                            malignancyRisk.SuspicionLevel = 0.5;
-                            malignancyRisk.RiskCategory = "Trung bình";
-                            malignancyRisk.UrgencyLevel = "NORMAL";
-                            malignancyRisk.RiskFactors.Add("Tổn thương cần theo dõi");
-                            biopsyRecommended = true;
-                            biopsyReason = "Nên sinh thiết để loại trừ khả năng ác tính.";
                             advice.Add("Nên đến gặp bác sĩ da liễu trong vòng 1-2 tuần để được đánh giá");
                             diagnosis.Severity = "Trung bình";
                         }
                         // Low-risk conditions (fungal infections, dermatitis, etc.)
                         else
                         {
-                            malignancyRisk.SuspicionLevel = 0.2;
-                            malignancyRisk.RiskCategory = "Thấp";
-                            malignancyRisk.UrgencyLevel = "NORMAL";
-                            advice.Add("Theo dõi tổn thương da và đến gặp bác sĩ nếu có thay đổi");
                             diagnosis.Severity = "Nhẹ";
                         }
                     }
@@ -313,61 +293,13 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                 AddFallbackAdvice(advice, diagnosis.ConditionName);
             }
 
-            // Generate detailed conclusion using Gemini AI
-            string? detailedConclusion = null;
-            try
-            {
-                if (!string.IsNullOrEmpty(diagnosis.ConditionName) &&
-                    !string.IsNullOrEmpty(diagnosis.Severity) &&
-                    !string.IsNullOrEmpty(malignancyRisk.RiskCategory))
-                {
-                    _logger.LogInformation("Generating detailed conclusion for: {DiseaseName}", diagnosis.ConditionName);
-                    detailedConclusion = await GenerateDermatologyConclusionAsync(
-                        diagnosis.ConditionName,
-                        diagnosis.Confidence,
-                        diagnosis.Severity,
-                        malignancyRisk.RiskCategory
-                    );
-
-                    _logger.LogInformation("Successfully generated detailed conclusion. Length: {Length} characters",
-                        detailedConclusion?.Length ?? 0);
-                }
-                else
-                {
-                    _logger.LogWarning("Cannot generate detailed conclusion: Missing diagnosis info. ConditionName={ConditionName}, Severity={Severity}, RiskCategory={RiskCategory}",
-                        diagnosis.ConditionName, diagnosis.Severity, malignancyRisk.RiskCategory);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to generate detailed conclusion for {DiseaseName}. Will use fallback.", diagnosis.ConditionName);
-
-                // Use fallback conclusion
-                detailedConclusion = $@"## Thông tin về {diagnosis.ConditionName}
-
-Dựa trên phân tích hình ảnh, tổn thương da có khả năng là **{diagnosis.ConditionName}** với độ tin cậy **{(diagnosis.Confidence * 100):F0}%**.
-
-### Mức độ nghiêm trọng
-Tổn thương được đánh giá ở mức độ **{diagnosis.Severity}** với nguy cơ ác tính **{malignancyRisk.RiskCategory}**.
-
-### Khuyến nghị
-Để có chẩn đoán chính xác và phương pháp điều trị phù hợp, bạn cần đến gặp bác sĩ da liễu để được:
-- Khám lâm sàng chi tiết
-- Đánh giá toàn diện tình trạng da
-- Chỉ định các xét nghiệm cần thiết (nếu cần)
-- Đưa ra phương án điều trị phù hợp
-
-**Lưu ý:** Đây chỉ là kết quả phân tích sơ bộ từ hình ảnh. Vui lòng không tự ý điều trị mà hãy tìm đến các cơ sở y tế uy tín để được tư vấn và điều trị đúng cách.";
-            }
+            // Detailed conclusion removed - no longer needed
 
             return new AILabToolsAnalysisResult
             {
                 Diagnosis = diagnosis,
-                MalignancyRisk = malignancyRisk,
                 GeneralAdvice = advice,
-                BiopsyRecommended = biopsyRecommended,
-                BiopsyReason = biopsyReason,
-                DetailedConclusion = detailedConclusion
+                DetailedConclusion = null // No longer generating detailed conclusion
             };
         }
         catch (Exception ex)
@@ -391,11 +323,7 @@ Tổn thương được đánh giá ở mức độ **{diagnosis.Severity}** v�
             SessionId = sessionId,
             ImageUrl = imageUrl,
             Diagnosis = aiLabToolsResult.Diagnosis,
-            MalignancyRisk = aiLabToolsResult.MalignancyRisk,
             GeneralAdvice = aiLabToolsResult.GeneralAdvice,
-            BiopsyRecommended = aiLabToolsResult.BiopsyRecommended,
-            BiopsyReason = aiLabToolsResult.BiopsyReason,
-            DetailedConclusion = aiLabToolsResult.DetailedConclusion,
             Disclaimer = "Lưu ý: Đây chỉ là công cụ hỗ trợ chẩn đoán, không thay thế khám lâm sàng của bác sĩ chuyên khoa Da liễu. Vui lòng đến cơ sở y tế để được thăm khám và điều trị chính xác.",
             Timestamp = DateTime.UtcNow
         };
@@ -430,9 +358,7 @@ Tổn thương được đánh giá ở mức độ **{diagnosis.Severity}** v�
             {
                 Name = response.Diagnosis.ConditionName,
                 Confidence = response.Diagnosis.Confidence,
-                Severity = response.Diagnosis.Severity,
-                MalignancyRisk = response.MalignancyRisk?.RiskCategory,
-                BiopsyRecommended = response.BiopsyRecommended
+                Severity = response.Diagnosis.Severity
             } : null;
 
             await _sessionService.SaveConversationHistoryAsync(
@@ -465,29 +391,6 @@ Tổn thương được đánh giá ở mức độ **{diagnosis.Severity}** v�
         {
             messageBuilder.AppendLine($"**Chẩn đoán khả năng:** {response.Diagnosis.ConditionName}");
             messageBuilder.AppendLine($"**Độ tin cậy:** {response.Diagnosis.Confidence:P0}");
-
-            if (!string.IsNullOrEmpty(response.Diagnosis.Severity))
-            {
-                messageBuilder.AppendLine($"**Mức độ nghiêm trọng:** {response.Diagnosis.Severity}");
-            }
-            messageBuilder.AppendLine();
-        }
-
-        // Don't show malignancy risk for low-risk conditions
-        // if (response.MalignancyRisk != null)
-        // {
-        //     messageBuilder.AppendLine($"**Đánh giá nguy cơ ác tính:** {response.MalignancyRisk.RiskCategory}");
-        //     messageBuilder.AppendLine($"**Mức độ nghi ngờ:** {response.MalignancyRisk.SuspicionLevel:P0}");
-        //     messageBuilder.AppendLine();
-        // }
-
-        if (response.BiopsyRecommended)
-        {
-            messageBuilder.AppendLine($"**Khuyến nghị sinh thiết:** Có");
-            if (!string.IsNullOrEmpty(response.BiopsyReason))
-            {
-                messageBuilder.AppendLine($"**Lý do:** {response.BiopsyReason}");
-            }
             messageBuilder.AppendLine();
         }
 
@@ -498,16 +401,6 @@ Tổn thương được đánh giá ở mức độ **{diagnosis.Severity}** v�
             {
                 messageBuilder.AppendLine($"- {advice}");
             }
-            messageBuilder.AppendLine();
-        }
-
-        if (!string.IsNullOrEmpty(response.DetailedConclusion))
-        {
-            messageBuilder.AppendLine("---");
-            messageBuilder.AppendLine();
-            messageBuilder.AppendLine("**KẾT LUẬN CHI TIẾT:**");
-            messageBuilder.AppendLine();
-            messageBuilder.AppendLine(response.DetailedConclusion);
             messageBuilder.AppendLine();
         }
 
@@ -604,108 +497,6 @@ Tên bệnh (tiếng Việt):";
     }
 
     /// <summary>
-    /// Generate detailed medical conclusion for dermatology diagnosis (500-800 words)
-    /// </summary>
-    private async Task<string> GenerateDermatologyConclusionAsync(
-        string diseaseName,
-        double confidence,
-        string severity,
-        string riskCategory,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // Check cache first
-            var cacheKey = $"gemini_conclusion_{diseaseName.ToLower()}_{severity}_{riskCategory}";
-            if (_cache.TryGetValue<string>(cacheKey, out var cachedConclusion))
-            {
-                _logger.LogInformation("Using cached conclusion for: {DiseaseName}", diseaseName);
-                return cachedConclusion!;
-            }
-
-            _logger.LogInformation("Generating detailed conclusion for: {DiseaseName}", diseaseName);
-
-            var confidencePercent = (confidence * 100).ToString("F0");
-
-            var prompt = $@"Bạn là một bác sĩ da liễu chuyên nghiệp. Hãy viết một kết luận y khoa chi tiết về bệnh da liễu sau đây.
-
-THÔNG TIN CHẨN ĐOÁN:
-- Tên bệnh: {diseaseName}
-- Độ tin cậy: {confidencePercent}%
-- Mức độ nghiêm trọng: {severity}
-- Nguy cơ ác tính: {riskCategory}
-
-YÊU CẦU:
-1. Viết bằng tiếng Việt, dùng thuật ngữ y khoa chính xác nhưng dễ hiểu
-2. Độ dài: 500-800 từ
-3. Chia thành các sections sau (dùng markdown headers):
-
-## Mô tả bệnh
-- Giải thích bệnh là gì
-- Đặc điểm nhận dạng trên da
-- Tần suất gặp
-
-## Nguyên nhân
-- Các nguyên nhân chính gây bệnh
-- Yếu tố nguy cơ
-- Cơ chế bệnh sinh (nếu có)
-
-## Triệu chứng
-- Các triệu chứng điển hình
-- Dấu hiệu cần chú ý
-- Biến chứng có thể xảy ra
-
-## Điều trị
-- Phương pháp điều trị chính
-- Thuốc thường dùng (nếu có)
-- Thời gian điều trị dự kiến
-- Lưu ý khi điều trị
-
-## Tiên lượng
-- Khả năng khỏi bệnh
-- Nguy cơ tái phát
-- Các biện pháp phòng ngừa
-
-LƯU Ý:
-- Không đưa ra chẩn đoán chắc chắn, chỉ cung cấp thông tin tham khảo
-- Nhấn mạnh cần đến gặp bác sĩ da liễu để được thăm khám trực tiếp
-- Viết theo phong cách chuyên nghiệp nhưng dễ hiểu cho người bệnh
-- Không dùng bullet points quá nhiều, ưu tiên viết thành đoạn văn
-
-Hãy viết kết luận chi tiết:";
-
-            var conclusion = await GenerateTextAsync(prompt, temperature: 0.4, cancellationToken);
-
-            // Cache the conclusion for 7 days
-            _cache.Set(cacheKey, conclusion, ConclusionCacheDuration);
-
-            _logger.LogInformation("Generated conclusion for '{DiseaseName}': Length={Length} characters",
-                diseaseName, conclusion.Length);
-
-            return conclusion;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error generating dermatology conclusion for: {DiseaseName}", diseaseName);
-
-            // Fallback: return a basic conclusion
-            return $@"## Thông tin về {diseaseName}
-
-Dựa trên phân tích hình ảnh, tổn thương da có khả năng là {diseaseName} với độ tin cậy {(confidence * 100):F0}%.
-
-**Lưu ý quan trọng:** Đây chỉ là kết quả phân tích sơ bộ từ hình ảnh. Để có chẩn đoán chính xác và phương pháp điều trị phù hợp, bạn cần đến gặp bác sĩ da liễu để được thăm khám trực tiếp.
-
-Bác sĩ sẽ:
-- Khám lâm sàng chi tiết
-- Đánh giá toàn diện tình trạng da
-- Có thể chỉ định các xét nghiệm cần thiết
-- Đưa ra phương án điều trị phù hợp với tình trạng cụ thể của bạn
-
-Vui lòng không tự ý điều trị mà hãy tìm đến các cơ sở y tế uy tín để được tư vấn và điều trị đúng cách.";
-        }
-    }
-
-    /// <summary>
     /// Generate general advice for a specific skin condition (3-5 bullet points)
     /// </summary>
     private async Task<string> GenerateGeneralAdviceAsync(
@@ -756,8 +547,7 @@ Hãy đưa ra 3-5 lời khuyên cho {diseaseName}:";
             _logger.LogError(ex, "Error generating general advice for: {DiseaseName}", diseaseName);
 
             // Fallback: return generic advice
-            return @"- Theo dõi tổn thương da và đến gặp bác sĩ nếu có thay đổi
-- Giữ vệ sinh da sạch sẽ
+            return @"- Giữ vệ sinh da sạch sẽ
 - Tránh tiếp xúc trực tiếp với ánh nắng mặt trời";
         }
     }
@@ -795,10 +585,7 @@ Hãy đưa ra 3-5 lời khuyên cho {diseaseName}:";
     private class AILabToolsAnalysisResult
     {
         public SkinConditionDiagnosis Diagnosis { get; set; } = new();
-        public MalignancyAssessment MalignancyRisk { get; set; } = new();
         public List<string> GeneralAdvice { get; set; } = new();
-        public bool BiopsyRecommended { get; set; }
-        public string? BiopsyReason { get; set; }
         public string? DetailedConclusion { get; set; }
     }
 

@@ -453,11 +453,11 @@ public class ConversationSessionService : IConversationSessionService
         try
         {
             var history = await LoadConversationHistoryAsync(sessionId);
-            
+
             // Check if any patient message contains "Đã gửi file xét nghiệm:"
-            return history.Any(m => 
-                m.Role == "patient" && 
-                m.Content != null && 
+            return history.Any(m =>
+                m.Role == "patient" &&
+                m.Content != null &&
                 m.Content.Contains("Đã gửi file xét nghiệm:"));
         }
         catch (Exception ex)

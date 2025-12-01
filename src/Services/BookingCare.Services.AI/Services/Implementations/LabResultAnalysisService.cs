@@ -69,20 +69,20 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             using var memoryStream = new MemoryStream();
             await file.CopyToAsync(memoryStream);
             var fileBytes = memoryStream.ToArray();
-            
+
             // Create separate streams for parallel operations
             using var uploadStream = new MemoryStream(fileBytes);
             using var extractStream = new MemoryStream(fileBytes);
-            
+
             // Parallelize S3 upload and OCR extraction for better performance
             var uploadTask = UploadFileToS3Async(uploadStream, file.FileName, file.ContentType, userId);
             var extractTask = ExtractTextFromStreamAsync(extractStream, file.FileName);
-            
+
             await Task.WhenAll(uploadTask, extractTask);
-            
+
             var imageUrl = await uploadTask;
             var extractedText = await extractTask;
-            
+
             _logger.LogInformation("Uploaded image to {ImageUrl}", imageUrl);
             _logger.LogInformation("Extracted {Length} characters from image", extractedText.Length);
 
