@@ -45,4 +45,8 @@ public interface IScheduleService
 
     // Available slots for service medical operations
     Task<IEnumerable<AppointmentTimeDto>> GetServiceMedicalAvailableSlotsAsync(GetServiceMedicalAvailableSlotsRequest request, Guid? currentUserId = null);
+
+    // Specialty available slots operations (for "hospital assigns doctor" mode)
+    // Aggregates availability across all doctors in the specialty
+    Task<SpecialtyAvailableSlotsResponseDto> GetSpecialtyAvailableSlotsAsync(GetSpecialtyAvailableSlotsRequest request, Guid? currentUserId = null);
 }

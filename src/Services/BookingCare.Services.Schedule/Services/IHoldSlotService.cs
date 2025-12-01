@@ -78,4 +78,42 @@ public interface IHoldSlotService
     /// Get remaining time for a held slot - backward compatible
     /// </summary>
     Task<int> GetRemainingTimeAsync(Guid doctorId, DateOnly date, AppointmentTime appointmentTimeId, Guid userId);
+
+    #region Specialty Hold Slot operations (for "hospital assigns doctor" mode)
+
+    /// <summary>
+    /// Hold a specialty slot for a specific user
+    /// This uses capacity-based holding where multiple users can hold the same time slot
+    /// as long as there are available doctors
+    /// </summary>
+    /// <param name="request">Hold specialty slot request</param>
+    /// <param name="userId">User ID who is holding the slot</param>
+    /// <returns>Hold slot response with remaining time</returns>
+    Task<HoldSlotResponse> HoldSpecialtySlotAsync(HoldSpecialtySlotRequest request, Guid userId);
+
+    /// <summary>
+    /// Release a held specialty slot
+    /// </summary>
+    /// <param name="request">Release specialty slot request</param>
+    /// <param name="userId">User ID who is releasing the slot</param>
+    /// <returns>True if successfully released</returns>
+    Task<bool> ReleaseSpecialtySlotAsync(ReleaseSpecialtySlotRequest request, Guid userId);
+
+    /// <summary>
+    /// Get the number of held slots for a specialty time slot (excluding current user)
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="specialtyId">Specialty ID</param>
+    /// <param name="date">Date</param>
+    /// <param name="appointmentTimeId">Appointment time ID</param>
+    /// <param name="currentUserId">Current user ID to exclude from count</param>
+    /// <returns>Number of held slots</returns>
+    Task<int> GetSpecialtyHeldCountAsync(Guid hospitalId, Guid specialtyId, DateOnly date, AppointmentTime appointmentTimeId, Guid currentUserId);
+
+    /// <summary>
+    /// Get remaining time for a held specialty slot
+    /// </summary>
+    Task<int> GetSpecialtyRemainingTimeAsync(Guid hospitalId, Guid specialtyId, DateOnly date, AppointmentTime appointmentTimeId, Guid userId);
+
+    #endregion
 }

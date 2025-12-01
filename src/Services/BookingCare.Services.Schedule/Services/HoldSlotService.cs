@@ -238,4 +238,195 @@ public class HoldSlotService : BaseService, IHoldSlotService
     {
         return GetRemainingTimeAsync(doctorId, HoldSlotTargetType.Doctor, date, appointmentTimeId, userId);
     }
+
+    #region Specialty Hold Slot operations (for "hospital assigns doctor" mode)
+
+    /// <summary>
+    /// Get cache key for specialty hold slot using CacheKeys constant
+    /// </summary>
+    private static string GetSpecialtyHoldSlotCacheKey(Guid hospitalId, Guid specialtyId, DateOnly date, AppointmentTime appointmentTimeId, Guid userId)
+    {
+        return CacheKeys.Format(CacheKeys.SpecialtyHeldSlot, hospitalId, specialtyId, date.ToString(DateFormat), (int)appointmentTimeId, userId);
+    }
+
+    /// <summary>
+    /// Get cache key pattern for specialty hold slots (for counting) using CacheKeys constant
+    /// </summary>
+    private static string GetSpecialtyHoldSlotPattern(Guid hospitalId, Guid specialtyId, DateOnly date, AppointmentTime appointmentTimeId)
+    {
+        return CacheKeys.Format(CacheKeys.SpecialtyHeldSlotPattern, hospitalId, specialtyId, date.ToString(DateFormat), (int)appointmentTimeId);
+    }
+
+    public async Task<HoldSlotResponse> HoldSpecialtySlotAsync(HoldSpecialtySlotRequest request, Guid userId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Attempting to hold specialty slot for hospital {HospitalId}, specialty {SpecialtyId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                null, request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, userId);
+
+            // Check current held count for this slot
+            var currentHeldCount = await GetSpecialtyHeldCountAsync(
+                request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, Guid.Empty);
+
+            // Check if capacity is exceeded
+            if (currentHeldCount >= request.MaxCapacity)
+            {
+                LogWarning("Specialty slot capacity exceeded: {HospitalId}:{SpecialtyId}:{Date}:{AppointmentTimeId} - {CurrentCount}/{MaxCapacity}",
+                    null, request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, currentHeldCount, request.MaxCapacity);
+
+                return new HoldSlotResponse
+                {
+                    Success = false,
+                    Message = "Khung giờ này đã hết chỗ. Vui lòng chọn khung giờ khác.",
+                    RemainingSeconds = 0
+                };
+            }
+
+            // Check if this user already holds this slot
+            var existingHoldKey = GetSpecialtyHoldSlotCacheKey(
+                request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, userId);
+            var existingHold = await _cacheService.GetAsync<HoldSlotDto>(existingHoldKey);
+
+            if (existingHold != null)
+            {
+                // User already holds this slot, return remaining time
+                var remainingSeconds = (int)(existingHold.ExpiresAt - DateTime.UtcNow).TotalSeconds;
+                if (remainingSeconds > 0)
+                {
+                    return new HoldSlotResponse
+                    {
+                        Success = true,
+                        Message = "Bạn đã giữ chỗ này trước đó.",
+                        HoldSlot = existingHold,
+                        RemainingSeconds = remainingSeconds
+                    };
+                }
+            }
+
+            // Release any existing specialty slots held by this user (user can only hold one specialty slot at a time)
+            await ReleaseAllUserSpecialtySlotsAsync(userId);
+
+            // Create hold slot data
+            var heldAt = DateTime.UtcNow;
+            var expiresAt = heldAt.AddMinutes(HOLD_DURATION_MINUTES);
+            var holdSlot = new HoldSlotDto
+            {
+                TargetId = request.SpecialtyId, // Use specialty ID as target
+                TargetType = HoldSlotTargetType.Specialty,
+                Date = request.Date,
+                AppointmentTimeId = request.AppointmentTimeId,
+                UserId = userId,
+                HeldAt = heldAt,
+                ExpiresAt = expiresAt,
+                RemainingSeconds = (int)(expiresAt - heldAt).TotalSeconds
+            };
+
+            // Store in cache with TTL
+            var cacheKey = GetSpecialtyHoldSlotCacheKey(
+                request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, userId);
+
+            await _cacheService.SetAsync(cacheKey, holdSlot, TimeSpan.FromMinutes(HOLD_DURATION_MINUTES));
+
+            LogInfo("Successfully held specialty slot: {HospitalId}:{SpecialtyId}:{Date}:{AppointmentTimeId} for user {UserId}",
+                null, request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, userId);
+
+            return new HoldSlotResponse
+            {
+                Success = true,
+                Message = "Đã giữ chỗ thành công. Vui lòng hoàn tất đặt lịch trong 5 phút.",
+                HoldSlot = holdSlot,
+                RemainingSeconds = holdSlot.RemainingSeconds
+            };
+
+        }, "HoldSpecialtySlot");
+    }
+
+    public async Task<bool> ReleaseSpecialtySlotAsync(ReleaseSpecialtySlotRequest request, Guid userId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var cacheKey = GetSpecialtyHoldSlotCacheKey(
+                request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, userId);
+
+            await _cacheService.RemoveAsync(cacheKey);
+
+            LogInfo("Released specialty slot: {HospitalId}:{SpecialtyId}:{Date}:{AppointmentTimeId} for user {UserId}",
+                null, request.HospitalId, request.SpecialtyId, request.Date, request.AppointmentTimeId, userId);
+
+            return true;
+
+        }, "ReleaseSpecialtySlot");
+    }
+
+    public async Task<int> GetSpecialtyHeldCountAsync(Guid hospitalId, Guid specialtyId, DateOnly date, AppointmentTime appointmentTimeId, Guid currentUserId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var pattern = GetSpecialtyHoldSlotPattern(hospitalId, specialtyId, date, appointmentTimeId);
+
+            // Get all keys matching the pattern
+            var keys = await _cacheService.GetKeysByPatternAsync(pattern);
+
+            // Count valid (non-expired) holds, excluding current user
+            var count = 0;
+            foreach (var key in keys)
+            {
+                // Extract userId from key - it's the last part
+                // Key format: [prefix:]holdslot:specialty:{hospitalId}:{specialtyId}:{date}:{appointmentTimeId}:{userId}
+                var parts = key.Split(':');
+                var userIdPart = parts[^1]; // Last element
+
+                if (Guid.TryParse(userIdPart, out var holdUserId) && holdUserId != currentUserId)
+                {
+                    // Use GetByFullKeyAsync since key from GetKeysByPatternAsync already includes prefix
+                    var holdSlot = await _cacheService.GetByFullKeyAsync<HoldSlotDto>(key);
+                    if (holdSlot != null && holdSlot.ExpiresAt > DateTime.UtcNow)
+                    {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+
+        }, "GetSpecialtyHeldCount");
+    }
+
+    public async Task<int> GetSpecialtyRemainingTimeAsync(Guid hospitalId, Guid specialtyId, DateOnly date, AppointmentTime appointmentTimeId, Guid userId)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            var cacheKey = GetSpecialtyHoldSlotCacheKey(hospitalId, specialtyId, date, appointmentTimeId, userId);
+
+            var holdSlot = await _cacheService.GetAsync<HoldSlotDto>(cacheKey);
+            if (holdSlot == null)
+            {
+                return 0;
+            }
+
+            var remainingSeconds = (int)(holdSlot.ExpiresAt - DateTime.UtcNow).TotalSeconds;
+            return Math.Max(0, remainingSeconds);
+
+        }, "GetSpecialtyRemainingTime");
+    }
+
+    /// <summary>
+    /// Release all specialty slots held by a user
+    /// </summary>
+    private async Task ReleaseAllUserSpecialtySlotsAsync(Guid userId)
+    {
+        try
+        {
+            // Pattern to find all specialty slots held by this user
+            var pattern = CacheKeys.Format(CacheKeys.SpecialtyHeldSlotsByUser, userId);
+            await _cacheService.RemoveByPatternAsync(pattern);
+            LogInfo("Released all specialty slots for user {UserId}", null, userId);
+        }
+        catch (Exception ex)
+        {
+            LogWarning($"Failed to release all specialty slots for user {userId}: {ex.Message}");
+        }
+    }
+
+    #endregion
 }
