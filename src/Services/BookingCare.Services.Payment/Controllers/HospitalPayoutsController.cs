@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
@@ -5,7 +6,6 @@ using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace BookingCare.Services.Payment.Controllers;
 
@@ -35,6 +35,7 @@ public class HospitalPayoutsController : BaseApiController
     /// <param name="query">Query parameters for filtering and pagination</param>
     [HttpGet]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetPayouts([FromQuery] PayoutQueryRequest query)
     {
         try
@@ -46,6 +47,46 @@ public class HospitalPayoutsController : BaseApiController
         {
             _logger.LogError(ex, "Error retrieving payouts");
             return StatusCode(500, new { Message = "An error occurred while retrieving payouts" });
+        }
+    }
+
+    /// <summary>
+    /// Get payout history for the hospital
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="pageNumber">Page number (1-based)</param>
+    /// <param name="pageSize">Page size</param>
+    [HttpGet("my-payouts")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetMyPayouts(
+        [FromQuery] Guid hospitalId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10
+    )
+    {
+        try
+        {
+            var query = new PayoutQueryRequest
+            {
+                HospitalId = hospitalId,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+            };
+
+            var result = await _payoutService.GetPayoutsAsync(query);
+            return Success(result, "Retrieved your payout history successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error retrieving hospital payout history for ID: {HospitalId}",
+                hospitalId
+            );
+            return StatusCode(
+                500,
+                new { Message = "An error occurred while retrieving payout history" }
+            );
         }
     }
 
