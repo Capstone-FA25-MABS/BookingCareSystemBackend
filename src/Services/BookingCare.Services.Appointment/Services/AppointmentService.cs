@@ -4575,7 +4575,7 @@ public class AppointmentService : BaseService, IAppointmentService
         return (hospitalId, specialtyId, appointmentTypeText);
     }
 
-    private async Task<Doctor.Protos.GetDoctorsForAssignmentResponse> FetchRecommendedDoctorsFromGrpcAsync(
+    private async Task<GetDoctorsForAssignmentResponse> FetchRecommendedDoctorsFromGrpcAsync(
         Guid hospitalId,
         Guid specialtyId,
         string appointmentType)
@@ -4619,7 +4619,7 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     private static List<DoctorForAssignment> BuildRecommendedDoctors(
-        Doctor.Protos.GetDoctorsForAssignmentResponse doctorGrpcResponse,
+        GetDoctorsForAssignmentResponse doctorGrpcResponse,
         IReadOnlyDictionary<Guid, int> bookingCountMap,
         IReadOnlyDictionary<Guid, bool> availabilityMap)
     {

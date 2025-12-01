@@ -1173,7 +1173,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
                 };
             }
 
-            var appointmentType = request.AppointmentType?.ToUpperInvariant() ?? "IN_PERSON";
+            var appointmentType = request.AppointmentType?.ToUpperInvariant() ?? "Khám trực tiếp";
 
             // Parse optional doctor IDs filter
             var filterDoctorIds = request.DoctorIds
