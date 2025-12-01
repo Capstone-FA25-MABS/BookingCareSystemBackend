@@ -1,7 +1,7 @@
-using BookingCare.Shared.Common.Controllers;
-using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Review.Models.DTOs;
 using BookingCare.Services.Review.Services.Interfaces;
+using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Review.Controllers;
@@ -44,8 +44,9 @@ public class ReviewsController : BaseApiController
             {
                 Message = ex.Message,
                 ExistingReview = existingReview ?? new ReviewResponse(),
-                SuggestedAction = "Please update the existing review instead of creating a new one.",
-                UpdateEndpoint = "/api/v1.0/reviews"
+                SuggestedAction =
+                    "Please update the existing review instead of creating a new one.",
+                UpdateEndpoint = "/api/v1.0/reviews",
             };
 
             return Conflict(errorResponse);
@@ -60,7 +61,7 @@ public class ReviewsController : BaseApiController
                 ServiceId = ex.ServiceId,
                 TargetType = ex.TargetType,
                 SuggestedAction = $"Complete an appointment with this {ex.TargetType.ToLower()} before creating a review.",
-                RequirementInfo = "Reviews can only be created after completing an appointment with the target doctor or service."
+                RequirementInfo = "Reviews can only be created after completing an appointment with the target doctor or service.",
             };
 
             return BadRequest(errorResponse);
@@ -132,7 +133,11 @@ public class ReviewsController : BaseApiController
     /// <returns>Paginated reviews for the doctor</returns>
     [HttpGet("doctor/{doctorId:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetReviewsByDoctor(Guid doctorId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetReviewsByDoctor(
+        Guid doctorId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10
+    )
     {
         var result = await _reviewService.GetReviewsByDoctorAsync(doctorId, page, pageSize);
         return Success(result, "Doctor reviews retrieved successfully");
@@ -147,7 +152,11 @@ public class ReviewsController : BaseApiController
     /// <returns>Paginated reviews for the service</returns>
     [HttpGet("service/{serviceId:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetReviewsByService(Guid serviceId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetReviewsByService(
+        Guid serviceId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10
+    )
     {
         var result = await _reviewService.GetReviewsByServiceAsync(serviceId, page, pageSize);
         return Success(result, "Service reviews retrieved successfully");
@@ -162,10 +171,43 @@ public class ReviewsController : BaseApiController
     /// <returns>Paginated reviews by the patient</returns>
     [HttpGet("patient/{patientId:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetReviewsByPatient(Guid patientId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetReviewsByPatient(
+        Guid patientId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10
+    )
     {
         var result = await _reviewService.GetReviewsByPatientAsync(patientId, page, pageSize);
         return Success(result, "Patient reviews retrieved successfully");
+    }
+
+    /// <summary>
+    /// Gets reviews for a specific hospital
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="page">Page number</param>
+    /// <param name="pageSize">Page size</param>
+    /// <param name="minRating">Minimum rating filter (1-5)</param>
+    /// <param name="maxRating">Maximum rating filter (1-5)</param>
+    /// <returns>Paginated reviews for the hospital</returns>
+    [HttpGet("hospital/{hospitalId:guid}")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetReviewsByHospital(
+        Guid hospitalId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] int? minRating = null,
+        [FromQuery] int? maxRating = null
+    )
+    {
+        var result = await _reviewService.GetReviewsByHospitalAsync(
+            hospitalId,
+            page,
+            pageSize,
+            minRating,
+            maxRating
+        );
+        return Success(result, "Hospital reviews retrieved successfully");
     }
 
     /// <summary>
@@ -218,7 +260,10 @@ public class ReviewsController : BaseApiController
     public async Task<IActionResult> GetAverageRatingByDoctor(Guid doctorId)
     {
         var result = await _reviewService.GetAverageRatingByDoctorAsync(doctorId);
-        return Success(new { DoctorId = doctorId, AverageRating = result }, "Average rating retrieved successfully");
+        return Success(
+            new { DoctorId = doctorId, AverageRating = result },
+            "Average rating retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -244,7 +289,10 @@ public class ReviewsController : BaseApiController
     public async Task<IActionResult> GetAverageRatingByService(Guid serviceId)
     {
         var result = await _reviewService.GetAverageRatingByServiceAsync(serviceId);
-        return Success(new { ServiceId = serviceId, AverageRating = result }, "Average rating retrieved successfully");
+        return Success(
+            new { ServiceId = serviceId, AverageRating = result },
+            "Average rating retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -267,23 +315,96 @@ public class ReviewsController : BaseApiController
     /// <returns>Complete statistics for all requested doctors</returns>
     [HttpPost("doctors/batch-statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetBatchDoctorsStatistics([FromBody] BatchDoctorsStatisticsRequest request)
+    public async Task<IActionResult> GetBatchDoctorsStatistics(
+        [FromBody] BatchDoctorsStatisticsRequest request
+    )
     {
         var result = await _reviewService.GetBatchDoctorsStatisticsAsync(request);
-        return Success(result, $"Batch doctor statistics retrieved successfully for {result.DoctorStatistics.Count} doctors");
+        return Success(
+            result,
+            $"Batch doctor statistics retrieved successfully for {result.DoctorStatistics.Count} doctors"
+        );
     }
 
     /// <summary>
-    /// Gets comprehensive statistics for multiple clinic services in a single request
+    /// Gets comprehensive statistics for multiple services in a single request
     /// </summary>
     /// <param name="request">Batch services statistics request</param>
     /// <returns>Complete statistics for all requested services</returns>
     [HttpPost("services/batch-statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetBatchServicesStatistics([FromBody] BatchServicesStatisticsRequest request)
+    public async Task<IActionResult> GetBatchServicesStatistics(
+        [FromBody] BatchServicesStatisticsRequest request
+    )
     {
         var result = await _reviewService.GetBatchServicesStatisticsAsync(request);
-        return Success(result, $"Batch service statistics retrieved successfully for {result.ServiceStatistics.Count} services");
+        return Success(
+            result,
+            $"Batch service statistics retrieved successfully for {result.ServiceStatistics.Count} services"
+        );
+    }
+
+    /// <summary>
+    /// Gets the average rating for a hospital
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <returns>Average rating</returns>
+    [HttpGet("hospital/{hospitalId:guid}/average-rating")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetAverageRatingByHospital(Guid hospitalId)
+    {
+        var result = await _reviewService.GetAverageRatingByHospitalAsync(hospitalId);
+        return Success(
+            new { HospitalId = hospitalId, AverageRating = result },
+            "Average rating retrieved successfully"
+        );
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for a hospital
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <returns>Complete statistics including average rating, count, and rating distribution</returns>
+    [HttpGet("hospital/{hospitalId:guid}/statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetHospitalStatistics(Guid hospitalId)
+    {
+        var result = await _reviewService.GetHospitalDetailedStatisticsAsync(hospitalId);
+        return Success(result, "Hospital statistics retrieved successfully");
+    }
+
+    /// <summary>
+    /// Gets the total count of reviews for a hospital
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <returns>Review count</returns>
+    [HttpGet("hospital/{hospitalId:guid}/count")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetReviewCountByHospital(Guid hospitalId)
+    {
+        var result = await _reviewService.GetReviewCountByHospitalAsync(hospitalId);
+        return Success(
+            new { HospitalId = hospitalId, ReviewCount = result },
+            "Review count retrieved successfully"
+        );
+    }
+
+    /// <summary>
+    /// Gets comprehensive statistics for multiple hospitals in a single request
+    /// </summary>
+    /// <param name="request">Batch hospitals statistics request</param>
+    /// <returns>Complete statistics for all requested hospitals</returns>
+    [HttpPost("hospitals/batch-statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetBatchHospitalsStatistics(
+        [FromBody] BatchHospitalsStatisticsRequest request
+    )
+    {
+        var result = await _reviewService.GetBatchHospitalsStatisticsAsync(request);
+        return Success(
+            result,
+            $"Batch hospital statistics retrieved successfully for {result.HospitalStatistics.Count} hospitals"
+        );
     }
 
     /// <summary>
@@ -296,7 +417,10 @@ public class ReviewsController : BaseApiController
     public async Task<IActionResult> GetReviewCountByDoctor(Guid doctorId)
     {
         var result = await _reviewService.GetReviewCountByDoctorAsync(doctorId);
-        return Success(new { DoctorId = doctorId, ReviewCount = result }, "Review count retrieved successfully");
+        return Success(
+            new { DoctorId = doctorId, ReviewCount = result },
+            "Review count retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -312,7 +436,7 @@ public class ReviewsController : BaseApiController
             Status = "Healthy",
             Service = "Review",
             Timestamp = DateTime.UtcNow,
-            Version = "1.0"
+            Version = "1.0",
         };
         return Success(healthData, "Review service is healthy");
     }

@@ -5,7 +5,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "analytics-service",
           "Port": 6000
         }
       ],
@@ -21,7 +21,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "analytics-service",
           "Port": 6000
         }
       ],
@@ -37,7 +37,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "analytics-service",
           "Port": 6000
         }
       ],
@@ -53,7 +53,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "analytics-service",
           "Port": 6000
         }
       ],
@@ -69,7 +69,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "ai-service",
           "Port": 6001
         }
       ],
@@ -85,7 +85,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "appointment-service",
           "Port": 6002
         }
       ],
@@ -101,7 +101,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "appointment-service",
           "Port": 6002
         }
       ],
@@ -117,7 +117,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "auth-service",
           "Port": 6003
         }
       ],
@@ -135,7 +135,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "auth-service",
           "Port": 6003
         }
       ],
@@ -147,7 +147,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -163,7 +163,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -179,7 +179,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -195,7 +195,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -211,7 +211,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -227,7 +227,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -243,7 +243,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -259,7 +259,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -275,7 +275,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -291,7 +291,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -307,7 +307,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "hospital-service",
           "Port": 6004
         }
       ],
@@ -323,7 +323,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "communication-service",
           "Port": 6005
         }
       ],
@@ -339,7 +339,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "communication-service",
           "Port": 6005
         }
       ],
@@ -355,7 +355,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "communication-service",
           "Port": 6005
         }
       ],
@@ -369,7 +369,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "content-service",
           "Port": 6006
         }
       ],
@@ -385,7 +385,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "discount-service",
           "Port": 6007
         }
       ],
@@ -401,7 +401,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "doctor-service",
           "Port": 6008
         }
       ],
@@ -417,7 +417,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "doctor-service",
           "Port": 6008
         }
       ],
@@ -433,7 +433,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "doctor-service",
           "Port": 6008
         }
       ],
@@ -449,7 +449,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "doctor-service",
           "Port": 6008
         }
       ],
@@ -465,7 +465,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "doctor-service",
           "Port": 6008
         }
       ],
@@ -481,7 +481,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "favorites-service",
           "Port": 6009
         }
       ],
@@ -497,7 +497,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "notification-service",
           "Port": 6010
         }
       ],
@@ -513,7 +513,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "notification-service",
           "Port": 6010
         }
       ],
@@ -529,7 +529,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "notification-service",
           "Port": 6010
         }
       ],
@@ -541,7 +541,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "payment-service",
           "Port": 6011
         }
       ],
@@ -557,7 +557,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "payment-service",
           "Port": 6011
         }
       ],
@@ -573,7 +573,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "payment-service",
           "Port": 6011
         }
       ],
@@ -589,7 +589,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "payment-service",
           "Port": 6011
         }
       ],
@@ -605,7 +605,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "payment-service",
           "Port": 6011
         }
       ],
@@ -621,7 +621,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "payment-service",
           "Port": 6011
         }
       ],
@@ -633,27 +633,11 @@
       }
     },
     {
-      "DownstreamPathTemplate": "/api/v{version}/hospitalpayouts/{everything}",
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "localhost",
-          "Port": 6011
-        }
-      ],
-      "UpstreamPathTemplate": "/api/v{version}/hospitalpayouts/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
-      "AuthenticationOptions": {
-        // "AuthenticationProviderKey": "Bearer",
-        "AllowedScopes": []
-      }
-    },
-    {
       "DownstreamPathTemplate": "/api/v{version}/reviews/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "review-service",
           "Port": 6012
         }
       ],
@@ -669,7 +653,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "saga-service",
           "Port": 6013
         }
       ],
@@ -685,7 +669,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "schedule-service",
           "Port": 6014
         }
       ],
@@ -701,7 +685,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "schedule-service",
           "Port": 6014
         }
       ],
@@ -717,7 +701,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "schedule-service",
           "Port": 6014
         }
       ],
@@ -733,7 +717,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "schedule-service",
           "Port": 6014
         }
       ],
@@ -749,7 +733,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "schedule-service",
           "Port": 6014
         }
       ],
@@ -765,7 +749,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "servicemedical-service",
           "Port": 6015
         }
       ],
@@ -781,7 +765,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "servicemedical-service",
           "Port": 6015
         }
       ],
@@ -797,7 +781,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "user-service",
           "Port": 6016
         }
       ],
@@ -813,7 +797,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "user-service",
           "Port": 6016
         }
       ],
