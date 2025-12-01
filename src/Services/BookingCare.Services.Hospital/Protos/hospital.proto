@@ -27,6 +27,9 @@ service HospitalService {
   // Get multiple hospitals basic info (batch operation for performance)
   rpc GetHospitalsBasicInfo (GetHospitalsBasicInfoRequest) returns (HospitalsBasicInfoResponse);
   
+  // Get hospital names only (optimized for performance - minimal data transfer)
+  rpc GetHospitalNames (GetHospitalNamesRequest) returns (HospitalNamesResponse);
+  
   // Get hospitals by account IDs (batch operation for admin management)
   rpc GetHospitalsByAccountIds (GetHospitalsByAccountIdsRequest) returns (HospitalBatchResponse);
 }
@@ -171,6 +174,22 @@ message HospitalBasicInfoResponse {
 // Response message for multiple hospitals basic info
 message HospitalsBasicInfoResponse {
   repeated HospitalBasicInfoResponse hospitals = 1;
+}
+
+// Request message for getting hospital names only
+message GetHospitalNamesRequest {
+  repeated string ids = 1; // Hospital IDs
+}
+
+// Hospital name info (minimal data for performance)
+message HospitalNameInfo {
+  string id = 1;
+  string name = 2;
+}
+
+// Response message for hospital names
+message HospitalNamesResponse {
+  repeated HospitalNameInfo hospitals = 1;
 }
 
 // Request message for getting hospitals by account IDs

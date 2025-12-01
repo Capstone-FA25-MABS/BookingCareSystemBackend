@@ -93,6 +93,98 @@ namespace BookingCare.Services.Payment.Migrations
                         });
                 });
 
+            modelBuilder.Entity("BookingCare.Services.Payment.Models.Entities.HospitalPayoutEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AppointmentCount")
+                        .HasColumnType("int")
+                        .HasColumnName("appointment_count");
+
+                    b.Property<Guid>("BankAccountId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("bank_account_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.Property<Guid>("HospitalId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("hospital_id");
+
+                    b.Property<string>("HospitalName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("hospital_name");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("notes");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("period_end");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("period_start");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("processed_at");
+
+                    b.Property<Guid?>("ProcessedByAdminId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("processed_by_admin_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("status");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("total_amount");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("GETDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BankAccountId");
+
+                    b.HasIndex("HospitalId")
+                        .HasDatabaseName("IX_hospital_payouts_hospital_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("IX_hospital_payouts_status");
+
+                    b.HasIndex("HospitalId", "PeriodStart", "PeriodEnd")
+                        .HasDatabaseName("IX_hospital_payouts_hospital_period");
+
+                    b.ToTable("hospital_payouts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_hospital_payouts_appointment_count_positive", "[appointment_count] > 0");
+
+                            t.HasCheckConstraint("CK_hospital_payouts_period_valid", "[period_start] <= [period_end]");
+
+                            t.HasCheckConstraint("CK_hospital_payouts_status", "[status] IN ('PENDING', 'COMPLETED')");
+
+                            t.HasCheckConstraint("CK_hospital_payouts_total_amount_positive", "[total_amount] > 0");
+                        });
+                });
+
             modelBuilder.Entity("BookingCare.Services.Payment.Models.Entities.PayOSPaymentMappingEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -381,6 +473,18 @@ namespace BookingCare.Services.Payment.Migrations
 
                             t.HasCheckConstraint("CK_refund_histories_transfer_date_completed", "([status] = 'COMPLETED' AND [transfer_date] IS NOT NULL) OR ([status] != 'COMPLETED')");
                         });
+                });
+
+            modelBuilder.Entity("BookingCare.Services.Payment.Models.Entities.HospitalPayoutEntity", b =>
+                {
+                    b.HasOne("BookingCare.Services.Payment.Models.Entities.BankAccountEntity", "BankAccount")
+                        .WithMany()
+                        .HasForeignKey("BankAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_hospital_payouts_bank_account_id");
+
+                    b.Navigation("BankAccount");
                 });
 
             modelBuilder.Entity("BookingCare.Services.Payment.Models.Entities.PayOSPaymentMappingEntity", b =>

@@ -906,6 +906,22 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/hospitalpayouts/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6011
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/hospitalpayouts/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/reviews/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -1149,6 +1165,6 @@
     }
   ],
   "GlobalConfiguration": {
-    "BaseUrl": "http://localhost:5000"
+    "BaseUrl": "http://api-gateway:5001"
   }
 }

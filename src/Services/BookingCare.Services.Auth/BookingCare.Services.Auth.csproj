@@ -10,11 +10,11 @@
 
   <ItemGroup>
     <Protobuf Include="Protos/auth.proto" GrpcServices="Server" />
-    <!-- Use solution-root based path and link into local Protos folder to satisfy gRPC tooling on Linux CI -->
-    <Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Notification/Protos/otp.proto" GrpcServices="Client" Link="Protos/otp.proto" ProtoRoot="$(SolutionDir)" />
-    <Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" Link="Protos/user.proto" ProtoRoot="$(SolutionDir)" />
-    <Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" Link="Protos/doctor.proto" ProtoRoot="$(SolutionDir)" />
-	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Hospital/Protos/hospital.proto" GrpcServices="Client" Link="Protos/hospital.proto" ProtoRoot="$(SolutionDir)" />
+    <!-- Use relative path for Docker build compatibility -->
+    <Protobuf Include="../BookingCare.Services.Notification/Protos/otp.proto" GrpcServices="Client" />
+    <Protobuf Include="../BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" />
+    <Protobuf Include="../BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" />
+	<Protobuf Include="../BookingCare.Services.Hospital/Protos/hospital.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>

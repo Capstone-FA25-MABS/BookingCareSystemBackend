@@ -1,10 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
-using BookingCare.Services.Payment.Data;
+﻿using BookingCare.Services.Payment.Data;
+using BookingCare.Services.Payment.Enums;
+using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Services.Payment.Repositories.Interfaces;
-using BookingCare.Services.Payment.Models.DTOs.Requests;
 using BookingCare.Shared.Common.Models;
-using BookingCare.Services.Payment.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace BookingCare.Services.Payment.Repositories.Implementations;
 
@@ -22,38 +22,41 @@ public class PaymentRepository : IPaymentRepository
 
     public async Task<PaymentEntity?> GetByIdAsync(Guid id)
     {
-        return await _context.Payments
-            .Include(p => p.PaymentMethod)
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
             .FirstOrDefaultAsync(p => p.Id == id);
     }
 
     public async Task<PaymentEntity?> GetByAppointmentIdAsync(Guid appointmentId)
     {
-        return await _context.Payments
-            .Include(p => p.PaymentMethod)
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
             .FirstOrDefaultAsync(p => p.AppointmentId == appointmentId);
     }
 
     public async Task<PaymentEntity?> GetBySubscriptionIdAsync(Guid subscriptionId)
     {
-        return await _context.Payments
-            .Include(p => p.PaymentMethod)
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
             .FirstOrDefaultAsync(p => p.SubscriptionId == subscriptionId);
     }
 
     public async Task<IEnumerable<PaymentEntity>> GetByHospitalIdAsync(Guid hospitalId)
     {
-        return await _context.Payments
-            .Include(p => p.PaymentMethod)
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
             .Where(p => p.HospitalId == hospitalId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
     }
 
-    public async Task<PagedResult<PaymentEntity>> GetPagedByHospitalIdAsync(Guid hospitalId, GetPaymentsPagedRequest request)
+    public async Task<PagedResult<PaymentEntity>> GetPagedByHospitalIdAsync(
+        Guid hospitalId,
+        GetPaymentsPagedRequest request
+    )
     {
-        var baseQuery = _context.Payments
-            .Include(p => p.PaymentMethod)
+        var baseQuery = _context
+            .Payments.Include(p => p.PaymentMethod)
             .Where(p => p.HospitalId == hospitalId);
 
         return await GetPagedResultAsync(baseQuery, request);
@@ -61,17 +64,20 @@ public class PaymentRepository : IPaymentRepository
 
     public async Task<IEnumerable<PaymentEntity>> GetByPatientIdAsync(Guid patientId)
     {
-        return await _context.Payments
-            .Include(p => p.PaymentMethod)
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
             .Where(p => p.PatientId == patientId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
     }
 
-    public async Task<PagedResult<PaymentEntity>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request)
+    public async Task<PagedResult<PaymentEntity>> GetPagedByPatientIdAsync(
+        Guid patientId,
+        GetPaymentsPagedRequest request
+    )
     {
-        var baseQuery = _context.Payments
-            .Include(p => p.PaymentMethod)
+        var baseQuery = _context
+            .Payments.Include(p => p.PaymentMethod)
             .Where(p => p.PatientId == patientId && p.Status == PaymentStatus.COMPLETED);
 
         return await GetPagedResultAsync(baseQuery, request);
@@ -80,7 +86,10 @@ public class PaymentRepository : IPaymentRepository
     /// <summary>
     /// Common helper method for pagination, search, and sorting
     /// </summary>
-    private async Task<PagedResult<PaymentEntity>> GetPagedResultAsync(IQueryable<PaymentEntity> baseQuery, GetPaymentsPagedRequest request)
+    private async Task<PagedResult<PaymentEntity>> GetPagedResultAsync(
+        IQueryable<PaymentEntity> baseQuery,
+        GetPaymentsPagedRequest request
+    )
     {
         var query = baseQuery;
 
@@ -88,9 +97,10 @@ public class PaymentRepository : IPaymentRepository
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
             query = query.Where(p =>
-                p.PaymentMethod.Name.Contains(request.SearchTerm) ||
-                p.Amount.ToString().Contains(request.SearchTerm) ||
-                p.Status.ToString().Contains(request.SearchTerm));
+                p.PaymentMethod.Name.Contains(request.SearchTerm)
+                || p.Amount.ToString().Contains(request.SearchTerm)
+                || p.Status.ToString().Contains(request.SearchTerm)
+            );
         }
 
         // Apply sorting
@@ -110,20 +120,30 @@ public class PaymentRepository : IPaymentRepository
             Items = items,
             TotalCount = totalCount,
             PageNumber = request.PageNumber,
-            PageSize = request.PageSize
+            PageSize = request.PageSize,
         };
     }
 
-    private static IQueryable<PaymentEntity> ApplySorting(IQueryable<PaymentEntity> query, string sortBy, string sortOrder)
+    private static IQueryable<PaymentEntity> ApplySorting(
+        IQueryable<PaymentEntity> query,
+        string sortBy,
+        string sortOrder
+    )
     {
         var isDescending = sortOrder.Equals("desc", StringComparison.OrdinalIgnoreCase);
 
         return sortBy.ToLower() switch
         {
-            "amount" => isDescending ? query.OrderByDescending(p => p.Amount) : query.OrderBy(p => p.Amount),
-            "status" => isDescending ? query.OrderByDescending(p => p.Status) : query.OrderBy(p => p.Status),
-            "createdat" => isDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt),
-            _ => query.OrderByDescending(p => p.CreatedAt)
+            "amount" => isDescending
+                ? query.OrderByDescending(p => p.Amount)
+                : query.OrderBy(p => p.Amount),
+            "status" => isDescending
+                ? query.OrderByDescending(p => p.Status)
+                : query.OrderBy(p => p.Status),
+            "createdat" => isDescending
+                ? query.OrderByDescending(p => p.CreatedAt)
+                : query.OrderBy(p => p.CreatedAt),
+            _ => query.OrderByDescending(p => p.CreatedAt),
         };
     }
 
@@ -161,7 +181,11 @@ public class PaymentRepository : IPaymentRepository
         return await _context.Payments.AnyAsync(p => p.Id == id);
     }
 
-    public async Task<bool> UpdatePaymentStatusAsync(Guid paymentId, PaymentStatus status, string? failureReason = null)
+    public async Task<bool> UpdatePaymentStatusAsync(
+        Guid paymentId,
+        PaymentStatus status,
+        string? failureReason = null
+    )
     {
         var payment = await _context.Payments.FindAsync(paymentId);
         if (payment == null)
@@ -179,22 +203,27 @@ public class PaymentRepository : IPaymentRepository
 
     public async Task<List<PaymentEntity>> GetOverduePendingPaymentsAsync(DateTime cutoffTime)
     {
-        return await _context.Payments
-            .Include(p => p.PaymentMethod)
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
             .Where(p => p.Status == PaymentStatus.PENDING && p.CreatedAt < cutoffTime)
             .OrderBy(p => p.CreatedAt)
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<PaymentEntity>> GetPaymentStatisticsAsync(GetPaymentStatisticsRequest request)
+    public async Task<IEnumerable<PaymentEntity>> GetPaymentStatisticsAsync(
+        GetPaymentStatisticsRequest request
+    )
     {
         // S? d?ng computed dates v?i default values
         var fromDate = request.GetFromDate();
         var toDate = request.GetToDate();
 
-        var query = _context.Payments
-            .Include(p => p.PaymentMethod)
+        var query = _context
+            .Payments.Include(p => p.PaymentMethod)
             .Where(p => p.CreatedAt >= fromDate && p.CreatedAt <= toDate);
+
+        // ALWAYS filter for SUBSCRIPTION transactions only (revenue comes from subscriptions, not appointments)
+        query = query.Where(p => p.TransactionType == TransactionType.SUBSCRIPTION);
 
         // Apply filters
         if (request.HospitalId.HasValue)
@@ -207,22 +236,55 @@ public class PaymentRepository : IPaymentRepository
             query = query.Where(p => p.PatientId == request.PatientId.Value);
         }
 
-        // Merge nested if statements for TransactionType
-        if (!string.IsNullOrEmpty(request.TransactionType) &&
-            Enum.TryParse<TransactionType>(request.TransactionType, true, out var transactionType))
-        {
-            query = query.Where(p => p.TransactionType == transactionType);
-        }
+        // Note: TransactionType filter is removed since we always filter for SUBSCRIPTION
+        // If you want to allow filtering by TransactionType, modify this logic
 
         // Merge nested if statements for Status
-        if (!string.IsNullOrEmpty(request.Status) &&
-            Enum.TryParse<PaymentStatus>(request.Status, true, out var status))
+        if (
+            !string.IsNullOrEmpty(request.Status)
+            && Enum.TryParse<PaymentStatus>(request.Status, true, out var status)
+        )
         {
             query = query.Where(p => p.Status == status);
         }
 
-        return await query
+        return await query.OrderBy(p => p.CreatedAt).ToListAsync();
+    }
+
+    public async Task<List<PaymentEntity>> GetCompletedPaymentsByHospitalAndPeriodAsync(
+        Guid hospitalId,
+        DateTime periodStart,
+        DateTime periodEnd
+    )
+    {
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
+            .Where(p =>
+                p.HospitalId == hospitalId
+                && p.Status == PaymentStatus.COMPLETED
+                && p.TransactionType == TransactionType.APPOINTMENT
+                && p.CreatedAt >= periodStart
+                && p.CreatedAt <= periodEnd
+            )
             .OrderBy(p => p.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<Guid>> GetHospitalIdsWithCompletedPaymentsAsync(
+        DateTime periodStart,
+        DateTime periodEnd
+    )
+    {
+        return await _context
+            .Payments.Where(p =>
+                p.HospitalId.HasValue
+                && p.Status == PaymentStatus.COMPLETED
+                && p.TransactionType == TransactionType.APPOINTMENT
+                && p.CreatedAt >= periodStart
+                && p.CreatedAt <= periodEnd
+            )
+            .Select(p => p.HospitalId!.Value)
+            .Distinct()
             .ToListAsync();
     }
 }
