@@ -100,6 +100,13 @@ builder.Services.AddGrpcClient<BookingCare.Services.ServiceMedical.Protos.Servic
     o.Address = new Uri(endpoint);
 });
 
+// Add gRPC client for Schedule service  
+builder.Services.AddGrpcClient<BookingCare.Services.Schedule.Protos.ScheduleService.ScheduleServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Schedule").GetValue<string>(GrpcUrlConfigKey) ?? "http://localhost:6114";
+    o.Address = new Uri(endpoint);
+});
+
 // Register gRPC client wrapper to reduce constructor parameters
 builder.Services.AddScoped<GrpcClientWrapper>();
 
