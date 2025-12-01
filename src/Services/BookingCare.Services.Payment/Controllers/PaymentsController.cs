@@ -16,8 +16,7 @@ namespace BookingCare.Services.Payment.Controllers;
 public class PaymentsController(
     IPaymentService paymentService,
     IPaymentMethodService paymentMethodService,
-    IPayOSService payOSService,
-    IVNPayService vnPayService,
+    PaymentGatewayServices gatewayServices,
     IPaymentValidationService validationService,
     BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient,
     ILogger<PaymentsController> logger
@@ -26,11 +25,13 @@ public class PaymentsController(
     private const string InvalidRequestDataMessage = "Invalid request data";
     private const string PayOSGateway = "PAYOS";
     private const string VNPayGateway = "VNPAY";
+    private const string StripeGateway = "STRIPE";
 
     private readonly IPaymentService _paymentService = paymentService;
     private readonly IPaymentMethodService _paymentMethodService = paymentMethodService;
-    private readonly IPayOSService _payOSService = payOSService;
-    private readonly IVNPayService _vnPayService = vnPayService;
+    private readonly IPayOSService _payOSService = gatewayServices.PayOSService;
+    private readonly IVNPayService _vnPayService = gatewayServices.VNPayService;
+    private readonly IStripeService _stripeService = gatewayServices.StripeService;
     private readonly IPaymentValidationService _validationService = validationService;
     private readonly BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient _hospitalSubscriptionClient =
         hospitalSubscriptionClient;
@@ -265,6 +266,9 @@ public class PaymentsController(
                 case VNPayGateway:
                     response = await CreateVNPayPaymentUrl(payment, request);
                     break;
+                case StripeGateway:
+                    response = await CreateStripePaymentUrl(payment, request);
+                    break;
                 default:
                     _logger.LogWarning(
                         "Unsupported payment method: {PaymentMethod}",
@@ -356,6 +360,45 @@ public class PaymentsController(
     }
 
     /// <summary>
+    /// Create Stripe payment URL for appointment payment
+    /// </summary>
+    private async Task<CreateAppointmentPaymentResponse> CreateStripePaymentUrl(
+        PaymentResponse payment,
+        CreateAppointmentPaymentRequest request
+    )
+    {
+        var stripeRequest = new Models.DTOs.Stripe.StripePaymentRequest
+        {
+            PaymentId = payment.Id,
+            Amount = payment.Amount,
+            Description = $"Thanh toán cuộc hẹn - Appointment ID: {request.AppointmentId}",
+            AppointmentId = request.AppointmentId,
+            PatientId = request.PatientId,
+            LineItems = new List<Models.DTOs.Stripe.StripeLineItem>
+            {
+                new Models.DTOs.Stripe.StripeLineItem
+                {
+                    Name = "Phí khám bệnh",
+                    Quantity = 1,
+                    Price = payment.Amount,
+                    Description = $"Appointment ID: {request.AppointmentId}",
+                },
+            },
+        };
+
+        var stripeResponse = await _stripeService.CreateCheckoutSessionAsync(stripeRequest);
+
+        return new CreateAppointmentPaymentResponse
+        {
+            Payment = payment,
+            PaymentUrl = stripeResponse.CheckoutUrl,
+            PaymentGateway = "Stripe",
+            ExpireAt = stripeResponse.ExpireAt,
+            PaymentReference = stripeResponse.SessionId,
+        };
+    }
+
+    /// <summary>
     /// Create PayOS payment URL for supplementary payment
     /// </summary>
     private async Task<CreateSupplementaryPaymentResponse> CreatePayOSSupplementaryPaymentUrl(
@@ -442,6 +485,56 @@ public class PaymentsController(
     }
 
     /// <summary>
+    /// Create Stripe payment URL for supplementary payment
+    /// </summary>
+    private async Task<CreateSupplementaryPaymentResponse> CreateStripeSupplementaryPaymentUrl(
+        CreateSupplementaryPaymentRequest request,
+        string supplementaryPaymentId
+    )
+    {
+        var existingPayment = await _paymentService.GetByAppointmentIdAsync(request.AppointmentId);
+        var gatewayPaymentId = existingPayment?.Id ?? Guid.NewGuid();
+
+        var stripeRequest = new Models.DTOs.Stripe.StripePaymentRequest
+        {
+            PaymentId = gatewayPaymentId,
+            Amount = request.AdditionalAmount,
+            Description =
+                $"Thanh toán bổ sung - Appointment ID: {request.AppointmentId} - {request.Reason}",
+            AppointmentId = request.AppointmentId,
+            PatientId = request.PatientId,
+            LineItems = new List<Models.DTOs.Stripe.StripeLineItem>
+            {
+                new Models.DTOs.Stripe.StripeLineItem
+                {
+                    Name = "Phí khám bệnh bổ sung",
+                    Quantity = 1,
+                    Price = request.AdditionalAmount,
+                    Description = request.Reason,
+                },
+            },
+            Metadata = new Dictionary<string, string>
+            {
+                { "SupplementaryPaymentId", supplementaryPaymentId },
+                { "IsStaffAssigned", request.IsStaffAssigned.ToString() },
+            },
+        };
+
+        var stripeResponse = await _stripeService.CreateCheckoutSessionAsync(stripeRequest);
+
+        return new CreateSupplementaryPaymentResponse
+        {
+            AppointmentId = request.AppointmentId,
+            AdditionalAmount = request.AdditionalAmount,
+            PaymentUrl = stripeResponse.CheckoutUrl,
+            PaymentGateway = "Stripe",
+            ExpireAt = stripeResponse.ExpireAt,
+            PaymentReference = stripeResponse.SessionId,
+            SupplementaryPaymentId = supplementaryPaymentId,
+        };
+    }
+
+    /// <summary>
     /// Create supplementary payment for appointment price difference (Option 3)
     /// Used when patient chooses new doctor with higher price
     /// Does not create new Payment entity, only generates payment URL for price difference
@@ -509,6 +602,12 @@ public class PaymentsController(
                     break;
                 case VNPayGateway:
                     response = await CreateVNPaySupplementaryPaymentUrl(
+                        request,
+                        supplementaryPaymentId
+                    );
+                    break;
+                case StripeGateway:
+                    response = await CreateStripeSupplementaryPaymentUrl(
                         request,
                         supplementaryPaymentId
                     );
@@ -606,6 +705,9 @@ public class PaymentsController(
                     break;
                 case VNPayGateway:
                     response = await CreateVNPaySubscriptionPaymentUrl(payment, request);
+                    break;
+                case StripeGateway:
+                    response = await CreateStripeSubscriptionPaymentUrl(payment, request);
                     break;
                 default:
                     _logger.LogWarning(
@@ -729,6 +831,54 @@ public class PaymentsController(
             PaymentGateway = "VNPay",
             ExpireAt = vnPayResponse.ExpireTime,
             PaymentReference = vnPayResponse.TransactionRef,
+            IsUpgrade = request.IsUpgrade,
+            SubscriptionId = request.SubscriptionId,
+            HospitalId = request.HospitalId,
+            CurrentSubscriptionId = request.CurrentHospitalSubscriptionId,
+        };
+    }
+
+    /// <summary>
+    /// Create Stripe payment URL for subscription payment
+    /// </summary>
+    private async Task<CreateSubscriptionPaymentResponse> CreateStripeSubscriptionPaymentUrl(
+        PaymentResponse payment,
+        CreateSubscriptionPaymentRequest request
+    )
+    {
+        var paymentType = request.IsUpgrade ? "Nâng cấp gói đăng ký" : "Đăng ký gói dịch vụ";
+
+        var stripeRequest = new Models.DTOs.Stripe.StripePaymentRequest
+        {
+            PaymentId = payment.Id,
+            Amount = payment.Amount,
+            Description = $"{paymentType} - Hospital ID: {request.HospitalId}",
+            SubscriptionPlanId = request.SubscriptionId,
+            HospitalId = request.HospitalId,
+            IsSubscriptionUpgrade = request.IsUpgrade,
+            CurrentHospitalSubscriptionId = request.CurrentHospitalSubscriptionId,
+            PlanType = request.PlanType,
+            LineItems = new List<Models.DTOs.Stripe.StripeLineItem>
+            {
+                new Models.DTOs.Stripe.StripeLineItem
+                {
+                    Name = paymentType,
+                    Quantity = 1,
+                    Price = payment.Amount,
+                    Description = $"Hospital ID: {request.HospitalId}",
+                },
+            },
+        };
+
+        var stripeResponse = await _stripeService.CreateCheckoutSessionAsync(stripeRequest);
+
+        return new CreateSubscriptionPaymentResponse
+        {
+            Payment = payment,
+            PaymentUrl = stripeResponse.CheckoutUrl,
+            PaymentGateway = "Stripe",
+            ExpireAt = stripeResponse.ExpireAt,
+            PaymentReference = stripeResponse.SessionId,
             IsUpgrade = request.IsUpgrade,
             SubscriptionId = request.SubscriptionId,
             HospitalId = request.HospitalId,

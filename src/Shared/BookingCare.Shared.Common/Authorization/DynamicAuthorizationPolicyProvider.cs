@@ -35,8 +35,9 @@ public class DynamicAuthorizationPolicyProvider : IAuthorizationPolicyProvider
             if (rolesString.Contains(','))
             {
                 var roles = rolesString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                // Use custom MultipleRolesRequirement for case-insensitive comparison
                 var policy = new AuthorizationPolicyBuilder()
-                    .RequireRole(roles) // OR logic - user must have at least ONE of these roles
+                    .AddRequirements(new MultipleRolesRequirement(roles))
                     .Build();
                 return Task.FromResult<AuthorizationPolicy?>(policy);
             }

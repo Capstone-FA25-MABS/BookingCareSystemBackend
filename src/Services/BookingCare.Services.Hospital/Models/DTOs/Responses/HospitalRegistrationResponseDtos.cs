@@ -25,7 +25,15 @@ public class HospitalRegistrationResponseDto
     public string TaxCode { get; set; } = string.Empty;
     public RegistrationStatus Status { get; set; }
     public string StatusText { get; set; } = string.Empty;
+
+    // Contract Information
+    public string? ContractNumber { get; set; }
     public string? ContractFile { get; set; }
+    public string? ContractDraftFile { get; set; }
+    public string? HospitalSignature { get; set; }
+    public DateTime? SignedAt { get; set; }
+    public Guid? AdminSignatureId { get; set; }
+
     public Guid? HospitalId { get; set; }
     public string? Reason { get; set; }
     public DateTime CreatedAt { get; set; }

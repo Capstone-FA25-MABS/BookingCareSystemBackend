@@ -1,6 +1,6 @@
-using BookingCare.Shared.Common.Interfaces;
-using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Interfaces;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.EventBus.Events;
 
@@ -239,6 +239,68 @@ public class AppointmentCompletedEvent : IntegrationEvent
     public DateTime CompletedAt { get; set; }
 }
 
+/// <summary>
+/// Event published when appointment result is updated and marked as completed
+/// Used to send result notification email to patient
+/// </summary>
+public class AppointmentResultUpdatedEvent : IntegrationEvent
+{
+    /// <summary>
+    /// Appointment ID
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// Patient ID
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Patient email
+    /// </summary>
+    public string PatientEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Patient name
+    /// </summary>
+    public string PatientName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Doctor ID
+    /// </summary>
+    public Guid? DoctorId { get; set; }
+
+    /// <summary>
+    /// Doctor name
+    /// </summary>
+    public string? DoctorName { get; set; }
+
+    /// <summary>
+    /// Hospital name
+    /// </summary>
+    public string? HospitalName { get; set; }
+
+    /// <summary>
+    /// Appointment date
+    /// </summary>
+    public DateTime AppointmentDate { get; set; }
+
+    /// <summary>
+    /// Appointment time slot
+    /// </summary>
+    public string AppointmentTime { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Result URL (CloudFront URL of .txt file)
+    /// </summary>
+    public string ResultUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Updated timestamp
+    /// </summary>
+    public DateTime UpdatedAt { get; set; }
+}
+
 public class AppointmentCancelledIntegrationEvent : IntegrationEvent
 {
     /// <summary>
@@ -354,7 +416,6 @@ public class AppointmentCancelledIntegrationEvent : IntegrationEvent
     /// </summary>
     public decimal? RefundAmount { get; set; }
 }
-
 
 public class AppointmentRefundRequestedIntegrationEvent : IntegrationEvent
 {
@@ -878,10 +939,10 @@ public class AppointmentPaymentSuccessIntegrationEvent : IntegrationEvent
 /// <summary>
 /// Event published when appointment booking is successful and payment is completed
 /// This event is consumed by Notification Service to send booking success email to patient
-/// 
+///
 /// Note: AppointmentBookingEmailData DTO in Notification Service maps directly from this event
 /// to avoid duplication of properties. See AppointmentBookingEmailData.FromEvent() method.
-/// 
+///
 /// Uses pure composition pattern - NO delegation properties to eliminate SonarQube "Duplicated Lines" issue.
 /// </summary>
 public class AppointmentBookingSuccessNotificationEvent : IntegrationEvent
@@ -1286,5 +1347,52 @@ public class FileUploadData
     public byte[] FileData { get; set; } = Array.Empty<byte>();
     public string Folder { get; set; } = string.Empty;
     public string EntityType { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Event published when admin generates a contract for hospital registration
+/// </summary>
+public class HospitalContractGeneratedEvent : HospitalRegistrationEventBase
+{
+    /// <summary>
+    /// Contract number (e.g., HĐHT-2024-001)
+    /// </summary>
+    public string ContractNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// URL of the contract draft file
+    /// </summary>
+    public string ContractDraftUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Signing link for hospital to sign the contract
+    /// </summary>
+    public string SigningLink { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the signing link expires
+    /// </summary>
+    public DateTime LinkExpiresAt { get; set; }
+}
+
+/// <summary>
+/// Event published when a hospital signs the partnership contract
+/// </summary>
+public class HospitalContractSignedEvent : HospitalRegistrationEventBase
+{
+    /// <summary>
+    /// Contract number (e.g., HĐHT-2024-001)
+    /// </summary>
+    public string ContractNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the contract was signed
+    /// </summary>
+    public DateTime SignedAt { get; set; }
+
+    /// <summary>
+    /// URL of the signed contract file
+    /// </summary>
+    public string SignedContractUrl { get; set; } = string.Empty;
 }
 
