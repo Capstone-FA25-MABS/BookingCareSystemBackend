@@ -33,6 +33,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\Shared\BookingCare.Shared.Common\BookingCare.Shared.Common.csproj" />
-		<ProjectReference Include="..\BookingCare.Services.Hospital\BookingCare.Services.Hospital.csproj" />
+		<ProjectReference Include="..\..\Shared\BookingCare.Shared.FileUpload\BookingCare.Shared.FileUpload.csproj" />
 	</ItemGroup>
 </Project>
