@@ -60,6 +60,13 @@ public interface IDoctorService : IAvatarService
     // Note: Availability check (appointment conflicts) is done by Appointment Service
     Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId);
 
+    /// <summary>
+    /// Get active doctor IDs by hospital and specialty (optimized for schedule aggregation)
+    /// Returns only active doctor IDs after filtering by Auth Service status
+    /// Optionally filters by appointment type (service type name)
+    /// </summary>
+    Task<List<Guid>> GetActiveDoctorIdsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId, string? appointmentType = null);
+
     // Get doctor price by ID (for Appointment Service - Option 3 reschedule)
     Task<DoctorPriceResponse?> GetDoctorPriceByIdAsync(Guid priceId);
 
@@ -81,4 +88,22 @@ public interface IDoctorService : IAvatarService
         string? provinceId,
         string? districtId,
         int maxResults = 10);
+
+    // Methods for doctor assignment flow (hospital staff assigns doctor to pending appointments)
+    /// <summary>
+    /// Get doctors for assignment by hospital, specialty and appointment type
+    /// Returns doctors with full info (rating, position, specialty, consultation fee, account status)
+    /// </summary>
+    Task<List<DoctorForAssignmentResponse>> GetDoctorsForAssignmentAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        string appointmentType);
+
+    /// <summary>
+    /// Get doctors for assignment by specific doctor IDs
+    /// Used for "previous doctors" section - doctors who have treated this patient before
+    /// </summary>
+    Task<List<DoctorForAssignmentResponse>> GetDoctorsByIdsForAssignmentAsync(
+        List<Guid> doctorIds,
+        string appointmentType);
 }

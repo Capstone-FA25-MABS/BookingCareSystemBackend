@@ -45,6 +45,13 @@ public interface IDoctorRepository
     // Get doctors by hospital and specialty (for Appointment Service)
     Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId);
 
+    /// <summary>
+    /// Get doctor IDs with AccountIds by hospital and specialty (optimized for schedule aggregation)
+    /// Returns doctor ID to account ID mapping in a single query
+    /// Optionally filters by service type name (appointment type like "IN_PERSON" or "TELEHEALTH")
+    /// </summary>
+    Task<Dictionary<Guid, Guid>> GetDoctorIdsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId, string? serviceTypeName = null);
+
     // Get doctor price by ID (for Appointment Service - Option 3 reschedule)
     Task<DoctorPriceEntity?> GetDoctorPriceByIdAsync(Guid priceId);
 
@@ -82,4 +89,17 @@ public interface IDoctorRepository
 
     // Hospital staff management operations (optimized - only returns AccountIds)
     Task<List<Guid>> GetDoctorAccountIdsByHospitalIdAsync(Guid hospitalId);
+
+    // Doctor assignment operations (for hospital staff to assign doctor to pending appointments)
+    /// <summary>
+    /// Get doctors for assignment by hospital, specialty and appointment type
+    /// Includes Position, Specialty, and Prices with ServiceType
+    /// </summary>
+    Task<List<DoctorEntity>> GetDoctorsForAssignmentAsync(Guid hospitalId, Guid specialtyId, string appointmentType);
+
+    /// <summary>
+    /// Get doctors for assignment by specific doctor IDs
+    /// Includes Position, Specialty, and Prices with ServiceType
+    /// </summary>
+    Task<List<DoctorEntity>> GetDoctorsByIdsForAssignmentAsync(List<Guid> doctorIds, string appointmentType);
 }

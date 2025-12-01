@@ -30,6 +30,9 @@ service DoctorService {
   // Get available doctors by hospital, specialty, date, and time (for appointment assignment)
   rpc GetAvailableDoctors (GetAvailableDoctorsRequest) returns (GetAvailableDoctorsResponse);
 
+  // Get doctor IDs only by hospital and specialty (optimized for schedule aggregation)
+  rpc GetDoctorIdsByHospitalAndSpecialty (GetDoctorIdsByHospitalAndSpecialtyRequest) returns (GetDoctorIdsByHospitalAndSpecialtyResponse);
+
   // Get doctor price by price ID (for appointment rescheduling - Option 3)
   rpc GetDoctorPrice (GetDoctorPriceRequest) returns (GetDoctorPriceResponse);
   
@@ -53,6 +56,9 @@ service DoctorService {
   
   // Get all active specialties (for AI service fuzzy matching)
   rpc GetAllSpecialties (GetAllSpecialtiesRequest) returns (GetAllSpecialtiesResponse);
+
+  // Get doctors for assignment with full info (rating, experience, booking count) - for hospital staff assign doctor flow
+  rpc GetDoctorsForAssignment (GetDoctorsForAssignmentRequest) returns (GetDoctorsForAssignmentResponse);
 }
 
 // Request messages
@@ -199,6 +205,19 @@ message GetAvailableDoctorsResponse {
   int32 total_count = 2;
 }
 
+// Request message for getting doctor IDs only (optimized for schedule aggregation)
+message GetDoctorIdsByHospitalAndSpecialtyRequest {
+  string hospital_id = 1;
+  string specialty_id = 2;
+  string appointment_type = 3; // Optional: "IN_PERSON" or "TELEHEALTH" - filters doctors by service type
+}
+
+// Response message for doctor IDs only (lightweight)
+message GetDoctorIdsByHospitalAndSpecialtyResponse {
+  repeated string doctor_ids = 1;
+  int32 total_count = 2;
+}
+
 // Request message for getting doctor price by ID
 message GetDoctorPriceRequest {
   string price_id = 1;
@@ -303,4 +322,35 @@ message GetAllSpecialtiesRequest {
 // Response message for all specialties
 message GetAllSpecialtiesResponse {
   repeated SpecialtySimpleResponse specialties = 1;
+}
+
+// Request message for getting doctors for assignment (hospital staff assign doctor flow)
+message GetDoctorsForAssignmentRequest {
+  string hospital_id = 1;           // Required: Hospital ID
+  string specialty_id = 2;          // Required: Specialty ID
+  string appointment_type = 3;      // Required: "IN_PERSON" or "TELEHEALTH"
+  repeated string doctor_ids = 4;   // Optional: Filter by specific doctor IDs (for previous doctors section)
+}
+
+// Doctor info for assignment with full details
+message DoctorForAssignmentInfo {
+  string id = 1;
+  string account_id = 2;
+  string full_name = 3;
+  string avatar_url = 4;
+  string position_name = 5;
+  string specialty_name = 6;
+  int32 years_of_experience = 7;
+  double rating = 8;                // Average rating from reviews
+  int32 review_count = 9;           // Total number of reviews
+  double consultation_fee = 10;     // Consultation fee for the appointment type
+  bool is_active = 11;              // Account status
+}
+
+// Response message for doctors for assignment
+message GetDoctorsForAssignmentResponse {
+  repeated DoctorForAssignmentInfo doctors = 1;
+  int32 total_count = 2;
+  bool success = 3;
+  string message = 4;
 }
