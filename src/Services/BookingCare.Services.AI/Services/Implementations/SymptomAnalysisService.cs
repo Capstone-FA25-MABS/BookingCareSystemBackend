@@ -408,63 +408,15 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 throw new InvalidOperationException("Failed to parse conclusion from Gemini response");
             }
 
-            // Build response
-            var response = new SymptomAnalysisResponse
-            {
-                SessionId = sessionId,
-                AnalysisComplete = true,
-                QuestionCount = 3, // Always 3 at conclusion (end of round)
-                CurrentRound = currentRound, // 1 or 2
-                MaxQuestions = 3, // Always 3 questions per round
-                Timestamp = DateTime.UtcNow
-            };
+            // Build response skeleton
+            var response = CreateBaseConclusionResponse(sessionId, currentRound);
 
-            // Set disease conclusion
-            if (conclusionData.Disease != null)
-            {
-                response.Disease = new DiseaseConclusion
-                {
-                    Name = conclusionData.Disease.Name ?? "Chưa xác định",
-                    Confidence = conclusionData.Disease.Confidence,
-                    Reasons = conclusionData.Disease.Reasons ?? new List<string>()
-                };
-
-                response.PossibleDiseases = new List<DiseaseMatch>
-                {
-                    new DiseaseMatch
-                    {
-                        Name = conclusionData.Disease.Name ?? "Chưa xác định",
-                        Confidence = conclusionData.Disease.Confidence,
-                        Description = string.Join(". ", conclusionData.Disease.Reasons ?? new List<string>())
-                    }
-                };
-            }
-
-            // Set advice
+            // Set disease conclusion & advice
+            SetDiseaseConclusion(response, conclusionData);
             response.GeneralAdvice = conclusionData.Advice ?? new List<string>();
 
             // Set specialties and get recommendations in parallel with message building
-            Task<(List<DoctorRecommendation> Doctors, List<HospitalRecommendation> Hospitals)>? recommendationsTask = null;
-            if (conclusionData.Specialties != null && conclusionData.Specialties.Count > 0)
-            {
-                var specialtyNames = conclusionData.Specialties
-                    .Select(s => s.Name ?? "")
-                    .Where(n => !string.IsNullOrEmpty(n))
-                    .ToList();
-
-                response.RecommendedSpecialties = conclusionData.Specialties.Select(s => new SpecialtyMatch
-                {
-                    SpecialtyName = s.Name ?? "",
-                    Confidence = s.Confidence,
-                    Reasons = s.Reasons ?? new List<string>()
-                }).ToList();
-
-                // Start getting recommendations in parallel
-                if (specialtyNames.Count > 0)
-                {
-                    recommendationsTask = _recommendationHelper.GetRecommendationsAsync(specialtyNames, location);
-                }
-            }
+            var recommendationsTask = StartRecommendationTask(conclusionData, response, location);
 
             // Build message while recommendations are being fetched
             var messageBuilder = new StringBuilder();
@@ -501,23 +453,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             }
 
             // Set CanRequestMoreQuestions flag
-            // Allow more questions only if:
-            // 1. This is the first round conclusion (currentRound == 1)
-            // 2. Confidence is below 90% (0.9)
-            // 3. Disease conclusion exists
-            if (response.Disease != null)
-            {
-                response.CanRequestMoreQuestions =
-                    currentRound == 1 &&
-                    response.Disease.Confidence < 0.9;
-
-                _logger.LogInformation(
-                    "Conclusion: Disease={Disease}, Confidence={Confidence}, Round={Round}, CanRequestMore={CanRequestMore}",
-                    response.Disease.Name,
-                    response.Disease.Confidence,
-                    currentRound,
-                    response.CanRequestMoreQuestions);
-            }
+            SetCanRequestMoreQuestionsFlag(response, currentRound);
 
             return response;
         }
@@ -533,6 +469,95 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 "Failed to parse conclusion mode response from Gemini.",
                 ex);
         }
+    }
+
+    private static SymptomAnalysisResponse CreateBaseConclusionResponse(Guid sessionId, int currentRound)
+    {
+        return new SymptomAnalysisResponse
+        {
+            SessionId = sessionId,
+            AnalysisComplete = true,
+            QuestionCount = 3, // Always 3 at conclusion (end of round)
+            CurrentRound = currentRound, // 1 or 2
+            MaxQuestions = 3, // Always 3 questions per round
+            Timestamp = DateTime.UtcNow
+        };
+    }
+
+    private static void SetDiseaseConclusion(SymptomAnalysisResponse response, ConclusionModeResponse? conclusionData)
+    {
+        if (conclusionData?.Disease == null)
+        {
+            return;
+        }
+
+        response.Disease = new DiseaseConclusion
+        {
+            Name = conclusionData.Disease.Name ?? "Chưa xác định",
+            Confidence = conclusionData.Disease.Confidence,
+            Reasons = conclusionData.Disease.Reasons ?? new List<string>()
+        };
+
+        response.PossibleDiseases = new List<DiseaseMatch>
+        {
+            new DiseaseMatch
+            {
+                Name = conclusionData.Disease.Name ?? "Chưa xác định",
+                Confidence = conclusionData.Disease.Confidence,
+                Description = string.Join(". ", conclusionData.Disease.Reasons ?? new List<string>())
+            }
+        };
+    }
+
+    private Task<(List<DoctorRecommendation> Doctors, List<HospitalRecommendation> Hospitals)>?
+        StartRecommendationTask(
+            ConclusionModeResponse conclusionData,
+            SymptomAnalysisResponse response,
+            LocationContext? location)
+    {
+        if (conclusionData.Specialties == null || conclusionData.Specialties.Count == 0)
+        {
+            return null;
+        }
+
+        var specialtyNames = conclusionData.Specialties
+            .Select(s => s.Name ?? "")
+            .Where(n => !string.IsNullOrEmpty(n))
+            .ToList();
+
+        response.RecommendedSpecialties = conclusionData.Specialties.Select(s => new SpecialtyMatch
+        {
+            SpecialtyName = s.Name ?? "",
+            Confidence = s.Confidence,
+            Reasons = s.Reasons ?? new List<string>()
+        }).ToList();
+
+        return specialtyNames.Count > 0
+            ? _recommendationHelper.GetRecommendationsAsync(specialtyNames, location)
+            : null;
+    }
+
+    private void SetCanRequestMoreQuestionsFlag(SymptomAnalysisResponse response, int currentRound)
+    {
+        // Allow more questions only if:
+        // 1. This is the first round conclusion (currentRound == 1)
+        // 2. Confidence is below 90% (0.9)
+        // 3. Disease conclusion exists
+        if (response.Disease == null)
+        {
+            return;
+        }
+
+        response.CanRequestMoreQuestions =
+            currentRound == 1 &&
+            response.Disease.Confidence < 0.9;
+
+        _logger.LogInformation(
+            "Conclusion: Disease={Disease}, Confidence={Confidence}, Round={Round}, CanRequestMore={CanRequestMore}",
+            response.Disease.Name,
+            response.Disease.Confidence,
+            currentRound,
+            response.CanRequestMoreQuestions);
     }
 
     /// <summary>

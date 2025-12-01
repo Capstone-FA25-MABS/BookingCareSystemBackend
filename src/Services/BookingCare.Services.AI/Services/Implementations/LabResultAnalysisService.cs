@@ -6,7 +6,6 @@ using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
-using BookingCare.Shared.FileUpload.Services;
 using Docnet.Core;
 using Docnet.Core.Models;
 using Microsoft.Extensions.Options;
@@ -21,7 +20,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     private readonly ServiceGeminiConfiguration _serviceConfig;
     private readonly IConversationSessionService _sessionService;
     private readonly RecommendationHelper _recommendationHelper;
-    private readonly IFileUploadService _fileUploadService;
+    private readonly FileUploadHelper _fileUploadHelper;
     private readonly string _tesseractDataPath;
     private readonly string _tesseractLanguage;
 
@@ -31,7 +30,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         IOptions<GeminiServicesConfiguration> geminiServicesConfig,
         IConversationSessionService sessionService,
         RecommendationHelper recommendationHelper,
-        IFileUploadService fileUploadService,
+        FileUploadHelper fileUploadHelper,
         IConfiguration configuration)
     {
         _logger = logger;
@@ -39,7 +38,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         _serviceConfig = geminiServicesConfig.Value.LabResultAnalysis;
         _sessionService = sessionService;
         _recommendationHelper = recommendationHelper;
-        _fileUploadService = fileUploadService;
+        _fileUploadHelper = fileUploadHelper;
         _tesseractDataPath = configuration["Tesseract:DataPath"] ?? "tessdata";
         _tesseractLanguage = configuration["Tesseract:Language"] ?? "vie+eng";
     }
@@ -65,18 +64,9 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 throw new InvalidOperationException("Mỗi cuộc trò chuyện chỉ hỗ trợ phân tích một file xét nghiệm. Vui lòng tạo cuộc trò chuyện mới để tiếp tục với file khác nhé!");
             }
 
-            // Copy file to memory once to avoid stream position conflicts
-            using var memoryStream = new MemoryStream();
-            await file.CopyToAsync(memoryStream);
-            var fileBytes = memoryStream.ToArray();
-
-            // Create separate streams for parallel operations
-            using var uploadStream = new MemoryStream(fileBytes);
-            using var extractStream = new MemoryStream(fileBytes);
-
             // Parallelize S3 upload and OCR extraction for better performance
-            var uploadTask = UploadFileToS3Async(uploadStream, file.FileName, file.ContentType, userId);
-            var extractTask = ExtractTextFromStreamAsync(extractStream, file.FileName);
+            var uploadTask = _fileUploadHelper.UploadToS3Async(file, userId, "lab-results");
+            var extractTask = ExtractTextFromImageAsync(file);
 
             await Task.WhenAll(uploadTask, extractTask);
 
@@ -119,69 +109,6 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             _logger.LogError(ex, "Error analyzing lab result: {Message}", ex.Message);
             throw new SymptomAnalysisException("Failed to analyze lab result", ex);
-        }
-    }
-
-
-
-    private async Task<string> UploadFileToS3Async(Stream stream, string fileName, string contentType, Guid? userId)
-    {
-        try
-        {
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-            var folder = $"uploads/ai/lab-results/{userId}/{timestamp}";
-
-            var uploadRequest = new BookingCare.Shared.FileUpload.Models.FileUploadRequest
-            {
-                FileName = fileName,
-                FileStream = stream,
-                ContentType = contentType,
-                Folder = folder,
-                GenerateUniqueFileName = true,
-                Metadata = new Dictionary<string, string>
-                {
-                    { "user-id", userId?.ToString() ?? "anonymous" },
-                    { "upload-timestamp", timestamp },
-                    { "file-type", "lab-results" }
-                }
-            };
-
-            var result = await _fileUploadService.UploadFileAsync(uploadRequest);
-
-            if (result.Success)
-            {
-                _logger.LogInformation("File uploaded successfully to S3. CloudFront URL: {Url}", result.CloudFrontUrl);
-                return result.CloudFrontUrl ?? result.FileUrl ?? string.Empty;
-            }
-
-            _logger.LogError("Failed to upload file to S3: {Error}", result.ErrorMessage);
-            throw new InvalidOperationException($"Failed to upload file to S3: {result.ErrorMessage}");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "Error uploading lab result file '{FileName}' to S3 for user {UserId}",
-                file.FileName,
-                userId ?? Guid.Empty);
-
-            throw new InvalidOperationException(
-                $"Error uploading lab result file '{file.FileName}' to S3.",
-                ex);
-        }
-    }
-
-    private async Task<string> ExtractTextFromStreamAsync(Stream stream, string fileName)
-    {
-        var extension = Path.GetExtension(fileName).ToLowerInvariant();
-
-        if (extension == ".pdf")
-        {
-            return await ExtractTextFromPdfStreamAsync(stream);
-        }
-        else
-        {
-            return await ExtractTextFromImageStreamAsync(stream, fileName);
         }
     }
 
