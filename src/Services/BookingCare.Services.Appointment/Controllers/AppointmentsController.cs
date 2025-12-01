@@ -138,8 +138,9 @@ public class AppointmentsController : BaseApiController
 
     /// <summary>
     /// Update appointment result and automatically mark as completed
-    /// If appointment status is not COMPLETED, it will be changed to COMPLETED
-    /// This is typically used when a doctor finishes examining a patient and records the result
+    /// Accepts result as text string which will be automatically converted to .txt file and uploaded to S3
+    /// The CloudFront URL will be stored in the database instead of raw text
+    /// This endpoint is backward compatible - frontend can send JSON as before
     /// </summary>
     /// <param name="id">Appointment ID</param>
     /// <param name="request">Result update request</param>

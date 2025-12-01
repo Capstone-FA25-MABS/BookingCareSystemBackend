@@ -1,21 +1,21 @@
-using BookingCare.Services.Notification.Services;
-using BookingCare.Shared.EventBus.Extensions;
-using BookingCare.Shared.EventBus.Events;
-using BookingCare.Services.Notification.Handlers;
-using BookingCare.Services.Notification.Utils.Email;
-using BookingCare.Services.Notification.Utils.SMS;
-using BookingCare.Services.Notification.Utils.OTP;
-using BookingCare.Services.Notification.Setting;
 using BookingCare.Services.Auth.Protos;
-using BookingCare.Shared.Common.Extensions;
+using BookingCare.Services.Notification.Handlers;
+using BookingCare.Services.Notification.Hubs;
 using BookingCare.Services.Notification.Repositories.Implementations;
 using BookingCare.Services.Notification.Repositories.Interfaces;
-using BookingCare.Services.Notification.Services.Interfaces;
+using BookingCare.Services.Notification.Services;
 using BookingCare.Services.Notification.Services.Grpc;
-using BookingCare.Shared.Cache.Extensions;
-using BookingCare.Shared.Common.Versioning;
 using BookingCare.Services.Notification.Services.Implementations;
-using BookingCare.Services.Notification.Hubs;
+using BookingCare.Services.Notification.Services.Interfaces;
+using BookingCare.Services.Notification.Setting;
+using BookingCare.Services.Notification.Utils.Email;
+using BookingCare.Services.Notification.Utils.OTP;
+using BookingCare.Services.Notification.Utils.SMS;
+using BookingCare.Shared.Cache.Extensions;
+using BookingCare.Shared.Common.Extensions;
+using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.EventBus.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,7 +41,9 @@ builder.Services.AddRedisCache(builder.Configuration);
 builder.Services.AddScoped<ManageOtp>();
 
 // MongoDB settings
-builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection(MongoDbSettings.SectionName));
+builder.Services.Configure<MongoDbSettings>(
+    builder.Configuration.GetSection(MongoDbSettings.SectionName)
+);
 
 // FCM settings and services
 builder.Services.Configure<FcmOptions>(builder.Configuration.GetSection(FcmOptions.SectionName));
@@ -86,6 +88,7 @@ builder.Services.AddIntegrationEventHandler<AppointmentCancelledWithOptionsNotif
 builder.Services.AddIntegrationEventHandler<RefundHistoryCompletedEventHandler>();
 builder.Services.AddIntegrationEventHandler<RefundHistoryBankIssueReportedEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentBookingSuccessNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentResultNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<CreateInAppNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<DoctorCredentialsGeneratedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalSubscriptionCreatedEventHandler>();
@@ -95,11 +98,14 @@ builder.Services.AddIntegrationEventHandler<HospitalRegistrationStatusUpdatedEve
 builder.Services.AddIntegrationEventHandler<HospitalAccountCreatedEventHandler>();
 builder.Services.AddIntegrationEventHandler<DoctorAssignedToAppointmentNotificationEventHandler>();
 builder.Services.AddIntegrationEventHandler<AppointmentAutoCancelledDueToNoDoctorEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalContractGeneratedEventHandler>();
+builder.Services.AddIntegrationEventHandler<HospitalContractSignedEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
 {
-    var authServiceUrl = builder.Configuration.GetValue<string>("AuthService:GrpcUrl") ?? "http://localhost:6013";
+    var authServiceUrl =
+        builder.Configuration.GetValue<string>("AuthService:GrpcUrl") ?? "http://localhost:6013";
     o.Address = new Uri(authServiceUrl);
 });
 
@@ -125,15 +131,40 @@ app.MapCommonHealthCheck("Notification");
 app.UseEventBus(eventBus =>
 {
     eventBus.Subscribe<NotificationSendEvent, NotificationSendEventHandler>();
-    eventBus.Subscribe<AppointmentRefundRequestedIntegrationEvent, AppointmentRefundRequestedEventHandler>();
-    eventBus.Subscribe<AppointmentNoRefundNotificationEvent, AppointmentNoRefundNotificationEventHandler>();
-    eventBus.Subscribe<AppointmentCancelledSuccessNotificationEvent, AppointmentCancelledSuccessNotificationEventHandler>();
-    eventBus.Subscribe<AppointmentCancelledWithOptionsNotificationEvent, AppointmentCancelledWithOptionsNotificationEventHandler>();
-    eventBus.Subscribe<RefundHistoryCompletedIntegrationEvent, RefundHistoryCompletedEventHandler>();
-    eventBus.Subscribe<RefundHistoryBankIssueReportedIntegrationEvent, RefundHistoryBankIssueReportedEventHandler>();
+    eventBus.Subscribe<
+        AppointmentRefundRequestedIntegrationEvent,
+        AppointmentRefundRequestedEventHandler
+    >();
+    eventBus.Subscribe<
+        AppointmentNoRefundNotificationEvent,
+        AppointmentNoRefundNotificationEventHandler
+    >();
+    eventBus.Subscribe<
+        AppointmentCancelledSuccessNotificationEvent,
+        AppointmentCancelledSuccessNotificationEventHandler
+    >();
+    eventBus.Subscribe<
+        AppointmentCancelledWithOptionsNotificationEvent,
+        AppointmentCancelledWithOptionsNotificationEventHandler
+    >();
+    eventBus.Subscribe<
+        RefundHistoryCompletedIntegrationEvent,
+        RefundHistoryCompletedEventHandler
+    >();
+    eventBus.Subscribe<
+        RefundHistoryBankIssueReportedIntegrationEvent,
+        RefundHistoryBankIssueReportedEventHandler
+    >();
 
     // Subscribe to appointment booking success notifications (sends email + creates in-app notification)
     eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
+    eventBus.Subscribe<
+        AppointmentBookingSuccessNotificationEvent,
+        AppointmentBookingSuccessNotificationEventHandler
+    >();
+
+    // Subscribe to appointment result updated notifications (sends result email + creates in-app notification)
+    eventBus.Subscribe<AppointmentResultUpdatedEvent, AppointmentResultNotificationEventHandler>();
 
     // Subscribe to generic notification creation event (published by any service)
     eventBus.Subscribe<CreateInAppNotificationEvent, CreateInAppNotificationEventHandler>();
@@ -143,11 +174,20 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to hospital subscription events for sending confirmation emails
     eventBus.Subscribe<HospitalSubscriptionCreatedEvent, HospitalSubscriptionCreatedEventHandler>();
-    eventBus.Subscribe<HospitalSubscriptionUpgradedEvent, HospitalSubscriptionUpgradedEventHandler>();
+    eventBus.Subscribe<
+        HospitalSubscriptionUpgradedEvent,
+        HospitalSubscriptionUpgradedEventHandler
+    >();
 
     // Subscribe to hospital registration events for sending confirmation/status emails
-    eventBus.Subscribe<HospitalRegistrationSubmittedEvent, HospitalRegistrationSubmittedEventHandler>();
-    eventBus.Subscribe<HospitalRegistrationStatusUpdatedEvent, HospitalRegistrationStatusUpdatedEventHandler>();
+    eventBus.Subscribe<
+        HospitalRegistrationSubmittedEvent,
+        HospitalRegistrationSubmittedEventHandler
+    >();
+    eventBus.Subscribe<
+        HospitalRegistrationStatusUpdatedEvent,
+        HospitalRegistrationStatusUpdatedEventHandler
+    >();
 
     // Subscribe to hospital account created event for sending credentials email
     eventBus.Subscribe<HospitalAccountCreatedEvent, HospitalAccountCreatedEventHandler>();
@@ -157,6 +197,9 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to auto-cancelled appointment event (hospital didn't assign doctor before appointment date)
     eventBus.Subscribe<AppointmentAutoCancelledDueToNoDoctorEvent, AppointmentAutoCancelledDueToNoDoctorEventHandler>();
+    // Subscribe to hospital contract events for sending contract-related emails
+    eventBus.Subscribe<HospitalContractGeneratedEvent, HospitalContractGeneratedEventHandler>();
+    eventBus.Subscribe<HospitalContractSignedEvent, HospitalContractSignedEventHandler>();
 });
 
 await app.RunAsync();

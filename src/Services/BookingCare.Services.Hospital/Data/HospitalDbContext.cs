@@ -18,6 +18,8 @@ public class HospitalDbContext : DbContext
     public DbSet<HospitalRegistrationEntity> HospitalRegistrations { get; set; }
     public DbSet<HospitalServiceTypeEntity> HospitalServiceTypes { get; set; }
     public DbSet<HospitalServiceMedicalEntity> HospitalServiceMedicals { get; set; }
+    public DbSet<AdminSignatureEntity> AdminSignatures { get; set; }
+    public DbSet<ContractSigningTokenEntity> ContractSigningTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -220,6 +222,47 @@ public class HospitalDbContext : DbContext
                   .HasForeignKey(e => e.HospitalId)
                   .OnDelete(DeleteBehavior.SetNull)
                   .IsRequired(false);
+
+            // Admin signature relationship
+            entity.HasOne(e => e.AdminSignature)
+                  .WithMany()
+                  .HasForeignKey(e => e.AdminSignatureId)
+                  .OnDelete(DeleteBehavior.SetNull)
+                  .IsRequired(false);
+        });
+
+        // Configure AdminSignature entity
+        modelBuilder.Entity<AdminSignatureEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AdminId).IsRequired();
+            entity.HasIndex(e => e.AdminId);
+            entity.Property(e => e.FullName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Position).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SignatureImageUrl).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
+        });
+
+        // Configure ContractSigningToken entity
+        modelBuilder.Entity<ContractSigningTokenEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RegistrationId).IsRequired();
+            entity.Property(e => e.Token).IsRequired().HasMaxLength(500);
+            entity.HasIndex(e => e.Token).IsUnique();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.IsUsed).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt).IsRequired().HasDefaultValueSql("GETDATE()");
+
+            // Foreign key relationship
+            entity.HasOne(e => e.Registration)
+                  .WithMany()
+                  .HasForeignKey(e => e.RegistrationId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 
@@ -269,6 +312,12 @@ public class HospitalDbContext : DbContext
                     UpdateEntityTimestamp(isAdded,
                         () => registration.CreatedAt = currentTime,
                         () => registration.UpdatedAt = currentTime);
+                    break;
+
+                case AdminSignatureEntity adminSignature:
+                    UpdateEntityTimestamp(isAdded,
+                        () => adminSignature.CreatedAt = currentTime,
+                        () => adminSignature.UpdatedAt = currentTime);
                     break;
             }
         }

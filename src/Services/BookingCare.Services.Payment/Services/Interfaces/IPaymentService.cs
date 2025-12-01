@@ -32,7 +32,10 @@ public interface IPaymentService
     /// <summary>
     /// Get list of payments by hospital ID with pagination
     /// </summary>
-    Task<PagedResult<PaymentResponse>> GetPagedByHospitalIdAsync(Guid hospitalId, GetPaymentsPagedRequest request);
+    Task<PagedResult<PaymentResponse>> GetPagedByHospitalIdAsync(
+        Guid hospitalId,
+        GetPaymentsPagedRequest request
+    );
 
     /// <summary>
     /// Get list of payments by patient ID
@@ -42,7 +45,10 @@ public interface IPaymentService
     /// <summary>
     /// Get list of payments by patient ID with pagination
     /// </summary>
-    Task<PagedResult<PaymentResponse>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request);
+    Task<PagedResult<PaymentResponse>> GetPagedByPatientIdAsync(
+        Guid patientId,
+        GetPaymentsPagedRequest request
+    );
 
     /// <summary>
     /// Get payment statistics
@@ -68,6 +74,11 @@ public interface IPaymentService
     /// Update payment status
     /// </summary>
     Task<PaymentResponse> UpdateStatusAsync(UpdatePaymentStatusRequest request);
+
+    /// <summary>
+    /// Update payment intent ID (for refund tracking)
+    /// </summary>
+    Task UpdatePaymentIntentAsync(Guid paymentId, string paymentIntentId);
 
     /// <summary>
     /// Delete payment
