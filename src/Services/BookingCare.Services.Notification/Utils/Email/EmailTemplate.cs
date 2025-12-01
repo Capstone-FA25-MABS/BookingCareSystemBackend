@@ -1712,5 +1712,264 @@ public static class EmailTemplate
 </body>
 </html>";
     }
+
+    public static string BuildDoctorAssignedEmailHtml(
+        string patientName,
+        string doctorName,
+        string specialty,
+        string hospitalName,
+        string appointmentDate,
+        string appointmentTime,
+        string? staffNote)
+    {
+        var staffNoteSection = string.IsNullOrEmpty(staffNote)
+            ? ""
+            : $@"
+                <tr>
+                    <td style=""padding: 15px 20px; background-color: #fff8e1; border-radius: 8px; margin-top: 15px;"">
+                        <p style=""margin: 0; font-size: 14px; color: #f57c00;"">
+                            <strong>📝 Ghi chú từ nhân viên:</strong><br/>
+                            {staffNote}
+                        </p>
+                    </td>
+                </tr>";
+
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Bác sĩ đã được gán cho lịch hẹn</title>
+</head>
+<body style=""margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;"">
+    <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
+        <tr>
+            <td align=""center"" style=""padding: 40px 0;"">
+                <table role=""presentation"" style=""width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"">
+                    <!-- Header -->
+                    <tr>
+                        <td style=""padding: 30px 40px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-radius: 12px 12px 0 0;"">
+                            <h1 style=""margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;"">
+                                ✅ Bác sĩ đã được gán
+                            </h1>
+                            <p style=""margin: 10px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 14px;"">
+                                Lịch hẹn của bạn đã được gán bác sĩ
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style=""padding: 30px 40px;"">
+                            <p style=""margin: 0 0 20px; font-size: 16px; color: #374151;"">
+                                Xin chào <strong>{patientName}</strong>,
+                            </p>
+                            <p style=""margin: 0 0 25px; font-size: 15px; color: #4b5563; line-height: 1.6;"">
+                                Bệnh viện đã gán bác sĩ cho lịch hẹn khám bệnh của bạn. Dưới đây là thông tin chi tiết:
+                            </p>
+
+                            <!-- Doctor Info Card -->
+                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse; background-color: #f0f9ff; border-radius: 10px; margin-bottom: 20px;"">
+                                <tr>
+                                    <td style=""padding: 20px;"">
+                                        <h3 style=""margin: 0 0 15px; color: #0284c7; font-size: 16px;"">
+                                            👨‍⚕️ Thông tin bác sĩ
+                                        </h3>
+                                        <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px; width: 120px;"">Bác sĩ:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;"">{doctorName}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Chuyên khoa:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{specialty}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Appointment Info Card -->
+                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse; background-color: #f0fdf4; border-radius: 10px; margin-bottom: 20px;"">
+                                <tr>
+                                    <td style=""padding: 20px;"">
+                                        <h3 style=""margin: 0 0 15px; color: #16a34a; font-size: 16px;"">
+                                            📅 Thông tin lịch hẹn
+                                        </h3>
+                                        <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px; width: 120px;"">Ngày khám:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;"">{appointmentDate}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Giờ khám:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;"">{appointmentTime}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Bệnh viện:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{hospitalName}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            {staffNoteSection}
+
+                            <p style=""margin: 25px 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;"">
+                                Vui lòng đến đúng giờ để được phục vụ tốt nhất. Nếu bạn cần thay đổi hoặc hủy lịch hẹn, 
+                                vui lòng liên hệ với chúng tôi trước ít nhất 24 giờ.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style=""padding: 20px 40px 30px; border-top: 1px solid #e5e7eb;"">
+                            <p style=""margin: 0; font-size: 13px; color: #9ca3af; text-align: center;"">
+                                Đây là email tự động từ hệ thống BookingCare.<br/>
+                                Vui lòng không trả lời email này.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>";
+    }
+
+    public static string BuildAutoCancelledEmailHtml(
+        string patientName,
+        string hospitalName,
+        string specialtyName,
+        string appointmentDate,
+        string appointmentTime)
+    {
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Thông báo hủy lịch hẹn</title>
+</head>
+<body style=""margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;"">
+    <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
+        <tr>
+            <td align=""center"" style=""padding: 40px 0;"">
+                <table role=""presentation"" style=""width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"">
+                    <!-- Header -->
+                    <tr>
+                        <td style=""padding: 30px 40px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 12px 12px 0 0;"">
+                            <h1 style=""margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;"">
+                                ❌ Lịch hẹn đã bị hủy
+                            </h1>
+                            <p style=""margin: 10px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 14px;"">
+                                Bệnh viện không gán bác sĩ trước ngày hẹn
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style=""padding: 30px 40px;"">
+                            <p style=""margin: 0 0 20px; font-size: 16px; color: #374151;"">
+                                Xin chào <strong>{patientName}</strong>,
+                            </p>
+                            <p style=""margin: 0 0 25px; font-size: 15px; color: #4b5563; line-height: 1.6;"">
+                                Chúng tôi rất tiếc phải thông báo rằng lịch hẹn khám bệnh của bạn đã bị <strong style=""color: #ef4444;"">tự động hủy</strong> 
+                                do bệnh viện không thể gán bác sĩ trước ngày hẹn.
+                            </p>
+
+                            <!-- Appointment Info Card -->
+                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse; background-color: #fef2f2; border-radius: 10px; margin-bottom: 20px; border: 1px solid #fecaca;"">
+                                <tr>
+                                    <td style=""padding: 20px;"">
+                                        <h3 style=""margin: 0 0 15px; color: #dc2626; font-size: 16px;"">
+                                            📅 Thông tin lịch hẹn đã hủy
+                                        </h3>
+                                        <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px; width: 120px;"">Chuyên khoa:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;"">{specialtyName}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Bệnh viện:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{hospitalName}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Ngày hẹn:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{appointmentDate}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Giờ hẹn:</td>
+                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{appointmentTime}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Lý do hủy:</td>
+                                                <td style=""padding: 8px 0; color: #dc2626; font-size: 14px; font-weight: 500;"">Bệnh viện không gán bác sĩ trước ngày hẹn</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Apology & Next Steps -->
+                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse; background-color: #fffbeb; border-radius: 10px; margin-bottom: 20px; border: 1px solid #fcd34d;"">
+                                <tr>
+                                    <td style=""padding: 20px;"">
+                                        <h3 style=""margin: 0 0 15px; color: #d97706; font-size: 16px;"">
+                                            💡 Bước tiếp theo
+                                        </h3>
+                                        <p style=""margin: 0; font-size: 14px; color: #92400e; line-height: 1.6;"">
+                                            Chúng tôi thành thật xin lỗi vì sự bất tiện này. Bạn có thể:
+                                        </p>
+                                        <ul style=""margin: 10px 0 0; padding-left: 20px; font-size: 14px; color: #92400e; line-height: 1.8;"">
+                                            <li>Đặt lịch hẹn mới tại bệnh viện khác</li>
+                                            <li>Chọn bác sĩ cụ thể thay vì để bệnh viện gán</li>
+                                            <li>Liên hệ với bệnh viện để được hỗ trợ thêm</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- CTA Button -->
+                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
+                                <tr>
+                                    <td align=""center"" style=""padding: 20px 0;"">
+                                        <a href=""https://bookingcare.vn/booking"" 
+                                           style=""display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;"">
+                                            Đặt lịch hẹn mới
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style=""margin: 25px 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;"">
+                                Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email hoặc hotline.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style=""padding: 20px 40px 30px; border-top: 1px solid #e5e7eb;"">
+                            <p style=""margin: 0; font-size: 13px; color: #9ca3af; text-align: center;"">
+                                Đây là email tự động từ hệ thống BookingCare.<br/>
+                                Vui lòng không trả lời email này.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>";
+    }
 }
+
 

@@ -93,6 +93,8 @@ builder.Services.AddIntegrationEventHandler<HospitalSubscriptionUpgradedEventHan
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationSubmittedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationStatusUpdatedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalAccountCreatedEventHandler>();
+builder.Services.AddIntegrationEventHandler<DoctorAssignedToAppointmentNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentAutoCancelledDueToNoDoctorEventHandler>();
 
 // gRPC client for Auth service
 builder.Services.AddGrpcClient<AuthService.AuthServiceClient>(o =>
@@ -149,6 +151,12 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to hospital account created event for sending credentials email
     eventBus.Subscribe<HospitalAccountCreatedEvent, HospitalAccountCreatedEventHandler>();
+
+    // Subscribe to doctor assigned to appointment event for sending notification to patient
+    eventBus.Subscribe<DoctorAssignedToAppointmentNotificationEvent, DoctorAssignedToAppointmentNotificationEventHandler>();
+
+    // Subscribe to auto-cancelled appointment event (hospital didn't assign doctor before appointment date)
+    eventBus.Subscribe<AppointmentAutoCancelledDueToNoDoctorEvent, AppointmentAutoCancelledDueToNoDoctorEventHandler>();
 });
 
 await app.RunAsync();
