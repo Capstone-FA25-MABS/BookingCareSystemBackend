@@ -50,6 +50,7 @@ public class AppointmentResponse
     public DoctorInfo? DoctorInfo { get; set; }
     public ServiceInfo? ServiceInfo { get; set; }
     public HospitalInfo? HospitalInfo { get; set; }
+    public SpecialtyInfo? SpecialtyInfo { get; set; }
 }
 
 /// <summary>
@@ -121,6 +122,17 @@ public class HospitalInfo
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? AvatarUrl { get; set; }
+}
+
+/// <summary>
+/// Specialty information from gRPC call (for hospital assigns doctor mode)
+/// </summary>
+public class SpecialtyInfo
+{
+    public Guid Id { get; set; }
+    public string? Name { get; set; }
+    public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 /// <summary>
@@ -237,5 +249,59 @@ public class GenerateRescheduleTokenResponse
     public string RescheduleToken { get; set; } = string.Empty;
     public DateTime TokenExpiry { get; set; }
     public string RedirectUrl { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response for doctors for assignment query
+/// Contains recommended doctors and previous doctors who treated this patient
+/// </summary>
+public class DoctorsForAssignmentResponse
+{
+    /// <summary>
+    /// Recommended doctors sorted by experience, rating, booking count
+    /// </summary>
+    public List<DoctorForAssignment> RecommendedDoctors { get; set; } = new();
+
+    /// <summary>
+    /// Doctors who have previously treated this patient (completed appointments)
+    /// </summary>
+    public List<DoctorForAssignment> PreviousDoctors { get; set; } = new();
+
+    public int TotalRecommended { get; set; }
+    public int TotalPrevious { get; set; }
+}
+
+/// <summary>
+/// Doctor information for assignment with full details
+/// </summary>
+public class DoctorForAssignment
+{
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public string? PositionName { get; set; }
+    public string? SpecialtyName { get; set; }
+    public int YearsOfExperience { get; set; }
+    public double Rating { get; set; }
+    public int ReviewCount { get; set; }
+    public int BookingCount { get; set; }
+    public decimal ConsultationFee { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsAvailableAtOriginalTime { get; set; }
+}
+
+/// <summary>
+/// Response for assigning doctor to a pending specialty appointment
+/// </summary>
+public class AssignDoctorToAppointmentResponse
+{
+    public bool Success { get; set; }
+    public Guid AppointmentId { get; set; }
+    public Guid DoctorId { get; set; }
+    public string DoctorName { get; set; } = string.Empty;
+    public DateTime AppointmentDate { get; set; }
+    public string AppointmentTime { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 }

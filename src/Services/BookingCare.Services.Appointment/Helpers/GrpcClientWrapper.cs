@@ -3,6 +3,7 @@ using BookingCare.Services.Hospital;
 using BookingCare.Services.User.Protos;
 using BookingCare.Services.Payment.Protos;
 using BookingCare.Services.ServiceMedical.Protos;
+using BookingCare.Services.Schedule.Protos;
 
 namespace BookingCare.Services.Appointment.Helpers;
 
@@ -17,6 +18,7 @@ public class GrpcClientWrapper
     public UserService.UserServiceClient UserClient { get; }
     public PaymentService.PaymentServiceClient PaymentClient { get; }
     public ServiceMedicalService.ServiceMedicalServiceClient ServiceMedicalClient { get; }
+    public ScheduleService.ScheduleServiceClient ScheduleClient { get; }
 
     public GrpcClientWrapper(
         DoctorService.DoctorServiceClient doctorClient,
@@ -24,7 +26,8 @@ public class GrpcClientWrapper
         SubscriptionUsageGrpc.SubscriptionUsageGrpcClient subscriptionUsageClient,
         UserService.UserServiceClient userClient,
         PaymentService.PaymentServiceClient paymentClient,
-        ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient)
+        ServiceMedicalService.ServiceMedicalServiceClient serviceMedicalClient,
+        ScheduleService.ScheduleServiceClient scheduleClient)
     {
         DoctorClient = doctorClient;
         HospitalClient = hospitalClient;
@@ -32,5 +35,6 @@ public class GrpcClientWrapper
         UserClient = userClient;
         PaymentClient = paymentClient;
         ServiceMedicalClient = serviceMedicalClient;
+        ScheduleClient = scheduleClient;
     }
 }

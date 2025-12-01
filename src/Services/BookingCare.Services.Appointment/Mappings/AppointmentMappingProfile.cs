@@ -24,6 +24,7 @@ public class AppointmentMappingProfile : Profile
             .ForMember(dest => dest.DoctorInfo, opt => opt.Ignore())
             .ForMember(dest => dest.ServiceInfo, opt => opt.Ignore())
             .ForMember(dest => dest.HospitalInfo, opt => opt.Ignore())
+            .ForMember(dest => dest.SpecialtyInfo, opt => opt.Ignore())
             .ForMember(dest => dest.ConsultationFees, opt => opt.Ignore());
     }
 }

@@ -17,7 +17,7 @@ public class AppointmentEntity
     /// <summary>
     /// Account ID of the patient who booked the appointment
     /// </summary>
-    public Guid? PatientAccountId { get; set; }
+    public Guid PatientAccountId { get; set; }
 
     /// <summary>
     /// Relative ID when booking for a family member (null = booking for self)
