@@ -474,48 +474,39 @@ public class AppointmentRepository : IAppointmentRepository
     #region Statistics Operations
 
     /// <summary>
-    /// Get counts for all appointment statuses for a specific user or organization using a single optimized query
-    /// Supports filtering by PatientId, DoctorId, HospitalId, or all (for ADMIN)
-    /// Also supports additional filters like date range, appointment type, forRelative, and searchTerm
+    /// Get counts for all appointment statuses for a specific user or organization using a single optimized query.
+    /// All filters are encapsulated in <see cref="AppointmentStatusFilter"/> for better readability.
     /// </summary>
     public async Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
-        Guid? patientId = null,
-        Guid? doctorId = null,
-        Guid? hospitalId = null,
-        bool countAll = false,
-        DateTime? fromDate = null,
-        DateTime? toDate = null,
-        AppointmentType? appointmentType = null,
-        bool? forRelative = null,
-        string? searchTerm = null)
+        AppointmentStatusFilter filter)
     {
         try
         {
             var query = _context.Appointments.AsQueryable();
 
             // Apply appropriate filter based on role
-            if (countAll)
+            if (filter.CountAll)
             {
                 // ADMIN role: Count all appointments (no filter)
                 _logger.LogInformation("Counting all appointments for ADMIN role");
             }
-            else if (patientId.HasValue)
+            else if (filter.PatientId.HasValue)
             {
                 // PATIENT role: Filter by patient
-                query = query.Where(a => a.PatientId == patientId.Value);
-                _logger.LogInformation("Counting appointments for PatientId: {PatientId}", patientId.Value);
+                query = query.Where(a => a.PatientId == filter.PatientId.Value);
+                _logger.LogInformation("Counting appointments for PatientId: {PatientId}", filter.PatientId.Value);
             }
-            else if (doctorId.HasValue)
+            else if (filter.DoctorId.HasValue)
             {
                 // DOCTOR role: Filter by doctor
-                query = query.Where(a => a.DoctorId == doctorId.Value);
-                _logger.LogInformation("Counting appointments for DoctorId: {DoctorId}", doctorId.Value);
+                query = query.Where(a => a.DoctorId == filter.DoctorId.Value);
+                _logger.LogInformation("Counting appointments for DoctorId: {DoctorId}", filter.DoctorId.Value);
             }
-            else if (hospitalId.HasValue)
+            else if (filter.HospitalId.HasValue)
             {
                 // STAFF role: Filter by hospital
-                query = query.Where(a => a.HospitalId == hospitalId.Value);
-                _logger.LogInformation("Counting appointments for HospitalId: {HospitalId}", hospitalId.Value);
+                query = query.Where(a => a.HospitalId == filter.HospitalId.Value);
+                _logger.LogInformation("Counting appointments for HospitalId: {HospitalId}", filter.HospitalId.Value);
             }
             else
             {
@@ -524,47 +515,7 @@ public class AppointmentRepository : IAppointmentRepository
                 return new Dictionary<AppointmentStatus, int>();
             }
 
-            // Apply additional filters (same as GetAppointmentsAsync)
-            if (appointmentType.HasValue)
-            {
-                query = query.Where(a => a.AppointmentType == appointmentType.Value);
-            }
-
-            if (fromDate.HasValue)
-            {
-                var fromDateValue = fromDate.Value.Date;
-                query = query.Where(a => a.AppointmentDate >= fromDateValue);
-            }
-
-            if (toDate.HasValue)
-            {
-                var toDateValue = toDate.Value.Date.AddDays(1).AddTicks(-1);
-                query = query.Where(a => a.AppointmentDate <= toDateValue);
-            }
-
-            if (forRelative.HasValue)
-            {
-                if (forRelative.Value)
-                {
-                    query = query.Where(a => a.RelativeId != null);
-                }
-                else
-                {
-                    query = query.Where(a => a.RelativeId == null);
-                }
-            }
-
-            // Apply search term filter (same as GetAppointmentsAsync)
-            if (!string.IsNullOrWhiteSpace(searchTerm))
-            {
-                var term = searchTerm.Trim().ToLower();
-                query = query.Where(a =>
-                    a.Id.ToString().ToLower().Contains(term) ||
-                    (a.Reason != null && a.Reason.ToLower().Contains(term)) ||
-                    (a.Symptoms != null && a.Symptoms.ToLower().Contains(term)) ||
-                    (a.Result != null && a.Result.ToLower().Contains(term))
-                );
-            }
+            query = ApplyStatusFilter(query, filter);
 
             // Group by status and count - single DB query
             var statusCounts = await query
@@ -588,7 +539,7 @@ public class AppointmentRepository : IAppointmentRepository
 
             _logger.LogInformation(
                 "Retrieved status counts (PatientId: {PatientId}, DoctorId: {DoctorId}, HospitalId: {HospitalId}, CountAll: {CountAll}): Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
-                patientId, doctorId, hospitalId, countAll, result[AppointmentStatus.PENDING], result[AppointmentStatus.CONFIRMED],
+                filter.PatientId, filter.DoctorId, filter.HospitalId, filter.CountAll, result[AppointmentStatus.PENDING], result[AppointmentStatus.CONFIRMED],
                 result[AppointmentStatus.CANCELLED], result[AppointmentStatus.COMPLETED]);
 
             return result;
@@ -598,6 +549,47 @@ public class AppointmentRepository : IAppointmentRepository
             _logger.LogError(ex, "Error getting status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId})", patientId, doctorId);
             throw new AppointmentException("Failed to get status counts", innerException: ex);
         }
+    }
+
+    private static IQueryable<AppointmentEntity> ApplyStatusFilter(
+        IQueryable<AppointmentEntity> query,
+        AppointmentStatusFilter filter)
+    {
+        if (filter.AppointmentType.HasValue)
+        {
+            query = query.Where(a => a.AppointmentType == filter.AppointmentType.Value);
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            var fromDateValue = filter.FromDate.Value.Date;
+            query = query.Where(a => a.AppointmentDate >= fromDateValue);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            var toDateValue = filter.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(a => a.AppointmentDate <= toDateValue);
+        }
+
+        if (filter.ForRelative.HasValue)
+        {
+            query = filter.ForRelative.Value
+                ? query.Where(a => a.RelativeId != null)
+                : query.Where(a => a.RelativeId == null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var term = filter.SearchTerm.Trim().ToLower();
+            query = query.Where(a =>
+                a.Id.ToString().ToLower().Contains(term) ||
+                (a.Reason != null && a.Reason.ToLower().Contains(term)) ||
+                (a.Symptoms != null && a.Symptoms.ToLower().Contains(term)) ||
+                (a.Result != null && a.Result.ToLower().Contains(term)));
+        }
+
+        return query;
     }
 
     public async Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(Guid hospitalId, DateTime fromDate, DateTime toDate)

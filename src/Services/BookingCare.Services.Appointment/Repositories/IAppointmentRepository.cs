@@ -2,6 +2,7 @@ using BookingCare.Services.Appointment.Models.DTOs;
 using BookingCare.Services.Appointment.Models.Entities;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Appointment.Enums;
+using BookingCare.Services.Appointment.Models.DTOs;
 
 namespace BookingCare.Services.Appointment.Repositories;
 
@@ -46,19 +47,10 @@ public interface IAppointmentRepository
     // Statistics operations
     /// <summary>
     /// Get counts for all appointment statuses for a specific user or organization
-    /// Supports filtering by PatientId, DoctorId, HospitalId, or all (for ADMIN)
-    /// Also supports additional filters like date range, appointment type, forRelative, and searchTerm
+    /// using a single optimized query.
+    /// All filters are encapsulated inside <see cref="AppointmentStatusFilter"/>.
     /// </summary>
-    Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
-        Guid? patientId = null,
-        Guid? doctorId = null,
-        Guid? hospitalId = null,
-        bool countAll = false,
-        DateTime? fromDate = null,
-        DateTime? toDate = null,
-        AppointmentType? appointmentType = null,
-        bool? forRelative = null,
-        string? searchTerm = null);
+    Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(AppointmentStatusFilter filter);
     Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(Guid hospitalId, DateTime fromDate, DateTime toDate);
     Task<Dictionary<Guid, DateTime>> GetPatientFirstAppointmentsAsync(Guid hospitalId);
 

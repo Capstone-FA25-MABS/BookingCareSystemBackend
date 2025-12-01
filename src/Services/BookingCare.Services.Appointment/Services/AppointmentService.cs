@@ -3794,14 +3794,16 @@ public class AppointmentService : BaseService, IAppointmentService
                 if (query.DoctorId.HasValue)
                 {
                     return await GetStatusCountsAsync(
-                        query.DoctorId.Value,
-                        Role.DOCTOR,
-                        null,
-                        query.FromDate,
-                        query.ToDate,
-                        query.AppointmentType,
-                        query.ForRelative,
-                        query.SearchTerm
+                        new StatusCountsRequest
+                        {
+                            UserId = query.DoctorId.Value,
+                            Role = Role.DOCTOR,
+                            FromDate = query.FromDate,
+                            ToDate = query.ToDate,
+                            AppointmentType = query.AppointmentType,
+                            ForRelative = query.ForRelative,
+                            SearchTerm = query.SearchTerm
+                        }
                     );
                 }
                 LogWarning("Doctor role but no DoctorId provided in query for status counts", null);
@@ -3812,14 +3814,17 @@ public class AppointmentService : BaseService, IAppointmentService
                 if (query.HospitalId.HasValue)
                 {
                     return await GetStatusCountsAsync(
-                        null,
-                        Role.STAFF,
-                        query.HospitalId.Value,
-                        query.FromDate,
-                        query.ToDate,
-                        query.AppointmentType,
-                        query.ForRelative,
-                        query.SearchTerm
+                        new StatusCountsRequest
+                        {
+                            UserId = null,
+                            Role = Role.STAFF,
+                            HospitalId = query.HospitalId.Value,
+                            FromDate = query.FromDate,
+                            ToDate = query.ToDate,
+                            AppointmentType = query.AppointmentType,
+                            ForRelative = query.ForRelative,
+                            SearchTerm = query.SearchTerm
+                        }
                     );
                 }
                 LogWarning(
@@ -3831,14 +3836,16 @@ public class AppointmentService : BaseService, IAppointmentService
             case Role.ADMIN:
                 // Admin: count all appointments with filters
                 return await GetStatusCountsAsync(
-                    null,
-                    Role.ADMIN,
-                    null,
-                    query.FromDate,
-                    query.ToDate,
-                    query.AppointmentType,
-                    query.ForRelative,
-                    query.SearchTerm
+                    new StatusCountsRequest
+                    {
+                        UserId = null,
+                        Role = Role.ADMIN,
+                        FromDate = query.FromDate,
+                        ToDate = query.ToDate,
+                        AppointmentType = query.AppointmentType,
+                        ForRelative = query.ForRelative,
+                        SearchTerm = query.SearchTerm
+                    }
                 );
 
             default:
@@ -3852,21 +3859,27 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
+    /// Request object for status counts to keep method signature focused.
+    /// </summary>
+    private sealed class StatusCountsRequest
+    {
+        public Guid? UserId { get; init; }
+        public Role Role { get; init; }
+        public Guid? HospitalId { get; init; }
+        public DateTime? FromDate { get; init; }
+        public DateTime? ToDate { get; init; }
+        public AppointmentType? AppointmentType { get; init; }
+        public bool? ForRelative { get; init; }
+        public string? SearchTerm { get; init; }
+    }
+
+    /// <summary>
     /// Get counts for all statuses for a specific user or organization
     /// Uses optimized repository method with single DB query
     /// Supports Patient, Doctor, Staff (by Hospital), and Admin (all) roles
     /// Also supports additional filters like date range, appointment type, forRelative, and searchTerm
     /// </summary>
-    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(
-        Guid? userId,
-        Role role,
-        Guid? hospitalId = null,
-        DateTime? fromDate = null,
-        DateTime? toDate = null,
-        AppointmentType? appointmentType = null,
-        bool? forRelative = null,
-        string? searchTerm = null
-    )
+    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(StatusCountsRequest request)
     {
         try
         {
@@ -3876,20 +3889,20 @@ public class AppointmentService : BaseService, IAppointmentService
             Guid? staffHospitalId = null;
             bool countAll = false;
 
-            switch (role)
+            switch (request.Role)
             {
                 case Role.PATIENT:
-                    patientId = userId;
+                    patientId = request.UserId;
                     LogInfo("Getting status counts for Patient {PatientId}", null, patientId!);
                     break;
 
                 case Role.DOCTOR:
-                    doctorId = userId;
+                    doctorId = request.UserId;
                     LogInfo("Getting status counts for Doctor {DoctorId}", null, doctorId!);
                     break;
 
                 case Role.STAFF:
-                    staffHospitalId = hospitalId;
+                    staffHospitalId = request.HospitalId;
                     LogInfo(
                         "Getting status counts for Staff in Hospital {HospitalId}",
                         null,
@@ -3903,22 +3916,25 @@ public class AppointmentService : BaseService, IAppointmentService
                     break;
 
                 default:
-                    LogWarning("Unknown role {Role} for status counts", null, role);
+                    LogWarning("Unknown role {Role} for status counts", null, request.Role);
                     return new AppointmentStatusCounts();
             }
 
             // Get counts using optimized repository method (single query with GROUP BY)
-            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(
-                patientId,
-                doctorId,
-                staffHospitalId,
-                countAll,
-                fromDate,
-                toDate,
-                appointmentType,
-                forRelative,
-                searchTerm
-            );
+            var filter = new AppointmentStatusFilter
+            {
+                PatientId = patientId,
+                DoctorId = doctorId,
+                HospitalId = staffHospitalId,
+                CountAll = countAll,
+                FromDate = request.FromDate,
+                ToDate = request.ToDate,
+                AppointmentType = request.AppointmentType,
+                ForRelative = request.ForRelative,
+                SearchTerm = request.SearchTerm
+            };
+
+            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(filter);
 
             var counts = new AppointmentStatusCounts
             {
@@ -3933,7 +3949,7 @@ public class AppointmentService : BaseService, IAppointmentService
             LogInfo(
                 "Retrieved status counts for role {Role}: Total={Total}, Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
                 null,
-                role,
+                request.Role,
                 counts.Total,
                 counts.Pending,
                 counts.Confirmed,

@@ -20,9 +20,23 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private readonly IMapper _mapper;
         private readonly ILogger<ServiceMedicalService> _logger;
         private readonly IHospitalService _hospitalService;
-        private readonly SubscriptionUsageGrpc.SubscriptionUsageGrpcClient _subscriptionUsageClient;
         private readonly ILocationApiService _locationApiService;
+        private readonly SubscriptionUsageGrpc.SubscriptionUsageGrpcClient _subscriptionUsageClient;
         private readonly ReviewService.ReviewServiceClient _reviewServiceClient;
+
+        public sealed class ServiceMedicalGrpcClients
+        {
+            public ServiceMedicalGrpcClients(
+                SubscriptionUsageGrpc.SubscriptionUsageGrpcClient subscriptionUsageClient,
+                ReviewService.ReviewServiceClient reviewServiceClient)
+            {
+                SubscriptionUsageClient = subscriptionUsageClient;
+                ReviewServiceClient = reviewServiceClient;
+            }
+
+            public SubscriptionUsageGrpc.SubscriptionUsageGrpcClient SubscriptionUsageClient { get; }
+            public ReviewService.ReviewServiceClient ReviewServiceClient { get; }
+        }
 
         public ServiceMedicalService(
             IServiceCategoryRepository categoryRepository,
@@ -30,18 +44,17 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             IMapper mapper,
             ILogger<ServiceMedicalService> logger,
             IHospitalService hospitalService,
-            SubscriptionUsageGrpc.SubscriptionUsageGrpcClient subscriptionUsageClient,
             ILocationApiService locationApiService,
-            ReviewService.ReviewServiceClient reviewServiceClient)
+            ServiceMedicalGrpcClients grpcClients)
         {
             _categoryRepository = categoryRepository;
             _serviceRepository = serviceRepository;
             _mapper = mapper;
             _logger = logger;
             _hospitalService = hospitalService;
-            _subscriptionUsageClient = subscriptionUsageClient;
             _locationApiService = locationApiService;
-            _reviewServiceClient = reviewServiceClient;
+            _subscriptionUsageClient = grpcClients.SubscriptionUsageClient;
+            _reviewServiceClient = grpcClients.ReviewServiceClient;
         }
 
         #region ServiceCategory Operations
