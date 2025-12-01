@@ -47,7 +47,7 @@ public interface IAppointmentRepository
     /// <summary>
     /// Get counts for all appointment statuses for a specific user or organization
     /// Supports filtering by PatientId, DoctorId, HospitalId, or all (for ADMIN)
-    /// Also supports additional filters like date range, appointment type, and forRelative
+    /// Also supports additional filters like date range, appointment type, forRelative, and searchTerm
     /// </summary>
     Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
         Guid? patientId = null,
@@ -57,7 +57,8 @@ public interface IAppointmentRepository
         DateTime? fromDate = null,
         DateTime? toDate = null,
         AppointmentType? appointmentType = null,
-        bool? forRelative = null);
+        bool? forRelative = null,
+        string? searchTerm = null);
     Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(Guid hospitalId, DateTime fromDate, DateTime toDate);
     Task<Dictionary<Guid, DateTime>> GetPatientFirstAppointmentsAsync(Guid hospitalId);
 
@@ -83,6 +84,16 @@ public interface IAppointmentRepository
     Task<List<AppointmentTime>> GetBookedAppointmentTimesByServiceAsync(Guid serviceId, DateOnly appointmentDate);
 
     /// <summary>
+    /// Get booked slot counts for a specialty (hospital assigns doctor mode)
+    /// Returns count of PENDING/CONFIRMED appointments per time slot
+    /// </summary>
+    Task<Dictionary<AppointmentTime, int>> GetSpecialtyBookedSlotCountsAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        DateOnly appointmentDate,
+        AppointmentType appointmentType);
+
+    /// <summary>
     /// NEW: Get completed appointments by patient with optional doctor or service filter (for Review service validation)
     /// Returns appointments with COMPLETED status for appointment history validation
     /// </summary>
@@ -90,4 +101,31 @@ public interface IAppointmentRepository
         Guid patientId,
         Guid? doctorId = null,
         Guid? serviceId = null);
+
+    #region Assign Doctor To Appointment (NEW flow)
+
+    /// <summary>
+    /// Get completed appointments for a patient at a specific hospital and specialty
+    /// Used to find previous doctors who treated this patient
+    /// </summary>
+    Task<List<AppointmentEntity>> GetCompletedAppointmentsForPatientAsync(
+        Guid patientId,
+        Guid hospitalId,
+        Guid specialtyId);
+
+    /// <summary>
+    /// Get booking counts (completed appointments) for multiple doctors
+    /// </summary>
+    Task<Dictionary<Guid, int>> GetDoctorBookingCountsAsync(List<Guid> doctorIds);
+
+    /// <summary>
+    /// Get doctor IDs that have booked slots at a specific date/time
+    /// Used to check availability
+    /// </summary>
+    Task<List<Guid>> GetDoctorsWithBookedSlotAsync(
+        List<Guid> doctorIds,
+        DateOnly date,
+        AppointmentTime appointmentTimeId);
+
+    #endregion
 }

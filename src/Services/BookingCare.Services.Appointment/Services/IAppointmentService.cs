@@ -85,6 +85,19 @@ public interface IAppointmentService
 
     Task<StaffHospitalStatisticsResponse> GetHospitalStaffStatisticsAsync(StaffHospitalStatisticsRequest request);
 
+    /// <summary>
+    /// Get doctors for assignment flow (hospital staff assigns doctor to pending specialty appointment)
+    /// Returns recommended doctors (sorted by experience, rating, booking count) and previous doctors
+    /// </summary>
+    Task<DoctorsForAssignmentResponse> GetDoctorsForAssignmentAsync(GetDoctorsForAssignmentRequest request);
+
+    /// <summary>
+    /// Assign doctor to a pending specialty appointment (NEW flow for "Hospital assigns doctor")
+    /// This directly assigns the doctor and confirms the appointment
+    /// Different from AssignNewDoctorAsync which is for cancel/reschedule flow
+    /// </summary>
+    Task<AssignDoctorToAppointmentResponse> AssignDoctorToAppointmentAsync(AssignDoctorToAppointmentRequest request);
+
     // Validation operations
     Task<bool> ValidateAppointmentAsync(CreateAppointmentRequest request);
 

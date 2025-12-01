@@ -357,6 +357,71 @@ ILogger<AppointmentGrpcService> logger)
     }
 
     /// <summary>
+    /// Checks booked slots count for a specialty (hospital assigns doctor mode)
+    /// Returns count of PENDING/CONFIRMED appointments per time slot
+    /// </summary>
+    public override async Task<CheckSpecialtyBookedSlotsResponse> CheckSpecialtyBookedSlots(
+        CheckSpecialtyBookedSlotsRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogDebug("Checking specialty booked slots for hospital {HospitalId}, specialty {SpecialtyId} on {Date}",
+                request.HospitalId, request.SpecialtyId, request.AppointmentDate);
+
+            // Parse the GUIDs and date
+            if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            if (!Guid.TryParse(request.SpecialtyId, out var specialtyId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+            }
+
+            if (!DateTime.TryParse(request.AppointmentDate, out var appointmentDate))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid appointment date format"));
+            }
+
+            var appointmentType = (AppointmentType)request.AppointmentType;
+
+            // Get booked counts per time slot for this specialty
+            var bookedCounts = await _appointmentRepository.GetSpecialtyBookedSlotCountsAsync(
+                hospitalId,
+                specialtyId,
+                DateOnly.FromDateTime(appointmentDate),
+                appointmentType);
+
+            var response = new CheckSpecialtyBookedSlotsResponse();
+            foreach (var kvp in bookedCounts)
+            {
+                response.BookedSlots.Add(new SpecialtySlotBookedCount
+                {
+                    AppointmentTimeId = (int)kvp.Key,
+                    BookedCount = kvp.Value
+                });
+            }
+
+            _logger.LogDebug("Found {Count} time slots with bookings for specialty {SpecialtyId} on {Date}",
+                response.BookedSlots.Count, request.SpecialtyId, request.AppointmentDate);
+
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking specialty booked slots for hospital {HospitalId}, specialty {SpecialtyId} on {Date}",
+                request.HospitalId, request.SpecialtyId, request.AppointmentDate);
+            throw new RpcException(new Status(StatusCode.Internal, "An error occurred while checking specialty booked slots"));
+        }
+    }
+
+    /// <summary>
     /// NEW: Check if patient has completed appointment history with doctor or service (for Review service validation)
     /// </summary>
     public override async Task<CheckPatientAppointmentHistoryResponse> CheckPatientAppointmentHistory(
