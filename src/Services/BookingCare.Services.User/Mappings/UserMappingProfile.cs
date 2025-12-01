@@ -41,8 +41,8 @@ public class UserMappingProfile : Profile
             .ForMember(dest => dest.Age, opt => opt.MapFrom(src => CalculateAge(src.DateOfBirth)))
             .ForMember(dest => dest.RelationshipDisplay, opt => opt.MapFrom(src => GetRelationshipDisplay(src.Relationship)));
 
-        // Request to Entity
-        CreateMap<CreatePatientRelativeRequest, PatientRelativeEntity>()
+        // Request to Entity - use base class mapping to avoid duplication
+        CreateMap<PatientRelativeRequestBase, PatientRelativeEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.UserId, opt => opt.Ignore())
             .ForMember(dest => dest.User, opt => opt.Ignore())
@@ -53,20 +53,12 @@ public class UserMappingProfile : Profile
             .ForMember(dest => dest.Phone, opt => opt.MapFrom(src => src.Phone != null ? src.Phone.Trim() : null))
             .ForMember(dest => dest.HealthInsuranceNumber, opt => opt.MapFrom(src => src.HealthInsuranceNumber != null ? src.HealthInsuranceNumber.Trim() : null))
             .ForMember(dest => dest.IdentityNumber, opt => opt.MapFrom(src => src.IdentityNumber != null ? src.IdentityNumber.Trim() : null))
-            .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes != null ? src.Notes.Trim() : null));
+            .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes != null ? src.Notes.Trim() : null))
+            .IncludeAllDerived();
 
-        CreateMap<UpdatePatientRelativeRequest, PatientRelativeEntity>()
-            .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.UserId, opt => opt.Ignore())
-            .ForMember(dest => dest.User, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
-            .ForMember(dest => dest.FirstName, opt => opt.MapFrom(src => src.FirstName.Trim()))
-            .ForMember(dest => dest.LastName, opt => opt.MapFrom(src => src.LastName.Trim()))
-            .ForMember(dest => dest.Phone, opt => opt.MapFrom(src => src.Phone != null ? src.Phone.Trim() : null))
-            .ForMember(dest => dest.HealthInsuranceNumber, opt => opt.MapFrom(src => src.HealthInsuranceNumber != null ? src.HealthInsuranceNumber.Trim() : null))
-            .ForMember(dest => dest.IdentityNumber, opt => opt.MapFrom(src => src.IdentityNumber != null ? src.IdentityNumber.Trim() : null))
-            .ForMember(dest => dest.Notes, opt => opt.MapFrom(src => src.Notes != null ? src.Notes.Trim() : null));
+        // Derived mappings inherit from base
+        CreateMap<CreatePatientRelativeRequest, PatientRelativeEntity>();
+        CreateMap<UpdatePatientRelativeRequest, PatientRelativeEntity>();
     }
 
     #region Helper Methods

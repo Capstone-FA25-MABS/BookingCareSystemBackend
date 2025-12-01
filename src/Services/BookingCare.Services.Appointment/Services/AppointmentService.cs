@@ -4478,27 +4478,10 @@ public class AppointmentService : BaseService, IAppointmentService
                 }
 
                 // Step 6: Build recommended doctors list (sorted by experience, rating, booking count)
-                var recommendedDoctors = doctorGrpcResponse.Doctors
-                    .Select(d =>
-                    {
-                        var doctorId = Guid.Parse(d.Id);
-                        return new DoctorForAssignment
-                        {
-                            Id = doctorId,
-                            AccountId = Guid.Parse(d.AccountId),
-                            FullName = d.FullName,
-                            AvatarUrl = d.AvatarUrl,
-                            PositionName = d.PositionName,
-                            SpecialtyName = d.SpecialtyName,
-                            YearsOfExperience = d.YearsOfExperience,
-                            Rating = d.Rating,
-                            ReviewCount = d.ReviewCount,
-                            BookingCount = bookingCountMap.GetValueOrDefault(doctorId, 0),
-                            ConsultationFee = (decimal)d.ConsultationFee,
-                            IsActive = d.IsActive,
-                            IsAvailableAtOriginalTime = availabilityMap.GetValueOrDefault(doctorId, true)
-                        };
-                    })
+                var recommendedDoctors = MapGrpcDoctorsToAssignment(
+                    doctorGrpcResponse.Doctors,
+                    bookingCountMap,
+                    availabilityMap)
                     .OrderByDescending(d => d.YearsOfExperience)
                     .ThenByDescending(d => d.Rating)
                     .ThenByDescending(d => d.BookingCount)
@@ -4520,28 +4503,10 @@ public class AppointmentService : BaseService, IAppointmentService
 
                     if (previousDoctorGrpcResponse.Success)
                     {
-                        previousDoctors = previousDoctorGrpcResponse.Doctors
-                            .Select(d =>
-                            {
-                                var doctorId = Guid.Parse(d.Id);
-                                return new DoctorForAssignment
-                                {
-                                    Id = doctorId,
-                                    AccountId = Guid.Parse(d.AccountId),
-                                    FullName = d.FullName,
-                                    AvatarUrl = d.AvatarUrl,
-                                    PositionName = d.PositionName,
-                                    SpecialtyName = d.SpecialtyName,
-                                    YearsOfExperience = d.YearsOfExperience,
-                                    Rating = d.Rating,
-                                    ReviewCount = d.ReviewCount,
-                                    BookingCount = bookingCountMap.GetValueOrDefault(doctorId, 0),
-                                    ConsultationFee = (decimal)d.ConsultationFee,
-                                    IsActive = d.IsActive,
-                                    IsAvailableAtOriginalTime = availabilityMap.GetValueOrDefault(doctorId, true)
-                                };
-                            })
-                            .ToList();
+                        previousDoctors = MapGrpcDoctorsToAssignment(
+                            previousDoctorGrpcResponse.Doctors,
+                            bookingCountMap,
+                            availabilityMap);
                     }
                 }
 
@@ -4806,6 +4771,36 @@ public class AppointmentService : BaseService, IAppointmentService
             // Don't fail the assignment if notification fails
             LogError(ex, "[PublishDoctorAssignedNotification] Failed to publish notification");
         }
+    }
+
+    /// <summary>
+    /// Map gRPC doctor responses to DoctorForAssignment DTOs
+    /// </summary>
+    private static List<DoctorForAssignment> MapGrpcDoctorsToAssignment(
+        IEnumerable<Doctor.Protos.DoctorForAssignmentResponse> grpcDoctors,
+        Dictionary<Guid, int> bookingCountMap,
+        Dictionary<Guid, bool> availabilityMap)
+    {
+        return grpcDoctors.Select(d =>
+        {
+            var doctorId = Guid.Parse(d.Id);
+            return new DoctorForAssignment
+            {
+                Id = doctorId,
+                AccountId = Guid.Parse(d.AccountId),
+                FullName = d.FullName,
+                AvatarUrl = d.AvatarUrl,
+                PositionName = d.PositionName,
+                SpecialtyName = d.SpecialtyName,
+                YearsOfExperience = d.YearsOfExperience,
+                Rating = d.Rating,
+                ReviewCount = d.ReviewCount,
+                BookingCount = bookingCountMap.GetValueOrDefault(doctorId, 0),
+                ConsultationFee = (decimal)d.ConsultationFee,
+                IsActive = d.IsActive,
+                IsAvailableAtOriginalTime = availabilityMap.GetValueOrDefault(doctorId, true)
+            };
+        }).ToList();
     }
 
     /// <summary>

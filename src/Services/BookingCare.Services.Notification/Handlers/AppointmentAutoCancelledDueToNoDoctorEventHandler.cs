@@ -3,7 +3,7 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Services.Notification.Utils.Email;
-using System.Globalization;
+using BookingCare.Services.Notification.Helpers;
 
 namespace BookingCare.Services.Notification.Handlers;
 
@@ -47,8 +47,8 @@ public class AppointmentAutoCancelledDueToNoDoctorEventHandler : IIntegrationEve
             }
 
             // Format appointment date
-            var formattedDateVi = FormatAppointmentDateVi(@event.AppointmentDate);
-            var formattedDateEn = FormatAppointmentDateEn(@event.AppointmentDate);
+            var formattedDateVi = DateTimeHelper.FormatAppointmentDateVi(@event.AppointmentDate);
+            var formattedDateEn = DateTimeHelper.FormatAppointmentDateEn(@event.AppointmentDate);
             var patientName = string.IsNullOrEmpty(@event.PatientFullName) ? "Quý khách" : @event.PatientFullName;
             var hospitalName = string.IsNullOrEmpty(@event.HospitalName) ? "bệnh viện" : @event.HospitalName;
             var specialtyName = string.IsNullOrEmpty(@event.SpecialtyName) ? "chuyên khoa" : @event.SpecialtyName;
@@ -127,17 +127,4 @@ public class AppointmentAutoCancelledDueToNoDoctorEventHandler : IIntegrationEve
         }
     }
 
-    private static string FormatAppointmentDateVi(DateTime date)
-    {
-        var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-        var vietnamTime = TimeZoneInfo.ConvertTimeFromUtc(date, vietnamTimeZone);
-        return vietnamTime.ToString("'ngày' dd/MM/yyyy");
-    }
-
-    private static string FormatAppointmentDateEn(DateTime date)
-    {
-        var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-        var vietnamTime = TimeZoneInfo.ConvertTimeFromUtc(date, vietnamTimeZone);
-        return vietnamTime.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture);
-    }
 }

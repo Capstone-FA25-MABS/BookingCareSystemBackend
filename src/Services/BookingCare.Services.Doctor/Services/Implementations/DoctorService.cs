@@ -2768,29 +2768,7 @@ public class DoctorService : BaseService, IDoctorService
             var ratingMap = await GetDoctorRatingsForAssignmentAsync(doctorIds);
 
             // Step 4: Build response with all info
-            var result = doctors.Select(d =>
-            {
-                var isActive = statusMap.TryGetValue(d.AccountId, out var status) && status == CommonStatus.ACTIVE;
-                var (rating, reviewCount) = ratingMap.TryGetValue(d.Id, out var ratingInfo) ? ratingInfo : (0, 0);
-                var price = d.DoctorPrices.FirstOrDefault(p => p.ServiceType?.Name?.ToUpperInvariant() == appointmentType.ToUpperInvariant());
-
-                return new DoctorForAssignmentResponse
-                {
-                    Id = d.Id,
-                    AccountId = d.AccountId,
-                    FullName = $"{d.FirstName} {d.LastName}".Trim(),
-                    AvatarUrl = d.AvatarUrl ?? string.Empty,
-                    PositionName = d.Position?.Name ?? string.Empty,
-                    SpecialtyName = d.Specialty?.Name ?? string.Empty,
-                    YearsOfExperience = d.YearsOfExperience,
-                    Rating = rating,
-                    ReviewCount = reviewCount,
-                    ConsultationFee = price?.Amount ?? 0,
-                    IsActive = isActive
-                };
-            })
-            .Where(d => d.IsActive) // Only return active doctors
-            .ToList();
+            var result = MapDoctorsToAssignmentResponse(doctors, statusMap, ratingMap, appointmentType);
 
             LogInfo("[DoctorService] Returning {Count} active doctors for assignment", null, result.Count);
             return result;
@@ -2838,29 +2816,7 @@ public class DoctorService : BaseService, IDoctorService
             var ratingMap = await GetDoctorRatingsForAssignmentAsync(foundDoctorIds);
 
             // Step 4: Build response with all info
-            var result = doctors.Select(d =>
-            {
-                var isActive = statusMap.TryGetValue(d.AccountId, out var status) && status == CommonStatus.ACTIVE;
-                var (rating, reviewCount) = ratingMap.TryGetValue(d.Id, out var ratingInfo) ? ratingInfo : (0, 0);
-                var price = d.DoctorPrices.FirstOrDefault(p => p.ServiceType?.Name?.ToUpperInvariant() == appointmentType.ToUpperInvariant());
-
-                return new DoctorForAssignmentResponse
-                {
-                    Id = d.Id,
-                    AccountId = d.AccountId,
-                    FullName = $"{d.FirstName} {d.LastName}".Trim(),
-                    AvatarUrl = d.AvatarUrl ?? string.Empty,
-                    PositionName = d.Position?.Name ?? string.Empty,
-                    SpecialtyName = d.Specialty?.Name ?? string.Empty,
-                    YearsOfExperience = d.YearsOfExperience,
-                    Rating = rating,
-                    ReviewCount = reviewCount,
-                    ConsultationFee = price?.Amount ?? 0,
-                    IsActive = isActive
-                };
-            })
-            .Where(d => d.IsActive) // Only return active doctors
-            .ToList();
+            var result = MapDoctorsToAssignmentResponse(doctors, statusMap, ratingMap, appointmentType);
 
             LogInfo("[DoctorService] Returning {Count} active doctors for assignment by IDs", null, result.Count);
             return result;
@@ -2870,6 +2826,40 @@ public class DoctorService : BaseService, IDoctorService
             LogError(ex, "[DoctorService] Error in GetDoctorsByIdsForAssignmentAsync");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Map doctor entities to assignment response DTOs with status, rating, and price info
+    /// </summary>
+    private List<DoctorForAssignmentResponse> MapDoctorsToAssignmentResponse(
+        List<DoctorEntity> doctors,
+        Dictionary<Guid, CommonStatus> statusMap,
+        Dictionary<Guid, (double Rating, int ReviewCount)> ratingMap,
+        string appointmentType)
+    {
+        return doctors.Select(d =>
+        {
+            var isActive = statusMap.TryGetValue(d.AccountId, out var status) && status == CommonStatus.ACTIVE;
+            var (rating, reviewCount) = ratingMap.TryGetValue(d.Id, out var ratingInfo) ? ratingInfo : (0, 0);
+            var price = d.DoctorPrices.FirstOrDefault(p => p.ServiceType?.Name?.ToUpperInvariant() == appointmentType.ToUpperInvariant());
+
+            return new DoctorForAssignmentResponse
+            {
+                Id = d.Id,
+                AccountId = d.AccountId,
+                FullName = $"{d.FirstName} {d.LastName}".Trim(),
+                AvatarUrl = d.AvatarUrl ?? string.Empty,
+                PositionName = d.Position?.Name ?? string.Empty,
+                SpecialtyName = d.Specialty?.Name ?? string.Empty,
+                YearsOfExperience = d.YearsOfExperience,
+                Rating = rating,
+                ReviewCount = reviewCount,
+                ConsultationFee = price?.Amount ?? 0,
+                IsActive = isActive
+            };
+        })
+        .Where(d => d.IsActive) // Only return active doctors
+        .ToList();
     }
 
     /// <summary>

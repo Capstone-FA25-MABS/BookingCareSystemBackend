@@ -3,7 +3,7 @@ using BookingCare.Shared.EventBus.Events;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Services.Notification.Utils.Email;
-using System.Globalization;
+using BookingCare.Services.Notification.Helpers;
 
 namespace BookingCare.Services.Notification.Handlers;
 
@@ -45,9 +45,9 @@ public class DoctorAssignedToAppointmentNotificationEventHandler : IIntegrationE
                 return;
             }
 
-            // Format appointment date and time
-            var formattedDateVi = FormatAppointmentDateVi(@event.AppointmentDate);
-            var formattedDateEn = FormatAppointmentDateEn(@event.AppointmentDate);
+            // Format appointment date
+            var formattedDateVi = DateTimeHelper.FormatAppointmentDateVi(@event.AppointmentDate);
+            var formattedDateEn = DateTimeHelper.FormatAppointmentDateEn(@event.AppointmentDate);
             var patientName = string.IsNullOrEmpty(@event.PatientFullName) ? "Quý khách" : @event.PatientFullName;
             var doctorName = string.IsNullOrEmpty(@event.DoctorFullName) ? "bác sĩ" : @event.DoctorFullName;
             var hospitalName = string.IsNullOrEmpty(@event.HospitalName) ? "bệnh viện" : @event.HospitalName;
@@ -129,20 +129,6 @@ public class DoctorAssignedToAppointmentNotificationEventHandler : IIntegrationE
 
             // Don't re-throw to avoid breaking the event processing pipeline
         }
-    }
-
-    private static string FormatAppointmentDateVi(DateTime date)
-    {
-        var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-        var vietnamTime = TimeZoneInfo.ConvertTimeFromUtc(date, vietnamTimeZone);
-        return vietnamTime.ToString("'ngày' dd/MM/yyyy");
-    }
-
-    private static string FormatAppointmentDateEn(DateTime date)
-    {
-        var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-        var vietnamTime = TimeZoneInfo.ConvertTimeFromUtc(date, vietnamTimeZone);
-        return vietnamTime.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture);
     }
 
 }
