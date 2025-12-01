@@ -4,6 +4,7 @@ using BookingCare.Shared.Common.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "analytics");
 
 // Add services to the container.
 builder.Services.AddControllers();

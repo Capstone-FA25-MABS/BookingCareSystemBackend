@@ -297,6 +297,41 @@ services:
     restart: unless-stopped
 
   # Microservices
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/BookingCare.ApiGateway.Ocelot/Dockerfile
+    container_name: bookingcare_api_gateway
+    ports:
+      - "5001:5000"
+    depends_on:
+      - auth-service
+      - user-service
+      - doctor-service
+      - hospital-service
+      - appointment-service
+      - payment-service
+      - review-service
+      - content-service
+      - discount-service
+      - communication-service
+      - notification-service
+      - favorites-service
+      - analytics-service
+      - schedule-service
+      - servicemedical-service
+      - saga-service
+      - ai-service
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+      - Jwt__Key=YourSuperSecretKeyThatIsAtLeast256BitsLong!@#$$%^&*()_+
+      - Jwt__Issuer=MicroGrpcDemo.Auth
+      - Jwt__Audience=MicroGrpcDemo.Services
+    networks:
+      - bookingcare-network
+    restart: unless-stopped
+
   ai-service:
     build:
       context: .
@@ -420,7 +455,10 @@ services:
       - MongoDB__DatabaseName=MABS_Communication
       - Cache__ConnectionString=redis:6379
       - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__UserName=bookingcare
       - RabbitMQ__Password=bookingcare@1234
+      - RabbitMQ__VirtualHost=/
       - GrpcServices__AuthService__Url=http://auth-service:6103
       - GrpcServices__UserService__Url=http://user-service:6116
     networks:
@@ -482,9 +520,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:6008;http://+:6108
-      - ConnectionStrings__DefaultConnection=Server=sqlserver-doctor,1433;Database=MABS_Doctor;User Id=sa;Password=Doctor@1234!;TrustServerCertificate=true
+      - ConnectionStrings__DefaultConnection=Server=sqlserver-doctor,1433;Database=MABS_Doctors;User Id=sa;Password=Doctor@1234!;TrustServerCertificate=true
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__Password=bookingcare@1234
+      - AWS__S3__AccessKey={{access_key}}
+      - AWS__S3__SecretKey={{secret_key}}
+      - AWS__S3__BucketName=mabs-capstone-fa25-booking-care-s3-bucket
+      - AWS__S3__Region=ap-southeast-1
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -529,6 +571,10 @@ services:
       - RabbitMQ__HostName=rabbitmq
       - RabbitMQ__Password=bookingcare@1234
       - GrpcClients__Doctor__Address=http://doctor-service:6108
+      - AWS__S3__AccessKey={{access_key}}
+      - AWS__S3__SecretKey={{secret_key}}
+      - AWS__S3__BucketName=mabs-capstone-fa25-booking-care-s3-bucket
+      - AWS__S3__Region=ap-southeast-1
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -577,7 +623,10 @@ services:
       - ASPNETCORE_URLS=http://+:6011;http://+:6111
       - ConnectionStrings__DefaultConnection=Server=sqlserver-payment,1433;Database=MABS_Payment;User Id=sa;Password=Payment@1234!;TrustServerCertificate=true
       - RabbitMQ__HostName=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__UserName=bookingcare
       - RabbitMQ__Password=bookingcare@1234
+      - RabbitMQ__VirtualHost=/
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -668,7 +717,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:6015;http://+:6115
       - ConnectionStrings__DefaultConnection=Server=sqlserver-servicemedical,1433;Database=MABS_ServiceMedical;User Id=sa;Password=ServiceMedical@1234!;TrustServerCertificate=true
-      - GrpcClients__Hospital__Address=http://hospital-service:6114
+      - GrpcClients__Hospital__Address=http://hospital-service:6104
+      - AWS__S3__AccessKey={{access_key}}
+      - AWS__S3__SecretKey={{secret_key}}
+      - AWS__S3__BucketName=mabs-capstone-fa25-booking-care-s3-bucket
+      - AWS__S3__Region=ap-southeast-1
     networks:
       - bookingcare-network
     restart: unless-stopped

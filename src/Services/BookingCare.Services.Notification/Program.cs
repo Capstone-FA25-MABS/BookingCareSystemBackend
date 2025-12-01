@@ -20,6 +20,7 @@ using BookingCare.Shared.EventBus.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "notification");
 
 // Add controllers and Swagger
 builder.Services.AddCommonControllers();

@@ -20,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 const string GrpcUrlConfigKey = "GrpcUrl";
 
 // Configure Kestrel with security best practices
+builder.WebHost.ConfigureSecureKestrel(builder.Configuration, builder.Environment, "appointment");
 
 // Add services to the container using common extensions
 builder.Services.AddCommonControllers();

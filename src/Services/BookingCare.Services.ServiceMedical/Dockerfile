@@ -14,14 +14,26 @@ WORKDIR /src
 
 # Copy project files and restore dependencies
 COPY ["src/Services/BookingCare.Services.ServiceMedical/BookingCare.Services.ServiceMedical.csproj", "src/Services/BookingCare.Services.ServiceMedical/"]
+COPY ["src/Services/BookingCare.Services.Hospital/BookingCare.Services.Hospital.csproj", "src/Services/BookingCare.Services.Hospital/"]
 COPY ["src/Shared/BookingCare.Shared.Common/BookingCare.Shared.Common.csproj", "src/Shared/BookingCare.Shared.Common/"]
 COPY ["src/Shared/BookingCare.Shared.EventBus/BookingCare.Shared.EventBus.csproj", "src/Shared/BookingCare.Shared.EventBus/"]
+COPY ["src/Shared/BookingCare.Shared.Cache/BookingCare.Shared.Cache.csproj", "src/Shared/BookingCare.Shared.Cache/"]
+COPY ["src/Shared/BookingCare.Shared.FileUpload/BookingCare.Shared.FileUpload.csproj", "src/Shared/BookingCare.Shared.FileUpload/"]
+
+# Copy proto files for gRPC dependencies
+COPY ["src/Services/BookingCare.Services.ServiceMedical/Protos/", "src/Services/BookingCare.Services.ServiceMedical/Protos/"]
+COPY ["src/Services/BookingCare.Services.Hospital/Protos/", "src/Services/BookingCare.Services.Hospital/Protos/"]
+COPY ["src/Services/BookingCare.Services.Auth/Protos/", "src/Services/BookingCare.Services.Auth/Protos/"]
+COPY ["src/Services/BookingCare.Services.Doctor/Protos/", "src/Services/BookingCare.Services.Doctor/Protos/"]
+COPY ["src/Services/BookingCare.Services.Notification/Protos/", "src/Services/BookingCare.Services.Notification/Protos/"]
 
 # Restore NuGet packages
 RUN dotnet restore "src/Services/BookingCare.Services.ServiceMedical/BookingCare.Services.ServiceMedical.csproj"
 
-# Copy the entire source code
-COPY . .
+# Copy only the necessary source code for this service and its dependencies
+COPY ["src/Services/BookingCare.Services.ServiceMedical/", "src/Services/BookingCare.Services.ServiceMedical/"]
+COPY ["src/Services/BookingCare.Services.Hospital/", "src/Services/BookingCare.Services.Hospital/"]
+COPY ["src/Shared/", "src/Shared/"]
 
 # Set the working directory to the project directory
 WORKDIR "/src/src/Services/BookingCare.Services.ServiceMedical"
