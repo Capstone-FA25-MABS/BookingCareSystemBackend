@@ -308,6 +308,65 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
+    /// Release held slot via Redis cache (generic for both Doctor and ServiceMedical)
+    /// </summary>
+    private async Task ReleaseHeldSlotAsync(
+        Guid targetId,
+        string targetTypePrefix,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid userId
+    )
+    {
+        try
+        {
+            LogInfo(
+                "Releasing held slot for {TargetType} {TargetId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                null,
+                targetTypePrefix,
+                targetId,
+                appointmentDate,
+                appointmentTimeId,
+                userId
+            );
+
+            var database = _redisConnection.GetDatabase();
+            var dateStr = appointmentDate.ToString(DateFormat);
+
+            // Cache key format must match HoldSlotService: held_slot:{targetTypePrefix}_{targetId}:{date}:{appointmentTimeId}:{userId}
+            // HoldSlotService uses: CacheKeys.Format(CacheKeys.HeldSlot, $"{targetTypePrefix}_{request.TargetId}", date, appointmentTimeId, userId)
+            var cacheKey = CacheKeys.Format(
+                CacheKeys.HeldSlot,
+                $"{targetTypePrefix}_{targetId}",
+                dateStr,
+                (int)appointmentTimeId,
+                userId
+            );
+
+            // IMPORTANT: Add Schedule Service prefix to match where cache was created
+            // Hold slots are created by Schedule Service with prefix "BookingCare:Schedule:"
+            var fullCacheKey = $"BookingCare:Schedule:{cacheKey}";
+            await database.KeyDeleteAsync(fullCacheKey);
+
+            LogInfo("Successfully released held slot: {CacheKey}", null, fullCacheKey);
+        }
+        catch (Exception ex)
+        {
+            LogError(
+                ex,
+                "Error releasing held slot for {TargetType} {TargetId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                null,
+                targetTypePrefix,
+                targetId,
+                appointmentDate,
+                appointmentTimeId,
+                userId
+            );
+            // Don't throw - this is not critical for appointment creation
+        }
+    }
+
+    /// <summary>
     /// Release held slot via Redis cache for ServiceMedical booking
     /// </summary>
     private async Task ReleaseServiceMedicalHeldSlotAsync(
@@ -372,65 +431,6 @@ public class AppointmentService : BaseService, IAppointmentService
                 hospitalId,
                 specialtyId,
                 appointmentDate
-            );
-            // Don't throw - this is not critical for appointment creation
-        }
-    }
-
-    /// <summary>
-    /// Release held slot via Redis cache (generic for both Doctor and ServiceMedical)
-    /// </summary>
-    private async Task ReleaseHeldSlotAsync(
-        Guid targetId,
-        string targetTypePrefix,
-        DateTime appointmentDate,
-        AppointmentTime appointmentTimeId,
-        Guid userId
-    )
-    {
-        try
-        {
-            LogInfo(
-                "Releasing held slot for {TargetType} {TargetId} on {Date} at {AppointmentTimeId} by user {UserId}",
-                null,
-                targetTypePrefix,
-                targetId,
-                appointmentDate,
-                appointmentTimeId,
-                userId
-            );
-
-            var database = _redisConnection.GetDatabase();
-            var dateStr = appointmentDate.ToString(DateFormat);
-
-            // Cache key format must match HoldSlotService: held_slot:{targetTypePrefix}_{targetId}:{date}:{appointmentTimeId}:{userId}
-            // HoldSlotService uses: CacheKeys.Format(CacheKeys.HeldSlot, $"{targetTypePrefix}_{request.TargetId}", date, appointmentTimeId, userId)
-            var cacheKey = CacheKeys.Format(
-                CacheKeys.HeldSlot,
-                $"{targetTypePrefix}_{targetId}",
-                dateStr,
-                (int)appointmentTimeId,
-                userId
-            );
-
-            // IMPORTANT: Add Schedule Service prefix to match where cache was created
-            // Hold slots are created by Schedule Service with prefix "BookingCare:Schedule:"
-            var fullCacheKey = $"BookingCare:Schedule:{cacheKey}";
-            await database.KeyDeleteAsync(fullCacheKey);
-
-            LogInfo("Successfully released held slot: {CacheKey}", null, fullCacheKey);
-        }
-        catch (Exception ex)
-        {
-            LogError(
-                ex,
-                "Error releasing held slot for {TargetType} {TargetId} on {Date} at {AppointmentTimeId} by user {UserId}",
-                null,
-                targetTypePrefix,
-                targetId,
-                appointmentDate,
-                appointmentTimeId,
-                userId
             );
             // Don't throw - this is not critical for appointment creation
         }

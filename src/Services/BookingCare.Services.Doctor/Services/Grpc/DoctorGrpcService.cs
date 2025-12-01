@@ -487,7 +487,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
             if (!Guid.TryParse(request.SpecialtyId, out var specialtyId))
             {
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+                throw new RpcException(new Status(StatusCode.InvalidArgument, INVALID_SPECIALTY_ID_FORMAT));
             }
 
             // Get doctors by hospital and specialty (without availability check)
@@ -548,7 +548,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
             if (!Guid.TryParse(request.SpecialtyId, out var specialtyId))
             {
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+                throw new RpcException(new Status(StatusCode.InvalidArgument, INVALID_SPECIALTY_ID_FORMAT));
             }
 
             // Get active doctor IDs only by hospital and specialty, optionally filtered by appointment type
@@ -1169,7 +1169,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
                 return new Protos.GetDoctorsForAssignmentResponse
                 {
                     Success = false,
-                    Message = "Invalid specialty ID format"
+                    Message = INVALID_SPECIALTY_ID_FORMAT
                 };
             }
 

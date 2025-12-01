@@ -647,7 +647,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 }
             }
 
-            if (!doctorIds.Any())
+            if (doctorIds.Count == 0)
             {
                 return new CheckDoctorsWorkingSlotResponse
                 {
