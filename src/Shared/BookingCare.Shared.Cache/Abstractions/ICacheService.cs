@@ -56,4 +56,13 @@ public interface ICacheService
     /// <param name="pattern">Pattern to match keys (e.g., "user:*")</param>
     /// <returns>List of matching keys</returns>
     Task<IEnumerable<string>> GetKeysByPatternAsync(string pattern);
+
+    /// <summary>
+    /// Get cached value by full key (without adding prefix)
+    /// Used when key is already returned from GetKeysByPatternAsync
+    /// </summary>
+    /// <typeparam name="T">Type of cached object</typeparam>
+    /// <param name="fullKey">Full cache key (already includes prefix)</param>
+    /// <returns>Cached value or null if not found</returns>
+    Task<T?> GetByFullKeyAsync<T>(string fullKey) where T : class;
 }
