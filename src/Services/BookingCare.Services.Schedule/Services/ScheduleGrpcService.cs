@@ -12,11 +12,16 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
 {
     private const string InvalidDoctorIdFormatMessage = "Invalid doctor ID format";
     private readonly IScheduleService _scheduleService;
+    private readonly IHoldSlotService _holdSlotService;
     private readonly ILogger<ScheduleGrpcService> _logger;
 
-    public ScheduleGrpcService(IScheduleService scheduleService, ILogger<ScheduleGrpcService> logger)
+    public ScheduleGrpcService(
+        IScheduleService scheduleService,
+        IHoldSlotService holdSlotService,
+        ILogger<ScheduleGrpcService> logger)
     {
         _scheduleService = scheduleService;
+        _holdSlotService = holdSlotService;
         _logger = logger;
     }
 
@@ -597,4 +602,165 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
     }
 
     #endregion
+
+    /// <summary>
+    /// Check which doctors are working on a specific date and time slot
+    /// Used by hospital staff to filter available doctors for assignment
+    /// </summary>
+    public override async Task<CheckDoctorsWorkingSlotResponse> CheckDoctorsWorkingSlot(
+        CheckDoctorsWorkingSlotRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "[ScheduleGrpcService] CheckDoctorsWorkingSlot called - DoctorIds: {DoctorIds}, Date: {Date}, TimeSlot: {TimeSlot}",
+                string.Join(", ", request.DoctorIds), request.Date, request.AppointmentTimeId);
+
+            // Validate date
+            if (!DateOnly.TryParse(request.Date, out var date))
+            {
+                return new CheckDoctorsWorkingSlotResponse
+                {
+                    Success = false,
+                    Message = "Invalid date format. Expected YYYY-MM-DD"
+                };
+            }
+
+            // Parse appointment time ID to enum
+            if (!System.Enum.TryParse<BookingCare.Shared.Common.Enums.AppointmentTime>(request.AppointmentTimeId, out var appointmentTimeEnum))
+            {
+                return new CheckDoctorsWorkingSlotResponse
+                {
+                    Success = false,
+                    Message = "Invalid appointment time ID format"
+                };
+            }
+
+            // Parse doctor IDs
+            var doctorIds = new List<Guid>();
+            foreach (var idStr in request.DoctorIds)
+            {
+                if (Guid.TryParse(idStr, out var doctorId))
+                {
+                    doctorIds.Add(doctorId);
+                }
+            }
+
+            if (!doctorIds.Any())
+            {
+                return new CheckDoctorsWorkingSlotResponse
+                {
+                    Success = true,
+                    Message = "No valid doctor IDs provided"
+                };
+            }
+
+            var response = new CheckDoctorsWorkingSlotResponse
+            {
+                Success = true,
+                Message = "Doctor working statuses retrieved successfully"
+            };
+
+            // Check each doctor's schedule for the given date and time slot
+            foreach (var doctorId in doctorIds)
+            {
+                var isWorking = await CheckDoctorWorkingSlotAsync(doctorId, date, appointmentTimeEnum);
+                response.DoctorStatuses.Add(new DoctorWorkingStatus
+                {
+                    DoctorId = doctorId.ToString(),
+                    IsWorking = isWorking
+                });
+            }
+
+            _logger.LogInformation(
+                "[ScheduleGrpcService] Returning working status for {Count} doctors",
+                response.DoctorStatuses.Count);
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[ScheduleGrpcService] Error in CheckDoctorsWorkingSlot");
+            return new CheckDoctorsWorkingSlotResponse
+            {
+                Success = false,
+                Message = "An error occurred while checking doctor working slots"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Check if a doctor is working on a specific date and time slot
+    /// Also checks if the slot is being held by another user (to avoid booking conflicts)
+    /// </summary>
+    private async Task<bool> CheckDoctorWorkingSlotAsync(
+        Guid doctorId,
+        DateOnly date,
+        BookingCare.Shared.Common.Enums.AppointmentTime appointmentTime)
+    {
+        try
+        {
+            // Get doctor's schedule for the date
+            var schedule = await _scheduleService.GetDoctorDailyScheduleAsync(doctorId, date);
+
+            if (schedule == null)
+            {
+                // No schedule means doctor is not working on this date
+                return false;
+            }
+
+            // Check if the appointment time is in the doctor's schedule patterns
+            var isInPattern = schedule.SchedulePatterns
+                .SelectMany(pattern => GetAppointmentTimesForPattern(pattern))
+                .Contains(appointmentTime);
+
+            if (!isInPattern)
+            {
+                return false;
+            }
+
+            // Check for exceptions (day off, specific slot blocked, etc.)
+            var exceptions = await _scheduleService.GetDoctorExceptionsAsync(doctorId, date);
+
+            // Check if there's an exception that blocks this specific slot
+            var hasBlockingException = exceptions.Any(e =>
+                e.AppointmentTime == appointmentTime && !e.IsAvailable);
+
+            // Check if there's a full day off exception
+            var hasFullDayOff = exceptions.Any(e =>
+                e.AppointmentTime == null && !e.IsAvailable);
+
+            if (hasBlockingException || hasFullDayOff)
+            {
+                return false;
+            }
+
+            // Check if the slot is being held by another user (soft reservation)
+            // Use Guid.Empty as currentUserId since this is a staff check - we want to see ALL held slots
+            var isSlotHeld = await _holdSlotService.IsSlotHeldByOtherUserAsync(
+                doctorId,
+                date,
+                appointmentTime,
+                Guid.Empty);
+
+            if (isSlotHeld)
+            {
+                _logger.LogDebug(
+                    "[ScheduleGrpcService] Slot {AppointmentTime} for doctor {DoctorId} on {Date} is being held by another user",
+                    appointmentTime, doctorId, date);
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "[ScheduleGrpcService] Error checking working slot for doctor {DoctorId} on {Date}",
+                doctorId, date);
+            // In case of error, assume doctor is not working to be safe
+            return false;
+        }
+    }
 }
