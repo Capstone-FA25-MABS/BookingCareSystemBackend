@@ -39,6 +39,11 @@ public class PaymentDbContext : DbContext
     /// </summary>
     public DbSet<RefundHistoryEntity> RefundHistories { get; set; }
 
+    /// <summary>
+    /// DbSet for the hospital_payouts table
+    /// </summary>
+    public DbSet<HospitalPayoutEntity> HospitalPayouts { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -220,6 +225,61 @@ public class PaymentDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql(SqlGetDate);
 
             entity.Property(e => e.UpdatedAt).HasDefaultValueSql(SqlGetDate);
+        });
+
+        // Configure HospitalPayoutEntity
+        modelBuilder.Entity<HospitalPayoutEntity>(entity =>
+        {
+            // Enum conversion
+            entity.Property(e => e.Status).HasConversion<string>();
+
+            // Foreign key relationship with BankAccountEntity
+            entity
+                .HasOne(e => e.BankAccount)
+                .WithMany()
+                .HasForeignKey(e => e.BankAccountId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_hospital_payouts_bank_account_id");
+
+            // Check constraints
+            entity.ToTable(
+                "hospital_payouts",
+                t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_hospital_payouts_status",
+                        "[status] IN ('PENDING', 'COMPLETED')"
+                    );
+                    t.HasCheckConstraint(
+                        "CK_hospital_payouts_total_amount_positive",
+                        "[total_amount] > 0"
+                    );
+                    t.HasCheckConstraint(
+                        "CK_hospital_payouts_appointment_count_positive",
+                        "[appointment_count] > 0"
+                    );
+                    t.HasCheckConstraint(
+                        "CK_hospital_payouts_period_valid",
+                        "[period_start] <= [period_end]"
+                    );
+                }
+            );
+
+            // Default values
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql(SqlGetDate);
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql(SqlGetDate);
+
+            // Indexes for efficient querying
+            entity.HasIndex(e => e.HospitalId).HasDatabaseName("IX_hospital_payouts_hospital_id");
+            entity.HasIndex(e => e.Status).HasDatabaseName("IX_hospital_payouts_status");
+            entity
+                .HasIndex(e => new
+                {
+                    e.HospitalId,
+                    e.PeriodStart,
+                    e.PeriodEnd,
+                })
+                .HasDatabaseName("IX_hospital_payouts_hospital_period");
         });
 
         // Seed data for payment methods

@@ -54,6 +54,7 @@ builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();
 builder.Services.AddScoped<IPayOSPaymentMappingRepository, PayOSPaymentMappingRepository>();
 builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
 builder.Services.AddScoped<IRefundHistoryRepository, RefundHistoryRepository>();
+builder.Services.AddScoped<IHospitalPayoutRepository, HospitalPayoutRepository>();
 
 // Add refund-related wrapper classes for constructor parameter reduction
 builder.Services.AddScoped<RefundDependencies>();
@@ -69,6 +70,7 @@ builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
 builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
 builder.Services.AddScoped<IAppointmentDetailsService, AppointmentDetailsService>();
+builder.Services.AddScoped<IHospitalPayoutService, HospitalPayoutService>();
 
 // Add payment gateway wrapper class for constructor parameter reduction
 builder.Services.AddScoped<PaymentGatewayServices>();
@@ -119,8 +121,17 @@ builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalSubscriptio
     }
 );
 
+builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(
+    o =>
+    {
+        var hospitalServiceUrl = "http://localhost:6104";
+        o.Address = new Uri(hospitalServiceUrl);
+    }
+);
+
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
+builder.Services.AddJwtAuthAndAuthorization();
 
 // Add global exception handling
 builder.Services.AddGlobalExceptionHandling();
@@ -152,7 +163,7 @@ app.UseGlobalExceptionHandling();
 
 // Use common Swagger UI configuration
 app.UseCommonSwaggerUI("Payment Service");
-
+app.UseStandardAuthPipeline();
 app.MapControllers();
 app.MapGrpcService<PaymentGrpcService>();
 

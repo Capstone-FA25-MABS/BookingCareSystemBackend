@@ -4,16 +4,19 @@ using BookingCare.Services.Payment.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace BookingCare.Services.Payment.Migrations
+namespace BookingCare.Services.Payment.Data.Migrations
 {
     [DbContext(typeof(PaymentDbContext))]
-    partial class PaymentDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251130083434_AddHospitalPayouts")]
+    partial class AddHospitalPayouts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -117,12 +120,6 @@ namespace BookingCare.Services.Payment.Migrations
                     b.Property<Guid>("HospitalId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("hospital_id");
-
-                    b.Property<string>("HospitalName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)")
-                        .HasColumnName("hospital_name");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(500)

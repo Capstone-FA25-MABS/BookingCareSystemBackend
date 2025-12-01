@@ -694,7 +694,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
                     UserFullName = userFullName,
                     RefundAmount = refundHistory.RefundAmount,
                     BankAccountId = refundHistory.BankAccountId.Value,
-                    BankAccount = new BankAccountInfo
+                    BankAccount = new BookingCare.Shared.EventBus.Events.BankAccountInfo
                     {
                         BankCode = bankAccount.BankCode,
                         BankName = bankAccount.BankName,
@@ -748,7 +748,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
                 }
 
                 // Get bank account info if available
-                BankAccountInfo? bankAccountInfo = null;
+                BookingCare.Shared.EventBus.Events.BankAccountInfo? bankAccountInfo = null;
                 if (refundHistory.BankAccountId.HasValue)
                 {
                     var bankAccount = await _bankAccountRepository.GetByIdAsync(
@@ -756,7 +756,7 @@ public class RefundHistoryService : BaseService, IRefundHistoryService
                     );
                     if (bankAccount != null)
                     {
-                        bankAccountInfo = new BankAccountInfo
+                        bankAccountInfo = new BookingCare.Shared.EventBus.Events.BankAccountInfo
                         {
                             BankCode = bankAccount.BankCode,
                             BankName = bankAccount.BankName,

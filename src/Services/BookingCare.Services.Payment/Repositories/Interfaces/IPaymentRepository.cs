@@ -1,6 +1,6 @@
-﻿using BookingCare.Services.Payment.Models.Entities;
+﻿using BookingCare.Services.Payment.Enums;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
-using BookingCare.Services.Payment.Enums;
+using BookingCare.Services.Payment.Models.Entities;
 using BookingCare.Shared.Common.Models;
 
 namespace BookingCare.Services.Payment.Repositories.Interfaces;
@@ -33,7 +33,10 @@ public interface IPaymentRepository
     /// <summary>
     /// Get paged list of payments by hospital ID
     /// </summary>
-    Task<PagedResult<PaymentEntity>> GetPagedByHospitalIdAsync(Guid hospitalId, GetPaymentsPagedRequest request);
+    Task<PagedResult<PaymentEntity>> GetPagedByHospitalIdAsync(
+        Guid hospitalId,
+        GetPaymentsPagedRequest request
+    );
 
     /// <summary>
     /// Get list of payments by patient ID
@@ -43,7 +46,10 @@ public interface IPaymentRepository
     /// <summary>
     /// Get paged list of payments by patient ID
     /// </summary>
-    Task<PagedResult<PaymentEntity>> GetPagedByPatientIdAsync(Guid patientId, GetPaymentsPagedRequest request);
+    Task<PagedResult<PaymentEntity>> GetPagedByPatientIdAsync(
+        Guid patientId,
+        GetPaymentsPagedRequest request
+    );
 
     /// <summary>
     /// Get payment statistics data
@@ -73,11 +79,34 @@ public interface IPaymentRepository
     /// <summary>
     /// Update payment status with optional failure reason
     /// </summary>
-    Task<bool> UpdatePaymentStatusAsync(Guid paymentId, PaymentStatus status, string? failureReason = null);
+    Task<bool> UpdatePaymentStatusAsync(
+        Guid paymentId,
+        PaymentStatus status,
+        string? failureReason = null
+    );
 
     /// <summary>
     /// Get payments that are in PENDING status and older than the specified cutoff time
     /// Used by background service to identify payments that have exceeded the timeout period
     /// </summary>
     Task<List<PaymentEntity>> GetOverduePendingPaymentsAsync(DateTime cutoffTime);
+
+    /// <summary>
+    /// Get completed payments for a hospital within a specific period
+    /// Used for calculating hospital payouts
+    /// </summary>
+    Task<List<PaymentEntity>> GetCompletedPaymentsByHospitalAndPeriodAsync(
+        Guid hospitalId,
+        DateTime periodStart,
+        DateTime periodEnd
+    );
+
+    /// <summary>
+    /// Get list of hospital IDs that have completed payments in a period
+    /// Used for identifying hospitals eligible for payouts
+    /// </summary>
+    Task<List<Guid>> GetHospitalIdsWithCompletedPaymentsAsync(
+        DateTime periodStart,
+        DateTime periodEnd
+    );
 }

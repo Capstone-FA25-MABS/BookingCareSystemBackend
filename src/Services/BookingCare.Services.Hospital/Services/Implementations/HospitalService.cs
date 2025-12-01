@@ -1,14 +1,14 @@
 using AutoMapper;
+using BookingCare.Services.Auth.Protos;
+using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital.Exceptions;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
 using BookingCare.Services.Hospital.Models.DTOs.Responses;
 using BookingCare.Services.Hospital.Models.Entities;
 using BookingCare.Services.Hospital.Repositories.Interfaces;
-using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Services.Helpers;
+using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Shared.Common.Enums;
-using BookingCare.Services.Auth.Protos;
-using BookingCare.Services.Doctor.Protos;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace BookingCare.Services.Hospital.Services.Implementations;
@@ -35,7 +35,8 @@ public class HospitalService : IHospitalService
         HospitalServiceDependencies dependencies,
         ILogger<HospitalService> logger,
         IMemoryCache cache,
-        SubscriptionServices subscriptionServices)
+        SubscriptionServices subscriptionServices
+    )
     {
         _hospitalRepository = hospitalRepository;
         _hospitalImageRepository = hospitalImageRepository;
@@ -79,15 +80,33 @@ public class HospitalService : IHospitalService
 
     private void LogHospitalDetails(HospitalEntity hospital, Guid id)
     {
-        _logger.LogInformation("Hospital found: {HospitalName}, mapping to response", hospital.Name);
-        _logger.LogInformation("Hospital images count: {ImageCount}", hospital.HospitalImages?.Count ?? 0);
-        _logger.LogInformation("Hospital specialties count: {SpecialtyCount}", hospital.HospitalSpecialties?.Count ?? 0);
-        _logger.LogInformation("Hospital service types count: {ServiceTypeCount}", hospital.HospitalServiceTypes?.Count ?? 0);
-        _logger.LogInformation("Hospital service medicals count: {ServiceMedicalCount}", hospital.HospitalServiceMedicals?.Count ?? 0);
+        _logger.LogInformation(
+            "Hospital found: {HospitalName}, mapping to response",
+            hospital.Name
+        );
+        _logger.LogInformation(
+            "Hospital images count: {ImageCount}",
+            hospital.HospitalImages?.Count ?? 0
+        );
+        _logger.LogInformation(
+            "Hospital specialties count: {SpecialtyCount}",
+            hospital.HospitalSpecialties?.Count ?? 0
+        );
+        _logger.LogInformation(
+            "Hospital service types count: {ServiceTypeCount}",
+            hospital.HospitalServiceTypes?.Count ?? 0
+        );
+        _logger.LogInformation(
+            "Hospital service medicals count: {ServiceMedicalCount}",
+            hospital.HospitalServiceMedicals?.Count ?? 0
+        );
 
         if (hospital.HospitalImages?.Any() == true)
         {
-            _logger.LogInformation("Sample image URL: {ImageUrl}", hospital.HospitalImages.First().ImageUrl);
+            _logger.LogInformation(
+                "Sample image URL: {ImageUrl}",
+                hospital.HospitalImages.First().ImageUrl
+            );
         }
         else
         {
@@ -96,8 +115,10 @@ public class HospitalService : IHospitalService
 
         if (hospital.HospitalServiceTypes?.Any() == true)
         {
-            _logger.LogInformation("Hospital service type IDs: {ServiceTypeIds}",
-                string.Join(", ", hospital.HospitalServiceTypes.Select(st => st.ServiceTypeId)));
+            _logger.LogInformation(
+                "Hospital service type IDs: {ServiceTypeIds}",
+                string.Join(", ", hospital.HospitalServiceTypes.Select(st => st.ServiceTypeId))
+            );
         }
         else
         {
@@ -105,15 +126,30 @@ public class HospitalService : IHospitalService
         }
     }
 
-    private void LogMappingDetails(HospitalEntity hospital, HospitalProfileResponse response, Guid id)
+    private void LogMappingDetails(
+        HospitalEntity hospital,
+        HospitalProfileResponse response,
+        Guid id
+    )
     {
-        _logger.LogInformation("Response service types count: {ResponseServiceTypeCount}", response.ServiceTypes?.Count ?? 0);
-        _logger.LogInformation("Response service medicals count: {ResponseServiceMedicalCount}", response.ServiceMedicals?.Count ?? 0);
+        _logger.LogInformation(
+            "Response service types count: {ResponseServiceTypeCount}",
+            response.ServiceTypes?.Count ?? 0
+        );
+        _logger.LogInformation(
+            "Response service medicals count: {ResponseServiceMedicalCount}",
+            response.ServiceMedicals?.Count ?? 0
+        );
 
         if (hospital.HospitalServiceMedicals?.Any() == true)
         {
-            _logger.LogInformation("Hospital service medical IDs: {ServiceMedicalIds}",
-                string.Join(", ", hospital.HospitalServiceMedicals.Select(sm => sm.ServiceMedicalId)));
+            _logger.LogInformation(
+                "Hospital service medical IDs: {ServiceMedicalIds}",
+                string.Join(
+                    ", ",
+                    hospital.HospitalServiceMedicals.Select(sm => sm.ServiceMedicalId)
+                )
+            );
         }
         else
         {
@@ -121,12 +157,20 @@ public class HospitalService : IHospitalService
         }
 
         _logger.LogInformation("Mapping completed successfully");
-        _logger.LogInformation("Response images count: {ResponseImageCount}", response.Images?.Count ?? 0);
+        _logger.LogInformation(
+            "Response images count: {ResponseImageCount}",
+            response.Images?.Count ?? 0
+        );
     }
 
-    private async Task EnrichSpecialtiesAsync(HospitalProfileResponse response, HospitalEntity hospital, Guid id)
+    private async Task EnrichSpecialtiesAsync(
+        HospitalProfileResponse response,
+        HospitalEntity hospital,
+        Guid id
+    )
     {
-        var specialtyIds = hospital.HospitalSpecialties?.Select(hs => hs.SpecialtyId).ToList() ?? new List<Guid>();
+        var specialtyIds =
+            hospital.HospitalSpecialties?.Select(hs => hs.SpecialtyId).ToList() ?? new List<Guid>();
         if (!specialtyIds.Any() || _dependencies.DoctorClient == null)
         {
             response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
@@ -145,8 +189,8 @@ public class HospitalService : IHospitalService
                 return;
             }
 
-            var map = bulkResponse.Specialties
-                .Where(s => Guid.TryParse(s.Id, out _))
+            var map = bulkResponse
+                .Specialties.Where(s => Guid.TryParse(s.Id, out _))
                 .ToDictionary(s => Guid.Parse(s.Id), s => s);
 
             var doctorCounts = await GetDoctorCountsBySpecialtyAndHospitalAsync(id, specialtyIds);
@@ -158,20 +202,30 @@ public class HospitalService : IHospitalService
                     Id = specialtyId,
                     Name = map[specialtyId].Name,
                     ImageUrl = map[specialtyId].ImageUrl,
-                    DoctorCount = doctorCounts.GetValueOrDefault(specialtyId, 0)
+                    DoctorCount = doctorCounts.GetValueOrDefault(specialtyId, 0),
                 })
                 .ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to enrich specialties for hospital {HospitalId}, returning empty specialties list", id);
+            _logger.LogWarning(
+                ex,
+                "Failed to enrich specialties for hospital {HospitalId}, returning empty specialties list",
+                id
+            );
             response.Specialties = new List<HospitalSpecialtyWithImageResponse>();
         }
     }
 
-    private async Task EnrichServiceMedicalsAsync(HospitalProfileResponse response, HospitalEntity hospital, Guid id)
+    private async Task EnrichServiceMedicalsAsync(
+        HospitalProfileResponse response,
+        HospitalEntity hospital,
+        Guid id
+    )
     {
-        var serviceMedicalIds = hospital.HospitalServiceMedicals?.Select(hsm => hsm.ServiceMedicalId).ToList() ?? new List<Guid>();
+        var serviceMedicalIds =
+            hospital.HospitalServiceMedicals?.Select(hsm => hsm.ServiceMedicalId).ToList()
+            ?? new List<Guid>();
         if (!serviceMedicalIds.Any() || _dependencies.ServiceMedicalClient == null)
         {
             response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
@@ -181,50 +235,77 @@ public class HospitalService : IHospitalService
 
         try
         {
-            _logger.LogInformation("Calling ServiceMedical gRPC to get {Count} service medicals for hospital {HospitalId}",
-                serviceMedicalIds.Count, id);
+            _logger.LogInformation(
+                "Calling ServiceMedical gRPC to get {Count} service medicals for hospital {HospitalId}",
+                serviceMedicalIds.Count,
+                id
+            );
 
-            var serviceMedicalTasks = serviceMedicalIds.Select(async smId =>
-            {
-                try
+            var serviceMedicalTasks = serviceMedicalIds
+                .Select(async smId =>
                 {
-                    var smRequest = new ServiceMedical.Protos.GetServiceGrpcRequest { Id = smId.ToString() };
-                    var smResponse = await _dependencies.ServiceMedicalClient.GetServiceAsync(smRequest);
-
-                    if (smResponse != null && !string.IsNullOrEmpty(smResponse.Id))
+                    try
                     {
-                        return new HospitalServiceMedicalResponse
+                        var smRequest = new ServiceMedical.Protos.GetServiceGrpcRequest
                         {
-                            Id = Guid.Parse(smResponse.Id),
-                            Name = smResponse.Name,
-                            ImageUrl = smResponse.ImageUrl,
-                            Price = decimal.Parse(smResponse.Price)
+                            Id = smId.ToString(),
                         };
+                        var smResponse = await _dependencies.ServiceMedicalClient.GetServiceAsync(
+                            smRequest
+                        );
+
+                        if (smResponse != null && !string.IsNullOrEmpty(smResponse.Id))
+                        {
+                            return new HospitalServiceMedicalResponse
+                            {
+                                Id = Guid.Parse(smResponse.Id),
+                                Name = smResponse.Name,
+                                ImageUrl = smResponse.ImageUrl,
+                                Price = decimal.Parse(smResponse.Price),
+                            };
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to get service medical {ServiceMedicalId} from gRPC", smId);
-                }
-                return null;
-            }).ToList();
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(
+                            ex,
+                            "Failed to get service medical {ServiceMedicalId} from gRPC",
+                            smId
+                        );
+                    }
+                    return null;
+                })
+                .ToList();
 
             var serviceMedicals = await Task.WhenAll(serviceMedicalTasks);
             response.ServiceMedicals = serviceMedicals.Where(sm => sm != null).ToList()!;
 
-            _logger.LogInformation("Enriched {Count} service medicals for hospital {HospitalId}",
-                response.ServiceMedicals.Count, id);
+            _logger.LogInformation(
+                "Enriched {Count} service medicals for hospital {HospitalId}",
+                response.ServiceMedicals.Count,
+                id
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to enrich service medicals for hospital {HospitalId}, returning empty list", id);
+            _logger.LogWarning(
+                ex,
+                "Failed to enrich service medicals for hospital {HospitalId}, returning empty list",
+                id
+            );
             response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
         }
     }
 
-    private async Task EnrichServiceTypesAsync(HospitalProfileResponse response, HospitalEntity hospital, Guid id)
+    private async Task EnrichServiceTypesAsync(
+        HospitalProfileResponse response,
+        HospitalEntity hospital,
+        Guid id
+    )
     {
-        var serviceTypeIds = hospital.HospitalServiceTypes?.Select(hst => hst.ServiceTypeId).ToList() ?? new List<Guid>();
+        var serviceTypeIds =
+            hospital.HospitalServiceTypes?.Select(hst => hst.ServiceTypeId).ToList()
+            ?? new List<Guid>();
         if (!serviceTypeIds.Any() || _dependencies.DoctorClient == null)
         {
             response.ServiceTypes = new List<HospitalServiceTypeResponse>();
@@ -234,24 +315,34 @@ public class HospitalService : IHospitalService
 
         try
         {
-            _logger.LogInformation("Calling Doctor gRPC to get {Count} service types for hospital {HospitalId}",
-                serviceTypeIds.Count, id);
+            _logger.LogInformation(
+                "Calling Doctor gRPC to get {Count} service types for hospital {HospitalId}",
+                serviceTypeIds.Count,
+                id
+            );
 
             var serviceTypeRequest = new Doctor.Protos.GetServiceTypesByHospitalRequest
             {
-                HospitalId = id.ToString()
+                HospitalId = id.ToString(),
             };
-            var serviceTypeResponse = await _dependencies.DoctorClient.GetServiceTypesByHospitalAsync(serviceTypeRequest);
+            var serviceTypeResponse =
+                await _dependencies.DoctorClient.GetServiceTypesByHospitalAsync(serviceTypeRequest);
 
-            if (serviceTypeResponse?.ServiceTypes == null || !serviceTypeResponse.ServiceTypes.Any())
+            if (
+                serviceTypeResponse?.ServiceTypes == null
+                || !serviceTypeResponse.ServiceTypes.Any()
+            )
             {
                 response.ServiceTypes = new List<HospitalServiceTypeResponse>();
-                _logger.LogInformation("No service types returned from gRPC for hospital {HospitalId}", id);
+                _logger.LogInformation(
+                    "No service types returned from gRPC for hospital {HospitalId}",
+                    id
+                );
                 return;
             }
 
-            var serviceTypeMap = serviceTypeResponse.ServiceTypes
-                .Where(st => Guid.TryParse(st.Id, out _))
+            var serviceTypeMap = serviceTypeResponse
+                .ServiceTypes.Where(st => Guid.TryParse(st.Id, out _))
                 .ToDictionary(st => Guid.Parse(st.Id), st => st);
 
             response.ServiceTypes = serviceTypeIds
@@ -261,16 +352,23 @@ public class HospitalService : IHospitalService
                     Id = stId,
                     Name = serviceTypeMap[stId].Name,
                     ImageUrl = serviceTypeMap[stId].ImageUrl,
-                    DoctorCount = serviceTypeMap[stId].DoctorCount
+                    DoctorCount = serviceTypeMap[stId].DoctorCount,
                 })
                 .ToList();
 
-            _logger.LogInformation("Enriched {Count} service types for hospital {HospitalId}",
-                response.ServiceTypes.Count, id);
+            _logger.LogInformation(
+                "Enriched {Count} service types for hospital {HospitalId}",
+                response.ServiceTypes.Count,
+                id
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to enrich service types for hospital {HospitalId}, returning empty list", id);
+            _logger.LogWarning(
+                ex,
+                "Failed to enrich service types for hospital {HospitalId}, returning empty list",
+                id
+            );
             response.ServiceTypes = new List<HospitalServiceTypeResponse>();
         }
     }
@@ -280,7 +378,8 @@ public class HospitalService : IHospitalService
     public async Task<HospitalResponse?> GetByEmailAsync(string email)
     {
         var hospital = await _hospitalRepository.GetByEmailAsync(email);
-        if (hospital == null) return null;
+        if (hospital == null)
+            return null;
 
         var response = _mapper.Map<HospitalResponse>(hospital);
         await EnrichHospitalsWithStatusAsync(new List<HospitalResponse> { response });
@@ -301,7 +400,7 @@ public class HospitalService : IHospitalService
             TotalCount = hospitalResponses.Count,
             Page = 1,
             PageSize = hospitalResponses.Count,
-            TotalPages = 1
+            TotalPages = 1,
         };
     }
 
@@ -319,7 +418,7 @@ public class HospitalService : IHospitalService
             TotalCount = totalCount,
             Page = filter.Page,
             PageSize = filter.PageSize,
-            TotalPages = (int)Math.Ceiling((double)totalCount / filter.PageSize)
+            TotalPages = (int)Math.Ceiling((double)totalCount / filter.PageSize),
         };
     }
 
@@ -375,7 +474,9 @@ public class HospitalService : IHospitalService
         // Validate that required fields are provided
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            throw new InvalidHospitalDataException("Tên bệnh viện là bắt buộc! Vui lòng nhập tên bệnh viện");
+            throw new InvalidHospitalDataException(
+                "Tên bệnh viện là bắt buộc! Vui lòng nhập tên bệnh viện"
+            );
         }
 
         if (string.IsNullOrWhiteSpace(request.Address))
@@ -492,13 +593,18 @@ public class HospitalService : IHospitalService
         return profileResponse;
     }
 
-    public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(IEnumerable<Guid> accountIds)
+    public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsByAccountIdsAsync(
+        IEnumerable<Guid> accountIds
+    )
     {
         try
         {
             _logger.LogInformation("Getting hospitals by {Count} account IDs", accountIds.Count());
             var hospitals = await _hospitalRepository.GetByAccountIdsAsync(accountIds);
-            _logger.LogInformation("Retrieved {Count} hospitals for batch request", hospitals.Count);
+            _logger.LogInformation(
+                "Retrieved {Count} hospitals for batch request",
+                hospitals.Count
+            );
             return hospitals;
         }
         catch (Exception ex)
@@ -513,7 +619,10 @@ public class HospitalService : IHospitalService
         try
         {
             // Check subscription limit before adding specialty
-            var canAdd = await _subscriptionServices.SubscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
+            var canAdd =
+                await _subscriptionServices.SubscriptionUsageService.CheckSpecialtyLimitAsync(
+                    hospitalId
+                );
             if (!canAdd)
             {
                 throw new HospitalOperationException(
@@ -526,7 +635,9 @@ public class HospitalService : IHospitalService
             // Increment specialty count after successful addition (only if it's a new specialty)
             if (result)
             {
-                await _subscriptionServices.SubscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
+                await _subscriptionServices.SubscriptionUsageService.IncrementSpecialtyCountAsync(
+                    hospitalId
+                );
             }
 
             return result;
@@ -537,7 +648,10 @@ public class HospitalService : IHospitalService
         }
         catch (Exception ex)
         {
-            throw new HospitalOperationException($"Failed to add specialty {specialtyId} to hospital {hospitalId}", ex);
+            throw new HospitalOperationException(
+                $"Failed to add specialty {specialtyId} to hospital {hospitalId}",
+                ex
+            );
         }
     }
 
@@ -550,14 +664,19 @@ public class HospitalService : IHospitalService
             // Decrement specialty count after successful removal
             if (result)
             {
-                await _subscriptionServices.SubscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
+                await _subscriptionServices.SubscriptionUsageService.DecrementSpecialtyCountAsync(
+                    hospitalId
+                );
             }
 
             return result;
         }
         catch (Exception ex)
         {
-            throw new HospitalOperationException($"Failed to remove specialty {specialtyId} from hospital {hospitalId}", ex);
+            throw new HospitalOperationException(
+                $"Failed to remove specialty {specialtyId} from hospital {hospitalId}",
+                ex
+            );
         }
     }
 
@@ -565,7 +684,10 @@ public class HospitalService : IHospitalService
     {
         var cacheKey = $"hospital_specialties_{hospitalId}";
 
-        if (_cache.TryGetValue(cacheKey, out List<Guid>? cachedSpecialtyIds) && cachedSpecialtyIds != null)
+        if (
+            _cache.TryGetValue(cacheKey, out List<Guid>? cachedSpecialtyIds)
+            && cachedSpecialtyIds != null
+        )
         {
             return cachedSpecialtyIds;
         }
@@ -578,7 +700,7 @@ public class HospitalService : IHospitalService
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
             SlidingExpiration = TimeSpan.FromMinutes(5),
-            Priority = CacheItemPriority.Normal
+            Priority = CacheItemPriority.Normal,
         };
         _cache.Set(cacheKey, specialtyIds, cacheOptions);
 
@@ -589,11 +711,16 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            _logger.LogInformation("Updating specialties for hospital {HospitalId}: {Count} specialties",
-                hospitalId, specialtyIds?.Count ?? 0);
+            _logger.LogInformation(
+                "Updating specialties for hospital {HospitalId}: {Count} specialties",
+                hospitalId,
+                specialtyIds?.Count ?? 0
+            );
 
             // Get existing specialty IDs before update
-            var existingSpecialtyIds = await _hospitalRepository.GetHospitalSpecialtyIdsAsync(hospitalId);
+            var existingSpecialtyIds = await _hospitalRepository.GetHospitalSpecialtyIdsAsync(
+                hospitalId
+            );
             var existingSpecialtyIdsSet = existingSpecialtyIds.ToHashSet();
             var newSpecialtyIdsSet = (specialtyIds ?? new List<Guid>()).Distinct().ToHashSet();
 
@@ -602,7 +729,10 @@ public class HospitalService : IHospitalService
             var specialtiesToRemove = existingSpecialtyIdsSet.Except(newSpecialtyIdsSet).ToList();
 
             // Optimized batch update - single transaction with change detection
-            await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(hospitalId, specialtyIds ?? new List<Guid>());
+            await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(
+                hospitalId,
+                specialtyIds ?? new List<Guid>()
+            );
 
             // Update subscription usage counts based on changes
             if (specialtiesToAdd.Count > 0 || specialtiesToRemove.Count > 0)
@@ -611,28 +741,39 @@ public class HospitalService : IHospitalService
                 if (specialtiesToAdd.Count > 0)
                 {
                     // Check if we can add all specialties
-                    var canAdd = await _subscriptionServices.SubscriptionUsageService.CheckSpecialtyLimitAsync(hospitalId);
+                    var canAdd =
+                        await _subscriptionServices.SubscriptionUsageService.CheckSpecialtyLimitAsync(
+                            hospitalId
+                        );
                     if (!canAdd)
                     {
                         // Rollback: restore original specialties
-                        await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(hospitalId, existingSpecialtyIds);
+                        await _hospitalRepository.UpdateHospitalSpecialtiesBatchAsync(
+                            hospitalId,
+                            existingSpecialtyIds
+                        );
                         throw new HospitalOperationException(
-                            $"Bạn đã đạt giới hạn số lượng chuyên khoa cho phép trong gói đăng ký. " +
-                            $"Hiện tại: {existingSpecialtyIds.Count}, Giới hạn đã đạt. " +
-                            $"Vui lòng nâng cấp gói để thêm chuyên khoa.");
+                            $"Bạn đã đạt giới hạn số lượng chuyên khoa cho phép trong gói đăng ký. "
+                                + $"Hiện tại: {existingSpecialtyIds.Count}, Giới hạn đã đạt. "
+                                + $"Vui lòng nâng cấp gói để thêm chuyên khoa."
+                        );
                     }
 
                     // Increment count for each added specialty
                     for (int i = 0; i < specialtiesToAdd.Count; i++)
                     {
-                        await _subscriptionServices.SubscriptionUsageService.IncrementSpecialtyCountAsync(hospitalId);
+                        await _subscriptionServices.SubscriptionUsageService.IncrementSpecialtyCountAsync(
+                            hospitalId
+                        );
                     }
                 }
 
                 // Decrement count for each removed specialty
                 for (int i = 0; i < specialtiesToRemove.Count; i++)
                 {
-                    await _subscriptionServices.SubscriptionUsageService.DecrementSpecialtyCountAsync(hospitalId);
+                    await _subscriptionServices.SubscriptionUsageService.DecrementSpecialtyCountAsync(
+                        hospitalId
+                    );
                 }
             }
 
@@ -640,8 +781,12 @@ public class HospitalService : IHospitalService
             var cacheKey = $"hospital_specialties_{hospitalId}";
             _cache.Remove(cacheKey);
 
-            _logger.LogInformation("Successfully updated specialties for hospital {HospitalId}. Added: {Added}, Removed: {Removed}",
-                hospitalId, specialtiesToAdd.Count, specialtiesToRemove.Count);
+            _logger.LogInformation(
+                "Successfully updated specialties for hospital {HospitalId}. Added: {Added}, Removed: {Removed}",
+                hospitalId,
+                specialtiesToAdd.Count,
+                specialtiesToRemove.Count
+            );
         }
         catch (HospitalOperationException)
         {
@@ -649,8 +794,15 @@ public class HospitalService : IHospitalService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update specialties for hospital {HospitalId}", hospitalId);
-            throw new HospitalOperationException($"Failed to update specialties for hospital {hospitalId}", ex);
+            _logger.LogError(
+                ex,
+                "Failed to update specialties for hospital {HospitalId}",
+                hospitalId
+            );
+            throw new HospitalOperationException(
+                $"Failed to update specialties for hospital {hospitalId}",
+                ex
+            );
         }
     }
 
@@ -658,7 +810,10 @@ public class HospitalService : IHospitalService
     {
         var cacheKey = $"hospital_service_types_{hospitalId}";
 
-        if (_cache.TryGetValue(cacheKey, out List<Guid>? cachedServiceTypeIds) && cachedServiceTypeIds != null)
+        if (
+            _cache.TryGetValue(cacheKey, out List<Guid>? cachedServiceTypeIds)
+            && cachedServiceTypeIds != null
+        )
         {
             return cachedServiceTypeIds;
         }
@@ -671,7 +826,7 @@ public class HospitalService : IHospitalService
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
             SlidingExpiration = TimeSpan.FromMinutes(5),
-            Priority = CacheItemPriority.Normal
+            Priority = CacheItemPriority.Normal,
         };
         _cache.Set(cacheKey, serviceTypeIds, cacheOptions);
 
@@ -682,26 +837,45 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            _logger.LogInformation("Updating service types for hospital {HospitalId}: {Count} service types",
-                hospitalId, serviceTypeIds?.Count ?? 0);
+            _logger.LogInformation(
+                "Updating service types for hospital {HospitalId}: {Count} service types",
+                hospitalId,
+                serviceTypeIds?.Count ?? 0
+            );
 
             // Optimized batch update - single transaction with change detection
-            await _hospitalRepository.UpdateHospitalServiceTypesBatchAsync(hospitalId, serviceTypeIds ?? new List<Guid>());
+            await _hospitalRepository.UpdateHospitalServiceTypesBatchAsync(
+                hospitalId,
+                serviceTypeIds ?? new List<Guid>()
+            );
 
             // Clear related cache entries
             var cacheKey = $"hospital_service_types_{hospitalId}";
             _cache.Remove(cacheKey);
 
-            _logger.LogInformation("Successfully updated service types for hospital {HospitalId}", hospitalId);
+            _logger.LogInformation(
+                "Successfully updated service types for hospital {HospitalId}",
+                hospitalId
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update service types for hospital {HospitalId}", hospitalId);
-            throw new HospitalOperationException($"Failed to update service types for hospital {hospitalId}", ex);
+            _logger.LogError(
+                ex,
+                "Failed to update service types for hospital {HospitalId}",
+                hospitalId
+            );
+            throw new HospitalOperationException(
+                $"Failed to update service types for hospital {hospitalId}",
+                ex
+            );
         }
     }
 
-    private async Task UpdateHospitalServiceMedicalsAsync(Guid hospitalId, List<Guid> serviceMedicalIds)
+    private async Task UpdateHospitalServiceMedicalsAsync(
+        Guid hospitalId,
+        List<Guid> serviceMedicalIds
+    )
     {
         // Remove all existing service medicals
         var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
@@ -709,7 +883,10 @@ public class HospitalService : IHospitalService
         {
             foreach (var serviceMedical in hospital.HospitalServiceMedicals.ToList())
             {
-                await _hospitalRepository.RemoveServiceMedicalAsync(hospitalId, serviceMedical.ServiceMedicalId);
+                await _hospitalRepository.RemoveServiceMedicalAsync(
+                    hospitalId,
+                    serviceMedical.ServiceMedicalId
+                );
             }
         }
 
@@ -727,9 +904,16 @@ public class HospitalService : IHospitalService
         return await _hospitalRepository.GetHospitalBasicInfoByIdAsync(id);
     }
 
-    public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+    public async Task<List<Models.Entities.HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(
+        IEnumerable<Guid> ids
+    )
     {
         return await _hospitalRepository.GetHospitalsBasicInfoByIdsAsync(ids);
+    }
+
+    public async Task<Dictionary<Guid, string>> GetHospitalNamesByIdsAsync(IEnumerable<Guid> ids)
+    {
+        return await _hospitalRepository.GetHospitalNamesByIdsAsync(ids);
     }
 
     public async Task<List<HospitalSimpleResponse>> GetActiveHospitalsSimpleAsync()
@@ -738,16 +922,28 @@ public class HospitalService : IHospitalService
         return _mapper.Map<List<HospitalSimpleResponse>>(hospitals);
     }
 
-    public async Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter)
+    public async Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListAsync(
+        HospitalListOptimizedFilterRequest filter
+    )
     {
-        _logger.LogInformation("GetOptimizedHospitalListAsync called with filter: Search={Search}, SpecialtyIds={SpecialtyIds}, ProvinceId={ProvinceId}, DistrictId={DistrictId}, Page={Page}, PageSize={PageSize}",
-            filter.Search, string.Join(",", filter.SpecialtyIds ?? new string[0]), filter.ProvinceId, filter.DistrictId, filter.Page, filter.PageSize);
+        _logger.LogInformation(
+            "GetOptimizedHospitalListAsync called with filter: Search={Search}, SpecialtyIds={SpecialtyIds}, ProvinceId={ProvinceId}, DistrictId={DistrictId}, Page={Page}, PageSize={PageSize}",
+            filter.Search,
+            string.Join(",", filter.SpecialtyIds ?? new string[0]),
+            filter.ProvinceId,
+            filter.DistrictId,
+            filter.Page,
+            filter.PageSize
+        );
 
         // Convert string specialty IDs to Guid and validate if provided
         List<Guid>? specialtyGuids = null;
         if (filter.SpecialtyIds != null && filter.SpecialtyIds.Length > 0)
         {
-            _logger.LogInformation("Converting {Count} specialty IDs from string to Guid", filter.SpecialtyIds.Length);
+            _logger.LogInformation(
+                "Converting {Count} specialty IDs from string to Guid",
+                filter.SpecialtyIds.Length
+            );
             specialtyGuids = new List<Guid>();
 
             foreach (var specialtyIdStr in filter.SpecialtyIds)
@@ -758,13 +954,19 @@ public class HospitalService : IHospitalService
                 }
                 else
                 {
-                    _logger.LogWarning("Invalid specialty ID format: {SpecialtyId}", specialtyIdStr);
+                    _logger.LogWarning(
+                        "Invalid specialty ID format: {SpecialtyId}",
+                        specialtyIdStr
+                    );
                 }
             }
 
             if (specialtyGuids.Any())
             {
-                _logger.LogInformation("Validating {Count} specialty IDs with Doctor service via gRPC", specialtyGuids.Count);
+                _logger.LogInformation(
+                    "Validating {Count} specialty IDs with Doctor service via gRPC",
+                    specialtyGuids.Count
+                );
                 var isValid = await ValidateSpecialtyIdsAsync(specialtyGuids);
                 if (!isValid)
                 {
@@ -775,7 +977,7 @@ public class HospitalService : IHospitalService
                         TotalCount = 0,
                         Page = filter.Page,
                         PageSize = filter.PageSize,
-                        TotalPages = 0
+                        TotalPages = 0,
                     };
                 }
             }
@@ -790,7 +992,9 @@ public class HospitalService : IHospitalService
     /// Get optimized hospital list with location filtering applied BEFORE pagination
     /// This ensures all hospitals are considered for location filtering, not just the current page
     /// </summary>
-    private async Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListWithLocationFilteringAsync(HospitalListOptimizedFilterRequest filter)
+    private async Task<HospitalListOptimizedPaginatedResponse> GetOptimizedHospitalListWithLocationFilteringAsync(
+        HospitalListOptimizedFilterRequest filter
+    )
     {
         // Get all hospitals without pagination for location filtering
         var queryWithoutPagination = new HospitalListOptimizedFilterRequest
@@ -802,34 +1006,53 @@ public class HospitalService : IHospitalService
             Page = 1,
             PageSize = int.MaxValue, // Get all records
             SortBy = filter.SortBy,
-            SortOrder = filter.SortOrder
+            SortOrder = filter.SortOrder,
         };
 
-        var (allHospitals, _) = await _hospitalRepository.GetOptimizedHospitalListAsync(queryWithoutPagination);
+        var (allHospitals, _) = await _hospitalRepository.GetOptimizedHospitalListAsync(
+            queryWithoutPagination
+        );
         var hospitalResponses = _mapper.Map<List<HospitalListOptimizedResponse>>(allHospitals);
 
         // Enrich hospitals with specialty information from Doctor service
         await EnrichHospitalsWithSpecialtyInfoAsync(hospitalResponses, allHospitals);
 
         // Apply location filtering to ALL hospitals (if location filters provided)
-        _logger.LogInformation("Applying location filtering to {HospitalCount} hospitals with ProvinceId: {ProvinceId}, DistrictId: {DistrictId}",
-            hospitalResponses.Count, filter.ProvinceId, filter.DistrictId);
+        _logger.LogInformation(
+            "Applying location filtering to {HospitalCount} hospitals with ProvinceId: {ProvinceId}, DistrictId: {DistrictId}",
+            hospitalResponses.Count,
+            filter.ProvinceId,
+            filter.DistrictId
+        );
 
         // Debug: Log some hospital addresses
         foreach (var hospital in hospitalResponses.Take(3))
         {
-            _logger.LogInformation("Sample hospital address: {HospitalName} - {Address}", hospital.Name, hospital.Address);
+            _logger.LogInformation(
+                "Sample hospital address: {HospitalName} - {Address}",
+                hospital.Name,
+                hospital.Address
+            );
         }
 
-        var locationFilteredHospitals = await _dependencies.LocationApiService.ApplyLocationFilteringAsync(
-            hospitalResponses,
-            filter.ProvinceId,
-            filter.DistrictId);
+        var locationFilteredHospitals =
+            await _dependencies.LocationApiService.ApplyLocationFilteringAsync(
+                hospitalResponses,
+                filter.ProvinceId,
+                filter.DistrictId
+            );
 
-        _logger.LogInformation("Location filtering result: {FilteredCount} hospitals after filtering", locationFilteredHospitals.Count);
+        _logger.LogInformation(
+            "Location filtering result: {FilteredCount} hospitals after filtering",
+            locationFilteredHospitals.Count
+        );
 
         // Apply sorting to filtered results
-        var sortedHospitals = ApplySorting(locationFilteredHospitals, filter.SortBy, filter.SortOrder);
+        var sortedHospitals = ApplySorting(
+            locationFilteredHospitals,
+            filter.SortBy,
+            filter.SortOrder
+        );
 
         // Apply pagination to the filtered results
         var totalCount = sortedHospitals.Count;
@@ -844,7 +1067,7 @@ public class HospitalService : IHospitalService
             TotalCount = totalCount,
             Page = filter.Page,
             PageSize = filter.PageSize,
-            TotalPages = (int)Math.Ceiling((double)totalCount / filter.PageSize)
+            TotalPages = (int)Math.Ceiling((double)totalCount / filter.PageSize),
         };
     }
 
@@ -860,40 +1083,53 @@ public class HospitalService : IHospitalService
                 return true; // Empty list is valid
             }
 
-            _logger.LogInformation("Validating {Count} specialty IDs with Doctor service via gRPC", specialtyIds.Count);
+            _logger.LogInformation(
+                "Validating {Count} specialty IDs with Doctor service via gRPC",
+                specialtyIds.Count
+            );
 
             var validCount = 0;
             foreach (var specialtyId in specialtyIds)
             {
                 try
                 {
-                    var request = new GetSpecialtyByIdRequest
-                    {
-                        Id = specialtyId.ToString()
-                    };
+                    var request = new GetSpecialtyByIdRequest { Id = specialtyId.ToString() };
 
                     var response = await _dependencies.DoctorClient.GetSpecialtyByIdAsync(request);
                     if (response != null && !string.IsNullOrEmpty(response.Id))
                     {
                         validCount++;
-                        _logger.LogDebug("Specialty ID {SpecialtyId} is valid: {SpecialtyName} (ImageUrl: {ImageUrl})",
-                            specialtyId, response.Name, response.ImageUrl);
+                        _logger.LogDebug(
+                            "Specialty ID {SpecialtyId} is valid: {SpecialtyName} (ImageUrl: {ImageUrl})",
+                            specialtyId,
+                            response.Name,
+                            response.ImageUrl
+                        );
                     }
                 }
-                catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
+                catch (Grpc.Core.RpcException ex)
+                    when (ex.StatusCode == Grpc.Core.StatusCode.NotFound)
                 {
                     _logger.LogWarning("Specialty ID {SpecialtyId} not found", specialtyId);
                     return false;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error validating specialty ID {SpecialtyId}", specialtyId);
+                    _logger.LogError(
+                        ex,
+                        "Error validating specialty ID {SpecialtyId}",
+                        specialtyId
+                    );
                     return false;
                 }
             }
 
             var isValid = validCount == specialtyIds.Count;
-            _logger.LogInformation("Specialty validation result: {ValidCount}/{TotalCount} valid", validCount, specialtyIds.Count);
+            _logger.LogInformation(
+                "Specialty validation result: {ValidCount}/{TotalCount} valid",
+                validCount,
+                specialtyIds.Count
+            );
             return isValid;
         }
         catch (Exception ex)
@@ -909,7 +1145,8 @@ public class HospitalService : IHospitalService
     private static List<HospitalListOptimizedResponse> ApplySorting(
         List<HospitalListOptimizedResponse> hospitals,
         string? sortBy,
-        string? sortOrder)
+        string? sortOrder
+    )
     {
         return sortBy?.ToLower() switch
         {
@@ -919,7 +1156,7 @@ public class HospitalService : IHospitalService
             "address" => sortOrder?.ToLower() == "desc"
                 ? hospitals.OrderByDescending(h => h.Address).ToList()
                 : hospitals.OrderBy(h => h.Address).ToList(),
-            _ => hospitals.OrderBy(h => h.Name).ToList()
+            _ => hospitals.OrderBy(h => h.Name).ToList(),
         };
     }
 
@@ -930,7 +1167,9 @@ public class HospitalService : IHospitalService
     /// <summary>
     /// Get account statuses for a list of account IDs
     /// </summary>
-    private async Task<Dictionary<Guid, Status>> GetAccountStatusesAsync(IEnumerable<Guid> accountIds)
+    private async Task<Dictionary<Guid, Status>> GetAccountStatusesAsync(
+        IEnumerable<Guid> accountIds
+    )
     {
         var statusMap = new Dictionary<Guid, Status>();
 
@@ -943,7 +1182,9 @@ public class HospitalService : IHospitalService
 
             foreach (var accountStatus in response.AccountStatuses)
             {
-                if (Guid.TryParse(accountStatus.AccountId, out var accountId) && accountStatus.Found)
+                if (
+                    Guid.TryParse(accountStatus.AccountId, out var accountId) && accountStatus.Found
+                )
                 {
                     // Chuyển đổi từ int sang enum Status
                     var status = (Status)accountStatus.Status;
@@ -965,7 +1206,8 @@ public class HospitalService : IHospitalService
     /// </summary>
     private async Task EnrichHospitalsWithStatusAsync(List<HospitalResponse> hospitals)
     {
-        if (!hospitals.Any()) return;
+        if (!hospitals.Any())
+            return;
 
         var accountIds = hospitals.Select(h => h.AccountId).Distinct();
         var statusMap = await GetAccountStatusesAsync(accountIds);
@@ -985,13 +1227,13 @@ public class HospitalService : IHospitalService
         // Status enrichment is handled at the response level, not entity level
     }
 
-
     /// <summary>
     /// Get multiple specialties with retry logic and circuit breaker pattern
     /// </summary>
     private async Task<SpecialtiesBatchResponse?> GetSpecialtiesBulkWithRetryAsync(
         GetSpecialtiesByIdsRequest request,
-        int maxRetries = 3)
+        int maxRetries = 3
+    )
     {
         // Check circuit breaker
         if (IsCircuitBreakerOpen())
@@ -1010,19 +1252,29 @@ public class HospitalService : IHospitalService
                 ResetCircuitBreaker();
                 return result;
             }
-            catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.Unavailable && attempt < maxRetries)
+            catch (Grpc.Core.RpcException ex)
+                when (ex.StatusCode == Grpc.Core.StatusCode.Unavailable && attempt < maxRetries)
             {
                 // Shorter delays for bulk calls: 500ms, 1s, 2s
                 var delay = Math.Pow(2, attempt) * 500;
-                _logger.LogWarning("Bulk gRPC call failed (attempt {Attempt}/{MaxRetries}), retrying in {Delay}ms. Error: {Error}",
-                    attempt, maxRetries, delay, ex.Message);
+                _logger.LogWarning(
+                    "Bulk gRPC call failed (attempt {Attempt}/{MaxRetries}), retrying in {Delay}ms. Error: {Error}",
+                    attempt,
+                    maxRetries,
+                    delay,
+                    ex.Message
+                );
                 await Task.Delay((int)delay);
             }
-            catch (Grpc.Core.RpcException ex) when (ex.StatusCode == Grpc.Core.StatusCode.Unavailable && attempt == maxRetries)
+            catch (Grpc.Core.RpcException ex)
+                when (ex.StatusCode == Grpc.Core.StatusCode.Unavailable && attempt == maxRetries)
             {
                 RecordFailure();
-                _logger.LogError("Bulk gRPC call failed after {MaxRetries} attempts. Error: {Error}",
-                    maxRetries, ex.Message);
+                _logger.LogError(
+                    "Bulk gRPC call failed after {MaxRetries} attempts. Error: {Error}",
+                    maxRetries,
+                    ex.Message
+                );
                 return null;
             }
             catch (Exception ex)
@@ -1088,11 +1340,15 @@ public class HospitalService : IHospitalService
     /// </summary>
     private async Task EnrichHospitalsWithSpecialtyInfoAsync(
         List<HospitalListOptimizedResponse> hospitalResponses,
-        List<HospitalEntity> hospitalEntities)
+        List<HospitalEntity> hospitalEntities
+    )
     {
         try
         {
-            _logger.LogInformation("Enriching {HospitalCount} hospitals with specialty information", hospitalResponses.Count);
+            _logger.LogInformation(
+                "Enriching {HospitalCount} hospitals with specialty information",
+                hospitalResponses.Count
+            );
 
             // Create a map of hospital entities for quick lookup
             var hospitalEntityMap = hospitalEntities.ToDictionary(h => h.Id, h => h);
@@ -1141,10 +1397,14 @@ public class HospitalService : IHospitalService
     /// </summary>
     private async Task ProcessHospitalBatchAsync(
         List<HospitalListOptimizedResponse> hospitalBatch,
-        Dictionary<Guid, HospitalEntity> hospitalEntityMap)
+        Dictionary<Guid, HospitalEntity> hospitalEntityMap
+    )
     {
         // Collect specialty information from hospitals
-        var (allSpecialtyIds, hospitalSpecialtyMap) = CollectSpecialtyInformation(hospitalBatch, hospitalEntityMap);
+        var (allSpecialtyIds, hospitalSpecialtyMap) = CollectSpecialtyInformation(
+            hospitalBatch,
+            hospitalEntityMap
+        );
 
         // Bulk fetch all specialties with caching
         var specialtyCache = await FetchSpecialtiesWithCachingAsync(allSpecialtyIds);
@@ -1153,9 +1413,13 @@ public class HospitalService : IHospitalService
         AssignSpecialtiesToHospitals(hospitalBatch, hospitalSpecialtyMap, specialtyCache);
     }
 
-    private (HashSet<Guid> allSpecialtyIds, Dictionary<Guid, List<Guid>> hospitalSpecialtyMap) CollectSpecialtyInformation(
+    private (
+        HashSet<Guid> allSpecialtyIds,
+        Dictionary<Guid, List<Guid>> hospitalSpecialtyMap
+    ) CollectSpecialtyInformation(
         List<HospitalListOptimizedResponse> hospitalBatch,
-        Dictionary<Guid, HospitalEntity> hospitalEntityMap)
+        Dictionary<Guid, HospitalEntity> hospitalEntityMap
+    )
     {
         var allSpecialtyIds = new HashSet<Guid>();
         var hospitalSpecialtyMap = new Dictionary<Guid, List<Guid>>();
@@ -1164,7 +1428,9 @@ public class HospitalService : IHospitalService
         {
             if (hospitalEntityMap.TryGetValue(hospitalResponse.Id, out var hospitalEntity))
             {
-                var specialtyIds = hospitalEntity.HospitalSpecialties?.Select(hs => hs.SpecialtyId).ToList() ?? new List<Guid>();
+                var specialtyIds =
+                    hospitalEntity.HospitalSpecialties?.Select(hs => hs.SpecialtyId).ToList()
+                    ?? new List<Guid>();
                 hospitalSpecialtyMap[hospitalResponse.Id] = specialtyIds;
 
                 foreach (var specialtyId in specialtyIds)
@@ -1177,7 +1443,9 @@ public class HospitalService : IHospitalService
         return (allSpecialtyIds, hospitalSpecialtyMap);
     }
 
-    private async Task<Dictionary<Guid, SpecialtySimpleResponse>> FetchSpecialtiesWithCachingAsync(HashSet<Guid> allSpecialtyIds)
+    private async Task<Dictionary<Guid, SpecialtySimpleResponse>> FetchSpecialtiesWithCachingAsync(
+        HashSet<Guid> allSpecialtyIds
+    )
     {
         var specialtyCache = new Dictionary<Guid, SpecialtySimpleResponse>();
 
@@ -1195,8 +1463,13 @@ public class HospitalService : IHospitalService
                 await FetchAndCacheUncachedSpecialtiesAsync(uncachedIds, specialtyCache);
             }
 
-            _logger.LogInformation("Bulk retrieved {RetrievedCount}/{RequestedCount} specialties for batch (cached: {CachedCount}, fetched: {FetchedCount})",
-                specialtyCache.Count, allSpecialtyIds.Count, specialtyCache.Count - uncachedIds.Count, uncachedIds.Count);
+            _logger.LogInformation(
+                "Bulk retrieved {RetrievedCount}/{RequestedCount} specialties for batch (cached: {CachedCount}, fetched: {FetchedCount})",
+                specialtyCache.Count,
+                allSpecialtyIds.Count,
+                specialtyCache.Count - uncachedIds.Count,
+                uncachedIds.Count
+            );
         }
         catch (Exception ex)
         {
@@ -1206,14 +1479,20 @@ public class HospitalService : IHospitalService
         return specialtyCache;
     }
 
-    private List<Guid> GetUncachedSpecialtyIds(HashSet<Guid> allSpecialtyIds, Dictionary<Guid, SpecialtySimpleResponse> specialtyCache)
+    private List<Guid> GetUncachedSpecialtyIds(
+        HashSet<Guid> allSpecialtyIds,
+        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache
+    )
     {
         var uncachedIds = new List<Guid>();
 
         foreach (var specialtyId in allSpecialtyIds)
         {
             var cacheKey = $"specialty_{specialtyId}";
-            if (_cache.TryGetValue(cacheKey, out SpecialtySimpleResponse? cachedSpecialty) && cachedSpecialty != null)
+            if (
+                _cache.TryGetValue(cacheKey, out SpecialtySimpleResponse? cachedSpecialty)
+                && cachedSpecialty != null
+            )
             {
                 specialtyCache[specialtyId] = cachedSpecialty;
             }
@@ -1226,7 +1505,10 @@ public class HospitalService : IHospitalService
         return uncachedIds;
     }
 
-    private async Task FetchAndCacheUncachedSpecialtiesAsync(List<Guid> uncachedIds, Dictionary<Guid, SpecialtySimpleResponse> specialtyCache)
+    private async Task FetchAndCacheUncachedSpecialtiesAsync(
+        List<Guid> uncachedIds,
+        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache
+    )
     {
         var bulkRequest = new GetSpecialtiesByIdsRequest();
         bulkRequest.Ids.AddRange(uncachedIds.Select(id => id.ToString()));
@@ -1252,7 +1534,7 @@ public class HospitalService : IHospitalService
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
             SlidingExpiration = TimeSpan.FromMinutes(10),
-            Priority = CacheItemPriority.Normal
+            Priority = CacheItemPriority.Normal,
         };
         _cache.Set(cacheKey, specialty, cacheOptions);
     }
@@ -1260,7 +1542,8 @@ public class HospitalService : IHospitalService
     private void AssignSpecialtiesToHospitals(
         List<HospitalListOptimizedResponse> hospitalBatch,
         Dictionary<Guid, List<Guid>> hospitalSpecialtyMap,
-        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache)
+        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache
+    )
     {
         foreach (var hospitalResponse in hospitalBatch)
         {
@@ -1270,15 +1553,20 @@ public class HospitalService : IHospitalService
                 hospitalResponse.Specialties = specialties;
                 hospitalResponse.TotalSpecialties = specialtyIds.Count;
 
-                _logger.LogDebug("Hospital {HospitalId} enriched with {RetrievedCount}/{TotalCount} specialties",
-                    hospitalResponse.Id, specialties.Count, specialtyIds.Count);
+                _logger.LogDebug(
+                    "Hospital {HospitalId} enriched with {RetrievedCount}/{TotalCount} specialties",
+                    hospitalResponse.Id,
+                    specialties.Count,
+                    specialtyIds.Count
+                );
             }
         }
     }
 
     private List<HospitalSpecialtyOptimizedResponse> BuildHospitalSpecialties(
         List<Guid> specialtyIds,
-        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache)
+        Dictionary<Guid, SpecialtySimpleResponse> specialtyCache
+    )
     {
         if (!specialtyIds.Any())
         {
@@ -1290,12 +1578,14 @@ public class HospitalService : IHospitalService
         {
             if (specialtyCache.TryGetValue(specialtyId, out var specialty))
             {
-                specialties.Add(new HospitalSpecialtyOptimizedResponse
-                {
-                    Id = specialtyId,
-                    Name = specialty.Name,
-                    ImageUrl = specialty.ImageUrl
-                });
+                specialties.Add(
+                    new HospitalSpecialtyOptimizedResponse
+                    {
+                        Id = specialtyId,
+                        Name = specialty.Name,
+                        ImageUrl = specialty.ImageUrl,
+                    }
+                );
             }
         }
 
@@ -1306,7 +1596,10 @@ public class HospitalService : IHospitalService
 
     #region Doctor Count Operations
 
-    private async Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, List<Guid> specialtyIds)
+    private async Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(
+        Guid hospitalId,
+        List<Guid> specialtyIds
+    )
     {
         try
         {
@@ -1317,11 +1610,14 @@ public class HospitalService : IHospitalService
 
             var request = new GetDoctorCountsBySpecialtyAndHospitalRequest
             {
-                HospitalId = hospitalId.ToString()
+                HospitalId = hospitalId.ToString(),
             };
             request.SpecialtyIds.AddRange(specialtyIds.Select(x => x.ToString()));
 
-            var response = await _dependencies.DoctorClient.GetDoctorCountsBySpecialtyAndHospitalAsync(request);
+            var response =
+                await _dependencies.DoctorClient.GetDoctorCountsBySpecialtyAndHospitalAsync(
+                    request
+                );
 
             var result = new Dictionary<Guid, int>();
             foreach (var count in response.SpecialtyCounts)
@@ -1336,7 +1632,11 @@ public class HospitalService : IHospitalService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to get doctor counts for hospital {HospitalId}, returning empty counts", hospitalId);
+            _logger.LogWarning(
+                ex,
+                "Failed to get doctor counts for hospital {HospitalId}, returning empty counts",
+                hospitalId
+            );
             return new Dictionary<Guid, int>();
         }
     }
@@ -1345,7 +1645,9 @@ public class HospitalService : IHospitalService
 
     #region Hospital Image Management
 
-    public async Task<HospitalImageResponse?> AddHospitalImageAsync(CreateHospitalImageRequest request)
+    public async Task<HospitalImageResponse?> AddHospitalImageAsync(
+        CreateHospitalImageRequest request
+    )
     {
         try
         {
@@ -1362,8 +1664,15 @@ public class HospitalService : IHospitalService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error adding hospital image for hospital {HospitalId}", request.HospitalId);
-            throw new HospitalOperationException($"Failed to add hospital image for hospital {request.HospitalId}", ex);
+            _logger.LogError(
+                ex,
+                "Error adding hospital image for hospital {HospitalId}",
+                request.HospitalId
+            );
+            throw new HospitalOperationException(
+                $"Failed to add hospital image for hospital {request.HospitalId}",
+                ex
+            );
         }
     }
 
@@ -1389,8 +1698,16 @@ public class HospitalService : IHospitalService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting hospital image {ImageId} for hospital {HospitalId}", imageId, hospitalId);
-            throw new HospitalOperationException($"Failed to delete hospital image {imageId} for hospital {hospitalId}", ex);
+            _logger.LogError(
+                ex,
+                "Error deleting hospital image {ImageId} for hospital {HospitalId}",
+                imageId,
+                hospitalId
+            );
+            throw new HospitalOperationException(
+                $"Failed to delete hospital image {imageId} for hospital {hospitalId}",
+                ex
+            );
         }
     }
 
@@ -1407,18 +1724,23 @@ public class HospitalService : IHospitalService
     {
         try
         {
-            _logger.LogInformation("Attempting to assign trial subscription for hospital {HospitalId}", hospitalId);
+            _logger.LogInformation(
+                "Attempting to assign trial subscription for hospital {HospitalId}",
+                hospitalId
+            );
 
             // Find trial subscription plan (price = 0, MONTHLY, ACTIVE)
             var allPlans = await _subscriptionServices.SubscriptionPlanRepository.GetActiveAsync();
             var trialPlan = allPlans.FirstOrDefault(p =>
-                p.Price == 0 &&
-                p.BillingCycle == "MONTHLY" &&
-                p.Status == Status.ACTIVE);
+                p.Price == 0 && p.BillingCycle == "MONTHLY" && p.Status == Status.ACTIVE
+            );
 
             if (trialPlan == null)
             {
-                _logger.LogWarning("Trial subscription plan not found for hospital {HospitalId}. Please create a plan with price = 0 and billing cycle = MONTHLY", hospitalId);
+                _logger.LogWarning(
+                    "Trial subscription plan not found for hospital {HospitalId}. Please create a plan with price = 0 and billing cycle = MONTHLY",
+                    hospitalId
+                );
                 return;
             }
 
@@ -1428,15 +1750,28 @@ public class HospitalService : IHospitalService
                 HospitalId = hospitalId,
                 SubscriptionId = trialPlan.Id,
                 StartDate = DateTime.UtcNow,
-                EndDate = DateTime.UtcNow.AddMonths(1) // Trial for 1 month
+                EndDate = DateTime.UtcNow.AddMonths(
+                    1
+                ) // Trial for 1 month
+                ,
             };
 
-            await _subscriptionServices.HospitalSubscriptionService.CreateAsync(subscriptionRequest);
-            _logger.LogInformation("Successfully assigned trial subscription '{PlanName}' to hospital {HospitalId}", trialPlan.Name, hospitalId);
+            await _subscriptionServices.HospitalSubscriptionService.CreateAsync(
+                subscriptionRequest
+            );
+            _logger.LogInformation(
+                "Successfully assigned trial subscription '{PlanName}' to hospital {HospitalId}",
+                trialPlan.Name,
+                hospitalId
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to assign trial subscription for hospital {HospitalId}. Hospital created successfully but without subscription.", hospitalId);
+            _logger.LogError(
+                ex,
+                "Failed to assign trial subscription for hospital {HospitalId}. Hospital created successfully but without subscription.",
+                hospitalId
+            );
             // Don't throw - hospital creation should succeed even if subscription assignment fails
         }
     }
