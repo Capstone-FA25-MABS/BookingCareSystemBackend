@@ -83,3 +83,50 @@ public class ReleaseSlotRequest
     [Required]
     public required AppointmentTime AppointmentTimeId { get; set; }
 }
+
+#region Specialty Hold Slot DTOs (for "hospital assigns doctor" mode)
+
+/// <summary>
+/// Request to hold a specialty slot (capacity-based holding)
+/// </summary>
+public class HoldSpecialtySlotRequest
+{
+    [Required]
+    public required Guid HospitalId { get; set; }
+
+    [Required]
+    public required Guid SpecialtyId { get; set; }
+
+    [Required]
+    public required DateOnly Date { get; set; }
+
+    [Required]
+    public required AppointmentTime AppointmentTimeId { get; set; }
+
+    /// <summary>
+    /// Maximum capacity for this slot (number of available doctors)
+    /// This is used to validate if the slot can still be held
+    /// </summary>
+    [Required]
+    public required int MaxCapacity { get; set; }
+}
+
+/// <summary>
+/// Request to release a held specialty slot
+/// </summary>
+public class ReleaseSpecialtySlotRequest
+{
+    [Required]
+    public required Guid HospitalId { get; set; }
+
+    [Required]
+    public required Guid SpecialtyId { get; set; }
+
+    [Required]
+    public required DateOnly Date { get; set; }
+
+    [Required]
+    public required AppointmentTime AppointmentTimeId { get; set; }
+}
+
+#endregion
