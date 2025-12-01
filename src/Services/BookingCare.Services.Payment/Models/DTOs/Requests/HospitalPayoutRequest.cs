@@ -8,10 +8,10 @@ namespace BookingCare.Services.Payment.Models.DTOs.Requests;
 public class GeneratePayoutsRequest
 {
     [Required]
-    public DateTime PeriodStartDate { get; set; }
+    public required DateTime PeriodStartDate { get; set; }
 
     [Required]
-    public DateTime PeriodEndDate { get; set; }
+    public required DateTime PeriodEndDate { get; set; }
 
     /// <summary>
     /// Optional: specific hospital IDs to generate payouts for
