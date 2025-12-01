@@ -617,6 +617,16 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
                 "[ScheduleGrpcService] CheckDoctorsWorkingSlot called - DoctorIds: {DoctorIds}, Date: {Date}, TimeSlot: {TimeSlot}",
                 string.Join(", ", request.DoctorIds), request.Date, request.AppointmentTimeId);
 
+            // Validate basic input
+            if (request.DoctorIds == null || request.DoctorIds.Count == 0)
+            {
+                return new CheckDoctorsWorkingSlotResponse
+                {
+                    Success = false,
+                    Message = "DoctorIds is required"
+                };
+            }
+
             // Validate date
             if (!DateOnly.TryParse(request.Date, out var date))
             {
@@ -651,7 +661,7 @@ public class ScheduleGrpcService : Protos.ScheduleService.ScheduleServiceBase
             {
                 return new CheckDoctorsWorkingSlotResponse
                 {
-                    Success = true,
+                    Success = false,
                     Message = "No valid doctor IDs provided"
                 };
             }

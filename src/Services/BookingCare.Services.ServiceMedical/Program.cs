@@ -55,6 +55,14 @@ builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
     options.Address = new Uri(reviewAddress);
 });
 
+// Aggregate gRPC clients for ServiceMedicalService to keep constructor focused
+builder.Services.AddScoped<ServiceMedicalService.ServiceMedicalGrpcClients>(sp =>
+{
+    var subscriptionUsageClient = sp.GetRequiredService<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>();
+    var reviewServiceClient = sp.GetRequiredService<ReviewService.ReviewServiceClient>();
+    return new ServiceMedicalService.ServiceMedicalGrpcClients(subscriptionUsageClient, reviewServiceClient);
+});
+
 // Add API Versioning
 builder.Services.AddApiVersioning(opt =>
 {

@@ -546,7 +546,11 @@ public class AppointmentRepository : IAppointmentRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId})", patientId, doctorId);
+            _logger.LogError(
+                ex,
+                "Error getting status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId})",
+                filter.PatientId,
+                filter.DoctorId);
             throw new AppointmentException("Failed to get status counts", innerException: ex);
         }
     }

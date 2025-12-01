@@ -950,82 +950,24 @@ public class ScheduleService : IScheduleService
             // Step 1: Get all schedules for all doctors in one batch query
             var allDoctorSlots = await _repository.GetAvailableSlotsForDoctorsAsync(doctorIds, date);
 
-            _logger.LogDebug("Batch query returned {Count} doctor-slot combinations for {DoctorCount} doctors on {Date}",
-                allDoctorSlots.Sum(d => d.Value.Count), doctorIds.Count, date);
+            _logger.LogDebug(
+                "Batch query returned {Count} doctor-slot combinations for {DoctorCount} doctors on {Date}",
+                allDoctorSlots.Sum(d => d.Value.Count),
+                doctorIds.Count,
+                date);
 
-            // Step 2: Get all booked slots for all doctors in one gRPC call
-            var bookedSlotsByDoctor = new Dictionary<Guid, HashSet<int>>();
-            try
-            {
-                // Call appointment service to get booked slots for all doctors
-                foreach (var doctorId in doctorIds)
-                {
-                    var checkBookedRequest = new BookingCare.Services.Appointment.Protos.CheckBookedSlotsRequest
-                    {
-                        DoctorId = doctorId.ToString(),
-                        AppointmentDate = date.ToString(DateFormat)
-                    };
-                    var bookedResponse = await _grpcClients.AppointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
-                    bookedSlotsByDoctor[doctorId] = new HashSet<int>(bookedResponse.BookedAppointmentTimeIds);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to get booked slots, continuing without filtering");
-            }
+            // Step 2: Get all booked slots for all doctors
+            var bookedSlotsByDoctor = await GetBookedSlotsByDoctorAsync(doctorIds, date);
 
             // Step 3: Get all held slots for all doctors in batch
-            var heldSlotsByDoctor = new Dictionary<Guid, HashSet<int>>();
-            foreach (var doctorId in doctorIds)
-            {
-                try
-                {
-                    var heldSlots = await _holdSlotService.GetHeldSlotsAsync(doctorId, date, currentUserId ?? Guid.Empty);
-                    heldSlotsByDoctor[doctorId] = new HashSet<int>(heldSlots.Select(hs => (int)hs));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to get held slots for doctor {DoctorId}", doctorId);
-                    heldSlotsByDoctor[doctorId] = new HashSet<int>();
-                }
-            }
+            var heldSlotsByDoctor = await GetHeldSlotsByDoctorAsync(doctorIds, date, currentUserId);
 
             // Step 4: Aggregate available slots per time slot
-            foreach (var doctorId in doctorIds)
-            {
-                if (!allDoctorSlots.TryGetValue(doctorId, out var doctorSlots) || !doctorSlots.Any())
-                {
-                    continue;
-                }
-
-                var bookedSlots = bookedSlotsByDoctor.GetValueOrDefault(doctorId, new HashSet<int>());
-                var heldSlots = heldSlotsByDoctor.GetValueOrDefault(doctorId, new HashSet<int>());
-                var hasAvailableSlot = false;
-
-                foreach (var appointmentTime in doctorSlots)
-                {
-                    var timeId = (int)appointmentTime;
-
-                    // Skip if slot is booked or held
-                    if (bookedSlots.Contains(timeId) || heldSlots.Contains(timeId))
-                    {
-                        continue;
-                    }
-
-                    // Count this doctor as available for this time slot
-                    if (!slotDoctorCounts.ContainsKey(appointmentTime))
-                    {
-                        slotDoctorCounts[appointmentTime] = 0;
-                    }
-                    slotDoctorCounts[appointmentTime]++;
-                    hasAvailableSlot = true;
-                }
-
-                if (hasAvailableSlot)
-                {
-                    doctorsWithSlots++;
-                }
-            }
+            (slotDoctorCounts, doctorsWithSlots) = AggregateAvailableSlots(
+                doctorIds,
+                allDoctorSlots,
+                bookedSlotsByDoctor,
+                heldSlotsByDoctor);
 
             _logger.LogInformation(
                 "Batch processing complete: {DoctorsWithSlots} doctors with available slots, {SlotCount} unique time slots",
@@ -1034,6 +976,117 @@ public class ScheduleService : IScheduleService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in batch doctor available slots processing");
+        }
+
+        return (slotDoctorCounts, doctorsWithSlots);
+    }
+
+    private async Task<Dictionary<Guid, HashSet<int>>> GetBookedSlotsByDoctorAsync(
+        IEnumerable<Guid> doctorIds,
+        DateOnly date)
+    {
+        var bookedSlotsByDoctor = new Dictionary<Guid, HashSet<int>>();
+
+        try
+        {
+            foreach (var doctorId in doctorIds)
+            {
+                var checkBookedRequest = new BookingCare.Services.Appointment.Protos.CheckBookedSlotsRequest
+                {
+                    DoctorId = doctorId.ToString(),
+                    AppointmentDate = date.ToString(DateFormat)
+                };
+
+                var bookedResponse =
+                    await _grpcClients.AppointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
+
+                bookedSlotsByDoctor[doctorId] =
+                    new HashSet<int>(bookedResponse.BookedAppointmentTimeIds);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get booked slots, continuing without filtering");
+        }
+
+        return bookedSlotsByDoctor;
+    }
+
+    private async Task<Dictionary<Guid, HashSet<int>>> GetHeldSlotsByDoctorAsync(
+        IEnumerable<Guid> doctorIds,
+        DateOnly date,
+        Guid? currentUserId)
+    {
+        var heldSlotsByDoctor = new Dictionary<Guid, HashSet<int>>();
+        var effectiveUserId = currentUserId ?? Guid.Empty;
+
+        foreach (var doctorId in doctorIds)
+        {
+            try
+            {
+                var heldSlots =
+                    await _holdSlotService.GetHeldSlotsAsync(doctorId, date, effectiveUserId);
+
+                heldSlotsByDoctor[doctorId] =
+                    new HashSet<int>(heldSlots.Select(hs => (int)hs));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to get held slots for doctor {DoctorId}",
+                    doctorId);
+                heldSlotsByDoctor[doctorId] = new HashSet<int>();
+            }
+        }
+
+        return heldSlotsByDoctor;
+    }
+
+    private static (Dictionary<Shared.Common.Enums.AppointmentTime, int> SlotCounts, int DoctorsWithSlots)
+        AggregateAvailableSlots(
+            IEnumerable<Guid> doctorIds,
+            IReadOnlyDictionary<Guid, List<Shared.Common.Enums.AppointmentTime>> allDoctorSlots,
+            IReadOnlyDictionary<Guid, HashSet<int>> bookedSlotsByDoctor,
+            IReadOnlyDictionary<Guid, HashSet<int>> heldSlotsByDoctor)
+    {
+        var slotDoctorCounts = new Dictionary<Shared.Common.Enums.AppointmentTime, int>();
+        var doctorsWithSlots = 0;
+
+        foreach (var doctorId in doctorIds)
+        {
+            if (!allDoctorSlots.TryGetValue(doctorId, out var doctorSlots) || !doctorSlots.Any())
+            {
+                continue;
+            }
+
+            var bookedSlots = bookedSlotsByDoctor.GetValueOrDefault(doctorId, new HashSet<int>());
+            var heldSlots = heldSlotsByDoctor.GetValueOrDefault(doctorId, new HashSet<int>());
+            var hasAvailableSlot = false;
+
+            foreach (var appointmentTime in doctorSlots)
+            {
+                var timeId = (int)appointmentTime;
+
+                // Skip if slot is booked or held
+                if (bookedSlots.Contains(timeId) || heldSlots.Contains(timeId))
+                {
+                    continue;
+                }
+
+                if (!slotDoctorCounts.ContainsKey(appointmentTime))
+                {
+                    slotDoctorCounts[appointmentTime] = 0;
+                }
+
+                slotDoctorCounts[appointmentTime]++;
+                hasAvailableSlot = true;
+            }
+
+            if (hasAvailableSlot)
+            {
+                doctorsWithSlots++;
+            }
         }
 
         return (slotDoctorCounts, doctorsWithSlots);
