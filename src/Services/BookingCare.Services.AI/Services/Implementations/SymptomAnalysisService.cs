@@ -19,7 +19,6 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private readonly ILogger<SymptomAnalysisService> _logger;
     private readonly GeminiApiHelper _geminiApiHelper;
     private readonly ServiceGeminiConfiguration _serviceConfig;
-    private readonly GeminiConfiguration _commonConfig;
     private readonly RecommendationHelper _recommendationHelper;
 
     private const int MAX_QUESTIONS = 6; // Support extended consultation: 3 initial + 3 additional questions
@@ -29,14 +28,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         ILogger<SymptomAnalysisService> logger,
         GeminiApiHelper geminiApiHelper,
         IOptions<GeminiServicesConfiguration> geminiServicesConfig,
-        IOptions<GeminiConfiguration> commonConfig,
         RecommendationHelper recommendationHelper)
     {
         _sessionService = sessionService;
         _logger = logger;
         _geminiApiHelper = geminiApiHelper;
         _serviceConfig = geminiServicesConfig.Value.SymptomAnalysis;
-        _commonConfig = commonConfig.Value;
         _recommendationHelper = recommendationHelper;
     }
 

@@ -465,111 +465,13 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     {
         try
         {
-            var jsonStart = geminiResponse.IndexOf('{');
-            var jsonEnd = geminiResponse.LastIndexOf('}');
+            var root = ExtractRootJsonElement(geminiResponse);
+            var analysis = CreateEmptyGeminiAnalysis();
 
-            if (jsonStart == -1 || jsonEnd == -1)
-            {
-                throw new InvalidOperationException("No JSON found in Gemini response");
-            }
-
-            var jsonText = geminiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
-            var jsonDoc = JsonDocument.Parse(jsonText);
-            var root = jsonDoc.RootElement;
-
-            var analysis = new GeminiLabAnalysis
-            {
-                NormalIndicators = new List<LabIndicator>(),
-                AbnormalIndicators = new List<AbnormalLabIndicator>(),
-                Specialties = new List<string>()
-            };
-
-            if (root.TryGetProperty("normalIndicators", out var normalArray))
-            {
-                foreach (var item in normalArray.EnumerateArray())
-                {
-                    analysis.NormalIndicators.Add(new LabIndicator
-                    {
-                        Name = item.GetProperty("name").GetString() ?? "",
-                        Value = item.GetProperty("value").GetString() ?? "",
-                        Unit = item.GetProperty("unit").GetString() ?? "",
-                        ReferenceRange = item.TryGetProperty("referenceRange", out var refRange) ? refRange.GetString() ?? "" : ""
-                    });
-                }
-            }
-
-            if (root.TryGetProperty("abnormalIndicators", out var abnormalArray))
-            {
-                foreach (var item in abnormalArray.EnumerateArray())
-                {
-                    // Parse specialty matches directly from AI response
-                    var specialtyMatches = new List<SpecialtyMatch>();
-                    if (item.TryGetProperty("recommendedSpecialties", out var specArray))
-                    {
-                        foreach (var spec in specArray.EnumerateArray())
-                        {
-                            // Check if it's an object (new format) or string (old format)
-                            if (spec.ValueKind == JsonValueKind.Object)
-                            {
-                                specialtyMatches.Add(new SpecialtyMatch
-                                {
-                                    SpecialtyName = spec.GetProperty("specialtyName").GetString() ?? "",
-                                    Confidence = spec.TryGetProperty("confidence", out var conf) ? conf.GetDouble() : 0.8,
-                                    Urgency = spec.TryGetProperty("urgency", out var urg) ? urg.GetString() ?? "NORMAL" : "NORMAL",
-                                    Reasons = spec.TryGetProperty("reasons", out var reasons)
-                                        ? reasons.EnumerateArray().Select(r => r.GetString() ?? "").Where(r => !string.IsNullOrEmpty(r)).ToList()
-                                        : new List<string>()
-                                });
-                            }
-                            else if (spec.ValueKind == JsonValueKind.String)
-                            {
-                                // Fallback for old string format
-                                var specialtyName = spec.GetString();
-                                if (!string.IsNullOrEmpty(specialtyName))
-                                {
-                                    specialtyMatches.Add(new SpecialtyMatch
-                                    {
-                                        SpecialtyName = specialtyName,
-                                        Confidence = 0.8,
-                                        Urgency = "NORMAL",
-                                        Reasons = new List<string> { "Phù hợp với chẩn đoán" }
-                                    });
-                                }
-                            }
-                        }
-                    }
-
-                    analysis.AbnormalIndicators.Add(new AbnormalLabIndicator
-                    {
-                        Name = item.GetProperty("name").GetString() ?? "",
-                        Value = item.GetProperty("value").GetString() ?? "",
-                        Unit = item.GetProperty("unit").GetString() ?? "",
-                        ReferenceRange = item.TryGetProperty("referenceRange", out var refRange) ? refRange.GetString() ?? "" : "",
-                        Explanation = item.GetProperty("explanation").GetString() ?? "",
-                        Advice = item.GetProperty("advice").GetString() ?? "",
-                        PossibleDiagnosis = item.TryGetProperty("possibleDiagnosis", out var diagProp) ? diagProp.GetString() ?? "" : "",
-                        RecommendedSpecialties = specialtyMatches
-                    });
-                }
-            }
-
-            if (root.TryGetProperty("specialties", out var specialtiesArray))
-            {
-                foreach (var item in specialtiesArray.EnumerateArray())
-                {
-                    var specialty = item.GetString();
-                    if (!string.IsNullOrEmpty(specialty))
-                    {
-                        analysis.Specialties.Add(specialty);
-                    }
-                }
-            }
-
-            // Parse disclaimer from AI response
-            if (root.TryGetProperty("disclaimer", out var disclaimerProp))
-            {
-                analysis.Disclaimer = disclaimerProp.GetString();
-            }
+            PopulateNormalIndicators(root, analysis);
+            PopulateAbnormalIndicators(root, analysis);
+            PopulateSpecialties(root, analysis);
+            PopulateDisclaimer(root, analysis);
 
             return analysis;
         }
@@ -577,6 +479,151 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             _logger.LogError(ex, "Error parsing Gemini response");
             throw new InvalidOperationException("Failed to parse AI response", ex);
+        }
+    }
+
+    private static JsonElement ExtractRootJsonElement(string geminiResponse)
+    {
+        var jsonStart = geminiResponse.IndexOf('{');
+        var jsonEnd = geminiResponse.LastIndexOf('}');
+
+        if (jsonStart == -1 || jsonEnd == -1)
+        {
+            throw new InvalidOperationException("No JSON found in Gemini response");
+        }
+
+        var jsonText = geminiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+        var jsonDoc = JsonDocument.Parse(jsonText);
+        return jsonDoc.RootElement;
+    }
+
+    private static GeminiLabAnalysis CreateEmptyGeminiAnalysis()
+    {
+        return new GeminiLabAnalysis
+        {
+            NormalIndicators = new List<LabIndicator>(),
+            AbnormalIndicators = new List<AbnormalLabIndicator>(),
+            Specialties = new List<string>()
+        };
+    }
+
+    private static void PopulateNormalIndicators(JsonElement root, GeminiLabAnalysis analysis)
+    {
+        if (!root.TryGetProperty("normalIndicators", out var normalArray))
+        {
+            return;
+        }
+
+        foreach (var item in normalArray.EnumerateArray())
+        {
+            analysis.NormalIndicators.Add(new LabIndicator
+            {
+                Name = item.GetProperty("name").GetString() ?? "",
+                Value = item.GetProperty("value").GetString() ?? "",
+                Unit = item.GetProperty("unit").GetString() ?? "",
+                ReferenceRange = item.TryGetProperty("referenceRange", out var refRange)
+                    ? refRange.GetString() ?? ""
+                    : ""
+            });
+        }
+    }
+
+    private static void PopulateAbnormalIndicators(JsonElement root, GeminiLabAnalysis analysis)
+    {
+        if (!root.TryGetProperty("abnormalIndicators", out var abnormalArray))
+        {
+            return;
+        }
+
+        foreach (var item in abnormalArray.EnumerateArray())
+        {
+            var specialtyMatches = ParseSpecialtyMatches(item);
+
+            analysis.AbnormalIndicators.Add(new AbnormalLabIndicator
+            {
+                Name = item.GetProperty("name").GetString() ?? "",
+                Value = item.GetProperty("value").GetString() ?? "",
+                Unit = item.GetProperty("unit").GetString() ?? "",
+                ReferenceRange = item.TryGetProperty("referenceRange", out var refRange)
+                    ? refRange.GetString() ?? ""
+                    : "",
+                Explanation = item.GetProperty("explanation").GetString() ?? "",
+                Advice = item.GetProperty("advice").GetString() ?? "",
+                PossibleDiagnosis = item.TryGetProperty("possibleDiagnosis", out var diagProp)
+                    ? diagProp.GetString() ?? ""
+                    : "",
+                RecommendedSpecialties = specialtyMatches
+            });
+        }
+    }
+
+    private static List<SpecialtyMatch> ParseSpecialtyMatches(JsonElement abnormalItem)
+    {
+        var specialtyMatches = new List<SpecialtyMatch>();
+
+        if (!abnormalItem.TryGetProperty("recommendedSpecialties", out var specArray))
+        {
+            return specialtyMatches;
+        }
+
+        foreach (var spec in specArray.EnumerateArray())
+        {
+            if (spec.ValueKind == JsonValueKind.Object)
+            {
+                specialtyMatches.Add(new SpecialtyMatch
+                {
+                    SpecialtyName = spec.GetProperty("specialtyName").GetString() ?? "",
+                    Confidence = spec.TryGetProperty("confidence", out var conf) ? conf.GetDouble() : 0.8,
+                    Urgency = spec.TryGetProperty("urgency", out var urg) ? urg.GetString() ?? "NORMAL" : "NORMAL",
+                    Reasons = spec.TryGetProperty("reasons", out var reasons)
+                        ? reasons.EnumerateArray()
+                            .Select(r => r.GetString() ?? "")
+                            .Where(r => !string.IsNullOrEmpty(r))
+                            .ToList()
+                        : new List<string>()
+                });
+            }
+            else if (spec.ValueKind == JsonValueKind.String)
+            {
+                var specialtyName = spec.GetString();
+                if (!string.IsNullOrEmpty(specialtyName))
+                {
+                    specialtyMatches.Add(new SpecialtyMatch
+                    {
+                        SpecialtyName = specialtyName,
+                        Confidence = 0.8,
+                        Urgency = "NORMAL",
+                        Reasons = new List<string> { "Phù hợp với chẩn đoán" }
+                    });
+                }
+            }
+        }
+
+        return specialtyMatches;
+    }
+
+    private static void PopulateSpecialties(JsonElement root, GeminiLabAnalysis analysis)
+    {
+        if (!root.TryGetProperty("specialties", out var specialtiesArray))
+        {
+            return;
+        }
+
+        foreach (var item in specialtiesArray.EnumerateArray())
+        {
+            var specialty = item.GetString();
+            if (!string.IsNullOrEmpty(specialty))
+            {
+                analysis.Specialties.Add(specialty);
+            }
+        }
+    }
+
+    private static void PopulateDisclaimer(JsonElement root, GeminiLabAnalysis analysis)
+    {
+        if (root.TryGetProperty("disclaimer", out var disclaimerProp))
+        {
+            analysis.Disclaimer = disclaimerProp.GetString();
         }
     }
 

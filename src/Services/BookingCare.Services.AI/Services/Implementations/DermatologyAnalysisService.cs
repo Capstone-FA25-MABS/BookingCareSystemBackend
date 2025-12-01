@@ -155,157 +155,215 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
         {
             _logger.LogInformation("Parsing AILabTools response: {Response}", responseJson);
 
-            var jsonDoc = JsonDocument.Parse(responseJson);
+            using var jsonDoc = JsonDocument.Parse(responseJson);
             var root = jsonDoc.RootElement;
 
-            // Parse diagnosis information
-            var diagnosis = new SkinConditionDiagnosis();
-            var advice = new List<string>();
-
-            // AILabTools actual response structure: { "error_code": 0, "data": { "results_english": { "disease_name": confidence, ... } } }
-            // Check error_code (not "code")
-            if (root.TryGetProperty("error_code", out var errorCode) && errorCode.GetInt32() == 0)
-            {
-                if (root.TryGetProperty("data", out var data) &&
-                    data.TryGetProperty("results_english", out var resultsEnglish))
-                {
-                    // results_english is an object with disease names as keys and confidence as values
-                    // Find the disease with highest confidence
-                    string? topDiseaseName = null;
-                    double topConfidence = 0;
-
-                    foreach (var property in resultsEnglish.EnumerateObject())
-                    {
-                        var confidence = property.Value.GetDouble();
-                        if (confidence > topConfidence)
-                        {
-                            topConfidence = confidence;
-                            topDiseaseName = property.Name;
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(topDiseaseName))
-                    {
-                        // Map English disease name to Vietnamese
-                        diagnosis.ConditionName = await MapDiseaseNameToVietnamese(topDiseaseName);
-                        diagnosis.Confidence = topConfidence;
-
-                        // Determine severity based on disease name (for advice generation)
-                        var diseaseNameLower = topDiseaseName.ToLower();
-
-                        // High-risk conditions (melanoma, carcinoma, etc.)
-                        if (diseaseNameLower.Contains("melanoma") ||
-                            diseaseNameLower.Contains("carcinoma") ||
-                            diseaseNameLower.Contains("cancer") ||
-                            diseaseNameLower.Contains("malignant"))
-                        {
-                            advice.Add("Cần đến gặp bác sĩ da liễu NGAY để được thăm khám và sinh thiết");
-                            diagnosis.Severity = "Nặng";
-                        }
-                        // Medium-risk conditions
-                        else if (diseaseNameLower.Contains("keratosis") ||
-                                 diseaseNameLower.Contains("nevus") ||
-                                 diseaseNameLower.Contains("mole") ||
-                                 diseaseNameLower.Contains("wart"))
-                        {
-                            advice.Add("Nên đến gặp bác sĩ da liễu trong vòng 1-2 tuần để được đánh giá");
-                            diagnosis.Severity = "Trung bình";
-                        }
-                        // Low-risk conditions (fungal infections, dermatitis, etc.)
-                        else
-                        {
-                            diagnosis.Severity = "Nhẹ";
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("No disease predictions found in AILabTools response");
-                        diagnosis.ConditionName = "Không xác định";
-                        diagnosis.Confidence = 0;
-                        diagnosis.Severity = "Unknown";
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("No results_english found in AILabTools response data");
-                    diagnosis.ConditionName = "Không xác định";
-                    diagnosis.Confidence = 0;
-                    diagnosis.Severity = "Unknown";
-                }
-            }
-            else
-            {
-                // Extract error message from response
-                var errorMessage = "Unknown error";
-                if (root.TryGetProperty("error_detail", out var errorDetail))
-                {
-                    if (errorDetail.TryGetProperty("message", out var msg))
-                    {
-                        errorMessage = msg.GetString() ?? errorMessage;
-                    }
-                }
-
-                var actualErrorCode = root.TryGetProperty("error_code", out var errorCodeProp)
-                    ? errorCodeProp.GetInt32()
-                    : -1;
-
-                _logger.LogError("AILabTools API returned error. Code: {Code}, Message: {Message}, Full Response: {Response}",
-                    actualErrorCode, errorMessage, responseJson);
-
-                throw new InvalidOperationException($"AILabTools API returned error (code: {actualErrorCode}): {errorMessage}");
-            }
-
-            // Generate general advice using Gemini AI (specific to the disease)
-            try
-            {
-                if (!string.IsNullOrEmpty(diagnosis.ConditionName))
-                {
-                    _logger.LogInformation("Generating general advice for: {DiseaseName}", diagnosis.ConditionName);
-                    var adviceText = await GenerateGeneralAdviceAsync(
-                        diagnosis.ConditionName,
-                        diagnosis.Severity ?? "Nhẹ"
-                    );
-
-                    // Parse advice text into list (split by newlines or bullet points)
-                    var generatedAdvice = adviceText
-                        .Split('\n')
-                        .Select(line => line.Trim().TrimStart('-', '*', '•').Trim())
-                        .Where(line => !string.IsNullOrWhiteSpace(line))
-                        .Distinct() // Remove duplicates
-                        .Take(5) // Limit to 5 advice items
-                        .ToList();
-
-                    if (generatedAdvice.Count > 0)
-                    {
-                        advice.AddRange(generatedAdvice);
-                        _logger.LogInformation("Added {Count} advice items for {DiseaseName}", generatedAdvice.Count, diagnosis.ConditionName);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("No advice generated from Gemini, using fallback");
-                        AddFallbackAdvice(advice, diagnosis.ConditionName);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to generate general advice for {DiseaseName}, using fallback", diagnosis.ConditionName);
-                AddFallbackAdvice(advice, diagnosis.ConditionName);
-            }
-
-            // Detailed conclusion removed - no longer needed
+            var (diagnosis, advice) = await ExtractDiagnosisAsync(root, responseJson);
+            await EnrichAdviceWithGeminiAsync(diagnosis, advice);
 
             return new AILabToolsAnalysisResult
             {
                 Diagnosis = diagnosis,
                 GeneralAdvice = advice,
-                DetailedConclusion = null // No longer generating detailed conclusion
+                DetailedConclusion = null
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error parsing AILabTools response");
             throw new InvalidOperationException("Failed to parse AILabTools API response", ex);
+        }
+    }
+
+    private async Task<(SkinConditionDiagnosis Diagnosis, List<string> Advice)> ExtractDiagnosisAsync(
+        JsonElement root,
+        string responseJson)
+    {
+        var diagnosis = new SkinConditionDiagnosis();
+        var advice = new List<string>();
+
+        if (!IsSuccessResponse(root))
+        {
+            ThrowAiLabError(root, responseJson);
+        }
+
+        if (TryGetResultsEnglish(root, out var resultsEnglish))
+        {
+            await PopulateDiagnosisFromResultsAsync(resultsEnglish, diagnosis, advice);
+        }
+        else
+        {
+            SetUnknownDiagnosis(diagnosis, "No results_english found in AILabTools response data");
+        }
+
+        return (diagnosis, advice);
+    }
+
+    private static bool IsSuccessResponse(JsonElement root)
+    {
+        return root.TryGetProperty("error_code", out var errorCode) && errorCode.GetInt32() == 0;
+    }
+
+    private static bool TryGetResultsEnglish(JsonElement root, out JsonElement resultsEnglish)
+    {
+        resultsEnglish = default;
+        if (!root.TryGetProperty("data", out var data))
+        {
+            return false;
+        }
+
+        return data.TryGetProperty("results_english", out resultsEnglish);
+    }
+
+    private async Task PopulateDiagnosisFromResultsAsync(
+        JsonElement resultsEnglish,
+        SkinConditionDiagnosis diagnosis,
+        List<string> advice)
+    {
+        var (topDiseaseName, topConfidence) = FindTopDisease(resultsEnglish);
+
+        if (string.IsNullOrEmpty(topDiseaseName))
+        {
+            SetUnknownDiagnosis(diagnosis, "No disease predictions found in AILabTools response");
+            return;
+        }
+
+        diagnosis.ConditionName = await MapDiseaseNameToVietnamese(topDiseaseName);
+        diagnosis.Confidence = topConfidence;
+
+        ApplySeverityRules(topDiseaseName.ToLowerInvariant(), diagnosis, advice);
+    }
+
+    private static (string? Name, double Confidence) FindTopDisease(JsonElement resultsEnglish)
+    {
+        string? topDiseaseName = null;
+        double topConfidence = 0;
+
+        foreach (var property in resultsEnglish.EnumerateObject())
+        {
+            var confidence = property.Value.GetDouble();
+            if (confidence > topConfidence)
+            {
+                topConfidence = confidence;
+                topDiseaseName = property.Name;
+            }
+        }
+
+        return (topDiseaseName, topConfidence);
+    }
+
+    private void ApplySeverityRules(
+        string diseaseNameLower,
+        SkinConditionDiagnosis diagnosis,
+        List<string> advice)
+    {
+        if (IsHighRiskDisease(diseaseNameLower))
+        {
+            advice.Add("Cần đến gặp bác sĩ da liễu NGAY để được thăm khám và sinh thiết");
+            diagnosis.Severity = "Nặng";
+            return;
+        }
+
+        if (IsMediumRiskDisease(diseaseNameLower))
+        {
+            advice.Add("Nên đến gặp bác sĩ da liễu trong vòng 1-2 tuần để được đánh giá");
+            diagnosis.Severity = "Trung bình";
+            return;
+        }
+
+        diagnosis.Severity = "Nhẹ";
+    }
+
+    private static bool IsHighRiskDisease(string diseaseNameLower)
+    {
+        return diseaseNameLower.Contains("melanoma") ||
+               diseaseNameLower.Contains("carcinoma") ||
+               diseaseNameLower.Contains("cancer") ||
+               diseaseNameLower.Contains("malignant");
+    }
+
+    private static bool IsMediumRiskDisease(string diseaseNameLower)
+    {
+        return diseaseNameLower.Contains("keratosis") ||
+               diseaseNameLower.Contains("nevus") ||
+               diseaseNameLower.Contains("mole") ||
+               diseaseNameLower.Contains("wart");
+    }
+
+    private void SetUnknownDiagnosis(SkinConditionDiagnosis diagnosis, string logMessage)
+    {
+        _logger.LogWarning(logMessage);
+        diagnosis.ConditionName = "Không xác định";
+        diagnosis.Confidence = 0;
+        diagnosis.Severity = "Unknown";
+    }
+
+    private void ThrowAiLabError(JsonElement root, string responseJson)
+    {
+        var errorMessage = "Unknown error";
+        if (root.TryGetProperty("error_detail", out var errorDetail) &&
+            errorDetail.TryGetProperty("message", out var msg))
+        {
+            errorMessage = msg.GetString() ?? errorMessage;
+        }
+
+        var actualErrorCode = root.TryGetProperty("error_code", out var errorCodeProp)
+            ? errorCodeProp.GetInt32()
+            : -1;
+
+        _logger.LogError(
+            "AILabTools API returned error. Code: {Code}, Message: {Message}, Full Response: {Response}",
+            actualErrorCode,
+            errorMessage,
+            responseJson);
+
+        throw new InvalidOperationException(
+            $"AILabTools API returned error (code: {actualErrorCode}): {errorMessage}");
+    }
+
+    private async Task EnrichAdviceWithGeminiAsync(SkinConditionDiagnosis diagnosis, List<string> advice)
+    {
+        if (string.IsNullOrEmpty(diagnosis.ConditionName))
+        {
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("Generating general advice for: {DiseaseName}", diagnosis.ConditionName);
+            var adviceText = await GenerateGeneralAdviceAsync(
+                diagnosis.ConditionName,
+                diagnosis.Severity ?? "Nhẹ");
+
+            var generatedAdvice = adviceText
+                .Split('\n')
+                .Select(line => line.Trim().TrimStart('-', '*', '•').Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Distinct()
+                .Take(5)
+                .ToList();
+
+            if (generatedAdvice.Count > 0)
+            {
+                advice.AddRange(generatedAdvice);
+                _logger.LogInformation(
+                    "Added {Count} advice items for {DiseaseName}",
+                    generatedAdvice.Count,
+                    diagnosis.ConditionName);
+            }
+            else
+            {
+                _logger.LogWarning("No advice generated from Gemini, using fallback");
+                AddFallbackAdvice(advice, diagnosis.ConditionName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to generate general advice for {DiseaseName}, using fallback",
+                diagnosis.ConditionName);
+            AddFallbackAdvice(advice, diagnosis.ConditionName);
         }
     }
 
