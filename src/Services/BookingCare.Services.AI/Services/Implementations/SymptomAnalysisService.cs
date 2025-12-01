@@ -116,21 +116,13 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             _logger.LogDebug("Gemini response: {Response}", geminiResponse);
 
             // Step 6: Parse response
-            SymptomAnalysisResponse response;
-            if (isConclusionMode)
-            {
-                response = await ParseConclusionModeResponse(
+            SymptomAnalysisResponse response = isConclusionMode
+                ? await ParseConclusionModeResponse(
                     geminiResponse,
                     sessionId,
                     currentRound,
-                    questionInRound,
-                    totalQuestions,
-                    request.Location);
-            }
-            else
-            {
-                response = ParseAskingModeResponse(geminiResponse, sessionId, questionInRound);
-            }
+                    request.Location)
+                : ParseAskingModeResponse(geminiResponse, sessionId, questionInRound);
 
             // Step 7: Prepare data for saving and return response (save in background)
             object? suggestions = null;
@@ -401,8 +393,6 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         string geminiResponse,
         Guid sessionId,
         int currentRound,
-        int questionInRound,
-        int totalQuestions,
         LocationContext? location)
     {
         try
@@ -533,8 +523,15 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error parsing conclusion mode response: {Response}", geminiResponse);
-            throw;
+            _logger.LogError(
+                ex,
+                "Error parsing conclusion mode response for session {SessionId}. Response preview: {ResponsePreview}",
+                sessionId,
+                geminiResponse.Length > 300 ? geminiResponse[..300] + "..." : geminiResponse);
+
+            throw new InvalidOperationException(
+                "Failed to parse conclusion mode response from Gemini.",
+                ex);
         }
     }
 
@@ -572,8 +569,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         Guid sessionId,
         Guid? userId,
         string userMessage,
-        SymptomAnalysisResponse aiResponse,
-        List<ConversationMessage> previousHistory)
+        SymptomAnalysisResponse aiResponse)
     {
         try
         {

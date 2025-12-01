@@ -142,6 +142,7 @@ public class DermatologyAnalysisController : BaseApiController
     /// </summary>
     [HttpGet("health")]
     [AllowAnonymous]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult HealthCheck()
     {

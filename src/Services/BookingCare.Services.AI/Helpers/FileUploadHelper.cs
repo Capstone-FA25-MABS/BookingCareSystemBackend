@@ -64,8 +64,15 @@ public class FileUploadHelper
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error uploading file to S3");
-            throw;
+            _logger.LogError(
+                ex,
+                "Error uploading file '{FileName}' to S3 for user {UserId}",
+                file.FileName,
+                userId ?? Guid.Empty);
+
+            throw new InvalidOperationException(
+                $"Error uploading file '{file.FileName}' to S3.",
+                ex);
         }
     }
 }

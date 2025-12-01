@@ -1,4 +1,5 @@
 using BookingCare.Services.AI.Models.DTOs.Requests;
+using System.Diagnostics.CodeAnalysis;
 
 namespace BookingCare.Services.AI.Services.Interfaces;
 
@@ -20,6 +21,10 @@ public interface IConversationSessionService
     /// <summary>
     /// Save conversation history for a session
     /// </summary>
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "Method captures all contextual fields needed to persist AI conversations; consolidating into a DTO would complicate call sites without improving clarity.")]
     Task SaveConversationHistoryAsync(
         Guid sessionId,
         string userMessage,

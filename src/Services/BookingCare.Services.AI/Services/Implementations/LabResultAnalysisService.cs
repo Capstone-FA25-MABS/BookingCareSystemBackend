@@ -159,8 +159,15 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error uploading file to S3");
-            throw;
+            _logger.LogError(
+                ex,
+                "Error uploading lab result file '{FileName}' to S3 for user {UserId}",
+                file.FileName,
+                userId ?? Guid.Empty);
+
+            throw new InvalidOperationException(
+                $"Error uploading lab result file '{file.FileName}' to S3.",
+                ex);
         }
     }
 
@@ -568,38 +575,51 @@ public class LabResultAnalysisService : ILabResultAnalysisService
 
         foreach (var spec in specArray.EnumerateArray())
         {
-            if (spec.ValueKind == JsonValueKind.Object)
+            switch (spec.ValueKind)
             {
-                specialtyMatches.Add(new SpecialtyMatch
-                {
-                    SpecialtyName = spec.GetProperty("specialtyName").GetString() ?? "",
-                    Confidence = spec.TryGetProperty("confidence", out var conf) ? conf.GetDouble() : 0.8,
-                    Urgency = spec.TryGetProperty("urgency", out var urg) ? urg.GetString() ?? "NORMAL" : "NORMAL",
-                    Reasons = spec.TryGetProperty("reasons", out var reasons)
-                        ? reasons.EnumerateArray()
-                            .Select(r => r.GetString() ?? "")
-                            .Where(r => !string.IsNullOrEmpty(r))
-                            .ToList()
-                        : new List<string>()
-                });
-            }
-            else if (spec.ValueKind == JsonValueKind.String)
-            {
-                var specialtyName = spec.GetString();
-                if (!string.IsNullOrEmpty(specialtyName))
-                {
-                    specialtyMatches.Add(new SpecialtyMatch
-                    {
-                        SpecialtyName = specialtyName,
-                        Confidence = 0.8,
-                        Urgency = "NORMAL",
-                        Reasons = new List<string> { "Phù hợp với chẩn đoán" }
-                    });
-                }
+                case JsonValueKind.Object:
+                    AddObjectSpecialtyMatch(spec, specialtyMatches);
+                    break;
+                case JsonValueKind.String:
+                    AddStringSpecialtyMatch(spec, specialtyMatches);
+                    break;
             }
         }
 
         return specialtyMatches;
+    }
+
+    private static void AddObjectSpecialtyMatch(JsonElement spec, List<SpecialtyMatch> specialtyMatches)
+    {
+        specialtyMatches.Add(new SpecialtyMatch
+        {
+            SpecialtyName = spec.GetProperty("specialtyName").GetString() ?? "",
+            Confidence = spec.TryGetProperty("confidence", out var conf) ? conf.GetDouble() : 0.8,
+            Urgency = spec.TryGetProperty("urgency", out var urg) ? urg.GetString() ?? "NORMAL" : "NORMAL",
+            Reasons = spec.TryGetProperty("reasons", out var reasons)
+                ? reasons.EnumerateArray()
+                    .Select(r => r.GetString() ?? "")
+                    .Where(r => !string.IsNullOrEmpty(r))
+                    .ToList()
+                : new List<string>()
+        });
+    }
+
+    private static void AddStringSpecialtyMatch(JsonElement spec, List<SpecialtyMatch> specialtyMatches)
+    {
+        var specialtyName = spec.GetString();
+        if (string.IsNullOrEmpty(specialtyName))
+        {
+            return;
+        }
+
+        specialtyMatches.Add(new SpecialtyMatch
+        {
+            SpecialtyName = specialtyName,
+            Confidence = 0.8,
+            Urgency = "NORMAL",
+            Reasons = new List<string> { "Phù hợp với chẩn đoán" }
+        });
     }
 
     private static void PopulateSpecialties(JsonElement root, GeminiLabAnalysis analysis)
@@ -671,9 +691,23 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             aiMessage.AppendLine();
             aiMessage.AppendLine($"Lưu ý: {response.Disclaimer}");
 
-            var suggestions = new { doctors = response.RecommendedDoctors, hospitals = response.RecommendedHospitals };
+            var suggestions = new
+            {
+                doctors = response.RecommendedDoctors,
+                hospitals = response.RecommendedHospitals,
+                imageUrl
+            };
 
-            await _sessionService.SaveConversationHistoryAsync(sessionId, userMessage, aiMessage.ToString(), location, suggestions, userId, disease: null, questionCount: 0, analysisComplete: true);
+            await _sessionService.SaveConversationHistoryAsync(
+                sessionId,
+                userMessage,
+                aiMessage.ToString(),
+                location,
+                suggestions,
+                userId,
+                disease: null,
+                questionCount: 0,
+                analysisComplete: true);
 
             _logger.LogInformation("Saved lab result analysis to session {SessionId}", sessionId);
         }

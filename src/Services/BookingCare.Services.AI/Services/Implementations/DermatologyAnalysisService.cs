@@ -6,6 +6,7 @@ using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
@@ -30,6 +31,10 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
     private static readonly TimeSpan TranslationCacheDuration = TimeSpan.FromDays(30);
     private static readonly TimeSpan AdviceCacheDuration = TimeSpan.FromDays(7);
 
+    [SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "Constructor injects required dependencies for dermatology analysis; grouping them would complicate DI configuration without improving readability.")]
     public DermatologyAnalysisService(
         ILogger<DermatologyAnalysisService> logger,
         HttpClient httpClient,
@@ -144,8 +149,15 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling AILabTools API");
-            throw;
+            _logger.LogError(
+                ex,
+                "Error calling AILabTools API for file '{FileName}' with content type {ContentType}",
+                file.FileName,
+                file.ContentType);
+
+            throw new InvalidOperationException(
+                $"Error calling AILabTools API for file '{file.FileName}'.",
+                ex);
         }
     }
 
@@ -409,7 +421,8 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             var suggestions = new
             {
                 doctors = response.RecommendedDoctors,
-                hospitals = response.RecommendedHospitals
+                hospitals = response.RecommendedHospitals,
+                imageUrl
             };
 
             var disease = response.Diagnosis != null ? new
@@ -473,8 +486,12 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
     private void AddFallbackAdvice(List<string> advice, string? diseaseName)
     {
-        // Generic fallback advice
-        advice.Add("Giữ vệ sinh da sạch sẽ");
+        var conditionText = string.IsNullOrWhiteSpace(diseaseName)
+            ? "tình trạng da"
+            : $"tình trạng **{diseaseName}**";
+
+        // Generic fallback advice, slightly tailored with disease name (if available)
+        advice.Add($"Giữ vệ sinh da sạch sẽ để hạn chế làm nặng thêm {conditionText}");
         advice.Add("Tránh gãi hoặc chạm vào vùng da bị tổn thương");
         advice.Add("Đến gặp bác sĩ da liễu để được thăm khám và điều trị đúng cách");
     }
@@ -629,8 +646,17 @@ Hãy đưa ra 3-5 lời khuyên cho {diseaseName}:";
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error calling Gemini API");
-            throw;
+            var promptPreview = prompt.Length > 200 ? prompt[..200] + "..." : prompt;
+
+            _logger.LogError(
+                ex,
+                "Error calling Gemini API for dermatology service. Temperature={Temperature}, PromptPreview={PromptPreview}",
+                temperature,
+                promptPreview);
+
+            throw new InvalidOperationException(
+                "Failed to generate dermatology-related text using Gemini API.",
+                ex);
         }
     }
 
