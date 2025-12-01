@@ -62,9 +62,8 @@ public class HospitalPayoutRepository : IHospitalPayoutRepository
                 && int.TryParse(parts[1], out var month)
             )
             {
-                var periodStart = new DateTime(year, month, 1);
+                var periodStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
                 var periodEnd = periodStart.AddMonths(1).AddDays(-1);
-
                 queryable = queryable.Where(p =>
                     p.PeriodStart >= periodStart && p.PeriodEnd <= periodEnd
                 );

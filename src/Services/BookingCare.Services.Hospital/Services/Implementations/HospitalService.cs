@@ -81,23 +81,11 @@ public class HospitalService : IHospitalService
     private void LogHospitalDetails(HospitalEntity hospital, Guid id)
     {
         _logger.LogInformation(
-            "Hospital found: {HospitalName}, mapping to response",
-            hospital.Name
-        );
-        _logger.LogInformation(
-            "Hospital images count: {ImageCount}",
-            hospital.HospitalImages?.Count ?? 0
-        );
-        _logger.LogInformation(
-            "Hospital specialties count: {SpecialtyCount}",
-            hospital.HospitalSpecialties?.Count ?? 0
-        );
-        _logger.LogInformation(
-            "Hospital service types count: {ServiceTypeCount}",
-            hospital.HospitalServiceTypes?.Count ?? 0
-        );
-        _logger.LogInformation(
-            "Hospital service medicals count: {ServiceMedicalCount}",
+            "Hospital found: {HospitalName}, Images: {ImageCount}, Specialties: {SpecialtyCount}, ServiceTypes: {ServiceTypeCount}, ServiceMedicals: {ServiceMedicalCount}",
+            hospital.Name,
+            hospital.HospitalImages?.Count ?? 0,
+            hospital.HospitalSpecialties?.Count ?? 0,
+            hospital.HospitalServiceTypes?.Count ?? 0,
             hospital.HospitalServiceMedicals?.Count ?? 0
         );
 
@@ -133,18 +121,16 @@ public class HospitalService : IHospitalService
     )
     {
         _logger.LogInformation(
-            "Response service types count: {ResponseServiceTypeCount}",
-            response.ServiceTypes?.Count ?? 0
-        );
-        _logger.LogInformation(
-            "Response service medicals count: {ResponseServiceMedicalCount}",
-            response.ServiceMedicals?.Count ?? 0
+            "Response counts - ServiceTypes: {ResponseServiceTypeCount}, ServiceMedicals: {ResponseServiceMedicalCount}, Images: {ResponseImageCount}",
+            response.ServiceTypes?.Count ?? 0,
+            response.ServiceMedicals?.Count ?? 0,
+            response.Images?.Count ?? 0
         );
 
         if (hospital.HospitalServiceMedicals?.Any() == true)
         {
             _logger.LogInformation(
-                "Hospital service medical IDs: {ServiceMedicalIds}",
+                "Mapping completed - Hospital service medical IDs: {ServiceMedicalIds}",
                 string.Join(
                     ", ",
                     hospital.HospitalServiceMedicals.Select(sm => sm.ServiceMedicalId)
@@ -153,14 +139,11 @@ public class HospitalService : IHospitalService
         }
         else
         {
-            _logger.LogWarning("No service medicals found for hospital {HospitalId}", id);
+            _logger.LogWarning(
+                "Mapping completed - No service medicals found for hospital {HospitalId}",
+                id
+            );
         }
-
-        _logger.LogInformation("Mapping completed successfully");
-        _logger.LogInformation(
-            "Response images count: {ResponseImageCount}",
-            response.Images?.Count ?? 0
-        );
     }
 
     private async Task EnrichSpecialtiesAsync(
@@ -1271,9 +1254,9 @@ public class HospitalService : IHospitalService
             {
                 RecordFailure();
                 _logger.LogError(
-                    "Bulk gRPC call failed after {MaxRetries} attempts. Error: {Error}",
-                    maxRetries,
-                    ex.Message
+                    ex,
+                    "Bulk gRPC call failed after {MaxRetries} attempts",
+                    maxRetries
                 );
                 return null;
             }
@@ -1413,7 +1396,7 @@ public class HospitalService : IHospitalService
         AssignSpecialtiesToHospitals(hospitalBatch, hospitalSpecialtyMap, specialtyCache);
     }
 
-    private (
+    private static (
         HashSet<Guid> allSpecialtyIds,
         Dictionary<Guid, List<Guid>> hospitalSpecialtyMap
     ) CollectSpecialtyInformation(

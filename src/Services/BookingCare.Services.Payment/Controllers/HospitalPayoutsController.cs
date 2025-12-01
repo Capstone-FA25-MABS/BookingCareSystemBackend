@@ -230,20 +230,28 @@ public class HospitalPayoutsController : BaseApiController
 
             if (
                 !string.IsNullOrEmpty(periodStartDate)
-                && DateTime.TryParse(periodStartDate, out var parsedStart)
+                && DateTime.TryParse(
+                    periodStartDate,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out var parsedStart
+                )
             )
             {
                 startDate = parsedStart.Date;
             }
-
             if (
                 !string.IsNullOrEmpty(periodEndDate)
-                && DateTime.TryParse(periodEndDate, out var parsedEnd)
+                && DateTime.TryParse(
+                    periodEndDate,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None,
+                    out var parsedEnd
+                )
             )
             {
                 endDate = parsedEnd.Date.AddDays(1).AddTicks(-1); // End of day
             }
-
             var result = await _payoutService.GetHospitalsWithPendingPayoutsAsync(
                 startDate,
                 endDate
