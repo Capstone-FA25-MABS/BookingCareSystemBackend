@@ -11,7 +11,7 @@
     <Protobuf Include="..\BookingCare.Services.Auth\Protos\auth.proto" GrpcServices="Client" />
     <Protobuf Include="..\BookingCare.Services.Doctor\Protos\doctor.proto" GrpcServices="Client" />
     <Protobuf Include="..\BookingCare.Services.ServiceMedical\Protos\serviceMedical.proto" GrpcServices="Client" />
-	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Notification/Protos/otp.proto" GrpcServices="Client" Link="Protos/otp.proto" ProtoRoot="$(SolutionDir)" />
+	<Protobuf Include="../BookingCare.Services.Notification/Protos/otp.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>
