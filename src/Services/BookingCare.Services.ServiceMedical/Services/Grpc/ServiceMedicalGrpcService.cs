@@ -1,6 +1,4 @@
 using BookingCare.Services.ServiceMedical.Constants;
-using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
-using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Protos;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using Grpc.Core;
