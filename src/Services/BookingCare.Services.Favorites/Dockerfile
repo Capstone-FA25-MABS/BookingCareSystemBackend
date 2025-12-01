@@ -4,8 +4,8 @@ USER app
 WORKDIR /app
 
 # Expose the ports that the application uses
-EXPOSE 6000
-EXPOSE 6100
+EXPOSE 6009
+EXPOSE 6109
 
 # Use the official .NET 8 SDK for building
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
@@ -13,26 +13,26 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 # Copy project files and restore dependencies
-COPY ["src/Services/BookingCare.Services.Analytics/BookingCare.Services.Analytics.csproj", "src/Services/BookingCare.Services.Analytics/"]
+COPY ["src/Services/BookingCare.Services.Favorites/BookingCare.Services.Favorites.csproj", "src/Services/BookingCare.Services.Favorites/"]
 COPY ["src/Shared/BookingCare.Shared.Common/BookingCare.Shared.Common.csproj", "src/Shared/BookingCare.Shared.Common/"]
 COPY ["src/Shared/BookingCare.Shared.EventBus/BookingCare.Shared.EventBus.csproj", "src/Shared/BookingCare.Shared.EventBus/"]
 
 # Restore NuGet packages
-RUN dotnet restore "src/Services/BookingCare.Services.Analytics/BookingCare.Services.Analytics.csproj"
+RUN dotnet restore "src/Services/BookingCare.Services.Favorites/BookingCare.Services.Favorites.csproj"
 
 # Copy the entire source code
 COPY . .
 
 # Set the working directory to the project directory
-WORKDIR "/src/src/Services/BookingCare.Services.Analytics"
+WORKDIR "/src/src/Services/BookingCare.Services.Favorites"
 
 # Build the application
-RUN dotnet build "BookingCare.Services.Analytics.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "BookingCare.Services.Favorites.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Publish the application
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "BookingCare.Services.Analytics.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "BookingCare.Services.Favorites.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # Final stage: create the runtime image
 FROM base AS final
@@ -50,11 +50,11 @@ COPY --from=publish /app/publish .
 
 # Set environment variables
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_URLS=http://+:6000;http://+:6100
+ENV ASPNETCORE_URLS=http://+:6009;http://+:6109
 
 # Health check configuration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:6000/health || exit 1
+    CMD curl -f http://localhost:6009/health || exit 1
 
 # Set the entry point
-ENTRYPOINT ["dotnet", "BookingCare.Services.Analytics.dll"]
+ENTRYPOINT ["dotnet", "BookingCare.Services.Favorites.dll"]

@@ -268,7 +268,8 @@ public class DuplicateReviewErrorResponse
     /// <summary>
     /// Suggested action for the client
     /// </summary>
-    public string SuggestedAction { get; set; } = "Please update the existing review instead of creating a new one.";
+    public string SuggestedAction { get; set; } =
+        "Please update the existing review instead of creating a new one.";
 
     /// <summary>
     /// Update endpoint URL
@@ -298,6 +299,18 @@ public class BatchServicesStatisticsResponse
     /// All requested service IDs will be present - those without reviews will have averageRating=0 and totalReviews=0
     /// </summary>
     public Dictionary<Guid, ReviewStatisticsResponse> ServiceStatistics { get; set; } = new();
+}
+
+/// <summary>
+/// Response DTO for batch hospitals statistics (simplified for microservice communication)
+/// </summary>
+public class BatchHospitalsStatisticsResponse
+{
+    /// <summary>
+    /// Dictionary mapping hospital ID to their statistics
+    /// All requested hospital IDs will be present - those without reviews will have averageRating=0 and totalReviews=0
+    /// </summary>
+    public Dictionary<Guid, ReviewStatisticsResponse> HospitalStatistics { get; set; } = new();
 }
 
 /// <summary>
