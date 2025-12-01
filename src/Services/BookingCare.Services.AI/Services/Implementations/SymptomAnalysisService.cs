@@ -8,7 +8,9 @@ using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
 using Microsoft.Extensions.Options;
 
+
 namespace BookingCare.Services.AI.Services.Implementations;
+
 
 /// <summary>
 /// Service implementation for symptom analysis with 3-question workflow
@@ -21,7 +23,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private readonly ServiceGeminiConfiguration _serviceConfig;
     private readonly RecommendationHelper _recommendationHelper;
 
+
     private const int MAX_QUESTIONS = 6; // Support extended consultation: 3 initial + 3 additional questions
+
 
     public SymptomAnalysisService(
         IConversationSessionService sessionService,
@@ -37,6 +41,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         _recommendationHelper = recommendationHelper;
     }
 
+
     public async Task<SymptomAnalysisResponse> AnalyzeSymptomsAsync(SymptomAnalysisRequest request)
     {
         try
@@ -44,18 +49,22 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             _logger.LogInformation("Starting symptom analysis for user {UserId}, session {SessionId}",
                 request.UserId, request.SessionId);
 
+
             // Step 1: Get or create session in database
             var sessionId = await _sessionService.GetOrCreateSessionAsync(
                 request.SessionId,
                 request.UserId ?? Guid.Empty,
                 request.Location);
 
+
             var conversationHistory = request.ConversationHistory ?? new List<ConversationMessage>();
+
 
             // Step 2: Count how many questions AI has asked so far
             int totalQuestions = CountAIQuestions(conversationHistory);
             _logger.LogInformation("Total questions asked: {TotalQuestions}", totalQuestions);
             _logger.LogInformation("Conversation history count: {Count}", conversationHistory.Count);
+
 
             // Step 3: Determine if we're in conclusion mode
             // Conclusion mode triggers when we've completed 3 questions in a round
@@ -63,11 +72,13 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // totalQuestions = 6 (after Q4, Q5, Q6) → second conclusion (Round 2)
             bool isConclusionMode = (totalQuestions % 3) == 0 && totalQuestions > 0 && totalQuestions <= 6;
 
+
             // Step 4: Calculate current round and question number
             // For conclusion mode: round is based on COMPLETED rounds
             // For asking mode: round is based on CURRENT round in progress
             int currentRound;
             int questionInRound;
+
 
             if (isConclusionMode)
             {
@@ -84,8 +95,10 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 int numConclusions = totalQuestions / 4; // 0-3→0, 4-7→1, 8+→2
                 int actualQuestions = totalQuestions - numConclusions;
 
+
                 currentRound = (actualQuestions / 3) + 1; // 0-2→1, 3-5→2
                 questionInRound = (actualQuestions % 3) + 1; // 0→1, 1→2, 2→3
+
 
                 // Examples:
                 // totalQuestions=0: numConclusions=0, actualQuestions=0, round=1, question=1 ✓
@@ -96,9 +109,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 // totalQuestions=6: numConclusions=1, actualQuestions=5, round=2, question=3 ✓
             }
 
+
             _logger.LogInformation(
                 "🔍 DEBUG - Round: {Round}, QuestionInRound: {QuestionInRound}, TotalQuestions: {TotalQuestions}, IsConclusionMode: {IsConclusionMode}",
                 currentRound, questionInRound, totalQuestions, isConclusionMode);
+
 
             // Step 4: Build prompt for Gemini (pre-fetch specialty list for conclusion mode)
             Task<string>? specialtyListTask = null;
@@ -107,13 +122,16 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 specialtyListTask = _recommendationHelper.GetSpecialtyListTextAsync();
             }
 
+
             string prompt = isConclusionMode
                 ? await BuildConclusionModePromptAsync(request.Message, conversationHistory, specialtyListTask!)
                 : BuildAskingModePrompt(request.Message, conversationHistory);
 
+
             // Step 5: Call Gemini API
             string geminiResponse = await CallGeminiApiAsync(prompt);
             _logger.LogDebug("Gemini response: {Response}", geminiResponse);
+
 
             // Step 6: Parse response
             SymptomAnalysisResponse response = isConclusionMode
@@ -124,9 +142,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     request.Location)
                 : ParseAskingModeResponse(geminiResponse, sessionId, questionInRound);
 
+
             // Step 7: Prepare data for saving and return response (save in background)
             object? suggestions = null;
             object? disease = null;
+
 
             if (response.AnalysisComplete && response.Disease != null)
             {
@@ -137,6 +157,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     Reasons = response.Disease.Reasons
                 };
 
+
                 if (response.RecommendedDoctors?.Count > 0 || response.RecommendedHospitals?.Count > 0)
                 {
                     suggestions = new
@@ -146,6 +167,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     };
                 }
             }
+
 
             // Save conversation to database
             // Changed from fire-and-forget to awaited to ensure data is saved properly
@@ -169,6 +191,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 // Don't throw - saving conversation failure shouldn't break the flow
             }
 
+
             _logger.LogInformation("Symptom analysis completed successfully for session {SessionId}", sessionId);
             return response;
         }
@@ -179,10 +202,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
     }
 
+
     public async Task<List<ConversationMessage>> GetConversationHistoryAsync(Guid sessionId)
     {
         return await _sessionService.LoadConversationHistoryAsync(sessionId);
     }
+
 
     public async Task<List<SessionSummary>> GetUserSessionsAsync(Guid userId)
     {
@@ -199,12 +224,15 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }).ToList();
     }
 
+
     public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId)
     {
         return await _sessionService.DeleteSessionAsync(sessionId, userId);
     }
 
+
     #region Private Helper Methods
+
 
     /// <summary>
     /// Count how many questions AI has asked (count all AI messages in history)
@@ -216,6 +244,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             m.Role.Equals("ai", StringComparison.OrdinalIgnoreCase));
     }
 
+
     /// <summary>
     /// Build prompt for asking mode (< 3 questions)
     /// </summary>
@@ -223,14 +252,17 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         var promptBuilder = new StringBuilder();
 
+
         promptBuilder.AppendLine("Bạn là bác sĩ AI chuyên nghiệp. Nhiệm vụ của bạn là hỏi 1 câu hỏi để làm rõ triệu chứng của bệnh nhân.");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**LỊCH SỬ HỘI THOẠI:**");
+
 
         foreach (var msg in history)
         {
             promptBuilder.AppendLine($"{msg.Role.ToUpper()}: {msg.Content}");
         }
+
 
         promptBuilder.AppendLine($"USER: {userMessage}");
         promptBuilder.AppendLine();
@@ -246,8 +278,10 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         promptBuilder.AppendLine("  \"priority\": \"HIGH\"");
         promptBuilder.AppendLine("}");
 
+
         return promptBuilder.ToString();
     }
+
 
     /// <summary>
     /// Build prompt for conclusion mode (= 3 questions)
@@ -256,14 +290,17 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         var promptBuilder = new StringBuilder();
 
+
         promptBuilder.AppendLine("Bạn là bác sĩ AI chuyên nghiệp. Dựa trên 3 câu hỏi và câu trả lời, hãy đưa ra kết luận.");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**LỊCH SỬ HỘI THOẠI:**");
+
 
         foreach (var msg in history)
         {
             promptBuilder.AppendLine($"{msg.Role.ToUpper()}: {msg.Content}");
         }
+
 
         promptBuilder.AppendLine($"USER: {userMessage}");
         promptBuilder.AppendLine();
@@ -294,8 +331,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         promptBuilder.AppendLine("  ]");
         promptBuilder.AppendLine("}");
 
+
         return promptBuilder.ToString();
     }
+
+
 
 
     /// <summary>
@@ -308,10 +348,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             _serviceConfig);
     }
 
+
     #endregion
 
 
+
+
     #region Response Parsing
+
 
     /// <summary>
     /// Parse Gemini response for asking mode
@@ -324,9 +368,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // Extract JSON from response (Gemini might add extra text)
             string jsonText = ExtractJsonFromText(geminiResponse);
 
+
             // Use JsonDocument for faster parsing when we only need specific fields
             using var doc = JsonDocument.Parse(jsonText);
             var root = doc.RootElement;
+
 
             var question = root.TryGetProperty("question", out var questionProp)
                 ? questionProp.GetString()
@@ -338,10 +384,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 ? priorityProp.GetString()
                 : null;
 
+
             if (string.IsNullOrEmpty(question))
             {
                 throw new InvalidOperationException("Failed to parse question from Gemini response");
             }
+
 
             return new SymptomAnalysisResponse
             {
@@ -365,6 +413,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         {
             _logger.LogError(ex, "Error parsing asking mode response: {Response}", geminiResponse);
 
+
             // Fallback: create a generic question
             return new SymptomAnalysisResponse
             {
@@ -386,6 +435,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
     }
 
+
     /// <summary>
     /// Parse Gemini response for conclusion mode
     /// </summary>
@@ -400,28 +450,35 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // Extract JSON from response
             string jsonText = ExtractJsonFromText(geminiResponse);
 
+
             var conclusionData = JsonSerializer.Deserialize<ConclusionModeResponse>(jsonText,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
 
             if (conclusionData == null)
             {
                 throw new InvalidOperationException("Failed to parse conclusion from Gemini response");
             }
 
+
             // Build response skeleton
             var response = CreateBaseConclusionResponse(sessionId, currentRound);
+
 
             // Set disease conclusion & advice
             SetDiseaseConclusion(response, conclusionData);
             response.GeneralAdvice = conclusionData.Advice ?? new List<string>();
 
+
             // Set specialties and get recommendations in parallel với việc xây dựng message
             var recommendationsTask = StartRecommendationTask(conclusionData, response, location);
+
 
             // Build message while recommendations are being fetched
             var messageBuilder = new StringBuilder();
             messageBuilder.AppendLine($"Dựa trên các triệu chứng bạn mô tả, có thể bạn đang gặp vấn đề về **{response.Disease?.Name ?? "sức khỏe"}**.");
             messageBuilder.AppendLine();
+
 
             if (response.GeneralAdvice.Count > 0)
             {
@@ -433,24 +490,30 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 messageBuilder.AppendLine();
             }
 
+
             if (response.RecommendedSpecialties.Count > 0)
             {
                 messageBuilder.AppendLine($"Bạn nên đến khám chuyên khoa: **{string.Join(", ", response.RecommendedSpecialties.Select(s => s.SpecialtyName))}**");
                 messageBuilder.AppendLine();
             }
 
+
             // Add disclaimer
             messageBuilder.AppendLine("Lưu ý: Đây chỉ là gợi ý định hướng y tế, không thay thế chẩn đoán chính thức của bác sĩ. Vui lòng đến cơ sở y tế để được khám và điều trị chính xác.");
 
+
             response.Message = messageBuilder.ToString();
+
 
             // Chờ lấy danh sách gợi ý bác sĩ/bệnh viện
             var (doctors, hospitals) = await recommendationsTask;
             response.RecommendedDoctors = doctors;
             response.RecommendedHospitals = hospitals;
 
+
             // Set CanRequestMoreQuestions flag
             SetCanRequestMoreQuestionsFlag(response, currentRound);
+
 
             return response;
         }
@@ -462,11 +525,13 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 sessionId,
                 geminiResponse.Length > 300 ? geminiResponse[..300] + "..." : geminiResponse);
 
+
             throw new InvalidOperationException(
                 "Failed to parse conclusion mode response from Gemini.",
                 ex);
         }
     }
+
 
     private static SymptomAnalysisResponse CreateBaseConclusionResponse(Guid sessionId, int currentRound)
     {
@@ -481,6 +546,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         };
     }
 
+
     private static void SetDiseaseConclusion(SymptomAnalysisResponse response, ConclusionModeResponse? conclusionData)
     {
         if (conclusionData?.Disease == null)
@@ -488,12 +554,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             return;
         }
 
+
         response.Disease = new DiseaseConclusion
         {
             Name = conclusionData.Disease.Name ?? "Chưa xác định",
             Confidence = conclusionData.Disease.Confidence,
             Reasons = conclusionData.Disease.Reasons ?? new List<string>()
         };
+
 
         response.PossibleDiseases = new List<DiseaseMatch>
         {
@@ -505,6 +573,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             }
         };
     }
+
 
     private Task<(List<DoctorRecommendation> Doctors, List<HospitalRecommendation> Hospitals)>
         StartRecommendationTask(
@@ -519,10 +588,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 (new List<DoctorRecommendation>(), new List<HospitalRecommendation>()));
         }
 
+
         var specialtyNames = conclusionData.Specialties
             .Select(s => s.Name ?? "")
             .Where(n => !string.IsNullOrEmpty(n))
             .ToList();
+
 
         response.RecommendedSpecialties = conclusionData.Specialties.Select(s => new SpecialtyMatch
         {
@@ -531,11 +602,13 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             Reasons = s.Reasons ?? new List<string>()
         }).ToList();
 
+
         return specialtyNames.Count > 0
             ? _recommendationHelper.GetRecommendationsAsync(specialtyNames, location)
             : Task.FromResult(
                 (new List<DoctorRecommendation>(), new List<HospitalRecommendation>()));
     }
+
 
     private void SetCanRequestMoreQuestionsFlag(SymptomAnalysisResponse response, int currentRound)
     {
@@ -548,9 +621,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             return;
         }
 
+
         response.CanRequestMoreQuestions =
             currentRound == 1 &&
             response.Disease.Confidence < 0.9;
+
 
         _logger.LogInformation(
             "Conclusion: Disease={Disease}, Confidence={Confidence}, Round={Round}, CanRequestMore={CanRequestMore}",
@@ -559,6 +634,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             currentRound,
             response.CanRequestMoreQuestions);
     }
+
 
     /// <summary>
     /// Extract JSON from text (handles cases where Gemini adds extra text)
@@ -569,23 +645,30 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         if (string.IsNullOrWhiteSpace(text))
             return text;
 
+
         // Try to find JSON object in the text
         int startIndex = text.IndexOf('{');
         if (startIndex < 0)
             return text;
 
+
         int endIndex = text.LastIndexOf('}');
         if (endIndex <= startIndex)
             return text;
+
 
         // Use Span<char> for better performance on large strings
         return text.AsSpan(startIndex, endIndex - startIndex + 1).ToString();
     }
 
+
     #endregion
 
 
+
+
     #region Conversation Saving
+
 
     /// <summary>
     /// Save conversation to database
@@ -612,6 +695,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 userId
             );
 
+
             _logger.LogInformation("Saved conversation for session {SessionId}", sessionId);
         }
         catch (Exception ex)
@@ -621,9 +705,12 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
     }
 
+
     #endregion
 
+
     #region Response Data Models
+
 
     private class AskingModeResponse
     {
@@ -632,12 +719,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         public string? Priority { get; set; }
     }
 
+
     private class ConclusionModeResponse
     {
         public DiseaseData? Disease { get; set; }
         public List<string>? Advice { get; set; }
         public List<SpecialtyData>? Specialties { get; set; }
     }
+
 
     private class DiseaseData
     {
@@ -646,6 +735,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         public List<string>? Reasons { get; set; }
     }
 
+
     private class SpecialtyData
     {
         public string? Name { get; set; }
@@ -653,5 +743,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         public List<string>? Reasons { get; set; }
     }
 
+
     #endregion
 }
+
+
+

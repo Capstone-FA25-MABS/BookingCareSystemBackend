@@ -11,7 +11,9 @@ using Docnet.Core.Models;
 using Microsoft.Extensions.Options;
 using Tesseract;
 
+
 namespace BookingCare.Services.AI.Services.Implementations;
+
 
 public class LabResultAnalysisService : ILabResultAnalysisService
 {
@@ -23,6 +25,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     private readonly FileUploadHelper _fileUploadHelper;
     private readonly string _tesseractDataPath;
     private readonly string _tesseractLanguage;
+
 
     public LabResultAnalysisService(
         ILogger<LabResultAnalysisService> logger,
@@ -43,6 +46,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         _tesseractLanguage = configuration["Tesseract:Language"] ?? "vie+eng";
     }
 
+
     public async Task<LabResultAnalysisResponse> AnalyzeLabResultAsync(
         IFormFile file,
         LocationContext? location,
@@ -53,8 +57,10 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             _logger.LogInformation("Starting lab result analysis for user {UserId}", userId);
 
+
             var actualSessionId = await _sessionService.GetOrCreateSessionAsync(sessionId, userId ?? Guid.Empty, location);
             _logger.LogInformation("Using session {SessionId}", actualSessionId);
+
 
             // Check if lab result already exists in this session
             var labResultExists = await _sessionService.CheckIfLabResultExistsAsync(actualSessionId);
@@ -64,22 +70,29 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 throw new InvalidOperationException("Mỗi cuộc trò chuyện chỉ hỗ trợ phân tích một file xét nghiệm. Vui lòng tạo cuộc trò chuyện mới để tiếp tục với file khác nhé!");
             }
 
+
             // Parallelize S3 upload and OCR extraction for better performance
             var uploadTask = _fileUploadHelper.UploadToS3Async(file, userId, "lab-results");
             var extractTask = ExtractTextFromImageAsync(file);
 
+
             await Task.WhenAll(uploadTask, extractTask);
+
 
             var imageUrl = await uploadTask;
             var extractedText = await extractTask;
 
+
             _logger.LogInformation("Uploaded image to {ImageUrl}", imageUrl);
             _logger.LogInformation("Extracted {Length} characters from image", extractedText.Length);
+
 
             var aiAnalysis = await AnalyzeWithGeminiAsync(extractedText);
             _logger.LogInformation("Gemini analysis completed");
 
+
             var (doctors, hospitals) = await _recommendationHelper.GetRecommendationsAsync(aiAnalysis.Specialties, location);
+
 
             var response = new LabResultAnalysisResponse
             {
@@ -94,7 +107,9 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 Timestamp = DateTime.UtcNow
             };
 
+
             await SaveLabResultAnalysisAsync(actualSessionId, userId, file.FileName, imageUrl, response, location);
+
 
             _logger.LogInformation("Lab result analysis completed and saved to session {SessionId}", actualSessionId);
             return response;
@@ -112,9 +127,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private async Task<string> ExtractTextFromImageAsync(IFormFile file)
     {
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
 
         if (extension == ".pdf")
         {
@@ -126,6 +143,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private async Task<string> ExtractTextFromPdfAsync(IFormFile file)
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
@@ -133,11 +151,13 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             _logger.LogInformation("Starting PDF OCR extraction from file: {FileName}", file.FileName);
 
+
             // Save PDF to temp
             using (var stream = new FileStream(tempPdfPath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
+
 
             return await ExtractTextFromPdfFileAsync(tempPdfPath);
         }
@@ -155,6 +175,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private async Task<string> ExtractTextFromPdfStreamAsync(Stream stream)
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
@@ -162,11 +183,13 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             _logger.LogInformation("Starting PDF OCR extraction from stream");
 
+
             // Save stream to temp file
             using (var fileStream = new FileStream(tempPdfPath, FileMode.Create))
             {
                 await stream.CopyToAsync(fileStream);
             }
+
 
             return await ExtractTextFromPdfFileAsync(tempPdfPath);
         }
@@ -184,16 +207,20 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private async Task<string> ExtractTextFromPdfFileAsync(string pdfPath)
     {
         var extractedTexts = new List<string>();
 
+
         // Load PDF using Docnet
         using var docReader = DocLib.Instance.GetDocReader(pdfPath, new PageDimensions(1920, 1920));
+
 
         // Process each page (limit to first 10 pages)
         var pageCount = Math.Min(docReader.GetPageCount(), 10);
         _logger.LogInformation("Processing {PageCount} pages from PDF", pageCount);
+
 
         for (int i = 0; i < pageCount; i++)
         {
@@ -202,8 +229,10 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             var width = pageReader.GetPageWidth();
             var height = pageReader.GetPageHeight();
 
+
             // Save page as PNG
             var tempImagePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.png");
+
 
             try
             {
@@ -215,16 +244,20 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                         System.Drawing.Imaging.ImageLockMode.WriteOnly,
                         image.PixelFormat);
 
+
                     System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, bitmapData.Scan0, rawBytes.Length);
                     image.UnlockBits(bitmapData);
 
+
                     image.Save(tempImagePath, System.Drawing.Imaging.ImageFormat.Png);
                 }
+
 
                 // OCR the image
                 using var engine = new TesseractEngine(_tesseractDataPath, _tesseractLanguage, EngineMode.Default);
                 using var img = Pix.LoadFromFile(tempImagePath);
                 using var ocrPage = engine.Process(img);
+
 
                 var pageText = ocrPage.GetText();
                 if (!string.IsNullOrWhiteSpace(pageText))
@@ -242,16 +275,20 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             }
         }
 
+
         var combinedText = string.Join("\n\n", extractedTexts);
+
 
         if (string.IsNullOrWhiteSpace(combinedText))
         {
             throw new InvalidOperationException("Không thể trích xuất văn bản từ PDF. Vui lòng đảm bảo PDF chứa văn bản rõ ràng.");
         }
 
+
         _logger.LogInformation("PDF OCR extraction completed. Total {Length} characters from {PageCount} pages", combinedText.Length, extractedTexts.Count);
         return combinedText;
     }
+
 
     private async Task<string> ExtractTextFromImageStreamAsync(Stream stream, string fileName)
     {
@@ -260,11 +297,13 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             _logger.LogInformation("Starting image OCR extraction from stream: {FileName}", fileName);
 
+
             // Save stream to temporary location
             using (var fileStream = new FileStream(tempFilePath, FileMode.Create))
             {
                 await stream.CopyToAsync(fileStream);
             }
+
 
             return ExtractTextFromImagePath(tempFilePath);
         }
@@ -283,6 +322,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private async Task<string> ExtractTextFromImageFileAsync(IFormFile file)
     {
         var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(file.FileName));
@@ -290,11 +330,13 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             _logger.LogInformation("Starting image OCR extraction from file: {FileName}", file.FileName);
 
+
             // Save file to temporary location
             using (var stream = new FileStream(tempFilePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
+
 
             return ExtractTextFromImagePath(tempFilePath);
         }
@@ -313,6 +355,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private string ExtractTextFromImagePath(string imagePath)
     {
         // Perform OCR using Tesseract
@@ -320,9 +363,12 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         using var img = Pix.LoadFromFile(imagePath);
         using var page = engine.Process(img);
 
+
         var extractedText = page.GetText();
 
+
         _logger.LogInformation("Image OCR extraction completed. Extracted {Length} characters", extractedText.Length);
+
 
         if (string.IsNullOrWhiteSpace(extractedText))
         {
@@ -330,8 +376,10 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             throw new InvalidOperationException("Không thể trích xuất văn bản từ ảnh. Vui lòng đảm bảo ảnh chứa văn bản rõ ràng.");
         }
 
+
         return extractedText;
     }
+
 
     private async Task<GeminiLabAnalysis> AnalyzeWithGeminiAsync(string extractedText)
     {
@@ -340,9 +388,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         return await ParseGeminiResponseAsync(geminiResponse);
     }
 
+
     private string BuildAnalysisPrompt(string extractedText)
     {
         var promptBuilder = new StringBuilder();
+
 
         promptBuilder.AppendLine("Bạn là bác sĩ AI chuyên phân tích kết quả xét nghiệm. Phân tích kết quả sau:");
         promptBuilder.AppendLine();
@@ -385,8 +435,10 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         promptBuilder.AppendLine("  \"disclaimer\": \"Đây chỉ là gợi ý, cần khám bác sĩ để chẩn đoán chính xác.\"");
         promptBuilder.AppendLine("}");
 
+
         return promptBuilder.ToString();
     }
+
 
     private async Task<string> CallGeminiApiAsync(string prompt)
     {
@@ -395,6 +447,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             _serviceConfig);
     }
 
+
     private async Task<GeminiLabAnalysis> ParseGeminiResponseAsync(string geminiResponse)
     {
         try
@@ -402,10 +455,12 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             var root = ExtractRootJsonElement(geminiResponse);
             var analysis = CreateEmptyGeminiAnalysis();
 
+
             PopulateNormalIndicators(root, analysis);
             PopulateAbnormalIndicators(root, analysis);
             PopulateSpecialties(root, analysis);
             PopulateDisclaimer(root, analysis);
+
 
             return analysis;
         }
@@ -416,20 +471,24 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private static JsonElement ExtractRootJsonElement(string geminiResponse)
     {
         var jsonStart = geminiResponse.IndexOf('{');
         var jsonEnd = geminiResponse.LastIndexOf('}');
+
 
         if (jsonStart == -1 || jsonEnd == -1)
         {
             throw new InvalidOperationException("No JSON found in Gemini response");
         }
 
+
         var jsonText = geminiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
         var jsonDoc = JsonDocument.Parse(jsonText);
         return jsonDoc.RootElement;
     }
+
 
     private static GeminiLabAnalysis CreateEmptyGeminiAnalysis()
     {
@@ -441,12 +500,14 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         };
     }
 
+
     private static void PopulateNormalIndicators(JsonElement root, GeminiLabAnalysis analysis)
     {
         if (!root.TryGetProperty("normalIndicators", out var normalArray))
         {
             return;
         }
+
 
         foreach (var item in normalArray.EnumerateArray())
         {
@@ -462,6 +523,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private static void PopulateAbnormalIndicators(JsonElement root, GeminiLabAnalysis analysis)
     {
         if (!root.TryGetProperty("abnormalIndicators", out var abnormalArray))
@@ -469,9 +531,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             return;
         }
 
+
         foreach (var item in abnormalArray.EnumerateArray())
         {
             var specialtyMatches = ParseSpecialtyMatches(item);
+
 
             analysis.AbnormalIndicators.Add(new AbnormalLabIndicator
             {
@@ -491,14 +555,17 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private static List<SpecialtyMatch> ParseSpecialtyMatches(JsonElement abnormalItem)
     {
         var specialtyMatches = new List<SpecialtyMatch>();
+
 
         if (!abnormalItem.TryGetProperty("recommendedSpecialties", out var specArray))
         {
             return specialtyMatches;
         }
+
 
         foreach (var spec in specArray.EnumerateArray())
         {
@@ -513,8 +580,10 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             }
         }
 
+
         return specialtyMatches;
     }
+
 
     private static void AddObjectSpecialtyMatch(JsonElement spec, List<SpecialtyMatch> specialtyMatches)
     {
@@ -532,6 +601,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         });
     }
 
+
     private static void AddStringSpecialtyMatch(JsonElement spec, List<SpecialtyMatch> specialtyMatches)
     {
         var specialtyName = spec.GetString();
@@ -539,6 +609,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             return;
         }
+
 
         specialtyMatches.Add(new SpecialtyMatch
         {
@@ -549,12 +620,14 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         });
     }
 
+
     private static void PopulateSpecialties(JsonElement root, GeminiLabAnalysis analysis)
     {
         if (!root.TryGetProperty("specialties", out var specialtiesArray))
         {
             return;
         }
+
 
         foreach (var item in specialtiesArray.EnumerateArray())
         {
@@ -566,6 +639,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+
     private static void PopulateDisclaimer(JsonElement root, GeminiLabAnalysis analysis)
     {
         if (root.TryGetProperty("disclaimer", out var disclaimerProp))
@@ -573,6 +647,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             analysis.Disclaimer = disclaimerProp.GetString();
         }
     }
+
 
     private async Task SaveLabResultAnalysisAsync(Guid sessionId, Guid? userId, string fileName, string imageUrl, LabResultAnalysisResponse response, LocationContext? location)
     {
@@ -583,6 +658,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             aiMessage.AppendLine("**KẾT QUẢ PHÂN TÍCH XÉT NGHIỆM:**");
             aiMessage.AppendLine();
 
+
             if (response.NormalIndicators.Count > 0)
             {
                 aiMessage.AppendLine("**Các chỉ số bình thường:**");
@@ -592,6 +668,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 }
                 aiMessage.AppendLine();
             }
+
 
             if (response.AbnormalIndicators.Count > 0)
             {
@@ -614,9 +691,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 }
             }
 
+
             // Add disclaimer (plain text format like SymptomAnalysis)
             aiMessage.AppendLine();
             aiMessage.AppendLine($"Lưu ý: {response.Disclaimer}");
+
 
             var suggestions = new
             {
@@ -624,6 +703,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 hospitals = response.RecommendedHospitals,
                 imageUrl
             };
+
 
             await _sessionService.SaveConversationHistoryAsync(
                 sessionId,
@@ -636,6 +716,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 questionCount: 0,
                 analysisComplete: true);
 
+
             _logger.LogInformation("Saved lab result analysis to session {SessionId}", sessionId);
         }
         catch (Exception ex)
@@ -645,6 +726,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     }
 }
 
+
 internal class GeminiLabAnalysis
 {
     public List<LabIndicator> NormalIndicators { get; set; } = new();
@@ -652,3 +734,6 @@ internal class GeminiLabAnalysis
     public List<string> Specialties { get; set; } = new();
     public string? Disclaimer { get; set; }
 }
+
+
+
