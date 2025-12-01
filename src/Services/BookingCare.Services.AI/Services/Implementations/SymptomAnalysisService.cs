@@ -415,7 +415,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             SetDiseaseConclusion(response, conclusionData);
             response.GeneralAdvice = conclusionData.Advice ?? new List<string>();
 
-            // Set specialties and get recommendations in parallel with message building
+            // Set specialties and get recommendations in parallel với việc xây dựng message
             var recommendationsTask = StartRecommendationTask(conclusionData, response, location);
 
             // Build message while recommendations are being fetched
@@ -444,13 +444,10 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             response.Message = messageBuilder.ToString();
 
-            // Wait for recommendations if they were requested
-            if (recommendationsTask != null)
-            {
-                var (doctors, hospitals) = await recommendationsTask;
-                response.RecommendedDoctors = doctors;
-                response.RecommendedHospitals = hospitals;
-            }
+            // Chờ lấy danh sách gợi ý bác sĩ/bệnh viện
+            var (doctors, hospitals) = await recommendationsTask;
+            response.RecommendedDoctors = doctors;
+            response.RecommendedHospitals = hospitals;
 
             // Set CanRequestMoreQuestions flag
             SetCanRequestMoreQuestionsFlag(response, currentRound);
@@ -509,7 +506,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         };
     }
 
-    private Task<(List<DoctorRecommendation> Doctors, List<HospitalRecommendation> Hospitals)>?
+    private Task<(List<DoctorRecommendation> Doctors, List<HospitalRecommendation> Hospitals)>
         StartRecommendationTask(
             ConclusionModeResponse conclusionData,
             SymptomAnalysisResponse response,
@@ -517,7 +514,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         if (conclusionData.Specialties == null || conclusionData.Specialties.Count == 0)
         {
-            return null;
+            // Không có chuyên khoa → trả về danh sách rỗng
+            return Task.FromResult(
+                (new List<DoctorRecommendation>(), new List<HospitalRecommendation>()));
         }
 
         var specialtyNames = conclusionData.Specialties
@@ -534,7 +533,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
         return specialtyNames.Count > 0
             ? _recommendationHelper.GetRecommendationsAsync(specialtyNames, location)
-            : null;
+            : Task.FromResult(
+                (new List<DoctorRecommendation>(), new List<HospitalRecommendation>()));
     }
 
     private void SetCanRequestMoreQuestionsFlag(SymptomAnalysisResponse response, int currentRound)
