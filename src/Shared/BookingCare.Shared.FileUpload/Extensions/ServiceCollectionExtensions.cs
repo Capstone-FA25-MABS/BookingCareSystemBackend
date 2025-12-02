@@ -62,7 +62,11 @@ public static class ServiceCollectionExtensions
 
             var awsConfig = new Amazon.S3.AmazonS3Config
             {
-                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Config.Region)
+                RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(s3Config.Region),
+                Timeout = TimeSpan.FromSeconds(s3Config.AwsSdkTimeoutSeconds),
+                ReadWriteTimeout = TimeSpan.FromSeconds(s3Config.AwsSdkReadWriteTimeoutSeconds),
+                RetryMode = Amazon.Runtime.RequestRetryMode.Standard,
+                MaxErrorRetry = s3Config.AwsSdkMaxErrorRetry
             };
 
             return new AmazonS3Client(s3Config.AccessKey, s3Config.SecretKey, awsConfig);
@@ -128,6 +132,31 @@ public class S3ConfigurationValidator : IValidateOptions<S3Configuration>
         if (options.AllowedFileExtensions == null || options.AllowedFileExtensions.Length == 0)
         {
             failures.Add("At least one allowed file extension must be specified");
+        }
+
+        if (options.UploadTimeoutSeconds <= 0)
+        {
+            failures.Add("Upload timeout must be greater than 0");
+        }
+
+        if (options.UploadReadWriteTimeoutSeconds <= 0)
+        {
+            failures.Add("Upload read/write timeout must be greater than 0");
+        }
+
+        if (options.AwsSdkTimeoutSeconds <= 0)
+        {
+            failures.Add("AWS SDK timeout must be greater than 0");
+        }
+
+        if (options.AwsSdkReadWriteTimeoutSeconds <= 0)
+        {
+            failures.Add("AWS SDK read/write timeout must be greater than 0");
+        }
+
+        if (options.AwsSdkMaxErrorRetry < 0)
+        {
+            failures.Add("AWS SDK max error retry cannot be negative");
         }
 
         return failures.Count > 0

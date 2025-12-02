@@ -76,15 +76,17 @@ public class S3FileUploadService : IFileUploadService
             // Add metadata
             foreach (var metadata in request.Metadata)
             {
-                s3Request.Metadata.Add(metadata.Key, metadata.Value);
+                s3Request.Metadata.Add(metadata.Key, EncodeMetadataValue(metadata.Value));
             }
 
             // Add encoding metadata
             s3Request.Metadata.Add("x-amz-meta-encoding", "utf-8");
-            s3Request.Metadata.Add("x-amz-meta-original-filename", request.FileName);
+            s3Request.Metadata.Add("x-amz-meta-original-filename", EncodeMetadataValue(request.FileName));
 
-            // Upload to S3
-            var response = await _s3Client.PutObjectAsync(s3Request, cancellationToken);
+            // Upload to S3 with a per-upload timeout token
+            using var uploadTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            uploadTimeoutCts.CancelAfter(TimeSpan.FromSeconds(_s3Config.UploadTimeoutSeconds));
+            var response = await _s3Client.PutObjectAsync(s3Request, uploadTimeoutCts.Token);
 
             if (response.HttpStatusCode == HttpStatusCode.OK)
             {
@@ -109,6 +111,16 @@ public class S3FileUploadService : IFileUploadService
             {
                 Success = false,
                 ErrorMessage = "Failed to upload file to S3"
+            };
+        }
+        catch (TaskCanceledException ex)
+        {
+            var timeoutSeconds = _s3Config.UploadTimeoutSeconds;
+            _logger.LogError(ex, "S3 upload timed out after {TimeoutSeconds}s for file: {FileName}", timeoutSeconds, request.FileName);
+            return new FileUploadResult
+            {
+                Success = false,
+                ErrorMessage = $"Upload timed out after {timeoutSeconds} seconds. Please try again or choose a smaller file."
             };
         }
         catch (Exception ex)
@@ -186,6 +198,17 @@ public class S3FileUploadService : IFileUploadService
         };
 
         return textExtensions.Contains(extension);
+    }
+
+    private static string EncodeMetadataValue(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        // AWS metadata headers must be ASCII only, so percent-encode UTF-8 bytes.
+        return Uri.EscapeDataString(value);
     }
 
     public async Task<MultipleFileUploadResult> UploadMultipleFilesAsync(IEnumerable<FileUploadRequest> requests, CancellationToken cancellationToken = default)
