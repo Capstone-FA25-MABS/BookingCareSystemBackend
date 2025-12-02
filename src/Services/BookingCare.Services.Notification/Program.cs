@@ -158,10 +158,6 @@ app.UseEventBus(eventBus =>
 
     // Subscribe to appointment booking success notifications (sends email + creates in-app notification)
     eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
-    eventBus.Subscribe<
-        AppointmentBookingSuccessNotificationEvent,
-        AppointmentBookingSuccessNotificationEventHandler
-    >();
 
     // Subscribe to appointment result updated notifications (sends result email + creates in-app notification)
     eventBus.Subscribe<AppointmentResultUpdatedEvent, AppointmentResultNotificationEventHandler>();
