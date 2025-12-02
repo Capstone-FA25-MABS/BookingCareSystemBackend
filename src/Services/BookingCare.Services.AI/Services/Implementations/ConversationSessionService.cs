@@ -125,7 +125,10 @@ public class ConversationSessionService : IConversationSessionService
         string aiMessage,
         LocationContext? location = null,
         object? suggestions = null,
-        Guid? userId = null)
+        Guid? userId = null,
+        object? disease = null,
+        int? questionCount = null,
+        bool? analysisComplete = null)
     {
         try
         {
@@ -161,7 +164,10 @@ public class ConversationSessionService : IConversationSessionService
                 Role = "ai",
                 Content = normalizedAiMessage,
                 Timestamp = DateTime.UtcNow,
-                Suggestions = suggestions // Save suggestions with AI message
+                Suggestions = suggestions, // Save suggestions with AI message
+                Disease = disease, // Save disease conclusion
+                QuestionCount = questionCount, // Save question count for progress
+                AnalysisComplete = analysisComplete // Save completion flag
             };
 
             history.Add(aiMessageObj);
@@ -201,9 +207,10 @@ public class ConversationSessionService : IConversationSessionService
             session.ConversationHistory = JsonSerializer.Serialize(history, options);
             // Note: UpdatedAt will be set automatically by DbContext.UpdateTimestamps()
 
-            _logger.LogInformation("Saved conversation history with {Count} messages. Last AI message has suggestions: {HasSuggestions}",
+            _logger.LogInformation("Saved conversation history with {Count} messages. Last AI message has suggestions: {HasSuggestions}, disease: {HasDisease}",
                 history.Count,
-                aiMessageObj.Suggestions != null);
+                aiMessageObj.Suggestions != null,
+                aiMessageObj.Disease != null);
 
             await _context.SaveChangesAsync();
 
@@ -438,6 +445,25 @@ public class ConversationSessionService : IConversationSessionService
                 sessionId,
                 userId,
                 ex);
+        }
+    }
+
+    public async Task<bool> CheckIfLabResultExistsAsync(Guid sessionId)
+    {
+        try
+        {
+            var history = await LoadConversationHistoryAsync(sessionId);
+
+            // Check if any patient message contains "Đã gửi file xét nghiệm:"
+            return history.Any(m =>
+                m.Role == "patient" &&
+                m.Content != null &&
+                m.Content.Contains("Đã gửi file xét nghiệm:"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking if lab result exists for session {SessionId}", sessionId);
+            return false; // Default to allowing upload if check fails
         }
     }
 }

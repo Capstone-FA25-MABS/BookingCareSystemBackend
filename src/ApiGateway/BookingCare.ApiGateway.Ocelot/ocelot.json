@@ -17,6 +17,38 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/lab-results/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6000
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/lab-results/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/dermatology/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6000
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/dermatology/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/ais/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
@@ -128,7 +160,9 @@
       "AddHeadersToDownstream": {},
       "AddQueriesToRequest": {},
       "RequestIdKey": "",
-      "FileCacheOptions": { "TtlSeconds": 0 }
+      "FileCacheOptions": {
+        "TtlSeconds": 0
+      }
     },
     {
       "DownstreamPathTemplate": "/hubs/{everything}",
@@ -344,12 +378,18 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/tags/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
       "AuthenticationOptions": {
         //"AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
-    },
+            },
     {
       "DownstreamPathTemplate": "/chatHub/{everything}",
       "DownstreamScheme": "http",
@@ -360,8 +400,13 @@
         }
       ],
       "UpstreamPathTemplate": "/api/chatHub/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
-
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
       "UpgradeToWebSockets": true
     },
     {
@@ -567,7 +612,7 @@
         //         "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
-    },
+            },
     {
       "DownstreamPathTemplate": "/api/v{version}/payos/{everything}",
       "DownstreamScheme": "http",
@@ -690,7 +735,13 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedule/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -706,7 +757,13 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/schedules/doctor-schedule-exceptions/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -722,7 +779,13 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/schedules/service-medical-schedules/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -738,7 +801,13 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/schedules/service-medical-schedule-exceptions/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -754,7 +823,13 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/schedules/hold-slot/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
@@ -834,11 +909,11 @@
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/avatar/{everything}",
-      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
       }
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ]
     },
     {
       "DownstreamPathTemplate": "/api/v{version}/PatientRelatives/{everything}",
