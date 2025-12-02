@@ -21,7 +21,12 @@ public interface IBankAccountRepository
     /// <summary>
     /// Get bank accounts of a user with pagination
     /// </summary>
-    Task<PagedResult<BankAccountEntity>> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, bool? activeOnly = null);
+    Task<PagedResult<BankAccountEntity>> GetPagedByUserIdAsync(
+        Guid userId,
+        int page,
+        int pageSize,
+        bool? activeOnly = null
+    );
 
     /// <summary>
     /// Get the default bank account of a user
@@ -31,17 +36,30 @@ public interface IBankAccountRepository
     /// <summary>
     /// Check if an account number already exists
     /// </summary>
-    Task<bool> AccountNumberExistsAsync(string accountNumber, string bankCode, Guid? excludeId = null);
+    Task<bool> AccountNumberExistsAsync(
+        string accountNumber,
+        string bankCode,
+        Guid? excludeId = null
+    );
 
     /// <summary>
     /// Check if an account number exists for a specific user
     /// </summary>
-    Task<bool> AccountNumberExistsForUserAsync(string accountNumber, string bankCode, Guid userId, Guid? excludeId = null);
+    Task<bool> AccountNumberExistsForUserAsync(
+        string accountNumber,
+        string bankCode,
+        Guid userId,
+        Guid? excludeId = null
+    );
 
     /// <summary>
     /// Find bank account by accountNumber, bankCode and userId (includes inactive)
     /// </summary>
-    Task<BankAccountEntity?> FindByAccountNumberAndUserAsync(string accountNumber, string bankCode, Guid userId);
+    Task<BankAccountEntity?> FindByAccountNumberAndUserAsync(
+        string accountNumber,
+        string bankCode,
+        Guid userId
+    );
 
     /// <summary>
     /// Check if bank account is used in RefundHistories
@@ -72,4 +90,9 @@ public interface IBankAccountRepository
     /// Count bank accounts of a user
     /// </summary>
     Task<int> CountByUserIdAsync(Guid userId);
+
+    /// <summary>
+    /// Get first/default bank account for a hospital (userId = hospitalId)
+    /// </summary>
+    Task<BankAccountEntity?> GetFirstByHospitalIdAsync(Guid hospitalId);
 }

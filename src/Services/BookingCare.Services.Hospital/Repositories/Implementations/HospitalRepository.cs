@@ -1,8 +1,8 @@
 using BookingCare.Services.Hospital.Data;
-using BookingCare.Services.Hospital.Models.Entities;
-using BookingCare.Services.Hospital.Models.DTOs.Requests;
-using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Services.Hospital.Enums;
+using BookingCare.Services.Hospital.Models.DTOs.Requests;
+using BookingCare.Services.Hospital.Models.Entities;
+using BookingCare.Services.Hospital.Repositories.Interfaces;
 using BookingCare.Shared.Common.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,8 +19,8 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<HospitalEntity?> GetByIdAsync(Guid id)
     {
-        return await _context.Hospitals
-            .Include(h => h.HospitalSpecialties)
+        return await _context
+            .Hospitals.Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalServiceTypes)
             .Include(h => h.HospitalServiceMedicals)
             .Include(h => h.HospitalImages)
@@ -29,25 +29,27 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<HospitalEntity?> GetByEmailAsync(string email)
     {
-        return await _context.Hospitals
-            .Include(h => h.HospitalSpecialties)
+        return await _context
+            .Hospitals.Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalImages)
             .FirstOrDefaultAsync(h => h.Email == email);
     }
 
     public async Task<List<HospitalEntity>> GetAllAsync()
     {
-        return await _context.Hospitals
-            .Include(h => h.HospitalSpecialties)
+        return await _context
+            .Hospitals.Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalImages)
             .OrderBy(h => h.Name)
             .ToListAsync();
     }
 
-    public async Task<(List<HospitalEntity> hospitals, int totalCount)> GetFilteredAsync(HospitalFilterRequest filter)
+    public async Task<(List<HospitalEntity> hospitals, int totalCount)> GetFilteredAsync(
+        HospitalFilterRequest filter
+    )
     {
-        var query = _context.Hospitals
-            .Include(h => h.HospitalSpecialties)
+        var query = _context
+            .Hospitals.Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalImages)
             .AsQueryable();
 
@@ -59,7 +61,10 @@ public class HospitalRepository : IHospitalRepository
         return (hospitals, totalCount);
     }
 
-    private IQueryable<HospitalEntity> ApplyFilters(IQueryable<HospitalEntity> query, HospitalFilterRequest filter)
+    private static IQueryable<HospitalEntity> ApplyFilters(
+        IQueryable<HospitalEntity> query,
+        HospitalFilterRequest filter
+    )
     {
         if (!string.IsNullOrEmpty(filter.Name))
             query = query.Where(h => h.Name.Contains(filter.Name));
@@ -70,12 +75,17 @@ public class HospitalRepository : IHospitalRepository
         // Note: Status filtering is now handled by Auth service, not in database query
 
         if (filter.SpecialtyIds != null && filter.SpecialtyIds.Any())
-            query = query.Where(h => h.HospitalSpecialties.Any(hs => filter.SpecialtyIds.Contains(hs.SpecialtyId)));
+            query = query.Where(h =>
+                h.HospitalSpecialties.Any(hs => filter.SpecialtyIds.Contains(hs.SpecialtyId))
+            );
 
         return query;
     }
 
-    private IQueryable<HospitalEntity> ApplySorting(IQueryable<HospitalEntity> query, HospitalFilterRequest filter)
+    private static IQueryable<HospitalEntity> ApplySorting(
+        IQueryable<HospitalEntity> query,
+        HospitalFilterRequest filter
+    )
     {
         if (string.IsNullOrEmpty(filter.SortBy))
             return query.OrderBy(h => h.Name);
@@ -91,15 +101,16 @@ public class HospitalRepository : IHospitalRepository
             "createdat" => filter.SortOrder?.ToLower() == "desc"
                 ? query.OrderByDescending(h => h.CreatedAt)
                 : query.OrderBy(h => h.CreatedAt),
-            _ => query.OrderBy(h => h.Name)
+            _ => query.OrderBy(h => h.Name),
         };
     }
 
-    private IQueryable<HospitalEntity> ApplyPagination(IQueryable<HospitalEntity> query, HospitalFilterRequest filter)
+    private static IQueryable<HospitalEntity> ApplyPagination(
+        IQueryable<HospitalEntity> query,
+        HospitalFilterRequest filter
+    )
     {
-        return query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize);
+        return query.Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize);
     }
 
     public async Task<HospitalEntity> CreateAsync(HospitalEntity hospital)
@@ -144,8 +155,8 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<List<HospitalEntity>> GetBySpecialtyAsync(Guid specialtyId)
     {
-        return await _context.Hospitals
-            .Include(h => h.HospitalSpecialties)
+        return await _context
+            .Hospitals.Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalImages)
             .Where(h => h.HospitalSpecialties.Any(hs => hs.SpecialtyId == specialtyId))
             .ToListAsync();
@@ -153,8 +164,8 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<List<HospitalEntity>> GetByAccountIdAsync(Guid accountId)
     {
-        return await _context.Hospitals
-            .Include(h => h.HospitalSpecialties)
+        return await _context
+            .Hospitals.Include(h => h.HospitalSpecialties)
             .Include(h => h.HospitalServiceTypes)
             .Include(h => h.HospitalServiceMedicals)
             .Include(h => h.HospitalImages)
@@ -167,8 +178,8 @@ public class HospitalRepository : IHospitalRepository
         if (accountIds == null || !accountIds.Any())
             return new List<HospitalEntity>();
 
-        return await _context.Hospitals
-            .Where(h => accountIds.Contains(h.AccountId))
+        return await _context
+            .Hospitals.Where(h => accountIds.Contains(h.AccountId))
             .Select(h => new HospitalEntity
             {
                 Id = h.Id,
@@ -177,7 +188,7 @@ public class HospitalRepository : IHospitalRepository
                 Email = h.Email,
                 Phone = h.Phone,
                 Address = h.Address,
-                AvatarUrl = h.AvatarUrl
+                AvatarUrl = h.AvatarUrl,
             })
             .ToListAsync();
     }
@@ -186,8 +197,8 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<HospitalEntity?> GetHospitalBasicInfoByIdAsync(Guid id)
     {
-        return await _context.Hospitals
-            .Where(h => h.Id == id)
+        return await _context
+            .Hospitals.Where(h => h.Id == id)
             .Select(h => new HospitalEntity
             {
                 Id = h.Id,
@@ -195,7 +206,7 @@ public class HospitalRepository : IHospitalRepository
                 Address = h.Address,
                 Phone = h.Phone,
                 Email = h.Email,
-                AvatarUrl = h.AvatarUrl
+                AvatarUrl = h.AvatarUrl,
             })
             .FirstOrDefaultAsync();
     }
@@ -203,8 +214,8 @@ public class HospitalRepository : IHospitalRepository
     public async Task<List<HospitalEntity>> GetHospitalsBasicInfoByIdsAsync(IEnumerable<Guid> ids)
     {
         var idList = ids.ToList();
-        return await _context.Hospitals
-            .Where(h => idList.Contains(h.Id))
+        return await _context
+            .Hospitals.Where(h => idList.Contains(h.Id))
             .Select(h => new HospitalEntity
             {
                 Id = h.Id,
@@ -212,27 +223,39 @@ public class HospitalRepository : IHospitalRepository
                 Address = h.Address,
                 Phone = h.Phone,
                 Email = h.Email,
-                AvatarUrl = h.AvatarUrl
+                AvatarUrl = h.AvatarUrl,
             })
             .ToListAsync();
+    }
+
+    public async Task<Dictionary<Guid, string>> GetHospitalNamesByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids.ToList();
+        return await _context
+            .Hospitals.Where(h => idList.Contains(h.Id))
+            .Select(h => new { h.Id, h.Name })
+            .ToDictionaryAsync(h => h.Id, h => h.Name);
     }
 
     public async Task<List<HospitalEntity>> GetActiveHospitalsSimpleAsync()
     {
         // Note: Status filtering is now handled by Auth service
         // This method returns all hospitals, status will be enriched later
-        return await _context.Hospitals
-            .Select(h => new HospitalEntity
+        return await _context
+            .Hospitals.Select(h => new HospitalEntity
             {
                 Id = h.Id,
                 Name = h.Name,
-                AvatarUrl = h.AvatarUrl
+                AvatarUrl = h.AvatarUrl,
             })
             .OrderBy(h => h.Name)
             .ToListAsync();
     }
 
-    public async Task<(List<HospitalEntity> hospitals, int totalCount)> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter)
+    public async Task<(
+        List<HospitalEntity> hospitals,
+        int totalCount
+    )> GetOptimizedHospitalListAsync(HospitalListOptimizedFilterRequest filter)
     {
         var query = _context.Hospitals.AsQueryable();
 
@@ -253,7 +276,10 @@ public class HospitalRepository : IHospitalRepository
         return (hospitals, totalCount);
     }
 
-    private static IQueryable<HospitalEntity> ApplyOptimizedSearchFilter(IQueryable<HospitalEntity> query, string? search)
+    private static IQueryable<HospitalEntity> ApplyOptimizedSearchFilter(
+        IQueryable<HospitalEntity> query,
+        string? search
+    )
     {
         if (string.IsNullOrEmpty(search))
             return query;
@@ -262,19 +288,26 @@ public class HospitalRepository : IHospitalRepository
         return query.Where(h => h.Name.Contains(search) || h.Address.Contains(search));
     }
 
-    private async Task<IQueryable<HospitalEntity>> ApplyOptimizedSpecialtyFilterAsync(IQueryable<HospitalEntity> query, string[]? specialtyIds)
+    private async Task<IQueryable<HospitalEntity>> ApplyOptimizedSpecialtyFilterAsync(
+        IQueryable<HospitalEntity> query,
+        string[]? specialtyIds
+    )
     {
         if (specialtyIds == null || specialtyIds.Length == 0)
             return query;
 
-        Console.WriteLine($"Applying specialty filter with {specialtyIds.Length} specialty IDs: {string.Join(", ", specialtyIds)}");
+        Console.WriteLine(
+            $"Applying specialty filter with {specialtyIds.Length} specialty IDs: {string.Join(", ", specialtyIds)}"
+        );
 
         var specialtyGuids = ParseSpecialtyGuids(specialtyIds);
         if (!specialtyGuids.Any())
             return query;
 
         await LogSpecialtyDebugInfoAsync(specialtyGuids);
-        return query.Where(h => h.HospitalSpecialties.Any(hs => specialtyGuids.Contains(hs.SpecialtyId)));
+        return query.Where(h =>
+            h.HospitalSpecialties.Any(hs => specialtyGuids.Contains(hs.SpecialtyId))
+        );
     }
 
     private static List<Guid> ParseSpecialtyGuids(IEnumerable<string> specialtyIds)
@@ -296,35 +329,46 @@ public class HospitalRepository : IHospitalRepository
 
     private async Task LogSpecialtyDebugInfoAsync(List<Guid> specialtyGuids)
     {
-        var hospitalsWithSpecialties = await _context.Hospitals
-            .Where(h => h.HospitalSpecialties.Any())
+        var hospitalsWithSpecialties = await _context
+            .Hospitals.Where(h => h.HospitalSpecialties.Any())
             .CountAsync();
         Console.WriteLine($"Total hospitals with specialties: {hospitalsWithSpecialties}");
 
-        var hospitalsWithSpecificSpecialty = await _context.Hospitals
-            .Where(h => h.HospitalSpecialties.Any(hs => specialtyGuids.Contains(hs.SpecialtyId)))
+        var hospitalsWithSpecificSpecialty = await _context
+            .Hospitals.Where(h =>
+                h.HospitalSpecialties.Any(hs => specialtyGuids.Contains(hs.SpecialtyId))
+            )
             .CountAsync();
         Console.WriteLine($"Hospitals with specific specialty: {hospitalsWithSpecificSpecialty}");
 
-        var hospitalSpecialtyCount = await _context.HospitalSpecialties
-            .Where(hs => specialtyGuids.Contains(hs.SpecialtyId))
+        var hospitalSpecialtyCount = await _context
+            .HospitalSpecialties.Where(hs => specialtyGuids.Contains(hs.SpecialtyId))
             .CountAsync();
         Console.WriteLine($"Hospital-specialty relationships: {hospitalSpecialtyCount}");
 
         var totalHospitalSpecialtyRelations = await _context.HospitalSpecialties.CountAsync();
-        Console.WriteLine($"Total hospital-specialty relationships: {totalHospitalSpecialtyRelations}");
+        Console.WriteLine(
+            $"Total hospital-specialty relationships: {totalHospitalSpecialtyRelations}"
+        );
 
         var totalHospitals = await _context.Hospitals.CountAsync();
         Console.WriteLine($"Total hospitals in database: {totalHospitals}");
     }
 
-    private async Task<List<HospitalEntity>> ProjectSortAndPaginateAsync(IQueryable<HospitalEntity> query, HospitalListOptimizedFilterRequest filter)
+    private async Task<List<HospitalEntity>> ProjectSortAndPaginateAsync(
+        IQueryable<HospitalEntity> query,
+        HospitalListOptimizedFilterRequest filter
+    )
     {
         query = filter.SortBy?.ToLower() switch
         {
-            "name" => filter.SortOrder?.ToLower() == "desc" ? query.OrderByDescending(h => h.Name) : query.OrderBy(h => h.Name),
-            "address" => filter.SortOrder?.ToLower() == "desc" ? query.OrderByDescending(h => h.Address) : query.OrderBy(h => h.Address),
-            _ => query.OrderBy(h => h.Name)
+            "name" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(h => h.Name)
+                : query.OrderBy(h => h.Name),
+            "address" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(h => h.Address)
+                : query.OrderBy(h => h.Address),
+            _ => query.OrderBy(h => h.Name),
         };
 
         return await query
@@ -335,11 +379,13 @@ public class HospitalRepository : IHospitalRepository
                 Name = h.Name,
                 Address = h.Address,
                 AvatarUrl = h.AvatarUrl,
-                HospitalSpecialties = h.HospitalSpecialties.Select(hs => new HospitalSpecialtyEntity
-                {
-                    HospitalId = hs.HospitalId,
-                    SpecialtyId = hs.SpecialtyId
-                }).ToList()
+                HospitalSpecialties = h
+                    .HospitalSpecialties.Select(hs => new HospitalSpecialtyEntity
+                    {
+                        HospitalId = hs.HospitalId,
+                        SpecialtyId = hs.SpecialtyId,
+                    })
+                    .ToList(),
             })
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
@@ -349,7 +395,9 @@ public class HospitalRepository : IHospitalRepository
     /// <summary>
     /// Get specialty information directly from database for performance optimization
     /// </summary>
-    public Task<Dictionary<Guid, (string Name, string? ImageUrl)>> GetSpecialtyInfoByIdsAsync(List<Guid> specialtyIds)
+    public static Task<
+        Dictionary<Guid, (string Name, string? ImageUrl)>
+    > GetSpecialtyInfoByIdsAsync(List<Guid> specialtyIds)
     {
         if (specialtyIds == null || !specialtyIds.Any())
         {
@@ -373,19 +421,18 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<bool> AddSpecialtyAsync(Guid hospitalId, Guid specialtyId)
     {
-        var exists = await _context.HospitalSpecialties
-            .AnyAsync(hs => hs.HospitalId == hospitalId && hs.SpecialtyId == specialtyId);
+        var exists = await _context.HospitalSpecialties.AnyAsync(hs =>
+            hs.HospitalId == hospitalId && hs.SpecialtyId == specialtyId
+        );
 
         if (exists)
         {
             return true; // Already exists
         }
 
-        _context.HospitalSpecialties.Add(new HospitalSpecialtyEntity
-        {
-            HospitalId = hospitalId,
-            SpecialtyId = specialtyId
-        });
+        _context.HospitalSpecialties.Add(
+            new HospitalSpecialtyEntity { HospitalId = hospitalId, SpecialtyId = specialtyId }
+        );
 
         await _context.SaveChangesAsync();
         return true;
@@ -393,8 +440,9 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<bool> RemoveSpecialtyAsync(Guid hospitalId, Guid specialtyId)
     {
-        var hospitalSpecialty = await _context.HospitalSpecialties
-            .FirstOrDefaultAsync(hs => hs.HospitalId == hospitalId && hs.SpecialtyId == specialtyId);
+        var hospitalSpecialty = await _context.HospitalSpecialties.FirstOrDefaultAsync(hs =>
+            hs.HospitalId == hospitalId && hs.SpecialtyId == specialtyId
+        );
 
         if (hospitalSpecialty == null)
         {
@@ -411,8 +459,8 @@ public class HospitalRepository : IHospitalRepository
         var distinctSpecialtyIds = specialtyIds?.Distinct().ToHashSet() ?? new HashSet<Guid>();
 
         // Get existing specialty IDs only (more efficient than loading full entities)
-        var existingSpecialtyIdsList = await _context.HospitalSpecialties
-            .Where(hs => hs.HospitalId == hospitalId)
+        var existingSpecialtyIdsList = await _context
+            .HospitalSpecialties.Where(hs => hs.HospitalId == hospitalId)
             .Select(hs => hs.SpecialtyId)
             .ToListAsync();
         var existingSpecialtyIds = existingSpecialtyIdsList.ToHashSet();
@@ -430,19 +478,23 @@ public class HospitalRepository : IHospitalRepository
         // Remove specialties that are no longer needed
         if (specialtiesToRemove.Any())
         {
-            await _context.HospitalSpecialties
-                .Where(hs => hs.HospitalId == hospitalId && specialtiesToRemove.Contains(hs.SpecialtyId))
+            await _context
+                .HospitalSpecialties.Where(hs =>
+                    hs.HospitalId == hospitalId && specialtiesToRemove.Contains(hs.SpecialtyId)
+                )
                 .ExecuteDeleteAsync(); // More efficient bulk delete
         }
 
         // Add new specialties
         if (specialtiesToAdd.Any())
         {
-            var newSpecialties = specialtiesToAdd.Select(specialtyId => new HospitalSpecialtyEntity
-            {
-                HospitalId = hospitalId,
-                SpecialtyId = specialtyId
-            }).ToList();
+            var newSpecialties = specialtiesToAdd
+                .Select(specialtyId => new HospitalSpecialtyEntity
+                {
+                    HospitalId = hospitalId,
+                    SpecialtyId = specialtyId,
+                })
+                .ToList();
 
             await _context.HospitalSpecialties.AddRangeAsync(newSpecialties);
         }
@@ -454,8 +506,8 @@ public class HospitalRepository : IHospitalRepository
     public async Task<List<Guid>> GetHospitalSpecialtyIdsAsync(Guid hospitalId)
     {
         // Optimized: Only query IDs, don't load full hospital entity
-        return await _context.HospitalSpecialties
-            .Where(hs => hs.HospitalId == hospitalId)
+        return await _context
+            .HospitalSpecialties.Where(hs => hs.HospitalId == hospitalId)
             .Select(hs => hs.SpecialtyId)
             .ToListAsync();
     }
@@ -466,20 +518,23 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<bool> AddServiceTypeAsync(Guid hospitalId, Guid serviceTypeId)
     {
-        var exists = await _context.HospitalServiceTypes
-            .AnyAsync(hst => hst.HospitalId == hospitalId && hst.ServiceTypeId == serviceTypeId);
+        var exists = await _context.HospitalServiceTypes.AnyAsync(hst =>
+            hst.HospitalId == hospitalId && hst.ServiceTypeId == serviceTypeId
+        );
 
         if (exists)
         {
             return true; // Already exists
         }
 
-        _context.HospitalServiceTypes.Add(new HospitalServiceTypeEntity
-        {
-            HospitalId = hospitalId,
-            ServiceTypeId = serviceTypeId,
-            CreatedAt = DateTime.Now
-        });
+        _context.HospitalServiceTypes.Add(
+            new HospitalServiceTypeEntity
+            {
+                HospitalId = hospitalId,
+                ServiceTypeId = serviceTypeId,
+                CreatedAt = DateTime.Now,
+            }
+        );
 
         await _context.SaveChangesAsync();
         return true;
@@ -487,8 +542,9 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<bool> RemoveServiceTypeAsync(Guid hospitalId, Guid serviceTypeId)
     {
-        var hospitalServiceType = await _context.HospitalServiceTypes
-            .FirstOrDefaultAsync(hst => hst.HospitalId == hospitalId && hst.ServiceTypeId == serviceTypeId);
+        var hospitalServiceType = await _context.HospitalServiceTypes.FirstOrDefaultAsync(hst =>
+            hst.HospitalId == hospitalId && hst.ServiceTypeId == serviceTypeId
+        );
 
         if (hospitalServiceType == null)
         {
@@ -500,13 +556,16 @@ public class HospitalRepository : IHospitalRepository
         return true;
     }
 
-    public async Task UpdateHospitalServiceTypesBatchAsync(Guid hospitalId, List<Guid> serviceTypeIds)
+    public async Task UpdateHospitalServiceTypesBatchAsync(
+        Guid hospitalId,
+        List<Guid> serviceTypeIds
+    )
     {
         var distinctServiceTypeIds = serviceTypeIds?.Distinct().ToHashSet() ?? new HashSet<Guid>();
 
         // Get existing service type IDs only (more efficient than loading full entities)
-        var existingServiceTypeIdsList = await _context.HospitalServiceTypes
-            .Where(hst => hst.HospitalId == hospitalId)
+        var existingServiceTypeIdsList = await _context
+            .HospitalServiceTypes.Where(hst => hst.HospitalId == hospitalId)
             .Select(hst => hst.ServiceTypeId)
             .ToListAsync();
         var existingServiceTypeIds = existingServiceTypeIdsList.ToHashSet();
@@ -524,20 +583,24 @@ public class HospitalRepository : IHospitalRepository
         // Remove service types that are no longer needed
         if (serviceTypesToRemove.Any())
         {
-            await _context.HospitalServiceTypes
-                .Where(hst => hst.HospitalId == hospitalId && serviceTypesToRemove.Contains(hst.ServiceTypeId))
+            await _context
+                .HospitalServiceTypes.Where(hst =>
+                    hst.HospitalId == hospitalId && serviceTypesToRemove.Contains(hst.ServiceTypeId)
+                )
                 .ExecuteDeleteAsync(); // More efficient bulk delete
         }
 
         // Add new service types
         if (serviceTypesToAdd.Any())
         {
-            var newServiceTypes = serviceTypesToAdd.Select(serviceTypeId => new HospitalServiceTypeEntity
-            {
-                HospitalId = hospitalId,
-                ServiceTypeId = serviceTypeId,
-                CreatedAt = DateTime.UtcNow
-            }).ToList();
+            var newServiceTypes = serviceTypesToAdd
+                .Select(serviceTypeId => new HospitalServiceTypeEntity
+                {
+                    HospitalId = hospitalId,
+                    ServiceTypeId = serviceTypeId,
+                    CreatedAt = DateTime.UtcNow,
+                })
+                .ToList();
 
             await _context.HospitalServiceTypes.AddRangeAsync(newServiceTypes);
         }
@@ -549,8 +612,8 @@ public class HospitalRepository : IHospitalRepository
     public async Task<List<Guid>> GetHospitalServiceTypeIdsAsync(Guid hospitalId)
     {
         // Optimized: Only query IDs, don't load full hospital entity
-        return await _context.HospitalServiceTypes
-            .Where(hst => hst.HospitalId == hospitalId)
+        return await _context
+            .HospitalServiceTypes.Where(hst => hst.HospitalId == hospitalId)
             .Select(hst => hst.ServiceTypeId)
             .ToListAsync();
     }
@@ -561,20 +624,23 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<bool> AddServiceMedicalAsync(Guid hospitalId, Guid serviceMedicalId)
     {
-        var exists = await _context.HospitalServiceMedicals
-            .AnyAsync(hsm => hsm.HospitalId == hospitalId && hsm.ServiceMedicalId == serviceMedicalId);
+        var exists = await _context.HospitalServiceMedicals.AnyAsync(hsm =>
+            hsm.HospitalId == hospitalId && hsm.ServiceMedicalId == serviceMedicalId
+        );
 
         if (exists)
         {
             return true; // Already exists
         }
 
-        _context.HospitalServiceMedicals.Add(new HospitalServiceMedicalEntity
-        {
-            HospitalId = hospitalId,
-            ServiceMedicalId = serviceMedicalId,
-            CreatedAt = DateTime.Now
-        });
+        _context.HospitalServiceMedicals.Add(
+            new HospitalServiceMedicalEntity
+            {
+                HospitalId = hospitalId,
+                ServiceMedicalId = serviceMedicalId,
+                CreatedAt = DateTime.Now,
+            }
+        );
 
         await _context.SaveChangesAsync();
         return true;
@@ -582,8 +648,9 @@ public class HospitalRepository : IHospitalRepository
 
     public async Task<bool> RemoveServiceMedicalAsync(Guid hospitalId, Guid serviceMedicalId)
     {
-        var hospitalServiceMedical = await _context.HospitalServiceMedicals
-            .FirstOrDefaultAsync(hsm => hsm.HospitalId == hospitalId && hsm.ServiceMedicalId == serviceMedicalId);
+        var hospitalServiceMedical = await _context.HospitalServiceMedicals.FirstOrDefaultAsync(
+            hsm => hsm.HospitalId == hospitalId && hsm.ServiceMedicalId == serviceMedicalId
+        );
 
         if (hospitalServiceMedical == null)
         {

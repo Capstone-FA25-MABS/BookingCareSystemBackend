@@ -141,6 +141,17 @@ public class BatchServicesStatisticsRequest
 }
 
 /// <summary>
+/// Request DTO for getting batch statistics for multiple hospitals
+/// </summary>
+public class BatchHospitalsStatisticsRequest
+{
+    /// <summary>
+    /// List of hospital IDs to get statistics for
+    /// </summary>
+    public List<Guid> HospitalIds { get; set; } = new();
+}
+
+/// <summary>
 /// Request DTO for getting reviews with filters
 /// </summary>
 public class GetReviewsRequest
@@ -159,6 +170,11 @@ public class GetReviewsRequest
     /// Filter by service ID
     /// </summary>
     public Guid? ServiceId { get; set; }
+
+    /// <summary>
+    /// Filter by hospital ID
+    /// </summary>
+    public Guid? HospitalId { get; set; }
 
     /// <summary>
     /// Filter by target type
