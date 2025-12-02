@@ -15,6 +15,13 @@ service AppointmentService {
     // Check if appointment slots are already booked for a doctor on a specific date
     rpc CheckBookedSlots(CheckBookedSlotsRequest) returns (CheckBookedSlotsResponse);
 
+    // Check if appointment slots are already booked for a service medical on a specific date
+    rpc CheckServiceBookedSlots(CheckServiceBookedSlotsRequest) returns (CheckBookedSlotsResponse);
+
+    // Check booked slots count for a specialty (hospital assigns doctor mode)
+    // Returns count of PENDING/CONFIRMED appointments per time slot
+    rpc CheckSpecialtyBookedSlots(CheckSpecialtyBookedSlotsRequest) returns (CheckSpecialtyBookedSlotsResponse);
+
     // Get appointment details by ID (for Payment service integration)
     rpc GetAppointmentDetails (GetAppointmentDetailsRequest) returns (GetAppointmentDetailsResponse);
     
@@ -61,6 +68,12 @@ message CheckBookedSlotsResponse {
   repeated int32 booked_appointment_time_ids = 1;  // List of AppointmentTime enum values that are booked
 }
 
+// Request to check booked slots for a service medical
+message CheckServiceBookedSlotsRequest {
+  string service_id = 1;  // Service Medical ID (GUID as string)
+  string appointment_date = 2;  // ISO 8601 date format (yyyy-MM-dd)
+}
+
 // Request to get appointment details
 message GetAppointmentDetailsRequest {
     string appointment_id = 1;
@@ -95,5 +108,24 @@ message CheckPatientAppointmentHistoryResponse {
     bool has_completed_appointment = 1;  // True if patient has at least one COMPLETED appointment
     int32 total_completed_appointments = 2;  // Total number of completed appointments
     string last_completed_appointment_date = 3;  // ISO 8601 date-time format of last completed appointment
+}
+
+// Request to check booked slots for a specialty (hospital assigns doctor mode)
+message CheckSpecialtyBookedSlotsRequest {
+    string hospital_id = 1;       // Hospital ID (GUID as string)
+    string specialty_id = 2;      // Specialty ID (GUID as string)
+    string appointment_date = 3;  // ISO 8601 date format (yyyy-MM-dd)
+    int32 appointment_type = 4;   // AppointmentType enum value (0=IN_PERSON, 1=TELEHEALTH)
+}
+
+// Response with booked counts per time slot for specialty
+message CheckSpecialtyBookedSlotsResponse {
+    repeated SpecialtySlotBookedCount booked_slots = 1;
+}
+
+// Booked count for a specific time slot
+message SpecialtySlotBookedCount {
+    int32 appointment_time_id = 1;  // AppointmentTime enum value
+    int32 booked_count = 2;         // Number of PENDING/CONFIRMED appointments for this slot
 }
 

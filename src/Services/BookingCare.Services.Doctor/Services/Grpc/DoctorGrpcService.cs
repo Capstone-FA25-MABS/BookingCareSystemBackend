@@ -8,6 +8,7 @@ namespace BookingCare.Services.Doctor.Services.Grpc;
 
 public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 {
+    private const string INVALID_SPECIALTY_ID_FORMAT = "Invalid specialty ID format";
     private readonly IDoctorService _doctorService;
     private readonly ISpecialtyService _specialtyService;
     private readonly ReviewService.ReviewServiceClient _reviewClient;
@@ -387,7 +388,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             if (!Guid.TryParse(request.Id, out var id))
             {
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+                throw new RpcException(new Status(StatusCode.InvalidArgument, INVALID_SPECIALTY_ID_FORMAT));
             }
 
             var specialty = await _specialtyService.GetSpecialtyByIdAsync(id);
@@ -486,7 +487,7 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
 
             if (!Guid.TryParse(request.SpecialtyId, out var specialtyId))
             {
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid specialty ID format"));
+                throw new RpcException(new Status(StatusCode.InvalidArgument, INVALID_SPECIALTY_ID_FORMAT));
             }
 
             // Get doctors by hospital and specialty (without availability check)
@@ -522,6 +523,57 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[DoctorGrpcService] Error in GetAvailableDoctors");
+            throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    /// <summary>
+    /// Get doctor IDs only by hospital and specialty (optimized for schedule aggregation)
+    /// Returns only doctor IDs without additional information for better performance
+    /// Optionally filters by appointment type (IN_PERSON or TELEHEALTH)
+    /// </summary>
+    public override async Task<Protos.GetDoctorIdsByHospitalAndSpecialtyResponse> GetDoctorIdsByHospitalAndSpecialty(
+        Protos.GetDoctorIdsByHospitalAndSpecialtyRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[DoctorGrpcService] GetDoctorIdsByHospitalAndSpecialty called for hospital {HospitalId}, specialty {SpecialtyId}, appointmentType {AppointmentType}",
+                request.HospitalId, request.SpecialtyId, request.AppointmentType ?? "ALL");
+
+            if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid hospital ID format"));
+            }
+
+            if (!Guid.TryParse(request.SpecialtyId, out var specialtyId))
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, INVALID_SPECIALTY_ID_FORMAT));
+            }
+
+            // Get active doctor IDs only by hospital and specialty, optionally filtered by appointment type
+            var doctorIds = await _doctorService.GetActiveDoctorIdsByHospitalAndSpecialtyAsync(
+                hospitalId,
+                specialtyId,
+                request.AppointmentType);
+
+            var response = new Protos.GetDoctorIdsByHospitalAndSpecialtyResponse
+            {
+                TotalCount = doctorIds.Count
+            };
+
+            response.DoctorIds.AddRange(doctorIds.Select(id => id.ToString()));
+
+            _logger.LogInformation("[DoctorGrpcService] Returning {Count} doctor IDs", doctorIds.Count);
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorIdsByHospitalAndSpecialty");
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
         }
     }
@@ -1083,6 +1135,120 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         {
             _logger.LogError(ex, "[DoctorGrpcService] Error in GetAllSpecialties");
             throw new RpcException(new Status(StatusCode.Internal, "Internal server error"));
+        }
+    }
+
+    /// <summary>
+    /// Get doctors for assignment with full info (rating, experience)
+    /// Used by hospital staff to assign doctor to pending appointments
+    /// Note: Sorting by booking count will be done at Appointment Service level
+    /// </summary>
+    public override async Task<Protos.GetDoctorsForAssignmentResponse> GetDoctorsForAssignment(
+        Protos.GetDoctorsForAssignmentRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "[DoctorGrpcService] GetDoctorsForAssignment called - Hospital: {HospitalId}, Specialty: {SpecialtyId}, Type: {AppointmentType}, DoctorIds: {DoctorIds}",
+                request.HospitalId, request.SpecialtyId, request.AppointmentType,
+                request.DoctorIds.Count > 0 ? string.Join(", ", request.DoctorIds) : "all");
+
+            // Validate required fields
+            if (!Guid.TryParse(request.HospitalId, out var hospitalId))
+            {
+                return new Protos.GetDoctorsForAssignmentResponse
+                {
+                    Success = false,
+                    Message = "Invalid hospital ID format"
+                };
+            }
+
+            if (!Guid.TryParse(request.SpecialtyId, out var specialtyId))
+            {
+                return new Protos.GetDoctorsForAssignmentResponse
+                {
+                    Success = false,
+                    Message = INVALID_SPECIALTY_ID_FORMAT
+                };
+            }
+
+            var appointmentType = request.AppointmentType?.ToUpperInvariant() ?? "Khám trực tiếp";
+
+            // Parse optional doctor IDs filter
+            var filterDoctorIds = request.DoctorIds
+                .Where(id => Guid.TryParse(id, out _))
+                .Select(Guid.Parse)
+                .ToList();
+
+            // Get doctors using DoctorService methods (all logic handled there)
+            List<Models.DTOs.Responses.DoctorForAssignmentResponse> doctors;
+            if (filterDoctorIds.Any())
+            {
+                // Filter by specific doctor IDs (for previous doctors section)
+                doctors = await _doctorService.GetDoctorsByIdsForAssignmentAsync(filterDoctorIds, appointmentType);
+            }
+            else
+            {
+                // Get all doctors by hospital and specialty
+                doctors = await _doctorService.GetDoctorsForAssignmentAsync(hospitalId, specialtyId, appointmentType);
+            }
+
+            if (!doctors.Any())
+            {
+                _logger.LogInformation("[DoctorGrpcService] No doctors found for hospital {HospitalId} and specialty {SpecialtyId}",
+                    hospitalId, specialtyId);
+                return new Protos.GetDoctorsForAssignmentResponse
+                {
+                    Success = true,
+                    Message = "No doctors found",
+                    TotalCount = 0
+                };
+            }
+
+            // Build response (no sorting here - will be done at Appointment Service with booking count)
+            var response = new Protos.GetDoctorsForAssignmentResponse
+            {
+                Success = true,
+                Message = "Doctors retrieved successfully"
+            };
+
+            foreach (var doctor in doctors)
+            {
+                var doctorInfo = new Protos.DoctorForAssignmentInfo
+                {
+                    Id = doctor.Id.ToString(),
+                    AccountId = doctor.AccountId.ToString(),
+                    FullName = doctor.FullName,
+                    AvatarUrl = doctor.AvatarUrl,
+                    PositionName = doctor.PositionName,
+                    SpecialtyName = doctor.SpecialtyName,
+                    YearsOfExperience = doctor.YearsOfExperience,
+                    Rating = doctor.Rating,
+                    ReviewCount = doctor.ReviewCount,
+                    ConsultationFee = (double)doctor.ConsultationFee,
+                    IsActive = doctor.IsActive
+                };
+                response.Doctors.Add(doctorInfo);
+            }
+
+            response.TotalCount = response.Doctors.Count;
+
+            _logger.LogInformation("[DoctorGrpcService] Returning {Count} doctors for assignment", response.Doctors.Count);
+            return response;
+        }
+        catch (RpcException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[DoctorGrpcService] Error in GetDoctorsForAssignment");
+            return new Protos.GetDoctorsForAssignmentResponse
+            {
+                Success = false,
+                Message = "Internal server error"
+            };
         }
     }
 }

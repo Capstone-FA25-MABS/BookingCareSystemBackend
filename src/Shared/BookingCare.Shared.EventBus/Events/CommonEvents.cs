@@ -1338,6 +1338,176 @@ public class CreateInAppNotificationEvent : IntegrationEvent
 }
 
 /// <summary>
+/// Event published when hospital staff assigns a doctor to a pending appointment
+/// This event is consumed by Notification Service to send confirmation notification to patient
+/// </summary>
+public class DoctorAssignedToAppointmentNotificationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the appointment that got a doctor assigned
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who will receive the notification
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who will receive the notification
+    /// </summary>
+    public Guid PatientAccountId { get; set; }
+
+    /// <summary>
+    /// Patient email for notification
+    /// </summary>
+    public string PatientEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Patient phone for SMS notification (optional)
+    /// </summary>
+    public string? PatientPhone { get; set; }
+
+    /// <summary>
+    /// Patient full name
+    /// </summary>
+    public string PatientFullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// ID of the assigned doctor
+    /// </summary>
+    public Guid AssignedDoctorId { get; set; }
+
+    /// <summary>
+    /// Assigned doctor's full name
+    /// </summary>
+    public string DoctorFullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Doctor's specialty name
+    /// </summary>
+    public string? DoctorSpecialty { get; set; }
+
+    /// <summary>
+    /// Hospital name where appointment will take place
+    /// </summary>
+    public string HospitalName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Original appointment date
+    /// </summary>
+    public DateTime AppointmentDate { get; set; }
+
+    /// <summary>
+    /// Original appointment time
+    /// </summary>
+    public string AppointmentTime { get; set; } = string.Empty;
+
+    /// <summary>
+    /// New appointment date (if changed)
+    /// </summary>
+    public DateTime? NewAppointmentDate { get; set; }
+
+    /// <summary>
+    /// New appointment time (if changed)
+    /// </summary>
+    public string? NewAppointmentTime { get; set; }
+
+    /// <summary>
+    /// Confirmation URL for patient to confirm the assigned doctor
+    /// </summary>
+    public string ConfirmationUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Expiry time for the confirmation (48 hours)
+    /// </summary>
+    public DateTime ConfirmationExpiry { get; set; }
+
+    /// <summary>
+    /// ID of the staff who assigned the doctor
+    /// </summary>
+    public Guid AssignedByStaffId { get; set; }
+
+    /// <summary>
+    /// Optional note from staff
+    /// </summary>
+    public string? StaffNote { get; set; }
+
+    /// <summary>
+    /// When the doctor was assigned
+    /// </summary>
+    public DateTime AssignedAt { get; set; }
+}
+
+/// <summary>
+/// Event published when a specialty appointment (hospital assigns doctor) is auto-cancelled
+/// because the hospital failed to assign a doctor before the appointment date
+/// This event is consumed by Notification Service to notify the patient
+/// </summary>
+public class AppointmentAutoCancelledDueToNoDoctorEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the cancelled appointment
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient who booked the appointment
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Account ID of the patient (for in-app notification)
+    /// </summary>
+    public Guid PatientAccountId { get; set; }
+
+    /// <summary>
+    /// Patient email for email notification
+    /// </summary>
+    public string PatientEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Patient phone for SMS notification (optional)
+    /// </summary>
+    public string? PatientPhone { get; set; }
+
+    /// <summary>
+    /// Patient full name
+    /// </summary>
+    public string PatientFullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Hospital name where appointment was booked
+    /// </summary>
+    public string HospitalName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Specialty name that was requested
+    /// </summary>
+    public string SpecialtyName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Original appointment date
+    /// </summary>
+    public DateTime AppointmentDate { get; set; }
+
+    /// <summary>
+    /// Original appointment time
+    /// </summary>
+    public string AppointmentTime { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the appointment was auto-cancelled
+    /// </summary>
+    public DateTime CancelledAt { get; set; }
+
+    /// <summary>
+    /// Cancellation reason
+    /// </summary>
+    public string CancellationReason { get; set; } = "Bệnh viện không gán bác sĩ trước ngày hẹn";
+}
+
+/// <summary>
 /// File upload data container for event
 /// </summary>
 public class FileUploadData

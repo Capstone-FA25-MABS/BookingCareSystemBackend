@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using AutoMapper;
+﻿using AutoMapper;
 using BookingCare.Services.Appointment.Configuration;
 using BookingCare.Services.Appointment.Enums;
 using BookingCare.Services.Appointment.Exceptions;
@@ -34,6 +33,7 @@ public class AppointmentService : BaseService, IAppointmentService
 {
     private const string DateFormat = "yyyy-MM-dd";
     private const string NoInformationText = "Không có thông tin";
+    private const string STAFF_VIEW_CONTEXT = "staff view";
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
     private readonly IEventBus _eventBus;
@@ -295,7 +295,7 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// Release held slot via Redis cache
+    /// Release held slot via Redis cache for Doctor booking
     /// </summary>
     private async Task ReleaseHeldSlotAsync(
         Guid doctorId,
@@ -304,12 +304,27 @@ public class AppointmentService : BaseService, IAppointmentService
         Guid userId
     )
     {
+        await ReleaseHeldSlotAsync(doctorId, "doctor", appointmentDate, appointmentTimeId, userId);
+    }
+
+    /// <summary>
+    /// Release held slot via Redis cache (generic for both Doctor and ServiceMedical)
+    /// </summary>
+    private async Task ReleaseHeldSlotAsync(
+        Guid targetId,
+        string targetTypePrefix,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid userId
+    )
+    {
         try
         {
             LogInfo(
-                "Releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                "Releasing held slot for {TargetType} {TargetId} on {Date} at {AppointmentTimeId} by user {UserId}",
                 null,
-                doctorId,
+                targetTypePrefix,
+                targetId,
                 appointmentDate,
                 appointmentTimeId,
                 userId
@@ -317,28 +332,105 @@ public class AppointmentService : BaseService, IAppointmentService
 
             var database = _redisConnection.GetDatabase();
             var dateStr = appointmentDate.ToString(DateFormat);
+
+            // Cache key format must match HoldSlotService: held_slot:{targetTypePrefix}_{targetId}:{date}:{appointmentTimeId}:{userId}
+            // HoldSlotService uses: CacheKeys.Format(CacheKeys.HeldSlot, $"{targetTypePrefix}_{request.TargetId}", date, appointmentTimeId, userId)
             var cacheKey = CacheKeys.Format(
                 CacheKeys.HeldSlot,
-                doctorId,
+                $"{targetTypePrefix}_{targetId}",
                 dateStr,
                 (int)appointmentTimeId,
                 userId
             );
 
-            await database.KeyDeleteAsync(cacheKey);
+            // IMPORTANT: Add Schedule Service prefix to match where cache was created
+            // Hold slots are created by Schedule Service with prefix "BookingCare:Schedule:"
+            var fullCacheKey = $"BookingCare:Schedule:{cacheKey}";
+            await database.KeyDeleteAsync(fullCacheKey);
 
-            LogInfo("Successfully released held slot: {CacheKey}", null, cacheKey);
+            LogInfo("Successfully released held slot: {CacheKey}", null, fullCacheKey);
         }
         catch (Exception ex)
         {
             LogError(
                 ex,
-                "Error releasing held slot for doctor {DoctorId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                "Error releasing held slot for {TargetType} {TargetId} on {Date} at {AppointmentTimeId} by user {UserId}",
                 null,
-                doctorId,
+                targetTypePrefix,
+                targetId,
                 appointmentDate,
                 appointmentTimeId,
                 userId
+            );
+            // Don't throw - this is not critical for appointment creation
+        }
+    }
+
+    /// <summary>
+    /// Release held slot via Redis cache for ServiceMedical booking
+    /// </summary>
+    private async Task ReleaseServiceMedicalHeldSlotAsync(
+        Guid serviceMedicalId,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid userId
+    )
+    {
+        await ReleaseHeldSlotAsync(serviceMedicalId, "service", appointmentDate, appointmentTimeId, userId);
+    }
+
+    /// <summary>
+    /// Release held slot via Redis cache for Specialty booking (hospital assigns doctor mode)
+    /// </summary>
+    private async Task ReleaseSpecialtyHeldSlotAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid userId
+    )
+    {
+        try
+        {
+            LogInfo(
+                "Releasing specialty held slot for hospital {HospitalId}, specialty {SpecialtyId} on {Date} at {AppointmentTimeId} by user {UserId}",
+                null,
+                hospitalId,
+                specialtyId,
+                appointmentDate,
+                appointmentTimeId,
+                userId
+            );
+
+            var database = _redisConnection.GetDatabase();
+            var dateStr = appointmentDate.ToString(DateFormat);
+
+            // Cache key format: holdslot:specialty:{hospitalId}:{specialtyId}:{date}:{appointmentTimeId}:{userId}
+            var cacheKey = CacheKeys.Format(
+                CacheKeys.SpecialtyHeldSlot,
+                hospitalId,
+                specialtyId,
+                dateStr,
+                (int)appointmentTimeId,
+                userId
+            );
+
+            // IMPORTANT: Add Schedule Service prefix to match where cache was created
+            // Hold slots are created by Schedule Service with prefix "BookingCare:Schedule:"
+            var fullCacheKey = $"BookingCare:Schedule:{cacheKey}";
+            await database.KeyDeleteAsync(fullCacheKey);
+
+            LogInfo("Successfully released specialty held slot: {CacheKey}", null, fullCacheKey);
+        }
+        catch (Exception ex)
+        {
+            LogError(
+                ex,
+                "Error releasing specialty held slot for hospital {HospitalId}, specialty {SpecialtyId} on {Date}",
+                null,
+                hospitalId,
+                specialtyId,
+                appointmentDate
             );
             // Don't throw - this is not critical for appointment creation
         }
@@ -362,43 +454,75 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// Check for appointment conflicts
+    /// Check for appointment conflicts (for both self and relative bookings)
     /// </summary>
     private async Task CheckAppointmentConflictsAsync(CreateAppointmentRequest request)
     {
         var hasConflict = await _appointmentRepository.HasConflictingAppointmentAsync(
             request.PatientId,
             request.AppointmentDate,
-            request.AppointmentTimeId
+            request.AppointmentTimeId,
+            request.RelativeId // Pass relativeId to check correct conflict
         );
         if (hasConflict)
         {
+            if (request.RelativeId.HasValue)
+            {
+                throw new AppointmentConflictException(
+                    request.RelativeId.Value,
+                    request.AppointmentDate,
+                    "Người thân đã có lịch hẹn vào thời gian này"
+                );
+            }
             throw new AppointmentConflictException(request.PatientId, request.AppointmentDate);
         }
     }
 
     /// <summary>
-    /// Check doctor availability and set appointment status
+    /// Check availability and set appointment status
+    /// For Doctor booking: Check doctor availability in database
+    /// For ServiceMedical booking: Check service availability in database
+    /// This is the final check to prevent race conditions (held slot is just a soft lock)
     /// </summary>
-    private async Task CheckDoctorAvailabilityAndSetStatusAsync(CreateAppointmentRequest request)
+    private async Task CheckAvailabilityAndSetStatusAsync(CreateAppointmentRequest request)
     {
-        if (!request.DoctorId.HasValue)
+        // Doctor booking - check doctor availability
+        if (request.DoctorId.HasValue)
         {
-            request.Status = AppointmentStatus.PENDING;
+            var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
+                request.DoctorId.Value,
+                request.AppointmentDate,
+                request.AppointmentTimeId
+            );
+            if (!isDoctorAvailable)
+            {
+                throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate);
+            }
+
+            request.Status = AppointmentStatus.CONFIRMED;
             return;
         }
 
-        var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
-            request.DoctorId.Value,
-            request.AppointmentDate,
-            request.AppointmentTimeId
-        );
-        if (!isDoctorAvailable)
+        // ServiceMedical booking (no doctor) - check service availability
+        // This is the final check to prevent race conditions when multiple users book same slot
+        if (request.ServiceId.HasValue)
         {
-            throw new DoctorNotAvailableException(request.DoctorId.Value, request.AppointmentDate);
+            var isServiceAvailable = await _appointmentRepository.IsServiceMedicalAvailableAsync(
+                request.ServiceId.Value,
+                request.AppointmentDate,
+                request.AppointmentTimeId
+            );
+            if (!isServiceAvailable)
+            {
+                throw new ServiceMedicalNotAvailableException(request.ServiceId.Value, request.AppointmentDate);
+            }
+
+            request.Status = AppointmentStatus.CONFIRMED;
+            return;
         }
 
-        request.Status = AppointmentStatus.CONFIRMED;
+        // No doctor and no service - set to pending (should not happen in normal flow)
+        request.Status = AppointmentStatus.PENDING;
     }
 
     /// <summary>
@@ -415,6 +539,7 @@ public class AppointmentService : BaseService, IAppointmentService
             await IncrementAppointmentCountAsync(request.HospitalId.Value);
         }
 
+        // Handle Doctor booking
         if (request.DoctorId.HasValue)
         {
             await InvalidateAvailableSlotsCacheAsync(
@@ -425,6 +550,59 @@ public class AppointmentService : BaseService, IAppointmentService
 
             await ReleaseHeldSlotAsync(
                 request.DoctorId.Value,
+                request.AppointmentDate,
+                request.AppointmentTimeId,
+                request.PatientAccountId
+            );
+
+            // If this is a specialty booking with doctor assigned, also invalidate specialty cache
+            if (request.HospitalId.HasValue && request.SpecialtyId.HasValue)
+            {
+                await InvalidateSpecialtySlotsCacheAsync(
+                    request.HospitalId.Value,
+                    request.SpecialtyId.Value,
+                    request.AppointmentDate,
+                    request.AppointmentType
+                );
+
+                await ReleaseSpecialtyHeldSlotAsync(
+                    request.HospitalId.Value,
+                    request.SpecialtyId.Value,
+                    request.AppointmentDate,
+                    request.AppointmentTimeId,
+                    request.PatientAccountId
+                );
+            }
+        }
+        // Handle Specialty booking (hospital assigns doctor mode - no doctor yet)
+        // This is when patient books by specialty and hospital will assign doctor later
+        else if (request.HospitalId.HasValue && request.SpecialtyId.HasValue && !request.ServiceId.HasValue)
+        {
+            await InvalidateSpecialtySlotsCacheAsync(
+                request.HospitalId.Value,
+                request.SpecialtyId.Value,
+                request.AppointmentDate,
+                request.AppointmentType
+            );
+
+            await ReleaseSpecialtyHeldSlotAsync(
+                request.HospitalId.Value,
+                request.SpecialtyId.Value,
+                request.AppointmentDate,
+                request.AppointmentTimeId,
+                request.PatientAccountId
+            );
+        }
+        // Handle ServiceMedical booking (when no doctor is specified but service is)
+        else if (request.ServiceId.HasValue)
+        {
+            await InvalidateServiceMedicalSlotsCacheAsync(
+                request.ServiceId.Value,
+                request.AppointmentDate
+            );
+
+            await ReleaseServiceMedicalHeldSlotAsync(
+                request.ServiceId.Value,
                 request.AppointmentDate,
                 request.AppointmentTimeId,
                 request.PatientAccountId
@@ -475,7 +653,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
                 await ValidateAppointmentBeforeCreationAsync(request);
                 await CheckAppointmentConflictsAsync(request);
-                await CheckDoctorAvailabilityAndSetStatusAsync(request);
+                await CheckAvailabilityAndSetStatusAsync(request);
 
                 var appointmentEntity = _mapper.Map<AppointmentEntity>(request);
                 await _appointmentRepository.CreateAppointmentAsync(appointmentEntity);
@@ -563,15 +741,23 @@ public class AppointmentService : BaseService, IAppointmentService
                 };
 
                 // Include status counts if requested
+                // Pass all filters to ensure counts match the filtered results
                 if (query.IncludeStatusCounts && query.PatientId.HasValue)
                 {
                     response.StatusCounts = await GetStatusCountsAsync(
-                        query.PatientId.Value,
-                        Role.PATIENT,
-                        null
+                        new StatusCountsRequest
+                        {
+                            UserId = query.PatientId.Value,
+                            Role = Role.PATIENT,
+                            FromDate = query.FromDate,
+                            ToDate = query.ToDate,
+                            AppointmentType = query.AppointmentType,
+                            ForRelative = query.ForRelative,
+                            SearchTerm = query.SearchTerm,
+                        }
                     );
                     LogInfo(
-                        "Included status counts for patient {PatientId}",
+                        "Included status counts for patient {PatientId} with filters",
                         null,
                         query.PatientId.Value
                     );
@@ -715,21 +901,11 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         await FetchAndMapDoctorInfoAsync(responses, entities, "appointments enrichment");
 
-        // TODO: Batch fetch Service info when available
-        var serviceIds = entities
-            .Where(e => e.ServiceId.HasValue)
-            .Select(e => e.ServiceId!.Value)
-            .Distinct()
-            .ToList();
+        // Batch fetch Service info for service medical appointments
+        await FetchAndMapServiceInfoAsync(responses, entities, "appointments enrichment");
 
-        if (serviceIds.Any())
-        {
-            LogInfo(
-                "TODO: Batch fetch {Count} services for appointments enrichment",
-                null,
-                serviceIds.Count
-            );
-        }
+        // Batch fetch Specialty info for specialty booking (hospital assigns doctor mode)
+        await FetchAndMapSpecialtyInfoAsync(responses, entities, "appointments enrichment");
 
         // Batch fetch Hospital info to avoid N+1 problem
         var hospitalIds = entities
@@ -799,18 +975,22 @@ public class AppointmentService : BaseService, IAppointmentService
     )
     {
         await FetchAndMapPatientInfoAsync(responses, entities, "doctor view");
+        await FetchAndMapRelativeInfoAsync(responses, entities, "doctor view");
     }
 
     /// <summary>
-    /// Enrich appointments for Staff/Admin role - shows both patient and doctor info
+    /// Enrich appointments for Staff/Admin role - shows patient, relative, doctor, and service info
     /// </summary>
     private async Task EnrichForStaffRoleAsync(
         List<AppointmentResponse> responses,
         List<AppointmentEntity> entities
     )
     {
-        await FetchAndMapPatientInfoAsync(responses, entities, "staff view");
-        await FetchAndMapDoctorInfoAsync(responses, entities, "staff view");
+        await FetchAndMapPatientInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
+        await FetchAndMapRelativeInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
+        await FetchAndMapDoctorInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
+        await FetchAndMapServiceInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
+        await FetchAndMapSpecialtyInfoAsync(responses, entities, STAFF_VIEW_CONTEXT);
     }
 
     #endregion
@@ -833,53 +1013,17 @@ public class AppointmentService : BaseService, IAppointmentService
                 var cancellationDetails = CalculateCancellationDetails(request, appointment);
 
                 // Generate reschedule token if staff cancellation and reschedule options enabled
-                RescheduleResponse? rescheduleResponse = null;
-                if (cancellationDetails.IsStaffCancellation && request.EnableRescheduleOptions)
-                {
-                    // Pass selected options to generate only relevant URLs
-                    rescheduleResponse = await GenerateRescheduleResponseAsync(
-                        appointment,
-                        request.RescheduleOptions
-                    );
+                var rescheduleResponse = await GenerateRescheduleTokenIfNeededAsync(
+                    request,
+                    appointment,
+                    cancellationDetails);
 
-                    // Store token in appointment entity
-                    appointment.RescheduleToken = rescheduleResponse.RescheduleToken;
-                    appointment.RescheduleTokenExpiry = rescheduleResponse.TokenExpiry;
-                }
-
-                // Cancel appointment in repository
-                var cancelled = await _appointmentRepository.CancelAppointmentAsync(
+                await CancelAppointmentInRepositoryAsync(
                     appointment,
                     request.CancellationReason,
-                    cancellationDetails.CancelledBy
-                );
+                    cancellationDetails.CancelledBy);
 
-                if (!cancelled)
-                {
-                    throw new AppointmentException("Failed to cancel appointment");
-                }
-
-                // Invalidate available slots cache after successful cancellation
-                // Only invalidate if:
-                // 1. Appointment has doctor assigned
-                // 2. Appointment date is in the future (slot can be booked again)
-                if (
-                    appointment.DoctorId.HasValue
-                    && appointment.AppointmentDate.Date >= DateTime.UtcNow.Date
-                )
-                {
-                    await InvalidateAvailableSlotsCacheAsync(
-                        appointment.DoctorId.Value,
-                        appointment.AppointmentDate,
-                        appointment.ServiceId
-                    );
-
-                    LogInfo(
-                        "Invalidated available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
-                        null,
-                        appointment.Id
-                    );
-                }
+                await InvalidateCachesAfterCancellationAsync(appointment);
 
                 // Publish appropriate event based on refund percentage and reschedule options
                 await PublishCancellationEventAsync(
@@ -892,6 +1036,111 @@ public class AppointmentService : BaseService, IAppointmentService
                 return rescheduleResponse;
             },
             "CancelAppointment"
+        );
+    }
+
+    private async Task<RescheduleResponse?> GenerateRescheduleTokenIfNeededAsync(
+        CancelAppointmentRequest request,
+        AppointmentEntity appointment,
+        CancellationDetails cancellationDetails)
+    {
+        if (!cancellationDetails.IsStaffCancellation || !request.EnableRescheduleOptions)
+        {
+            return null;
+        }
+
+        var rescheduleResponse = await GenerateRescheduleResponseAsync(
+            appointment,
+            request.RescheduleOptions
+        );
+
+        appointment.RescheduleToken = rescheduleResponse.RescheduleToken;
+        appointment.RescheduleTokenExpiry = rescheduleResponse.TokenExpiry;
+
+        return rescheduleResponse;
+    }
+
+    private async Task CancelAppointmentInRepositoryAsync(
+        AppointmentEntity appointment,
+        string cancellationReason,
+        string cancelledBy)
+    {
+        var cancelled = await _appointmentRepository.CancelAppointmentAsync(
+            appointment,
+            cancellationReason,
+            cancelledBy
+        );
+
+        if (!cancelled)
+        {
+            throw new AppointmentException("Failed to cancel appointment");
+        }
+    }
+
+    private async Task InvalidateCachesAfterCancellationAsync(AppointmentEntity appointment)
+    {
+        // Only invalidate if appointment date is in the future (slot can be booked again)
+        if (appointment.AppointmentDate.Date < DateTime.UtcNow.Date)
+        {
+            return;
+        }
+
+        if (appointment.DoctorId.HasValue)
+        {
+            await InvalidateDoctorAndSpecialtyCachesAsync(appointment);
+            return;
+        }
+
+        if (appointment.ServiceId.HasValue)
+        {
+            await InvalidateServiceMedicalSlotsCacheAsync(
+                appointment.ServiceId.Value,
+                appointment.AppointmentDate
+            );
+
+            LogInfo(
+                "Invalidated service medical available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
+                null,
+                appointment.Id
+            );
+        }
+    }
+
+    private async Task InvalidateDoctorAndSpecialtyCachesAsync(AppointmentEntity appointment)
+    {
+        if (!appointment.DoctorId.HasValue)
+        {
+            return;
+        }
+
+        await InvalidateAvailableSlotsCacheAsync(
+            appointment.DoctorId.Value,
+            appointment.AppointmentDate,
+            appointment.ServiceId
+        );
+
+        LogInfo(
+            "Invalidated doctor available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
+            null,
+            appointment.Id
+        );
+
+        if (!appointment.HospitalId.HasValue || !appointment.SpecialtyId.HasValue)
+        {
+            return;
+        }
+
+        await InvalidateSpecialtySlotsCacheAsync(
+            appointment.HospitalId.Value,
+            appointment.SpecialtyId.Value,
+            appointment.AppointmentDate,
+            appointment.AppointmentType
+        );
+
+        LogInfo(
+            "Invalidated specialty available slots cache after cancelling appointment {AppointmentId} - slot becomes available again",
+            null,
+            appointment.Id
         );
     }
 
@@ -1092,11 +1341,12 @@ public class AppointmentService : BaseService, IAppointmentService
         }
 
         // Validate appointment is in the future
-        if (!RefundPolicyHelper.IsCancellationAllowed(appointment.AppointmentDate, DateTime.UtcNow))
+        // Use full appointment DateTime (date + time slot) for accurate comparison
+        if (!RefundPolicyHelper.IsCancellationAllowed(appointment.AppointmentDate, appointment.AppointmentTimeId, DateTime.UtcNow))
         {
             throw new AppointmentException(
                 $"Cannot cancel appointment that has already passed. "
-                    + $"Appointment was scheduled for {appointment.AppointmentDate:yyyy-MM-dd HH:mm} UTC."
+                    + $"Appointment was scheduled for {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.AppointmentTimeId} UTC."
             );
         }
 
@@ -1105,6 +1355,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
     /// <summary>
     /// Calculate cancellation details including refund percentage
+    /// Uses full appointment DateTime (date + time slot) for accurate calculation
     /// </summary>
     private CancellationDetails CalculateCancellationDetails(
         CancelAppointmentRequest request,
@@ -1114,18 +1365,28 @@ public class AppointmentService : BaseService, IAppointmentService
         var now = DateTime.UtcNow;
         var isStaffCancellation = request.CancelledByStaffId.HasValue;
         var cancelledBy = isStaffCancellation ? "Staff" : "Patient";
+
+        // Use full appointment DateTime (date + time slot) for accurate refund calculation
         var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(
             appointment.AppointmentDate,
+            appointment.AppointmentTimeId,
             now,
             isStaffCancellation
         );
-        var hoursUntilAppointment = (appointment.AppointmentDate - now).TotalHours;
+
+        // Get refund info with full DateTime for accurate hours calculation
+        var refundInfo = RefundPolicyHelper.GetRefundInfo(
+            appointment.AppointmentDate,
+            appointment.AppointmentTimeId,
+            now,
+            isStaffCancellation
+        );
 
         LogInfo(
-            "Appointment {AppointmentId} cancellation: {Hours} hours before appointment, {Refund}% refund, IsStaffCancellation: {IsStaff}",
+            "Appointment {AppointmentId} cancellation: {Hours:F1} hours before appointment, {Refund}% refund, IsStaffCancellation: {IsStaff}",
             null,
             appointment.Id,
-            hoursUntilAppointment,
+            refundInfo.HoursUntilAppointment,
             refundPercentage,
             isStaffCancellation
         );
@@ -1683,6 +1944,39 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
+    /// Get hospital information for notification
+    /// </summary>
+    private async Task<HospitalNotificationInfo?> GetHospitalInfoForNotificationAsync(Guid hospitalId)
+    {
+        try
+        {
+            var request = new GetHospitalBasicInfoRequest { Id = hospitalId.ToString() };
+            var response = await _grpcClients.HospitalClient.GetHospitalBasicInfoAsync(request);
+
+            if (response == null || string.IsNullOrEmpty(response.Id))
+            {
+                return null;
+            }
+
+            return new HospitalNotificationInfo
+            {
+                HospitalId = Guid.Parse(response.Id),
+                Name = response.Name,
+                Address = response.Address,
+            };
+        }
+        catch (GrpcCore.RpcException ex)
+        {
+            LogWarning(
+                "Failed to get hospital info for notification: {Error}",
+                null,
+                ex.Message
+            );
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Reschedule appointment with same doctor (Option 1)
     /// </summary>
     public async Task<bool> RescheduleSameDoctorAsync(RescheduleSameDoctorRequest request)
@@ -1939,13 +2233,14 @@ public class AppointmentService : BaseService, IAppointmentService
                     "request refund"
                 );
 
-                // Calculate refund percentage
+                // Calculate refund percentage using full appointment DateTime (date + time slot)
                 var now = DateTime.UtcNow;
                 var isStaffCancellation =
                     !string.IsNullOrEmpty(appointment.CancelledBy)
                     && appointment.CancelledBy == "Staff";
                 var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(
                     appointment.AppointmentDate,
+                    appointment.AppointmentTimeId,
                     now,
                     isStaffCancellation
                 );
@@ -2531,7 +2826,7 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// Generate HTML medical report and upload to S3
+    /// Generate professional PDF medical report and upload to S3
     /// </summary>
     private async Task<string> GenerateAndUploadMedicalReportAsync(
         UpdateAppointmentResultRequest request,
@@ -2542,8 +2837,8 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         try
         {
-            // Generate beautiful HTML report from markdown content
-            var htmlContent = MedicalReportHtmlGenerator.GenerateHtmlReport(
+            // Generate professional PDF report from markdown content
+            var pdfBytes = MedicalReportPdfGenerator.GeneratePdfReport(
                 request.Result,
                 appointment.Id.ToString(),
                 doctorName,
@@ -2551,29 +2846,28 @@ public class AppointmentService : BaseService, IAppointmentService
                 appointment.AppointmentDate
             );
 
-            // Convert HTML to byte array
-            var htmlBytes = System.Text.Encoding.UTF8.GetBytes(htmlContent);
-            using var htmlStream = new MemoryStream(htmlBytes);
+            // Create stream from PDF bytes
+            using var pdfStream = new MemoryStream(pdfBytes);
 
             var uploadRequest = new FileUploadRequest
             {
-                FileStream = htmlStream,
-                FileName = $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html",
-                ContentType = "text/html; charset=utf-8",
+                FileStream = pdfStream,
+                FileName = $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf",
+                ContentType = "application/pdf",
                 Folder = "appointment-results",
                 GenerateUniqueFileName = true,
                 Metadata = new Dictionary<string, string>
                 {
                     ["AppointmentId"] = request.AppointmentId.ToString(),
                     ["UploadedAt"] = DateTime.UtcNow.ToString("o"),
-                    ["UploadType"] = "HtmlReport",
-                    ["ContentLength"] = htmlContent.Length.ToString(),
-                    ["OriginalFormat"] = "MarkdownToHtml",
+                    ["UploadType"] = "PdfReport",
+                    ["ContentLength"] = pdfBytes.Length.ToString(),
+                    ["OriginalFormat"] = "MarkdownToPdf",
                 },
             };
 
             LogInfo(
-                "Converting result to HTML medical report for appointment {AppointmentId}, doctor: {Doctor}, patient: {Patient}",
+                "Converting result to PDF medical report for appointment {AppointmentId}, doctor: {Doctor}, patient: {Patient}",
                 null,
                 request.AppointmentId,
                 doctorName,
@@ -2590,7 +2884,7 @@ public class AppointmentService : BaseService, IAppointmentService
             }
 
             LogInfo(
-                "Successfully uploaded HTML medical report for appointment {AppointmentId} to {Url}",
+                "Successfully uploaded PDF medical report for appointment {AppointmentId} to {Url}",
                 null,
                 request.AppointmentId,
                 uploadResult.CloudFrontUrl
@@ -2602,12 +2896,12 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogError(
                 ex,
-                "Error converting to HTML and uploading for appointment {AppointmentId}",
+                "Error converting to PDF and uploading for appointment {AppointmentId}",
                 null,
                 request.AppointmentId
             );
             throw new AppointmentException(
-                "Failed to upload HTML medical report to S3",
+                "Failed to upload PDF medical report to S3",
                 innerException: ex
             );
         }
@@ -2944,6 +3238,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
     /// <summary>
     /// Batch fetch and map doctor information to appointments to avoid N+1 problem
+    /// Note: ConsultationFee is now taken from entity.Amount (stored at booking time) instead of gRPC
     /// </summary>
     private async Task FetchAndMapDoctorInfoAsync(
         List<AppointmentResponse> responses,
@@ -2964,26 +3259,9 @@ public class AppointmentService : BaseService, IAppointmentService
 
         try
         {
-            // Group entities by AppointmentType to minimize gRPC calls
-            // For each unique AppointmentType, get doctor prices with that service type
-            var entitiesByType = entities
-                .Where(e => e.DoctorId.HasValue)
-                .GroupBy(e => e.AppointmentType)
-                .ToList();
-
+            // Fetch doctor basic info without prices (prices are stored in entity.Amount)
             var doctorRequest = new GetDoctorsBasicInfoRequest();
             doctorRequest.Ids.AddRange(doctorIds.Select(id => id.ToString()));
-
-            // If all appointments have same type, fetch prices in single call
-            // Otherwise, fetch without prices and make separate calls per type
-            if (entitiesByType.Count == 1)
-            {
-                var appointmentType = entitiesByType[0].Key;
-                doctorRequest.ServiceTypeName =
-                    appointmentType == AppointmentType.IN_PERSON
-                        ? "Khám trực tiếp"
-                        : "Tư vấn online";
-            }
 
             var doctorsResponse = await _grpcClients.DoctorClient.GetDoctorsBasicInfoAsync(
                 doctorRequest
@@ -3014,11 +3292,8 @@ public class AppointmentService : BaseService, IAppointmentService
                         HospitalId = !string.IsNullOrEmpty(doctorInfo.HospitalId)
                             ? Guid.Parse(doctorInfo.HospitalId)
                             : null,
-                        // Add consultation fee if returned from gRPC
-                        ConsultationFee =
-                            doctorInfo.ConsultationFee > 0
-                                ? (decimal)doctorInfo.ConsultationFee
-                                : null,
+                        // Use Amount from entity (stored at booking time) for accurate historical data
+                        ConsultationFee = entity.Amount,
                     };
                 }
             }
@@ -3027,6 +3302,134 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogWarning(
                 "gRPC error batch fetching doctors for {Context}: {Error}",
+                null,
+                context,
+                rpcEx.Status.Detail
+            );
+        }
+    }
+
+    /// <summary>
+    /// Batch fetch and map service medical information to appointments to avoid N+1 problem
+    /// </summary>
+    private async Task FetchAndMapServiceInfoAsync(
+        List<AppointmentResponse> responses,
+        List<AppointmentEntity> entities,
+        string context
+    )
+    {
+        var serviceIds = entities
+            .Where(e => e.ServiceId.HasValue)
+            .Select(e => e.ServiceId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!serviceIds.Any())
+        {
+            return;
+        }
+
+        try
+        {
+            var serviceRequest = new ServiceMedical.Protos.GetServicesBasicInfoRequest();
+            serviceRequest.Ids.AddRange(serviceIds.Select(id => id.ToString()));
+
+            var servicesResponse = await _grpcClients.ServiceMedicalClient.GetServicesBasicInfoAsync(
+                serviceRequest
+            );
+            var serviceDict = servicesResponse.Services.ToDictionary(s => Guid.Parse(s.Id), s => s);
+
+            LogInfo("Batch fetched {Count} services for {Context}", null, serviceDict.Count, context);
+
+            // Map service info to appointments
+            for (int i = 0; i < responses.Count; i++)
+            {
+                var entity = entities[i];
+                if (
+                    entity.ServiceId.HasValue
+                    && serviceDict.TryGetValue(entity.ServiceId.Value, out var serviceInfo)
+                )
+                {
+                    responses[i].ServiceInfo = new ServiceInfo
+                    {
+                        Id = Guid.Parse(serviceInfo.Id),
+                        Name = serviceInfo.Name,
+                        // Use Amount from entity (stored at booking time) for accurate historical data
+                        Price = entity.Amount,
+                        ImageUrl = serviceInfo.ImageUrl,
+                    };
+                }
+            }
+        }
+        catch (GrpcCore.RpcException rpcEx)
+        {
+            LogWarning(
+                "gRPC error batch fetching services for {Context}: {Error}",
+                null,
+                context,
+                rpcEx.Status.Detail
+            );
+        }
+    }
+
+    /// <summary>
+    /// Batch fetch and map specialty information to appointments to avoid N+1 problem
+    /// Used for specialty booking (hospital assigns doctor mode) where no doctor is assigned yet
+    /// </summary>
+    private async Task FetchAndMapSpecialtyInfoAsync(
+        List<AppointmentResponse> responses,
+        List<AppointmentEntity> entities,
+        string context
+    )
+    {
+        // Only fetch specialty info for appointments that have SpecialtyId but no DoctorId
+        // (specialty booking mode where hospital assigns doctor)
+        var specialtyIds = entities
+            .Where(e => e.SpecialtyId.HasValue && !e.DoctorId.HasValue)
+            .Select(e => e.SpecialtyId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!specialtyIds.Any())
+        {
+            return;
+        }
+
+        try
+        {
+            var specialtyRequest = new Doctor.Protos.GetSpecialtiesByIdsRequest();
+            specialtyRequest.Ids.AddRange(specialtyIds.Select(id => id.ToString()));
+
+            var specialtiesResponse = await _grpcClients.DoctorClient.GetSpecialtiesByIdsAsync(
+                specialtyRequest
+            );
+            var specialtyDict = specialtiesResponse.Specialties.ToDictionary(s => Guid.Parse(s.Id), s => s);
+
+            LogInfo("Batch fetched {Count} specialties for {Context}", null, specialtyDict.Count, context);
+
+            // Map specialty info to appointments
+            for (int i = 0; i < responses.Count; i++)
+            {
+                var entity = entities[i];
+                if (
+                    entity.SpecialtyId.HasValue
+                    && !entity.DoctorId.HasValue // Only for specialty booking (no doctor assigned)
+                    && specialtyDict.TryGetValue(entity.SpecialtyId.Value, out var specialtyInfo)
+                )
+                {
+                    responses[i].SpecialtyInfo = new SpecialtyInfo
+                    {
+                        Id = Guid.Parse(specialtyInfo.Id),
+                        Name = specialtyInfo.Name,
+                        ImageUrl = specialtyInfo.ImageUrl,
+                    };
+                }
+            }
+        }
+        catch (GrpcCore.RpcException rpcEx)
+        {
+            LogWarning(
+                "gRPC error batch fetching specialties for {Context}: {Error}",
                 null,
                 context,
                 rpcEx.Status.Detail
@@ -3089,6 +3492,81 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogWarning(
                 "gRPC error batch fetching patients for {Context}: {Error}",
+                null,
+                context,
+                rpcEx.Status.Detail
+            );
+        }
+    }
+
+    /// <summary>
+    /// Batch fetch and map relative information to appointments to avoid N+1 problem
+    /// Only fetches for appointments that have RelativeId set
+    /// </summary>
+    private async Task FetchAndMapRelativeInfoAsync(
+        List<AppointmentResponse> responses,
+        List<AppointmentEntity> entities,
+        string context
+    )
+    {
+        var relativeIds = entities
+            .Where(e => e.RelativeId.HasValue)
+            .Select(e => e.RelativeId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (!relativeIds.Any())
+        {
+            return;
+        }
+
+        try
+        {
+            var relativeRequest = new GetRelativesBasicInfoRequest();
+            relativeRequest.Ids.AddRange(relativeIds.Select(id => id.ToString()));
+
+            var relativesResponse = await _grpcClients.UserClient.GetRelativesBasicInfoAsync(
+                relativeRequest
+            );
+            var relativeDict = relativesResponse.Relatives
+                .Where(r => r.Found)
+                .ToDictionary(r => Guid.Parse(r.Id), r => r);
+
+            LogInfo(
+                "Batch fetched {Count} relatives for {Context}",
+                null,
+                relativeDict.Count,
+                context
+            );
+
+            // Map relative info to appointments
+            for (int i = 0; i < responses.Count; i++)
+            {
+                var entity = entities[i];
+                if (entity.RelativeId.HasValue && relativeDict.TryGetValue(entity.RelativeId.Value, out var relativeInfo))
+                {
+                    responses[i].RelativeInfo = new RelativeInfo
+                    {
+                        Id = Guid.Parse(relativeInfo.Id),
+                        FirstName = relativeInfo.FirstName,
+                        LastName = relativeInfo.LastName,
+                        FullName = relativeInfo.FullName,
+                        Gender = relativeInfo.Gender,
+                        DateOfBirth = DateTime.TryParse(relativeInfo.DateOfBirth, out var dob) ? dob : null,
+                        Age = DateTime.TryParse(relativeInfo.DateOfBirth, out var dobAge)
+                            ? (int)((DateTime.Today - dobAge).TotalDays / 365.25)
+                            : null,
+                        Phone = relativeInfo.Phone,
+                        Relationship = relativeInfo.Relationship,
+                        RelationshipDisplay = relativeInfo.RelationshipDisplay,
+                    };
+                }
+            }
+        }
+        catch (GrpcCore.RpcException rpcEx)
+        {
+            LogWarning(
+                "gRPC error batch fetching relatives for {Context}: {Error}",
                 null,
                 context,
                 rpcEx.Status.Detail
@@ -3184,6 +3662,113 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
+    /// Invalidate service medical available slots cache
+    /// IMPORTANT: Available slots cache is stored by Schedule Service with prefix "BookingCare:Schedule:"
+    /// </summary>
+    private async Task InvalidateServiceMedicalSlotsCacheAsync(
+        Guid serviceMedicalId,
+        DateTime appointmentDate
+    )
+    {
+        try
+        {
+            var dateStr = DateOnly.FromDateTime(appointmentDate).ToString(DateFormat);
+
+            // Cache key format: service_medical_available_slots:{serviceMedicalId}:{date}
+            var cacheKey = CacheKeys.Format(
+                CacheKeys.ServiceMedicalAvailableSlots,
+                serviceMedicalId,
+                dateStr
+            );
+
+            // Add Schedule Service prefix to match where cache was created
+            var fullCacheKey = $"BookingCare:Schedule:{cacheKey}";
+            await RemoveCacheDirectlyAsync(fullCacheKey);
+
+            LogInfo(
+                "Successfully invalidated service medical available slots cache for service {ServiceMedicalId} on {Date}",
+                null,
+                serviceMedicalId,
+                dateStr
+            );
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't throw - cache invalidation failure should not fail appointment operations
+            LogError(
+                ex,
+                "Failed to invalidate service medical available slots cache for service {ServiceMedicalId} on {Date}: {Error}",
+                null,
+                serviceMedicalId,
+                DateOnly.FromDateTime(appointmentDate).ToString(DateFormat),
+                ex.Message
+            );
+        }
+    }
+
+    /// <summary>
+    /// Invalidate specialty available slots cache (for "hospital assigns doctor" mode)
+    /// IMPORTANT: Available slots cache is stored by Schedule Service with prefix "BookingCare:Schedule:"
+    /// </summary>
+    private async Task InvalidateSpecialtySlotsCacheAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        DateTime appointmentDate,
+        AppointmentType appointmentType
+    )
+    {
+        try
+        {
+            var dateStr = DateOnly.FromDateTime(appointmentDate).ToString(DateFormat);
+
+            // Cache key format: specialty_available_slots:{hospitalId}:{specialtyId}:{date}:{appointmentType}
+            var cacheKey = CacheKeys.Format(
+                CacheKeys.SpecialtyAvailableSlots,
+                hospitalId,
+                specialtyId,
+                dateStr,
+                appointmentType.ToString()
+            );
+
+            // Add Schedule Service prefix to match where cache was created
+            var fullCacheKey = $"BookingCare:Schedule:{cacheKey}";
+            await RemoveCacheDirectlyAsync(fullCacheKey);
+
+            // Also invalidate with pattern to cover all appointment types
+            var patternCacheKey = CacheKeys.Format(
+                CacheKeys.SpecialtyAvailableSlots,
+                hospitalId,
+                specialtyId,
+                dateStr,
+                "*"
+            );
+            var fullPatternCacheKey = $"BookingCare:Schedule:{patternCacheKey}";
+            await RemoveCacheByPatternDirectlyAsync(fullPatternCacheKey);
+
+            LogInfo(
+                "Successfully invalidated specialty available slots cache for hospital {HospitalId}, specialty {SpecialtyId} on {Date}",
+                null,
+                hospitalId,
+                specialtyId,
+                dateStr
+            );
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't throw - cache invalidation failure should not fail appointment operations
+            LogError(
+                ex,
+                "Failed to invalidate specialty available slots cache for hospital {HospitalId}, specialty {SpecialtyId} on {Date}: {Error}",
+                null,
+                hospitalId,
+                specialtyId,
+                DateOnly.FromDateTime(appointmentDate).ToString(DateFormat),
+                ex.Message
+            );
+        }
+    }
+
+    /// <summary>
     /// Remove cache directly without adding this service's prefix
     /// Used to delete cache keys created by other services (like Schedule Service)
     /// </summary>
@@ -3236,6 +3821,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// <summary>
     /// Get role-based status counts from query parameters
     /// Determines the appropriate userId and hospitalId based on management role
+    /// Passes all filters to ensure counts match the filtered results
     /// </summary>
     private async Task<AppointmentStatusCounts> GetRoleBasedStatusCountsAsync(
         AppointmentQueryRequest query,
@@ -3245,19 +3831,42 @@ public class AppointmentService : BaseService, IAppointmentService
         switch (managementRole)
         {
             case Role.DOCTOR:
-                // Doctor: count by DoctorId from query
+                // Doctor: count by DoctorId from query with filters
                 if (query.DoctorId.HasValue)
                 {
-                    return await GetStatusCountsAsync(query.DoctorId.Value, Role.DOCTOR, null);
+                    return await GetStatusCountsAsync(
+                        new StatusCountsRequest
+                        {
+                            UserId = query.DoctorId.Value,
+                            Role = Role.DOCTOR,
+                            FromDate = query.FromDate,
+                            ToDate = query.ToDate,
+                            AppointmentType = query.AppointmentType,
+                            ForRelative = query.ForRelative,
+                            SearchTerm = query.SearchTerm
+                        }
+                    );
                 }
                 LogWarning("Doctor role but no DoctorId provided in query for status counts", null);
                 return new AppointmentStatusCounts();
 
             case Role.STAFF:
-                // Staff: count by HospitalId from query
+                // Staff: count by HospitalId from query with filters
                 if (query.HospitalId.HasValue)
                 {
-                    return await GetStatusCountsAsync(null, Role.STAFF, query.HospitalId.Value);
+                    return await GetStatusCountsAsync(
+                        new StatusCountsRequest
+                        {
+                            UserId = null,
+                            Role = Role.STAFF,
+                            HospitalId = query.HospitalId.Value,
+                            FromDate = query.FromDate,
+                            ToDate = query.ToDate,
+                            AppointmentType = query.AppointmentType,
+                            ForRelative = query.ForRelative,
+                            SearchTerm = query.SearchTerm
+                        }
+                    );
                 }
                 LogWarning(
                     "Staff role but no HospitalId provided in query for status counts",
@@ -3266,8 +3875,19 @@ public class AppointmentService : BaseService, IAppointmentService
                 return new AppointmentStatusCounts();
 
             case Role.ADMIN:
-                // Admin: count all appointments
-                return await GetStatusCountsAsync(null, Role.ADMIN, null);
+                // Admin: count all appointments with filters
+                return await GetStatusCountsAsync(
+                    new StatusCountsRequest
+                    {
+                        UserId = null,
+                        Role = Role.ADMIN,
+                        FromDate = query.FromDate,
+                        ToDate = query.ToDate,
+                        AppointmentType = query.AppointmentType,
+                        ForRelative = query.ForRelative,
+                        SearchTerm = query.SearchTerm
+                    }
+                );
 
             default:
                 LogWarning(
@@ -3280,15 +3900,27 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
+    /// Request object for status counts to keep method signature focused.
+    /// </summary>
+    private sealed class StatusCountsRequest
+    {
+        public Guid? UserId { get; init; }
+        public Role Role { get; init; }
+        public Guid? HospitalId { get; init; }
+        public DateTime? FromDate { get; init; }
+        public DateTime? ToDate { get; init; }
+        public AppointmentType? AppointmentType { get; init; }
+        public bool? ForRelative { get; init; }
+        public string? SearchTerm { get; init; }
+    }
+
+    /// <summary>
     /// Get counts for all statuses for a specific user or organization
     /// Uses optimized repository method with single DB query
     /// Supports Patient, Doctor, Staff (by Hospital), and Admin (all) roles
+    /// Also supports additional filters like date range, appointment type, forRelative, and searchTerm
     /// </summary>
-    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(
-        Guid? userId,
-        Role role,
-        Guid? hospitalId = null
-    )
+    private async Task<AppointmentStatusCounts> GetStatusCountsAsync(StatusCountsRequest request)
     {
         try
         {
@@ -3298,20 +3930,20 @@ public class AppointmentService : BaseService, IAppointmentService
             Guid? staffHospitalId = null;
             bool countAll = false;
 
-            switch (role)
+            switch (request.Role)
             {
                 case Role.PATIENT:
-                    patientId = userId;
+                    patientId = request.UserId;
                     LogInfo("Getting status counts for Patient {PatientId}", null, patientId!);
                     break;
 
                 case Role.DOCTOR:
-                    doctorId = userId;
+                    doctorId = request.UserId;
                     LogInfo("Getting status counts for Doctor {DoctorId}", null, doctorId!);
                     break;
 
                 case Role.STAFF:
-                    staffHospitalId = hospitalId;
+                    staffHospitalId = request.HospitalId;
                     LogInfo(
                         "Getting status counts for Staff in Hospital {HospitalId}",
                         null,
@@ -3325,17 +3957,25 @@ public class AppointmentService : BaseService, IAppointmentService
                     break;
 
                 default:
-                    LogWarning("Unknown role {Role} for status counts", null, role);
+                    LogWarning("Unknown role {Role} for status counts", null, request.Role);
                     return new AppointmentStatusCounts();
             }
 
             // Get counts using optimized repository method (single query with GROUP BY)
-            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(
-                patientId,
-                doctorId,
-                staffHospitalId,
-                countAll
-            );
+            var filter = new AppointmentStatusFilter
+            {
+                PatientId = patientId,
+                DoctorId = doctorId,
+                HospitalId = staffHospitalId,
+                CountAll = countAll,
+                FromDate = request.FromDate,
+                ToDate = request.ToDate,
+                AppointmentType = request.AppointmentType,
+                ForRelative = request.ForRelative,
+                SearchTerm = request.SearchTerm
+            };
+
+            var statusCountsDict = await _appointmentRepository.GetStatusCountsByUserAsync(filter);
 
             var counts = new AppointmentStatusCounts
             {
@@ -3350,7 +3990,7 @@ public class AppointmentService : BaseService, IAppointmentService
             LogInfo(
                 "Retrieved status counts for role {Role}: Total={Total}, Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
                 null,
-                role,
+                request.Role,
                 counts.Total,
                 counts.Pending,
                 counts.Confirmed,
@@ -3366,7 +4006,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 ex,
                 "Failed to get status counts for role {Role}: {Error}",
                 null,
-                role,
+                request.Role,
                 ex.Message
             );
             // Return empty counts on error
@@ -3804,6 +4444,522 @@ public class AppointmentService : BaseService, IAppointmentService
         }
 
         return appointment;
+    }
+
+    #endregion
+
+    #region Assign Doctor To Appointment (NEW flow for "Hospital assigns doctor")
+
+    /// <summary>
+    /// Get doctors for assignment flow (hospital staff assigns doctor to pending specialty appointment)
+    /// Returns recommended doctors (sorted by experience, rating, booking count) and previous doctors
+    /// </summary>
+    public async Task<DoctorsForAssignmentResponse> GetDoctorsForAssignmentAsync(Models.DTOs.GetDoctorsForAssignmentRequest request)
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                ValidateRequired(request, nameof(request));
+                ValidateGuid(request.AppointmentId, nameof(request.AppointmentId));
+
+                var appointment = await GetAndValidateAppointmentForAssignmentAsync(request.AppointmentId);
+                var (hospitalId, specialtyId, appointmentType) = GetAssignmentContext(appointment, request.AppointmentId);
+
+                var doctorGrpcResponse = await FetchRecommendedDoctorsFromGrpcAsync(
+                    hospitalId,
+                    specialtyId,
+                    appointmentType);
+
+                if (!doctorGrpcResponse.Success)
+                {
+                    LogWarning(
+                        "[GetDoctorsForAssignment] Doctor gRPC failed: {Message}",
+                        null,
+                        doctorGrpcResponse.Message);
+                    return new DoctorsForAssignmentResponse();
+                }
+
+                var previousDoctorIds = await GetPreviousDoctorIdsForAppointmentAsync(
+                    appointment,
+                    hospitalId,
+                    specialtyId);
+
+                var allDoctorIds = doctorGrpcResponse.Doctors
+                    .Select(d => Guid.Parse(d.Id))
+                    .Union(previousDoctorIds)
+                    .Distinct()
+                    .ToList();
+
+                var bookingCountMap = await GetDoctorBookingCountsAsync(allDoctorIds);
+
+                var availabilityMap = await BuildAvailabilityMapAsync(
+                    request.CheckAvailabilityAtOriginalTime,
+                    allDoctorIds,
+                    appointment);
+
+                var recommendedDoctors = BuildRecommendedDoctors(
+                    doctorGrpcResponse,
+                    bookingCountMap,
+                    availabilityMap);
+
+                var previousDoctors = await BuildPreviousDoctorsAsync(
+                    previousDoctorIds,
+                    hospitalId,
+                    specialtyId,
+                    appointmentType,
+                    bookingCountMap,
+                    availabilityMap);
+
+                LogInfo(
+                    "[GetDoctorsForAssignment] Found {RecommendedCount} recommended and {PreviousCount} previous doctors",
+                    null,
+                    recommendedDoctors.Count,
+                    previousDoctors.Count);
+
+                return new DoctorsForAssignmentResponse
+                {
+                    RecommendedDoctors = recommendedDoctors,
+                    PreviousDoctors = previousDoctors,
+                    TotalRecommended = recommendedDoctors.Count,
+                    TotalPrevious = previousDoctors.Count
+                };
+            },
+            "GetDoctorsForAssignment");
+    }
+
+    private async Task<AppointmentEntity> GetAndValidateAppointmentForAssignmentAsync(Guid appointmentId)
+    {
+        var appointment = await _appointmentRepository.GetAppointmentByIdAsync(appointmentId);
+        if (appointment == null)
+        {
+            throw new AppointmentException($"Appointment {appointmentId} not found");
+        }
+
+        if (appointment.Status != AppointmentStatus.PENDING)
+        {
+            throw new AppointmentException("Only PENDING appointments can have doctors assigned");
+        }
+
+        if (appointment.DoctorId.HasValue)
+        {
+            throw new AppointmentException("This appointment already has a doctor assigned");
+        }
+
+        if (!appointment.SpecialtyId.HasValue || !appointment.HospitalId.HasValue)
+        {
+            throw new AppointmentException("Appointment must have specialty and hospital information");
+        }
+
+        return appointment;
+    }
+
+    private (Guid HospitalId, Guid SpecialtyId, string AppointmentTypeText) GetAssignmentContext(
+        AppointmentEntity appointment,
+        Guid appointmentIdForLog)
+    {
+        var hospitalId = appointment.HospitalId!.Value;
+        var specialtyId = appointment.SpecialtyId!.Value;
+        var appointmentTypeText = appointment.AppointmentType == AppointmentType.IN_PERSON
+            ? "Khám trực tiếp"
+            : "Tư vấn trực tuyến";
+
+        LogInfo(
+            "[GetDoctorsForAssignment] Fetching doctors for appointment {AppointmentId}, hospital {HospitalId}, specialty {SpecialtyId}, type {AppointmentType}",
+            null,
+            appointmentIdForLog,
+            hospitalId,
+            specialtyId,
+            appointmentTypeText);
+
+        return (hospitalId, specialtyId, appointmentTypeText);
+    }
+
+    private async Task<GetDoctorsForAssignmentResponse> FetchRecommendedDoctorsFromGrpcAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        string appointmentType)
+    {
+        var doctorGrpcRequest = new Doctor.Protos.GetDoctorsForAssignmentRequest
+        {
+            HospitalId = hospitalId.ToString(),
+            SpecialtyId = specialtyId.ToString(),
+            AppointmentType = appointmentType
+        };
+
+        return await _grpcClients.DoctorClient.GetDoctorsForAssignmentAsync(doctorGrpcRequest);
+    }
+
+    private async Task<List<Guid>> GetPreviousDoctorIdsForAppointmentAsync(
+        AppointmentEntity appointment,
+        Guid hospitalId,
+        Guid specialtyId)
+    {
+        var actualPatientId = appointment.RelativeId ?? appointment.PatientId;
+        return await GetPreviousDoctorIdsForPatientAsync(
+            actualPatientId,
+            hospitalId,
+            specialtyId);
+    }
+
+    private async Task<Dictionary<Guid, bool>> BuildAvailabilityMapAsync(
+        bool checkAvailabilityAtOriginalTime,
+        List<Guid> allDoctorIds,
+        AppointmentEntity appointment)
+    {
+        if (!checkAvailabilityAtOriginalTime)
+        {
+            return new Dictionary<Guid, bool>();
+        }
+
+        return await CheckDoctorsAvailabilityAsync(
+            allDoctorIds,
+            DateOnly.FromDateTime(appointment.AppointmentDate),
+            appointment.AppointmentTimeId);
+    }
+
+    private static List<DoctorForAssignment> BuildRecommendedDoctors(
+        GetDoctorsForAssignmentResponse doctorGrpcResponse,
+        IReadOnlyDictionary<Guid, int> bookingCountMap,
+        IReadOnlyDictionary<Guid, bool> availabilityMap)
+    {
+        return MapGrpcDoctorsToAssignment(
+                doctorGrpcResponse.Doctors,
+                bookingCountMap,
+                availabilityMap)
+            .OrderByDescending(d => d.YearsOfExperience)
+            .ThenByDescending(d => d.Rating)
+            .ThenByDescending(d => d.BookingCount)
+            .ToList();
+    }
+
+    private async Task<List<DoctorForAssignment>> BuildPreviousDoctorsAsync(
+        IReadOnlyCollection<Guid> previousDoctorIds,
+        Guid hospitalId,
+        Guid specialtyId,
+        string appointmentType,
+        IReadOnlyDictionary<Guid, int> bookingCountMap,
+        IReadOnlyDictionary<Guid, bool> availabilityMap)
+    {
+        var previousDoctors = new List<DoctorForAssignment>();
+        if (!previousDoctorIds.Any())
+        {
+            return previousDoctors;
+        }
+
+        var previousDoctorGrpcRequest = new Doctor.Protos.GetDoctorsForAssignmentRequest
+        {
+            HospitalId = hospitalId.ToString(),
+            SpecialtyId = specialtyId.ToString(),
+            AppointmentType = appointmentType
+        };
+        previousDoctorGrpcRequest.DoctorIds.AddRange(previousDoctorIds.Select(id => id.ToString()));
+
+        var previousDoctorGrpcResponse =
+            await _grpcClients.DoctorClient.GetDoctorsForAssignmentAsync(previousDoctorGrpcRequest);
+
+        if (previousDoctorGrpcResponse.Success)
+        {
+            previousDoctors = MapGrpcDoctorsToAssignment(
+                previousDoctorGrpcResponse.Doctors,
+                bookingCountMap,
+                availabilityMap);
+        }
+
+        return previousDoctors;
+    }
+
+    /// <summary>
+    /// Assign doctor to a pending specialty appointment (NEW flow for "Hospital assigns doctor")
+    /// This directly assigns the doctor and confirms the appointment
+    /// </summary>
+    public async Task<AssignDoctorToAppointmentResponse> AssignDoctorToAppointmentAsync(AssignDoctorToAppointmentRequest request)
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                ValidateRequired(request, nameof(request));
+                ValidateGuid(request.AppointmentId, nameof(request.AppointmentId));
+                ValidateGuid(request.DoctorId, nameof(request.DoctorId));
+                ValidateGuid(request.AssignedByStaffId, nameof(request.AssignedByStaffId));
+
+                // Step 1: Get and validate appointment
+                var appointment = await _appointmentRepository.GetAppointmentByIdAsync(request.AppointmentId);
+                if (appointment == null)
+                {
+                    throw new AppointmentException($"Appointment {request.AppointmentId} not found");
+                }
+
+                // Validate: Must be PENDING and specialty booking (no doctor assigned)
+                if (appointment.Status != AppointmentStatus.PENDING)
+                {
+                    throw new AppointmentException("Only PENDING appointments can have doctors assigned");
+                }
+
+                if (appointment.DoctorId.HasValue)
+                {
+                    throw new AppointmentException("This appointment already has a doctor assigned");
+                }
+
+                // Step 2: Get doctor info via gRPC
+                var doctorInfo = await GetDoctorBasicInfoAsync(request.DoctorId);
+                if (doctorInfo == null)
+                {
+                    throw new AppointmentException($"Doctor {request.DoctorId} not found");
+                }
+
+                // Step 3: Determine final date/time
+                var finalDate = request.NewAppointmentDate ?? appointment.AppointmentDate;
+                var finalTimeId = request.NewAppointmentTimeId ?? appointment.AppointmentTimeId;
+
+                // Step 4: Check doctor availability at final date/time
+                var isAvailable = await CheckDoctorAvailabilityAsync(
+                    request.DoctorId,
+                    DateOnly.FromDateTime(finalDate),
+                    finalTimeId);
+
+                if (!isAvailable)
+                {
+                    throw new AppointmentException(
+                        $"Doctor {doctorInfo.FullName} is not available at the selected date/time");
+                }
+
+                // Step 5: Update appointment
+                appointment.DoctorId = request.DoctorId;
+                appointment.AppointmentDate = finalDate;
+                appointment.AppointmentTimeId = finalTimeId;
+                appointment.Status = AppointmentStatus.CONFIRMED;
+
+                await _appointmentRepository.UpdateAppointmentAsync(appointment);
+
+                LogInfo(
+                    "[AssignDoctorToAppointment] Assigned doctor {DoctorId} to appointment {AppointmentId}, status changed to CONFIRMED",
+                    null, request.DoctorId, request.AppointmentId);
+
+                // Step 6: Publish notification event to patient
+                await PublishDoctorAssignedNotificationEventAsync(appointment, doctorInfo, request.StaffNote);
+
+                // Step 7: Get time string for response
+                var (startTime, endTime) = GetTimeStringsFromAppointmentTime(finalTimeId);
+
+                return new AssignDoctorToAppointmentResponse
+                {
+                    Success = true,
+                    AppointmentId = appointment.Id,
+                    DoctorId = request.DoctorId,
+                    DoctorName = doctorInfo.FullName ?? string.Empty,
+                    AppointmentDate = finalDate,
+                    AppointmentTime = $"{startTime} - {endTime}",
+                    Message = "Doctor assigned successfully. Patient will be notified."
+                };
+            },
+            "AssignDoctorToAppointment");
+    }
+
+    /// <summary>
+    /// Get previous doctor IDs who have treated this patient (completed appointments)
+    /// </summary>
+    private async Task<List<Guid>> GetPreviousDoctorIdsForPatientAsync(Guid patientId, Guid hospitalId, Guid specialtyId)
+    {
+        try
+        {
+            var completedAppointments = await _appointmentRepository.GetCompletedAppointmentsForPatientAsync(
+                patientId, hospitalId, specialtyId);
+
+            return completedAppointments
+                .Where(a => a.DoctorId.HasValue)
+                .Select(a => a.DoctorId!.Value)
+                .Distinct()
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            LogWarning("[GetPreviousDoctorIdsForPatient] Error: {Error}", null, ex.Message);
+            return new List<Guid>();
+        }
+    }
+
+    /// <summary>
+    /// Get booking counts for doctors (completed appointments)
+    /// </summary>
+    private async Task<Dictionary<Guid, int>> GetDoctorBookingCountsAsync(List<Guid> doctorIds)
+    {
+        try
+        {
+            return await _appointmentRepository.GetDoctorBookingCountsAsync(doctorIds);
+        }
+        catch (Exception ex)
+        {
+            LogWarning("[GetDoctorBookingCounts] Error: {Error}", null, ex.Message);
+            return new Dictionary<Guid, int>();
+        }
+    }
+
+    /// <summary>
+    /// Check availability for multiple doctors at a specific date/time
+    /// </summary>
+    private async Task<Dictionary<Guid, bool>> CheckDoctorsAvailabilityAsync(
+        List<Guid> doctorIds, DateOnly date, AppointmentTime appointmentTimeId)
+    {
+        var result = new Dictionary<Guid, bool>();
+
+        try
+        {
+            // Call Schedule Service to check working slots
+            var scheduleRequest = new Schedule.Protos.CheckDoctorsWorkingSlotRequest
+            {
+                Date = date.ToString("yyyy-MM-dd"),
+                AppointmentTimeId = appointmentTimeId.ToString()
+            };
+            scheduleRequest.DoctorIds.AddRange(doctorIds.Select(id => id.ToString()));
+
+            var scheduleResponse = await _grpcClients.ScheduleClient.CheckDoctorsWorkingSlotAsync(scheduleRequest);
+
+            if (scheduleResponse.Success)
+            {
+                foreach (var status in scheduleResponse.DoctorStatuses)
+                {
+                    if (Guid.TryParse(status.DoctorId, out var doctorId))
+                    {
+                        result[doctorId] = status.IsWorking;
+                    }
+                }
+            }
+
+            // Also check for existing appointments (booked slots)
+            var bookedDoctorIds = await _appointmentRepository.GetDoctorsWithBookedSlotAsync(
+                doctorIds, date, appointmentTimeId);
+
+            foreach (var doctorId in bookedDoctorIds)
+            {
+                result[doctorId] = false; // Not available if already booked
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWarning("[CheckDoctorsAvailability] Error: {Error}", null, ex.Message);
+            // Return all as available on error (fail open)
+            foreach (var doctorId in doctorIds)
+            {
+                result.TryAdd(doctorId, true);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Check availability for a single doctor at a specific date/time
+    /// </summary>
+    private async Task<bool> CheckDoctorAvailabilityAsync(Guid doctorId, DateOnly date, AppointmentTime appointmentTimeId)
+    {
+        var result = await CheckDoctorsAvailabilityAsync(new List<Guid> { doctorId }, date, appointmentTimeId);
+        return result.GetValueOrDefault(doctorId, true);
+    }
+
+    /// <summary>
+    /// Publish notification event when doctor is assigned to appointment
+    /// </summary>
+    private async Task PublishDoctorAssignedNotificationEventAsync(
+        AppointmentEntity appointment, BookingBasicInfo doctorInfo, string? staffNote)
+    {
+        try
+        {
+            // Get patient info
+            var patientInfo = await GetPatientInfoForNotificationAsync(appointment.PatientId);
+            if (patientInfo == null)
+            {
+                LogWarning("[PublishDoctorAssignedNotification] Patient info not found for {PatientId}", null, appointment.PatientId);
+                return;
+            }
+
+            // Get hospital info
+            var hospitalInfo = appointment.HospitalId.HasValue
+                ? await GetHospitalInfoForNotificationAsync(appointment.HospitalId.Value)
+                : null;
+
+            var (startTime, endTime) = GetTimeStringsFromAppointmentTime(appointment.AppointmentTimeId);
+
+            var notificationEvent = new DoctorAssignedToAppointmentNotificationEvent
+            {
+                AppointmentId = appointment.Id,
+                PatientId = appointment.PatientId,
+                PatientAccountId = appointment.PatientAccountId,
+                PatientEmail = patientInfo.Email ?? string.Empty,
+                PatientPhone = patientInfo.Phone ?? string.Empty,
+                PatientFullName = patientInfo.FullName ?? string.Empty,
+                AssignedDoctorId = appointment.DoctorId ?? Guid.Empty,
+                DoctorFullName = doctorInfo.FullName ?? string.Empty,
+                DoctorSpecialty = doctorInfo.SpecialtyName ?? string.Empty,
+                HospitalName = hospitalInfo?.Name ?? string.Empty,
+                AppointmentDate = appointment.AppointmentDate,
+                AppointmentTime = $"{startTime} - {endTime}",
+                StaffNote = staffNote ?? string.Empty,
+                AssignedAt = DateTime.UtcNow,
+                AssignedByStaffId = Guid.Empty, // Will be set from request if needed
+                ConfirmationUrl = string.Empty, // Not needed for direct assignment
+                ConfirmationExpiry = DateTime.UtcNow.AddHours(48)
+            };
+
+            await _eventBus.PublishAsync(notificationEvent);
+
+            LogInfo("[PublishDoctorAssignedNotification] Published notification for appointment {AppointmentId}",
+                null, appointment.Id);
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the assignment if notification fails
+            LogError(ex, "[PublishDoctorAssignedNotification] Failed to publish notification");
+        }
+    }
+
+    /// <summary>
+    /// Map gRPC doctor responses to DoctorForAssignment DTOs
+    /// </summary>
+    private static List<DoctorForAssignment> MapGrpcDoctorsToAssignment(
+        IEnumerable<DoctorForAssignmentInfo> grpcDoctors,
+        IReadOnlyDictionary<Guid, int> bookingCountMap,
+        IReadOnlyDictionary<Guid, bool> availabilityMap)
+    {
+        return grpcDoctors.Select(d =>
+        {
+            var doctorId = Guid.Parse(d.Id);
+            return new DoctorForAssignment
+            {
+                Id = doctorId,
+                AccountId = Guid.Parse(d.AccountId),
+                FullName = d.FullName,
+                AvatarUrl = d.AvatarUrl,
+                PositionName = d.PositionName,
+                SpecialtyName = d.SpecialtyName,
+                YearsOfExperience = d.YearsOfExperience,
+                Rating = d.Rating,
+                ReviewCount = d.ReviewCount,
+                BookingCount = bookingCountMap.GetValueOrDefault(doctorId, 0),
+                ConsultationFee = (decimal)d.ConsultationFee,
+                IsActive = d.IsActive,
+                IsAvailableAtOriginalTime = availabilityMap.GetValueOrDefault(doctorId, true)
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Get time strings from AppointmentTime enum
+    /// </summary>
+    private static (string StartTime, string EndTime) GetTimeStringsFromAppointmentTime(AppointmentTime appointmentTime)
+    {
+        var name = appointmentTime.ToString();
+        // Format: AT_08_00_08_30 -> "08:00", "08:30"
+        if (name.StartsWith("AT_") && name.Length >= 14)
+        {
+            var parts = name.Substring(3).Split('_');
+            if (parts.Length >= 4)
+            {
+                var startTime = $"{parts[0]}:{parts[1]}";
+                var endTime = $"{parts[2]}:{parts[3]}";
+                return (startTime, endTime);
+            }
+        }
+        return ("Unknown", "Unknown");
     }
 
     #endregion

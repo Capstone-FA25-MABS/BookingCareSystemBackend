@@ -1,5 +1,6 @@
 using BookingCare.Services.Schedule.Models.DTOs;
 using BookingCare.Shared.Common.Enums;
+using BookingCare.Services.Schedule.Enums;
 
 namespace BookingCare.Services.Schedule.Services;
 
@@ -25,22 +26,34 @@ public interface IHoldSlotService
     Task<bool> ReleaseSlotAsync(ReleaseSlotRequest request, Guid userId);
 
     /// <summary>
-    /// Get held slots for a specific doctor and date (excluding current user)
+    /// Get held slots for a specific target (doctor or service medical) and date (excluding current user)
     /// </summary>
-    /// <param name="doctorId">Doctor ID</param>
+    /// <param name="targetId">Target ID (Doctor or ServiceMedical)</param>
+    /// <param name="targetType">Type of target</param>
     /// <param name="date">Date</param>
     /// <param name="currentUserId">Current user ID to exclude from results</param>
     /// <returns>List of held appointment time IDs</returns>
+    Task<List<AppointmentTime>> GetHeldSlotsAsync(Guid targetId, HoldSlotTargetType targetType, DateOnly date, Guid currentUserId);
+
+    /// <summary>
+    /// Get held slots for a specific doctor and date (excluding current user) - backward compatible
+    /// </summary>
     Task<List<AppointmentTime>> GetHeldSlotsAsync(Guid doctorId, DateOnly date, Guid currentUserId);
 
     /// <summary>
     /// Check if a specific slot is held by another user
     /// </summary>
-    /// <param name="doctorId">Doctor ID</param>
+    /// <param name="targetId">Target ID (Doctor or ServiceMedical)</param>
+    /// <param name="targetType">Type of target</param>
     /// <param name="date">Date</param>
     /// <param name="appointmentTimeId">Appointment time ID</param>
     /// <param name="currentUserId">Current user ID</param>
     /// <returns>True if slot is held by another user</returns>
+    Task<bool> IsSlotHeldByOtherUserAsync(Guid targetId, HoldSlotTargetType targetType, DateOnly date, AppointmentTime appointmentTimeId, Guid currentUserId);
+
+    /// <summary>
+    /// Check if a specific slot is held by another user - backward compatible
+    /// </summary>
     Task<bool> IsSlotHeldByOtherUserAsync(Guid doctorId, DateOnly date, AppointmentTime appointmentTimeId, Guid currentUserId);
 
     /// <summary>
@@ -53,10 +66,54 @@ public interface IHoldSlotService
     /// <summary>
     /// Get remaining time for a held slot
     /// </summary>
-    /// <param name="doctorId">Doctor ID</param>
+    /// <param name="targetId">Target ID (Doctor or ServiceMedical)</param>
+    /// <param name="targetType">Type of target</param>
     /// <param name="date">Date</param>
     /// <param name="appointmentTimeId">Appointment time ID</param>
     /// <param name="userId">User ID</param>
     /// <returns>Remaining seconds or 0 if not held</returns>
+    Task<int> GetRemainingTimeAsync(Guid targetId, HoldSlotTargetType targetType, DateOnly date, AppointmentTime appointmentTimeId, Guid userId);
+
+    /// <summary>
+    /// Get remaining time for a held slot - backward compatible
+    /// </summary>
     Task<int> GetRemainingTimeAsync(Guid doctorId, DateOnly date, AppointmentTime appointmentTimeId, Guid userId);
+
+    #region Specialty Hold Slot operations (for "hospital assigns doctor" mode)
+
+    /// <summary>
+    /// Hold a specialty slot for a specific user
+    /// This uses capacity-based holding where multiple users can hold the same time slot
+    /// as long as there are available doctors
+    /// </summary>
+    /// <param name="request">Hold specialty slot request</param>
+    /// <param name="userId">User ID who is holding the slot</param>
+    /// <returns>Hold slot response with remaining time</returns>
+    Task<HoldSlotResponse> HoldSpecialtySlotAsync(HoldSpecialtySlotRequest request, Guid userId);
+
+    /// <summary>
+    /// Release a held specialty slot
+    /// </summary>
+    /// <param name="request">Release specialty slot request</param>
+    /// <param name="userId">User ID who is releasing the slot</param>
+    /// <returns>True if successfully released</returns>
+    Task<bool> ReleaseSpecialtySlotAsync(ReleaseSpecialtySlotRequest request, Guid userId);
+
+    /// <summary>
+    /// Get the number of held slots for a specialty time slot (excluding current user)
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="specialtyId">Specialty ID</param>
+    /// <param name="date">Date</param>
+    /// <param name="appointmentTimeId">Appointment time ID</param>
+    /// <param name="currentUserId">Current user ID to exclude from count</param>
+    /// <returns>Number of held slots</returns>
+    Task<int> GetSpecialtyHeldCountAsync(Guid hospitalId, Guid specialtyId, DateOnly date, AppointmentTime appointmentTimeId, Guid currentUserId);
+
+    /// <summary>
+    /// Get remaining time for a held specialty slot
+    /// </summary>
+    Task<int> GetSpecialtyRemainingTimeAsync(Guid hospitalId, Guid specialtyId, DateOnly date, AppointmentTime appointmentTimeId, Guid userId);
+
+    #endregion
 }

@@ -262,15 +262,8 @@ public class DoctorRepository : IDoctorRepository
 
     private IQueryable<DoctorEntity> ApplySearchFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
     {
-        if (!string.IsNullOrEmpty(query.SearchTerm))
-        {
-            var searchTerm = query.SearchTerm.ToLower();
-            queryable = queryable.Where(d =>
-                d.FirstName.ToLower().Contains(searchTerm) ||
-                d.LastName.ToLower().Contains(searchTerm) ||
-                (d.FirstName + " " + d.LastName).ToLower().Contains(searchTerm) ||
-                (d.LastName + " " + d.FirstName).ToLower().Contains(searchTerm));
-        }
+        // Apply search term filter
+        queryable = ApplySearchTermFilter(queryable, query);
 
         // Language filters - optimized with joins instead of subqueries
         if (!string.IsNullOrEmpty(query.Language))
@@ -299,13 +292,57 @@ public class DoctorRepository : IDoctorRepository
         return queryable;
     }
 
+    /// <summary>
+    /// Apply only search term filter (name search)
+    /// </summary>
+    private static IQueryable<DoctorEntity> ApplySearchTermFilter(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
+    {
+        if (!string.IsNullOrEmpty(query.SearchTerm))
+        {
+            var searchTerm = query.SearchTerm.ToLower();
+            queryable = queryable.Where(d =>
+                d.FirstName.ToLower().Contains(searchTerm) ||
+                d.LastName.ToLower().Contains(searchTerm) ||
+                (d.FirstName + " " + d.LastName).ToLower().Contains(searchTerm) ||
+                (d.LastName + " " + d.FirstName).ToLower().Contains(searchTerm));
+        }
+        return queryable;
+    }
+
     private IQueryable<DoctorEntity> ApplyPriceFilters(IQueryable<DoctorEntity> queryable, DoctorQueryRequest query)
     {
-        if (query.MinPrice.HasValue || query.MaxPrice.HasValue)
+        if (!query.MinPrice.HasValue && !query.MaxPrice.HasValue)
+        {
+            return queryable;
+        }
+
+        var hasMin = query.MinPrice.HasValue;
+        var hasMax = query.MaxPrice.HasValue;
+        var min = query.MinPrice ?? 0;
+        var max = query.MaxPrice ?? 0;
+
+        // If ServiceType is specified, filter price for that specific service type
+        // This ensures we check price AND service type on the SAME DoctorPrice record
+        if (!string.IsNullOrEmpty(query.ServiceType))
         {
             queryable = queryable.Where(d => d.DoctorPrices.Any(dp =>
-                (!query.MinPrice.HasValue || dp.Amount >= query.MinPrice.Value) &&
-                (!query.MaxPrice.HasValue || dp.Amount <= query.MaxPrice.Value)));
+                dp.ServiceType.Name == query.ServiceType &&
+                (!hasMin || dp.Amount >= min) &&
+                (!hasMax || dp.Amount <= max)));
+        }
+        else if (query.ServiceTypes != null && query.ServiceTypes.Any())
+        {
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp =>
+                query.ServiceTypes.Contains(dp.ServiceType.Name) &&
+                (!hasMin || dp.Amount >= min) &&
+                (!hasMax || dp.Amount <= max)));
+        }
+        else
+        {
+            // No service type filter, just filter by price on any service
+            queryable = queryable.Where(d => d.DoctorPrices.Any(dp =>
+                (!hasMin || dp.Amount >= min) &&
+                (!hasMax || dp.Amount <= max)));
         }
 
         return queryable;
@@ -732,6 +769,27 @@ public class DoctorRepository : IDoctorRepository
         return await _context.DoctorPrices.FirstOrDefaultAsync(p => p.Id == priceId);
     }
 
+    /// <summary>
+    /// Get doctor IDs with AccountIds by hospital and specialty (optimized for schedule aggregation)
+    /// Returns doctor ID to account ID mapping in a single query for better performance
+    /// Optionally filters by service type name (appointment type like "IN_PERSON" or "TELEHEALTH")
+    /// </summary>
+    public async Task<Dictionary<Guid, Guid>> GetDoctorIdsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId, string? serviceTypeName = null)
+    {
+        var query = _context.Doctors
+            .Where(d => d.HospitalId == hospitalId && d.SpecialtyId == specialtyId);
+
+        // If serviceTypeName is provided, filter doctors who have prices for that service type
+        if (!string.IsNullOrEmpty(serviceTypeName))
+        {
+            query = query.Where(d => d.DoctorPrices.Any(p => p.ServiceType != null && p.ServiceType.Name == serviceTypeName));
+        }
+
+        return await query
+            .Select(d => new { d.Id, d.AccountId })
+            .ToDictionaryAsync(d => d.Id, d => d.AccountId);
+    }
+
     #endregion
 
     #region Common Helper Methods
@@ -854,6 +912,12 @@ public class DoctorRepository : IDoctorRepository
         // Apply basic filters first (these are fast)
         baseQuery = ApplyBasicFilters(baseQuery, query);
 
+        // Also apply search term and price filters (these were missing before!)
+        // Note: We use ApplySearchTermFilter instead of ApplySearchFilters to avoid 
+        // duplicate Language/ServiceType filtering (those are handled in ApplyComplexFilters)
+        baseQuery = ApplySearchTermFilter(baseQuery, query);
+        baseQuery = ApplyPriceFilters(baseQuery, query);
+
         // Get doctor IDs that match basic filters
         var doctorIds = await baseQuery.Select(d => d.Id).ToListAsync();
         Console.WriteLine($"Basic filters returned {doctorIds.Count} doctor IDs");
@@ -895,49 +959,80 @@ public class DoctorRepository : IDoctorRepository
     {
         var filteredIds = new HashSet<Guid>(doctorIds);
 
-        // Language filters
-        if (!string.IsNullOrEmpty(query.Language) || (query.Languages != null && query.Languages.Any()))
-        {
-            var languageQuery = _context.DoctorLanguages
-                .AsNoTracking()
-                .Where(dl => filteredIds.Contains(dl.DoctorId));
-
-            if (!string.IsNullOrEmpty(query.Language))
-            {
-                languageQuery = languageQuery.Where(dl => dl.Language.Name == query.Language);
-            }
-            else if (query.Languages != null && query.Languages.Any())
-            {
-                languageQuery = languageQuery.Where(dl => query.Languages.Contains(dl.Language.Name));
-            }
-
-            var languageDoctorIds = await languageQuery.Select(dl => dl.DoctorId).ToListAsync();
-            filteredIds.IntersectWith(languageDoctorIds);
-            Console.WriteLine($"Language filter: {filteredIds.Count} doctors remaining");
-        }
-
-        // Service type filters
-        if (!string.IsNullOrEmpty(query.ServiceType) || (query.ServiceTypes != null && query.ServiceTypes.Any()))
-        {
-            var serviceQuery = _context.DoctorPrices
-                .AsNoTracking()
-                .Where(dp => filteredIds.Contains(dp.DoctorId));
-
-            if (!string.IsNullOrEmpty(query.ServiceType))
-            {
-                serviceQuery = serviceQuery.Where(dp => dp.ServiceType.Name == query.ServiceType);
-            }
-            else if (query.ServiceTypes != null && query.ServiceTypes.Any())
-            {
-                serviceQuery = serviceQuery.Where(dp => query.ServiceTypes.Contains(dp.ServiceType.Name));
-            }
-
-            var serviceDoctorIds = await serviceQuery.Select(dp => dp.DoctorId).ToListAsync();
-            filteredIds.IntersectWith(serviceDoctorIds);
-            Console.WriteLine($"Service type filter: {filteredIds.Count} doctors remaining");
-        }
+        await ApplyLanguageFiltersAsync(filteredIds, query);
+        await ApplyServiceTypeFiltersAsync(filteredIds, query);
 
         return filteredIds.ToList();
+    }
+
+    private async Task ApplyLanguageFiltersAsync(HashSet<Guid> filteredIds, DoctorQueryRequest query)
+    {
+        if (string.IsNullOrEmpty(query.Language) &&
+            (query.Languages == null || !query.Languages.Any()))
+        {
+            return;
+        }
+
+        var languageQuery = _context.DoctorLanguages
+            .AsNoTracking()
+            .Where(dl => filteredIds.Contains(dl.DoctorId));
+
+        if (!string.IsNullOrEmpty(query.Language))
+        {
+            languageQuery = languageQuery.Where(dl => dl.Language.Name == query.Language);
+        }
+        else if (query.Languages != null && query.Languages.Any())
+        {
+            languageQuery = languageQuery.Where(dl => query.Languages.Contains(dl.Language.Name));
+        }
+
+        var languageDoctorIds = await languageQuery
+            .Select(dl => dl.DoctorId)
+            .ToListAsync();
+
+        filteredIds.IntersectWith(languageDoctorIds);
+        Console.WriteLine($"Language filter: {filteredIds.Count} doctors remaining");
+    }
+
+    private async Task ApplyServiceTypeFiltersAsync(HashSet<Guid> filteredIds, DoctorQueryRequest query)
+    {
+        // Service type filters - ONLY apply if no price filter was specified
+        // When price filter exists, ApplyPriceFilters already combines ServiceType + Price on the same record
+        var hasPriceFilter = query.MinPrice.HasValue || query.MaxPrice.HasValue;
+        var hasServiceTypeFilter =
+            !string.IsNullOrEmpty(query.ServiceType) ||
+            (query.ServiceTypes != null && query.ServiceTypes.Any());
+
+        if (!hasServiceTypeFilter)
+        {
+            return;
+        }
+
+        if (hasPriceFilter)
+        {
+            Console.WriteLine("Service type filter skipped - already combined with price filter in ApplyPriceFilters");
+            return;
+        }
+
+        var serviceQuery = _context.DoctorPrices
+            .AsNoTracking()
+            .Where(dp => filteredIds.Contains(dp.DoctorId));
+
+        if (!string.IsNullOrEmpty(query.ServiceType))
+        {
+            serviceQuery = serviceQuery.Where(dp => dp.ServiceType.Name == query.ServiceType);
+        }
+        else if (query.ServiceTypes != null && query.ServiceTypes.Any())
+        {
+            serviceQuery = serviceQuery.Where(dp => query.ServiceTypes.Contains(dp.ServiceType.Name));
+        }
+
+        var serviceDoctorIds = await serviceQuery
+            .Select(dp => dp.DoctorId)
+            .ToListAsync();
+
+        filteredIds.IntersectWith(serviceDoctorIds);
+        Console.WriteLine($"Service type filter: {filteredIds.Count} doctors remaining");
     }
 
     /// <summary>
@@ -1027,6 +1122,45 @@ public class DoctorRepository : IDoctorRepository
         return serviceTypesWithCounts
             .Select(x => (x.ServiceTypeId, x.ServiceTypeName, x.ServiceTypeImageUrl, x.DoctorCount))
             .ToList();
+    }
+
+    #endregion
+
+    #region Doctor Assignment Operations
+
+    /// <summary>
+    /// Get doctors for assignment by hospital, specialty and appointment type
+    /// Includes Position, Specialty, and Prices with ServiceType
+    /// </summary>
+    public async Task<List<DoctorEntity>> GetDoctorsForAssignmentAsync(Guid hospitalId, Guid specialtyId, string appointmentType)
+    {
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.Specialty)
+            .Include(d => d.DoctorPrices.Where(p => p.ServiceType.Name.ToUpper() == appointmentType.ToUpper()))
+                .ThenInclude(dp => dp.ServiceType)
+            .Where(d => d.HospitalId == hospitalId
+                && d.SpecialtyId == specialtyId
+                && d.DoctorPrices.Any(p => p.ServiceType.Name.ToUpper() == appointmentType.ToUpper()))
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get doctors for assignment by specific doctor IDs
+    /// Includes Position, Specialty, and Prices with ServiceType
+    /// </summary>
+    public async Task<List<DoctorEntity>> GetDoctorsByIdsForAssignmentAsync(List<Guid> doctorIds, string appointmentType)
+    {
+        return await _context.Doctors
+            .Include(d => d.Position)
+            .Include(d => d.Specialty)
+            .Include(d => d.DoctorPrices.Where(p => p.ServiceType.Name.ToUpper() == appointmentType.ToUpper()))
+                .ThenInclude(dp => dp.ServiceType)
+            .Where(d => doctorIds.Contains(d.Id)
+                && d.DoctorPrices.Any(p => p.ServiceType.Name.ToUpper() == appointmentType.ToUpper()))
+            .AsNoTracking()
+            .ToListAsync();
     }
 
     #endregion

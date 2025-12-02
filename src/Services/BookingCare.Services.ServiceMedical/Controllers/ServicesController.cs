@@ -3,9 +3,7 @@ using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using BookingCare.Shared.FileUpload.Services;
-using BookingCare.Shared.FileUpload.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 
 namespace BookingCare.Services.ServiceMedical.Controllers
 {
@@ -193,6 +191,31 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting service by ID: {Id}", id);
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Get service by ID with hospital information
+        /// </summary>
+        /// <param name="id">Service ID</param>
+        /// <returns>Service details with hospital information</returns>
+        [HttpGet("{id}/with-hospital")]
+        public async Task<ActionResult<ServiceWithHospitalResponse>> GetServiceWithHospital(Guid id)
+        {
+            try
+            {
+                var result = await _serviceMedicalService.GetServiceWithHospitalByIdAsync(id);
+                if (result == null)
+                {
+                    return NotFound(new { error = $"Service with ID {id} not found" });
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting service with hospital by ID: {Id}", id);
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }

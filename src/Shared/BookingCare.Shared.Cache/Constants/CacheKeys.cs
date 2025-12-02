@@ -69,11 +69,19 @@ public static class CacheKeys
     public const string ServiceMedicalExceptions = "service_medical_exceptions:{0}:{1}"; // serviceMedicalId:date
     public const string ServiceMedicalAvailableSlots = "service_medical_available_slots:{0}:{1}"; // serviceMedicalId:date
 
+    // Specialty Schedule related cache keys (for "hospital assigns doctor" mode)
+    public const string SpecialtyAvailableSlots = "specialty_available_slots:{0}:{1}:{2}:{3}"; // hospitalId:specialtyId:date:appointmentType
+
     // Hold slot related cache keys
     public const string HeldSlot = "held_slot:{0}:{1}:{2}:{3}"; // doctorId:date:appointmentTimeId:userId
     public const string HeldSlotsByUser = "held_slot:*:*:*:{0}"; // userId pattern
     public const string HeldSlotsByDoctorDate = "held_slot:{0}:{1}:*:*"; // doctorId:date pattern
     public const string HeldSlotByDoctorDateTimePattern = "held_slot:{0}:{1}:{2}:*"; // doctorId:date:appointmentTimeId pattern (all users)
+
+    // Specialty Hold slot related cache keys (for "hospital assigns doctor" mode)
+    public const string SpecialtyHeldSlot = "holdslot:specialty:{0}:{1}:{2}:{3}:{4}"; // hospitalId:specialtyId:date:appointmentTimeId:userId
+    public const string SpecialtyHeldSlotPattern = "holdslot:specialty:{0}:{1}:{2}:{3}:*"; // hospitalId:specialtyId:date:appointmentTimeId pattern (all users)
+    public const string SpecialtyHeldSlotsByUser = "holdslot:specialty:*:*:*:*:{0}"; // userId pattern
 
     // Common patterns for bulk operations
     public const string UserPattern = "user:*";

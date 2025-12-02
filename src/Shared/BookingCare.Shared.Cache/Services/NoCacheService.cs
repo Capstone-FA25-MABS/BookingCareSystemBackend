@@ -56,4 +56,10 @@ public class NoCacheService : ICacheService
         _logger.LogDebug("Cache is disabled. GetKeysByPatternAsync called for pattern: {Pattern}", pattern);
         return Task.FromResult(Enumerable.Empty<string>());
     }
+
+    public Task<T?> GetByFullKeyAsync<T>(string fullKey) where T : class
+    {
+        _logger.LogDebug("Cache is disabled. GetByFullKeyAsync called for key: {Key}", fullKey);
+        return Task.FromResult<T?>(null);
+    }
 }

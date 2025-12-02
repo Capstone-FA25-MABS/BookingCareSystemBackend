@@ -92,3 +92,53 @@ public class ServiceMedicalScheduleExceptionDto
     public string? Reason { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+/// <summary>
+/// DTO for specialty available time slot with capacity information
+/// Used for "hospital assigns doctor" mode where we aggregate availability across all doctors
+/// </summary>
+public class SpecialtyAvailableSlotDto
+{
+    public Guid Id { get; set; }
+    public string StartTime { get; set; } = string.Empty;
+    public string EndTime { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Number of doctors available for this time slot
+    /// Slot is available if AvailableDoctorCount > 0
+    /// </summary>
+    public int AvailableDoctorCount { get; set; }
+
+    /// <summary>
+    /// Number of slots currently held by other users
+    /// Available capacity = AvailableDoctorCount - HeldCount
+    /// </summary>
+    public int HeldCount { get; set; }
+
+    /// <summary>
+    /// Whether this slot is available for booking
+    /// True if (AvailableDoctorCount - HeldCount) > 0
+    /// </summary>
+    public bool IsAvailable => (AvailableDoctorCount - HeldCount) > 0;
+}
+
+/// <summary>
+/// Response DTO for specialty available slots
+/// </summary>
+public class SpecialtyAvailableSlotsResponseDto
+{
+    public Guid HospitalId { get; set; }
+    public Guid SpecialtyId { get; set; }
+    public DateOnly Date { get; set; }
+    public AppointmentType AppointmentType { get; set; }
+
+    /// <summary>
+    /// Total number of doctors available for this specialty on this date
+    /// </summary>
+    public int TotalDoctorsAvailable { get; set; }
+
+    /// <summary>
+    /// List of available time slots with capacity information
+    /// </summary>
+    public List<SpecialtyAvailableSlotDto> AvailableSlots { get; set; } = new();
+}
