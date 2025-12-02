@@ -35,6 +35,12 @@ public interface IScheduleRepository
     // Available slots operations
     Task<IEnumerable<AppointmentTime>> GetAvailableSlotsAsync(Guid doctorId, DateOnly date, Guid? serviceId = null);
 
+    /// <summary>
+    /// Get available slots for multiple doctors in a single batch query (optimized for specialty booking)
+    /// Returns a dictionary mapping doctor ID to their available appointment times
+    /// </summary>
+    Task<Dictionary<Guid, List<AppointmentTime>>> GetAvailableSlotsForDoctorsAsync(List<Guid> doctorIds, DateOnly date);
+
     // ServiceMedicalDailySchedule operations
     Task<ServiceMedicalDailyScheduleEntity?> GetServiceMedicalDailyScheduleAsync(Guid serviceMedicalId, DateOnly date);
     Task<IEnumerable<ServiceMedicalDailyScheduleEntity>> GetServiceMedicalScheduleRangeAsync(Guid serviceMedicalId, DateOnly startDate, DateOnly endDate);

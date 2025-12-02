@@ -1,5 +1,6 @@
 using BookingCare.Services.ServiceMedical.Models.Entities;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
+using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 
 namespace BookingCare.Services.ServiceMedical.Repositories.Interfaces
 {
@@ -22,6 +23,9 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Interfaces
         Task<List<Guid>> GetHospitalIdsByCategoryAsync(Guid categoryId);
         Task<List<ServiceEntity>> GetServicesWithCategoryAsync();
         Task<List<Guid>> GetAllDistinctHospitalIdsAsync();
+
+        // gRPC Optimized Operations (with projection for performance)
+        Task<List<ServiceBasicInfoDto>> GetServicesBasicInfoByIdsAsync(IEnumerable<Guid> ids);
 
         // Validation Operations
         Task<bool> ExistsAsync(Guid id);

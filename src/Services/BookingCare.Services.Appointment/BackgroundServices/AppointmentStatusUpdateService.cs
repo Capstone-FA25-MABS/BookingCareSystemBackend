@@ -1,6 +1,13 @@
 using BookingCare.Services.Appointment.Enums;
+using BookingCare.Services.Appointment.Helpers;
 using BookingCare.Services.Appointment.Models.Entities;
 using BookingCare.Services.Appointment.Repositories;
+using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.Hospital;
+using BookingCare.Services.User.Protos;
+using BookingCare.Shared.EventBus.Abstractions;
+using BookingCare.Shared.EventBus.Events;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Appointment.BackgroundServices;
 
@@ -16,6 +23,7 @@ public class AppointmentStatusUpdateService : BackgroundService
     private readonly TimeSpan _checkInterval;
     private readonly TimeSpan _startupDelay;
     private const string OVERDUE_CANCELLATION_REASON = "Tự động hủy - Quá hạn ngày hẹn";
+    private const string NO_DOCTOR_ASSIGNED_REASON = "Tự động hủy - Bệnh viện không gán bác sĩ trước ngày hẹn";
     private const string SYSTEM_USER = "SYSTEM";
 
     public AppointmentStatusUpdateService(
@@ -71,11 +79,13 @@ public class AppointmentStatusUpdateService : BackgroundService
 
         using var scope = _serviceProvider.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IAppointmentRepository>();
+        var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
+        var grpcClients = scope.ServiceProvider.GetRequiredService<GrpcClientWrapper>();
 
         var today = DateTime.UtcNow.Date;
 
-        // Process overdue PENDING appointments
-        await ProcessPendingAppointmentsAsync(repository, today, cancellationToken);
+        // Process overdue PENDING appointments (includes specialty appointments without doctor)
+        await ProcessPendingAppointmentsAsync(repository, eventBus, grpcClients, today, cancellationToken);
 
         // Process overdue CONFIRMED appointments
         await ProcessConfirmedAppointmentsAsync(repository, today, cancellationToken);
@@ -85,6 +95,8 @@ public class AppointmentStatusUpdateService : BackgroundService
 
     private async Task ProcessPendingAppointmentsAsync(
         IAppointmentRepository repository,
+        IEventBus eventBus,
+        GrpcClientWrapper grpcClients,
         DateTime referenceDate,
         CancellationToken cancellationToken)
     {
@@ -102,6 +114,8 @@ public class AppointmentStatusUpdateService : BackgroundService
 
         await CancelOverdueAppointmentsAsync(
             repository,
+            eventBus,
+            grpcClients,
             overduePendingAppointments,
             cancellationToken);
     }
@@ -131,6 +145,8 @@ public class AppointmentStatusUpdateService : BackgroundService
 
     private async Task CancelOverdueAppointmentsAsync(
         IAppointmentRepository repository,
+        IEventBus eventBus,
+        GrpcClientWrapper grpcClients,
         List<AppointmentEntity> appointments,
         CancellationToken cancellationToken)
     {
@@ -141,13 +157,141 @@ public class AppointmentStatusUpdateService : BackgroundService
                 break;
             }
 
+            // Check if this is a specialty appointment (hospital assigns doctor) without doctor assigned
+            var isSpecialtyAppointmentWithoutDoctor = appointment.SpecialtyId.HasValue
+                && !appointment.DoctorId.HasValue
+                && !appointment.ServiceId.HasValue;
+
+            var cancellationReason = isSpecialtyAppointmentWithoutDoctor
+                ? NO_DOCTOR_ASSIGNED_REASON
+                : OVERDUE_CANCELLATION_REASON;
+
             var success = await repository.CancelAppointmentAsync(
                 appointment,
-                OVERDUE_CANCELLATION_REASON,
+                cancellationReason,
                 SYSTEM_USER);
 
             LogAppointmentUpdateResult(success, appointment.Id, appointment.PatientId, "cancelled");
+
+            // If cancellation was successful and it's a specialty appointment without doctor,
+            // publish notification event to inform the patient
+            if (success && isSpecialtyAppointmentWithoutDoctor)
+            {
+                await PublishNoDoctorAssignedNotificationAsync(
+                    eventBus,
+                    grpcClients,
+                    appointment,
+                    cancellationToken);
+            }
         }
+    }
+
+    /// <summary>
+    /// Publish notification event when appointment is auto-cancelled due to hospital not assigning doctor
+    /// </summary>
+    private async Task PublishNoDoctorAssignedNotificationAsync(
+        IEventBus eventBus,
+        GrpcClientWrapper grpcClients,
+        AppointmentEntity appointment,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Get patient info via gRPC
+            var patientRequest = new GetUserBasicInfoRequest { Id = appointment.PatientId.ToString() };
+            var patientResponse = await grpcClients.UserClient.GetUserBasicInfoAsync(patientRequest);
+
+            var patientFullName = $"{patientResponse.FirstName} {patientResponse.LastName}".Trim();
+            if (string.IsNullOrEmpty(patientFullName))
+            {
+                patientFullName = "Quý khách";
+            }
+
+            // Get hospital info via gRPC
+            var hospitalName = "Bệnh viện";
+            if (appointment.HospitalId.HasValue)
+            {
+                var hospitalRequest = new GetHospitalBasicInfoRequest { Id = appointment.HospitalId.Value.ToString() };
+                var hospitalResponse = await grpcClients.HospitalClient.GetHospitalBasicInfoAsync(hospitalRequest);
+                if (!string.IsNullOrEmpty(hospitalResponse?.Name))
+                {
+                    hospitalName = hospitalResponse.Name;
+                }
+            }
+
+            // Get specialty info via gRPC
+            var specialtyName = "Chuyên khoa";
+            if (appointment.SpecialtyId.HasValue)
+            {
+                var specialtyRequest = new GetSpecialtiesByIdsRequest();
+                specialtyRequest.Ids.Add(appointment.SpecialtyId.Value.ToString());
+                var specialtyResponse = await grpcClients.DoctorClient.GetSpecialtiesByIdsAsync(specialtyRequest);
+                if (specialtyResponse?.Specialties?.Count > 0)
+                {
+                    specialtyName = specialtyResponse.Specialties[0].Name;
+                }
+            }
+
+            // Get appointment time display
+            var appointmentTime = GetAppointmentTimeDisplay(appointment.AppointmentTimeId);
+
+            // Publish notification event
+            var notificationEvent = new AppointmentAutoCancelledDueToNoDoctorEvent
+            {
+                AppointmentId = appointment.Id,
+                PatientId = appointment.PatientId,
+                PatientAccountId = appointment.PatientAccountId,
+                PatientEmail = patientResponse.Email ?? string.Empty,
+                PatientPhone = patientResponse.Phone,
+                PatientFullName = patientFullName,
+                HospitalName = hospitalName,
+                SpecialtyName = specialtyName,
+                AppointmentDate = appointment.AppointmentDate,
+                AppointmentTime = appointmentTime,
+                CancelledAt = DateTime.UtcNow,
+                CancellationReason = NO_DOCTOR_ASSIGNED_REASON
+            };
+
+            await eventBus.PublishAsync(notificationEvent, null, cancellationToken);
+
+            _logger.LogInformation(
+                "Published AppointmentAutoCancelledDueToNoDoctorEvent - AppointmentId: {AppointmentId}, PatientEmail: {PatientEmail}",
+                appointment.Id, patientResponse.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to publish notification for auto-cancelled appointment - AppointmentId: {AppointmentId}",
+                appointment.Id);
+            // Don't rethrow - notification failure shouldn't break the cancellation process
+        }
+    }
+
+    /// <summary>
+    /// Get display string for appointment time
+    /// </summary>
+    private static string GetAppointmentTimeDisplay(AppointmentTime appointmentTimeId)
+    {
+        return appointmentTimeId switch
+        {
+            AppointmentTime.AT_08_00_08_30 => "08:00 - 08:30",
+            AppointmentTime.AT_08_30_09_00 => "08:30 - 09:00",
+            AppointmentTime.AT_09_00_09_30 => "09:00 - 09:30",
+            AppointmentTime.AT_09_30_10_00 => "09:30 - 10:00",
+            AppointmentTime.AT_10_00_10_30 => "10:00 - 10:30",
+            AppointmentTime.AT_10_30_11_00 => "10:30 - 11:00",
+            AppointmentTime.AT_11_00_11_30 => "11:00 - 11:30",
+            AppointmentTime.AT_11_30_12_00 => "11:30 - 12:00",
+            AppointmentTime.AT_13_00_13_30 => "13:00 - 13:30",
+            AppointmentTime.AT_13_30_14_00 => "13:30 - 14:00",
+            AppointmentTime.AT_14_00_14_30 => "14:00 - 14:30",
+            AppointmentTime.AT_14_30_15_00 => "14:30 - 15:00",
+            AppointmentTime.AT_15_00_15_30 => "15:00 - 15:30",
+            AppointmentTime.AT_15_30_16_00 => "15:30 - 16:00",
+            AppointmentTime.AT_16_00_16_30 => "16:00 - 16:30",
+            AppointmentTime.AT_16_30_17_00 => "16:30 - 17:00",
+            _ => "Không xác định"
+        };
     }
 
     private async Task CompleteOverdueAppointmentsAsync(

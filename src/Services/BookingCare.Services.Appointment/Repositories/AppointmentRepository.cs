@@ -135,8 +135,33 @@ public class AppointmentRepository : IAppointmentRepository
             queryable = queryable.Where(a => a.AppointmentDate <= toDate);
         }
 
-        // Note: SearchTerm is handled client-side in frontend for better UX
-        // (allows searching doctor/hospital/service names from gRPC data)
+        // Filter by relative (for patient relatives feature)
+        if (query.ForRelative.HasValue)
+        {
+            if (query.ForRelative.Value)
+            {
+                // Only appointments for relatives (RelativeId is not null)
+                queryable = queryable.Where(a => a.RelativeId != null);
+            }
+            else
+            {
+                // Only appointments for self (RelativeId is null)
+                queryable = queryable.Where(a => a.RelativeId == null);
+            }
+        }
+
+        // Search by appointment ID, reason, or symptoms
+        // Note: Doctor/Hospital/Service names are searched client-side after gRPC enrichment
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var searchTerm = query.SearchTerm.Trim().ToLower();
+            queryable = queryable.Where(a =>
+                a.Id.ToString().ToLower().Contains(searchTerm) ||
+                (a.Reason != null && a.Reason.ToLower().Contains(searchTerm)) ||
+                (a.Symptoms != null && a.Symptoms.ToLower().Contains(searchTerm)) ||
+                (a.Result != null && a.Result.ToLower().Contains(searchTerm))
+            );
+        }
 
         return queryable;
     }
@@ -164,18 +189,39 @@ public class AppointmentRepository : IAppointmentRepository
     }
 
     /// <summary>
-    /// Check if patient has conflicting appointment
+    /// Check if patient or relative has conflicting appointment
     /// </summary>
+    /// <param name="patientId">Patient ID (user who is booking)</param>
+    /// <param name="appointmentDate">Appointment date</param>
+    /// <param name="appointmentTimeId">Appointment time slot</param>
+    /// <param name="relativeId">Relative ID if booking for family member (null = booking for self)</param>
+    /// <param name="excludeAppointmentId">Appointment ID to exclude (for reschedule)</param>
     public async Task<bool> HasConflictingAppointmentAsync(Guid patientId, DateTime appointmentDate,
-        AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null)
+        AppointmentTime appointmentTimeId, Guid? relativeId = null, Guid? excludeAppointmentId = null)
     {
         try
         {
-            var query = _context.Appointments
-                .Where(a => a.PatientId == patientId &&
-                           a.AppointmentDate.Date == appointmentDate.Date &&
-                           a.AppointmentTimeId == appointmentTimeId &&
-                           a.Status != AppointmentStatus.CANCELLED);
+            IQueryable<AppointmentEntity> query;
+
+            if (relativeId.HasValue)
+            {
+                // Booking for relative - check if this relative already has appointment at this time
+                query = _context.Appointments
+                    .Where(a => a.RelativeId == relativeId.Value &&
+                               a.AppointmentDate.Date == appointmentDate.Date &&
+                               a.AppointmentTimeId == appointmentTimeId &&
+                               a.Status != AppointmentStatus.CANCELLED);
+            }
+            else
+            {
+                // Booking for self - check if patient already has appointment at this time (without relative)
+                query = _context.Appointments
+                    .Where(a => a.PatientId == patientId &&
+                               a.RelativeId == null &&
+                               a.AppointmentDate.Date == appointmentDate.Date &&
+                               a.AppointmentTimeId == appointmentTimeId &&
+                               a.Status != AppointmentStatus.CANCELLED);
+            }
 
             if (excludeAppointmentId.HasValue)
                 query = query.Where(a => a.Id != excludeAppointmentId);
@@ -184,16 +230,24 @@ public class AppointmentRepository : IAppointmentRepository
 
             if (hasConflict)
             {
-                _logger.LogWarning("Conflicting appointment found for patient {PatientId} on {Date} at time {TimeId}",
-                    patientId, appointmentDate.Date, appointmentTimeId);
+                if (relativeId.HasValue)
+                {
+                    _logger.LogWarning("Conflicting appointment found for relative {RelativeId} on {Date} at time {TimeId}",
+                        relativeId, appointmentDate.Date, appointmentTimeId);
+                }
+                else
+                {
+                    _logger.LogWarning("Conflicting appointment found for patient {PatientId} on {Date} at time {TimeId}",
+                        patientId, appointmentDate.Date, appointmentTimeId);
+                }
             }
 
             return hasConflict;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error checking for conflicting appointment: PatientId={PatientId}, Date={Date}, TimeId={TimeId}",
-                patientId, appointmentDate.Date, appointmentTimeId);
+            _logger.LogError(ex, "Error checking for conflicting appointment: PatientId={PatientId}, RelativeId={RelativeId}, Date={Date}, TimeId={TimeId}",
+                patientId, relativeId, appointmentDate.Date, appointmentTimeId);
             throw new AppointmentException("Failed to check for conflicting appointment", innerException: ex);
         }
     }
@@ -252,6 +306,41 @@ public class AppointmentRepository : IAppointmentRepository
             _logger.LogError(ex, "Error checking doctor availability: DoctorId={DoctorId}, Date={Date}, TimeId={TimeId}",
                 doctorId, appointmentDate.Date, appointmentTimeId);
             throw new AppointmentException("Failed to check doctor availability", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Check if service medical slot is available
+    /// Service is NOT available if there's already an active appointment (PENDING/CONFIRMED) for that slot
+    /// </summary>
+    public async Task<bool> IsServiceMedicalAvailableAsync(Guid serviceId, DateTime appointmentDate,
+        AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null)
+    {
+        try
+        {
+            // Check for active appointments with this service at the same time slot
+            var hasActiveAppointment = await _context.Appointments
+                .Where(a => a.ServiceId == serviceId &&
+                           a.AppointmentDate.Date == appointmentDate.Date &&
+                           a.AppointmentTimeId == appointmentTimeId &&
+                           a.Status != AppointmentStatus.CANCELLED &&
+                           (!excludeAppointmentId.HasValue || a.Id != excludeAppointmentId.Value))
+                .AnyAsync();
+
+            if (hasActiveAppointment)
+            {
+                _logger.LogWarning("Service {ServiceId} has active appointment on {Date} at {TimeId}",
+                    serviceId, appointmentDate.Date, appointmentTimeId);
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking service medical availability: ServiceId={ServiceId}, Date={Date}, TimeId={TimeId}",
+                serviceId, appointmentDate.Date, appointmentTimeId);
+            throw new AppointmentException("Failed to check service medical availability", innerException: ex);
         }
     }
 
@@ -385,42 +474,39 @@ public class AppointmentRepository : IAppointmentRepository
     #region Statistics Operations
 
     /// <summary>
-    /// Get counts for all appointment statuses for a specific user or organization using a single optimized query
-    /// Supports filtering by PatientId, DoctorId, HospitalId, or all (for ADMIN)
+    /// Get counts for all appointment statuses for a specific user or organization using a single optimized query.
+    /// All filters are encapsulated in <see cref="AppointmentStatusFilter"/> for better readability.
     /// </summary>
     public async Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
-        Guid? patientId = null,
-        Guid? doctorId = null,
-        Guid? hospitalId = null,
-        bool countAll = false)
+        AppointmentStatusFilter filter)
     {
         try
         {
             var query = _context.Appointments.AsQueryable();
 
             // Apply appropriate filter based on role
-            if (countAll)
+            if (filter.CountAll)
             {
                 // ADMIN role: Count all appointments (no filter)
                 _logger.LogInformation("Counting all appointments for ADMIN role");
             }
-            else if (patientId.HasValue)
+            else if (filter.PatientId.HasValue)
             {
                 // PATIENT role: Filter by patient
-                query = query.Where(a => a.PatientId == patientId.Value);
-                _logger.LogInformation("Counting appointments for PatientId: {PatientId}", patientId.Value);
+                query = query.Where(a => a.PatientId == filter.PatientId.Value);
+                _logger.LogInformation("Counting appointments for PatientId: {PatientId}", filter.PatientId.Value);
             }
-            else if (doctorId.HasValue)
+            else if (filter.DoctorId.HasValue)
             {
                 // DOCTOR role: Filter by doctor
-                query = query.Where(a => a.DoctorId == doctorId.Value);
-                _logger.LogInformation("Counting appointments for DoctorId: {DoctorId}", doctorId.Value);
+                query = query.Where(a => a.DoctorId == filter.DoctorId.Value);
+                _logger.LogInformation("Counting appointments for DoctorId: {DoctorId}", filter.DoctorId.Value);
             }
-            else if (hospitalId.HasValue)
+            else if (filter.HospitalId.HasValue)
             {
                 // STAFF role: Filter by hospital
-                query = query.Where(a => a.HospitalId == hospitalId.Value);
-                _logger.LogInformation("Counting appointments for HospitalId: {HospitalId}", hospitalId.Value);
+                query = query.Where(a => a.HospitalId == filter.HospitalId.Value);
+                _logger.LogInformation("Counting appointments for HospitalId: {HospitalId}", filter.HospitalId.Value);
             }
             else
             {
@@ -428,6 +514,8 @@ public class AppointmentRepository : IAppointmentRepository
                 _logger.LogWarning("No valid filter provided for status counts query");
                 return new Dictionary<AppointmentStatus, int>();
             }
+
+            query = ApplyStatusFilter(query, filter);
 
             // Group by status and count - single DB query
             var statusCounts = await query
@@ -451,16 +539,61 @@ public class AppointmentRepository : IAppointmentRepository
 
             _logger.LogInformation(
                 "Retrieved status counts (PatientId: {PatientId}, DoctorId: {DoctorId}, HospitalId: {HospitalId}, CountAll: {CountAll}): Pending={Pending}, Confirmed={Confirmed}, Cancelled={Cancelled}, Completed={Completed}",
-                patientId, doctorId, hospitalId, countAll, result[AppointmentStatus.PENDING], result[AppointmentStatus.CONFIRMED],
+                filter.PatientId, filter.DoctorId, filter.HospitalId, filter.CountAll, result[AppointmentStatus.PENDING], result[AppointmentStatus.CONFIRMED],
                 result[AppointmentStatus.CANCELLED], result[AppointmentStatus.COMPLETED]);
 
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId})", patientId, doctorId);
+            _logger.LogError(
+                ex,
+                "Error getting status counts for user (PatientId: {PatientId}, DoctorId: {DoctorId})",
+                filter.PatientId,
+                filter.DoctorId);
             throw new AppointmentException("Failed to get status counts", innerException: ex);
         }
+    }
+
+    private static IQueryable<AppointmentEntity> ApplyStatusFilter(
+        IQueryable<AppointmentEntity> query,
+        AppointmentStatusFilter filter)
+    {
+        if (filter.AppointmentType.HasValue)
+        {
+            query = query.Where(a => a.AppointmentType == filter.AppointmentType.Value);
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            var fromDateValue = filter.FromDate.Value.Date;
+            query = query.Where(a => a.AppointmentDate >= fromDateValue);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            var toDateValue = filter.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(a => a.AppointmentDate <= toDateValue);
+        }
+
+        if (filter.ForRelative.HasValue)
+        {
+            query = filter.ForRelative.Value
+                ? query.Where(a => a.RelativeId != null)
+                : query.Where(a => a.RelativeId == null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
+        {
+            var term = filter.SearchTerm.Trim().ToLower();
+            query = query.Where(a =>
+                a.Id.ToString().ToLower().Contains(term) ||
+                (a.Reason != null && a.Reason.ToLower().Contains(term)) ||
+                (a.Symptoms != null && a.Symptoms.ToLower().Contains(term)) ||
+                (a.Result != null && a.Result.ToLower().Contains(term)));
+        }
+
+        return query;
     }
 
     public async Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(Guid hospitalId, DateTime fromDate, DateTime toDate)
@@ -539,6 +672,91 @@ public class AppointmentRepository : IAppointmentRepository
             _logger.LogError(ex, "Error getting booked appointment times for doctor {DoctorId} on {Date}",
                 doctorId, appointmentDate);
             throw new AppointmentException("Failed to get booked appointment times", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get all booked appointment time IDs for a service medical on a specific date
+    /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
+    /// </summary>
+    public async Task<List<AppointmentTime>> GetBookedAppointmentTimesByServiceAsync(Guid serviceId, DateOnly appointmentDate)
+    {
+        try
+        {
+            var startOfDay = appointmentDate.ToDateTime(TimeOnly.MinValue);
+            var endOfDay = appointmentDate.ToDateTime(TimeOnly.MaxValue);
+
+            var bookedTimeIds = await _context.Appointments
+                .Where(a => a.ServiceId == serviceId &&
+                           a.AppointmentDate >= startOfDay &&
+                           a.AppointmentDate <= endOfDay &&
+                           (a.Status == AppointmentStatus.PENDING ||
+                            a.Status == AppointmentStatus.CONFIRMED ||
+                            a.Status == AppointmentStatus.COMPLETED))
+                .Select(a => a.AppointmentTimeId)
+                .Distinct()
+                .ToListAsync();
+
+            _logger.LogDebug("Found {Count} booked time slots for service {ServiceId} on {Date}",
+                bookedTimeIds.Count, serviceId, appointmentDate);
+
+            return bookedTimeIds;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting booked appointment times for service {ServiceId} on {Date}",
+                serviceId, appointmentDate);
+            throw new AppointmentException("Failed to get booked appointment times for service", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get booked slot counts for a specialty (hospital assigns doctor mode)
+    /// Returns count of PENDING/CONFIRMED appointments per time slot
+    /// This is used to calculate remaining capacity for specialty booking
+    /// </summary>
+    public async Task<Dictionary<AppointmentTime, int>> GetSpecialtyBookedSlotCountsAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        DateOnly appointmentDate,
+        AppointmentType appointmentType)
+    {
+        try
+        {
+            var startOfDay = appointmentDate.ToDateTime(TimeOnly.MinValue);
+            var endOfDay = appointmentDate.ToDateTime(TimeOnly.MaxValue);
+
+            // Query appointments that match:
+            // - Same hospital, specialty, date, and appointment type
+            // - Status is PENDING or CONFIRMED (not CANCELLED, COMPLETED, etc.)
+            // - These are specialty bookings where hospital assigns doctor
+            var bookedCounts = await _context.Appointments
+                .Where(a => a.HospitalId == hospitalId &&
+                           a.SpecialtyId == specialtyId &&
+                           a.AppointmentDate >= startOfDay &&
+                           a.AppointmentDate <= endOfDay &&
+                           a.AppointmentType == appointmentType &&
+                           a.Status == AppointmentStatus.PENDING)
+                .GroupBy(a => a.AppointmentTimeId)
+                .Select(g => new { AppointmentTimeId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.AppointmentTimeId, x => x.Count);
+
+            _logger.LogDebug(
+                "Found {SlotCount} time slots with {TotalCount} total bookings for specialty {SpecialtyId} at hospital {HospitalId} on {Date}",
+                bookedCounts.Count,
+                bookedCounts.Values.Sum(),
+                specialtyId,
+                hospitalId,
+                appointmentDate);
+
+            return bookedCounts;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting specialty booked slot counts for hospital {HospitalId}, specialty {SpecialtyId} on {Date}",
+                hospitalId, specialtyId, appointmentDate);
+            throw new AppointmentException("Failed to get specialty booked slot counts", innerException: ex);
         }
     }
 
@@ -637,6 +855,112 @@ public class AppointmentRepository : IAppointmentRepository
         }
 
         return "any target";
+    }
+
+    #endregion
+
+    #region Assign Doctor To Appointment (NEW flow)
+
+    /// <summary>
+    /// Get completed appointments for a patient at a specific hospital and specialty
+    /// Used to find previous doctors who treated this patient
+    /// Note: patientId can be either PatientId (booking for self) or PatientRelativeId (booking for family member)
+    /// We search both fields to find all appointments for this actual patient
+    /// </summary>
+    public async Task<List<AppointmentEntity>> GetCompletedAppointmentsForPatientAsync(
+        Guid patientId,
+        Guid hospitalId,
+        Guid specialtyId)
+    {
+        try
+        {
+            // Search for appointments where:
+            // 1. PatientId matches (patient booked for themselves)
+            // 2. OR PatientRelativeId matches (someone booked for this patient as a relative)
+            return await _context.Appointments
+                .Where(a => (a.PatientId == patientId || a.RelativeId == patientId)
+                    && a.HospitalId == hospitalId
+                    && a.SpecialtyId == specialtyId
+                    && a.Status == AppointmentStatus.COMPLETED
+                    && a.DoctorId.HasValue)
+                .OrderByDescending(a => a.AppointmentDate)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting completed appointments for patient {PatientId}, hospital {HospitalId}, specialty {SpecialtyId}",
+                patientId, hospitalId, specialtyId);
+            throw new AppointmentException("Failed to get completed appointments for patient", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get booking counts (completed appointments) for multiple doctors
+    public async Task<Dictionary<Guid, int>> GetDoctorBookingCountsAsync(List<Guid> doctorIds)
+    {
+        try
+        {
+            if (!doctorIds.Any())
+            {
+                return new Dictionary<Guid, int>();
+            }
+
+            var counts = await _context.Appointments
+                .Where(a => a.DoctorId.HasValue
+                    && doctorIds.Contains(a.DoctorId.Value)
+                    && a.Status == AppointmentStatus.COMPLETED)
+                .GroupBy(a => a.DoctorId!.Value)
+                .Select(g => new { DoctorId = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            return counts.ToDictionary(x => x.DoctorId, x => x.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting booking counts for {Count} doctors", doctorIds.Count);
+            throw new AppointmentException("Failed to get doctor booking counts", innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Get doctor IDs that have booked slots at a specific date/time
+    /// Used to check availability
+    /// </summary>
+    public async Task<List<Guid>> GetDoctorsWithBookedSlotAsync(
+        List<Guid> doctorIds,
+        DateOnly date,
+        AppointmentTime appointmentTimeId)
+    {
+        try
+        {
+            if (!doctorIds.Any())
+            {
+                return new List<Guid>();
+            }
+
+            var dateTime = date.ToDateTime(TimeOnly.MinValue);
+
+            return await _context.Appointments
+                .Where(a => a.DoctorId.HasValue
+                    && doctorIds.Contains(a.DoctorId.Value)
+                    && a.AppointmentDate.Date == dateTime.Date
+                    && a.AppointmentTimeId == appointmentTimeId
+                    && (a.Status == AppointmentStatus.PENDING
+                        || a.Status == AppointmentStatus.CONFIRMED
+                        || a.Status == AppointmentStatus.COMPLETED))
+                .Select(a => a.DoctorId!.Value)
+                .Distinct()
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting doctors with booked slot on {Date} at {TimeId}",
+                date, appointmentTimeId);
+            throw new AppointmentException("Failed to get doctors with booked slot", innerException: ex);
+        }
     }
 
     #endregion

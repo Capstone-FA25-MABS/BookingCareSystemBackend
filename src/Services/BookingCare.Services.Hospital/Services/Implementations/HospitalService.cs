@@ -64,7 +64,7 @@ public class HospitalService : IHospitalService
             LogMappingDetails(hospital, response, id);
 
             await EnrichSpecialtiesAsync(response, hospital, id);
-            await EnrichServiceMedicalsAsync(response, hospital, id);
+            await EnrichServiceMedicalsAsync(response, id);
             await EnrichServiceTypesAsync(response, hospital, id);
 
             return response;
@@ -200,82 +200,52 @@ public class HospitalService : IHospitalService
         }
     }
 
-    private async Task EnrichServiceMedicalsAsync(
-        HospitalProfileResponse response,
-        HospitalEntity hospital,
-        Guid id
-    )
+    private async Task EnrichServiceMedicalsAsync(HospitalProfileResponse response, Guid hospitalId)
     {
-        var serviceMedicalIds =
-            hospital.HospitalServiceMedicals?.Select(hsm => hsm.ServiceMedicalId).ToList()
-            ?? new List<Guid>();
-        if (!serviceMedicalIds.Any() || _dependencies.ServiceMedicalClient == null)
+        if (_dependencies.ServiceMedicalClient == null)
         {
             response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
-            _logger.LogInformation("No service medical IDs found for hospital {HospitalId}", id);
+            _logger.LogWarning("ServiceMedicalClient is null, cannot enrich service medicals for hospital {HospitalId}", hospitalId);
             return;
         }
 
         try
         {
-            _logger.LogInformation(
-                "Calling ServiceMedical gRPC to get {Count} service medicals for hospital {HospitalId}",
-                serviceMedicalIds.Count,
-                id
-            );
+            _logger.LogInformation("Calling ServiceMedical gRPC GetServicesByHospital for hospital {HospitalId}", hospitalId);
 
-            var serviceMedicalTasks = serviceMedicalIds
-                .Select(async smId =>
+            // Use GetServicesByHospital to get all services for this hospital in a single call
+            var request = new ServiceMedical.Protos.GetServicesByHospitalGrpcRequest
+            {
+                HospitalId = hospitalId.ToString(),
+                IncludeInactive = false
+            };
+
+            var servicesResponse = await _dependencies.ServiceMedicalClient.GetServicesByHospitalAsync(request);
+
+            if (servicesResponse?.Services == null || !servicesResponse.Services.Any())
+            {
+                response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
+                _logger.LogInformation("No service medicals returned from gRPC for hospital {HospitalId}", hospitalId);
+                return;
+            }
+
+            response.ServiceMedicals = servicesResponse.Services
+                .Where(s => !string.IsNullOrEmpty(s.Id) && Guid.TryParse(s.Id, out _))
+                .Select(s => new HospitalServiceMedicalResponse
                 {
-                    try
-                    {
-                        var smRequest = new ServiceMedical.Protos.GetServiceGrpcRequest
-                        {
-                            Id = smId.ToString(),
-                        };
-                        var smResponse = await _dependencies.ServiceMedicalClient.GetServiceAsync(
-                            smRequest
-                        );
-
-                        if (smResponse != null && !string.IsNullOrEmpty(smResponse.Id))
-                        {
-                            return new HospitalServiceMedicalResponse
-                            {
-                                Id = Guid.Parse(smResponse.Id),
-                                Name = smResponse.Name,
-                                ImageUrl = smResponse.ImageUrl,
-                                Price = decimal.Parse(smResponse.Price),
-                            };
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(
-                            ex,
-                            "Failed to get service medical {ServiceMedicalId} from gRPC",
-                            smId
-                        );
-                    }
-                    return null;
+                    Id = Guid.Parse(s.Id),
+                    Name = s.Name,
+                    ImageUrl = s.ImageUrl,
+                    Price = decimal.TryParse(s.Price, out var price) ? price : 0
                 })
                 .ToList();
 
-            var serviceMedicals = await Task.WhenAll(serviceMedicalTasks);
-            response.ServiceMedicals = serviceMedicals.Where(sm => sm != null).ToList()!;
-
-            _logger.LogInformation(
-                "Enriched {Count} service medicals for hospital {HospitalId}",
-                response.ServiceMedicals.Count,
-                id
-            );
+            _logger.LogInformation("Enriched {Count} service medicals for hospital {HospitalId}",
+                response.ServiceMedicals.Count, hospitalId);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(
-                ex,
-                "Failed to enrich service medicals for hospital {HospitalId}, returning empty list",
-                id
-            );
+            _logger.LogWarning(ex, "Failed to enrich service medicals for hospital {HospitalId}, returning empty list", hospitalId);
             response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
         }
     }

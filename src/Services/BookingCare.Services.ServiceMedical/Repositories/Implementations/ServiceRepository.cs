@@ -2,6 +2,7 @@ using BookingCare.Services.ServiceMedical.Constants;
 using BookingCare.Services.ServiceMedical.Data;
 using BookingCare.Services.ServiceMedical.Models.Entities;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
+using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -185,6 +186,25 @@ namespace BookingCare.Services.ServiceMedical.Repositories.Implementations
         public IQueryable<ServiceEntity> GetQueryable()
         {
             return _context.Services.AsQueryable();
+        }
+
+        /// <summary>
+        /// Get services basic info by multiple IDs with projection (optimized for gRPC)
+        /// Only selects required columns from database for better performance
+        /// </summary>
+        public async Task<List<ServiceBasicInfoDto>> GetServicesBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+        {
+            var idList = ids.ToList();
+            return await _context.Services
+                .Where(s => idList.Contains(s.Id))
+                .Select(s => new ServiceBasicInfoDto
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    Price = s.Price,
+                    ImageUrl = s.ImageUrl
+                })
+                .ToListAsync();
         }
     }
 }

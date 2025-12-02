@@ -191,6 +191,54 @@ public class ScheduleRepository : IScheduleRepository
         return availableSlots.OrderBy(x => (int)x);
     }
 
+    public async Task<Dictionary<Guid, List<AppointmentTime>>> GetAvailableSlotsForDoctorsAsync(List<Guid> doctorIds, DateOnly date)
+    {
+        var result = new Dictionary<Guid, List<AppointmentTime>>();
+
+        if (!doctorIds.Any())
+        {
+            return result;
+        }
+
+        // Step 1: Batch query all doctor schedules for the date
+        var doctorSchedules = await _context.DoctorDailySchedules
+            .Where(s => doctorIds.Contains(s.DoctorId) && s.ScheduleDate == date)
+            .ToListAsync();
+
+        // Step 2: Batch query all doctor exceptions for the date
+        var doctorExceptions = await _context.DoctorScheduleExceptions
+            .Where(e => doctorIds.Contains(e.DoctorId) && e.ExceptionDate == date)
+            .ToListAsync();
+
+        // Group by doctor for efficient lookup
+        var schedulesByDoctor = doctorSchedules.ToDictionary(s => s.DoctorId);
+        var exceptionsByDoctor = doctorExceptions.GroupBy(e => e.DoctorId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Step 3: Process each doctor's available slots
+        foreach (var doctorId in doctorIds)
+        {
+            if (!schedulesByDoctor.TryGetValue(doctorId, out var schedule))
+            {
+                result[doctorId] = new List<AppointmentTime>();
+                continue;
+            }
+
+            // Get all slots from the patterns
+            var availableSlots = GetAppointmentTimesForPatterns(schedule.SchedulePatterns).ToList();
+
+            // Apply exceptions if any
+            if (exceptionsByDoctor.TryGetValue(doctorId, out var exceptions))
+            {
+                availableSlots = ApplyExceptionsToSlots(availableSlots, exceptions);
+            }
+
+            result[doctorId] = availableSlots.OrderBy(x => (int)x).ToList();
+        }
+
+        return result;
+    }
+
     private static List<AppointmentTime> ApplyExceptionsToSlots(List<AppointmentTime> availableSlots, IEnumerable<DoctorScheduleExceptionEntity> exceptions)
     {
         foreach (var exception in exceptions)

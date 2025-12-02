@@ -32,6 +32,9 @@ service UserService {
   
   // Get multiple users display info for reviews (batch operation with consistent format)
   rpc GetUsersDisplayInfo (GetUsersDisplayInfoRequest) returns (UsersDisplayInfoResponse);
+  
+  // Get relatives basic info by IDs (for appointment enrichment)
+  rpc GetRelativesBasicInfo (GetRelativesBasicInfoRequest) returns (RelativesBasicInfoResponse);
 }
 
 // Request messages
@@ -146,4 +149,28 @@ message GetUsersDisplayInfoRequest {
 // NEW: Response message for multiple users display info
 message UsersDisplayInfoResponse {
   repeated UserDisplayInfoResponse users = 1;
+}
+
+// Request message for getting relatives basic info by IDs
+message GetRelativesBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Response message for relative basic info
+message RelativeBasicInfoResponse {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string full_name = 4;
+  string gender = 5;
+  string date_of_birth = 6; // ISO 8601 format (yyyy-MM-dd)
+  string phone = 7;
+  string relationship = 8;
+  string relationship_display = 9;
+  bool found = 10;
+}
+
+// Response message for multiple relatives basic info
+message RelativesBasicInfoResponse {
+  repeated RelativeBasicInfoResponse relatives = 1;
 }

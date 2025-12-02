@@ -8,10 +8,12 @@
 
   <ItemGroup>
 	<Protobuf Include="Protos/appointment.proto" GrpcServices="Server" />
-	<Protobuf Include="../BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" />
-	<Protobuf Include="../BookingCare.Services.Hospital/Protos/hospital.proto" GrpcServices="Client" />
-	<Protobuf Include="../BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" />
-	<Protobuf Include="../BookingCare.Services.Payment/Protos/payment.proto" GrpcServices="Client" />
+	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Doctor/Protos/doctor.proto" GrpcServices="Client" Link="Protos/doctor.proto" ProtoRoot="$(SolutionDir)" />
+	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Hospital/Protos/hospital.proto" GrpcServices="Client" Link="Protos/hospital.proto" ProtoRoot="$(SolutionDir)" />
+	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.User/Protos/user.proto" GrpcServices="Client" Link="Protos/user.proto" ProtoRoot="$(SolutionDir)" />
+	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Payment/Protos/payment.proto" GrpcServices="Client" Link="Protos/payment.proto" ProtoRoot="$(SolutionDir)" />
+	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.ServiceMedical/Protos/serviceMedical.proto" GrpcServices="Client" Link="Protos/serviceMedical.proto" ProtoRoot="$(SolutionDir)" />
+	<Protobuf Include="$(SolutionDir)src/Services/BookingCare.Services.Schedule/Protos/schedule.proto" GrpcServices="Client" Link="Protos/schedule.proto" ProtoRoot="$(SolutionDir)" />
   </ItemGroup>
 
   <ItemGroup>

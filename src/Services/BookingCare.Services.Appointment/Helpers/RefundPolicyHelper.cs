@@ -8,6 +8,20 @@ namespace BookingCare.Services.Appointment.Helpers;
 public static class RefundPolicyHelper
 {
     /// <summary>
+    /// Vietnam timezone (UTC+7) - used for appointment time calculations
+    /// AppointmentTimeId (e.g., AT_08_00_09_00) represents local Vietnam time
+    /// </summary>
+    private static readonly TimeZoneInfo VietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+
+    /// <summary>
+    /// Get current time in Vietnam timezone
+    /// </summary>
+    private static DateTime GetVietnamNow()
+    {
+        return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
+    }
+
+    /// <summary>
     /// Parse AppointmentTimeId enum to get start time (HH:mm format)
     /// Example: AT_08_00_09_00 -> returns TimeOnly(08, 00)
     /// </summary>
@@ -34,7 +48,8 @@ public static class RefundPolicyHelper
     }
 
     /// <summary>
-    /// Combine AppointmentDate (date only) with AppointmentTimeId (time) to get full DateTime
+    /// Combine AppointmentDate (date only) with AppointmentTimeId (time) to get full DateTime in Vietnam timezone
+    /// NOTE: AppointmentTimeId represents local Vietnam time (e.g., AT_08_00 = 8:00 AM Vietnam time)
     /// </summary>
     private static DateTime GetFullAppointmentDateTime(DateTime appointmentDate, AppointmentTime appointmentTimeId)
     {
@@ -42,7 +57,7 @@ public static class RefundPolicyHelper
 
         if (startTime.HasValue)
         {
-            // Combine date with time
+            // Combine date with time (result is in Vietnam local time)
             return appointmentDate.Date.Add(startTime.Value.ToTimeSpan());
         }
 
@@ -51,6 +66,52 @@ public static class RefundPolicyHelper
     }
     /// <summary>
     /// Calculate refund percentage based on time between cancellation and appointment
+    /// Uses full appointment DateTime by combining date with time slot
+    /// NOTE: Calculates in Vietnam timezone since AppointmentTimeId represents local Vietnam time
+    /// Policy: 
+    /// - Staff/Hospital cancel: Always 100% refund (hospital's fault)
+    /// - Patient cancel with >= 24 hours before: 100% refund
+    /// - Patient cancel with 12-24 hours before: 50% refund
+    /// - Patient cancel with < 12 hours before: 0% refund (No refund)
+    /// </summary>
+    /// <param name="appointmentDate">The appointment date (date only)</param>
+    /// <param name="appointmentTimeId">The appointment time slot (Vietnam local time)</param>
+    /// <param name="cancellationDate">The cancellation date and time in UTC (defaults to now)</param>
+    /// <param name="isStaffCancellation">True if cancelled by staff/hospital, false if cancelled by patient</param>
+    /// <returns>Refund percentage (0-100)</returns>
+    public static decimal CalculateRefundPercentage(DateTime appointmentDate, AppointmentTime appointmentTimeId, DateTime? cancellationDate = null, bool isStaffCancellation = false)
+    {
+        // If cancelled by staff/hospital, always full refund (hospital's responsibility)
+        if (isStaffCancellation)
+        {
+            return 100m;
+        }
+
+        // Convert cancellation time to Vietnam timezone for accurate calculation
+        var cancelTimeVietnam = cancellationDate.HasValue
+            ? TimeZoneInfo.ConvertTimeFromUtc(cancellationDate.Value, VietnamTimeZone)
+            : GetVietnamNow();
+
+        var fullAppointmentDateTime = GetFullAppointmentDateTime(appointmentDate, appointmentTimeId);
+        var hoursUntilAppointment = (fullAppointmentDateTime - cancelTimeVietnam).TotalHours;
+
+        if (hoursUntilAppointment >= 24)
+        {
+            return 100m; // Full refund
+        }
+        else if (hoursUntilAppointment >= 12)
+        {
+            return 50m; // Half refund
+        }
+        else
+        {
+            return 0m; // No refund
+        }
+    }
+
+    /// <summary>
+    /// Calculate refund percentage based on time between cancellation and appointment
+    /// WARNING: This overload uses date only and may be inaccurate. Use overload with AppointmentTime when possible.
     /// Policy: 
     /// - Staff/Hospital cancel: Always 100% refund (hospital's fault)
     /// - Patient cancel with >= 24 hours before: 100% refund
@@ -114,6 +175,28 @@ public static class RefundPolicyHelper
 
     /// <summary>
     /// Check if cancellation is allowed (appointment must be in the future)
+    /// Uses full appointment DateTime by combining date with time slot
+    /// NOTE: Compares in Vietnam timezone since AppointmentTimeId represents local Vietnam time
+    /// </summary>
+    /// <param name="appointmentDate">The appointment date (date only)</param>
+    /// <param name="appointmentTimeId">The appointment time slot (Vietnam local time)</param>
+    /// <param name="cancellationDate">The cancellation date and time in UTC (defaults to now)</param>
+    /// <returns>True if cancellation is allowed</returns>
+    public static bool IsCancellationAllowed(DateTime appointmentDate, AppointmentTime appointmentTimeId, DateTime? cancellationDate = null)
+    {
+        // Convert cancellation time to Vietnam timezone for accurate comparison
+        // AppointmentTimeId (e.g., AT_08_00) represents Vietnam local time
+        var cancelTimeVietnam = cancellationDate.HasValue
+            ? TimeZoneInfo.ConvertTimeFromUtc(cancellationDate.Value, VietnamTimeZone)
+            : GetVietnamNow();
+
+        var fullAppointmentDateTime = GetFullAppointmentDateTime(appointmentDate, appointmentTimeId);
+        return fullAppointmentDateTime > cancelTimeVietnam;
+    }
+
+    /// <summary>
+    /// Check if cancellation is allowed (appointment must be in the future)
+    /// WARNING: This overload uses date only and may be inaccurate. Use overload with AppointmentTime when possible.
     /// </summary>
     /// <param name="appointmentDate">The appointment date and time</param>
     /// <param name="cancellationDate">The cancellation date and time (defaults to now)</param>
@@ -127,16 +210,21 @@ public static class RefundPolicyHelper
     /// <summary>
     /// Check if reschedule is allowed (must be at least 24 hours before appointment)
     /// More strict than cancellation - requires minimum 1 day notice
+    /// NOTE: Calculates in Vietnam timezone since AppointmentTimeId represents local Vietnam time
     /// </summary>
     /// <param name="appointmentDate">The appointment date (date only)</param>
-    /// <param name="appointmentTimeId">The appointment time slot</param>
-    /// <param name="requestTime">The reschedule request time (defaults to now)</param>
+    /// <param name="appointmentTimeId">The appointment time slot (Vietnam local time)</param>
+    /// <param name="requestTime">The reschedule request time in UTC (defaults to now)</param>
     /// <returns>True if reschedule is allowed</returns>
     public static bool IsRescheduleAllowed(DateTime appointmentDate, AppointmentTime appointmentTimeId, DateTime? requestTime = null)
     {
-        var checkTime = requestTime ?? DateTime.UtcNow;
+        // Convert request time to Vietnam timezone for accurate comparison
+        var checkTimeVietnam = requestTime.HasValue
+            ? TimeZoneInfo.ConvertTimeFromUtc(requestTime.Value, VietnamTimeZone)
+            : GetVietnamNow();
+
         var fullAppointmentDateTime = GetFullAppointmentDateTime(appointmentDate, appointmentTimeId);
-        var hoursUntilAppointment = (fullAppointmentDateTime - checkTime).TotalHours;
+        var hoursUntilAppointment = (fullAppointmentDateTime - checkTimeVietnam).TotalHours;
 
         // Must be at least 24 hours (1 day) before appointment
         return hoursUntilAppointment >= 24;
@@ -161,16 +249,21 @@ public static class RefundPolicyHelper
 
     /// <summary>
     /// Get reschedule policy message
+    /// NOTE: Calculates in Vietnam timezone since AppointmentTimeId represents local Vietnam time
     /// </summary>
     /// <param name="appointmentDate">The appointment date (date only)</param>
-    /// <param name="appointmentTimeId">The appointment time slot</param>
-    /// <param name="requestTime">The reschedule request time (defaults to now)</param>
+    /// <param name="appointmentTimeId">The appointment time slot (Vietnam local time)</param>
+    /// <param name="requestTime">The reschedule request time in UTC (defaults to now)</param>
     /// <returns>Policy message</returns>
     public static string GetReschedulePolicyMessage(DateTime appointmentDate, AppointmentTime appointmentTimeId, DateTime? requestTime = null)
     {
-        var checkTime = requestTime ?? DateTime.UtcNow;
+        // Convert request time to Vietnam timezone for accurate calculation
+        var checkTimeVietnam = requestTime.HasValue
+            ? TimeZoneInfo.ConvertTimeFromUtc(requestTime.Value, VietnamTimeZone)
+            : GetVietnamNow();
+
         var fullAppointmentDateTime = GetFullAppointmentDateTime(appointmentDate, appointmentTimeId);
-        var hoursUntilAppointment = (fullAppointmentDateTime - checkTime).TotalHours;
+        var hoursUntilAppointment = (fullAppointmentDateTime - checkTimeVietnam).TotalHours;
 
         if (hoursUntilAppointment >= 24)
         {
@@ -215,6 +308,35 @@ public static class RefundPolicyHelper
 
     /// <summary>
     /// Get detailed refund info for display
+    /// Uses full appointment DateTime by combining date with time slot
+    /// NOTE: Calculates in Vietnam timezone since AppointmentTimeId represents local Vietnam time
+    /// </summary>
+    public static RefundInfo GetRefundInfo(DateTime appointmentDate, AppointmentTime appointmentTimeId, DateTime? cancellationDate = null, bool isStaffCancellation = false)
+    {
+        // Convert cancellation time to Vietnam timezone for accurate calculation
+        var cancelTimeVietnam = cancellationDate.HasValue
+            ? TimeZoneInfo.ConvertTimeFromUtc(cancellationDate.Value, VietnamTimeZone)
+            : GetVietnamNow();
+
+        var fullAppointmentDateTime = GetFullAppointmentDateTime(appointmentDate, appointmentTimeId);
+        var hoursUntilAppointment = (fullAppointmentDateTime - cancelTimeVietnam).TotalHours;
+        var refundPercentage = CalculateRefundPercentage(appointmentDate, appointmentTimeId, cancellationDate, isStaffCancellation);
+        var isAllowed = IsCancellationAllowed(appointmentDate, appointmentTimeId, cancellationDate);
+
+        return new RefundInfo
+        {
+            RefundPercentage = refundPercentage,
+            HoursUntilAppointment = hoursUntilAppointment,
+            IsAllowed = isAllowed,
+            PolicyMessage = isStaffCancellation
+                ? "Bệnh viện hủy lịch hẹn - Bạn sẽ được hoàn lại 100% chi phí"
+                : GetRefundPolicyMessage(hoursUntilAppointment)
+        };
+    }
+
+    /// <summary>
+    /// Get detailed refund info for display
+    /// WARNING: This overload uses date only and may be inaccurate. Use overload with AppointmentTime when possible.
     /// </summary>
     public static RefundInfo GetRefundInfo(DateTime appointmentDate, DateTime? cancellationDate = null, bool isStaffCancellation = false)
     {

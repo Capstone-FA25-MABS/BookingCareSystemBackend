@@ -1,17 +1,2 @@
-namespace BookingCare.Services.Appointment.Enums;
-
-/// <summary>
-/// Enum representing different types of appointments
-/// </summary>
-public enum AppointmentType
-{
-    /// <summary>
-    /// Regular in-person consultation at clinic/hospital
-    /// </summary>
-    IN_PERSON,
-
-    /// <summary>
-    /// Online consultation via video call
-    /// </summary>
-    TELEHEALTH
-}
+// Re-export from Shared.Common for backward compatibility
+global using AppointmentType = BookingCare.Shared.Common.Enums.AppointmentType;
