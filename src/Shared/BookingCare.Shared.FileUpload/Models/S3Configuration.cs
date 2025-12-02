@@ -33,6 +33,16 @@ public class S3Configuration
     };
 
     public string FileUploadPath { get; set; } = "uploads/";
+
+    public int UploadTimeoutSeconds { get; set; } = 300;
+
+    public int UploadReadWriteTimeoutSeconds { get; set; } = 300;
+
+    public int AwsSdkTimeoutSeconds { get; set; } = 120;
+
+    public int AwsSdkReadWriteTimeoutSeconds { get; set; } = 120;
+
+    public int AwsSdkMaxErrorRetry { get; set; } = 3;
 }
 
 public class CloudFrontConfiguration
