@@ -65,14 +65,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 throw new InvalidOperationException("Mỗi cuộc trò chuyện chỉ hỗ trợ phân tích một file xét nghiệm. Vui lòng tạo cuộc trò chuyện mới để tiếp tục với file khác nhé!");
             }
 
-            // Parallelize S3 upload and OCR extraction for better performance
-            var uploadTask = _fileUploadHelper.UploadToS3Async(file, userId, "lab-results");
-            var extractTask = ExtractTextFromImageAsync(file);
+            // Upload file to S3 (sequential, tránh conflict stream với OCR)
+            var imageUrl = await _fileUploadHelper.UploadToS3Async(file, userId, "lab-results");
 
-            await Task.WhenAll(uploadTask, extractTask);
-
-            var imageUrl = await uploadTask;
-            var extractedText = await extractTask;
+            // Thực hiện OCR sau khi upload xong, giống pattern của DermatologyAnalysisService
+            var extractedText = await ExtractTextFromImageAsync(file);
 
             _logger.LogInformation("Uploaded image to {ImageUrl}", imageUrl);
             _logger.LogInformation("Extracted {Length} characters from image", extractedText.Length);
