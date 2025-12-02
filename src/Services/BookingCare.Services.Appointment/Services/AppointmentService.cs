@@ -2531,7 +2531,7 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
-    /// Generate HTML medical report and upload to S3
+    /// Generate professional PDF medical report and upload to S3
     /// </summary>
     private async Task<string> GenerateAndUploadMedicalReportAsync(
         UpdateAppointmentResultRequest request,
@@ -2542,8 +2542,8 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         try
         {
-            // Generate beautiful HTML report from markdown content
-            var htmlContent = MedicalReportHtmlGenerator.GenerateHtmlReport(
+            // Generate professional PDF report from markdown content
+            var pdfBytes = MedicalReportPdfGenerator.GeneratePdfReport(
                 request.Result,
                 appointment.Id.ToString(),
                 doctorName,
@@ -2551,29 +2551,28 @@ public class AppointmentService : BaseService, IAppointmentService
                 appointment.AppointmentDate
             );
 
-            // Convert HTML to byte array
-            var htmlBytes = System.Text.Encoding.UTF8.GetBytes(htmlContent);
-            using var htmlStream = new MemoryStream(htmlBytes);
+            // Create stream from PDF bytes
+            using var pdfStream = new MemoryStream(pdfBytes);
 
             var uploadRequest = new FileUploadRequest
             {
-                FileStream = htmlStream,
-                FileName = $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.html",
-                ContentType = "text/html; charset=utf-8",
+                FileStream = pdfStream,
+                FileName = $"result_{request.AppointmentId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf",
+                ContentType = "application/pdf",
                 Folder = "appointment-results",
                 GenerateUniqueFileName = true,
                 Metadata = new Dictionary<string, string>
                 {
                     ["AppointmentId"] = request.AppointmentId.ToString(),
                     ["UploadedAt"] = DateTime.UtcNow.ToString("o"),
-                    ["UploadType"] = "HtmlReport",
-                    ["ContentLength"] = htmlContent.Length.ToString(),
-                    ["OriginalFormat"] = "MarkdownToHtml",
+                    ["UploadType"] = "PdfReport",
+                    ["ContentLength"] = pdfBytes.Length.ToString(),
+                    ["OriginalFormat"] = "MarkdownToPdf",
                 },
             };
 
             LogInfo(
-                "Converting result to HTML medical report for appointment {AppointmentId}, doctor: {Doctor}, patient: {Patient}",
+                "Converting result to PDF medical report for appointment {AppointmentId}, doctor: {Doctor}, patient: {Patient}",
                 null,
                 request.AppointmentId,
                 doctorName,
@@ -2590,7 +2589,7 @@ public class AppointmentService : BaseService, IAppointmentService
             }
 
             LogInfo(
-                "Successfully uploaded HTML medical report for appointment {AppointmentId} to {Url}",
+                "Successfully uploaded PDF medical report for appointment {AppointmentId} to {Url}",
                 null,
                 request.AppointmentId,
                 uploadResult.CloudFrontUrl
@@ -2602,12 +2601,12 @@ public class AppointmentService : BaseService, IAppointmentService
         {
             LogError(
                 ex,
-                "Error converting to HTML and uploading for appointment {AppointmentId}",
+                "Error converting to PDF and uploading for appointment {AppointmentId}",
                 null,
                 request.AppointmentId
             );
             throw new AppointmentException(
-                "Failed to upload HTML medical report to S3",
+                "Failed to upload PDF medical report to S3",
                 innerException: ex
             );
         }
