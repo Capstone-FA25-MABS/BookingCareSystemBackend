@@ -80,10 +80,6 @@ using (var scope = app.Services.CreateScope())
                 logger.LogInformation("Database already exists (no migrations found)");
             }
         }
-
-        // Seed initial data (only if database is empty)
-        await BlogDataSeeder.SeedAsync(dbContext);
-        logger.LogInformation("Database seeding completed");
     }
     catch (Exception ex)
     {

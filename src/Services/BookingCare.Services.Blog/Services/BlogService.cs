@@ -85,43 +85,9 @@ public class BlogService : IBlogService
         {
             return null;
         }
-
         var relatedBlogs = await _blogRepository.GetRelatedBlogsAsync(id, limit: 10, cancellationToken);
-        var blogDto = _mapper.Map<BlogDetailDto>(blog);
 
-        // Map related blogs to BlogSummaryDto
-        var relatedBlogsDto = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(relatedBlogs);
-
-        // Batch load creator names for main blog and related blogs
-        var allAccountIds = new List<Guid>();
-        if (blog.CreatedBy.HasValue)
-        {
-            allAccountIds.Add(blog.CreatedBy.Value);
-        }
-        allAccountIds.AddRange(relatedBlogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value).Distinct());
-
-        var creatorNames = await GetCreatorNamesBatchAsync(allAccountIds.Distinct().ToList(), cancellationToken);
-
-        // Get creator name for main blog
-        var creatorName = blog.CreatedBy.HasValue && creatorNames.TryGetValue(blog.CreatedBy.Value, out var name)
-            ? name
-            : null;
-
-        // Set CreatedByName for related blogs
-        var relatedBlogsWithCreatorNames = relatedBlogsDto.Select(dto =>
-        {
-            var relatedBlog = relatedBlogs.First(b => b.Id == dto.Id);
-            var relatedCreatorName = relatedBlog.CreatedBy.HasValue && creatorNames.TryGetValue(relatedBlog.CreatedBy.Value, out var relatedName)
-                ? relatedName
-                : null;
-            return dto with { CreatedByName = relatedCreatorName };
-        }).ToList();
-
-        return blogDto with
-        {
-            RelatedBlogs = relatedBlogsWithCreatorNames,
-            CreatedByName = creatorName
-        };
+        return await BuildBlogDetailWithRelationsAsync(blog, relatedBlogs, cancellationToken);
     }
 
     public async Task<BlogDetailDto> CreateBlogAsync(CreateBlogRequest request, Guid? createdBy = null, CancellationToken cancellationToken = default)
@@ -134,41 +100,9 @@ public class BlogService : IBlogService
 
         var created = await _blogRepository.GetByIdAsync(entity.Id, cancellationToken)
             ?? throw new BlogServiceException("Không thể tải lại bài viết sau khi tạo.");
-
         var relatedBlogs = await _blogRepository.GetRelatedBlogsAsync(entity.Id, limit: 10, cancellationToken);
-        var blogDto = _mapper.Map<BlogDetailDto>(created);
-        var relatedBlogsDto = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(relatedBlogs);
 
-        // Batch load creator names for main blog and related blogs
-        var allAccountIds = new List<Guid>();
-        if (created.CreatedBy.HasValue)
-        {
-            allAccountIds.Add(created.CreatedBy.Value);
-        }
-        allAccountIds.AddRange(relatedBlogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value).Distinct());
-
-        var creatorNames = await GetCreatorNamesBatchAsync(allAccountIds.Distinct().ToList(), cancellationToken);
-
-        // Get creator name for main blog
-        var creatorName = created.CreatedBy.HasValue && creatorNames.TryGetValue(created.CreatedBy.Value, out var name)
-            ? name
-            : null;
-
-        // Set CreatedByName for related blogs
-        var relatedBlogsWithCreatorNames = relatedBlogsDto.Select(dto =>
-        {
-            var relatedBlog = relatedBlogs.First(b => b.Id == dto.Id);
-            var relatedCreatorName = relatedBlog.CreatedBy.HasValue && creatorNames.TryGetValue(relatedBlog.CreatedBy.Value, out var relatedName)
-                ? relatedName
-                : null;
-            return dto with { CreatedByName = relatedCreatorName };
-        }).ToList();
-
-        return blogDto with
-        {
-            RelatedBlogs = relatedBlogsWithCreatorNames,
-            CreatedByName = creatorName
-        };
+        return await BuildBlogDetailWithRelationsAsync(created, relatedBlogs, cancellationToken);
     }
 
     public async Task<BlogDetailDto> UpdateBlogAsync(Guid id, UpdateBlogRequest request, CancellationToken cancellationToken = default)
@@ -198,41 +132,9 @@ public class BlogService : IBlogService
 
         var updated = await _blogRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new BlogServiceException("Không thể tải lại bài viết sau khi cập nhật.");
-
         var relatedBlogs = await _blogRepository.GetRelatedBlogsAsync(id, limit: 10, cancellationToken);
-        var blogDto = _mapper.Map<BlogDetailDto>(updated);
-        var relatedBlogsDto = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(relatedBlogs);
 
-        // Batch load creator names for main blog and related blogs
-        var allAccountIds = new List<Guid>();
-        if (updated.CreatedBy.HasValue)
-        {
-            allAccountIds.Add(updated.CreatedBy.Value);
-        }
-        allAccountIds.AddRange(relatedBlogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value).Distinct());
-
-        var creatorNames = await GetCreatorNamesBatchAsync(allAccountIds.Distinct().ToList(), cancellationToken);
-
-        // Get creator name for main blog
-        var creatorName = updated.CreatedBy.HasValue && creatorNames.TryGetValue(updated.CreatedBy.Value, out var name)
-            ? name
-            : null;
-
-        // Set CreatedByName for related blogs
-        var relatedBlogsWithCreatorNames = relatedBlogsDto.Select(dto =>
-        {
-            var relatedBlog = relatedBlogs.First(b => b.Id == dto.Id);
-            var relatedCreatorName = relatedBlog.CreatedBy.HasValue && creatorNames.TryGetValue(relatedBlog.CreatedBy.Value, out var relatedName)
-                ? relatedName
-                : null;
-            return dto with { CreatedByName = relatedCreatorName };
-        }).ToList();
-
-        return blogDto with
-        {
-            RelatedBlogs = relatedBlogsWithCreatorNames,
-            CreatedByName = creatorName
-        };
+        return await BuildBlogDetailWithRelationsAsync(updated, relatedBlogs, cancellationToken);
     }
 
     public async Task DeleteBlogAsync(Guid id, CancellationToken cancellationToken = default)
@@ -270,41 +172,9 @@ public class BlogService : IBlogService
 
         var updated = await _blogRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new BlogServiceException("Không thể tải lại bài viết sau khi duyệt.");
-
         var relatedBlogs = await _blogRepository.GetRelatedBlogsAsync(id, limit: 10, cancellationToken);
-        var blogDto = _mapper.Map<BlogDetailDto>(updated);
-        var relatedBlogsDto = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(relatedBlogs);
 
-        // Batch load creator names for main blog and related blogs
-        var allAccountIds = new List<Guid>();
-        if (updated.CreatedBy.HasValue)
-        {
-            allAccountIds.Add(updated.CreatedBy.Value);
-        }
-        allAccountIds.AddRange(relatedBlogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value).Distinct());
-
-        var creatorNames = await GetCreatorNamesBatchAsync(allAccountIds.Distinct().ToList(), cancellationToken);
-
-        // Get creator name for main blog
-        var creatorName = updated.CreatedBy.HasValue && creatorNames.TryGetValue(updated.CreatedBy.Value, out var name)
-            ? name
-            : null;
-
-        // Set CreatedByName for related blogs
-        var relatedBlogsWithCreatorNames = relatedBlogsDto.Select(dto =>
-        {
-            var relatedBlog = relatedBlogs.First(b => b.Id == dto.Id);
-            var relatedCreatorName = relatedBlog.CreatedBy.HasValue && creatorNames.TryGetValue(relatedBlog.CreatedBy.Value, out var relatedName)
-                ? relatedName
-                : null;
-            return dto with { CreatedByName = relatedCreatorName };
-        }).ToList();
-
-        return blogDto with
-        {
-            RelatedBlogs = relatedBlogsWithCreatorNames,
-            CreatedByName = creatorName
-        };
+        return await BuildBlogDetailWithRelationsAsync(updated, relatedBlogs, cancellationToken);
     }
 
     public async Task<BlogDetailDto> RejectBlogAsync(Guid id, CancellationToken cancellationToken = default)
@@ -320,41 +190,9 @@ public class BlogService : IBlogService
 
         var updated = await _blogRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new BlogServiceException("Không thể tải lại bài viết sau khi từ chối.");
-
         var relatedBlogs = await _blogRepository.GetRelatedBlogsAsync(id, limit: 10, cancellationToken);
-        var blogDto = _mapper.Map<BlogDetailDto>(updated);
-        var relatedBlogsDto = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(relatedBlogs);
 
-        // Batch load creator names for main blog and related blogs
-        var allAccountIds = new List<Guid>();
-        if (updated.CreatedBy.HasValue)
-        {
-            allAccountIds.Add(updated.CreatedBy.Value);
-        }
-        allAccountIds.AddRange(relatedBlogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value).Distinct());
-
-        var creatorNames = await GetCreatorNamesBatchAsync(allAccountIds.Distinct().ToList(), cancellationToken);
-
-        // Get creator name for main blog
-        var creatorName = updated.CreatedBy.HasValue && creatorNames.TryGetValue(updated.CreatedBy.Value, out var name)
-            ? name
-            : null;
-
-        // Set CreatedByName for related blogs
-        var relatedBlogsWithCreatorNames = relatedBlogsDto.Select(dto =>
-        {
-            var relatedBlog = relatedBlogs.First(b => b.Id == dto.Id);
-            var relatedCreatorName = relatedBlog.CreatedBy.HasValue && creatorNames.TryGetValue(relatedBlog.CreatedBy.Value, out var relatedName)
-                ? relatedName
-                : null;
-            return dto with { CreatedByName = relatedCreatorName };
-        }).ToList();
-
-        return blogDto with
-        {
-            RelatedBlogs = relatedBlogsWithCreatorNames,
-            CreatedByName = creatorName
-        };
+        return await BuildBlogDetailWithRelationsAsync(updated, relatedBlogs, cancellationToken);
     }
 
     private async Task EnsureCategoryExists(Guid? categoryId, CancellationToken cancellationToken)
@@ -371,30 +209,49 @@ public class BlogService : IBlogService
         }
     }
 
-    private async Task<string?> GetCreatorNameAsync(Guid? accountId, CancellationToken cancellationToken = default)
+    private async Task<BlogDetailDto> BuildBlogDetailWithRelationsAsync(
+        BlogEntity mainBlog,
+        IReadOnlyList<BlogEntity> relatedBlogs,
+        CancellationToken cancellationToken)
     {
-        if (!accountId.HasValue)
-        {
-            return null;
-        }
+        var blogDto = _mapper.Map<BlogDetailDto>(mainBlog);
+        var relatedBlogsDto = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(relatedBlogs);
 
-        try
+        // Batch load creator names for main blog and related blogs
+        var allAccountIds = new List<Guid>();
+        if (mainBlog.CreatedBy.HasValue)
         {
-            var request = new GetUserByAccountIdRequest
-            {
-                AccountId = accountId.Value.ToString()
-            };
+            allAccountIds.Add(mainBlog.CreatedBy.Value);
+        }
+        allAccountIds.AddRange(relatedBlogs
+            .Where(b => b.CreatedBy.HasValue)
+            .Select(b => b.CreatedBy!.Value)
+            .Distinct());
 
-            var response = await _userClient.GetUserByAccountIdAsync(request, cancellationToken: cancellationToken);
-            return !string.IsNullOrWhiteSpace(response.FullName)
-                ? response.FullName
-                : $"{response.FirstName} {response.LastName}".Trim();
-        }
-        catch (RpcException)
+        var creatorNames = await GetCreatorNamesBatchAsync(allAccountIds.Distinct().ToList(), cancellationToken);
+
+        // Get creator name for main blog
+        var creatorName = mainBlog.CreatedBy.HasValue &&
+                          creatorNames.TryGetValue(mainBlog.CreatedBy.Value, out var name)
+            ? name
+            : null;
+
+        // Set CreatedByName for related blogs
+        var relatedBlogsWithCreatorNames = relatedBlogsDto.Select(dto =>
         {
-            // If user not found or service unavailable, return null
-            return null;
-        }
+            var relatedBlog = relatedBlogs.First(b => b.Id == dto.Id);
+            var relatedCreatorName = relatedBlog.CreatedBy.HasValue &&
+                                     creatorNames.TryGetValue(relatedBlog.CreatedBy.Value, out var relatedName)
+                ? relatedName
+                : null;
+            return dto with { CreatedByName = relatedCreatorName };
+        }).ToList();
+
+        return blogDto with
+        {
+            RelatedBlogs = relatedBlogsWithCreatorNames,
+            CreatedByName = creatorName
+        };
     }
 
     private async Task<Dictionary<Guid, string>> GetCreatorNamesBatchAsync(
