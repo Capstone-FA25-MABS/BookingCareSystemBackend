@@ -52,6 +52,18 @@ public class HospitalPayoutRepository : IHospitalPayoutRepository
             queryable = queryable.Where(p => p.Status == status);
         }
 
+        // Filter by period start date
+        if (query.PeriodStartDate.HasValue)
+        {
+            queryable = queryable.Where(p => p.PeriodStart >= query.PeriodStartDate.Value);
+        }
+
+        // Filter by period end date
+        if (query.PeriodEndDate.HasValue)
+        {
+            queryable = queryable.Where(p => p.PeriodEnd <= query.PeriodEndDate.Value);
+        }
+
         // Filter by period (month/year format: "2024-11")
         if (!string.IsNullOrWhiteSpace(query.Period))
         {

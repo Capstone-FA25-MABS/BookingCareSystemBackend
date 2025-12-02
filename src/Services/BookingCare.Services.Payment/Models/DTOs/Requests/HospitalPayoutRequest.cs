@@ -14,10 +14,10 @@ public class GeneratePayoutsRequest
     public required DateTime PeriodEndDate { get; set; }
 
     /// <summary>
-    /// Optional: specific hospital IDs to generate payouts for
-    /// If null/empty, generate for all hospitals with completed appointments
+    /// Hospital ID requesting the payout
     /// </summary>
-    public List<Guid>? HospitalIds { get; set; }
+    [Required]
+    public required Guid HospitalId { get; set; }
 }
 
 /// <summary>
