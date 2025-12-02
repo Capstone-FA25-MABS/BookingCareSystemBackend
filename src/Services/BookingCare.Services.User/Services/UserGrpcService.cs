@@ -8,13 +8,16 @@ namespace BookingCare.Services.User.Services;
 public class UserGrpcService : Protos.UserService.UserServiceBase
 {
     private readonly IUserService _userService;
+    private readonly IPatientRelativeService _patientRelativeService;
     private readonly ILogger<UserGrpcService> _logger;
 
     public UserGrpcService(
         IUserService userService,
+        IPatientRelativeService patientRelativeService,
         ILogger<UserGrpcService> logger)
     {
         _userService = userService;
+        _patientRelativeService = patientRelativeService;
         _logger = logger;
     }
 
@@ -440,6 +443,88 @@ public class UserGrpcService : Protos.UserService.UserServiceBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "[UserGrpcService] Error in GetUsersDisplayInfo");
+            throw new RpcException(new Status(StatusCode.Internal, ErrorMessages.InternalServerError));
+        }
+    }
+
+    /// <summary>
+    /// Get relatives basic info by IDs (for appointment enrichment)
+    /// </summary>
+    public override async Task<Protos.RelativesBasicInfoResponse> GetRelativesBasicInfo(
+        Protos.GetRelativesBasicInfoRequest request,
+        ServerCallContext context)
+    {
+        try
+        {
+            _logger.LogInformation("[UserGrpcService] gRPC GetRelativesBasicInfo called for {Count} relative IDs", request.Ids.Count);
+
+            var response = new Protos.RelativesBasicInfoResponse();
+
+            if (!request.Ids.Any())
+            {
+                _logger.LogInformation("[UserGrpcService] No relative IDs provided for GetRelativesBasicInfo");
+                return response;
+            }
+
+            var relativeIds = new List<Guid>();
+            var invalidIds = new List<string>();
+
+            // Parse and validate relative IDs
+            foreach (var idStr in request.Ids)
+            {
+                if (Guid.TryParse(idStr, out var id))
+                {
+                    relativeIds.Add(id);
+                }
+                else
+                {
+                    invalidIds.Add(idStr);
+                }
+            }
+
+            // Get relatives from service
+            var relatives = await _patientRelativeService.GetRelativesByIdsAsync(relativeIds);
+            var relativeDict = relatives.ToDictionary(r => r.Id, r => r);
+
+            // Map found relatives
+            foreach (var relativeId in relativeIds)
+            {
+                if (relativeDict.TryGetValue(relativeId, out var relative))
+                {
+                    response.Relatives.Add(new Protos.RelativeBasicInfoResponse
+                    {
+                        Id = relative.Id.ToString(),
+                        FirstName = relative.FirstName,
+                        LastName = relative.LastName,
+                        FullName = relative.FullName,
+                        Gender = relative.GenderDisplay,
+                        DateOfBirth = relative.DateOfBirth.ToString("yyyy-MM-dd"),
+                        Phone = relative.Phone ?? string.Empty,
+                        Relationship = relative.Relationship.ToString(),
+                        RelationshipDisplay = relative.RelationshipDisplay,
+                        Found = true
+                    });
+                }
+                else
+                {
+                    response.Relatives.Add(new Protos.RelativeBasicInfoResponse
+                    {
+                        Id = relativeId.ToString(),
+                        Found = false
+                    });
+                }
+            }
+
+            _logger.LogInformation("[UserGrpcService] Retrieved {Count} relatives basic info - Found: {FoundCount}, NotFound: {NotFoundCount}",
+                request.Ids.Count,
+                response.Relatives.Count(r => r.Found),
+                response.Relatives.Count(r => !r.Found));
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[UserGrpcService] Error in GetRelativesBasicInfo");
             throw new RpcException(new Status(StatusCode.Internal, ErrorMessages.InternalServerError));
         }
     }

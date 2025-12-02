@@ -26,6 +26,9 @@ service ServiceMedicalService {
   
   // Validate service medical
   rpc ValidateServiceMedical (ValidateServiceMedicalRequest) returns (ValidateServiceMedicalResponse);
+  
+  // Get multiple services basic info by IDs (batch operation for performance)
+  rpc GetServicesBasicInfo (GetServicesBasicInfoRequest) returns (ServicesBasicInfoResponse);
 }
 
 // Request messages
@@ -110,4 +113,22 @@ message ValidateServiceMedicalResponse {
   bool is_active = 2;
   string service_id = 3;
   string service_name = 4;
+}
+
+// Request for batch fetching services basic info
+message GetServicesBasicInfoRequest {
+  repeated string ids = 1;
+}
+
+// Basic info for a single service (lightweight response for batch operations)
+message ServiceBasicInfoResponse {
+  string id = 1;
+  string name = 2;
+  string price = 3; // Using string for decimal
+  string image_url = 4;
+}
+
+// Response for batch fetching services basic info
+message ServicesBasicInfoResponse {
+  repeated ServiceBasicInfoResponse services = 1;
 }

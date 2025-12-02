@@ -236,3 +236,21 @@ public class DoctorSearchListResponse
     public int PageSize { get; set; }
     public int TotalPages { get; set; }
 }
+
+/// <summary>
+/// DTO for doctor assignment flow - contains all info needed for hospital staff to assign doctor
+/// </summary>
+public class DoctorForAssignmentResponse
+{
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string AvatarUrl { get; set; } = string.Empty;
+    public string PositionName { get; set; } = string.Empty;
+    public string SpecialtyName { get; set; } = string.Empty;
+    public int YearsOfExperience { get; set; }
+    public double Rating { get; set; }
+    public int ReviewCount { get; set; }
+    public decimal ConsultationFee { get; set; }
+    public bool IsActive { get; set; }
+}

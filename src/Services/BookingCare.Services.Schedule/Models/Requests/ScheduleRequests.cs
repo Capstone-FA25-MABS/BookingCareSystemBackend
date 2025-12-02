@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using BookingCare.Services.Schedule.Models.Entities;
 using BookingCare.Shared.Common.Enums;
 using BookingCare.Services.Schedule.Enums;
 using System.Text.Json.Serialization;
@@ -189,4 +188,23 @@ public class GetServiceMedicalAvailableSlotsRequest
 
     [Required]
     public DateOnly Date { get; set; }
+}
+
+/// <summary>
+/// Request to get aggregated available slots for a specialty (hospital assigns doctor mode)
+/// This aggregates availability across all doctors in the specialty
+/// </summary>
+public class GetSpecialtyAvailableSlotsRequest
+{
+    [Required]
+    public Guid HospitalId { get; set; }
+
+    [Required]
+    public Guid SpecialtyId { get; set; }
+
+    [Required]
+    public DateOnly Date { get; set; }
+
+    [Required]
+    public AppointmentType AppointmentType { get; set; }
 }

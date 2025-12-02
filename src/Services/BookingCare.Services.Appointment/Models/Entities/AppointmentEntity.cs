@@ -17,7 +17,13 @@ public class AppointmentEntity
     /// <summary>
     /// Account ID of the patient who booked the appointment
     /// </summary>
-    public Guid? PatientAccountId { get; set; }
+    public Guid PatientAccountId { get; set; }
+
+    /// <summary>
+    /// Relative ID when booking for a family member (null = booking for self)
+    /// References PatientRelatives table in User Service
+    /// </summary>
+    public Guid? RelativeId { get; set; }
 
     public Guid? DoctorId { get; set; }
 
@@ -100,6 +106,14 @@ public class AppointmentEntity
     /// Pending new appointment time (will be applied after successful supplementary payment)
     /// </summary>
     public AppointmentTime? PendingNewAppointmentTimeId { get; set; }
+
+    /// <summary>
+    /// Original consultation/service fee at the time of booking (before any discounts)
+    /// This is the actual price from Doctor's consultation fee or ServiceMedical's price
+    /// Used for statistics and reporting purposes
+    /// </summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? Amount { get; set; }
 
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

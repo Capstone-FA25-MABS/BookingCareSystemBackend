@@ -29,9 +29,11 @@ builder.Services.AddAutoMapper(typeof(UserMappingProfile));
 
 // Register repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IPatientRelativeRepository, PatientRelativeRepository>();
 
 // Register services
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPatientRelativeService, PatientRelativeService>();
 
 // Add S3 File Upload Service
 builder.Services.AddS3FileUpload(builder.Configuration);

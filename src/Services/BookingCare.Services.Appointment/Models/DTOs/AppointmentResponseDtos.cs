@@ -11,6 +11,12 @@ public class AppointmentResponse
     public Guid Id { get; set; }
     public Guid PatientId { get; set; }
     public Guid? PatientAccountId { get; set; }
+
+    /// <summary>
+    /// Relative ID when booking for a family member (null = booking for self)
+    /// </summary>
+    public Guid? RelativeId { get; set; }
+
     public DateTime AppointmentDate { get; set; }
     public AppointmentTime AppointmentTimeId { get; set; }
     public AppointmentType AppointmentType { get; set; }
@@ -25,7 +31,13 @@ public class AppointmentResponse
     // Additional IDs for convenience (used for fetching available doctors, etc.)
     public Guid? SpecialtyId { get; set; }
 
-    // Payment information from gRPC call
+    /// <summary>
+    /// Original consultation/service fee at the time of booking (before any discounts)
+    /// This is stored in the database for statistics and reporting
+    /// </summary>
+    public decimal? Amount { get; set; }
+
+    // Payment information from gRPC call (deprecated - use Amount instead)
     public decimal? ConsultationFees { get; set; }
 
     // Cancellation information
@@ -34,9 +46,11 @@ public class AppointmentResponse
 
     // Related entities information populated via gRPC calls based on user role
     public PatientInfo? PatientInfo { get; set; }
+    public RelativeInfo? RelativeInfo { get; set; }
     public DoctorInfo? DoctorInfo { get; set; }
     public ServiceInfo? ServiceInfo { get; set; }
     public HospitalInfo? HospitalInfo { get; set; }
+    public SpecialtyInfo? SpecialtyInfo { get; set; }
 }
 
 /// <summary>
@@ -50,6 +64,23 @@ public class PatientInfo
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? AvatarUrl { get; set; }
+}
+
+/// <summary>
+/// Relative (family member) information from gRPC call
+/// </summary>
+public class RelativeInfo
+{
+    public Guid Id { get; set; }
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? FullName { get; set; }
+    public string? Gender { get; set; }
+    public DateTime? DateOfBirth { get; set; }
+    public int? Age { get; set; }
+    public string? Phone { get; set; }
+    public string? Relationship { get; set; }
+    public string? RelationshipDisplay { get; set; }
 }
 
 /// <summary>
@@ -70,15 +101,14 @@ public class DoctorInfo
 }
 
 /// <summary>
-/// Service information from gRPC call (to be implemented)
+/// Service information from gRPC call
 /// </summary>
 public class ServiceInfo
 {
     public Guid Id { get; set; }
     public string? Name { get; set; }
-    public string? Description { get; set; }
     public decimal? Price { get; set; }
-    public string? Category { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 /// <summary>
@@ -92,6 +122,17 @@ public class HospitalInfo
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? AvatarUrl { get; set; }
+}
+
+/// <summary>
+/// Specialty information from gRPC call (for hospital assigns doctor mode)
+/// </summary>
+public class SpecialtyInfo
+{
+    public Guid Id { get; set; }
+    public string? Name { get; set; }
+    public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 /// <summary>
@@ -208,5 +249,59 @@ public class GenerateRescheduleTokenResponse
     public string RescheduleToken { get; set; } = string.Empty;
     public DateTime TokenExpiry { get; set; }
     public string RedirectUrl { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response for doctors for assignment query
+/// Contains recommended doctors and previous doctors who treated this patient
+/// </summary>
+public class DoctorsForAssignmentResponse
+{
+    /// <summary>
+    /// Recommended doctors sorted by experience, rating, booking count
+    /// </summary>
+    public List<DoctorForAssignment> RecommendedDoctors { get; set; } = new();
+
+    /// <summary>
+    /// Doctors who have previously treated this patient (completed appointments)
+    /// </summary>
+    public List<DoctorForAssignment> PreviousDoctors { get; set; } = new();
+
+    public int TotalRecommended { get; set; }
+    public int TotalPrevious { get; set; }
+}
+
+/// <summary>
+/// Doctor information for assignment with full details
+/// </summary>
+public class DoctorForAssignment
+{
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public string? PositionName { get; set; }
+    public string? SpecialtyName { get; set; }
+    public int YearsOfExperience { get; set; }
+    public double Rating { get; set; }
+    public int ReviewCount { get; set; }
+    public int BookingCount { get; set; }
+    public decimal ConsultationFee { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsAvailableAtOriginalTime { get; set; }
+}
+
+/// <summary>
+/// Response for assigning doctor to a pending specialty appointment
+/// </summary>
+public class AssignDoctorToAppointmentResponse
+{
+    public bool Success { get; set; }
+    public Guid AppointmentId { get; set; }
+    public Guid DoctorId { get; set; }
+    public string DoctorName { get; set; } = string.Empty;
+    public DateTime AppointmentDate { get; set; }
+    public string AppointmentTime { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 }

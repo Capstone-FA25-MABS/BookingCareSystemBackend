@@ -21,6 +21,12 @@ public class CreateAppointmentRequest
     [Required(ErrorMessage = "Patient Account ID is required")]
     public required Guid PatientAccountId { get; set; }
 
+    /// <summary>
+    /// Relative ID when booking for a family member (null = booking for self)
+    /// References PatientRelatives table in User Service
+    /// </summary>
+    public Guid? RelativeId { get; set; }
+
     public Guid? DoctorId { get; set; }
 
     public Guid? ServiceId { get; set; }
@@ -57,6 +63,13 @@ public class CreateAppointmentRequest
     /// If false (default), payment will be required and email will be sent after successful payment.
     /// </summary>
     public bool SkipPayment { get; set; } = false;
+
+    /// <summary>
+    /// Original consultation/service fee at the time of booking (before any discounts)
+    /// This is the actual price from Doctor's consultation fee or ServiceMedical's price
+    /// Used for statistics and reporting purposes
+    /// </summary>
+    public decimal? Amount { get; set; }
 }
 
 /// <summary>
@@ -313,6 +326,14 @@ public class AppointmentQueryRequest
     /// Include counts for all statuses in the response
     /// </summary>
     public bool IncludeStatusCounts { get; set; } = false;
+
+    /// <summary>
+    /// Filter for appointments booked for relatives
+    /// true = only appointments for relatives
+    /// false = only appointments for self
+    /// null = all appointments (default)
+    /// </summary>
+    public bool? ForRelative { get; set; }
 }
 
 /// <summary>
@@ -330,4 +351,56 @@ public class GenerateRescheduleTokenRequest
 
     [Required(ErrorMessage = "Patient ID is required")]
     public required Guid PatientId { get; set; }
+}
+
+/// <summary>
+/// Request to get doctors for assignment (hospital staff assigns doctor to pending specialty appointment)
+/// </summary>
+public class GetDoctorsForAssignmentRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// If true, check availability at original appointment date/time
+    /// </summary>
+    public bool CheckAvailabilityAtOriginalTime { get; set; } = true;
+}
+
+/// <summary>
+/// Request to assign doctor to a pending specialty appointment
+/// This is the NEW flow for "Hospital assigns doctor" appointments
+/// Different from AssignNewDoctorRequest which is for cancel/reschedule flow
+/// </summary>
+public class AssignDoctorToAppointmentRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "Doctor ID is required")]
+    public required Guid DoctorId { get; set; }
+
+    /// <summary>
+    /// Optional: New appointment date (if staff wants to change from original)
+    /// If not provided, keeps original appointment date
+    /// </summary>
+    public DateTime? NewAppointmentDate { get; set; }
+
+    /// <summary>
+    /// Optional: New appointment time (if staff wants to change from original)
+    /// If not provided, keeps original appointment time
+    /// </summary>
+    public AppointmentTime? NewAppointmentTimeId { get; set; }
+
+    /// <summary>
+    /// Staff ID who is assigning the doctor
+    /// </summary>
+    [Required(ErrorMessage = "Staff ID is required")]
+    public required Guid AssignedByStaffId { get; set; }
+
+    /// <summary>
+    /// Optional note from staff about the assignment
+    /// </summary>
+    [MaxLength(500)]
+    public string? StaffNote { get; set; }
 }
