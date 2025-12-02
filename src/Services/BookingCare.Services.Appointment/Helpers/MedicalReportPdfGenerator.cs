@@ -308,13 +308,12 @@ public static class MedicalReportPdfGenerator
         }
 
         // Find all italic matches (not already bold)
-        foreach (Match match in italicPattern.Matches(current))
+        var italicMatches = italicPattern.Matches(current)
+            .Where(match => !matches.Any(m => match.Index >= m.Start && match.Index < m.Start + m.Length));
+
+        foreach (Match match in italicMatches)
         {
-            // Skip if this is part of a bold match
-            if (!matches.Any(m => match.Index >= m.Start && match.Index < m.Start + m.Length))
-            {
-                matches.Add((match.Index, match.Length, match.Groups[1].Value, false, true));
-            }
+            matches.Add((match.Index, match.Length, match.Groups[1].Value, false, true));
         }
 
         // Sort by position
@@ -379,108 +378,183 @@ public static class MedicalReportPdfGenerator
                 continue;
             }
 
-            // Header 2 (##)
-            if (line.TrimStart().StartsWith("## "))
+            // Try to parse as specific element types
+            if (TryParseHeader(line, out var headerElement))
             {
-                elements.Add(new MarkdownElement
-                {
-                    Type = ElementType.Header2,
-                    Content = line.TrimStart().Substring(3).Trim()
-                });
+                elements.Add(headerElement);
                 i++;
                 continue;
             }
 
-            // Header 3 (###)
-            if (line.TrimStart().StartsWith("### "))
+            if (TryParseSeparator(line, out var separatorElement))
             {
-                elements.Add(new MarkdownElement
-                {
-                    Type = ElementType.Header3,
-                    Content = line.TrimStart().Substring(4).Trim()
-                });
+                elements.Add(separatorElement);
                 i++;
                 continue;
             }
 
-            // Separator (---, ===, ───, ═══)
-            if (Regex.IsMatch(line.Trim(), @"^[-=─═]{3,}$", RegexOptions.None, RegexTimeout))
+            if (TryParseBulletList(lines, ref i, out var bulletListElement))
             {
-                elements.Add(new MarkdownElement { Type = ElementType.Separator });
-                i++;
+                elements.Add(bulletListElement);
                 continue;
             }
 
-            // Bullet list (•)
-            if (line.TrimStart().StartsWith("• "))
+            if (TryParseNumberedList(lines, ref i, out var numberedListElement))
             {
-                var items = new List<string>();
-                while (i < lines.Length && lines[i].TrimStart().StartsWith("• "))
-                {
-                    items.Add(lines[i].TrimStart().Substring(2).Trim());
-                    i++;
-                }
-                elements.Add(new MarkdownElement
-                {
-                    Type = ElementType.BulletList,
-                    Items = items
-                });
+                elements.Add(numberedListElement);
                 continue;
             }
 
-            // Numbered list (1., 2., etc.)
-            if (Regex.IsMatch(line.TrimStart(), @"^\d+\.\s", RegexOptions.None, RegexTimeout))
-            {
-                var items = new List<string>();
-                while (i < lines.Length && Regex.IsMatch(
-                    lines[i].TrimStart(),
-                    @"^\d+\.\s",
-                    RegexOptions.None,
-                    RegexTimeout
-                ))
-                {
-                    var match = Regex.Match(
-                        lines[i].TrimStart(),
-                        @"^\d+\.\s(.+)$",
-                        RegexOptions.None,
-                        RegexTimeout
-                    );
-                    if (match.Success)
-                    {
-                        items.Add(match.Groups[1].Value.Trim());
-                    }
-                    i++;
-                }
-                elements.Add(new MarkdownElement
-                {
-                    Type = ElementType.NumberedList,
-                    Items = items
-                });
-                continue;
-            }
-
-            // Paragraph
-            var paragraphLines = new List<string> { line };
-            i++;
-            while (i < lines.Length
-                && !string.IsNullOrWhiteSpace(lines[i])
-                && !lines[i].TrimStart().StartsWith("#")
-                && !lines[i].TrimStart().StartsWith("• ")
-                && !Regex.IsMatch(lines[i].TrimStart(), @"^\d+\.\s", RegexOptions.None, RegexTimeout)
-                && !Regex.IsMatch(lines[i].Trim(), @"^[-=─═]{3,}$", RegexOptions.None, RegexTimeout))
-            {
-                paragraphLines.Add(lines[i]);
-                i++;
-            }
-
-            elements.Add(new MarkdownElement
-            {
-                Type = ElementType.Paragraph,
-                Content = string.Join(" ", paragraphLines)
-            });
+            // Parse as paragraph
+            var paragraphElement = ParseParagraph(lines, ref i);
+            elements.Add(paragraphElement);
         }
 
         return elements;
+    }
+
+    private static bool TryParseHeader(string line, out MarkdownElement element)
+    {
+        element = null!;
+        var trimmed = line.TrimStart();
+
+        // Header 2 (##)
+        if (trimmed.StartsWith("## "))
+        {
+            element = new MarkdownElement
+            {
+                Type = ElementType.Header2,
+                Content = trimmed.Substring(3).Trim()
+            };
+            return true;
+        }
+
+        // Header 3 (###)
+        if (trimmed.StartsWith("### "))
+        {
+            element = new MarkdownElement
+            {
+                Type = ElementType.Header3,
+                Content = trimmed.Substring(4).Trim()
+            };
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryParseSeparator(string line, out MarkdownElement element)
+    {
+        element = null!;
+        if (Regex.IsMatch(line.Trim(), @"^[-=─═]{3,}$", RegexOptions.None, RegexTimeout))
+        {
+            element = new MarkdownElement { Type = ElementType.Separator };
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryParseBulletList(string[] lines, ref int i, out MarkdownElement element)
+    {
+        element = null!;
+        var line = lines[i];
+
+        if (!line.TrimStart().StartsWith("• "))
+        {
+            return false;
+        }
+
+        var items = new List<string>();
+        while (i < lines.Length && lines[i].TrimStart().StartsWith("• "))
+        {
+            items.Add(lines[i].TrimStart().Substring(2).Trim());
+            i++;
+        }
+
+        element = new MarkdownElement
+        {
+            Type = ElementType.BulletList,
+            Items = items
+        };
+        return true;
+    }
+
+    private static bool TryParseNumberedList(string[] lines, ref int i, out MarkdownElement element)
+    {
+        element = null!;
+        var line = lines[i];
+
+        if (!Regex.IsMatch(line.TrimStart(), @"^\d+\.\s", RegexOptions.None, RegexTimeout))
+        {
+            return false;
+        }
+
+        var items = new List<string>();
+        while (i < lines.Length && Regex.IsMatch(
+            lines[i].TrimStart(),
+            @"^\d+\.\s",
+            RegexOptions.None,
+            RegexTimeout
+        ))
+        {
+            var match = Regex.Match(
+                lines[i].TrimStart(),
+                @"^\d+\.\s(.+)$",
+                RegexOptions.None,
+                RegexTimeout
+            );
+            if (match.Success)
+            {
+                items.Add(match.Groups[1].Value.Trim());
+            }
+            i++;
+        }
+
+        element = new MarkdownElement
+        {
+            Type = ElementType.NumberedList,
+            Items = items
+        };
+        return true;
+    }
+
+    private static MarkdownElement ParseParagraph(string[] lines, ref int i)
+    {
+        var paragraphLines = new List<string> { lines[i] };
+        i++;
+
+        while (i < lines.Length && IsParagraphContinuation(lines[i]))
+        {
+            paragraphLines.Add(lines[i]);
+            i++;
+        }
+
+        return new MarkdownElement
+        {
+            Type = ElementType.Paragraph,
+            Content = string.Join(" ", paragraphLines)
+        };
+    }
+
+    private static bool IsParagraphContinuation(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return false;
+
+        var trimmed = line.TrimStart();
+
+        // Check if line starts with special markdown characters
+        if (trimmed.StartsWith('#') || trimmed.StartsWith("• "))
+            return false;
+
+        // Check if it's a numbered list or separator
+        if (Regex.IsMatch(trimmed, @"^\d+\.\s", RegexOptions.None, RegexTimeout))
+            return false;
+
+        if (Regex.IsMatch(line.Trim(), @"^[-=─═]{3,}$", RegexOptions.None, RegexTimeout))
+            return false;
+
+        return true;
     }
 
     private static void ComposeFooter(IContainer container)
@@ -502,7 +576,7 @@ public static class MedicalReportPdfGenerator
     }
 
     // Helper classes
-    private class MarkdownElement
+    private sealed class MarkdownElement
     {
         public ElementType Type { get; set; }
         public string Content { get; set; } = string.Empty;
@@ -519,7 +593,7 @@ public static class MedicalReportPdfGenerator
         Separator
     }
 
-    private class InlinePart
+    private sealed class InlinePart
     {
         public string Text { get; set; } = string.Empty;
         public bool IsBold { get; set; }
