@@ -257,13 +257,21 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/search")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> SearchActiveDoctors([FromQuery] string? searchTerm, [FromQuery] Guid? specialtyId, [FromQuery] Guid? hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> SearchActiveDoctors(
+        [FromQuery] string? searchTerm,
+        [FromQuery] Guid? specialtyId,
+        [FromQuery] Guid? hospitalId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] Guid? patientId = null,
+        [FromQuery(Name = "serviceTypes[]")] List<string>? serviceTypes = null)
     {
         var query = new DoctorQueryRequest
         {
             SearchTerm = searchTerm,
             SpecialtyId = specialtyId,
             HospitalId = hospitalId,
+            ServiceTypes = serviceTypes,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
             PageNumber = pageNumber,
             PageSize = pageSize

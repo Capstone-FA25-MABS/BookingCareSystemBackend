@@ -122,7 +122,7 @@ public class AIService : IAIService
 
         // Template header
         AppendDoubleSeparator(promptBuilder);
-        promptBuilder.AppendLine("                    📋 HỒ SƠ KHÁM BỆNH");
+        promptBuilder.AppendLine("HỒ SƠ KHÁM BỆNH");
         AppendDoubleSeparator(promptBuilder);
         promptBuilder.AppendLine();
 

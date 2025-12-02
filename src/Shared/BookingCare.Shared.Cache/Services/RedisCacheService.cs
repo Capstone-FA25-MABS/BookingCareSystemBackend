@@ -209,6 +209,35 @@ public class RedisCacheService : ICacheService
         }
     }
 
+    public async Task<T?> GetByFullKeyAsync<T>(string fullKey) where T : class
+    {
+        if (!_options.Enabled)
+        {
+            _logger.LogDebug("Cache is disabled. Skipping get by full key operation for key: {Key}", fullKey);
+            return null;
+        }
+
+        try
+        {
+            var cachedValue = await _distributedCache.GetStringAsync(fullKey);
+
+            if (string.IsNullOrEmpty(cachedValue))
+            {
+                _logger.LogDebug("Cache miss for full key: {Key}", fullKey);
+                return null;
+            }
+
+            var deserializedValue = JsonConvert.DeserializeObject<T>(cachedValue);
+            _logger.LogDebug("Cache hit for full key: {Key}", fullKey);
+            return deserializedValue;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting cache value for full key: {Key}", fullKey);
+            return null;
+        }
+    }
+
     private string GetCacheKey(string key)
     {
         return $"{_options.KeyPrefix}{key}";

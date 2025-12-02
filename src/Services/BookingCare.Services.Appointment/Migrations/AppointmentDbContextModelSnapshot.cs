@@ -28,6 +28,9 @@ namespace BookingCare.Services.Appointment.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("AppointmentDate")
                         .HasColumnType("datetime2");
 
@@ -89,6 +92,9 @@ namespace BookingCare.Services.Appointment.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
+                    b.Property<Guid?>("RelativeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("RescheduleToken")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -128,18 +134,32 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.HasIndex("DoctorId", "AppointmentDate", "AppointmentTimeId")
                         .IsUnique()
                         .HasDatabaseName("IX_Doctor_Date_Time_Unique")
-                        .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
+                        .HasFilter("[DoctorId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
 
                     b.HasIndex("DoctorId", "AppointmentDate", "Status")
-                        .HasDatabaseName("IX_Doctor_Date_Status");
+                        .HasDatabaseName("IX_Doctor_Date_Status")
+                        .HasFilter("[DoctorId] IS NOT NULL");
 
                     b.HasIndex("PatientId", "AppointmentDate", "AppointmentTimeId")
                         .IsUnique()
                         .HasDatabaseName("IX_Patient_Date_Time_Unique")
-                        .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
+                        .HasFilter("[RelativeId] IS NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
 
                     b.HasIndex("PatientId", "AppointmentDate", "Status")
                         .HasDatabaseName("IX_Patient_Date_Status");
+
+                    b.HasIndex("RelativeId", "AppointmentDate", "AppointmentTimeId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Relative_Date_Time_Unique")
+                        .HasFilter("[RelativeId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
+
+                    b.HasIndex("ServiceId", "AppointmentDate", "AppointmentTimeId")
+                        .HasDatabaseName("IX_Service_Date_Time")
+                        .HasFilter("[ServiceId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
+
+                    b.HasIndex("ServiceId", "AppointmentDate", "Status")
+                        .HasDatabaseName("IX_Service_Date_Status")
+                        .HasFilter("[ServiceId] IS NOT NULL");
 
                     b.ToTable("Appointments");
                 });

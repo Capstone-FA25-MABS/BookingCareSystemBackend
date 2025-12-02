@@ -1,4 +1,4 @@
-using BookingCare.Services.Schedule.Models.DTOs;
+﻿using BookingCare.Services.Schedule.Models.DTOs;
 using BookingCare.Services.Schedule.Models.Entities;
 using BookingCare.Services.Schedule.Models.Requests;
 using BookingCare.Services.Schedule.Repositories;
@@ -8,6 +8,8 @@ using BookingCare.Shared.Cache.Constants;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.ServiceMedical.Protos;
 using AutoMapper;
+using BookingCare.Services.Schedule.Enums;
+using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Schedule.Services;
 
@@ -622,7 +624,7 @@ public class ScheduleService : IScheduleService
 
     #region ServiceMedical Available slots operations
 
-    public async Task<IEnumerable<AppointmentTimeDto>> GetServiceMedicalAvailableSlotsAsync(GetServiceMedicalAvailableSlotsRequest request)
+    public async Task<IEnumerable<AppointmentTimeDto>> GetServiceMedicalAvailableSlotsAsync(GetServiceMedicalAvailableSlotsRequest request, Guid? currentUserId = null)
     {
         // Validate service medical exists and is active
         var isServiceValid = await ValidateServiceMedicalAsync(request.ServiceMedicalId);
@@ -634,23 +636,460 @@ public class ScheduleService : IScheduleService
 
         var cacheKey = CacheKeys.Format(CacheKeys.ServiceMedicalAvailableSlots, request.ServiceMedicalId, request.Date.ToString(DateFormat));
 
+        // Use cache with short TTL (30s) to balance performance and real-time data
+        // Held slots will be filtered after cache retrieval to ensure real-time availability
         var cached = await _cacheService.GetAsync<IEnumerable<AppointmentTimeDto>>(cacheKey);
         if (cached != null)
         {
             _logger.LogDebug("Retrieved available slots for service medical {ServiceMedicalId} on {Date} from cache", request.ServiceMedicalId, request.Date);
-            return cached;
+            var cachedList = cached.ToList();
+
+            // Always filter held slots in real-time, even from cache
+            var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.ServiceMedicalId, HoldSlotTargetType.ServiceMedical, request.Date, currentUserId ?? Guid.Empty);
+            if (heldSlots.Any())
+            {
+                var heldTimeIds = new HashSet<int>(heldSlots.Select(hs => (int)hs));
+                cachedList = cachedList.Where(slot =>
+                {
+                    var slotBytes = slot.Id.ToByteArray();
+                    var enumValue = BitConverter.ToInt32(slotBytes, 0);
+                    return !heldTimeIds.Contains(enumValue);
+                }).ToList();
+
+                _logger.LogInformation("Filtered {0} held slots from cached data for service medical {1}",
+                    heldSlots.Count, request.ServiceMedicalId);
+            }
+
+            return cachedList;
         }
 
         // Get all potential available slots from schedule
         var entities = await _repository.GetServiceMedicalAvailableSlotsAsync(request.ServiceMedicalId, request.Date);
         var allSlots = entities.Select(BookingCare.Services.Schedule.Utilities.AppointmentTimeHelper.ConvertEnumToDto).ToList();
 
-        _logger.LogInformation("Service medical {ServiceMedicalId} on {Date}: Found {TotalSlots} available slots",
-            request.ServiceMedicalId, request.Date, allSlots.Count);
+        // Check which slots are already booked via gRPC call to Appointment service
+        try
+        {
+            var checkBookedRequest = new BookingCare.Services.Appointment.Protos.CheckServiceBookedSlotsRequest
+            {
+                ServiceId = request.ServiceMedicalId.ToString(),
+                AppointmentDate = request.Date.ToString(DateFormat)
+            };
 
-        await _cacheService.SetAsync(cacheKey, allSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+            var bookedSlotsResponse = await _grpcClients.AppointmentClient.CheckServiceBookedSlotsAsync(checkBookedRequest);
+            var bookedTimeIds = new HashSet<int>(bookedSlotsResponse.BookedAppointmentTimeIds);
 
-        return allSlots;
+            // Filter out booked slots - only return slots that are NOT booked
+            var availableSlots = allSlots.Where(slot =>
+            {
+                var slotBytes = slot.Id.ToByteArray();
+                var enumValue = BitConverter.ToInt32(slotBytes, 0);
+                return !bookedTimeIds.Contains(enumValue);
+            }).ToList();
+
+            _logger.LogInformation("Service medical {ServiceMedicalId} on {Date}: Found {TotalSlots} potential slots, {BookedSlots} booked, {AvailableCount} available after filtering",
+                request.ServiceMedicalId, request.Date, allSlots.Count, bookedTimeIds.Count, availableSlots.Count);
+
+            // Always filter out held slots for all users to ensure real-time availability
+            var heldSlots = await _holdSlotService.GetHeldSlotsAsync(request.ServiceMedicalId, HoldSlotTargetType.ServiceMedical, request.Date, currentUserId ?? Guid.Empty);
+            if (heldSlots.Any())
+            {
+                var heldTimeIds = new HashSet<int>(heldSlots.Select(hs => (int)hs));
+                var slotsBeforeHeldFilter = availableSlots.Count;
+
+                availableSlots = availableSlots.Where(slot =>
+                {
+                    var slotBytes = slot.Id.ToByteArray();
+                    var enumValue = BitConverter.ToInt32(slotBytes, 0);
+                    return !heldTimeIds.Contains(enumValue);
+                }).ToList();
+
+                _logger.LogInformation("Service medical {ServiceMedicalId} on {Date}: Filtered out {HeldSlots} held slots, returning {FinalCount} available slots (User: {UserId})",
+                    request.ServiceMedicalId, request.Date, slotsBeforeHeldFilter - availableSlots.Count, availableSlots.Count,
+                    currentUserId?.ToString() ?? "Anonymous");
+            }
+
+            // Cache for all users with short TTL (30 seconds) to balance performance and real-time data
+            await _cacheService.SetAsync(cacheKey, availableSlots, TimeSpan.FromSeconds(30));
+
+            return availableSlots;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking booked slots for service medical {ServiceMedicalId} on {Date}. Returning all slots without filtering.",
+                request.ServiceMedicalId, request.Date);
+
+            // Fallback: return all slots if appointment service is unavailable
+            await _cacheService.SetAsync(cacheKey, allSlots, TimeSpan.FromMinutes(CacheKeys.ShortCacheExpiration));
+            return allSlots;
+        }
+    }
+
+    #endregion
+
+    #region Specialty Available Slots operations
+
+    /// <summary>
+    /// Get aggregated available slots for a specialty (hospital assigns doctor mode)
+    /// This aggregates availability across all doctors in the specialty
+    /// </summary>
+    public async Task<SpecialtyAvailableSlotsResponseDto> GetSpecialtyAvailableSlotsAsync(
+        GetSpecialtyAvailableSlotsRequest request,
+        Guid? currentUserId = null)
+    {
+        var dateStr = request.Date.ToString(DateFormat);
+        var cacheKey = CacheKeys.Format(
+            CacheKeys.SpecialtyAvailableSlots,
+            request.HospitalId,
+            request.SpecialtyId,
+            dateStr,
+            request.AppointmentType.ToString());
+
+        // Try to get from cache first (short TTL: 1-2 minutes as confirmed)
+        var cached = await _cacheService.GetAsync<SpecialtyAvailableSlotsResponseDto>(cacheKey);
+        if (cached != null)
+        {
+            _logger.LogDebug("Retrieved specialty available slots from cache for hospital {HospitalId}, specialty {SpecialtyId} on {Date}",
+                request.HospitalId, request.SpecialtyId, request.Date);
+
+            // Subtract booked appointments in real-time (appointments may have been created after cache)
+            await SubtractSpecialtyBookedAppointmentsAsync(cached, request);
+
+            // Update held counts in real-time
+            await UpdateSpecialtyHeldCountsAsync(cached, request, currentUserId);
+
+            // Filter out slots with no remaining capacity
+            cached.AvailableSlots = cached.AvailableSlots.Where(s => s.IsAvailable).ToList();
+
+            return cached;
+        }
+
+        // Step 1: Get all doctor IDs by hospital and specialty via gRPC (optimized - only IDs)
+        // Filter by appointment type to only get doctors who support this service type
+        var getDoctorIdsRequest = new BookingCare.Services.Doctor.Protos.GetDoctorIdsByHospitalAndSpecialtyRequest
+        {
+            HospitalId = request.HospitalId.ToString(),
+            SpecialtyId = request.SpecialtyId.ToString(),
+            AppointmentType = request.AppointmentType == AppointmentType.IN_PERSON ? "Khám trực tiếp" : "Tư vấn trực tuyến" // "IN_PERSON" or "TELEHEALTH"
+        };
+
+        var doctorIdsResponse = await _grpcClients.DoctorClient.GetDoctorIdsByHospitalAndSpecialtyAsync(getDoctorIdsRequest);
+
+        if (doctorIdsResponse.DoctorIds.Count == 0)
+        {
+            _logger.LogInformation("No doctors found for hospital {HospitalId}, specialty {SpecialtyId}",
+                request.HospitalId, request.SpecialtyId);
+
+            return new SpecialtyAvailableSlotsResponseDto
+            {
+                HospitalId = request.HospitalId,
+                SpecialtyId = request.SpecialtyId,
+                Date = request.Date,
+                AppointmentType = request.AppointmentType,
+                TotalDoctorsAvailable = 0,
+                AvailableSlots = new List<SpecialtyAvailableSlotDto>()
+            };
+        }
+
+        var doctorIds = doctorIdsResponse.DoctorIds.Select(Guid.Parse).ToList();
+        _logger.LogInformation("Found {Count} doctors for hospital {HospitalId}, specialty {SpecialtyId}",
+            doctorIds.Count, request.HospitalId, request.SpecialtyId);
+
+        // Step 2: Get available slots for all doctors using optimized batch processing
+        // This reduces N+1 queries by fetching data in bulk
+        var (slotDoctorCounts, doctorsWithSlots) = await GetBatchDoctorAvailableSlotsAsync(doctorIds, request.Date, currentUserId);
+
+        // Step 3: Build response with capacity information
+        var availableSlots = slotDoctorCounts
+            .OrderBy(kvp => (int)kvp.Key)
+            .Select(kvp =>
+            {
+                var slotDto = Utilities.AppointmentTimeHelper.ConvertEnumToDto(kvp.Key);
+                return new SpecialtyAvailableSlotDto
+                {
+                    Id = slotDto.Id,
+                    StartTime = slotDto.StartTime,
+                    EndTime = slotDto.EndTime,
+                    AvailableDoctorCount = kvp.Value,
+                    HeldCount = 0 // Will be updated below
+                };
+            })
+            .ToList();
+
+        var response = new SpecialtyAvailableSlotsResponseDto
+        {
+            HospitalId = request.HospitalId,
+            SpecialtyId = request.SpecialtyId,
+            Date = request.Date,
+            AppointmentType = request.AppointmentType,
+            TotalDoctorsAvailable = doctorsWithSlots,
+            AvailableSlots = availableSlots
+        };
+
+        // IMPORTANT: Cache the RAW response BEFORE subtracting booked appointments
+        // This ensures that when reading from cache, we can still subtract real-time booked counts
+        // Without this, we would double-subtract: once when caching, once when reading from cache
+        await _cacheService.SetAsync(cacheKey, response, TimeSpan.FromMinutes(1));
+
+        _logger.LogDebug("Cached RAW specialty slots (before subtraction) for hospital {HospitalId}, specialty {SpecialtyId}",
+            request.HospitalId, request.SpecialtyId);
+
+        // Step 5: Subtract booked appointments from available counts
+        // This is CRITICAL: appointments with PENDING/CONFIRMED status reduce capacity
+        await SubtractSpecialtyBookedAppointmentsAsync(response, request);
+
+        // Step 6: Update held counts from specialty hold slots
+        await UpdateSpecialtyHeldCountsAsync(response, request, currentUserId);
+
+        // Step 7: Filter out slots with no remaining capacity
+        response.AvailableSlots = response.AvailableSlots.Where(s => s.IsAvailable).ToList();
+
+        _logger.LogInformation(
+            "Specialty available slots for hospital {HospitalId}, specialty {SpecialtyId} on {Date}: {TotalDoctors} doctors, {AvailableSlots} slots",
+            request.HospitalId, request.SpecialtyId, request.Date,
+            response.TotalDoctorsAvailable, response.AvailableSlots.Count);
+
+        return response;
+    }
+
+    /// <summary>
+    /// Subtract booked appointments from available doctor counts
+    /// This ensures that PENDING/CONFIRMED appointments reduce the available capacity
+    /// </summary>
+    private async Task SubtractSpecialtyBookedAppointmentsAsync(
+        SpecialtyAvailableSlotsResponseDto response,
+        GetSpecialtyAvailableSlotsRequest request)
+    {
+        try
+        {
+            // Call Appointment service via gRPC to get booked counts per time slot
+            var grpcRequest = new BookingCare.Services.Appointment.Protos.CheckSpecialtyBookedSlotsRequest
+            {
+                HospitalId = request.HospitalId.ToString(),
+                SpecialtyId = request.SpecialtyId.ToString(),
+                AppointmentDate = request.Date.ToString(DateFormat),
+                AppointmentType = (int)request.AppointmentType
+            };
+
+            var bookedResponse = await _grpcClients.AppointmentClient.CheckSpecialtyBookedSlotsAsync(grpcRequest);
+
+            // Create a dictionary for quick lookup
+            var bookedCounts = bookedResponse.BookedSlots
+                .ToDictionary(s => s.AppointmentTimeId, s => s.BookedCount);
+
+            // Subtract booked counts from available doctor counts
+            foreach (var slot in response.AvailableSlots)
+            {
+                var slotBytes = slot.Id.ToByteArray();
+                var enumValue = BitConverter.ToInt32(slotBytes, 0);
+
+                if (bookedCounts.TryGetValue(enumValue, out var bookedCount))
+                {
+                    // Reduce available count by number of booked appointments
+                    slot.AvailableDoctorCount = Math.Max(0, slot.AvailableDoctorCount - bookedCount);
+
+                    _logger.LogDebug(
+                        "Slot {SlotId} for specialty {SpecialtyId}: reduced by {BookedCount} booked appointments, remaining: {Remaining}",
+                        enumValue, request.SpecialtyId, bookedCount, slot.AvailableDoctorCount);
+                }
+            }
+
+            _logger.LogInformation(
+                "Subtracted {TotalBooked} booked appointments across {SlotCount} slots for specialty {SpecialtyId}",
+                bookedCounts.Values.Sum(), bookedCounts.Count, request.SpecialtyId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to get booked appointments for specialty {SpecialtyId}, continuing without subtraction",
+                request.SpecialtyId);
+            // Don't throw - continue with current counts (may show more availability than actual)
+        }
+    }
+
+    /// <summary>
+    /// Update held counts for specialty slots from Redis
+    /// </summary>
+    private async Task UpdateSpecialtyHeldCountsAsync(
+        SpecialtyAvailableSlotsResponseDto response,
+        GetSpecialtyAvailableSlotsRequest request,
+        Guid? currentUserId)
+    {
+        foreach (var slot in response.AvailableSlots)
+        {
+            // Get held count for this specialty slot
+            var slotBytes = slot.Id.ToByteArray();
+            var enumValue = BitConverter.ToInt32(slotBytes, 0);
+            var appointmentTime = (Shared.Common.Enums.AppointmentTime)enumValue;
+
+            var heldCount = await _holdSlotService.GetSpecialtyHeldCountAsync(
+                request.HospitalId,
+                request.SpecialtyId,
+                request.Date,
+                appointmentTime,
+                currentUserId ?? Guid.Empty);
+
+            slot.HeldCount = heldCount;
+        }
+    }
+
+    /// <summary>
+    /// Get available slots for multiple doctors in batch - optimized to reduce N+1 queries
+    /// Returns a dictionary of AppointmentTime -> count of available doctors
+    /// </summary>
+    private async Task<(Dictionary<Shared.Common.Enums.AppointmentTime, int> SlotCounts, int DoctorsWithSlots)> GetBatchDoctorAvailableSlotsAsync(
+        List<Guid> doctorIds,
+        DateOnly date,
+        Guid? currentUserId)
+    {
+        var slotDoctorCounts = new Dictionary<Shared.Common.Enums.AppointmentTime, int>();
+        var doctorsWithSlots = 0;
+
+        try
+        {
+            // Step 1: Get all schedules for all doctors in one batch query
+            var allDoctorSlots = await _repository.GetAvailableSlotsForDoctorsAsync(doctorIds, date);
+
+            _logger.LogDebug(
+                "Batch query returned {Count} doctor-slot combinations for {DoctorCount} doctors on {Date}",
+                allDoctorSlots.Sum(d => d.Value.Count),
+                doctorIds.Count,
+                date);
+
+            // Step 2: Get all booked slots for all doctors
+            var bookedSlotsByDoctor = await GetBookedSlotsByDoctorAsync(doctorIds, date);
+
+            // Step 3: Get all held slots for all doctors in batch
+            var heldSlotsByDoctor = await GetHeldSlotsByDoctorAsync(doctorIds, date, currentUserId);
+
+            // Step 4: Aggregate available slots per time slot
+            (slotDoctorCounts, doctorsWithSlots) = AggregateAvailableSlots(
+                doctorIds,
+                allDoctorSlots,
+                bookedSlotsByDoctor,
+                heldSlotsByDoctor);
+
+            _logger.LogInformation(
+                "Batch processing complete: {DoctorsWithSlots} doctors with available slots, {SlotCount} unique time slots",
+                doctorsWithSlots, slotDoctorCounts.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in batch doctor available slots processing");
+        }
+
+        return (slotDoctorCounts, doctorsWithSlots);
+    }
+
+    private async Task<Dictionary<Guid, HashSet<int>>> GetBookedSlotsByDoctorAsync(
+        IEnumerable<Guid> doctorIds,
+        DateOnly date)
+    {
+        var bookedSlotsByDoctor = new Dictionary<Guid, HashSet<int>>();
+
+        try
+        {
+            foreach (var doctorId in doctorIds)
+            {
+                var checkBookedRequest = new BookingCare.Services.Appointment.Protos.CheckBookedSlotsRequest
+                {
+                    DoctorId = doctorId.ToString(),
+                    AppointmentDate = date.ToString(DateFormat)
+                };
+
+                var bookedResponse =
+                    await _grpcClients.AppointmentClient.CheckBookedSlotsAsync(checkBookedRequest);
+
+                bookedSlotsByDoctor[doctorId] =
+                    new HashSet<int>(bookedResponse.BookedAppointmentTimeIds);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get booked slots, continuing without filtering");
+        }
+
+        return bookedSlotsByDoctor;
+    }
+
+    private async Task<Dictionary<Guid, HashSet<int>>> GetHeldSlotsByDoctorAsync(
+        IEnumerable<Guid> doctorIds,
+        DateOnly date,
+        Guid? currentUserId)
+    {
+        var heldSlotsByDoctor = new Dictionary<Guid, HashSet<int>>();
+        var effectiveUserId = currentUserId ?? Guid.Empty;
+
+        foreach (var doctorId in doctorIds)
+        {
+            try
+            {
+                var heldSlots =
+                    await _holdSlotService.GetHeldSlotsAsync(doctorId, date, effectiveUserId);
+
+                heldSlotsByDoctor[doctorId] =
+                    new HashSet<int>(heldSlots.Select(hs => (int)hs));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to get held slots for doctor {DoctorId}",
+                    doctorId);
+                heldSlotsByDoctor[doctorId] = new HashSet<int>();
+            }
+        }
+
+        return heldSlotsByDoctor;
+    }
+
+    private static (Dictionary<Shared.Common.Enums.AppointmentTime, int> SlotCounts, int DoctorsWithSlots)
+        AggregateAvailableSlots(
+            IEnumerable<Guid> doctorIds,
+            IReadOnlyDictionary<Guid, List<Shared.Common.Enums.AppointmentTime>> allDoctorSlots,
+            IReadOnlyDictionary<Guid, HashSet<int>> bookedSlotsByDoctor,
+            IReadOnlyDictionary<Guid, HashSet<int>> heldSlotsByDoctor)
+    {
+        var slotDoctorCounts = new Dictionary<Shared.Common.Enums.AppointmentTime, int>();
+        var doctorsWithSlots = 0;
+
+        foreach (var doctorId in doctorIds)
+        {
+            if (!allDoctorSlots.TryGetValue(doctorId, out var doctorSlots) || !doctorSlots.Any())
+            {
+                continue;
+            }
+
+            var bookedSlots = bookedSlotsByDoctor.GetValueOrDefault(doctorId, new HashSet<int>());
+            var heldSlots = heldSlotsByDoctor.GetValueOrDefault(doctorId, new HashSet<int>());
+            var hasAvailableSlot = false;
+
+            foreach (var appointmentTime in doctorSlots)
+            {
+                var timeId = (int)appointmentTime;
+
+                // Skip if slot is booked or held
+                if (bookedSlots.Contains(timeId) || heldSlots.Contains(timeId))
+                {
+                    continue;
+                }
+
+                if (!slotDoctorCounts.ContainsKey(appointmentTime))
+                {
+                    slotDoctorCounts[appointmentTime] = 0;
+                }
+
+                slotDoctorCounts[appointmentTime]++;
+                hasAvailableSlot = true;
+            }
+
+            if (hasAvailableSlot)
+            {
+                doctorsWithSlots++;
+            }
+        }
+
+        return (slotDoctorCounts, doctorsWithSlots);
     }
 
     #endregion

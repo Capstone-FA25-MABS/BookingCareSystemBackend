@@ -59,19 +59,12 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationPushService, NotificationPushService>();
 
 // SignalR with Redis backplane for scaling
-var redisConnectionString =
-    builder.Configuration.GetValue<string>("Cache:ConnectionString") ?? "localhost:6379";
-builder
-    .Services.AddSignalR()
-    .AddStackExchangeRedis(
-        redisConnectionString,
-        options =>
-        {
-            options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal(
-                "BookingCare:SignalR:"
-            );
-        }
-    );
+var redisConnectionString = builder.Configuration.GetValue<string>("Cache:ConnectionString") ?? "localhost:6379";
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis(redisConnectionString, options =>
+    {
+        options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("BookingCare:SignalR:");
+    });
 
 // Add JWT Authentication and Authorization using centralized configuration
 builder.Services.AddJwtAuthAndAuthorization();
@@ -103,6 +96,8 @@ builder.Services.AddIntegrationEventHandler<HospitalSubscriptionUpgradedEventHan
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationSubmittedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalRegistrationStatusUpdatedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalAccountCreatedEventHandler>();
+builder.Services.AddIntegrationEventHandler<DoctorAssignedToAppointmentNotificationEventHandler>();
+builder.Services.AddIntegrationEventHandler<AppointmentAutoCancelledDueToNoDoctorEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalContractGeneratedEventHandler>();
 builder.Services.AddIntegrationEventHandler<HospitalContractSignedEventHandler>();
 
@@ -162,10 +157,7 @@ app.UseEventBus(eventBus =>
     >();
 
     // Subscribe to appointment booking success notifications (sends email + creates in-app notification)
-    eventBus.Subscribe<
-        AppointmentBookingSuccessNotificationEvent,
-        AppointmentBookingSuccessNotificationEventHandler
-    >();
+    eventBus.Subscribe<AppointmentBookingSuccessNotificationEvent, AppointmentBookingSuccessNotificationEventHandler>();
 
     // Subscribe to appointment result updated notifications (sends result email + creates in-app notification)
     eventBus.Subscribe<AppointmentResultUpdatedEvent, AppointmentResultNotificationEventHandler>();
@@ -196,6 +188,11 @@ app.UseEventBus(eventBus =>
     // Subscribe to hospital account created event for sending credentials email
     eventBus.Subscribe<HospitalAccountCreatedEvent, HospitalAccountCreatedEventHandler>();
 
+    // Subscribe to doctor assigned to appointment event for sending notification to patient
+    eventBus.Subscribe<DoctorAssignedToAppointmentNotificationEvent, DoctorAssignedToAppointmentNotificationEventHandler>();
+
+    // Subscribe to auto-cancelled appointment event (hospital didn't assign doctor before appointment date)
+    eventBus.Subscribe<AppointmentAutoCancelledDueToNoDoctorEvent, AppointmentAutoCancelledDueToNoDoctorEventHandler>();
     // Subscribe to hospital contract events for sending contract-related emails
     eventBus.Subscribe<HospitalContractGeneratedEvent, HospitalContractGeneratedEventHandler>();
     eventBus.Subscribe<HospitalContractSignedEvent, HospitalContractSignedEventHandler>();

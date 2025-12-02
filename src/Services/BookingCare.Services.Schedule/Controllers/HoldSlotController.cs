@@ -6,6 +6,7 @@ using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BookingCare.Services.Schedule.Enums;
 
 namespace BookingCare.Services.Schedule.Controllers;
 
@@ -71,13 +72,15 @@ public class HoldSlotController : BaseApiController
     /// <summary>
     /// Get remaining time for a held slot
     /// </summary>
-    /// <param name="doctorId">Doctor ID</param>
+    /// <param name="targetId">Target ID (Doctor or ServiceMedical)</param>
+    /// <param name="targetType">Target type (0 = Doctor, 1 = ServiceMedical)</param>
     /// <param name="date">Date</param>
     /// <param name="appointmentTimeId">Appointment time ID</param>
     /// <returns>Remaining seconds</returns>
     [HttpGet("remaining-time")]
     public async Task<IActionResult> GetRemainingTime(
-        [FromQuery] Guid doctorId,
+        [FromQuery] Guid targetId,
+        [FromQuery] HoldSlotTargetType targetType,
         [FromQuery] DateOnly date,
         [FromQuery] AppointmentTime appointmentTimeId)
     {
@@ -85,7 +88,7 @@ public class HoldSlotController : BaseApiController
         var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
 
         var remainingSeconds = await _holdSlotService.GetRemainingTimeAsync(
-            doctorId, date, appointmentTimeId, userId);
+            targetId, targetType, date, appointmentTimeId, userId);
 
         return Success(new { RemainingSeconds = remainingSeconds }, "Thời gian còn lại");
     }
@@ -104,4 +107,75 @@ public class HoldSlotController : BaseApiController
 
         return Success(new { ReleasedCount = releasedCount }, $"Đã hủy {releasedCount} slot đang giữ");
     }
+
+    #region Specialty Hold Slot operations (for "hospital assigns doctor" mode)
+
+    /// <summary>
+    /// Hold a specialty slot for 5 minutes (capacity-based holding)
+    /// Multiple users can hold the same time slot as long as there are available doctors
+    /// </summary>
+    /// <param name="request">Hold specialty slot request</param>
+    /// <returns>Hold slot response with remaining time</returns>
+    [HttpPost("specialty/hold")]
+    public async Task<IActionResult> HoldSpecialtySlot([FromBody] HoldSpecialtySlotRequest request)
+    {
+        // Get user ID from JWT token
+        var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+        var response = await _holdSlotService.HoldSpecialtySlotAsync(request, userId);
+
+        if (response.Success)
+        {
+            return Success(response, response.Message);
+        }
+
+        return BadRequest(response.Message);
+    }
+
+    /// <summary>
+    /// Release a held specialty slot
+    /// </summary>
+    /// <param name="request">Release specialty slot request</param>
+    /// <returns>Success status</returns>
+    [HttpPost("specialty/release")]
+    public async Task<IActionResult> ReleaseSpecialtySlot([FromBody] ReleaseSpecialtySlotRequest request)
+    {
+        // Get user ID from JWT token
+        var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+        var success = await _holdSlotService.ReleaseSpecialtySlotAsync(request, userId);
+
+        if (success)
+        {
+            return Success("Đã hủy giữ chỗ thành công");
+        }
+
+        return BadRequest("Không thể hủy giữ chỗ");
+    }
+
+    /// <summary>
+    /// Get remaining time for a held specialty slot
+    /// </summary>
+    /// <param name="hospitalId">Hospital ID</param>
+    /// <param name="specialtyId">Specialty ID</param>
+    /// <param name="date">Date</param>
+    /// <param name="appointmentTimeId">Appointment time ID</param>
+    /// <returns>Remaining seconds</returns>
+    [HttpGet("specialty/remaining-time")]
+    public async Task<IActionResult> GetSpecialtyRemainingTime(
+        [FromQuery] Guid hospitalId,
+        [FromQuery] Guid specialtyId,
+        [FromQuery] DateOnly date,
+        [FromQuery] AppointmentTime appointmentTimeId)
+    {
+        // Get user ID from JWT token
+        var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+        var remainingSeconds = await _holdSlotService.GetSpecialtyRemainingTimeAsync(
+            hospitalId, specialtyId, date, appointmentTimeId, userId);
+
+        return Success(new { RemainingSeconds = remainingSeconds }, "Thời gian còn lại");
+    }
+
+    #endregion
 }

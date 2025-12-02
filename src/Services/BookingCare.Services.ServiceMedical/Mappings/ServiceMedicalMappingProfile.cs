@@ -37,6 +37,11 @@ namespace BookingCare.Services.ServiceMedical.Mappings
             CreateMap<ServiceResponse, ServiceWithHospitalResponse>()
                 .ForMember(dest => dest.Hospital, opt => opt.Ignore());
 
+            // Direct mapping from ServiceEntity to ServiceWithHospitalResponse
+            CreateMap<ServiceEntity, ServiceWithHospitalResponse>()
+                .ForMember(dest => dest.ServiceCategory, opt => opt.Ignore())
+                .ForMember(dest => dest.Hospital, opt => opt.Ignore());
+
             CreateMap<ServiceResponse, ServiceOptimizedResponse>()
                 .ForMember(dest => dest.ParentCategoryName, opt => opt.MapFrom(src => src.ServiceCategory != null && src.ServiceCategory.Parent != null ? src.ServiceCategory.Parent.Name : null))
                 .ForMember(dest => dest.Hospital, opt => opt.Ignore());

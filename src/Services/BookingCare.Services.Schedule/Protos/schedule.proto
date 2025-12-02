@@ -28,6 +28,9 @@ service ScheduleService {
   
   // Get schedule patterns
   rpc GetAllSchedulePatterns (GetAllSchedulePatternsRequest) returns (GetAllSchedulePatternsResponse);
+
+  // Check which doctors are working on a specific date and time slot (batch operation)
+  rpc CheckDoctorsWorkingSlot (CheckDoctorsWorkingSlotRequest) returns (CheckDoctorsWorkingSlotResponse);
 }
 
 // Messages for appointment times
@@ -151,6 +154,26 @@ message GetAllAppointmentTimesResponse {
 
 message GetAllSchedulePatternsResponse {
   repeated SchedulePattern patterns = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Request message for checking doctors working slot
+message CheckDoctorsWorkingSlotRequest {
+  repeated string doctor_ids = 1;     // List of doctor IDs to check
+  string date = 2;                    // Format: YYYY-MM-DD
+  string appointment_time_id = 3;     // Appointment time slot ID (GUID as string)
+}
+
+// Doctor working status info
+message DoctorWorkingStatus {
+  string doctor_id = 1;
+  bool is_working = 2;                // True if doctor has schedule for this slot
+}
+
+// Response message for checking doctors working slot
+message CheckDoctorsWorkingSlotResponse {
+  repeated DoctorWorkingStatus doctor_statuses = 1;
   bool success = 2;
   string message = 3;
 }

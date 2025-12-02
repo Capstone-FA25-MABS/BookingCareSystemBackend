@@ -1,8 +1,8 @@
-using BookingCare.Services.Schedule.Models.DTOs;
 using BookingCare.Services.Schedule.Models.Requests;
 using BookingCare.Services.Schedule.Services;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.Common.Helpers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Schedule.Controllers;
@@ -91,7 +91,21 @@ public class ServiceMedicalSchedulesController : BaseApiController
             Date = date
         };
 
-        var slots = await _scheduleService.GetServiceMedicalAvailableSlotsAsync(request);
+        // Get current user ID from JWT token if authenticated
+        Guid? currentUserId = null;
+        try
+        {
+            if (HttpContext.User.Identity?.IsAuthenticated == true)
+            {
+                currentUserId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            }
+        }
+        catch
+        {
+            // If JWT parsing fails, continue without user ID (anonymous request)
+        }
+
+        var slots = await _scheduleService.GetServiceMedicalAvailableSlotsAsync(request, currentUserId);
         return Success(slots, "Available slots retrieved successfully");
     }
 }

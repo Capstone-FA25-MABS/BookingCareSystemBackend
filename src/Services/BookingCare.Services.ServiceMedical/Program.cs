@@ -6,14 +6,12 @@ using BookingCare.Services.ServiceMedical.Services.Grpc;
 using BookingCare.Services.ServiceMedical.Services.Implementations;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
 using BookingCare.Shared.Common.Interfaces;
-using BookingCare.Shared.Common.Services;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Versioning;
+using BookingCare.Services.Review.Grpc;
 
 // Enable HTTP/2 without TLS for gRPC (development only)
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
@@ -39,17 +37,30 @@ builder.Services.AddScoped<ILocationApiService, BookingCare.Shared.Common.Servic
 builder.Services.AddScoped<IServiceMedicalService, ServiceMedicalService>();
 builder.Services.AddScoped<IHospitalService, HospitalService>();
 
-// Add gRPC client for Hospital Service
+// Add Hospital gRPC clients
 var hospitalAddress = builder.Configuration.GetSection("GrpcClients:Hospital:Address").Value ?? "http://localhost:6104";
 builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.HospitalServiceClient>(options =>
 {
     options.Address = new Uri(hospitalAddress);
 });
-
-// Add gRPC client for SubscriptionUsageGrpc
 builder.Services.AddGrpcClient<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>(options =>
 {
     options.Address = new Uri(hospitalAddress);
+});
+
+// Add Review gRPC client
+var reviewAddress = builder.Configuration.GetSection("GrpcClients:Review:Address").Value ?? "http://localhost:6112";
+builder.Services.AddGrpcClient<ReviewService.ReviewServiceClient>(options =>
+{
+    options.Address = new Uri(reviewAddress);
+});
+
+// Aggregate gRPC clients for ServiceMedicalService to keep constructor focused
+builder.Services.AddScoped<ServiceMedicalService.ServiceMedicalGrpcClients>(sp =>
+{
+    var subscriptionUsageClient = sp.GetRequiredService<BookingCare.Services.Hospital.SubscriptionUsageGrpc.SubscriptionUsageGrpcClient>();
+    var reviewServiceClient = sp.GetRequiredService<ReviewService.ReviewServiceClient>();
+    return new ServiceMedicalService.ServiceMedicalGrpcClients(subscriptionUsageClient, reviewServiceClient);
 });
 
 // Add API Versioning

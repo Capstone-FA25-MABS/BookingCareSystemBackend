@@ -2035,8 +2035,54 @@ public class DoctorService : BaseService, IDoctorService
     }
 
     /// <summary>
-    /// Get doctor price by ID (for Appointment Service - Option 3 reschedule)
-    /// Used for price comparison when patient chooses new doctor
+    /// Get active doctor IDs by hospital and specialty (optimized for schedule aggregation)
+    /// Returns only active doctor IDs after filtering by Auth Service status
+    /// Single DB query + Auth Service call for optimal performance
+    /// Optionally filters by appointment type (service type name like "IN_PERSON" or "TELEHEALTH")
+    /// </summary>
+    public async Task<List<Guid>> GetActiveDoctorIdsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId, string? appointmentType = null)
+    {
+        return await ExecuteWithErrorHandling(async () =>
+        {
+            LogInfo("Fetching active doctor IDs for hospital {HospitalId}, specialty {SpecialtyId}, appointmentType {AppointmentType}",
+                null, hospitalId, specialtyId, appointmentType ?? "ALL");
+
+            // Single query: Get doctor IDs with AccountIds mapping, optionally filtered by service type
+            var doctorAccountMap = await _repository.Value.GetDoctorIdsByHospitalAndSpecialtyAsync(hospitalId, specialtyId, appointmentType);
+
+            if (!doctorAccountMap.Any())
+            {
+                LogInfo("No doctors found for hospital {HospitalId}, specialty {SpecialtyId}, appointmentType {AppointmentType}",
+                    null, hospitalId, specialtyId, appointmentType ?? "ALL");
+                return new List<Guid>();
+            }
+
+            // Get account statuses from Auth Service
+            var accountIds = doctorAccountMap.Values.ToList();
+            var statusMap = await GetAccountStatusesAsync(accountIds);
+
+            // Filter only ACTIVE doctors
+            var activeDoctorIds = doctorAccountMap
+                .Where(kvp =>
+                {
+                    if (statusMap.TryGetValue(kvp.Value, out var status))
+                    {
+                        return status == CommonStatus.ACTIVE;
+                    }
+                    // If status not found, assume ACTIVE (fallback)
+                    return true;
+                })
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            LogInfo("Found {Count} active doctor IDs out of {Total} for hospital {HospitalId}, specialty {SpecialtyId}, appointmentType {AppointmentType}",
+                null, activeDoctorIds.Count, doctorAccountMap.Count, hospitalId, specialtyId, appointmentType ?? "ALL");
+
+            return activeDoctorIds;
+        }, nameof(GetActiveDoctorIdsByHospitalAndSpecialtyAsync));
+    }
+
+    // ... (rest of the code remains the same)
     /// </summary>
     public async Task<DoctorPriceResponse?> GetDoctorPriceByIdAsync(Guid priceId)
     {
@@ -2684,6 +2730,165 @@ public class DoctorService : BaseService, IDoctorService
             LogWarning("Error filtering doctors by location, returning all doctors: {Error}", null, ex.Message);
             return doctors;
         }
+    }
+
+    #endregion
+
+    #region Doctor Assignment Methods
+
+    /// <summary>
+    /// Get doctors for assignment by hospital, specialty and appointment type
+    /// Returns doctors with full info (rating, position, specialty, consultation fee, account status)
+    /// </summary>
+    public async Task<List<DoctorForAssignmentResponse>> GetDoctorsForAssignmentAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        string appointmentType)
+    {
+        try
+        {
+            LogInfo("[DoctorService] GetDoctorsForAssignmentAsync - Hospital: {HospitalId}, Specialty: {SpecialtyId}, Type: {AppointmentType}",
+                null, hospitalId, specialtyId, appointmentType);
+
+            // Step 1: Get doctors by hospital and specialty with prices (single query with includes)
+            var doctors = await _repository.Value.GetDoctorsForAssignmentAsync(hospitalId, specialtyId, appointmentType);
+
+            if (!doctors.Any())
+            {
+                LogInfo("[DoctorService] No doctors found for hospital {HospitalId} and specialty {SpecialtyId}", null, hospitalId, specialtyId);
+                return new List<DoctorForAssignmentResponse>();
+            }
+
+            // Step 2: Get account statuses from Auth Service
+            var accountIds = doctors.Select(d => d.AccountId).ToList();
+            var statusMap = await GetAccountStatusesAsync(accountIds);
+
+            // Step 3: Get ratings from Review Service
+            var doctorIds = doctors.Select(d => d.Id).ToList();
+            var ratingMap = await GetDoctorRatingsForAssignmentAsync(doctorIds);
+
+            // Step 4: Build response with all info
+            var result = MapDoctorsToAssignmentResponse(doctors, statusMap, ratingMap, appointmentType);
+
+            LogInfo("[DoctorService] Returning {Count} active doctors for assignment", null, result.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "[DoctorService] Error in GetDoctorsForAssignmentAsync");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get doctors for assignment by specific doctor IDs
+    /// Used for "previous doctors" section - doctors who have treated this patient before
+    /// </summary>
+    public async Task<List<DoctorForAssignmentResponse>> GetDoctorsByIdsForAssignmentAsync(
+        List<Guid> doctorIds,
+        string appointmentType)
+    {
+        try
+        {
+            LogInfo("[DoctorService] GetDoctorsByIdsForAssignmentAsync - DoctorIds: {DoctorIds}, Type: {AppointmentType}",
+                null, string.Join(", ", doctorIds), appointmentType);
+
+            if (!doctorIds.Any())
+            {
+                return new List<DoctorForAssignmentResponse>();
+            }
+
+            // Step 1: Get doctors by IDs with prices (single query with includes)
+            var doctors = await _repository.Value.GetDoctorsByIdsForAssignmentAsync(doctorIds, appointmentType);
+
+            if (!doctors.Any())
+            {
+                LogInfo("[DoctorService] No doctors found for IDs: {DoctorIds}", null, string.Join(", ", doctorIds));
+                return new List<DoctorForAssignmentResponse>();
+            }
+
+            // Step 2: Get account statuses from Auth Service
+            var accountIds = doctors.Select(d => d.AccountId).ToList();
+            var statusMap = await GetAccountStatusesAsync(accountIds);
+
+            // Step 3: Get ratings from Review Service
+            var foundDoctorIds = doctors.Select(d => d.Id).ToList();
+            var ratingMap = await GetDoctorRatingsForAssignmentAsync(foundDoctorIds);
+
+            // Step 4: Build response with all info
+            var result = MapDoctorsToAssignmentResponse(doctors, statusMap, ratingMap, appointmentType);
+
+            LogInfo("[DoctorService] Returning {Count} active doctors for assignment by IDs", null, result.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "[DoctorService] Error in GetDoctorsByIdsForAssignmentAsync");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Map doctor entities to assignment response DTOs with status, rating, and price info
+    /// </summary>
+    private List<DoctorForAssignmentResponse> MapDoctorsToAssignmentResponse(
+        List<DoctorEntity> doctors,
+        Dictionary<Guid, CommonStatus> statusMap,
+        Dictionary<Guid, (double Rating, int ReviewCount)> ratingMap,
+        string appointmentType)
+    {
+        return doctors.Select(d =>
+        {
+            var isActive = statusMap.TryGetValue(d.AccountId, out var status) && status == CommonStatus.ACTIVE;
+            var (rating, reviewCount) = ratingMap.TryGetValue(d.Id, out var ratingInfo) ? ratingInfo : (0, 0);
+            var price = d.DoctorPrices.FirstOrDefault(p => p.ServiceType?.Name?.ToUpperInvariant() == appointmentType.ToUpperInvariant());
+
+            return new DoctorForAssignmentResponse
+            {
+                Id = d.Id,
+                AccountId = d.AccountId,
+                FullName = $"{d.FirstName} {d.LastName}".Trim(),
+                AvatarUrl = d.AvatarUrl ?? string.Empty,
+                PositionName = d.Position?.Name ?? string.Empty,
+                SpecialtyName = d.Specialty?.Name ?? string.Empty,
+                YearsOfExperience = d.YearsOfExperience,
+                Rating = rating,
+                ReviewCount = reviewCount,
+                ConsultationFee = price?.Amount ?? 0,
+                IsActive = isActive
+            };
+        })
+        .Where(d => d.IsActive) // Only return active doctors
+        .ToList();
+    }
+
+    /// <summary>
+    /// Get doctor ratings and review counts for assignment
+    /// </summary>
+    private async Task<Dictionary<Guid, (double Rating, int ReviewCount)>> GetDoctorRatingsForAssignmentAsync(List<Guid> doctorIds)
+    {
+        var ratingMap = new Dictionary<Guid, (double Rating, int ReviewCount)>();
+
+        try
+        {
+            var request = new BatchDoctorsStatisticsRequest();
+            request.DoctorIds.AddRange(doctorIds.Select(id => id.ToString()));
+
+            var response = await _reviewClient.Value.GetBatchDoctorsStatisticsAsync(request);
+            foreach (var kvp in response.DoctorStatistics)
+            {
+                if (Guid.TryParse(kvp.Key, out var doctorId))
+                {
+                    ratingMap[doctorId] = (kvp.Value.AverageRating, (int)kvp.Value.TotalReviews);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogWarning("[DoctorService] Failed to get review statistics for assignment: {Error}", null, ex.Message);
+        }
+
+        return ratingMap;
     }
 
     #endregion

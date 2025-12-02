@@ -76,4 +76,15 @@ namespace BookingCare.Services.ServiceMedical.Models.DTOs.Responses
         public List<SimpleItemResponse> Hospitals { get; set; } = new();
         public List<SimpleItemResponse> ServiceCategories { get; set; } = new();
     }
+
+    /// <summary>
+    /// Lightweight DTO for batch fetching service basic info (gRPC optimized)
+    /// </summary>
+    public class ServiceBasicInfoDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string? ImageUrl { get; set; }
+    }
 }

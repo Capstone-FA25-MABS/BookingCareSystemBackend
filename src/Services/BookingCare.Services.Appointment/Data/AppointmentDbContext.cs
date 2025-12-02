@@ -46,27 +46,55 @@ public class AppointmentDbContext : DbContext
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
-            // 1. Check trùng lịch bệnh nhân (chỉ áp dụng cho PENDING và CONFIRMED)
-            // Filtered index: exclude CANCELLED và COMPLETED để cho phép đặt lại slot
+            // ============================================
+            // UNIQUE INDEXES (for conflict checking)
+            // Filtered: exclude CANCELLED và COMPLETED để cho phép đặt lại slot
+            // ============================================
+
+            // 1. Check trùng lịch bệnh nhân (bản thân) - mỗi patient chỉ có 1 appointment/slot khi đặt cho bản thân
+            // RelativeId IS NULL = đặt cho bản thân
             entity.HasIndex(e => new { e.PatientId, e.AppointmentDate, e.AppointmentTimeId })
                 .IsUnique()
                 .HasDatabaseName("IX_Patient_Date_Time_Unique")
-                .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
+                .HasFilter("[RelativeId] IS NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
 
-            // 2. Check trùng lịch bác sĩ (chỉ áp dụng cho PENDING và CONFIRMED)
-            // Filtered index: exclude CANCELLED và COMPLETED để cho phép đặt lại slot
+            // 1b. Check trùng lịch người thân - mỗi relative chỉ có 1 appointment/slot
+            // RelativeId IS NOT NULL = đặt cho người thân
+            entity.HasIndex(e => new { e.RelativeId, e.AppointmentDate, e.AppointmentTimeId })
+                .IsUnique()
+                .HasDatabaseName("IX_Relative_Date_Time_Unique")
+                .HasFilter("[RelativeId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
+
+            // 2. Check trùng lịch bác sĩ - mỗi doctor chỉ có 1 appointment/slot
             entity.HasIndex(e => new { e.DoctorId, e.AppointmentDate, e.AppointmentTimeId })
                 .IsUnique()
                 .HasDatabaseName("IX_Doctor_Date_Time_Unique")
-                .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
+                .HasFilter("[DoctorId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
 
-            // 3. Lấy lịch theo bệnh nhân (lọc theo ngày & trạng thái)
+            // 3. Check trùng lịch dịch vụ - mỗi service chỉ có 1 appointment/slot
+            // (Nếu service có giới hạn slot, cần logic khác - đây chỉ là unique per slot)
+            entity.HasIndex(e => new { e.ServiceId, e.AppointmentDate, e.AppointmentTimeId })
+                .HasDatabaseName("IX_Service_Date_Time")
+                .HasFilter("[ServiceId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
+
+            // ============================================
+            // QUERY INDEXES (for listing/filtering)
+            // Non-unique, optimized for common query patterns
+            // ============================================
+
+            // 4. Lấy lịch theo bệnh nhân (lọc theo ngày & trạng thái)
             entity.HasIndex(e => new { e.PatientId, e.AppointmentDate, e.Status })
                 .HasDatabaseName("IX_Patient_Date_Status");
 
-            // 4. Lấy lịch theo bác sĩ (lọc theo ngày & trạng thái)
+            // 5. Lấy lịch theo bác sĩ (lọc theo ngày & trạng thái)
             entity.HasIndex(e => new { e.DoctorId, e.AppointmentDate, e.Status })
-                .HasDatabaseName("IX_Doctor_Date_Status");
+                .HasDatabaseName("IX_Doctor_Date_Status")
+                .HasFilter("[DoctorId] IS NOT NULL");
+
+            // 6. Lấy lịch theo dịch vụ (lọc theo ngày & trạng thái)
+            entity.HasIndex(e => new { e.ServiceId, e.AppointmentDate, e.Status })
+                .HasDatabaseName("IX_Service_Date_Status")
+                .HasFilter("[ServiceId] IS NOT NULL");
         });
     }
 

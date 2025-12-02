@@ -360,4 +360,58 @@ public class AppointmentsController : BaseApiController
         var result = await _appointmentService.GetHospitalStaffStatisticsAsync(request);
         return Success(result, "Staff statistics retrieved successfully");
     }
+
+    #region Assign Doctor To Appointment (NEW flow for "Hospital assigns doctor")
+
+    /// <summary>
+    /// Get doctors for assignment to a pending specialty appointment
+    /// Returns recommended doctors (sorted by experience, rating, booking count) and previous doctors
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="checkAvailabilityAtOriginalTime">If true, check availability at original appointment date/time</param>
+    /// <returns>List of recommended and previous doctors</returns>
+    [HttpGet("{id:guid}/doctors-for-assignment")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Staff, Admin")]
+    public async Task<IActionResult> GetDoctorsForAssignment(
+        Guid id,
+        [FromQuery] bool checkAvailabilityAtOriginalTime = true)
+    {
+        var request = new GetDoctorsForAssignmentRequest
+        {
+            AppointmentId = id,
+            CheckAvailabilityAtOriginalTime = checkAvailabilityAtOriginalTime
+        };
+
+        var result = await _appointmentService.GetDoctorsForAssignmentAsync(request);
+
+        return Success(result, $"Found {result.TotalRecommended} recommended and {result.TotalPrevious} previous doctors");
+    }
+
+    /// <summary>
+    /// Assign doctor to a pending specialty appointment (NEW flow for "Hospital assigns doctor")
+    /// This directly assigns the doctor and confirms the appointment
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Assignment request with doctor ID and optional new date/time</param>
+    /// <returns>Assignment result with doctor and appointment info</returns>
+    [HttpPost("{id:guid}/assign-doctor")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Staff, Admin")]
+    public async Task<IActionResult> AssignDoctorToAppointment(
+        Guid id,
+        [FromBody] AssignDoctorToAppointmentRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest(IdMismatchErrorMessage);
+
+        var result = await _appointmentService.AssignDoctorToAppointmentAsync(request);
+
+        if (!result.Success)
+            return BadRequest(result.Message);
+
+        return Success(result, result.Message);
+    }
+
+    #endregion
 }
