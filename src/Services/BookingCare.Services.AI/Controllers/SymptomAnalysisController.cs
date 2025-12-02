@@ -169,6 +169,47 @@ public class SymptomAnalysisController : BaseApiController
     }
 
     /// <summary>
+    /// Get conversation history for a session (direct history array)
+    /// </summary>
+    /// <param name="sessionId">Session ID</param>
+    /// <returns>Conversation history array</returns>
+    [HttpGet("sessions/{sessionId}/history")]
+    [AllowAnonymous]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(ApiResponse<List<ConversationMessage>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetConversationHistory(Guid sessionId)
+    {
+        try
+        {
+            var conversationHistory = await _symptomAnalysisService.GetConversationHistoryAsync(sessionId);
+
+            if (conversationHistory == null || conversationHistory.Count == 0)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = "No conversation history found for this session",
+                    timestamp = DateTime.UtcNow
+                });
+            }
+
+            return Success(conversationHistory, "Conversation history retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving conversation history for session {SessionId}: {Message}", sessionId, ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = $"Failed to retrieve conversation history: {ex.Message}",
+                timestamp = DateTime.UtcNow
+            });
+        }
+    }
+
+    /// <summary>
     /// Get all conversation sessions for authenticated user
     /// </summary>
     /// <returns>List of conversation sessions</returns>

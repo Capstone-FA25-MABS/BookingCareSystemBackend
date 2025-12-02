@@ -65,6 +65,21 @@ public class ConversationMessage
     /// Suggestions (doctors/hospitals) associated with this AI message (optional)
     /// </summary>
     public object? Suggestions { get; set; } // Store as JSON object for flexibility
+
+    /// <summary>
+    /// Disease conclusion (name, confidence, reasons) for final diagnosis (optional)
+    /// </summary>
+    public object? Disease { get; set; }
+
+    /// <summary>
+    /// Number of questions asked so far (for progress tracking)
+    /// </summary>
+    public int? QuestionCount { get; set; }
+
+    /// <summary>
+    /// Flag indicating if symptom analysis is complete
+    /// </summary>
+    public bool? AnalysisComplete { get; set; }
 }
 
 
