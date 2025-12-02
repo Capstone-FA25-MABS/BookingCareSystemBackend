@@ -43,6 +43,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         _tesseractLanguage = configuration["Tesseract:Language"] ?? "vie+eng";
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public async Task<LabResultAnalysisResponse> AnalyzeLabResultAsync(
         IFormFile file,
         LocationContext? location,
@@ -112,6 +113,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private async Task<string> ExtractTextFromImageAsync(IFormFile file)
     {
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -126,6 +128,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private async Task<string> ExtractTextFromPdfAsync(IFormFile file)
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
@@ -155,6 +158,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private async Task<string> ExtractTextFromPdfStreamAsync(Stream stream)
     {
         var tempPdfPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".pdf");
@@ -184,6 +188,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private async Task<string> ExtractTextFromPdfFileAsync(string pdfPath)
     {
         if (!OperatingSystem.IsWindows())
