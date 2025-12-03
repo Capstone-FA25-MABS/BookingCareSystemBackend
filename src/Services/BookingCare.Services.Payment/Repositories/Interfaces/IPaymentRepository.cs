@@ -109,4 +109,10 @@ public interface IPaymentRepository
         DateTime periodStart,
         DateTime periodEnd
     );
+
+    /// <summary>
+    /// Count payments associated with a specific payout
+    /// Used for validation when marking payout as completed
+    /// </summary>
+    Task<int> CountPaymentsByPayoutIdAsync(Guid payoutId);
 }

@@ -1,8 +1,7 @@
+using BookingCare.Services.Appointment.Enums;
 using BookingCare.Services.Appointment.Models.DTOs;
 using BookingCare.Services.Appointment.Models.Entities;
 using BookingCare.Shared.Common.Enums;
-using BookingCare.Services.Appointment.Enums;
-using BookingCare.Services.Appointment.Models.DTOs;
 
 namespace BookingCare.Services.Appointment.Repositories;
 
@@ -14,13 +13,36 @@ public interface IAppointmentRepository
     // Appointment operations
     Task<AppointmentEntity?> GetAppointmentByIdAsync(Guid id);
     Task<AppointmentEntity> CreateAppointmentAsync(AppointmentEntity appointment);
-    Task<(List<AppointmentEntity> Appointments, int TotalCount)> GetAppointmentsAsync(AppointmentQueryRequest query, Role role);
-    Task<bool> HasConflictingAppointmentAsync(Guid patientId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid? relativeId = null, Guid? excludeAppointmentId = null);
-    Task<bool> IsDoctorAvailableAsync(Guid doctorId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null);
-    Task<bool> IsServiceMedicalAvailableAsync(Guid serviceId, DateTime appointmentDate, AppointmentTime appointmentTimeId, Guid? excludeAppointmentId = null);
+    Task<(List<AppointmentEntity> Appointments, int TotalCount)> GetAppointmentsAsync(
+        AppointmentQueryRequest query,
+        Role role
+    );
+    Task<bool> HasConflictingAppointmentAsync(
+        Guid patientId,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid? relativeId = null,
+        Guid? excludeAppointmentId = null
+    );
+    Task<bool> IsDoctorAvailableAsync(
+        Guid doctorId,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid? excludeAppointmentId = null
+    );
+    Task<bool> IsServiceMedicalAvailableAsync(
+        Guid serviceId,
+        DateTime appointmentDate,
+        AppointmentTime appointmentTimeId,
+        Guid? excludeAppointmentId = null
+    );
 
     // Status operations
-    Task<bool> UpdateAppointmentStatusAsync(Guid appointmentId, AppointmentStatus status, string? result = null);
+    Task<bool> UpdateAppointmentStatusAsync(
+        Guid appointmentId,
+        AppointmentStatus status,
+        string? result = null
+    );
 
     /// <summary>
     /// Update an existing appointment (for reschedule operations)
@@ -36,7 +58,11 @@ public interface IAppointmentRepository
     /// Cancel an appointment with cancellation reason
     /// Optimized method specifically for cancellation that takes the full entity
     /// </summary>
-    Task<bool> CancelAppointmentAsync(AppointmentEntity appointment, string cancellationReason, string cancelledBy);
+    Task<bool> CancelAppointmentAsync(
+        AppointmentEntity appointment,
+        string cancellationReason,
+        string cancelledBy
+    );
 
     /// <summary>
     /// Delete an appointment completely from the database
@@ -50,8 +76,14 @@ public interface IAppointmentRepository
     /// using a single optimized query.
     /// All filters are encapsulated inside <see cref="AppointmentStatusFilter"/>.
     /// </summary>
-    Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(AppointmentStatusFilter filter);
-    Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(Guid hospitalId, DateTime fromDate, DateTime toDate);
+    Task<Dictionary<AppointmentStatus, int>> GetStatusCountsByUserAsync(
+        AppointmentStatusFilter filter
+    );
+    Task<List<AppointmentEntity>> GetAppointmentsForHospitalAsync(
+        Guid hospitalId,
+        DateTime fromDate,
+        DateTime toDate
+    );
     Task<Dictionary<Guid, DateTime>> GetPatientFirstAppointmentsAsync(Guid hospitalId);
 
     // Background service operations
@@ -61,19 +93,26 @@ public interface IAppointmentRepository
     /// </summary>
     Task<List<AppointmentEntity>> GetOverdueAppointmentsByStatusAsync(
         AppointmentStatus status,
-        DateTime referenceDate);
+        DateTime referenceDate
+    );
 
     /// <summary>
     /// Get all booked appointment time IDs for a doctor on a specific date
     /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
     /// </summary>
-    Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(Guid doctorId, DateOnly appointmentDate);
+    Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(
+        Guid doctorId,
+        DateOnly appointmentDate
+    );
 
     /// <summary>
     /// Get all booked appointment time IDs for a service medical on a specific date
     /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
     /// </summary>
-    Task<List<AppointmentTime>> GetBookedAppointmentTimesByServiceAsync(Guid serviceId, DateOnly appointmentDate);
+    Task<List<AppointmentTime>> GetBookedAppointmentTimesByServiceAsync(
+        Guid serviceId,
+        DateOnly appointmentDate
+    );
 
     /// <summary>
     /// Get booked slot counts for a specialty (hospital assigns doctor mode)
@@ -83,7 +122,8 @@ public interface IAppointmentRepository
         Guid hospitalId,
         Guid specialtyId,
         DateOnly appointmentDate,
-        AppointmentType appointmentType);
+        AppointmentType appointmentType
+    );
 
     /// <summary>
     /// NEW: Get completed appointments by patient with optional doctor or service filter (for Review service validation)
@@ -92,7 +132,13 @@ public interface IAppointmentRepository
     Task<List<AppointmentEntity>> GetCompletedAppointmentsByPatientAsync(
         Guid patientId,
         Guid? doctorId = null,
-        Guid? serviceId = null);
+        Guid? serviceId = null
+    );
+
+    /// <summary>
+    /// Get appointments by their IDs (for Payment service payout validation)
+    /// </summary>
+    Task<List<AppointmentEntity>> GetAppointmentsByIdsAsync(List<Guid> appointmentIds);
 
     #region Assign Doctor To Appointment (NEW flow)
 
@@ -103,7 +149,8 @@ public interface IAppointmentRepository
     Task<List<AppointmentEntity>> GetCompletedAppointmentsForPatientAsync(
         Guid patientId,
         Guid hospitalId,
-        Guid specialtyId);
+        Guid specialtyId
+    );
 
     /// <summary>
     /// Get booking counts (completed appointments) for multiple doctors
@@ -117,7 +164,8 @@ public interface IAppointmentRepository
     Task<List<Guid>> GetDoctorsWithBookedSlotAsync(
         List<Guid> doctorIds,
         DateOnly date,
-        AppointmentTime appointmentTimeId);
+        AppointmentTime appointmentTimeId
+    );
 
     #endregion
 }

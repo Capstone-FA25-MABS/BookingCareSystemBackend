@@ -119,23 +119,17 @@ public class HospitalPayoutsController : BaseApiController
 
     /// <summary>
     /// Generate payouts for hospitals in a specific period
+    /// Hospital can request payout for their completed appointments
     /// </summary>
-    /// <param name="request">Request containing period and optional hospital IDs</param>
+    /// <param name="request">Request containing period and hospital ID</param>
     [HttpPost("generate")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Policy = "Role:Admin")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> GeneratePayouts([FromBody] GeneratePayoutsRequest request)
     {
         try
         {
-            // Get admin ID from claims using JwtHelper
-            var adminId = JwtHelper.GetAccountIdFromClaims(HttpContext);
-            if (adminId == null)
-            {
-                return Unauthorized("Invalid or missing admin credentials");
-            }
-
-            var result = await _payoutService.GeneratePayoutsAsync(request, adminId.Value);
+            var result = await _payoutService.GeneratePayoutsAsync(request);
             return Success(result, $"Generated {result.Count} payout(s) successfully");
         }
         catch (InvalidOperationException ex)
@@ -151,11 +145,13 @@ public class HospitalPayoutsController : BaseApiController
 
     /// <summary>
     /// Mark a payout as completed (admin has transferred money)
+    /// This will also mark all associated payments as paid out to prevent duplicate payouts
     /// </summary>
     /// <param name="id">Payout ID</param>
     /// <param name="request">Request containing optional notes</param>
     [HttpPut("{id}/complete")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> MarkPayoutCompleted(
         Guid id,
         [FromBody] MarkPayoutCompletedRequest request

@@ -287,4 +287,9 @@ public class PaymentRepository : IPaymentRepository
             .Distinct()
             .ToListAsync();
     }
+
+    public async Task<int> CountPaymentsByPayoutIdAsync(Guid payoutId)
+    {
+        return await _context.Payments.CountAsync(p => p.HospitalPayoutId == payoutId);
+    }
 }

@@ -22,11 +22,9 @@ public interface IHospitalPayoutService
     /// <summary>
     /// Generate payouts for specified hospitals and period
     /// Calculates total amount from completed appointments
+    /// Hospital initiates this request to get paid
     /// </summary>
-    Task<List<HospitalPayoutResponse>> GeneratePayoutsAsync(
-        GeneratePayoutsRequest request,
-        Guid adminId
-    );
+    Task<List<HospitalPayoutResponse>> GeneratePayoutsAsync(GeneratePayoutsRequest request);
 
     /// <summary>
     /// Mark a payout as completed (admin has transferred money)
