@@ -27,6 +27,9 @@ service AppointmentService {
     
     // Check if patient has completed appointment with doctor/service (for Review service validation)
     rpc CheckPatientAppointmentHistory (CheckPatientAppointmentHistoryRequest) returns (CheckPatientAppointmentHistoryResponse);
+
+    // Validate appointments are completed (for Payment service payout validation)
+    rpc ValidateCompletedAppointments (ValidateCompletedAppointmentsRequest) returns (ValidateCompletedAppointmentsResponse);
 }
 
 // Request message
@@ -127,5 +130,18 @@ message CheckSpecialtyBookedSlotsResponse {
 message SpecialtySlotBookedCount {
     int32 appointment_time_id = 1;  // AppointmentTime enum value
     int32 booked_count = 2;         // Number of PENDING/CONFIRMED appointments for this slot
+}
+
+// Request to validate appointments are completed
+message ValidateCompletedAppointmentsRequest {
+    repeated string appointment_ids = 1;  // List of appointment IDs to validate
+}
+
+// Response for completed appointments validation
+message ValidateCompletedAppointmentsResponse {
+    repeated string completed_appointment_ids = 1;  // List of appointment IDs that are COMPLETED
+    repeated string non_completed_appointment_ids = 2;  // List of appointment IDs that are NOT completed
+    int32 total_completed = 3;  // Total number of completed appointments
+    int32 total_non_completed = 4;  // Total number of non-completed appointments
 }
 

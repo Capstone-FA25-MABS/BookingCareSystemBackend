@@ -1,3 +1,4 @@
+using BookingCare.Services.Appointment.Protos;
 using BookingCare.Services.Hospital;
 using BookingCare.Services.Payment.Enums;
 using BookingCare.Services.Payment.Models.DTOs.Requests;
@@ -19,6 +20,7 @@ public class HospitalPayoutService : IHospitalPayoutService
     private readonly IPaymentRepository _paymentRepository;
     private readonly IBankAccountRepository _bankAccountRepository;
     private readonly HospitalService.HospitalServiceClient _hospitalGrpcClient;
+    private readonly AppointmentService.AppointmentServiceClient _appointmentGrpcClient;
     private readonly ILogger<HospitalPayoutService> _logger;
 
     public HospitalPayoutService(
@@ -26,6 +28,7 @@ public class HospitalPayoutService : IHospitalPayoutService
         IPaymentRepository paymentRepository,
         IBankAccountRepository bankAccountRepository,
         HospitalService.HospitalServiceClient hospitalGrpcClient,
+        AppointmentService.AppointmentServiceClient appointmentGrpcClient,
         ILogger<HospitalPayoutService> logger
     )
     {
@@ -33,6 +36,7 @@ public class HospitalPayoutService : IHospitalPayoutService
         _paymentRepository = paymentRepository;
         _bankAccountRepository = bankAccountRepository;
         _hospitalGrpcClient = hospitalGrpcClient;
+        _appointmentGrpcClient = appointmentGrpcClient;
         _logger = logger;
     }
 
@@ -78,10 +82,6 @@ public class HospitalPayoutService : IHospitalPayoutService
 
         // Hospital can only generate payout for themselves
         var hospitalId = request.HospitalId;
-        var hospitalIds = new List<Guid> { hospitalId };
-
-        // Fetch hospital names upfront
-        var hospitalNames = await GetHospitalNamesAsync(hospitalIds);
 
         // Check if payout already exists for this period
         var exists = await _payoutRepository.ExistsForPeriodAsync(
@@ -97,17 +97,69 @@ public class HospitalPayoutService : IHospitalPayoutService
             );
         }
 
-        // Calculate total amount from completed payments that haven't been paid out yet
-        var (totalAmount, appointmentCount, paymentIds) = await CalculatePayoutAmountAsync(
+        // Get completed payments that haven't been paid out yet
+        var payments = await _paymentRepository.GetCompletedPaymentsByHospitalAndPeriodAsync(
             hospitalId,
             request.PeriodStartDate,
             request.PeriodEndDate
         );
 
-        if (totalAmount <= 0 || appointmentCount == 0)
+        // Filter out payments that have already been included in a payout
+        var unpaidPayments = payments.Where(p => p.HospitalPayoutId == null).ToList();
+
+        if (!unpaidPayments.Any())
         {
             throw new InvalidOperationException(
                 "No completed payments found for the specified period"
+            );
+        }
+
+        // Validate appointments are actually completed via AppointmentService
+        var appointmentIds = unpaidPayments
+            .Where(p => p.AppointmentId.HasValue)
+            .Select(p => p.AppointmentId!.Value.ToString())
+            .Distinct()
+            .ToList();
+
+        if (appointmentIds.Any())
+        {
+            var validationResult = await ValidateCompletedAppointmentsAsync(appointmentIds);
+
+            if (validationResult.TotalNonCompleted > 0)
+            {
+                _logger.LogWarning(
+                    "Found {NonCompletedCount} non-completed appointments out of {TotalCount}. Excluding them from payout.",
+                    validationResult.TotalNonCompleted,
+                    appointmentIds.Count
+                );
+
+                // Filter out payments for non-completed appointments
+                var completedAppointmentIds = validationResult.CompletedAppointmentIds.ToHashSet();
+                unpaidPayments = unpaidPayments
+                    .Where(p =>
+                        !p.AppointmentId.HasValue
+                        || completedAppointmentIds.Contains(p.AppointmentId.Value.ToString())
+                    )
+                    .ToList();
+            }
+        }
+
+        // Recalculate after filtering
+        if (!unpaidPayments.Any())
+        {
+            throw new InvalidOperationException(
+                "No completed appointments found for the specified period. Patient may have cancelled the appointments."
+            );
+        }
+
+        var totalAmount = unpaidPayments.Sum(p => p.Amount);
+        var appointmentCount = unpaidPayments.Count(p => p.AppointmentId.HasValue);
+        var paymentIds = unpaidPayments.Select(p => p.Id).ToList();
+
+        if (totalAmount <= 0 || appointmentCount == 0)
+        {
+            throw new InvalidOperationException(
+                "No valid completed payments found for the specified period"
             );
         }
 
@@ -120,10 +172,8 @@ public class HospitalPayoutService : IHospitalPayoutService
             );
         }
 
-        // Get hospital name
-        var hospitalName = hospitalNames.TryGetValue(hospitalId, out var name)
-            ? name
-            : "Unknown Hospital";
+        // Use hospital name from request (sent from frontend)
+        var hospitalName = request.HospitalName;
 
         // Create payout record with hospital name
         var payout = new HospitalPayoutEntity
@@ -324,6 +374,38 @@ public class HospitalPayoutService : IHospitalPayoutService
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt,
         };
+    }
+
+    /// <summary>
+    /// Validate that appointments are actually completed via AppointmentService
+    /// </summary>
+    private async Task<ValidateCompletedAppointmentsResponse> ValidateCompletedAppointmentsAsync(
+        List<string> appointmentIds
+    )
+    {
+        try
+        {
+            var request = new ValidateCompletedAppointmentsRequest();
+            request.AppointmentIds.AddRange(appointmentIds);
+
+            var response = await _appointmentGrpcClient.ValidateCompletedAppointmentsAsync(request);
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error validating completed appointments via gRPC. AppointmentIds: {AppointmentIds}",
+                string.Join(", ", appointmentIds)
+            );
+
+            // If validation fails, assume none are completed for safety
+            return new ValidateCompletedAppointmentsResponse
+            {
+                TotalCompleted = 0,
+                TotalNonCompleted = appointmentIds.Count,
+            };
+        }
     }
 
     /// <summary>

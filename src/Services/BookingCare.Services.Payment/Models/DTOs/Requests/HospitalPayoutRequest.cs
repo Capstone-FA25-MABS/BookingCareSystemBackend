@@ -18,6 +18,13 @@ public class GeneratePayoutsRequest
     /// </summary>
     [Required]
     public required Guid HospitalId { get; set; }
+
+    /// <summary>
+    /// Hospital name (sent from frontend to avoid gRPC call)
+    /// </summary>
+    [Required]
+    [MaxLength(200)]
+    public required string HospitalName { get; set; }
 }
 
 /// <summary>
