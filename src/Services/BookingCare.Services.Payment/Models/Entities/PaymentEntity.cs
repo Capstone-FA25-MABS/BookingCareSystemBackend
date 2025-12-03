@@ -78,6 +78,13 @@ public class PaymentEntity
     public string? PaymentIntentId { get; set; }
 
     /// <summary>
+    /// ID of the hospital payout this payment belongs to (nullable)
+    /// Used to track which payout has included this payment to prevent duplicate payouts
+    /// </summary>
+    [Column("hospital_payout_id")]
+    public Guid? HospitalPayoutId { get; set; }
+
+    /// <summary>
     /// Creation time
     /// </summary>
     [Required]
