@@ -86,12 +86,16 @@ public static class KestrelConfigurationExtensions
 
     /// <summary>
     /// Configures HTTPS for production environment
+    /// Note: HTTPS is optional in production when using reverse proxy (NGINX/Load Balancer)
+    /// Only enable HTTPS if custom certificate is explicitly configured
     /// </summary>
     private static void ConfigureHttpsForProduction(
         ListenOptions listenOptions,
         KestrelConfiguration kestrelConfig,
         IHostEnvironment environment)
     {
+        // Only configure HTTPS in production if a custom certificate is explicitly provided
+        // This allows running behind reverse proxies (NGINX, ALB) that handle SSL termination
         if (!environment.IsProduction())
         {
             return;
@@ -101,10 +105,8 @@ public static class KestrelConfigurationExtensions
         {
             listenOptions.UseHttps(kestrelConfig.CertificatePath!, kestrelConfig.CertificatePassword!);
         }
-        else
-        {
-            listenOptions.UseHttps(); // Use default certificate
-        }
+        // Removed: else { listenOptions.UseHttps(); }
+        // Don't force HTTPS when no certificate is configured - allows HTTP behind reverse proxy
     }
 
     /// <summary>

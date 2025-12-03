@@ -303,7 +303,7 @@ services:
       dockerfile: src/ApiGateway/BookingCare.ApiGateway.Ocelot/Dockerfile
     container_name: bookingcare_api_gateway
     ports:
-      - "5001:5000"
+      - "5001:5001"
     depends_on:
       - auth-service
       - user-service
@@ -323,7 +323,7 @@ services:
       - saga-service
       - ai-service
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5001
       - Jwt__Key=YourSuperSecretKeyThatIsAtLeast256BitsLong!@#$$%^&*()_+
       - Jwt__Issuer=MicroGrpcDemo.Auth
@@ -344,7 +344,7 @@ services:
       sqlserver-ai:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6001;http://+:6101
       - ConnectionStrings__DefaultConnection=Server=sqlserver-ai,1433;Database=MABS_AI;User Id=sa;Password=AI@1234!;TrustServerCertificate=true
     networks:
@@ -363,7 +363,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6000;http://+:6100
       - MongoDbSettings__ConnectionString=mongodb://bookingcare:password123@mongodb:27017
       - MongoDbSettings__DatabaseName=MABS_Analytics
@@ -387,7 +387,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6002;http://+:6102
       - ConnectionStrings__DefaultConnection=Server=sqlserver-appointment,1433;Database=MABS_Appointment;User Id=sa;Password=Appointment@1234!;TrustServerCertificate=true
       - Cache__ConnectionString=redis:6379
@@ -418,7 +418,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6003;http://+:6103
       - ConnectionStrings__DefaultConnection=Server=sqlserver-auth,1433;Database=MABS_Auth;User Id=sa;Password=StrongP@ssw0rd!;TrustServerCertificate=true
       - RabbitMQ__HostName=rabbitmq
@@ -449,7 +449,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6006;http://+:6106
       - MongoDB__ConnectionString=mongodb://bookingcare:password123@mongodb:27017
       - MongoDB__DatabaseName=MABS_Communication
@@ -477,7 +477,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6005;http://+:6105
       - MongoDbSettings__ConnectionString=mongodb://bookingcare:password123@mongodb:27017
       - MongoDbSettings__DatabaseName=MABS_Content
@@ -497,7 +497,7 @@ services:
       sqlserver-discount:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6007;http://+:6017
       - ConnectionStrings__DefaultConnection=Server=sqlserver-discount,1433;Database=MABS_Discount;User Id=sa;Password=Discount123!;TrustServerCertificate=true
     networks:
@@ -518,7 +518,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6008;http://+:6108
       - ConnectionStrings__DefaultConnection=Server=sqlserver-doctor,1433;Database=MABS_Doctors;User Id=sa;Password=Doctor@1234!;TrustServerCertificate=true
       - RabbitMQ__HostName=rabbitmq
@@ -543,7 +543,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6009;http://+:6109
       - MongoDbSettings__ConnectionString=mongodb://bookingcare:password123@mongodb:27017
       - MongoDbSettings__DatabaseName=MABS_Favorites
@@ -565,7 +565,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6004;http://+:6104
       - ConnectionStrings__DefaultConnection=Server=sqlserver-hospital,1433;Database=MABS_Hospital;User Id=sa;Password=Hospital@1234!;TrustServerCertificate=true
       - RabbitMQ__HostName=rabbitmq
@@ -595,7 +595,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6010;http://+:6110
       - MongoDb__ConnectionString=mongodb://bookingcare:password123@mongodb:27017
       - MongoDb__DatabaseName=MABS_Notification
@@ -619,7 +619,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6011;http://+:6111
       - ConnectionStrings__DefaultConnection=Server=sqlserver-payment,1433;Database=MABS_Payment;User Id=sa;Password=Payment@1234!;TrustServerCertificate=true
       - RabbitMQ__HostName=rabbitmq
@@ -643,7 +643,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6012;http://+:6112
       - MongoDbSettings__ConnectionString=mongodb://bookingcare:password123@mongodb:27017
       - MongoDbSettings__DatabaseName=MABS_Reviews
@@ -666,7 +666,7 @@ services:
       sqlserver-saga:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6013;http://+:6113
       - Saga__ConnectionString=Server=sqlserver-saga,1433;Database=MABS_Sagas;User Id=sa;Password=Saga@1234;TrustServerCertificate=true
     networks:
@@ -689,7 +689,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6014;http://+:6114
       - ConnectionStrings__DefaultConnection=Server=sqlserver-schedule,1433;Database=MABS_Schedule;User Id=sa;Password=Schedule@1234!;TrustServerCertificate=true
       - Cache__ConnectionString=redis:6379
@@ -714,7 +714,7 @@ services:
       sqlserver-servicemedical:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6015;http://+:6115
       - ConnectionStrings__DefaultConnection=Server=sqlserver-servicemedical,1433;Database=MABS_ServiceMedical;User Id=sa;Password=ServiceMedical@1234!;TrustServerCertificate=true
       - GrpcClients__Hospital__Address=http://hospital-service:6104
@@ -740,7 +740,7 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:6016;http://+:6116
       - ConnectionStrings__DefaultConnection=Server=sqlserver-user,1433;Database=MABS_User;User Id=sa;Password=User@1234!;TrustServerCertificate=true
       - RabbitMQ__HostName=rabbitmq
