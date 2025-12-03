@@ -13,6 +13,10 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly ILogger<AppointmentGrpcService> _logger;
 
+    // Log message constants
+    private const string LogInvalidAppointmentIdFormat = "[AppointmentGrpcService] Invalid appointment ID format: {AppointmentId}";
+    private const string LogAppointmentNotFound = "[AppointmentGrpcService] Appointment not found: {AppointmentId}";
+
     public AppointmentGrpcService(
         IAppointmentRepository appointmentRepository,
         ILogger<AppointmentGrpcService> logger
@@ -40,7 +44,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             if (!Guid.TryParse(request.AppointmentId, out var appointmentId))
             {
                 _logger.LogWarning(
-                    "[AppointmentGrpcService] Invalid appointment ID format: {AppointmentId}",
+                    LogInvalidAppointmentIdFormat,
                     request.AppointmentId
                 );
                 return new GetDoctorIdByAppointmentIdResponse
@@ -61,7 +65,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             if (appointmentEntity == null)
             {
                 _logger.LogWarning(
-                    "[AppointmentGrpcService] Appointment not found: {AppointmentId}",
+                    LogAppointmentNotFound,
                     appointmentId
                 );
                 return new GetDoctorIdByAppointmentIdResponse
@@ -139,7 +143,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             if (!Guid.TryParse(request.AppointmentId, out var appointmentId))
             {
                 _logger.LogWarning(
-                    "[AppointmentGrpcService] Invalid appointment ID format: {AppointmentId}",
+                    LogInvalidAppointmentIdFormat,
                     request.AppointmentId
                 );
                 return new ConfirmAppointmentResponse
@@ -153,7 +157,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             if (appointment == null)
             {
                 _logger.LogWarning(
-                    "[AppointmentGrpcService] Appointment not found: {AppointmentId}",
+                    LogAppointmentNotFound,
                     appointmentId
                 );
                 return new ConfirmAppointmentResponse
@@ -267,7 +271,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             if (!Guid.TryParse(request.AppointmentId, out var appointmentId))
             {
                 _logger.LogWarning(
-                    "[AppointmentGrpcService] Invalid appointment ID format: {AppointmentId}",
+                    LogInvalidAppointmentIdFormat,
                     request.AppointmentId
                 );
                 return new GetAppointmentDetailsResponse
@@ -283,7 +287,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             if (appointmentEntity == null)
             {
                 _logger.LogWarning(
-                    "[AppointmentGrpcService] Appointment not found: {AppointmentId}",
+                    LogAppointmentNotFound,
                     appointmentId
                 );
                 return new GetAppointmentDetailsResponse
@@ -730,16 +734,10 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
                 else
                 {
                     _logger.LogWarning(
-                        "[AppointmentGrpcService] Invalid appointment ID format: {AppointmentId}",
+                        LogInvalidAppointmentIdFormat,
                         idStr
                     );
                 }
-            }
-
-            if (!appointmentIds.Any())
-            {
-                _logger.LogWarning("[AppointmentGrpcService] No valid appointment IDs to validate");
-                return response;
             }
 
             // Get appointments
@@ -767,7 +765,7 @@ public class AppointmentGrpcService : Protos.AppointmentService.AppointmentServi
             {
                 response.NonCompletedAppointmentIds.Add(missingId.ToString());
                 _logger.LogWarning(
-                    "[AppointmentGrpcService] Appointment not found: {AppointmentId}",
+                    LogAppointmentNotFound,
                     missingId
                 );
             }
