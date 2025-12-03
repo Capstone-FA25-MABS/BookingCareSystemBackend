@@ -1,0 +1,42 @@
+# AWS Configuration
+aws_region   = "ap-southeast-1"
+environment  = "production"
+project_name = "bookingcare"
+
+# EC2 Configuration
+instance_type = "c5.4xlarge"
+key_name      = "bookingcare-key" # Change this to your SSH key pair name
+
+# AMI ID (Ubuntu 22.04 LTS in ap-southeast-1)
+# Update this with the latest Ubuntu 22.04 AMI ID for your region
+ami_id = "ami-0827b3068f1548bf6" # "ami-0b571a36bf02461b4"
+
+# Network Configuration
+vpc_cidr           = "10.0.0.0/16"
+public_subnet_cidr = "10.0.1.0/24"
+availability_zone  = "ap-southeast-1a"
+
+# Storage Configuration
+root_volume_size       = 100 # GB
+root_volume_type       = "gp3"
+root_volume_iops       = 3000
+root_volume_throughput = 125
+
+docker_volume_size = 200 # GB
+docker_volume_type = "gp3"
+
+# Security Configuration
+# IMPORTANT: Change these to your specific IP addresses for better security
+allowed_ssh_cidr  = ["123.19.165.238/32"] # Change to your IP: ["YOUR_IP/32"]
+allowed_http_cidr = ["0.0.0.0/0"]
+
+# Additional Configuration
+enable_monitoring = true
+enable_eip        = true
+
+# Additional Tags
+tags = {
+  Application = "BookingCare"
+  Team        = "DevOps"
+  CostCenter  = "Engineering"
+}

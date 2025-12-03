@@ -1,0 +1,51 @@
+# AWS Configuration - FREE TIER TEST
+aws_region   = "ap-southeast-1"
+environment  = "test"
+project_name = "bookingcare"
+
+# EC2 Configuration - FREE TIER
+# t2.micro: 1 vCPU, 1GB RAM (Free tier eligible for 750 hours/month)
+# t3.micro: 2 vCPU, 1GB RAM (Better performance, also free tier eligible)
+instance_type = "t3.micro"
+key_name      = "bookingcare-key" # Change this to your SSH key pair name
+
+# AMI ID (Ubuntu 22.04 LTS in ap-southeast-1)
+ami_id = "ami-0827b3068f1548bf6"
+
+# Network Configuration
+vpc_cidr           = "10.0.0.0/16"
+public_subnet_cidr = "10.0.1.0/24"
+availability_zone  = "ap-southeast-1a"
+
+# Storage Configuration - FREE TIER
+# Free tier includes 30GB of EBS General Purpose (SSD) or Magnetic storage
+root_volume_size       = 20  # GB (reduced for testing)
+root_volume_type       = "gp3"
+root_volume_iops       = 3000
+root_volume_throughput = 125
+
+docker_volume_size = 10 # GB (reduced for testing)
+docker_volume_type = "gp3"
+
+# Security Configuration
+# IMPORTANT: Change these to your specific IP addresses for better security
+allowed_ssh_cidr  = ["123.19.165.238/32"] # Change to your IP: ["YOUR_IP/32"]
+allowed_http_cidr = ["0.0.0.0/0"]
+
+# Additional Configuration
+enable_monitoring = false # Disable detailed monitoring to save costs
+enable_eip        = true  # Keep Elastic IP for testing
+
+# Additional Tags
+tags = {
+  Application = "BookingCare"
+  Team        = "DevOps"
+  CostCenter  = "Engineering"
+  Environment = "Test"
+  Purpose     = "FreeTierTesting"
+}
+
+# GitHub Repository Configuration (for user-data script)
+# These will be used by the user-data.sh script to clone and run the project
+github_repo_backend = "https://github.com/hiumx/BookingCareSystemBackend.git"
+github_repo_branch  = "develop" # or "main" or your test branch

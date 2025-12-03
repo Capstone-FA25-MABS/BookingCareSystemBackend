@@ -25,6 +25,7 @@ COPY ["src/Services/BookingCare.Services.User/Protos/", "src/Services/BookingCar
 COPY ["src/Services/BookingCare.Services.Hospital/Protos/", "src/Services/BookingCare.Services.Hospital/Protos/"]
 COPY ["src/Services/BookingCare.Services.ServiceMedical/Protos/", "src/Services/BookingCare.Services.ServiceMedical/Protos/"]
 COPY ["src/Services/BookingCare.Services.Payment/Protos/", "src/Services/BookingCare.Services.Payment/Protos/"]
+COPY ["src/Services/BookingCare.Services.Schedule/Protos/", "src/Services/BookingCare.Services.Schedule/Protos/"]
 
 # Restore NuGet packages
 RUN dotnet restore "src/Services/BookingCare.Services.Appointment/BookingCare.Services.Appointment.csproj"
