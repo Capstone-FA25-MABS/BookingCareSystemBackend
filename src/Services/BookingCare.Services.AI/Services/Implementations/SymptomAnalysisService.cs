@@ -1,5 +1,9 @@
+using System;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Exceptions;
 using BookingCare.Services.AI.Helpers;
@@ -43,6 +47,29 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
     public async Task<SymptomAnalysisResponse> AnalyzeSymptomsAsync(SymptomAnalysisRequest request)
+    {
+        return await AnalyzeSymptomsInternalAsync(request, null, CancellationToken.None);
+    }
+
+
+    public async Task<SymptomAnalysisResponse> AnalyzeSymptomsWithStreamingAsync(
+        SymptomAnalysisRequest request,
+        Func<string, Task> onStreamChunk,
+        CancellationToken cancellationToken)
+    {
+        if (onStreamChunk == null)
+        {
+            throw new ArgumentNullException(nameof(onStreamChunk));
+        }
+
+        return await AnalyzeSymptomsInternalAsync(request, onStreamChunk, cancellationToken);
+    }
+
+
+    private async Task<SymptomAnalysisResponse> AnalyzeSymptomsInternalAsync(
+        SymptomAnalysisRequest request,
+        Func<string, Task>? onStreamChunk,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -129,7 +156,10 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
             // Step 5: Call Gemini API
-            string geminiResponse = await CallGeminiApiAsync(prompt);
+            string geminiResponse = await GenerateGeminiResponseAsync(
+                prompt,
+                onStreamChunk,
+                cancellationToken);
             _logger.LogDebug("Gemini response: {Response}", geminiResponse);
 
 
@@ -228,6 +258,113 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     public async Task<bool> DeleteSessionAsync(Guid sessionId, Guid userId)
     {
         return await _sessionService.DeleteSessionAsync(sessionId, userId);
+    }
+
+
+    /// <summary>
+    /// Phân tích triệu chứng nhưng CHỈ trả về phần kết luận (disease, advice, specialties).
+    /// Không kèm danh sách bác sĩ/bệnh viện để FE có thể hiển thị kết luận trước cho nhanh,
+    /// rồi sau đó gọi API gợi ý riêng.
+    /// </summary>
+    public async Task<SymptomAnalysisResponse> AnalyzeSymptomsConclusionOnlyAsync(SymptomAnalysisRequest request)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Starting conclusion-only symptom analysis for user {UserId}, session {SessionId}",
+                request.UserId,
+                request.SessionId);
+
+            var sessionId = await _sessionService.GetOrCreateSessionAsync(
+                request.SessionId,
+                request.UserId ?? Guid.Empty,
+                request.Location);
+
+            var conversationHistory = request.ConversationHistory ?? new List<ConversationMessage>();
+
+            int totalQuestions = CountAIQuestions(conversationHistory);
+
+            // Kết luận chỉ xảy ra khi đang ở conclusion mode
+            bool isConclusionMode = (totalQuestions % 3) == 0 && totalQuestions > 0 && totalQuestions <= 6;
+            if (!isConclusionMode)
+            {
+                throw new InvalidOperationException(
+                    "Conclusion-only analysis can only be used in conclusion mode (sau mỗi 3 câu hỏi).");
+            }
+
+            int currentRound = totalQuestions / 3; // 3/3=1, 6/3=2
+
+            // Chuẩn bị prompt (giống AnalyzeSymptomsAsync)
+            var specialtyListTask = _recommendationHelper.GetSpecialtyListTextAsync();
+            string prompt = await BuildConclusionModePromptAsync(
+                request.Message,
+                conversationHistory,
+                specialtyListTask);
+
+            string geminiResponse = await GenerateGeminiResponseAsync(
+                prompt,
+                null,
+                CancellationToken.None);
+
+            // Parse nhưng KHÔNG gọi RecommendationHelper.GetRecommendationsAsync
+            var response = await ParseConclusionModeResponseWithoutSuggestions(
+                geminiResponse,
+                sessionId,
+                currentRound);
+
+            // Lưu history (không có suggestions)
+            try
+            {
+                await _sessionService.SaveConversationHistoryAsync(
+                    sessionId: sessionId,
+                    userMessage: request.Message,
+                    aiMessage: response.Message,
+                    location: request.Location,
+                    suggestions: null,
+                    userId: request.UserId,
+                    disease: response.Disease != null
+                        ? new
+                        {
+                            Name = response.Disease.Name,
+                            Confidence = response.Disease.Confidence,
+                            Reasons = response.Disease.Reasons
+                        }
+                        : null,
+                    questionCount: response.QuestionCount,
+                    analysisComplete: response.AnalysisComplete);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving conclusion-only conversation for session {SessionId}", sessionId);
+            }
+
+            _logger.LogInformation(
+                "Conclusion-only symptom analysis completed successfully for session {SessionId}",
+                sessionId);
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in AnalyzeSymptomsConclusionOnlyAsync: {Message}", ex.Message);
+            throw new SymptomAnalysisException("Failed to analyze symptoms (conclusion only)", ex);
+        }
+    }
+
+
+    /// <summary>
+    /// Lấy gợi ý bác sĩ/bệnh viện dựa trên danh sách chuyên khoa + vị trí (không gọi LLM).
+    /// FE sẽ truyền lên danh sách tên chuyên khoa lấy từ kết luận trước đó.
+    /// </summary>
+    public async Task<(List<DoctorRecommendation> Doctors, List<HospitalRecommendation> Hospitals)> GetSuggestionsAsync(
+        SymptomSuggestionRequest request)
+    {
+        if (request.SpecialtyNames == null || request.SpecialtyNames.Count == 0)
+        {
+            return (new List<DoctorRecommendation>(), new List<HospitalRecommendation>());
+        }
+
+        return await _recommendationHelper.GetRecommendationsAsync(request.SpecialtyNames, request.Location);
     }
 
 
@@ -339,13 +476,42 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
     /// <summary>
-    /// Call Gemini API with retry logic using GeminiApiHelper
+    /// Call Gemini API with retry logic using GeminiApiHelper (non-streaming)
     /// </summary>
-    private async Task<string> CallGeminiApiAsync(string prompt)
+    private async Task<string> CallGeminiApiAsync(string prompt, CancellationToken cancellationToken)
     {
         return await _geminiApiHelper.CallGeminiApiWithDefaultsAsync(
             prompt,
-            _serviceConfig);
+            _serviceConfig,
+            cancellationToken);
+    }
+
+
+    private async Task<string> GenerateGeminiResponseAsync(
+        string prompt,
+        Func<string, Task>? onStreamChunk,
+        CancellationToken cancellationToken)
+    {
+        if (onStreamChunk == null)
+        {
+            return await CallGeminiApiAsync(prompt, cancellationToken);
+        }
+
+        var builder = new StringBuilder();
+
+        await foreach (var chunk in _geminiApiHelper
+                       .CallGeminiApiStreamWithDefaultsAsync(prompt, _serviceConfig, cancellationToken)
+                       .WithCancellation(cancellationToken))
+        {
+            builder.Append(chunk);
+
+            if (chunk.Length > 0)
+            {
+                await onStreamChunk(chunk);
+            }
+        }
+
+        return builder.ToString();
     }
 
 
@@ -470,9 +636,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             response.GeneralAdvice = conclusionData.Advice ?? new List<string>();
 
 
-            // Set specialties and get recommendations in parallel với việc xây dựng message
+            // Set specialties và chuẩn bị task lấy gợi ý trong background
             var recommendationsTask = StartRecommendationTask(conclusionData, response, location);
-
 
             // Build message while recommendations are being fetched
             var messageBuilder = new StringBuilder();
@@ -528,6 +693,86 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             throw new InvalidOperationException(
                 "Failed to parse conclusion mode response from Gemini.",
+                ex);
+        }
+    }
+
+
+    /// <summary>
+    /// Phiên bản ParseConclusionModeResponse KHÔNG gọi RecommendationHelper,
+    /// chỉ parse disease/advice/specialties để dùng cho API kết luận nhanh.
+    /// </summary>
+    private async Task<SymptomAnalysisResponse> ParseConclusionModeResponseWithoutSuggestions(
+        string geminiResponse,
+        Guid sessionId,
+        int currentRound)
+    {
+        try
+        {
+            string jsonText = ExtractJsonFromText(geminiResponse);
+
+            var conclusionData = JsonSerializer.Deserialize<ConclusionModeResponse>(jsonText,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (conclusionData == null)
+            {
+                throw new InvalidOperationException("Failed to parse conclusion from Gemini response");
+            }
+
+            var response = CreateBaseConclusionResponse(sessionId, currentRound);
+
+            SetDiseaseConclusion(response, conclusionData);
+            response.GeneralAdvice = conclusionData.Advice ?? new List<string>();
+
+            // Set specialties nhưng KHÔNG gọi RecommendationHelper
+            if (conclusionData.Specialties != null && conclusionData.Specialties.Count > 0)
+            {
+                response.RecommendedSpecialties = conclusionData.Specialties.Select(s => new SpecialtyMatch
+                {
+                    SpecialtyName = s.Name ?? "",
+                    Confidence = s.Confidence,
+                    Reasons = s.Reasons ?? new List<string>()
+                }).ToList();
+            }
+
+            var messageBuilder = new StringBuilder();
+            messageBuilder.AppendLine($"Dựa trên các triệu chứng bạn mô tả, có thể bạn đang gặp vấn đề về **{response.Disease?.Name ?? "sức khỏe"}**.");
+            messageBuilder.AppendLine();
+
+            if (response.GeneralAdvice.Count > 0)
+            {
+                messageBuilder.AppendLine("**Lời khuyên:**");
+                foreach (var advice in response.GeneralAdvice)
+                {
+                    messageBuilder.AppendLine($"- {advice}");
+                }
+                messageBuilder.AppendLine();
+            }
+
+            if (response.RecommendedSpecialties.Count > 0)
+            {
+                messageBuilder.AppendLine($"Bạn nên đến khám chuyên khoa: **{string.Join(", ", response.RecommendedSpecialties.Select(s => s.SpecialtyName))}**");
+                messageBuilder.AppendLine();
+            }
+
+            messageBuilder.AppendLine("Lưu ý: Đây chỉ là gợi ý định hướng y tế, không thay thế chẩn đoán chính thức của bác sĩ. Vui lòng đến cơ sở y tế để được khám và điều trị chính xác.");
+
+            response.Message = messageBuilder.ToString();
+
+            SetCanRequestMoreQuestionsFlag(response, currentRound);
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error parsing conclusion mode response (without suggestions) for session {SessionId}. Response preview: {ResponsePreview}",
+                sessionId,
+                geminiResponse.Length > 300 ? geminiResponse[..300] + "..." : geminiResponse);
+
+            throw new InvalidOperationException(
+                "Failed to parse conclusion mode response from Gemini (without suggestions).",
                 ex);
         }
     }

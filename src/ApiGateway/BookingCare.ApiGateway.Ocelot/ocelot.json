@@ -912,7 +912,7 @@
       "AuthenticationOptions": {
         // "AuthenticationProviderKey": "Bearer",
         "AllowedScopes": []
-      }
+      },
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ]
     },
     {

@@ -8,6 +8,7 @@ using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.Common.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace BookingCare.Services.AI.Controllers;
 
@@ -130,6 +131,264 @@ public class SymptomAnalysisController : BaseApiController
                 message = $"An unexpected error occurred: {ex.Message}",
                 timestamp = DateTime.UtcNow,
                 error = ex.InnerException?.Message ?? ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Analyze symptoms với SSE streaming cho phần message của AI.
+    /// Server sẽ:
+    /// 1. Xử lý request bình thường (gọi AnalyzeSymptomsAsync)
+    /// 2. Sau khi có SymptomAnalysisResponse, stream dần nội dung Message xuống client theo từng chunk nhỏ.
+    /// 3. Ở cuối cùng gửi event 'done' kèm full payload response để FE có đủ metadata (disease, questions, ...).
+    ///
+    /// Lưu ý: Endpoint này vẫn xử lý xong phía BE rồi mới stream message,
+    /// nên phù hợp với việc "gõ từng chữ" thật sự từ server, còn LLM vẫn gọi theo cách hiện tại.
+    /// </summary>
+    [HttpPost("analyze/stream")]
+    [Authorize(Policy = "Role:Patient")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task StreamAnalyzeSymptoms([FromBody] SymptomAnalysisRequest request)
+    {
+        HttpContext.Response.Headers.Add("Content-Type", "text/event-stream");
+        HttpContext.Response.Headers.Add("Cache-Control", "no-cache");
+        HttpContext.Response.Headers.Add("Connection", "keep-alive");
+
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                var errorPayload = new
+                {
+                    type = "error",
+                    message = "Invalid request data",
+                    errors,
+                    timestamp = DateTime.UtcNow
+                };
+
+                await HttpContext.Response.WriteAsync(
+                    $"data: {JsonSerializer.Serialize(errorPayload)}\n\n");
+                await HttpContext.Response.Body.FlushAsync();
+                return;
+            }
+
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            request.UserId = accountId;
+
+            _logger.LogInformation(
+                "Streaming analyze symptoms for user: {UserId}, session: {SessionId}, message: {MessagePreview}",
+                accountId,
+                request.SessionId,
+                request.Message?.Substring(0, Math.Min(request.Message.Length, 50)));
+
+            var result = await _symptomAnalysisService.AnalyzeSymptomsWithStreamingAsync(
+                request,
+                async chunk =>
+                {
+                    var chunkPayload = new
+                    {
+                        type = "chunk",
+                        content = chunk
+                    };
+
+                    await HttpContext.Response.WriteAsync(
+                        $"data: {JsonSerializer.Serialize(chunkPayload)}\n\n");
+                    await HttpContext.Response.Body.FlushAsync();
+                },
+                HttpContext.RequestAborted);
+
+            // Gửi event 'done' với full payload SymptomAnalysisResponse để FE cập nhật metadata
+            var donePayload = new
+            {
+                type = "done",
+                data = result
+            };
+
+            await HttpContext.Response.WriteAsync(
+                $"data: {JsonSerializer.Serialize(donePayload)}\n\n");
+            await HttpContext.Response.Body.FlushAsync();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access attempt (stream): {Message}", ex.Message);
+
+            var errorPayload = new
+            {
+                type = "error",
+                message = ex.Message,
+                timestamp = DateTime.UtcNow
+            };
+
+            await HttpContext.Response.WriteAsync(
+                $"data: {JsonSerializer.Serialize(errorPayload)}\n\n");
+            await HttpContext.Response.Body.FlushAsync();
+        }
+        catch (SymptomAnalysisException ex)
+        {
+            _logger.LogError(ex, "Symptom analysis error (stream): {Message}", ex.Message);
+
+            var errorPayload = new
+            {
+                type = "error",
+                message = $"An error occurred while analyzing symptoms: {ex.Message}",
+                detail = ex.InnerException?.Message ?? ex.Message,
+                timestamp = DateTime.UtcNow
+            };
+
+            await HttpContext.Response.WriteAsync(
+                $"data: {JsonSerializer.Serialize(errorPayload)}\n\n");
+            await HttpContext.Response.Body.FlushAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during streaming symptom analysis: {Message}", ex.Message);
+
+            var errorPayload = new
+            {
+                type = "error",
+                message = $"An unexpected error occurred: {ex.Message}",
+                detail = ex.InnerException?.Message ?? ex.Message,
+                timestamp = DateTime.UtcNow
+            };
+
+            await HttpContext.Response.WriteAsync(
+                $"data: {JsonSerializer.Serialize(errorPayload)}\n\n");
+            await HttpContext.Response.Body.FlushAsync();
+        }
+    }
+
+    /// <summary>
+    /// Analyze symptoms nhưng chỉ trả về phần KẾT LUẬN (disease, advice, specialties).
+    /// Không kèm danh sách bác sĩ/bệnh viện gợi ý để FE có thể hiển thị kết luận trước cho nhanh.
+    /// </summary>
+    [HttpPost("analyze/conclusion")]
+    [Authorize(Policy = "Role:Patient")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(ApiResponse<SymptomAnalysisResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> AnalyzeSymptomsConclusionOnly([FromBody] SymptomAnalysisRequest request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Invalid request data",
+                    errors,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+            request.UserId = accountId;
+
+            _logger.LogInformation(
+                "Conclusion-only analysis for user: {UserId}, session: {SessionId}, message: {Message}",
+                accountId,
+                request.SessionId,
+                request.Message?.Substring(0, Math.Min(request.Message.Length, 50)));
+
+            var result = await _symptomAnalysisService.AnalyzeSymptomsConclusionOnlyAsync(request);
+
+            return Success(result, "Symptom conclusion generated successfully");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access attempt (conclusion-only): {Message}", ex.Message);
+            return Unauthorized(new
+            {
+                success = false,
+                message = ex.Message,
+                timestamp = DateTime.UtcNow
+            });
+        }
+        catch (SymptomAnalysisException ex)
+        {
+            _logger.LogError(ex, "Symptom conclusion error: {Message}. StackTrace: {StackTrace}",
+                ex.Message, ex.StackTrace);
+            _logger.LogError(ex.InnerException, "Inner exception (conclusion-only): {Message}", ex.InnerException?.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = $"An error occurred while generating symptom conclusion: {ex.Message}",
+                timestamp = DateTime.UtcNow,
+                error = ex.InnerException?.Message ?? ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during conclusion-only analysis: {Message}. StackTrace: {StackTrace}",
+                ex.Message, ex.StackTrace);
+            _logger.LogError(ex.InnerException, "Inner exception (conclusion-only): {Message}", ex.InnerException?.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = $"An unexpected error occurred: {ex.Message}",
+                timestamp = DateTime.UtcNow,
+                error = ex.InnerException?.Message ?? ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Lấy gợi ý bác sĩ/bệnh viện dựa trên danh sách chuyên khoa + vị trí.
+    /// Dùng sau khi đã có kết luận từ API kết luận nhanh.
+    /// </summary>
+    [HttpPost("analyze/suggestions")]
+    [AllowAnonymous]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetSuggestions([FromBody] SymptomSuggestionRequest request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values
+                    .SelectMany(v => v.Errors)
+                    .Select(e => e.ErrorMessage)
+                    .ToList();
+
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Invalid request data",
+                    errors,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+
+            var (doctors, hospitals) = await _symptomAnalysisService.GetSuggestionsAsync(request);
+
+            return Success(new
+            {
+                doctors,
+                hospitals
+            }, "Suggestions retrieved successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting suggestions: {Message}", ex.Message);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = $"Failed to retrieve suggestions: {ex.Message}",
+                timestamp = DateTime.UtcNow
             });
         }
     }

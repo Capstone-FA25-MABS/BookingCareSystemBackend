@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using BookingCare.Services.AI.Configuration;
@@ -116,6 +117,38 @@ public class GeminiApiHelper
         throw new InvalidOperationException(
             $"Failed to call Gemini API with all models (tried: {string.Join(", ", modelsToTry)}). Last error: {lastException?.Message}",
             lastException);
+    }
+
+    /// <summary>
+    /// Gọi Gemini API ở chế độ "stream" nhưng hiện tại dùng call đồng bộ bên dưới,
+    /// sau đó trả về IAsyncEnumerable gồm 1 chunk duy nhất (full text).
+    /// BE/FE có thể tự chia nhỏ chunk này để hiển thị hiệu ứng gõ từng chữ.
+    /// </summary>
+    public IAsyncEnumerable<string> CallGeminiApiStreamAsync(
+        string prompt,
+        ServiceGeminiConfiguration serviceConfig,
+        double? temperature = null,
+        int? maxOutputTokens = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        return CallGeminiApiStreamFallbackAsync(prompt, serviceConfig, temperature, maxOutputTokens, cancellationToken);
+    }
+
+    private async IAsyncEnumerable<string> CallGeminiApiStreamFallbackAsync(
+        string prompt,
+        ServiceGeminiConfiguration serviceConfig,
+        double? temperature,
+        int? maxOutputTokens,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var text = await CallGeminiApiAsync(
+            prompt,
+            serviceConfig,
+            temperature,
+            maxOutputTokens,
+            cancellationToken);
+
+        yield return text;
     }
 
     /// <summary>
@@ -363,6 +396,22 @@ public class GeminiApiHelper
             serviceConfig,
             temperature: null, // Use default from common config
             maxOutputTokens: null, // Use default from common config
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Helper method để gọi Gemini streaming API với temperature/maxTokens mặc định.
+    /// </summary>
+    public IAsyncEnumerable<string> CallGeminiApiStreamWithDefaultsAsync(
+        string prompt,
+        ServiceGeminiConfiguration serviceConfig,
+        CancellationToken cancellationToken = default)
+    {
+        return CallGeminiApiStreamAsync(
+            prompt,
+            serviceConfig,
+            temperature: null,
+            maxOutputTokens: null,
             cancellationToken: cancellationToken);
     }
 }
