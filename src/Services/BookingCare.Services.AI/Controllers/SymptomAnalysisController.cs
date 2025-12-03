@@ -150,9 +150,9 @@ public class SymptomAnalysisController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task StreamAnalyzeSymptoms([FromBody] SymptomAnalysisRequest request)
     {
-        HttpContext.Response.Headers.Add("Content-Type", "text/event-stream");
-        HttpContext.Response.Headers.Add("Cache-Control", "no-cache");
-        HttpContext.Response.Headers.Add("Connection", "keep-alive");
+        HttpContext.Response.Headers.Append("Content-Type", "text/event-stream");
+        HttpContext.Response.Headers.Append("Cache-Control", "no-cache");
+        HttpContext.Response.Headers.Append("Connection", "keep-alive");
 
         try
         {

@@ -156,9 +156,16 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
             // Step 5: Call Gemini API
+            // 3 câu hỏi: giới hạn MaxTokens thấp hơn để trả lời nhanh hơn (vd 2000)
+            // Kết luận: dùng MaxTokens cao hơn (vd 4000) để có phân tích chi tiết
+            int? maxTokens = isConclusionMode
+                ? _serviceConfig.MaxTokens // ví dụ 4000 từ cấu hình SymptomAnalysis.MaxTokens
+                : 2000;
+
             string geminiResponse = await GenerateGeminiResponseAsync(
                 prompt,
                 onStreamChunk,
+                maxTokens,
                 cancellationToken);
             _logger.LogDebug("Gemini response: {Response}", geminiResponse);
 
@@ -301,9 +308,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 conversationHistory,
                 specialtyListTask);
 
+            var conclusionMaxTokens = _serviceConfig.MaxTokens; // ví dụ 4000 cho kết luận
             string geminiResponse = await GenerateGeminiResponseAsync(
                 prompt,
                 null,
+                conclusionMaxTokens,
                 CancellationToken.None);
 
             // Parse nhưng KHÔNG gọi RecommendationHelper.GetRecommendationsAsync
@@ -475,33 +484,33 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
 
-    /// <summary>
-    /// Call Gemini API with retry logic using GeminiApiHelper (non-streaming)
-    /// </summary>
-    private async Task<string> CallGeminiApiAsync(string prompt, CancellationToken cancellationToken)
-    {
-        return await _geminiApiHelper.CallGeminiApiWithDefaultsAsync(
-            prompt,
-            _serviceConfig,
-            cancellationToken);
-    }
-
-
     private async Task<string> GenerateGeminiResponseAsync(
         string prompt,
         Func<string, Task>? onStreamChunk,
+        int? maxTokens,
         CancellationToken cancellationToken)
     {
         if (onStreamChunk == null)
         {
-            return await CallGeminiApiAsync(prompt, cancellationToken);
+            // Non-streaming: gọi trực tiếp Gemini với maxTokens được truyền vào
+            return await _geminiApiHelper.CallGeminiApiAsync(
+                prompt,
+                _serviceConfig,
+                temperature: null,
+                maxOutputTokens: maxTokens,
+                cancellationToken: cancellationToken);
         }
 
         var builder = new StringBuilder();
 
         await foreach (var chunk in _geminiApiHelper
-                       .CallGeminiApiStreamWithDefaultsAsync(prompt, _serviceConfig, cancellationToken)
-                       .WithCancellation(cancellationToken))
+                           .CallGeminiApiStreamAsync(
+                               prompt,
+                               _serviceConfig,
+                               temperature: null,
+                               maxOutputTokens: maxTokens,
+                               cancellationToken: cancellationToken)
+                           .WithCancellation(cancellationToken))
         {
             builder.Append(chunk);
 
