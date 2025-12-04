@@ -103,7 +103,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Paginated list of appointments with enriched data based on user role</returns>
     [HttpPost("management")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Admin,Staff,Doctor")]
+    [Authorize(Policy = "Role:Admin,Staff,Doctor")]
     public async Task<IActionResult> GetAppointmentsForManagement(
         [FromBody] AppointmentQueryRequest query
     )

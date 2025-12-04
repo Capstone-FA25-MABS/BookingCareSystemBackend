@@ -20,22 +20,48 @@ public class FcmV1Service
         _opt = opt.Value ?? throw new FcmConfigurationException($"FCM options configuration is null: {nameof(opt)}");
         _logger = logger;
 
-        if (string.IsNullOrEmpty(_opt.ServiceAccountPath))
-            throw new FcmConfigurationException("ServiceAccountPath not configured in appsettings.json");
-
         if (string.IsNullOrEmpty(_opt.ProjectId))
             throw new FcmConfigurationException("ProjectId not configured in appsettings.json");
 
-        // Load GoogleCredential from json file
-        try
+        // Load GoogleCredential: prioritize JSON string over file path
+        _credential = LoadGoogleCredential();
+    }
+
+    private GoogleCredential LoadGoogleCredential()
+    {
+        const string scope = "https://www.googleapis.com/auth/cloud-platform";
+
+        // Priority 1: Load from JSON string (for production/AWS deployment)
+        if (!string.IsNullOrWhiteSpace(_opt.ServiceAccountJson))
         {
-            _credential = GoogleCredential.FromFile(_opt.ServiceAccountPath)
-                .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+            try
+            {
+                _logger.LogInformation("Loading FCM credentials from ServiceAccountJson");
+                return GoogleCredential.FromJson(_opt.ServiceAccountJson)
+                    .CreateScoped(scope);
+            }
+            catch (Exception ex)
+            {
+                throw new FcmConfigurationException("Failed to load FCM credentials from ServiceAccountJson", ex);
+            }
         }
-        catch (Exception ex)
+
+        // Priority 2: Load from file path (for local development)
+        if (!string.IsNullOrWhiteSpace(_opt.ServiceAccountPath))
         {
-            throw new FcmConfigurationException($"Failed to load FCM service account file from '{_opt.ServiceAccountPath}'", ex);
+            try
+            {
+                _logger.LogInformation("Loading FCM credentials from file: {Path}", _opt.ServiceAccountPath);
+                return GoogleCredential.FromFile(_opt.ServiceAccountPath)
+                    .CreateScoped(scope);
+            }
+            catch (Exception ex)
+            {
+                throw new FcmConfigurationException($"Failed to load FCM service account file from '{_opt.ServiceAccountPath}'", ex);
+            }
         }
+
+        throw new FcmConfigurationException("FCM credentials not configured. Provide either ServiceAccountJson or ServiceAccountPath in appsettings.json");
     }
 
     private async Task<string> GetAccessTokenAsync()

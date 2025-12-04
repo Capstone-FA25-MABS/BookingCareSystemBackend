@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Doctor.Migrations
 {
     [DbContext(typeof(DoctorDbContext))]
-    [Migration("20251111154239_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251203034141_AddInitDatabase")]
+    partial class AddInitDatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
