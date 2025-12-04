@@ -54,7 +54,7 @@ public class GeminiTranscriptionService : IGeminiTranscriptionService
 
         // Get API key from configuration
         _apiKey =
-            configuration["Gemini:ApiKey"]
+            configuration["GeminiServices:MedicalSummary:ApiKey"]
             ?? throw new InvalidOperationException("Gemini API key not configured");
 
         // Use base endpoint without version - will try multiple endpoints

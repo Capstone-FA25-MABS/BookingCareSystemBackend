@@ -129,7 +129,7 @@ public class AIService : IAIService
         // Medical sections
         AppendMedicalSection(
             promptBuilder,
-            "🩺 TRIỆU CHỨNG",
+            "TRIỆU CHỨNG",
             "Mô tả các triệu chứng chính mà bệnh nhân trình bày:",
             new[]
             {
@@ -140,7 +140,7 @@ public class AIService : IAIService
 
         AppendMedicalSection(
             promptBuilder,
-            "📜 TIỀN SỬ BỆNH",
+            "TIỀN SỬ BỆNH",
             "Thông tin về tiền sử bệnh lý có liên quan:",
             new[]
             {
@@ -152,7 +152,7 @@ public class AIService : IAIService
 
         AppendMedicalSection(
             promptBuilder,
-            "🔍 KHÁM LÂM SÀNG",
+            "KHÁM LÂM SÀNG",
             "Kết quả khám lâm sàng:",
             new[]
             {
@@ -162,14 +162,14 @@ public class AIService : IAIService
         );
 
         // Diagnosis section (slightly different format)
-        AppendSectionHeader(promptBuilder, "💊 CHẨN ĐOÁN SƠ BỘ");
+        AppendSectionHeader(promptBuilder, "CHẨN ĐOÁN SƠ BỘ");
         promptBuilder.AppendLine("**Chẩn đoán:** [Ghi rõ chẩn đoán của bác sĩ]");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**Đánh giá:** [Mức độ nghiêm trọng, tiên lượng]");
         AppendSectionSeparator(promptBuilder);
 
         // Treatment section with subsections
-        AppendSectionHeader(promptBuilder, "💉 HƯỚNG XỬ TRÍ");
+        AppendSectionHeader(promptBuilder, "HƯỚNG XỬ TRÍ");
         promptBuilder.AppendLine("### Đơn thuốc:");
         promptBuilder.AppendLine("1. [Tên thuốc] - [Liều lượng] - [Cách dùng]");
         promptBuilder.AppendLine("2. [Tên thuốc] - [Liều lượng] - [Cách dùng]");
@@ -181,7 +181,7 @@ public class AIService : IAIService
 
         AppendMedicalSection(
             promptBuilder,
-            "⚠️ LƯU Ý ĐẶC BIỆT",
+            "LƯU Ý ĐẶC BIỆT",
             null,
             new[]
             {
