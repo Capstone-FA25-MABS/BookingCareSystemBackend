@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Doctor.Models.DTOs.Requests;
@@ -34,10 +35,14 @@ public abstract class BaseDoctorRequest
 
     [StringLength(50, MinimumLength = 2, ErrorMessage = "First name must be between 2 and 50 characters")]
     [RegularExpression(@"^[\p{L}\p{M}\s\-']+$", ErrorMessage = "First name can only contain letters (including accents), spaces, hyphens, and apostrophes")]
+    [JsonIgnore] // Ignore in JSON serialization
+    [BindNever] // Ignore in form binding and Swagger schema generation to avoid ambiguous match
     public string? FirstName { get; set; }
 
     [StringLength(50, MinimumLength = 2, ErrorMessage = "Last name must be between 2 and 50 characters")]
     [RegularExpression(@"^[\p{L}\p{M}\s\-']+$", ErrorMessage = "Last name can only contain letters (including accents), spaces, hyphens, and apostrophes")]
+    [JsonIgnore] // Ignore in JSON serialization
+    [BindNever] // Ignore in form binding and Swagger schema generation to avoid ambiguous match
     public string? LastName { get; set; }
 
     [EnumDataType(typeof(Gender), ErrorMessage = "Gender must be one of: MALE, FEMALE, OTHER")]
@@ -52,6 +57,8 @@ public abstract class BaseDoctorRequest
     public string? Bio { get; set; }
 
     [Range(0, 80, ErrorMessage = "Years of experience must be between 0 and 80")]
+    [JsonIgnore] // Ignore in JSON serialization
+    [BindNever] // Ignore in form binding and Swagger schema generation to avoid ambiguous match
     public int? YearsOfExperience { get; set; }
 
     [Url(ErrorMessage = "Invalid URL format")]
