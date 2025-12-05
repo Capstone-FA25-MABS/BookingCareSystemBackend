@@ -123,15 +123,11 @@ public class PaymentGrpcService : PaymentService.PaymentServiceBase
                 };
             }
 
-            // Parse appointment IDs
-            var appointmentIds = new List<Guid>();
-            foreach (var appointmentId in request.AppointmentIds)
-            {
-                if (Guid.TryParse(appointmentId, out var parsedId))
-                {
-                    appointmentIds.Add(parsedId);
-                }
-            }
+            // Parse and validate appointment IDs
+            var appointmentIds = request
+                .AppointmentIds.Where(id => Guid.TryParse(id, out _))
+                .Select(id => Guid.Parse(id))
+                .ToList();
 
             if (appointmentIds.Count == 0)
             {

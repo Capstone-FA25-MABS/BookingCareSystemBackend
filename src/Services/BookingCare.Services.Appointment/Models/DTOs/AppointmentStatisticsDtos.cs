@@ -1,4 +1,5 @@
 using BookingCare.Shared.Common.Enums;
+using System.Text.Json.Serialization;
 
 namespace BookingCare.Services.Appointment.Models.DTOs;
 
@@ -26,6 +27,7 @@ public class GetAppointmentStatisticsRequest
     /// <summary>
     /// Hospital ID (required for Staff role - staff can only see their hospital's statistics)
     /// </summary>
+    [JsonRequired]
     public Guid HospitalId { get; set; }
 
     /// <summary>

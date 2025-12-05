@@ -5223,7 +5223,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 {
                     throw new ArgumentException(
                         "HospitalId is required",
-                        nameof(request.HospitalId)
+                        nameof(request)
                     );
                 }
 
