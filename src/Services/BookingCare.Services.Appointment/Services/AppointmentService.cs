@@ -5221,10 +5221,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 ValidateRequired(request, nameof(request));
                 if (request.HospitalId == Guid.Empty)
                 {
-                    throw new ArgumentException(
-                        "HospitalId is required",
-                        nameof(request)
-                    );
+                    throw new ArgumentException("HospitalId is required");
                 }
 
                 // Query to get COMPLETED appointments for the hospital
