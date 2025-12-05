@@ -12,9 +12,12 @@ public abstract class BaseDoctorQueryRequest
     public string? ServiceType { get; set; }
     [JsonPropertyName("serviceTypes")]
     public List<string>? ServiceTypes { get; set; } // Support multiple service type filters
+    public Guid? LanguageId { get; set; }
     public string? Language { get; set; }
     [JsonPropertyName("languages")]
     public List<string>? Languages { get; set; } // Support multiple language filters
+    [JsonPropertyName("languageIds")]
+    public List<Guid>? LanguageIds { get; set; } // Support multiple language filters by ID
     public double? MinRating { get; set; }
     [JsonPropertyName("minRatings")]
     public List<double>? MinRatings { get; set; } // Support multiple rating filters
