@@ -37,7 +37,12 @@ public class AppointmentResponse
     /// </summary>
     public decimal? Amount { get; set; }
 
-    // Payment information from gRPC call (deprecated - use Amount instead)
+    /// <summary>
+    /// Remaining payment amount for Staff role (Amount - Deposit from Payment)
+    /// This field is only populated for Staff users to show how much the patient still needs to pay
+    /// Calculation: Amount (total fee) - Payment.Amount (deposit already paid)
+    /// For other roles (Admin, Doctor, Patient), this field remains null
+    /// </summary>
     public decimal? ConsultationFees { get; set; }
 
     // Cancellation information

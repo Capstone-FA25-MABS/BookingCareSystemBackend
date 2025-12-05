@@ -83,20 +83,35 @@ public interface IAppointmentService
         bool checkAvailability = true
     );
 
-    Task<StaffHospitalStatisticsResponse> GetHospitalStaffStatisticsAsync(StaffHospitalStatisticsRequest request);
+    Task<StaffHospitalStatisticsResponse> GetHospitalStaffStatisticsAsync(
+        StaffHospitalStatisticsRequest request
+    );
+
+    /// <summary>
+    /// Get appointment revenue statistics for hospital staff dashboard
+    /// Shows revenue from COMPLETED appointments only
+    /// If FromDate/ToDate not provided: default to last 6 months and monthly statistics
+    /// </summary>
+    Task<AppointmentStatisticsResponse> GetAppointmentStatisticsAsync(
+        GetAppointmentStatisticsRequest request
+    );
 
     /// <summary>
     /// Get doctors for assignment flow (hospital staff assigns doctor to pending specialty appointment)
     /// Returns recommended doctors (sorted by experience, rating, booking count) and previous doctors
     /// </summary>
-    Task<DoctorsForAssignmentResponse> GetDoctorsForAssignmentAsync(GetDoctorsForAssignmentRequest request);
+    Task<DoctorsForAssignmentResponse> GetDoctorsForAssignmentAsync(
+        GetDoctorsForAssignmentRequest request
+    );
 
     /// <summary>
     /// Assign doctor to a pending specialty appointment (NEW flow for "Hospital assigns doctor")
     /// This directly assigns the doctor and confirms the appointment
     /// Different from AssignNewDoctorAsync which is for cancel/reschedule flow
     /// </summary>
-    Task<AssignDoctorToAppointmentResponse> AssignDoctorToAppointmentAsync(AssignDoctorToAppointmentRequest request);
+    Task<AssignDoctorToAppointmentResponse> AssignDoctorToAppointmentAsync(
+        AssignDoctorToAppointmentRequest request
+    );
 
     // Validation operations
     Task<bool> ValidateAppointmentAsync(CreateAppointmentRequest request);

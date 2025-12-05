@@ -21,6 +21,11 @@ public interface IPaymentRepository
     Task<PaymentEntity?> GetByAppointmentIdAsync(Guid appointmentId);
 
     /// <summary>
+    /// Get payments by multiple appointment IDs (batch operation)
+    /// </summary>
+    Task<List<PaymentEntity>> GetByAppointmentIdsAsync(List<Guid> appointmentIds);
+
+    /// <summary>
     /// Get payment by subscription ID
     /// </summary>
     Task<PaymentEntity?> GetBySubscriptionIdAsync(Guid subscriptionId);
