@@ -9,9 +9,7 @@ public class DiscountResponse
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public Guid ClinicId { get; set; }
-    public Guid? SpecialtyId { get; set; }
-    public Guid? DoctorId { get; set; }
+    public Guid HospitalId { get; set; }
     public DiscountApplicableTo ApplicableTo { get; set; }
     public decimal Amount { get; set; }
     public DiscountType DiscountType { get; set; }
@@ -55,9 +53,7 @@ public class DiscountListResponse
 // Query DTOs
 public class DiscountQueryRequest
 {
-    public Guid? ClinicId { get; set; }
-    public Guid? SpecialtyId { get; set; }
-    public Guid? DoctorId { get; set; }
+    public Guid? HospitalId { get; set; }
     public DiscountStatus? Status { get; set; }
     public DiscountApplicableTo? ApplicableTo { get; set; }
     public string? SearchTerm { get; set; }

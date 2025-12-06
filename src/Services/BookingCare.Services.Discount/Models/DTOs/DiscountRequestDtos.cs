@@ -19,11 +19,7 @@ public class CreateDiscountRequest
     public string? Description { get; set; }
 
     [Required]
-    public Guid ClinicId { get; set; }
-
-    public Guid? SpecialtyId { get; set; }
-
-    public Guid? DoctorId { get; set; }
+    public Guid HospitalId { get; set; }
 
     [Required]
     public DiscountApplicableTo ApplicableTo { get; set; } = DiscountApplicableTo.ALL;
@@ -75,7 +71,7 @@ public class ValidateDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    public Guid ClinicId { get; set; }
+    public Guid HospitalId { get; set; }
 
     public Guid? SpecialtyId { get; set; }
 
@@ -93,11 +89,7 @@ public class UseDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    public Guid ClinicId { get; set; }
-
-    public Guid? SpecialtyId { get; set; }
-
-    public Guid? DoctorId { get; set; }
+    public Guid HospitalId { get; set; }
 
     [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
@@ -111,7 +103,7 @@ public class RevertDiscountUsageRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    public Guid ClinicId { get; set; }
+    public Guid HospitalId { get; set; }
 }
 
 public class CalculateDiscountRequest
@@ -125,9 +117,5 @@ public class CalculateDiscountRequest
     public decimal OriginalAmount { get; set; }
 
     [Required]
-    public Guid ClinicId { get; set; }
-
-    public Guid? SpecialtyId { get; set; }
-
-    public Guid? DoctorId { get; set; }
+    public Guid HospitalId { get; set; }
 }

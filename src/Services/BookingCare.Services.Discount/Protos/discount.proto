@@ -18,7 +18,7 @@ service DiscountService {
   // Calculate discount amount
   rpc CalculateDiscountAmount (CalculateDiscountAmountRequest) returns (CalculateDiscountAmountResponse);
   
-  // Get applicable discounts for clinic/specialty/doctor
+  // Get applicable discounts for hospital/specialty/doctor
   rpc GetApplicableDiscounts (GetApplicableDiscountsRequest) returns (GetApplicableDiscountsResponse);
   
   // Check if discount is valid
@@ -28,7 +28,7 @@ service DiscountService {
 // Messages for discount validation
 message ValidateDiscountRequest {
   string code = 1;
-  string clinic_id = 2;
+  string hospital_id = 2;
   optional string specialty_id = 3;
   optional string doctor_id = 4;
   double total_amount = 5;
@@ -45,7 +45,7 @@ message ValidateDiscountResponse {
 // Messages for discount usage
 message UseDiscountRequest {
   string code = 1;
-  string clinic_id = 2;
+  string hospital_id = 2;
   optional string specialty_id = 3;
   optional string doctor_id = 4;
   double total_amount = 5;
@@ -63,7 +63,7 @@ message UseDiscountResponse {
 // Messages for reverting discount usage
 message RevertDiscountUsageRequest {
   string code = 1;
-  string clinic_id = 2;
+  string hospital_id = 2;
 }
 
 message RevertDiscountUsageResponse {
@@ -75,7 +75,7 @@ message RevertDiscountUsageResponse {
 message CalculateDiscountAmountRequest {
   string code = 1;
   double original_amount = 2;
-  string clinic_id = 3;
+  string hospital_id = 3;
   optional string specialty_id = 4;
   optional string doctor_id = 5;
 }
@@ -88,7 +88,7 @@ message CalculateDiscountAmountResponse {
 
 // Messages for getting applicable discounts
 message GetApplicableDiscountsRequest {
-  string clinic_id = 1;
+  string hospital_id = 1;
   optional string specialty_id = 2;
   optional string doctor_id = 3;
 }
@@ -100,7 +100,7 @@ message GetApplicableDiscountsResponse {
 // Messages for checking discount validity
 message IsDiscountValidRequest {
   string code = 1;
-  string clinic_id = 2;
+  string hospital_id = 2;
   optional string specialty_id = 3;
   optional string doctor_id = 4;
 }
@@ -115,7 +115,7 @@ message DiscountInfo {
   string code = 2;
   string name = 3;
   string description = 4;
-  string clinic_id = 5;
+  string hospital_id = 5;
   optional string specialty_id = 6;
   optional string doctor_id = 7;
   string applicable_to = 8;

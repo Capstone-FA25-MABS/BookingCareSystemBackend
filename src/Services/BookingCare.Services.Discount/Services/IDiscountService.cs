@@ -13,20 +13,35 @@ public interface IDiscountService
 
     // Query operations
     Task<DiscountListResponse> GetDiscountsAsync(DiscountQueryRequest query);
-    Task<List<DiscountResponse>> GetActiveDiscountsByClinicAsync(Guid clinicId);
-    Task<List<DiscountResponse>> GetApplicableDiscountsAsync(Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
+    Task<List<DiscountResponse>> GetActiveDiscountsByHospitalAsync(Guid hospitalId);
+    Task<List<DiscountResponse>> GetApplicableDiscountsAsync(
+        Guid hospitalId,
+        Guid? specialtyId = null,
+        Guid? doctorId = null
+    );
 
     // Validation and usage operations
     Task<DiscountValidationResponse> ValidateDiscountAsync(ValidateDiscountRequest request);
     Task<DiscountUsageResponse> UseDiscountAsync(UseDiscountRequest request);
-    Task<bool> RevertDiscountUsageAsync(string code, Guid clinicId);
+    Task<bool> RevertDiscountUsageAsync(string code, Guid hospitalId);
 
     // Administrative operations
     Task<bool> ActivateDiscountAsync(Guid id);
     Task<bool> DeactivateDiscountAsync(Guid id);
     Task<int> UpdateExpiredDiscountsAsync();
-    Task<bool> IsDiscountValidAsync(string code, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
+    Task<bool> IsDiscountValidAsync(
+        string code,
+        Guid hospitalId,
+        Guid? specialtyId = null,
+        Guid? doctorId = null
+    );
 
     // Calculation helpers
-    Task<decimal> CalculateDiscountAmountAsync(string code, decimal originalAmount, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
+    Task<decimal> CalculateDiscountAmountAsync(
+        string code,
+        decimal originalAmount,
+        Guid hospitalId,
+        Guid? specialtyId = null,
+        Guid? doctorId = null
+    );
 }

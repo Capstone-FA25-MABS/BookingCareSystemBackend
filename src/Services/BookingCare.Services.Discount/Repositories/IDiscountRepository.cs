@@ -16,10 +16,21 @@ public interface IDiscountRepository
     Task<bool> CodeExistsAsync(string code, Guid? excludeId = null);
 
     // Query operations
-    Task<(List<DiscountEntity> Discounts, int TotalCount)> GetDiscountsAsync(DiscountQueryRequest query);
-    Task<List<DiscountEntity>> GetActiveDiscountsByClinicAsync(Guid clinicId);
-    Task<List<DiscountEntity>> GetApplicableDiscountsAsync(Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
-    Task<DiscountEntity?> GetValidDiscountAsync(string code, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null);
+    Task<(List<DiscountEntity> Discounts, int TotalCount)> GetDiscountsAsync(
+        DiscountQueryRequest query
+    );
+    Task<List<DiscountEntity>> GetActiveDiscountsByHospitalAsync(Guid hospitalId);
+    Task<List<DiscountEntity>> GetApplicableDiscountsAsync(
+        Guid hospitalId,
+        Guid? specialtyId = null,
+        Guid? doctorId = null
+    );
+    Task<DiscountEntity?> GetValidDiscountAsync(
+        string code,
+        Guid hospitalId,
+        Guid? specialtyId = null,
+        Guid? doctorId = null
+    );
 
     // Usage operations
     Task<bool> IncrementUsageAsync(Guid discountId);

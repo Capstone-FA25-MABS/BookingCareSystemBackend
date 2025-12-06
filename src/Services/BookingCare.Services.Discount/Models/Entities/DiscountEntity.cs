@@ -26,14 +26,8 @@ public class DiscountEntity
     public string? Description { get; set; }
 
     [Required]
-    [Column("clinic_id")]
-    public Guid ClinicId { get; set; }
-
-    [Column("specialty_id")]
-    public Guid? SpecialtyId { get; set; }
-
-    [Column("doctor_id")]
-    public Guid? DoctorId { get; set; }
+    [Column("hospital_id")]
+    public Guid HospitalId { get; set; }
 
     [MaxLength(20)]
     [Column("applicable_to")]
