@@ -78,6 +78,13 @@ public class PaymentEntity
     public string? PaymentIntentId { get; set; }
 
     /// <summary>
+    /// Discount ID applied to this payment (nullable)
+    /// Tracks which discount was used for this transaction
+    /// </summary>
+    [Column("discount_id")]
+    public Guid? DiscountId { get; set; }
+
+    /// <summary>
     /// ID of the hospital payout this payment belongs to (nullable)
     /// Used to track which payout has included this payment to prevent duplicate payouts
     /// </summary>

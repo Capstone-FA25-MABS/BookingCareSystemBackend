@@ -21,7 +21,6 @@ public class DiscountMappingProfile : Profile
         CreateMap<UpdateDiscountRequest, DiscountEntity>()
             .ForMember(dest => dest.Code, opt => opt.Ignore())
             .ForMember(dest => dest.HospitalId, opt => opt.Ignore())
-            .ForMember(dest => dest.ApplicableTo, opt => opt.Ignore())
             .ForMember(dest => dest.DiscountType, opt => opt.Ignore())
             .ForMember(dest => dest.UsesCount, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())

@@ -53,6 +53,16 @@ public class PaymentResponse
     public string PaymentMethodName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Hospital ID
+    /// </summary>
+    public Guid? HospitalId { get; set; }
+
+    /// <summary>
+    /// Discount ID (if discount was applied)
+    /// </summary>
+    public Guid? DiscountId { get; set; }
+
+    /// <summary>
     /// Payment status
     /// </summary>
     public PaymentStatus Status { get; set; }

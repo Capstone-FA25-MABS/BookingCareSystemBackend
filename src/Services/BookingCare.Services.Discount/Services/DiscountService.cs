@@ -452,18 +452,6 @@ public class DiscountService : BaseService, IDiscountService
 
     private static void ValidateCreateDiscountRequest(CreateDiscountRequest request)
     {
-        // Validate applicable_to and related fields
-        switch (request.ApplicableTo)
-        {
-            case DiscountApplicableTo.ALL:
-                // No additional validation needed
-                break;
-            default:
-                throw new DiscountValidationException(
-                    "ApplicableTo must be one of: ALL, SPECIALTY, DOCTOR"
-                );
-        }
-
         // Validate discount type
         if (
             request.DiscountType != DiscountType.PERCENTAGE

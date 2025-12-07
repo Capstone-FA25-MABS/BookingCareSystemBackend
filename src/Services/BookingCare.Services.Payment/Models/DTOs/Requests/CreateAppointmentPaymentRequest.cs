@@ -41,4 +41,9 @@ public class CreateAppointmentPaymentRequest
     [Required]
     [JsonRequired]
     public Guid PaymentMethodId { get; set; }
+
+    /// <summary>
+    /// Discount code to apply (optional)
+    /// </summary>
+    public string? DiscountCode { get; set; }
 }

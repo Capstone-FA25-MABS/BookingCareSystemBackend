@@ -10,6 +10,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using DiscountProtos = BookingCare.Services.Discount.Protos;
 
 namespace BookingCare.Services.Payment.Controllers.Base;
 
@@ -26,13 +27,15 @@ public abstract class BasePaymentGatewayController : BaseApiController
     protected readonly FrontendOptions FrontendOptions;
     protected readonly ILogger Logger;
     protected readonly AppointmentService.AppointmentServiceClient AppointmentClient;
+    protected readonly DiscountProtos.DiscountService.DiscountServiceClient? DiscountClient;
 
     protected BasePaymentGatewayController(
         IPaymentService paymentService,
         IEventBus eventBus,
         IOptions<FrontendOptions> frontendOptions,
         ILogger logger,
-        AppointmentService.AppointmentServiceClient appointmentClient
+        AppointmentService.AppointmentServiceClient appointmentClient,
+        DiscountProtos.DiscountService.DiscountServiceClient? discountClient = null
     )
     {
         PaymentService = paymentService;
@@ -40,6 +43,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
         FrontendOptions = frontendOptions.Value;
         Logger = logger;
         AppointmentClient = appointmentClient;
+        DiscountClient = discountClient;
     }
 
     /// <summary>
@@ -151,6 +155,60 @@ public abstract class BasePaymentGatewayController : BaseApiController
                 {
                     try
                     {
+                        // If payment has discount, increment usage count via gRPC
+                        if (payment.DiscountId.HasValue && DiscountClient != null)
+                        {
+                            try
+                            {
+                                // Get full payment details to retrieve discount code
+                                var fullPayment = await PaymentService.GetByIdAsync(payment.Id);
+                                if (fullPayment != null && fullPayment.HospitalId.HasValue)
+                                {
+                                    var useDiscountRequest = new DiscountProtos.UseDiscountRequest
+                                    {
+                                        Code = fullPayment.DiscountId.ToString(), // Will need to store DiscountCode separately or retrieve from DiscountService
+                                        HospitalId = fullPayment.HospitalId.ToString()!,
+                                        TotalAmount = (double)fullPayment.Amount,
+                                    };
+
+                                    var useDiscountResponse = await DiscountClient.UseDiscountAsync(
+                                        useDiscountRequest
+                                    );
+
+                                    if (useDiscountResponse.Success)
+                                    {
+                                        Logger.LogInformation(
+                                            "{Gateway} Callback #{RequestId} - Discount usage incremented successfully for DiscountId: {DiscountId}, Remaining: {Remaining}",
+                                            gatewayName,
+                                            requestId,
+                                            payment.DiscountId,
+                                            useDiscountResponse.RemainingUses
+                                        );
+                                    }
+                                    else
+                                    {
+                                        Logger.LogWarning(
+                                            "{Gateway} Callback #{RequestId} - Failed to increment discount usage: {Message}",
+                                            gatewayName,
+                                            requestId,
+                                            useDiscountResponse.Message
+                                        );
+                                    }
+                                }
+                            }
+                            catch (Exception discountEx)
+                            {
+                                Logger.LogError(
+                                    discountEx,
+                                    "{Gateway} Callback #{RequestId} - Error incrementing discount usage for DiscountId: {DiscountId}",
+                                    gatewayName,
+                                    requestId,
+                                    payment.DiscountId
+                                );
+                                // Don't fail the payment if discount increment fails
+                            }
+                        }
+
                         var paymentSuccessEvent = new AppointmentPaymentSuccessIntegrationEvent
                         {
                             AppointmentId = appointmentId.Value,

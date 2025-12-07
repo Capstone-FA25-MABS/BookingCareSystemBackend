@@ -118,12 +118,11 @@ message DiscountInfo {
   string hospital_id = 5;
   optional string specialty_id = 6;
   optional string doctor_id = 7;
-  string applicable_to = 8;
-  double amount = 9;
-  string discount_type = 10;
-  string start_date = 11;
-  string end_date = 12;
-  optional int32 max_uses = 13;
-  int32 uses_count = 14;
-  string status = 15;
+  double amount = 8;
+  string discount_type = 9;
+  string start_date = 10;
+  string end_date = 11;
+  optional int32 max_uses = 12;
+  int32 uses_count = 13;
+  string status = 14;
 }

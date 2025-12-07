@@ -245,7 +245,6 @@ public class DiscountGrpcService : Protos.DiscountService.DiscountServiceBase
             HospitalId = discount.HospitalId.ToString(),
             SpecialtyId = "",
             DoctorId = "",
-            ApplicableTo = discount.ApplicableTo.ToString(),
             Amount = (double)discount.Amount,
             DiscountType = discount.DiscountType.ToString(),
             StartDate = discount.StartDate.ToString("yyyy-MM-ddTHH:mm:ssZ"),

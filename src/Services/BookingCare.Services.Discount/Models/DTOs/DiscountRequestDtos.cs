@@ -22,9 +22,6 @@ public class CreateDiscountRequest
     public Guid HospitalId { get; set; }
 
     [Required]
-    public DiscountApplicableTo ApplicableTo { get; set; } = DiscountApplicableTo.ALL;
-
-    [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
     public decimal Amount { get; set; }
 

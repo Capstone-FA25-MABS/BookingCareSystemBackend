@@ -29,10 +29,6 @@ public class DiscountEntity
     [Column("hospital_id")]
     public Guid HospitalId { get; set; }
 
-    [MaxLength(20)]
-    [Column("applicable_to")]
-    public DiscountApplicableTo ApplicableTo { get; set; } = DiscountApplicableTo.ALL;
-
     [Required]
     [Column("amount", TypeName = "decimal(10,2)")]
     public decimal Amount { get; set; }

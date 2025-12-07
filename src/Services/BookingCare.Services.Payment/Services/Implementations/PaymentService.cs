@@ -8,6 +8,8 @@ using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.Common.Services;
+using Grpc.Core;
+using DiscountProtos = BookingCare.Services.Discount.Protos;
 
 namespace BookingCare.Services.Payment.Services.Implementations;
 
@@ -19,12 +21,14 @@ public class PaymentService : BaseService, IPaymentService
     private readonly IPaymentRepository _paymentRepository;
     private readonly IPaymentMethodRepository _paymentMethodRepository;
     private readonly IAppointmentDetailsService _appointmentDetailsService;
+    private readonly DiscountProtos.DiscountService.DiscountServiceClient _discountGrpcClient;
     private readonly IMapper _mapper;
 
     public PaymentService(
         IPaymentRepository paymentRepository,
         IPaymentMethodRepository paymentMethodRepository,
         IAppointmentDetailsService appointmentDetailsService,
+        DiscountProtos.DiscountService.DiscountServiceClient discountGrpcClient,
         IMapper mapper,
         ILogger<PaymentService> logger
     )
@@ -33,6 +37,7 @@ public class PaymentService : BaseService, IPaymentService
         _paymentRepository = paymentRepository;
         _paymentMethodRepository = paymentMethodRepository;
         _appointmentDetailsService = appointmentDetailsService;
+        _discountGrpcClient = discountGrpcClient;
         _mapper = mapper;
     }
 
@@ -324,6 +329,72 @@ public class PaymentService : BaseService, IPaymentService
                     );
                 }
 
+                // Validate and apply discount if discount code is provided
+                Guid? discountId = null;
+                decimal finalAmount = request.Amount;
+
+                if (!string.IsNullOrWhiteSpace(request.DiscountCode))
+                {
+                    try
+                    {
+                        LogInfo(
+                            "Validating discount code: {DiscountCode} for appointment: {AppointmentId}",
+                            null,
+                            request.DiscountCode,
+                            request.AppointmentId
+                        );
+
+                        var validateRequest = new DiscountProtos.ValidateDiscountRequest
+                        {
+                            Code = request.DiscountCode,
+                            HospitalId = request.HospitalId?.ToString() ?? string.Empty,
+                            TotalAmount = (double)request.Amount,
+                        };
+
+                        var validateResponse = await _discountGrpcClient.ValidateDiscountAsync(
+                            validateRequest
+                        );
+
+                        if (!validateResponse.IsValid)
+                        {
+                            LogWarning(
+                                "Invalid discount code: {DiscountCode}. Message: {Message}",
+                                null,
+                                request.DiscountCode,
+                                validateResponse.Message
+                            );
+                            throw new ArgumentException(
+                                $"Mã giảm giá không hợp lệ: {validateResponse.Message}"
+                            );
+                        }
+
+                        finalAmount = (decimal)validateResponse.FinalAmount;
+                        if (validateResponse.Discount != null)
+                        {
+                            discountId = Guid.Parse(validateResponse.Discount.Id);
+                            LogInfo(
+                                "Discount validated successfully. DiscountId: {DiscountId}, Original: {Original}, Final: {Final}",
+                                null,
+                                discountId,
+                                request.Amount,
+                                finalAmount
+                            );
+                        }
+                    }
+                    catch (RpcException ex)
+                    {
+                        LogError(
+                            ex,
+                            "gRPC error while validating discount code: {DiscountCode}",
+                            null,
+                            request.DiscountCode
+                        );
+                        throw new InvalidOperationException(
+                            "Không thể xác thực mã giảm giá. Vui lòng thử lại sau."
+                        );
+                    }
+                }
+
                 // Business logic - Map to PaymentEntity
                 var paymentEntity = new PaymentEntity
                 {
@@ -331,9 +402,10 @@ public class PaymentService : BaseService, IPaymentService
                     PatientId = request.PatientId,
                     HospitalId = request.HospitalId,
                     SubscriptionId = null,
-                    Amount = request.Amount,
+                    Amount = finalAmount,
                     TransactionType = TransactionType.APPOINTMENT,
                     PaymentMethodId = request.PaymentMethodId,
+                    DiscountId = discountId,
                     Status = PaymentStatus.PENDING,
                     CreatedAt = DateTime.UtcNow,
                 };

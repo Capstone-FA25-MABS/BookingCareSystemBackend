@@ -85,11 +85,6 @@ public class DiscountRepository : IDiscountRepository
             queryable = queryable.Where(d => d.Status == query.Status);
         }
 
-        if (!string.IsNullOrEmpty(query.ApplicableTo.ToString()))
-        {
-            queryable = queryable.Where(d => d.ApplicableTo == query.ApplicableTo);
-        }
-
         if (!string.IsNullOrEmpty(query.SearchTerm))
         {
             queryable = queryable.Where(d =>
@@ -168,9 +163,6 @@ public class DiscountRepository : IDiscountRepository
             && d.EndDate >= now
             && (d.MaxUses == null || d.UsesCount < d.MaxUses)
         );
-
-        // Apply applicability filters
-        query = query.Where(d => d.ApplicableTo == DiscountApplicableTo.ALL);
 
         return await query.FirstOrDefaultAsync();
     }
