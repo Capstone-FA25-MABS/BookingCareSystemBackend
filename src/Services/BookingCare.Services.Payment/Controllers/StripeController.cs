@@ -576,18 +576,17 @@ public class StripeController : BasePaymentGatewayController
     /// </summary>
     protected override string? ExtractMetadataFromCallback<TResponse>(TResponse callbackResult)
     {
-        if (callbackResult is StripeCallbackResponse stripeCallback && stripeCallback.Metadata != null)
+        // Check if this is a supplementary payment by looking for SupplementaryPaymentId in metadata
+        if (callbackResult is StripeCallbackResponse stripeCallback
+            && stripeCallback.Metadata != null
+            && stripeCallback.Metadata.TryGetValue("SupplementaryPaymentId", out var suppPaymentId)
+            && stripeCallback.Metadata.TryGetValue("AppointmentId", out var appointmentId))
         {
-            // Check if this is a supplementary payment by looking for SupplementaryPaymentId in metadata
-            if (stripeCallback.Metadata.TryGetValue("SupplementaryPaymentId", out var suppPaymentId)
-                && stripeCallback.Metadata.TryGetValue("AppointmentId", out var appointmentId))
-            {
-                var isStaffAssigned = stripeCallback.Metadata.TryGetValue("IsStaffAssigned", out var staffAssignedStr)
-                    && bool.TryParse(staffAssignedStr, out var staffAssigned) && staffAssigned;
+            var isStaffAssigned = stripeCallback.Metadata.TryGetValue("IsStaffAssigned", out var staffAssignedStr)
+                && bool.TryParse(staffAssignedStr, out var staffAssigned) && staffAssigned;
 
-                // Build metadata string in expected format for IsSupplementaryPayment() parsing
-                return $"SUPP_PAYMENT:{suppPaymentId}:APPT:{appointmentId}:STAFF_ASSIGNED:{isStaffAssigned}";
-            }
+            // Build metadata string in expected format for IsSupplementaryPayment() parsing
+            return $"SUPP_PAYMENT:{suppPaymentId}:APPT:{appointmentId}:STAFF_ASSIGNED:{isStaffAssigned}";
         }
 
         return base.ExtractMetadataFromCallback(callbackResult);

@@ -34,6 +34,8 @@ public class AppointmentService : BaseService, IAppointmentService
     private const string DateFormat = "yyyy-MM-dd";
     private const string NoInformationText = "Không có thông tin";
     private const string STAFF_VIEW_CONTEXT = "staff view";
+    private const string CANCELLED_BY_STAFF = "Staff";
+    private const string CANCELLED_BY_PATIENT = "Patient";
     private readonly IAppointmentRepository _appointmentRepository;
     private readonly IMapper _mapper;
     private readonly IEventBus _eventBus;
@@ -1399,7 +1401,7 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         var now = DateTime.UtcNow;
         var isStaffCancellation = request.CancelledByStaffId.HasValue;
-        var cancelledBy = isStaffCancellation ? "Staff" : "Patient";
+        var cancelledBy = isStaffCancellation ? CANCELLED_BY_STAFF : CANCELLED_BY_PATIENT;
 
         // Use full appointment DateTime (date + time slot) for accurate refund calculation
         var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(
@@ -1453,23 +1455,42 @@ public class AppointmentService : BaseService, IAppointmentService
 
         var urls = GenerateRescheduleUrls(appointment, token, selectedOptions, hasPayment);
 
+        var message = GetRescheduleMessage(hasPayment, appointment.DoctorId.HasValue);
+
         return new RescheduleResponse
         {
             AppointmentId = appointment.Id,
             RescheduleToken = token,
             TokenExpiry = expiry,
-            Message = hasPayment
-                ? (appointment.DoctorId.HasValue
-                    ? "Appointment cancelled. You can reschedule or request a refund."
-                    : "Appointment cancelled. You can book a new service or request a refund.")
-                : (appointment.DoctorId.HasValue
-                    ? "Appointment cancelled. You can reschedule with same or different doctor."
-                    : "Appointment cancelled. You can book a new service."),
+            Message = message,
             SameDoctorRescheduleUrl = urls.SameDoctorUrl,
             ConfirmNewDoctorUrl = urls.ConfirmDoctorUrl,
             ChooseNewDoctorUrl = urls.ChooseNewDoctorUrl,
             RefundRequestUrl = urls.RefundUrl,
         };
+    }
+
+    /// <summary>
+    /// Get appropriate reschedule message based on payment status and appointment type
+    /// </summary>
+    private static string GetRescheduleMessage(bool hasPayment, bool hasDoctorAssigned)
+    {
+        if (hasPayment && hasDoctorAssigned)
+        {
+            return "Appointment cancelled. You can reschedule or request a refund.";
+        }
+
+        if (hasPayment)
+        {
+            return "Appointment cancelled. You can book a new service or request a refund.";
+        }
+
+        if (hasDoctorAssigned)
+        {
+            return "Appointment cancelled. You can reschedule with same or different doctor.";
+        }
+
+        return "Appointment cancelled. You can book a new service.";
     }
 
     /// <summary>
@@ -2284,7 +2305,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 var now = DateTime.UtcNow;
                 var isStaffCancellation =
                     !string.IsNullOrEmpty(appointment.CancelledBy)
-                    && appointment.CancelledBy == "Staff";
+                    && appointment.CancelledBy == CANCELLED_BY_STAFF;
                 var refundPercentage = RefundPolicyHelper.CalculateRefundPercentage(
                     appointment.AppointmentDate,
                     appointment.AppointmentTimeId,
@@ -2819,7 +2840,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 // Update appointment status to CANCELLED with rejection reason
                 appointment.Status = AppointmentStatus.CANCELLED;
                 appointment.Reason = request.RejectionReason;
-                appointment.CancelledBy = "Staff";
+                appointment.CancelledBy = CANCELLED_BY_STAFF;
                 appointment.CancelledAt = DateTime.UtcNow;
                 appointment.UpdatedAt = DateTime.UtcNow;
 
@@ -3442,7 +3463,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
         if (
             managementRoles.Any(role =>
-                string.Equals(role, "Staff", StringComparison.OrdinalIgnoreCase)
+                string.Equals(role, CANCELLED_BY_STAFF, StringComparison.OrdinalIgnoreCase)
             )
         )
         {
