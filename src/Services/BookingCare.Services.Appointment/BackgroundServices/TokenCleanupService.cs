@@ -77,6 +77,11 @@ public class TokenCleanupService : BackgroundService
                 appointment.RescheduleToken = null;
                 appointment.RescheduleTokenExpiry = null;
                 appointment.PendingRescheduleAction = null;
+                appointment.PendingNewDoctorId = null;
+                appointment.PendingNewAppointmentDate = null;
+                appointment.PendingNewAppointmentTimeId = null;
+                appointment.AssignedDoctorId = null; // Clear soft reservation
+                appointment.SoftReservedUntil = null;
 
                 await appointmentRepository.UpdateAppointmentAsync(appointment);
                 clearedCount++;

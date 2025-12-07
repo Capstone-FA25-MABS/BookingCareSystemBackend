@@ -414,4 +414,35 @@ public class AppointmentsController : BaseApiController
     }
 
     #endregion
+
+    #region Reject Pending Appointment
+
+    /// <summary>
+    /// Reject a pending appointment (before payment)
+    /// Used by hospital staff to decline appointments that haven't been paid yet
+    /// No refund process needed since payment hasn't been made
+    /// Different from CancelAppointment which handles CONFIRMED appointments with refund logic
+    /// </summary>
+    /// <param name="id">Appointment ID</param>
+    /// <param name="request">Rejection request with reason</param>
+    /// <returns>Rejection result</returns>
+    [HttpPost("{id:guid}/reject")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Staff, Admin")]
+    public async Task<IActionResult> RejectPendingAppointment(
+        Guid id,
+        [FromBody] RejectPendingAppointmentRequest request)
+    {
+        if (id != request.AppointmentId)
+            return BadRequest(IdMismatchErrorMessage);
+
+        var result = await _appointmentService.RejectPendingAppointmentAsync(request);
+
+        if (!result.Success)
+            return BadRequest(result.Message);
+
+        return Success(result, result.Message);
+    }
+
+    #endregion
 }
