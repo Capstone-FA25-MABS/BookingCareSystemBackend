@@ -1012,6 +1012,9 @@ public class AppointmentService : BaseService, IAppointmentService
                 // Calculate cancellation details
                 var cancellationDetails = CalculateCancellationDetails(request, appointment);
 
+                // Validate staff cancellation timing - must be at least 24 hours before appointment
+                ValidateStaffCancellationTiming(appointment, cancellationDetails.IsStaffCancellation);
+
                 // Generate reschedule token if staff cancellation and reschedule options enabled
                 var rescheduleResponse = await GenerateRescheduleTokenIfNeededAsync(
                     request,
@@ -1354,6 +1357,38 @@ public class AppointmentService : BaseService, IAppointmentService
     }
 
     /// <summary>
+    /// Validate staff cancellation timing - must be at least 24 hours before appointment
+    /// Staff/Hospital must cancel at least 1 day in advance to give patient time to reschedule
+    /// </summary>
+    private static void ValidateStaffCancellationTiming(
+        AppointmentEntity appointment,
+        bool isStaffCancellation)
+    {
+        if (!isStaffCancellation)
+        {
+            return; // Patient cancellation has no minimum time requirement
+        }
+
+        // Staff must cancel at least 24 hours before appointment
+        if (!RefundPolicyHelper.IsRescheduleAllowed(
+            appointment.AppointmentDate,
+            appointment.AppointmentTimeId,
+            DateTime.UtcNow))
+        {
+            var refundInfo = RefundPolicyHelper.GetRefundInfo(
+                appointment.AppointmentDate,
+                appointment.AppointmentTimeId,
+                DateTime.UtcNow,
+                isStaffCancellation: true);
+
+            throw new AppointmentException(
+                $"Bệnh viện chỉ có thể hủy lịch hẹn trước ít nhất 24 giờ. " +
+                $"Còn {refundInfo.HoursUntilAppointment:F1} giờ nữa đến lịch hẹn. " +
+                $"Vui lòng liên hệ trực tiếp với bệnh nhân để xử lý.");
+        }
+    }
+
+    /// <summary>
     /// Calculate cancellation details including refund percentage
     /// Uses full appointment DateTime (date + time slot) for accurate calculation
     /// </summary>
@@ -1402,6 +1437,7 @@ public class AppointmentService : BaseService, IAppointmentService
     /// <summary>
     /// Generate reschedule response with token and deep links for all 4 options
     /// Conditionally generates URLs based on appointment type (doctor-based vs service-based)
+    /// Only generates refund URL if appointment has payment record
     /// </summary>
     private async Task<RescheduleResponse> GenerateRescheduleResponseAsync(
         AppointmentEntity appointment,
@@ -1410,18 +1446,25 @@ public class AppointmentService : BaseService, IAppointmentService
     {
         var token = Guid.NewGuid().ToString("N");
         var expiry = CalculateRescheduleTokenExpiry(appointment.AppointmentDate);
-        var urls = GenerateRescheduleUrls(appointment, token, selectedOptions);
 
-        await Task.CompletedTask;
+        // Check if appointment has payment - only show refund option if payment exists
+        var paymentAmount = await GetPaymentAmountAsync(appointment.Id);
+        var hasPayment = paymentAmount.HasValue && paymentAmount.Value > 0;
+
+        var urls = GenerateRescheduleUrls(appointment, token, selectedOptions, hasPayment);
 
         return new RescheduleResponse
         {
             AppointmentId = appointment.Id,
             RescheduleToken = token,
             TokenExpiry = expiry,
-            Message = appointment.DoctorId.HasValue
-                ? "Appointment cancelled. You can reschedule or request a refund."
-                : "Appointment cancelled. You can book a new service or request a refund.",
+            Message = hasPayment
+                ? (appointment.DoctorId.HasValue
+                    ? "Appointment cancelled. You can reschedule or request a refund."
+                    : "Appointment cancelled. You can book a new service or request a refund.")
+                : (appointment.DoctorId.HasValue
+                    ? "Appointment cancelled. You can reschedule with same or different doctor."
+                    : "Appointment cancelled. You can book a new service."),
             SameDoctorRescheduleUrl = urls.SameDoctorUrl,
             ConfirmNewDoctorUrl = urls.ConfirmDoctorUrl,
             ChooseNewDoctorUrl = urls.ChooseNewDoctorUrl,
@@ -1465,6 +1508,7 @@ public class AppointmentService : BaseService, IAppointmentService
 
     /// <summary>
     /// Generate reschedule URLs based on selected options
+    /// Only generates refund URL if appointment has payment record
     /// </summary>
     private (
         string? SameDoctorUrl,
@@ -1474,7 +1518,8 @@ public class AppointmentService : BaseService, IAppointmentService
     ) GenerateRescheduleUrls(
         AppointmentEntity appointment,
         string token,
-        RescheduleOptionsSelection? selectedOptions
+        RescheduleOptionsSelection? selectedOptions,
+        bool hasPayment = true
     )
     {
         var frontendBaseUrl = _frontendConfig.BaseUrl;
@@ -1497,8 +1542,10 @@ public class AppointmentService : BaseService, IAppointmentService
                 ? $"{frontendBaseUrl}/doctors?hospitalId={appointment.HospitalId}&specialtyId={appointment.SpecialtyId}&rescheduleFor={appointment.Id}&token={token}"
                 : null;
 
+        // Only generate refund URL if appointment has payment record
         var refundUrl =
-            (generateAll || selectedOptions!.EnableRefundRequest)
+            hasPayment
+                //&& (generateAll || selectedOptions!.EnableRefundRequest)
                 ? $"{frontendBaseUrl}/booking/refund/{appointment.Id}?token={token}"
                 : null;
 
@@ -2418,8 +2465,42 @@ public class AppointmentService : BaseService, IAppointmentService
             throw new AppointmentException("Invalid or expired reschedule token");
         }
 
-        // Check new doctor availability (only for patient-chosen doctors)
-        if (!request.IsStaffAssigned)
+        // Check new doctor availability based on flow type
+        // Staff-assigned (Option 2): Skip check if soft reservation is still valid for THIS appointment
+        // Patient-chosen (Option 3): Always check availability
+        var shouldCheckAvailability = true;
+
+        if (request.IsStaffAssigned)
+        {
+            // For staff-assigned flow, check if soft reservation is still valid
+            var isSoftReservationValid = appointment.AssignedDoctorId == request.NewDoctorId
+                && appointment.SoftReservedUntil.HasValue
+                && appointment.SoftReservedUntil.Value > DateTime.UtcNow;
+
+            if (isSoftReservationValid)
+            {
+                // Soft reservation still valid - slot is reserved for this appointment
+                shouldCheckAvailability = false;
+                LogInfo(
+                    "Soft reservation still valid for appointment {AppointmentId}, doctor {DoctorId} until {Expiry} - skipping availability check",
+                    null,
+                    appointment.Id,
+                    request.NewDoctorId,
+                    appointment.SoftReservedUntil!.Value
+                );
+            }
+            else
+            {
+                // Soft reservation expired - need to check if slot is still available
+                LogInfo(
+                    "Soft reservation expired for appointment {AppointmentId} - checking doctor availability",
+                    null,
+                    appointment.Id
+                );
+            }
+        }
+
+        if (shouldCheckAvailability)
         {
             var isDoctorAvailable = await _appointmentRepository.IsDoctorAvailableAsync(
                 request.NewDoctorId,
@@ -2697,6 +2778,142 @@ public class AppointmentService : BaseService, IAppointmentService
         return newStatus == AppointmentStatus.CANCELLED
             && appointment.DoctorId.HasValue
             && appointment.AppointmentDate.Date >= DateTime.UtcNow.Date;
+    }
+
+    /// <summary>
+    /// Reject a pending appointment (before payment)
+    /// Used by hospital staff to decline appointments that haven't been paid yet
+    /// No refund process needed since payment hasn't been made
+    /// </summary>
+    public async Task<RejectPendingAppointmentResponse> RejectPendingAppointmentAsync(
+        RejectPendingAppointmentRequest request)
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo(
+                    "Staff {StaffId} rejecting pending appointment {AppointmentId}",
+                    null,
+                    request.RejectedByStaffId,
+                    request.AppointmentId
+                );
+
+                // Get appointment
+                var appointment = await _appointmentRepository.GetAppointmentByIdAsync(
+                    request.AppointmentId
+                );
+
+                if (appointment == null)
+                {
+                    throw new AppointmentNotFoundException(request.AppointmentId);
+                }
+
+                // Validate: Must be PENDING status
+                if (appointment.Status != AppointmentStatus.PENDING)
+                {
+                    throw new AppointmentException(
+                        $"Chỉ có thể từ chối lịch hẹn ở trạng thái Chờ xử lý. Trạng thái hiện tại: {appointment.Status}"
+                    );
+                }
+
+                // Update appointment status to CANCELLED with rejection reason
+                appointment.Status = AppointmentStatus.CANCELLED;
+                appointment.Reason = request.RejectionReason;
+                appointment.CancelledBy = "Staff";
+                appointment.CancelledAt = DateTime.UtcNow;
+                appointment.UpdatedAt = DateTime.UtcNow;
+
+                await _appointmentRepository.UpdateAppointmentAsync(appointment);
+
+                // Invalidate cache if needed
+                if (appointment.DoctorId.HasValue)
+                {
+                    await InvalidateAvailableSlotsCacheAsync(
+                        appointment.DoctorId.Value,
+                        appointment.AppointmentDate,
+                        appointment.ServiceId
+                    );
+                }
+
+                // Send notification to patient if enabled
+                var patientNotified = false;
+                if (request.NotifyPatient)
+                {
+                    patientNotified = await SendRejectionNotificationAsync(
+                        appointment,
+                        request.RejectionReason
+                    );
+                }
+
+                LogInfo(
+                    "Successfully rejected pending appointment {AppointmentId}. Patient notified: {Notified}",
+                    null,
+                    request.AppointmentId,
+                    patientNotified
+                );
+
+                return new RejectPendingAppointmentResponse
+                {
+                    Success = true,
+                    AppointmentId = request.AppointmentId,
+                    Message = "Đã từ chối lịch hẹn thành công",
+                    RejectedAt = DateTime.UtcNow,
+                    PatientNotified = patientNotified
+                };
+            },
+            "RejectPendingAppointment"
+        );
+    }
+
+    /// <summary>
+    /// Send rejection notification to patient
+    /// </summary>
+    private async Task<bool> SendRejectionNotificationAsync(
+        AppointmentEntity appointment,
+        string rejectionReason)
+    {
+        try
+        {
+            var patientInfo = await GetPatientInfoForNotificationAsync(appointment.PatientId);
+            var (doctorName, hospitalName) = await GetDoctorAndHospitalNamesForNotificationAsync(
+                appointment
+            );
+
+            var notificationEvent = new AppointmentRejectedNotificationEvent
+            {
+                AppointmentId = appointment.Id,
+                PatientId = appointment.PatientId,
+                AppointmentDate = appointment.AppointmentDate,
+                AppointmentTimeId = appointment.AppointmentTimeId.ToDisplayString(),
+                RejectionReason = rejectionReason,
+                RejectedAt = DateTime.UtcNow,
+                PatientEmail = patientInfo.Email,
+                PatientPhone = patientInfo.Phone,
+                PatientFullName = patientInfo.FullName,
+                DoctorName = doctorName,
+                HospitalName = hospitalName
+            };
+
+            await _eventBus.PublishAsync(notificationEvent);
+
+            LogInfo(
+                "Published rejection notification for appointment {AppointmentId}",
+                null,
+                appointment.Id
+            );
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogError(
+                ex,
+                "Failed to send rejection notification for appointment {AppointmentId}",
+                null,
+                appointment.Id
+            );
+            return false;
+        }
     }
 
     /// <summary>
@@ -4535,12 +4752,12 @@ public class AppointmentService : BaseService, IAppointmentService
             throw new AppointmentException($"Appointment {appointmentId} not found");
         }
 
-        if (appointment.Status != AppointmentStatus.PENDING)
+        if (appointment.Status != AppointmentStatus.PENDING && appointment.Status != AppointmentStatus.CONFIRMED)
         {
             throw new AppointmentException("Only PENDING appointments can have doctors assigned");
         }
 
-        if (appointment.DoctorId.HasValue)
+        if (appointment.DoctorId.HasValue && appointment.Status != AppointmentStatus.CONFIRMED)
         {
             throw new AppointmentException("This appointment already has a doctor assigned");
         }
