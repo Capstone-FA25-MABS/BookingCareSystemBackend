@@ -404,3 +404,31 @@ public class AssignDoctorToAppointmentRequest
     [MaxLength(500)]
     public string? StaffNote { get; set; }
 }
+
+/// <summary>
+/// Request to reject a pending appointment (before payment)
+/// Used by hospital staff to decline appointments that haven't been paid yet
+/// No refund process needed since payment hasn't been made
+/// </summary>
+public class RejectPendingAppointmentRequest
+{
+    [Required(ErrorMessage = "Appointment ID is required")]
+    public required Guid AppointmentId { get; set; }
+
+    [Required(ErrorMessage = "Rejection reason is required")]
+    [MinLength(10, ErrorMessage = "Rejection reason must be at least 10 characters")]
+    [MaxLength(500, ErrorMessage = "Rejection reason cannot exceed 500 characters")]
+    public required string RejectionReason { get; set; }
+
+    /// <summary>
+    /// Staff ID who is rejecting the appointment
+    /// </summary>
+    [Required(ErrorMessage = "Staff ID is required")]
+    public required Guid RejectedByStaffId { get; set; }
+
+    /// <summary>
+    /// Whether to notify the patient about the rejection
+    /// Default is true
+    /// </summary>
+    public bool NotifyPatient { get; set; } = true;
+}
