@@ -4,6 +4,7 @@ using BookingCare.Services.AI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.AI.Migrations
 {
     [DbContext(typeof(AiDbContext))]
-    partial class AiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251206041732_AddSymptomQuestionCache")]
+    partial class AddSymptomQuestionCache
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -128,10 +131,6 @@ namespace BookingCare.Services.AI.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<string>("NormalizedMessage")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<string>("Priority")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -168,9 +167,6 @@ namespace BookingCare.Services.AI.Migrations
 
                     b.HasIndex("NormalizedKeywords", "QuestionNumber")
                         .HasDatabaseName("IX_NormalizedKeywords_QuestionNumber");
-
-                    b.HasIndex("NormalizedMessage", "QuestionNumber")
-                        .HasDatabaseName("IX_NormalizedMessage_QuestionNumber");
 
                     b.ToTable("SymptomQuestionCache");
                 });

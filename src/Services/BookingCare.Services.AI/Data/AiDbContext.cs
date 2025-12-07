@@ -16,6 +16,16 @@ public class AiDbContext : DbContext
     /// DbSet for conversation sessions
     /// </summary>
     public DbSet<ConversationSessionEntity> ConversationSessions { get; set; }
+    
+    /// <summary>
+    /// DbSet for symptom question cache
+    /// </summary>
+    public DbSet<SymptomQuestionCacheEntity> SymptomQuestionCache { get; set; }
+    
+    /// <summary>
+    /// DbSet for conversation context keywords
+    /// </summary>
+    public DbSet<ConversationContextKeywordEntity> ConversationContextKeywords { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +60,101 @@ public class AiDbContext : DbContext
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.CreatedAt);
         });
+        
+        // Configure SymptomQuestionCacheEntity
+        modelBuilder.Entity<SymptomQuestionCacheEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            
+            entity.Property(e => e.InitialSymptom)
+                .HasMaxLength(500)
+                .IsRequired();
+            
+            entity.Property(e => e.ConversationContext)
+                .HasMaxLength(1000)
+                .IsRequired(false);
+            
+            entity.Property(e => e.NormalizedKeywords)
+                .HasMaxLength(1000)
+                .IsRequired();
+            
+            entity.Property(e => e.NormalizedMessage)
+                .HasMaxLength(500)
+                .IsRequired(false);
+            
+            entity.Property(e => e.QuestionNumber)
+                .IsRequired();
+            
+            entity.Property(e => e.Question)
+                .HasMaxLength(1000)
+                .IsRequired();
+            
+            entity.Property(e => e.Purpose)
+                .HasMaxLength(500)
+                .IsRequired(false);
+            
+            entity.Property(e => e.Priority)
+                .HasMaxLength(20)
+                .IsRequired(false);
+            
+            entity.Property(e => e.UsageCount)
+                .IsRequired()
+                .HasDefaultValue(0);
+            
+            entity.Property(e => e.SuccessRate)
+                .IsRequired()
+                .HasDefaultValue(0.0);
+            
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+            
+            entity.Property(e => e.LastUsedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+            
+            entity.Property(e => e.CreatedBy)
+                .HasMaxLength(100)
+                .IsRequired(false);
+            
+            // Indexes for fast lookup
+            entity.HasIndex(e => new { e.NormalizedKeywords, e.QuestionNumber })
+                .HasDatabaseName("IX_NormalizedKeywords_QuestionNumber");
+            entity.HasIndex(e => new { e.NormalizedMessage, e.QuestionNumber })
+                .HasDatabaseName("IX_NormalizedMessage_QuestionNumber");
+            entity.HasIndex(e => e.InitialSymptom);
+            entity.HasIndex(e => e.UsageCount);
+            entity.HasIndex(e => e.LastUsedAt);
+        });
+        
+        // Configure ConversationContextKeywordEntity
+        modelBuilder.Entity<ConversationContextKeywordEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            
+            entity.Property(e => e.Keyword)
+                .HasMaxLength(100)
+                .IsRequired();
+            
+            entity.Property(e => e.Category)
+                .HasMaxLength(50)
+                .IsRequired(false);
+            
+            entity.Property(e => e.Synonyms)
+                .HasMaxLength(500)
+                .IsRequired(false);
+            
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+            
+            // Unique constraint on Keyword
+            entity.HasIndex(e => e.Keyword)
+                .IsUnique();
+            entity.HasIndex(e => e.Category);
+        });
     }
 
     public override int SaveChanges()
@@ -66,10 +171,11 @@ public class AiDbContext : DbContext
 
     private void UpdateTimestamps()
     {
-        var entries = ChangeTracker.Entries<ConversationSessionEntity>()
+        // Update ConversationSessionEntity timestamps
+        var sessionEntries = ChangeTracker.Entries<ConversationSessionEntity>()
             .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
-        foreach (var entry in entries)
+        foreach (var entry in sessionEntries)
         {
             // Always use UTC time to ensure consistency
             var utcNow = DateTime.UtcNow;
@@ -98,6 +204,42 @@ public class AiDbContext : DbContext
             if (entry.Entity.UpdatedAt.Kind != DateTimeKind.Utc)
             {
                 entry.Entity.UpdatedAt = entry.Entity.UpdatedAt.ToUniversalTime();
+            }
+        }
+        
+        // Update SymptomQuestionCacheEntity timestamps
+        var cacheEntries = ChangeTracker.Entries<SymptomQuestionCacheEntity>()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+        
+        foreach (var entry in cacheEntries)
+        {
+            var utcNow = DateTime.UtcNow;
+            
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
+                {
+                    entry.Entity.CreatedAt = utcNow;
+                }
+                
+                if (entry.Entity.LastUsedAt == default || entry.Entity.LastUsedAt == DateTime.MinValue)
+                {
+                    entry.Entity.LastUsedAt = utcNow;
+                }
+            }
+        }
+        
+        // Update ConversationContextKeywordEntity timestamps
+        var keywordEntries = ChangeTracker.Entries<ConversationContextKeywordEntity>()
+            .Where(e => e.State == EntityState.Added);
+        
+        foreach (var entry in keywordEntries)
+        {
+            var utcNow = DateTime.UtcNow;
+            
+            if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
+            {
+                entry.Entity.CreatedAt = utcNow;
             }
         }
     }

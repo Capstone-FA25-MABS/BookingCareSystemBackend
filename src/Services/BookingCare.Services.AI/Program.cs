@@ -1,6 +1,7 @@
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Data;
 using BookingCare.Services.AI.Helpers;
+using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services;
 using BookingCare.Services.AI.Services.Implementations;
 using BookingCare.Services.AI.Services.Interfaces;
@@ -38,6 +39,12 @@ builder.Services.Configure<GeminiConfiguration>(builder.Configuration.GetSection
 // Configure Gemini Services (each service has its own API key)
 builder.Services.Configure<GeminiServicesConfiguration>(builder.Configuration.GetSection("GeminiServices"));
 
+// Configure Groq settings
+builder.Services.Configure<GroqConfiguration>(builder.Configuration.GetSection("Groq"));
+
+// Configure Groq Services (each service has its own API key)
+builder.Services.Configure<GroqServicesConfiguration>(builder.Configuration.GetSection("GroqServices"));
+
 // Configure AILabTools for Dermatology Analysis
 builder.Services.Configure<AILabToolsConfiguration>(builder.Configuration.GetSection("AILabTools"));
 
@@ -45,6 +52,9 @@ builder.Services.Configure<AILabToolsConfiguration>(builder.Configuration.GetSec
 
 // Register GeminiApiHelper (shared helper for all Gemini API calls)
 builder.Services.AddHttpClient<GeminiApiHelper>();
+
+// Register GroqApiHelper (shared helper for all Groq API calls)
+builder.Services.AddHttpClient<GroqApiHelper>();
 
 // Register AI Service for medical summary generation
 builder.Services.AddScoped<IAIService, AIService>();
@@ -73,6 +83,10 @@ builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.Hos
 // Register Helper Services
 builder.Services.AddScoped<RecommendationHelper>();
 builder.Services.AddScoped<FileUploadHelper>();
+
+// Register Cache Services for Context-Aware Question Caching
+builder.Services.AddScoped<IContextKeywordExtractor, ContextKeywordExtractor>();
+builder.Services.AddScoped<IQuestionCacheService, QuestionCacheService>();
 
 // Register Conversation Session Service
 builder.Services.AddScoped<IConversationSessionService, ConversationSessionService>();
@@ -133,6 +147,7 @@ try
     var context = scope.ServiceProvider.GetRequiredService<AiDbContext>();
     await context.Database.MigrateAsync();
     app.Logger.LogInformation("AI Service database migrated successfully");
+    
 }
 catch (Exception ex)
 {
@@ -140,3 +155,4 @@ catch (Exception ex)
 }
 
 app.Run();
+

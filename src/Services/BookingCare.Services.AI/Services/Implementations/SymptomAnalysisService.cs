@@ -6,7 +6,6 @@ using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
-using Microsoft.Extensions.Options;
 
 
 namespace BookingCare.Services.AI.Services.Implementations;
@@ -19,9 +18,10 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 {
     private readonly IConversationSessionService _sessionService;
     private readonly ILogger<SymptomAnalysisService> _logger;
-    private readonly GeminiApiHelper _geminiApiHelper;
-    private readonly ServiceGeminiConfiguration _serviceConfig;
+    private readonly GroqApiHelper _groqApiHelper;
     private readonly RecommendationHelper _recommendationHelper;
+    private readonly IContextKeywordExtractor _contextExtractor;
+    private readonly IQuestionCacheService _questionCacheService;
 
 
     private const int MAX_QUESTIONS = 6; // Support extended consultation: 3 initial + 3 additional questions
@@ -30,15 +30,17 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     public SymptomAnalysisService(
         IConversationSessionService sessionService,
         ILogger<SymptomAnalysisService> logger,
-        GeminiApiHelper geminiApiHelper,
-        IOptions<GeminiServicesConfiguration> geminiServicesConfig,
-        RecommendationHelper recommendationHelper)
+        GroqApiHelper groqApiHelper,
+        RecommendationHelper recommendationHelper,
+        IContextKeywordExtractor contextExtractor,
+        IQuestionCacheService questionCacheService)
     {
         _sessionService = sessionService;
         _logger = logger;
-        _geminiApiHelper = geminiApiHelper;
-        _serviceConfig = geminiServicesConfig.Value.SymptomAnalysis;
+        _groqApiHelper = groqApiHelper;
         _recommendationHelper = recommendationHelper;
+        _contextExtractor = contextExtractor;
+        _questionCacheService = questionCacheService;
     }
 
 
@@ -115,7 +117,43 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 currentRound, questionInRound, totalQuestions, isConclusionMode);
 
 
-            // Step 4: Build prompt for Gemini (pre-fetch specialty list for conclusion mode)
+            // Step 4: Try cache lookup for asking mode (skip cache for conclusion mode)
+            if (!isConclusionMode)
+            {
+                var cachedResponse = await TryGetCachedQuestionAsync(
+                    request.Message,
+                    conversationHistory,
+                    sessionId,
+                    questionInRound);
+                
+                if (cachedResponse != null)
+                {
+                    // Cache hit! Save conversation and return
+                    try
+                    {
+                        await _sessionService.SaveConversationHistoryAsync(
+                            sessionId: sessionId,
+                            userMessage: request.Message,
+                            aiMessage: cachedResponse.Message,
+                            location: request.Location,
+                            suggestions: null,
+                            userId: request.UserId,
+                            disease: null,
+                            questionCount: cachedResponse.QuestionCount,
+                            analysisComplete: false);
+                        
+                        _logger.LogDebug("Successfully saved cached question to conversation history for session {SessionId}", sessionId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error saving cached conversation for session {SessionId}", sessionId);
+                    }
+                    
+                    return cachedResponse;
+                }
+            }
+
+            // Step 5: Build prompt for Groq (cache miss or conclusion mode)
             Task<string>? specialtyListTask = null;
             if (isConclusionMode)
             {
@@ -128,19 +166,31 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 : BuildAskingModePrompt(request.Message, conversationHistory);
 
 
-            // Step 5: Call Gemini API
-            string geminiResponse = await CallGeminiApiAsync(prompt);
-            _logger.LogDebug("Gemini response: {Response}", geminiResponse);
+            // Step 6: Call Groq API
+            string groqResponse = await CallGroqApiAsync(prompt, isConclusionMode);
+            _logger.LogDebug("Groq response: {Response}", groqResponse);
 
 
-            // Step 6: Parse response
+            // Step 7: Parse response
             SymptomAnalysisResponse response = isConclusionMode
                 ? await ParseConclusionModeResponse(
-                    geminiResponse,
+                    groqResponse,
                     sessionId,
                     currentRound,
                     request.Location)
-                : ParseAskingModeResponse(geminiResponse, sessionId, questionInRound);
+                : ParseAskingModeResponse(groqResponse, sessionId, questionInRound);
+            
+            // Step 8: Save question to cache (synchronous to avoid DbContext issues)
+            // Cache all questions (Q1, Q2, Q3), not just asking mode
+            // Conclusions are not cached (they are diagnosis results, not questions)
+            if (!isConclusionMode && response.NextQuestions?.Count > 0)
+            {
+                await SaveQuestionToCacheAsync(
+                    request.Message,
+                    conversationHistory,
+                    questionInRound,
+                    response);
+            }
 
 
             // Step 7: Prepare data for saving and return response (save in background)
@@ -310,8 +360,8 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         promptBuilder.AppendLine("**YÊU CẦU:**");
         promptBuilder.AppendLine("1. Xác định bệnh có thể (tên tiếng Việt)");
         promptBuilder.AppendLine("2. Đánh giá độ tin cậy (0-1, ví dụ: 0.85)");
-        promptBuilder.AppendLine("3. Giải thích lý do chẩn đoán (2-3 lý do)");
-        promptBuilder.AppendLine("4. Đưa ra lời khuyên cụ thể (2-3 lời khuyên)");
+        promptBuilder.AppendLine("3. Giải thích lý do chi tiết về chẩn đoán (3-4 lý do)");
+        promptBuilder.AppendLine("4. Đưa ra lời khuyên chi tiết, cụ thể (3-4 lời khuyên)");
         promptBuilder.AppendLine("5. Chọn 1 chuyên khoa phù hợp nhất từ danh sách (phải khớp chính xác tên)");
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("**TRẢ VỀ JSON (chỉ JSON, không có text khác):**");
@@ -339,13 +389,18 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
     /// <summary>
-    /// Call Gemini API with retry logic using GeminiApiHelper
+    /// Call Groq API with retry logic using GroqApiHelper
     /// </summary>
-    private async Task<string> CallGeminiApiAsync(string prompt)
+    private async Task<string> CallGroqApiAsync(string prompt, bool isConclusionMode)
     {
-        return await _geminiApiHelper.CallGeminiApiWithDefaultsAsync(
-            prompt,
-            _serviceConfig);
+        if (isConclusionMode)
+        {
+            return await _groqApiHelper.CallConclusionModeAsync(prompt);
+        }
+        else
+        {
+            return await _groqApiHelper.CallAskingModeAsync(prompt);
+        }
     }
 
 
@@ -358,15 +413,15 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
     /// <summary>
-    /// Parse Gemini response for asking mode
+    /// Parse Groq response for asking mode
     /// Optimized JSON parsing using JsonDocument for better performance
     /// </summary>
-    private SymptomAnalysisResponse ParseAskingModeResponse(string geminiResponse, Guid sessionId, int questionInRound)
+    private SymptomAnalysisResponse ParseAskingModeResponse(string groqResponse, Guid sessionId, int questionInRound)
     {
         try
         {
-            // Extract JSON from response (Gemini might add extra text)
-            string jsonText = ExtractJsonFromText(geminiResponse);
+            // Extract JSON from response (Groq might add extra text)
+            string jsonText = ExtractJsonFromText(groqResponse);
 
 
             // Use JsonDocument for faster parsing when we only need specific fields
@@ -387,7 +442,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             if (string.IsNullOrEmpty(question))
             {
-                throw new InvalidOperationException("Failed to parse question from Gemini response");
+                throw new InvalidOperationException("Failed to parse question from Groq response");
             }
 
 
@@ -411,7 +466,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error parsing asking mode response: {Response}", geminiResponse);
+            _logger.LogError(ex, "Error parsing asking mode response: {Response}", groqResponse);
 
 
             // Fallback: create a generic question
@@ -437,10 +492,10 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
     /// <summary>
-    /// Parse Gemini response for conclusion mode
+    /// Parse Groq response for conclusion mode
     /// </summary>
     private async Task<SymptomAnalysisResponse> ParseConclusionModeResponse(
-        string geminiResponse,
+        string groqResponse,
         Guid sessionId,
         int currentRound,
         LocationContext? location)
@@ -448,7 +503,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         try
         {
             // Extract JSON from response
-            string jsonText = ExtractJsonFromText(geminiResponse);
+            string jsonText = ExtractJsonFromText(groqResponse);
 
 
             var conclusionData = JsonSerializer.Deserialize<ConclusionModeResponse>(jsonText,
@@ -457,7 +512,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
             if (conclusionData == null)
             {
-                throw new InvalidOperationException("Failed to parse conclusion from Gemini response");
+                throw new InvalidOperationException("Failed to parse conclusion from Groq response");
             }
 
 
@@ -523,11 +578,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 ex,
                 "Error parsing conclusion mode response for session {SessionId}. Response preview: {ResponsePreview}",
                 sessionId,
-                geminiResponse.Length > 300 ? geminiResponse[..300] + "..." : geminiResponse);
+                groqResponse.Length > 300 ? groqResponse[..300] + "..." : groqResponse);
 
 
             throw new InvalidOperationException(
-                "Failed to parse conclusion mode response from Gemini.",
+                "Failed to parse conclusion mode response from Groq.",
                 ex);
         }
     }
@@ -637,7 +692,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
     /// <summary>
-    /// Extract JSON from text (handles cases where Gemini adds extra text)
+    /// Extract JSON from text (handles cases where Groq adds extra text)
     /// Optimized using Span for better performance
     /// </summary>
     private string ExtractJsonFromText(string text)
@@ -706,6 +761,187 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     }
 
 
+    /// <summary>
+    /// Try to get cached question using 3-tier lookup (exact message → exact keywords → fuzzy)
+    /// </summary>
+    private async Task<SymptomAnalysisResponse?> TryGetCachedQuestionAsync(
+        string userMessage,
+        List<ConversationMessage> history,
+        Guid sessionId,
+        int questionNumber)
+    {
+        try
+        {
+            // Tier 0: Exact normalized message match (fastest, most accurate)
+            var normalizedMessage = _contextExtractor.NormalizeMessage(userMessage);
+            if (!string.IsNullOrWhiteSpace(normalizedMessage))
+            {
+                var exactMessageMatch = await _questionCacheService.FindExactMessageMatchAsync(
+                    normalizedMessage, 
+                    questionNumber);
+                
+                if (exactMessageMatch != null)
+                {
+                    await _questionCacheService.IncrementUsageAsync(exactMessageMatch.Id);
+                    _logger.LogInformation(
+                        "✅ Tier 0 Cache Hit: Exact message match for '{Message}' Q{Number}",
+                        normalizedMessage,
+                        questionNumber);
+                    return CreateResponseFromCache(exactMessageMatch, sessionId, questionNumber, tier: 0);
+                }
+            }
+            
+            // Extract keywords with full conversation context
+            var keywords = _contextExtractor.ExtractKeywordsWithContext(userMessage, history);
+            
+            if (string.IsNullOrEmpty(keywords))
+            {
+                _logger.LogDebug("No keywords extracted, skipping cache lookup");
+                return null;
+            }
+            
+            _logger.LogDebug(
+                "Cache lookup: Message='{Message}', Keywords='{Keywords}', QuestionNumber={Number}",
+                normalizedMessage,
+                keywords,
+                questionNumber);
+            
+            // Tier 1: Exact keywords match (~50ms)
+            var exactMatch = await _questionCacheService.FindExactMatchAsync(keywords, questionNumber);
+            
+            if (exactMatch != null)
+            {
+                await _questionCacheService.IncrementUsageAsync(exactMatch.Id);
+                return CreateResponseFromCache(exactMatch, sessionId, questionNumber, tier: 1);
+            }
+            
+            // Tier 2: Fuzzy keywords match (~100ms)
+            var fuzzyMatch = await _questionCacheService.FindFuzzyMatchAsync(
+                keywords,
+                questionNumber,
+                threshold: 0.75); // 75% similarity
+            
+            if (fuzzyMatch != null)
+            {
+                await _questionCacheService.IncrementUsageAsync(fuzzyMatch.Id);
+                return CreateResponseFromCache(fuzzyMatch, sessionId, questionNumber, tier: 2);
+            }
+            
+            // Cache miss
+            _logger.LogInformation(
+                "❌ Cache miss for Message='{Message}', Keywords='{Keywords}' Q{Number} → Will call Groq",
+                normalizedMessage,
+                keywords,
+                questionNumber);
+            
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during cache lookup, falling back to Groq");
+            return null;
+        }
+    }
+    
+    /// <summary>
+    /// Create response from cached question
+    /// </summary>
+    private SymptomAnalysisResponse CreateResponseFromCache(
+        Models.Entities.SymptomQuestionCacheEntity cached,
+        Guid sessionId,
+        int questionNumber,
+        int tier)
+    {
+        return new SymptomAnalysisResponse
+        {
+            SessionId = sessionId,
+            Message = cached.Question,
+            NextQuestions = new List<FollowUpQuestion>
+            {
+                new FollowUpQuestion
+                {
+                    Question = cached.Question,
+                    Purpose = cached.Purpose ?? "Để xác định chính xác tình trạng của bạn",
+                    Priority = cached.Priority ?? "MEDIUM"
+                }
+            },
+            AnalysisComplete = false,
+            QuestionCount = questionNumber,
+            Timestamp = DateTime.UtcNow
+        };
+    }
+    
+    /// <summary>
+    /// Save question to cache (synchronous to avoid DbContext issues)
+    /// Only saves if not already in cache
+    /// </summary>
+    private async Task SaveQuestionToCacheAsync(
+        string userMessage,
+        List<ConversationMessage> history,
+        int questionNumber,
+        SymptomAnalysisResponse response)
+    {
+        try
+        {
+            // Extract components
+            var initialSymptom = _contextExtractor.ExtractInitialSymptom(
+                history.FirstOrDefault()?.Content ?? userMessage);
+            
+            var contextKeywords = _contextExtractor.ExtractContextFromAnswers(history);
+            var conversationContext = string.Join(", ", contextKeywords);
+            
+            var fullKeywords = _contextExtractor.ExtractKeywordsWithContext(
+                userMessage,
+                history);
+            
+            // Normalize message for Tier 0 exact matching
+            var normalizedMessage = _contextExtractor.NormalizeMessage(userMessage);
+            
+            // Check if already exists in cache (check both message and keywords)
+            var existingCache = !string.IsNullOrWhiteSpace(normalizedMessage)
+                ? await _questionCacheService.FindExactMessageMatchAsync(normalizedMessage, questionNumber)
+                : null;
+            
+            if (existingCache == null)
+            {
+                existingCache = await _questionCacheService.FindExactMatchAsync(fullKeywords, questionNumber);
+            }
+            
+            if (existingCache != null)
+            {
+                _logger.LogDebug(
+                    "⏭️ Skipping cache save: Question already exists for Message='{Message}', Keywords='{Keywords}' Q{Number}",
+                    normalizedMessage,
+                    fullKeywords,
+                    questionNumber);
+                return;
+            }
+            
+            // Save to cache (only if not exists)
+            await _questionCacheService.SaveQuestionAsync(
+                initialSymptom: initialSymptom,
+                conversationContext: conversationContext,
+                normalizedKeywords: fullKeywords,
+                normalizedMessage: normalizedMessage,
+                questionNumber: questionNumber,
+                question: response.Message,
+                purpose: response.NextQuestions?.FirstOrDefault()?.Purpose,
+                priority: response.NextQuestions?.FirstOrDefault()?.Priority,
+                createdBy: "GROQ");
+            
+            _logger.LogInformation(
+                "💾 Saved to cache: Message='{Message}', Initial='{Initial}', Context='{Context}', Q{Number}",
+                normalizedMessage,
+                initialSymptom,
+                conversationContext,
+                questionNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save question to cache (non-critical)");
+        }
+    }
+
     #endregion
 
 
@@ -744,6 +980,50 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     }
 
 
+    #endregion
+    
+    
+    #region Cache Helper Methods
+    
+    
+    /// <summary>
+    /// Save conversation to database in background (fire-and-forget)
+    /// </summary>
+    private Task SaveConversationInBackgroundAsync(
+        Guid sessionId,
+        string userMessage,
+        string aiMessage,
+        LocationContext? location,
+        Guid? userId,
+        object? suggestions,
+        object? disease,
+        int questionCount,
+        bool analysisComplete)
+    {
+        return Task.Run(async () =>
+        {
+            try
+            {
+                await _sessionService.SaveConversationHistoryAsync(
+                    sessionId: sessionId,
+                    userMessage: userMessage,
+                    aiMessage: aiMessage,
+                    location: location,
+                    suggestions: suggestions,
+                    userId: userId,
+                    disease: disease,
+                    questionCount: questionCount,
+                    analysisComplete: analysisComplete);
+                
+                _logger.LogDebug("Successfully saved conversation for session {SessionId}", sessionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving conversation for session {SessionId}", sessionId);
+            }
+        });
+    }
+    
     #endregion
 }
 

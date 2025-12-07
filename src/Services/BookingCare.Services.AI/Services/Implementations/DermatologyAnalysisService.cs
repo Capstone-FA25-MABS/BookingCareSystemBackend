@@ -21,13 +21,13 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
     private readonly HttpClient _httpClient;
     private readonly AILabToolsConfiguration _aiLabToolsConfig;
     private readonly IConversationSessionService _sessionService;
-    private readonly GeminiApiHelper _geminiApiHelper;
-    private readonly ServiceGeminiConfiguration _serviceConfig;
+    private readonly GroqApiHelper _groqApiHelper;
+    private readonly ServiceGroqConfiguration _serviceConfig;
     private readonly IMemoryCache _cache;
     private readonly RecommendationHelper _recommendationHelper;
     private readonly FileUploadHelper _fileUploadHelper;
 
-    private const string CACHE_KEY_PREFIX = "gemini_disease_translation_";
+    private const string CACHE_KEY_PREFIX = "groq_disease_translation_";
     private static readonly TimeSpan TranslationCacheDuration = TimeSpan.FromDays(30);
     private static readonly TimeSpan AdviceCacheDuration = TimeSpan.FromDays(7);
 
@@ -40,8 +40,8 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
         HttpClient httpClient,
         IOptions<AILabToolsConfiguration> aiLabToolsConfig,
         IConversationSessionService sessionService,
-        GeminiApiHelper geminiApiHelper,
-        IOptions<GeminiServicesConfiguration> geminiServicesConfig,
+        GroqApiHelper groqApiHelper,
+        IOptions<GroqServicesConfiguration> groqServicesConfig,
         IMemoryCache cache,
         RecommendationHelper recommendationHelper,
         FileUploadHelper fileUploadHelper)
@@ -50,8 +50,8 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
         _httpClient = httpClient;
         _aiLabToolsConfig = aiLabToolsConfig.Value;
         _sessionService = sessionService;
-        _geminiApiHelper = geminiApiHelper;
-        _serviceConfig = geminiServicesConfig.Value.DermatologyAnalysis;
+        _groqApiHelper = groqApiHelper;
+        _serviceConfig = groqServicesConfig.Value.DermatologyAnalysis;
         _cache = cache;
         _recommendationHelper = recommendationHelper;
         _fileUploadHelper = fileUploadHelper;
@@ -171,7 +171,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             var root = jsonDoc.RootElement;
 
             var (diagnosis, advice) = await ExtractDiagnosisAsync(root, responseJson);
-            await EnrichAdviceWithGeminiAsync(diagnosis, advice);
+            await EnrichAdviceWithGroqAsync(diagnosis, advice);
 
             return new AILabToolsAnalysisResult
             {
@@ -333,7 +333,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             $"AILabTools API returned error (code: {actualErrorCode}): {errorMessage}");
     }
 
-    private async Task EnrichAdviceWithGeminiAsync(SkinConditionDiagnosis diagnosis, List<string> advice)
+    private async Task EnrichAdviceWithGroqAsync(SkinConditionDiagnosis diagnosis, List<string> advice)
     {
         if (string.IsNullOrEmpty(diagnosis.ConditionName))
         {
@@ -365,7 +365,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             }
             else
             {
-                _logger.LogWarning("No advice generated from Gemini, using fallback");
+                _logger.LogWarning("No advice generated from Groq, using fallback");
                 AddFallbackAdvice(advice, diagnosis.ConditionName);
             }
         }
@@ -500,13 +500,13 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
     {
         try
         {
-            // Use Gemini AI to translate disease name
+            // Use Groq AI to translate disease name
             var vietnameseName = await TranslateDiseaseNameAsync(englishName);
             return vietnameseName;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to translate disease name using Gemini AI: {DiseaseName}", englishName);
+            _logger.LogWarning(ex, "Failed to translate disease name using Groq AI: {DiseaseName}", englishName);
 
             // Fallback: return the English name with proper capitalization
             return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
@@ -515,7 +515,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
         }
     }
 
-    #region Gemini AI Helper Methods
+    #region Groq AI Helper Methods
 
     /// <summary>
     /// Translate disease name from English to Vietnamese with medical context
@@ -582,7 +582,7 @@ Tên bệnh (tiếng Việt):";
         try
         {
             // Check cache first
-            var cacheKey = $"gemini_advice_{diseaseName.ToLower()}_{severity}";
+            var cacheKey = $"groq_advice_{diseaseName.ToLower()}_{severity}";
             if (_cache.TryGetValue<string>(cacheKey, out var cachedAdvice))
             {
                 _logger.LogInformation("Using cached advice for: {DiseaseName}", diseaseName);
@@ -628,7 +628,7 @@ Hãy đưa ra 3-5 lời khuyên cho {diseaseName}:";
     }
 
     /// <summary>
-    /// Generate text using Gemini AI with custom prompt
+    /// Generate text using Groq AI with custom prompt
     /// </summary>
     private async Task<string> GenerateTextAsync(
         string prompt,
@@ -637,11 +637,11 @@ Hãy đưa ra 3-5 lời khuyên cho {diseaseName}:";
     {
         try
         {
-            return await _geminiApiHelper.CallGeminiApiAsync(
+            return await _groqApiHelper.CallGroqApiAsync(
                 prompt,
                 _serviceConfig,
                 temperature: temperature,
-                maxOutputTokens: null, // Use default from common config
+                maxTokens: null, // Use default from config
                 cancellationToken: cancellationToken);
         }
         catch (Exception ex)
@@ -650,12 +650,12 @@ Hãy đưa ra 3-5 lời khuyên cho {diseaseName}:";
 
             _logger.LogError(
                 ex,
-                "Error calling Gemini API for dermatology service. Temperature={Temperature}, PromptPreview={PromptPreview}",
+                "Error calling Groq API for dermatology service. Temperature={Temperature}, PromptPreview={PromptPreview}",
                 temperature,
                 promptPreview);
 
             throw new InvalidOperationException(
-                "Failed to generate dermatology-related text using Gemini API.",
+                "Failed to generate dermatology-related text using Groq API.",
                 ex);
         }
     }

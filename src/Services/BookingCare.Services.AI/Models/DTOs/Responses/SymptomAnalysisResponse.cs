@@ -89,6 +89,16 @@ public class SymptomAnalysisResponse
     /// Whether user can request more questions (true when round 1 && confidence < 90%)
     /// </summary>
     public bool CanRequestMoreQuestions { get; set; }
+    
+    /// <summary>
+    /// Whether this response came from cache (for monitoring/debugging)
+    /// </summary>
+    public bool FromCache { get; set; }
+    
+    /// <summary>
+    /// Cache tier used (1 = exact match, 2 = fuzzy match, null = not from cache)
+    /// </summary>
+    public int? CacheTier { get; set; }
 }
 
 /// <summary>

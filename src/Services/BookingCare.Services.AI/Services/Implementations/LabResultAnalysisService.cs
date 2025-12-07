@@ -16,8 +16,8 @@ namespace BookingCare.Services.AI.Services.Implementations;
 public class LabResultAnalysisService : ILabResultAnalysisService
 {
     private readonly ILogger<LabResultAnalysisService> _logger;
-    private readonly GeminiApiHelper _geminiApiHelper;
-    private readonly ServiceGeminiConfiguration _serviceConfig;
+    private readonly GroqApiHelper _groqApiHelper;
+    private readonly ServiceGroqConfiguration _serviceConfig;
     private readonly IConversationSessionService _sessionService;
     private readonly RecommendationHelper _recommendationHelper;
     private readonly FileUploadHelper _fileUploadHelper;
@@ -26,16 +26,16 @@ public class LabResultAnalysisService : ILabResultAnalysisService
 
     public LabResultAnalysisService(
         ILogger<LabResultAnalysisService> logger,
-        GeminiApiHelper geminiApiHelper,
-        IOptions<GeminiServicesConfiguration> geminiServicesConfig,
+        GroqApiHelper groqApiHelper,
+        IOptions<GroqServicesConfiguration> groqServicesConfig,
         IConversationSessionService sessionService,
         RecommendationHelper recommendationHelper,
         FileUploadHelper fileUploadHelper,
         IConfiguration configuration)
     {
         _logger = logger;
-        _geminiApiHelper = geminiApiHelper;
-        _serviceConfig = geminiServicesConfig.Value.LabResultAnalysis;
+        _groqApiHelper = groqApiHelper;
+        _serviceConfig = groqServicesConfig.Value.LabResultAnalysis;
         _sessionService = sessionService;
         _recommendationHelper = recommendationHelper;
         _fileUploadHelper = fileUploadHelper;
@@ -74,8 +74,8 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             _logger.LogInformation("Uploaded image to {ImageUrl}", imageUrl);
             _logger.LogInformation("Extracted {Length} characters from image", extractedText.Length);
 
-            var aiAnalysis = await AnalyzeWithGeminiAsync(extractedText);
-            _logger.LogInformation("Gemini analysis completed");
+            var aiAnalysis = await AnalyzeWithGroqAsync(extractedText);
+            _logger.LogInformation("Groq analysis completed");
 
             var (doctors, hospitals) = await _recommendationHelper.GetRecommendationsAsync(aiAnalysis.Specialties, location);
 
@@ -341,11 +341,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         return extractedText;
     }
 
-    private async Task<GeminiLabAnalysis> AnalyzeWithGeminiAsync(string extractedText)
+    private async Task<GeminiLabAnalysis> AnalyzeWithGroqAsync(string extractedText)
     {
         var prompt = BuildAnalysisPrompt(extractedText);
-        var geminiResponse = await CallGeminiApiAsync(prompt);
-        return await ParseGeminiResponseAsync(geminiResponse);
+        var groqResponse = await CallGroqApiAsync(prompt);
+        return await ParseGeminiResponseAsync(groqResponse);
     }
 
     private string BuildAnalysisPrompt(string extractedText)
@@ -396,18 +396,18 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         return promptBuilder.ToString();
     }
 
-    private async Task<string> CallGeminiApiAsync(string prompt)
+    private async Task<string> CallGroqApiAsync(string prompt)
     {
-        return await _geminiApiHelper.CallGeminiApiWithDefaultsAsync(
+        return await _groqApiHelper.CallGroqApiWithDefaultsAsync(
             prompt,
             _serviceConfig);
     }
 
-    private async Task<GeminiLabAnalysis> ParseGeminiResponseAsync(string geminiResponse)
+    private async Task<GeminiLabAnalysis> ParseGeminiResponseAsync(string groqResponse)
     {
         try
         {
-            var root = ExtractRootJsonElement(geminiResponse);
+            var root = ExtractRootJsonElement(groqResponse);
             var analysis = CreateEmptyGeminiAnalysis();
 
             PopulateNormalIndicators(root, analysis);
@@ -424,17 +424,17 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
-    private static JsonElement ExtractRootJsonElement(string geminiResponse)
+    private static JsonElement ExtractRootJsonElement(string responseText)
     {
-        var jsonStart = geminiResponse.IndexOf('{');
-        var jsonEnd = geminiResponse.LastIndexOf('}');
+        var jsonStart = responseText.IndexOf('{');
+        var jsonEnd = responseText.LastIndexOf('}');
 
         if (jsonStart == -1 || jsonEnd == -1)
         {
-            throw new InvalidOperationException("No JSON found in Gemini response");
+            throw new InvalidOperationException("No JSON found in AI response");
         }
 
-        var jsonText = geminiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+        var jsonText = responseText.Substring(jsonStart, jsonEnd - jsonStart + 1);
         var jsonDoc = JsonDocument.Parse(jsonText);
         return jsonDoc.RootElement;
     }
