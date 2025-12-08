@@ -832,7 +832,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                         "✅ Tier 0 Cache Hit: Exact message match for '{Message}' Q{Number}",
                         normalizedMessage,
                         questionNumber);
-                    return CreateResponseFromCache(exactMessageMatch, sessionId, questionNumber, tier: 0);
+                    return CreateResponseFromCache(exactMessageMatch, sessionId, questionNumber);
                 }
             }
 
@@ -857,7 +857,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             if (exactMatch != null)
             {
                 await _questionCacheService.IncrementUsageAsync(exactMatch.Id);
-                return CreateResponseFromCache(exactMatch, sessionId, questionNumber, tier: 1);
+                return CreateResponseFromCache(exactMatch, sessionId, questionNumber);
             }
 
             // Tier 2: Fuzzy keywords match (~100ms)
@@ -869,7 +869,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             if (fuzzyMatch != null)
             {
                 await _questionCacheService.IncrementUsageAsync(fuzzyMatch.Id);
-                return CreateResponseFromCache(fuzzyMatch, sessionId, questionNumber, tier: 2);
+                return CreateResponseFromCache(fuzzyMatch, sessionId, questionNumber);
             }
 
             // Cache miss
@@ -894,8 +894,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private SymptomAnalysisResponse CreateResponseFromCache(
         Models.Entities.SymptomQuestionCacheEntity cached,
         Guid sessionId,
-        int questionNumber,
-        int tier)
+        int questionNumber)
     {
         return new SymptomAnalysisResponse
         {

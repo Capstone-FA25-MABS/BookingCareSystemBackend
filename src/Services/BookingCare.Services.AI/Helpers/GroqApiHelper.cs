@@ -275,7 +275,7 @@ public class GroqApiHelper
 
         if (!response.IsSuccessStatusCode)
         {
-            HandleErrorResponse(response, responseContent, model);
+            HandleErrorResponse(response, responseContent);
         }
 
         var groqResponse = ParseGroqResponse(responseContent);
@@ -328,7 +328,7 @@ public class GroqApiHelper
         CancellationToken cancellationToken)
     {
         _logger.LogWarning(ex, "Groq API rate limit exceeded for model {Model}", model);
-        
+
         if (attempt >= maxRetries - 1)
         {
             throw new InvalidOperationException(
@@ -349,7 +349,7 @@ public class GroqApiHelper
         int maxRetries)
     {
         _logger.LogWarning(ex, "Timeout calling Groq API with model {Model} ({Timeout}s)", model, timeoutSeconds);
-        
+
         if (attempt >= maxRetries - 1)
         {
             throw new InvalidOperationException(
@@ -368,10 +368,12 @@ public class GroqApiHelper
         CancellationToken cancellationToken)
     {
         _logger.LogWarning(ex, "Failed to call Groq API with model {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
-        
+
         if (attempt >= maxRetries - 1)
         {
-            throw;
+            throw new InvalidOperationException(
+                $"Failed to call Groq API with model {model} after {maxRetries} attempts. Error: {ex.Message}",
+                ex);
         }
 
         var delay = (attempt + 1) * 500;
@@ -399,8 +401,7 @@ public class GroqApiHelper
 
     private void HandleErrorResponse(
         HttpResponseMessage response,
-        string responseContent,
-        string model)
+        string responseContent)
     {
         if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {

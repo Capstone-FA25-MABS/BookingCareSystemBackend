@@ -304,8 +304,8 @@ public class RecommendationHelper
 
     private DoctorRecommendation? MapToDoctorRecommendation(DoctorRecommendationInfo doctor, double score)
     {
-        var serviceOptions = ProcessServiceOptions(doctor.ServiceOptions);
-        
+        var serviceOptions = ProcessServiceOptions(doctor.ServiceOptions.AsEnumerable());
+
         if (serviceOptions.Count == 0)
         {
             return null;
@@ -329,7 +329,7 @@ public class RecommendationHelper
         };
     }
 
-    private List<DoctorServiceOptionDto> ProcessServiceOptions(IEnumerable<DoctorServiceOption> serviceOptions)
+    private List<DoctorServiceOptionDto> ProcessServiceOptions(IEnumerable<BookingCare.Services.Doctor.Protos.DoctorServiceOption> serviceOptions)
     {
         var mappedOptions = serviceOptions
             .Select(o => new DoctorServiceOptionDto
