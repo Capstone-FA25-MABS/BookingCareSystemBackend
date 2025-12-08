@@ -265,16 +265,16 @@ public class DoctorRepository : IDoctorRepository
         // Apply search term filter
         queryable = ApplySearchTermFilter(queryable, query);
 
-        // Language filters - optimized with joins instead of subqueries
-        if (!string.IsNullOrEmpty(query.Language))
+        // Language filters - ID only
+        if (query.LanguageId.HasValue)
         {
-            Console.WriteLine($"Filtering by single language: {query.Language}");
-            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.Language.Name == query.Language));
+            Console.WriteLine($"Filtering by single languageId: {query.LanguageId}");
+            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => dl.LanguageId == query.LanguageId));
         }
-        if (query.Languages != null && query.Languages.Any())
+        else if (query.LanguageIds != null && query.LanguageIds.Any())
         {
-            Console.WriteLine($"Filtering by multiple languages: {string.Join(", ", query.Languages)}");
-            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => query.Languages.Contains(dl.Language.Name)));
+            Console.WriteLine($"Filtering by multiple languageIds: {string.Join(", ", query.LanguageIds)}");
+            queryable = queryable.Where(d => d.DoctorLanguages.Any(dl => query.LanguageIds.Contains(dl.LanguageId)));
         }
 
         // Service type filters - optimized with joins instead of subqueries
@@ -967,8 +967,9 @@ public class DoctorRepository : IDoctorRepository
 
     private async Task ApplyLanguageFiltersAsync(HashSet<Guid> filteredIds, DoctorQueryRequest query)
     {
-        if (string.IsNullOrEmpty(query.Language) &&
-            (query.Languages == null || !query.Languages.Any()))
+        var hasLanguageIds = query.LanguageId.HasValue || (query.LanguageIds != null && query.LanguageIds.Any());
+
+        if (!hasLanguageIds)
         {
             return;
         }
@@ -977,13 +978,13 @@ public class DoctorRepository : IDoctorRepository
             .AsNoTracking()
             .Where(dl => filteredIds.Contains(dl.DoctorId));
 
-        if (!string.IsNullOrEmpty(query.Language))
+        if (query.LanguageId.HasValue)
         {
-            languageQuery = languageQuery.Where(dl => dl.Language.Name == query.Language);
+            languageQuery = languageQuery.Where(dl => dl.LanguageId == query.LanguageId.Value);
         }
-        else if (query.Languages != null && query.Languages.Any())
+        else if (query.LanguageIds != null && query.LanguageIds.Any())
         {
-            languageQuery = languageQuery.Where(dl => query.Languages.Contains(dl.Language.Name));
+            languageQuery = languageQuery.Where(dl => query.LanguageIds.Contains(dl.LanguageId));
         }
 
         var languageDoctorIds = await languageQuery
