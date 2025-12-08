@@ -21,6 +21,10 @@ public class EkycController : BaseApiController
     private readonly IEkycService _ekycService;
     private readonly ILogger<EkycController> _logger;
 
+    // Allowed content types for file validation
+    private static readonly string[] AllowedImageTypes = { "image/jpeg", "image/jpg", "image/png" };
+    private static readonly string[] AllowedVideoTypes = { "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo" };
+
     public EkycController(IEkycService ekycService, ILogger<EkycController> logger)
     {
         _ekycService = ekycService;
@@ -56,12 +60,11 @@ public class EkycController : BaseApiController
         _logger.LogInformation("Processing OCR request for ID card");
 
         // Validate file types
-        var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png" };
-        if (!allowedTypes.Contains(request.FrontImage.ContentType?.ToLower()))
+        if (!AllowedImageTypes.Contains(request.FrontImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh mặt trước phải có định dạng JPG hoặc PNG");
         }
-        if (!allowedTypes.Contains(request.BackImage.ContentType?.ToLower()))
+        if (!AllowedImageTypes.Contains(request.BackImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh mặt sau phải có định dạng JPG hoặc PNG");
         }
@@ -99,12 +102,11 @@ public class EkycController : BaseApiController
     {
         _logger.LogInformation("Processing face match verification request");
 
-        var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png" };
-        if (!allowedTypes.Contains(request.SelfieImage.ContentType?.ToLower()))
+        if (!AllowedImageTypes.Contains(request.SelfieImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh selfie phải có định dạng JPG hoặc PNG");
         }
-        if (!allowedTypes.Contains(request.IdCardFrontImage.ContentType?.ToLower()))
+        if (!AllowedImageTypes.Contains(request.IdCardFrontImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh CMND/CCCD phải có định dạng JPG hoặc PNG");
         }
@@ -144,8 +146,7 @@ public class EkycController : BaseApiController
     {
         _logger.LogInformation("Processing liveness detection request");
 
-        var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png" };
-        if (!allowedTypes.Contains(request.Image!.ContentType?.ToLower()))
+        if (!AllowedImageTypes.Contains(request.Image!.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh phải có định dạng JPG hoặc PNG");
         }
@@ -190,23 +191,20 @@ public class EkycController : BaseApiController
     {
         _logger.LogInformation("Processing complete eKYC verification request");
 
-        var allowedImageTypes = new[] { "image/jpeg", "image/jpg", "image/png" };
-        var allowedVideoTypes = new[] { "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo" };
-
-        if (!allowedImageTypes.Contains(request.IdCardFrontImage.ContentType?.ToLower()))
+        if (!AllowedImageTypes.Contains(request.IdCardFrontImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh mặt trước CMND/CCCD phải có định dạng JPG hoặc PNG");
         }
-        if (!allowedImageTypes.Contains(request.IdCardBackImage.ContentType?.ToLower()))
+        if (!AllowedImageTypes.Contains(request.IdCardBackImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh mặt sau CMND/CCCD phải có định dạng JPG hoặc PNG");
         }
-        if (!allowedImageTypes.Contains(request.SelfieImage.ContentType?.ToLower()))
+        if (!AllowedImageTypes.Contains(request.SelfieImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh selfie phải có định dạng JPG hoặc PNG");
         }
         if (request.LivenessVideo != null &&
-            !allowedVideoTypes.Contains(request.LivenessVideo.ContentType?.ToLower()))
+            !AllowedVideoTypes.Contains(request.LivenessVideo.ContentType?.ToLower()))
         {
             return BadRequest("Video phải có định dạng MP4, WebM, MOV hoặc AVI");
         }

@@ -75,7 +75,7 @@ public class CreateHospitalRegistrationRequestDto
     /// <summary>
     /// Whether eKYC verification was successful
     /// </summary>
-    public bool IsEkycVerified { get; set; }
+    public bool? IsEkycVerified { get; set; }
 }
 
 /// <summary>

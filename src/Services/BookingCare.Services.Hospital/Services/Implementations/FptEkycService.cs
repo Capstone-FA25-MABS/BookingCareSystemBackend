@@ -14,7 +14,6 @@ namespace BookingCare.Services.Hospital.Services.Implementations;
 public class FptEkycService : BaseService, IEkycService
 {
     private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
 
     private readonly string _apiKey;
     private readonly string _ocrEndpoint;
@@ -30,19 +29,18 @@ public class FptEkycService : BaseService, IEkycService
         IConfiguration configuration) : base(logger)
     {
         _httpClient = httpClient;
-        _configuration = configuration;
 
-        _apiKey = _configuration["FptAI:ApiKey"]
+        _apiKey = configuration["FptAI:ApiKey"]
             ?? throw new InvalidOperationException("FPT.AI API Key is not configured");
-        _ocrEndpoint = _configuration["FptAI:Endpoints:Ocr"]
+        _ocrEndpoint = configuration["FptAI:Endpoints:Ocr"]
             ?? "https://api.fpt.ai/vision/idr/vnm";
-        _faceMatchEndpoint = _configuration["FptAI:Endpoints:FaceMatch"]
+        _faceMatchEndpoint = configuration["FptAI:Endpoints:FaceMatch"]
             ?? "https://api.fpt.ai/dmp/checkface/v1";
-        _livenessEndpoint = _configuration["FptAI:Endpoints:Liveness"]
+        _livenessEndpoint = configuration["FptAI:Endpoints:Liveness"]
             ?? "https://api.fpt.ai/dmp/liveness/v3";
-        _faceMatchThreshold = _configuration.GetValue<double>("FptAI:Thresholds:FaceMatch", 80.0);
-        _livenessThreshold = _configuration.GetValue<double>("FptAI:Thresholds:Liveness", 80.0);
-        _skipLivenessCheck = _configuration.GetValue<bool>("FptAI:SkipLivenessCheck", false);
+        _faceMatchThreshold = configuration.GetValue<double>("FptAI:Thresholds:FaceMatch", 80.0);
+        _livenessThreshold = configuration.GetValue<double>("FptAI:Thresholds:Liveness", 80.0);
+        _skipLivenessCheck = configuration.GetValue<bool>("FptAI:SkipLivenessCheck", false);
     }
 
     public async Task<EkycOcrResponseDto> ProcessIdCardOcrAsync(EkycOcrRequestDto request)
@@ -120,50 +118,19 @@ public class FptEkycService : BaseService, IEkycService
             var root = jsonDoc.RootElement;
 
             // Check for error - handle both string and number code
-            if (root.TryGetProperty("code", out var codeElement))
+            var errorResult = CheckApiResponseCode(root, "FACE_MATCH", "Không thể xác thực khuôn mặt");
+            if (errorResult != null)
             {
-                int code = 0;
-                if (codeElement.ValueKind == JsonValueKind.Number)
-                    code = codeElement.GetInt32();
-                else if (codeElement.ValueKind == JsonValueKind.String)
-                    int.TryParse(codeElement.GetString(), out code);
-
-                if (code != 200)
+                return new EkycFaceMatchResponseDto
                 {
-                    var message = root.TryGetProperty("message", out var msgElement)
-                        ? msgElement.GetString()
-                        : "Không thể xác thực khuôn mặt";
-                    return new EkycFaceMatchResponseDto
-                    {
-                        Success = false,
-                        ErrorMessage = message,
-                        ErrorCode = $"FACE_MATCH_{code}"
-                    };
-                }
+                    Success = false,
+                    ErrorMessage = errorResult.Value.message,
+                    ErrorCode = errorResult.Value.errorCode
+                };
             }
 
             // Parse similarity from data
-            double similarity = 0;
-            bool isMatch = false;
-
-            if (root.TryGetProperty("data", out var dataElement))
-            {
-                if (dataElement.TryGetProperty("similarity", out var simElement))
-                {
-                    if (simElement.ValueKind == JsonValueKind.Number)
-                        similarity = simElement.GetDouble();
-                    else if (simElement.ValueKind == JsonValueKind.String)
-                        double.TryParse(simElement.GetString(), out similarity);
-                }
-
-                if (dataElement.TryGetProperty("isMatch", out var matchElement))
-                {
-                    if (matchElement.ValueKind == JsonValueKind.True)
-                        isMatch = true;
-                    else if (matchElement.ValueKind == JsonValueKind.String)
-                        isMatch = matchElement.GetString()?.ToLower() == "true";
-                }
-            }
+            var (similarity, isMatch) = ParseFaceMatchData(root);
 
             // Also check if similarity meets threshold
             if (similarity >= _faceMatchThreshold)
@@ -237,115 +204,43 @@ public class FptEkycService : BaseService, IEkycService
             // { "code": "303", "message": "...", 
             //   "liveness": { "code": "200", "is_live": "true", "spoof_prob": "0.38" },
             //   "face_match": { "code": "303", "isMatch": "false", "similarity": "59.99" } }
-            // Note: Root code can be 303 (face not match) but liveness can still be 200 (pass)
-
-            double livenessScore = 0;
-            double spoofProb = 0;
-            bool isLive = false;
-            double faceMatchSimilarity = 0;
-            bool isFaceMatch = false;
 
             // Parse liveness object
+            bool isLive = false;
+            double livenessScore = 0;
+
             if (root.TryGetProperty("liveness", out var livenessObj))
             {
-                // Check liveness-specific code
-                int livenessCode = 0;
-                if (livenessObj.TryGetProperty("code", out var lCodeElement))
+                var livenessData = ParseLivenessData(livenessObj);
+                if (livenessData.errorMessage != null)
                 {
-                    if (lCodeElement.ValueKind == JsonValueKind.String)
-                        int.TryParse(lCodeElement.GetString(), out livenessCode);
-                    else if (lCodeElement.ValueKind == JsonValueKind.Number)
-                        livenessCode = lCodeElement.GetInt32();
-                }
-
-                if (livenessCode != 200)
-                {
-                    var lMessage = livenessObj.TryGetProperty("message", out var lMsgElement)
-                        ? lMsgElement.GetString()
-                        : "Liveness check failed";
                     return new EkycLivenessResponseDto
                     {
                         Success = false,
-                        ErrorMessage = lMessage,
-                        ErrorCode = $"LIVENESS_{livenessCode}"
+                        ErrorMessage = livenessData.errorMessage,
+                        ErrorCode = livenessData.errorCode
                     };
                 }
 
-                // Get is_live field
-                if (livenessObj.TryGetProperty("is_live", out var isLiveElement))
-                {
-                    var resultText = isLiveElement.ValueKind == JsonValueKind.String
-                        ? isLiveElement.GetString()?.ToLower()
-                        : isLiveElement.ToString().ToLower();
-                    isLive = resultText == "true" || resultText == "1";
-                }
-
-                // Get spoof_prob (lower is better - means less likely to be spoofed)
-                if (livenessObj.TryGetProperty("spoof_prob", out var spoofElement))
-                {
-                    if (spoofElement.ValueKind == JsonValueKind.Number)
-                        spoofProb = spoofElement.GetDouble();
-                    else if (spoofElement.ValueKind == JsonValueKind.String)
-                        double.TryParse(spoofElement.GetString(), out spoofProb);
-                }
-
-                // Calculate liveness score: 100 - (spoof_prob * 100)
-                livenessScore = (1 - spoofProb) * 100;
+                isLive = livenessData.isLive;
+                livenessScore = livenessData.livenessScore;
 
                 LogInfo("Liveness parsed - IsLive: {IsLive}, SpoofProb: {SpoofProb}, Score: {Score}%",
-                    null, isLive, spoofProb, livenessScore);
+                    null, isLive, livenessData.spoofProb, livenessScore);
             }
 
             // Parse face_match object (included in Liveness v3 response)
-            if (root.TryGetProperty("face_match", out var faceMatchObj))
-            {
-                if (faceMatchObj.TryGetProperty("similarity", out var simElement))
-                {
-                    if (simElement.ValueKind == JsonValueKind.Number)
-                        faceMatchSimilarity = simElement.GetDouble();
-                    else if (simElement.ValueKind == JsonValueKind.String)
-                        double.TryParse(simElement.GetString(), out faceMatchSimilarity);
-                }
+            var (isFaceMatch, faceMatchSimilarity) = ParseFaceMatchFromLiveness(root);
 
-                if (faceMatchObj.TryGetProperty("isMatch", out var matchElement))
-                {
-                    var matchText = matchElement.ValueKind == JsonValueKind.String
-                        ? matchElement.GetString()?.ToLower()
-                        : matchElement.ToString().ToLower();
-                    isFaceMatch = matchText == "true";
-                }
-
-                // Also check threshold
-                if (faceMatchSimilarity >= _faceMatchThreshold)
-                    isFaceMatch = true;
-
-                LogInfo("Face match from liveness - IsMatch: {IsMatch}, Similarity: {Similarity}%",
-                    null, isFaceMatch, faceMatchSimilarity);
-            }
+            LogInfo("Face match from liveness - IsMatch: {IsMatch}, Similarity: {Similarity}%",
+                null, isFaceMatch, faceMatchSimilarity);
 
             // If FPT.AI says is_live=true, trust it
             if (!isLive && livenessScore >= _livenessThreshold)
-            {
                 isLive = true;
-            }
 
-            // Determine overall success - liveness must pass, face match is checked separately
-            var livenessSuccess = isLive;
-            var message = "";
-
-            if (!livenessSuccess)
-            {
-                message = "Không phát hiện người thật. Vui lòng thử lại.";
-            }
-            else if (!isFaceMatch)
-            {
-                message = $"Khuôn mặt trong video không khớp với CMND/CCCD (độ khớp: {faceMatchSimilarity:F1}%, yêu cầu: {_faceMatchThreshold}%)";
-                livenessSuccess = false; // Fail if face doesn't match
-            }
-            else
-            {
-                message = "Xác thực người thật thành công";
-            }
+            // Determine overall success and message
+            var (livenessSuccess, message) = DetermineLivenessResult(isLive, isFaceMatch, faceMatchSimilarity);
 
             LogInfo("Liveness detection completed. IsLive: {IsLive}, IsFaceMatch: {IsFaceMatch}, Score: {Score}%",
                 null, isLive, isFaceMatch, livenessScore);
@@ -537,5 +432,159 @@ public class FptEkycService : BaseService, IEkycService
                 : null
         };
     }
+
+    #region Helper Methods for JSON Parsing
+
+    /// <summary>
+    /// Parse integer from JSON element (handles both string and number types)
+    /// </summary>
+    private static int ParseIntFromJson(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Number)
+            return element.GetInt32();
+        if (element.ValueKind == JsonValueKind.String && int.TryParse(element.GetString(), out var result))
+            return result;
+        return 0;
+    }
+
+    /// <summary>
+    /// Parse double from JSON element (handles both string and number types)
+    /// </summary>
+    private static double ParseDoubleFromJson(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Number)
+            return element.GetDouble();
+        if (element.ValueKind == JsonValueKind.String && double.TryParse(element.GetString(), out var result))
+            return result;
+        return 0;
+    }
+
+    /// <summary>
+    /// Parse boolean from JSON element (handles string "true"/"false" and actual boolean)
+    /// </summary>
+    private static bool ParseBoolFromJson(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.True)
+            return true;
+        if (element.ValueKind == JsonValueKind.False)
+            return false;
+        if (element.ValueKind == JsonValueKind.String)
+            return element.GetString()?.ToLower() == "true";
+        return false;
+    }
+
+    /// <summary>
+    /// Check API response code and return error info if not successful
+    /// </summary>
+    private static (string message, string errorCode)? CheckApiResponseCode(
+        JsonElement root, string errorPrefix, string defaultMessage)
+    {
+        if (!root.TryGetProperty("code", out var codeElement))
+            return null;
+
+        var code = ParseIntFromJson(codeElement);
+        if (code == 200)
+            return null;
+
+        var message = root.TryGetProperty("message", out var msgElement)
+            ? msgElement.GetString() ?? defaultMessage
+            : defaultMessage;
+
+        return (message, $"{errorPrefix}_{code}");
+    }
+
+    /// <summary>
+    /// Parse face match data from API response
+    /// </summary>
+    private static (double similarity, bool isMatch) ParseFaceMatchData(JsonElement root)
+    {
+        double similarity = 0;
+        bool isMatch = false;
+
+        if (!root.TryGetProperty("data", out var dataElement))
+            return (similarity, isMatch);
+
+        if (dataElement.TryGetProperty("similarity", out var simElement))
+            similarity = ParseDoubleFromJson(simElement);
+
+        if (dataElement.TryGetProperty("isMatch", out var matchElement))
+            isMatch = ParseBoolFromJson(matchElement);
+
+        return (similarity, isMatch);
+    }
+
+    /// <summary>
+    /// Parse liveness data from API response
+    /// </summary>
+    private (bool isLive, double livenessScore, double spoofProb, string? errorMessage, string? errorCode) ParseLivenessData(JsonElement livenessObj)
+    {
+        // Check liveness-specific code
+        if (livenessObj.TryGetProperty("code", out var lCodeElement))
+        {
+            var livenessCode = ParseIntFromJson(lCodeElement);
+            if (livenessCode != 200)
+            {
+                var lMessage = livenessObj.TryGetProperty("message", out var lMsgElement)
+                    ? lMsgElement.GetString() ?? "Liveness check failed"
+                    : "Liveness check failed";
+                return (false, 0, 0, lMessage, $"LIVENESS_{livenessCode}");
+            }
+        }
+
+        // Get is_live field
+        bool isLive = false;
+        if (livenessObj.TryGetProperty("is_live", out var isLiveElement))
+            isLive = ParseBoolFromJson(isLiveElement);
+
+        // Get spoof_prob (lower is better - means less likely to be spoofed)
+        double spoofProb = 0;
+        if (livenessObj.TryGetProperty("spoof_prob", out var spoofElement))
+            spoofProb = ParseDoubleFromJson(spoofElement);
+
+        // Calculate liveness score: 100 - (spoof_prob * 100)
+        var livenessScore = (1 - spoofProb) * 100;
+
+        return (isLive, livenessScore, spoofProb, null, null);
+    }
+
+    /// <summary>
+    /// Parse face match data from liveness response
+    /// </summary>
+    private (bool isFaceMatch, double similarity) ParseFaceMatchFromLiveness(JsonElement root)
+    {
+        double similarity = 0;
+        bool isFaceMatch = false;
+
+        if (!root.TryGetProperty("face_match", out var faceMatchObj))
+            return (isFaceMatch, similarity);
+
+        if (faceMatchObj.TryGetProperty("similarity", out var simElement))
+            similarity = ParseDoubleFromJson(simElement);
+
+        if (faceMatchObj.TryGetProperty("isMatch", out var matchElement))
+            isFaceMatch = ParseBoolFromJson(matchElement);
+
+        // Also check threshold
+        if (similarity >= _faceMatchThreshold)
+            isFaceMatch = true;
+
+        return (isFaceMatch, similarity);
+    }
+
+    /// <summary>
+    /// Determine liveness result message based on liveness and face match status
+    /// </summary>
+    private (bool success, string message) DetermineLivenessResult(bool isLive, bool isFaceMatch, double faceMatchSimilarity)
+    {
+        if (!isLive)
+            return (false, "Không phát hiện người thật. Vui lòng thử lại.");
+
+        if (!isFaceMatch)
+            return (false, $"Khuôn mặt trong video không khớp với CMND/CCCD (độ khớp: {faceMatchSimilarity:F1}%, yêu cầu: {_faceMatchThreshold}%)");
+
+        return (true, "Xác thực người thật thành công");
+    }
+
+    #endregion
 
 }
