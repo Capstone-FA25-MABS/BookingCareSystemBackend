@@ -209,6 +209,38 @@ public class GroqApiHelper
         int timeoutSeconds,
         CancellationToken cancellationToken = default)
     {
+        ValidateApiConfiguration(apiKey);
+
+        var url = $"{_config.ApiEndpoint}/openai/v1/chat/completions";
+        Exception? lastException = null;
+
+        for (int attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                return await ExecuteApiCall(prompt, model, apiKey, temperature, maxTokens, timeoutSeconds, url, attempt, maxRetries, cancellationToken);
+            }
+            catch (HttpRequestException ex) when (IsRateLimitException(ex))
+            {
+                lastException = await HandleRateLimitException(ex, model, attempt, maxRetries, cancellationToken);
+            }
+            catch (TaskCanceledException ex) when (IsTimeoutException(ex, cancellationToken))
+            {
+                lastException = await HandleTimeoutException(ex, model, timeoutSeconds, attempt, maxRetries);
+            }
+            catch (Exception ex)
+            {
+                lastException = await HandleGenericException(ex, model, attempt, maxRetries, cancellationToken);
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Failed to call Groq API with model {model} after {maxRetries} attempts. Last error: {lastException?.Message}",
+            lastException);
+    }
+
+    private void ValidateApiConfiguration(string apiKey)
+    {
         if (!_config.Enabled)
         {
             throw new InvalidOperationException("Groq API is not enabled");
@@ -218,93 +250,135 @@ public class GroqApiHelper
         {
             throw new InvalidOperationException("Groq API key is not configured");
         }
+    }
 
-        var url = $"{_config.ApiEndpoint}/openai/v1/chat/completions";
+    private async Task<string> ExecuteApiCall(
+        string prompt,
+        string model,
+        string apiKey,
+        double temperature,
+        int maxTokens,
+        int timeoutSeconds,
+        string url,
+        int attempt,
+        int maxRetries,
+        CancellationToken cancellationToken)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
-        Exception? lastException = null;
+        var request = CreateHttpRequest(prompt, model, apiKey, temperature, maxTokens, url);
+        _logger.LogInformation("Calling Groq API: {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
 
-        for (int attempt = 0; attempt < maxRetries; attempt++)
+        var response = await _httpClient.SendAsync(request, timeoutCts.Token);
+        var responseContent = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+
+        if (!response.IsSuccessStatusCode)
         {
-            try
-            {
-                // Create a cancellation token source with timeout for this specific call
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-
-                var requestBody = BuildRequestBody(prompt, model, temperature, maxTokens);
-                var jsonContent = JsonSerializer.Serialize(requestBody);
-                var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-                // Create request with authorization header
-                var request = new HttpRequestMessage(HttpMethod.Post, url)
-                {
-                    Content = httpContent
-                };
-                request.Headers.Add("Authorization", $"Bearer {apiKey}");
-
-                _logger.LogInformation("Calling Groq API: {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
-
-                var response = await _httpClient.SendAsync(request, timeoutCts.Token);
-                var responseContent = await response.Content.ReadAsStringAsync(timeoutCts.Token);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    HandleErrorResponse(response, responseContent, model);
-                }
-
-                var groqResponse = ParseGroqResponse(responseContent);
-                var generatedText = ExtractGeneratedTextOrThrow(groqResponse, responseContent);
-
-                _logger.LogInformation(
-                    "Successfully called Groq using {Model}, generated {Length} characters",
-                    model,
-                    generatedText.Length);
-
-                return generatedText;
-            }
-            catch (HttpRequestException ex) when (ex.Message.Contains("429") || ex.Message.Contains("quota") || ex.Message.Contains("rate limit"))
-            {
-                _logger.LogWarning(ex, "Groq API rate limit exceeded for model {Model}", model);
-                if (attempt < maxRetries - 1)
-                {
-                    var delay = (attempt + 1) * 1000; // Exponential backoff
-                    await Task.Delay(delay, cancellationToken);
-                    lastException = ex;
-                    continue;
-                }
-                throw new InvalidOperationException(
-                    $"Groq API rate limit exceeded for model {model}. Please wait and try again later.",
-                    ex);
-            }
-            catch (TaskCanceledException ex) when (ex.CancellationToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-            {
-                _logger.LogWarning(ex, "Timeout calling Groq API with model {Model} ({Timeout}s)", model, timeoutSeconds);
-                if (attempt < maxRetries - 1)
-                {
-                    lastException = ex;
-                    continue;
-                }
-                throw new InvalidOperationException(
-                    $"Timeout calling Groq API with model {model} after {maxRetries} attempts.",
-                    ex);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to call Groq API with model {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
-                if (attempt < maxRetries - 1)
-                {
-                    var delay = (attempt + 1) * 500;
-                    await Task.Delay(delay, cancellationToken);
-                    lastException = ex;
-                    continue;
-                }
-                throw;
-            }
+            HandleErrorResponse(response, responseContent);
         }
 
-        throw new InvalidOperationException(
-            $"Failed to call Groq API with model {model} after {maxRetries} attempts. Last error: {lastException?.Message}",
-            lastException);
+        var groqResponse = ParseGroqResponse(responseContent);
+        var generatedText = ExtractGeneratedTextOrThrow(groqResponse, responseContent);
+
+        _logger.LogInformation(
+            "Successfully called Groq using {Model}, generated {Length} characters",
+            model,
+            generatedText.Length);
+
+        return generatedText;
+    }
+
+    private HttpRequestMessage CreateHttpRequest(
+        string prompt,
+        string model,
+        string apiKey,
+        double temperature,
+        int maxTokens,
+        string url)
+    {
+        var requestBody = BuildRequestBody(prompt, model, temperature, maxTokens);
+        var jsonContent = JsonSerializer.Serialize(requestBody);
+        var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = httpContent
+        };
+        request.Headers.Add("Authorization", $"Bearer {apiKey}");
+
+        return request;
+    }
+
+    private static bool IsRateLimitException(HttpRequestException ex)
+    {
+        return ex.Message.Contains("429") || ex.Message.Contains("quota") || ex.Message.Contains("rate limit");
+    }
+
+    private static bool IsTimeoutException(TaskCanceledException ex, CancellationToken cancellationToken)
+    {
+        return ex.CancellationToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
+    }
+
+    private async Task<Exception> HandleRateLimitException(
+        HttpRequestException ex,
+        string model,
+        int attempt,
+        int maxRetries,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogWarning(ex, "Groq API rate limit exceeded for model {Model}", model);
+
+        if (attempt >= maxRetries - 1)
+        {
+            throw new InvalidOperationException(
+                $"Groq API rate limit exceeded for model {model}. Please wait and try again later.",
+                ex);
+        }
+
+        var delay = (attempt + 1) * 1000;
+        await Task.Delay(delay, cancellationToken);
+        return ex;
+    }
+
+    private Task<Exception> HandleTimeoutException(
+        TaskCanceledException ex,
+        string model,
+        int timeoutSeconds,
+        int attempt,
+        int maxRetries)
+    {
+        _logger.LogWarning(ex, "Timeout calling Groq API with model {Model} ({Timeout}s)", model, timeoutSeconds);
+
+        if (attempt >= maxRetries - 1)
+        {
+            throw new InvalidOperationException(
+                $"Timeout calling Groq API with model {model} after {maxRetries} attempts.",
+                ex);
+        }
+
+        return Task.FromResult<Exception>(ex);
+    }
+
+    private async Task<Exception> HandleGenericException(
+        Exception ex,
+        string model,
+        int attempt,
+        int maxRetries,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogWarning(ex, "Failed to call Groq API with model {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
+
+        if (attempt >= maxRetries - 1)
+        {
+            throw new InvalidOperationException(
+                $"Failed to call Groq API with model {model} after {maxRetries} attempts. Error: {ex.Message}",
+                ex);
+        }
+
+        var delay = (attempt + 1) * 500;
+        await Task.Delay(delay, cancellationToken);
+        return ex;
     }
 
     private object BuildRequestBody(string prompt, string model, double temperature, int maxTokens)
@@ -327,8 +401,7 @@ public class GroqApiHelper
 
     private void HandleErrorResponse(
         HttpResponseMessage response,
-        string responseContent,
-        string model)
+        string responseContent)
     {
         if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
