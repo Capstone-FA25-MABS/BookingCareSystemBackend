@@ -1566,3 +1566,65 @@ public class HospitalContractSignedEvent : HospitalRegistrationEventBase
     public string SignedContractUrl { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Event published when a pending appointment is rejected by hospital staff
+/// Used to notify patient that their appointment request was declined (before payment)
+/// </summary>
+public class AppointmentRejectedNotificationEvent : IntegrationEvent
+{
+    /// <summary>
+    /// ID of the rejected appointment
+    /// </summary>
+    public Guid AppointmentId { get; set; }
+
+    /// <summary>
+    /// ID of the patient
+    /// </summary>
+    public Guid PatientId { get; set; }
+
+    /// <summary>
+    /// Appointment date
+    /// </summary>
+    public DateTime AppointmentDate { get; set; }
+
+    /// <summary>
+    /// Appointment time slot (enum value as int)
+    /// </summary>
+    public string AppointmentTimeId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Reason for rejection
+    /// </summary>
+    public string RejectionReason { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When the appointment was rejected
+    /// </summary>
+    public DateTime RejectedAt { get; set; }
+
+    /// <summary>
+    /// Patient email for notification
+    /// </summary>
+    public string? PatientEmail { get; set; }
+
+    /// <summary>
+    /// Patient phone for notification
+    /// </summary>
+    public string? PatientPhone { get; set; }
+
+    /// <summary>
+    /// Patient full name
+    /// </summary>
+    public string? PatientFullName { get; set; }
+
+    /// <summary>
+    /// Doctor name (if assigned)
+    /// </summary>
+    public string? DoctorName { get; set; }
+
+    /// <summary>
+    /// Hospital name
+    /// </summary>
+    public string? HospitalName { get; set; }
+}
+
