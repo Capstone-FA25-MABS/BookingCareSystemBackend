@@ -90,7 +90,7 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 EkycSessionId = request.EkycSessionId,
                 FaceMatchScore = request.FaceMatchScore,
                 LivenessScore = request.LivenessScore,
-                EkycStatus = request.IsEkycVerified == true 
+                EkycStatus = request.IsEkycVerified == true
                     ? EkycStatus.VERIFIED
                     : EkycStatus.NOT_STARTED,
                 EkycVerifiedAt = request.IsEkycVerified == true
