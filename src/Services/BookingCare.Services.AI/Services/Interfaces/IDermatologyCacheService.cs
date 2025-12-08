@@ -13,7 +13,7 @@ public interface IDermatologyCacheService
     /// <param name="englishName">English disease name from AILabTools (e.g., "melanoma")</param>
     /// <returns>Cached disease entity or null if not found</returns>
     Task<DermatologyDiseaseCacheEntity?> FindByEnglishNameAsync(string englishName);
-    
+
     /// <summary>
     /// Save disease translation and advice to cache
     /// </summary>
@@ -23,12 +23,12 @@ public interface IDermatologyCacheService
         Dictionary<string, List<string>> adviceBySeverity,
         List<string>? reasons = null,
         string createdBy = "GROQ");
-    
+
     /// <summary>
     /// Increment usage count for cache entry
     /// </summary>
     Task IncrementUsageAsync(Guid cacheId);
-    
+
     /// <summary>
     /// Get cache statistics for monitoring
     /// </summary>

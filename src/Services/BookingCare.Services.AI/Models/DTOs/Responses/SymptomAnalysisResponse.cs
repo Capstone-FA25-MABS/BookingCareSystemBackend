@@ -89,12 +89,12 @@ public class SymptomAnalysisResponse
     /// Whether user can request more questions (true when round 1 && confidence < 90%)
     /// </summary>
     public bool CanRequestMoreQuestions { get; set; }
-    
+
     /// <summary>
     /// Whether this response came from cache (for monitoring/debugging)
     /// </summary>
     public bool FromCache { get; set; }
-    
+
     /// <summary>
     /// Cache tier used (1 = exact match, 2 = fuzzy match, null = not from cache)
     /// </summary>
@@ -158,6 +158,14 @@ public class DoctorRecommendation
     public string? Price { get; set; }
     public double RecommendationScore { get; set; } // 0-1, weighted score
     public string? AvatarUrl { get; set; } // Doctor avatar image URL
+    public List<DoctorServiceOption> ServiceOptions { get; set; } = new();
+}
+
+public class DoctorServiceOption
+{
+    public string? ServiceTypeId { get; set; }
+    public string ServiceTypeName { get; set; } = string.Empty;
+    public string? Price { get; set; }
 }
 
 /// <summary>

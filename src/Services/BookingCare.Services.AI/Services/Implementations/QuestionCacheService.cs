@@ -13,7 +13,7 @@ public class QuestionCacheService : IQuestionCacheService
 {
     private readonly AiDbContext _dbContext;
     private readonly ILogger<QuestionCacheService> _logger;
-    
+
     public QuestionCacheService(
         AiDbContext dbContext,
         ILogger<QuestionCacheService> logger)
@@ -21,7 +21,7 @@ public class QuestionCacheService : IQuestionCacheService
         _dbContext = dbContext;
         _logger = logger;
     }
-    
+
     /// <summary>
     /// Tier 0: Find cached question with exact normalized message match (fastest, most accurate)
     /// </summary>
@@ -31,17 +31,17 @@ public class QuestionCacheService : IQuestionCacheService
     {
         if (string.IsNullOrWhiteSpace(normalizedMessage))
             return null;
-        
+
         var normalized = normalizedMessage.ToLowerInvariant().Trim();
-        
+
         var result = await _dbContext.SymptomQuestionCache
-            .Where(q => q.NormalizedMessage != null 
+            .Where(q => q.NormalizedMessage != null
                      && q.NormalizedMessage.ToLower() == normalized
                      && q.QuestionNumber == questionNumber)
             .OrderByDescending(q => q.UsageCount)
             .ThenByDescending(q => q.SuccessRate)
             .FirstOrDefaultAsync();
-        
+
         if (result != null)
         {
             _logger.LogInformation(
@@ -49,23 +49,23 @@ public class QuestionCacheService : IQuestionCacheService
                 normalizedMessage,
                 questionNumber);
         }
-        
+
         return result;
     }
-    
+
     public async Task<SymptomQuestionCacheEntity?> FindExactMatchAsync(
         string keywords,
         int questionNumber)
     {
         var normalized = keywords.ToLowerInvariant();
-        
+
         var result = await _dbContext.SymptomQuestionCache
             .Where(q => q.NormalizedKeywords == normalized
                      && q.QuestionNumber == questionNumber)
             .OrderByDescending(q => q.UsageCount)
             .ThenByDescending(q => q.SuccessRate)
             .FirstOrDefaultAsync();
-        
+
         if (result != null)
         {
             _logger.LogInformation(
@@ -73,10 +73,10 @@ public class QuestionCacheService : IQuestionCacheService
                 keywords,
                 questionNumber);
         }
-        
+
         return result;
     }
-    
+
     public async Task<SymptomQuestionCacheEntity?> FindFuzzyMatchAsync(
         string keywords,
         int questionNumber,
@@ -86,7 +86,7 @@ public class QuestionCacheService : IQuestionCacheService
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(k => k.Trim())
             .ToList();
-        
+
         // Get candidates for this question number
         // Limit to top 100 by usage for performance
         var candidates = await _dbContext.SymptomQuestionCache
@@ -94,12 +94,12 @@ public class QuestionCacheService : IQuestionCacheService
             .OrderByDescending(q => q.UsageCount)
             .Take(100)
             .ToListAsync();
-        
+
         if (candidates.Count == 0)
         {
             return null;
         }
-        
+
         // Calculate Jaccard similarity for each candidate
         var matches = candidates
             .Select(c => new
@@ -116,7 +116,7 @@ public class QuestionCacheService : IQuestionCacheService
             .ThenByDescending(m => m.Cache.UsageCount)
             .ThenByDescending(m => m.Cache.SuccessRate)
             .FirstOrDefault();
-        
+
         if (matches != null)
         {
             _logger.LogInformation(
@@ -126,10 +126,10 @@ public class QuestionCacheService : IQuestionCacheService
                 matches.Similarity,
                 questionNumber);
         }
-        
+
         return matches?.Cache;
     }
-    
+
     public async Task SaveQuestionAsync(
         string initialSymptom,
         string conversationContext,
@@ -158,17 +158,17 @@ public class QuestionCacheService : IQuestionCacheService
             LastUsedAt = DateTime.UtcNow,
             CreatedBy = createdBy
         };
-        
+
         _dbContext.SymptomQuestionCache.Add(entry);
         await _dbContext.SaveChangesAsync();
-        
+
         _logger.LogInformation(
             "💾 Saved to cache: '{Keywords}' Q{Number} → '{Question}'",
             normalizedKeywords,
             questionNumber,
             question.Length > 50 ? question.Substring(0, 50) + "..." : question);
     }
-    
+
     public async Task IncrementUsageAsync(Guid cacheId)
     {
         await _dbContext.Database.ExecuteSqlRawAsync(
@@ -178,7 +178,7 @@ public class QuestionCacheService : IQuestionCacheService
               WHERE Id = {0}",
             cacheId);
     }
-    
+
     public async Task<CacheStatistics> GetStatisticsAsync()
     {
         var stats = await _dbContext.SymptomQuestionCache
@@ -190,7 +190,7 @@ public class QuestionCacheService : IQuestionCacheService
                 TotalUsage = g.Sum(q => q.UsageCount)
             })
             .ToListAsync();
-        
+
         var topQuestions = await _dbContext.SymptomQuestionCache
             .OrderByDescending(q => q.UsageCount)
             .Take(10)
@@ -202,10 +202,10 @@ public class QuestionCacheService : IQuestionCacheService
                 UsageCount = q.UsageCount
             })
             .ToListAsync();
-        
+
         var totalEntries = stats.Sum(s => s.Count);
         var totalUsage = stats.Sum(s => s.TotalUsage);
-        
+
         return new CacheStatistics
         {
             TotalEntries = totalEntries,
@@ -215,7 +215,7 @@ public class QuestionCacheService : IQuestionCacheService
             TopQuestions = topQuestions
         };
     }
-    
+
     /// <summary>
     /// Calculate Jaccard similarity between two keyword sets
     /// Similarity = |intersection| / |union|
@@ -224,13 +224,13 @@ public class QuestionCacheService : IQuestionCacheService
     {
         if (set1.Count == 0 && set2.Count == 0)
             return 1.0;
-        
+
         if (set1.Count == 0 || set2.Count == 0)
             return 0.0;
-        
+
         var intersection = set1.Intersect(set2, StringComparer.OrdinalIgnoreCase).Count();
         var union = set1.Union(set2, StringComparer.OrdinalIgnoreCase).Count();
-        
+
         return union > 0 ? (double)intersection / union : 0.0;
     }
 }

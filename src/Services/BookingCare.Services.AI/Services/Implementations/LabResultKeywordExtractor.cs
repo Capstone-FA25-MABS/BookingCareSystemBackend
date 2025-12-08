@@ -9,7 +9,7 @@ namespace BookingCare.Services.AI.Services.Implementations;
 public class LabResultKeywordExtractor : ILabResultKeywordExtractor
 {
     private readonly ILogger<LabResultKeywordExtractor> _logger;
-    
+
     // Common lab indicator names in Vietnamese and English
     private static readonly HashSet<string> LabIndicatorNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -35,20 +35,20 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
         // Other common tests
         "tsh", "t3", "t4", "ft3", "ft4", "psa", "ca125", "ca199", "afp", "cea"
     };
-    
+
     public LabResultKeywordExtractor(ILogger<LabResultKeywordExtractor> logger)
     {
         _logger = logger;
     }
-    
+
     public string ExtractKeywords(string extractedText)
     {
         if (string.IsNullOrWhiteSpace(extractedText))
             return string.Empty;
-        
+
         var keywords = new HashSet<string>();
         var lowerText = extractedText.ToLowerInvariant();
-        
+
         // Extract lab indicator names
         foreach (var indicator in LabIndicatorNames)
         {
@@ -59,19 +59,19 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
                 keywords.Add(normalizedName);
             }
         }
-        
+
         // Also extract common patterns: "Name: Value Unit" or "Name Value Unit"
         // This helps catch indicators that might not be in our list
         var lines = extractedText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         foreach (var line in lines)
         {
             var lineLower = line.ToLowerInvariant();
-            
+
             // Look for patterns like "WBC: 5.2 x10^9/L" or "Hemoglobin 140 g/L"
             // Extract the indicator name (first word or words before colon/space)
             var colonIndex = lineLower.IndexOf(':');
             var spaceIndex = lineLower.IndexOf(' ');
-            
+
             if (colonIndex > 0)
             {
                 var potentialName = lineLower.Substring(0, colonIndex).Trim();
@@ -98,25 +98,25 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
                 }
             }
         }
-        
+
         // Normalize and return
         var normalized = NormalizeKeywords(keywords);
-        
+
         _logger.LogDebug(
             "Extracted {Count} keywords from lab result text: {Keywords}",
             keywords.Count,
             normalized);
-        
+
         return normalized;
     }
-    
+
     public string NormalizeText(string extractedText)
     {
         if (string.IsNullOrWhiteSpace(extractedText))
             return string.Empty;
-        
+
         var lowerText = extractedText.ToLowerInvariant();
-        
+
         // Vietnamese stop words to remove
         var stopWords = new HashSet<string>
         {
@@ -127,20 +127,20 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
             "reference", "range", "normal", "abnormal", "high", "low",
             "result", "test", "laboratory", "lab", "hospital", "patient"
         };
-        
+
         // Split by whitespace and punctuation, then filter out stop words
         var words = lowerText
-            .Split(new[] { ' ', ',', '.', '!', '?', ';', ':', '\t', '\n', '\r', '|', '-' }, 
+            .Split(new[] { ' ', ',', '.', '!', '?', ';', ':', '\t', '\n', '\r', '|', '-' },
                 StringSplitOptions.RemoveEmptyEntries)
             .Where(w => !stopWords.Contains(w) && w.Length > 0)
             .ToList();
-        
+
         // Join back with single space and trim
         var normalized = string.Join(" ", words).Trim();
-        
+
         return normalized;
     }
-    
+
     /// <summary>
     /// Normalize indicator name to a canonical form
     /// </summary>
@@ -162,15 +162,15 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
             { "cholesterol", "cholesterol" },
             { "triglycerid", "triglyceride" }
         };
-        
+
         if (mapping.TryGetValue(indicator, out var normalized))
         {
             return normalized;
         }
-        
+
         return indicator.ToLowerInvariant();
     }
-    
+
     /// <summary>
     /// Clean indicator name by removing common prefixes/suffixes
     /// </summary>
@@ -185,7 +185,7 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
                 name = name.Substring(prefix.Length).Trim();
             }
         }
-        
+
         // Remove common suffixes
         var suffixes = new[] { ":", "=", "-", "(", "[" };
         foreach (var suffix in suffixes)
@@ -195,10 +195,10 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
                 name = name.Substring(0, name.Length - suffix.Length).Trim();
             }
         }
-        
+
         return name.Trim();
     }
-    
+
     /// <summary>
     /// Normalize keywords: lowercase, sort, join with comma
     /// </summary>

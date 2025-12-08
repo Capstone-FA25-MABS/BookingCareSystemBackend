@@ -12,7 +12,7 @@ public interface ILabResultKeywordExtractor
     /// <param name="extractedText">Text extracted from lab result image/PDF</param>
     /// <returns>Normalized keywords string (lowercase, sorted, comma-separated)</returns>
     string ExtractKeywords(string extractedText);
-    
+
     /// <summary>
     /// Normalize extracted text for exact matching: remove stop words, lowercase, normalize whitespace
     /// Used for Tier 0 exact text matching in cache

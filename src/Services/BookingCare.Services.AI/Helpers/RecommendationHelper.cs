@@ -4,6 +4,7 @@ using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital;
 using Grpc.Core;
 using Microsoft.Extensions.Caching.Memory;
+using DoctorServiceOptionDto = BookingCare.Services.AI.Models.DTOs.Responses.DoctorServiceOption;
 
 namespace BookingCare.Services.AI.Helpers;
 
@@ -86,19 +87,57 @@ public class RecommendationHelper
                 .Select(x => new { Doctor = x, Score = CalculateDoctorScore(x, location) })
                 .OrderByDescending(x => x.Score)
                 .Take(MAX_DOCTOR_RECOMMENDATIONS)
-                .Select(x => new DoctorRecommendation
+                .Select(x =>
                 {
-                    Id = x.Doctor.Id,
-                    Name = x.Doctor.FullName,
-                    SpecialtyName = x.Doctor.SpecialtyName,
-                    HospitalName = x.Doctor.HospitalName,
-                    Rating = x.Doctor.Rating,
-                    YearOfExperience = x.Doctor.YearsOfExperience,
-                    ServiceTypeName = x.Doctor.ServiceTypeName,
-                    Price = x.Doctor.ConsultationFee > 0 ? $"{x.Doctor.ConsultationFee:N0} VNĐ" : null,
-                    AvatarUrl = x.Doctor.AvatarUrl,
-                    RecommendationScore = x.Score
+                    var serviceOptions = x.Doctor.ServiceOptions
+                        .Select(o => new DoctorServiceOptionDto
+                        {
+                            ServiceTypeId = string.IsNullOrWhiteSpace(o.ServiceTypeId) ? null : o.ServiceTypeId,
+                            ServiceTypeName = o.ServiceTypeName,
+                            Price = o.ConsultationFee > 0 ? $"{o.ConsultationFee:N0} VNĐ" : null
+                        })
+                        .ToList();
+
+                    // Keep only allowed service types: IN_PERSON / TELEHEALTH (tư vấn trực tuyến)
+                    serviceOptions = serviceOptions
+                        .Where(o =>
+                        {
+                            var name = o.ServiceTypeName?.Trim().ToLowerInvariant() ?? string.Empty;
+                            return name == "in_person"
+                                || name.Contains("trực tiếp")
+                                || name == "telehealth"
+                                || name.Contains("tư vấn trực tuyến");
+                        })
+                        .ToList();
+
+                    if (serviceOptions.Count == 0)
+                    {
+                        return null;
+                    }
+
+                    var preferredOption = serviceOptions.FirstOrDefault(o =>
+                        o.ServiceTypeName.Equals("IN_PERSON", StringComparison.OrdinalIgnoreCase) ||
+                        o.ServiceTypeName.Contains("trực tiếp", StringComparison.OrdinalIgnoreCase));
+
+                    preferredOption ??= serviceOptions.FirstOrDefault();
+
+                    return new DoctorRecommendation
+                    {
+                        Id = x.Doctor.Id,
+                        Name = x.Doctor.FullName,
+                        SpecialtyName = x.Doctor.SpecialtyName,
+                        HospitalName = x.Doctor.HospitalName,
+                        Rating = x.Doctor.Rating,
+                        YearOfExperience = x.Doctor.YearsOfExperience,
+                        ServiceTypeName = preferredOption?.ServiceTypeName ?? x.Doctor.ServiceTypeName,
+                        Price = preferredOption?.Price ?? (x.Doctor.ConsultationFee > 0 ? $"{x.Doctor.ConsultationFee:N0} VNĐ" : null),
+                        AvatarUrl = x.Doctor.AvatarUrl,
+                        RecommendationScore = x.Score,
+                        ServiceOptions = serviceOptions
+                    };
                 })
+                .Where(x => x != null)
+                .Select(x => x!)
                 .ToList();
         }
         catch (Exception ex)

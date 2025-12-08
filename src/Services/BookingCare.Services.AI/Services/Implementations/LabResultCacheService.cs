@@ -13,7 +13,7 @@ public class LabResultCacheService : ILabResultCacheService
 {
     private readonly AiDbContext _dbContext;
     private readonly ILogger<LabResultCacheService> _logger;
-    
+
     public LabResultCacheService(
         AiDbContext dbContext,
         ILogger<LabResultCacheService> logger)
@@ -21,7 +21,7 @@ public class LabResultCacheService : ILabResultCacheService
         _dbContext = dbContext;
         _logger = logger;
     }
-    
+
     /// <summary>
     /// Tier 0: Find cached analysis with exact normalized text match (fastest, most accurate)
     /// </summary>
@@ -29,45 +29,45 @@ public class LabResultCacheService : ILabResultCacheService
     {
         if (string.IsNullOrWhiteSpace(normalizedText))
             return null;
-        
+
         var normalized = normalizedText.ToLowerInvariant().Trim();
-        
+
         var result = await _dbContext.LabResultAbnormalIndicatorCache
-            .Where(c => c.NormalizedText != null 
+            .Where(c => c.NormalizedText != null
                      && c.NormalizedText.ToLower() == normalized)
             .OrderByDescending(c => c.UsageCount)
             .ThenByDescending(c => c.SuccessRate)
             .FirstOrDefaultAsync();
-        
+
         if (result != null)
         {
             _logger.LogInformation(
                 "✅ Tier 0 Hit: Exact text match for lab result analysis");
         }
-        
+
         return result;
     }
-    
+
     public async Task<LabResultAbnormalIndicatorCacheEntity?> FindExactMatchAsync(string keywords)
     {
         var normalized = keywords.ToLowerInvariant();
-        
+
         var result = await _dbContext.LabResultAbnormalIndicatorCache
             .Where(c => c.NormalizedKeywords == normalized)
             .OrderByDescending(c => c.UsageCount)
             .ThenByDescending(c => c.SuccessRate)
             .FirstOrDefaultAsync();
-        
+
         if (result != null)
         {
             _logger.LogInformation(
                 "✅ Tier 1 Hit: Exact keywords match for '{Keywords}'",
                 keywords);
         }
-        
+
         return result;
     }
-    
+
     public async Task<LabResultAbnormalIndicatorCacheEntity?> FindFuzzyMatchAsync(
         string keywords,
         double threshold = 0.75)
@@ -76,18 +76,18 @@ public class LabResultCacheService : ILabResultCacheService
             .Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(k => k.Trim())
             .ToList();
-        
+
         // Get candidates - limit to top 100 by usage for performance
         var candidates = await _dbContext.LabResultAbnormalIndicatorCache
             .OrderByDescending(c => c.UsageCount)
             .Take(100)
             .ToListAsync();
-        
+
         if (candidates.Count == 0)
         {
             return null;
         }
-        
+
         // Calculate Jaccard similarity for each candidate
         var matches = candidates
             .Select(c => new
@@ -104,7 +104,7 @@ public class LabResultCacheService : ILabResultCacheService
             .ThenByDescending(m => m.Cache.UsageCount)
             .ThenByDescending(m => m.Cache.SuccessRate)
             .FirstOrDefault();
-        
+
         if (matches != null)
         {
             _logger.LogInformation(
@@ -113,10 +113,10 @@ public class LabResultCacheService : ILabResultCacheService
                 matches.Cache.NormalizedKeywords,
                 matches.Similarity);
         }
-        
+
         return matches?.Cache;
     }
-    
+
     public async Task SaveAnalysisAsync(
         string normalizedKeywords,
         string? normalizedText,
@@ -141,16 +141,16 @@ public class LabResultCacheService : ILabResultCacheService
             LastUsedAt = DateTime.UtcNow,
             CreatedBy = createdBy
         };
-        
+
         _dbContext.LabResultAbnormalIndicatorCache.Add(entry);
         await _dbContext.SaveChangesAsync();
-        
+
         _logger.LogInformation(
             "💾 Saved to cache: '{Keywords}' → {AbnormalCount} abnormal indicators",
             normalizedKeywords,
             abnormalIndicatorsJson.Length > 0 ? "with" : "no");
     }
-    
+
     public async Task IncrementUsageAsync(Guid cacheId)
     {
         await _dbContext.Database.ExecuteSqlRawAsync(
@@ -160,7 +160,7 @@ public class LabResultCacheService : ILabResultCacheService
               WHERE Id = {0}",
             cacheId);
     }
-    
+
     public async Task<LabResultCacheStatistics> GetStatisticsAsync()
     {
         var stats = await _dbContext.LabResultAbnormalIndicatorCache
@@ -169,7 +169,7 @@ public class LabResultCacheService : ILabResultCacheService
                 TotalUsage = c.UsageCount
             })
             .ToListAsync();
-        
+
         var topResults = await _dbContext.LabResultAbnormalIndicatorCache
             .OrderByDescending(c => c.UsageCount)
             .Take(10)
@@ -179,10 +179,10 @@ public class LabResultCacheService : ILabResultCacheService
                 UsageCount = c.UsageCount
             })
             .ToListAsync();
-        
+
         var totalEntries = stats.Count;
         var totalUsage = stats.Sum(s => s.TotalUsage);
-        
+
         return new LabResultCacheStatistics
         {
             TotalEntries = totalEntries,
@@ -191,7 +191,7 @@ public class LabResultCacheService : ILabResultCacheService
             TopResults = topResults
         };
     }
-    
+
     /// <summary>
     /// Calculate Jaccard similarity between two keyword sets
     /// Similarity = |intersection| / |union|
@@ -200,13 +200,13 @@ public class LabResultCacheService : ILabResultCacheService
     {
         if (set1.Count == 0 && set2.Count == 0)
             return 1.0;
-        
+
         if (set1.Count == 0 || set2.Count == 0)
             return 0.0;
-        
+
         var intersection = set1.Intersect(set2, StringComparer.OrdinalIgnoreCase).Count();
         var union = set1.Union(set2, StringComparer.OrdinalIgnoreCase).Count();
-        
+
         return union > 0 ? (double)intersection / union : 0.0;
     }
 }

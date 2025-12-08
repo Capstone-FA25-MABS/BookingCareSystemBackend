@@ -125,7 +125,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     conversationHistory,
                     sessionId,
                     questionInRound);
-                
+
                 if (cachedResponse != null)
                 {
                     // Cache hit! Save conversation and return
@@ -141,14 +141,14 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                             disease: null,
                             questionCount: cachedResponse.QuestionCount,
                             analysisComplete: false);
-                        
+
                         _logger.LogDebug("Successfully saved cached question to conversation history for session {SessionId}", sessionId);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Error saving cached conversation for session {SessionId}", sessionId);
                     }
-                    
+
                     return cachedResponse;
                 }
             }
@@ -179,7 +179,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     currentRound,
                     request.Location)
                 : ParseAskingModeResponse(groqResponse, sessionId, questionInRound);
-            
+
             // Step 8: Save question to cache (synchronous to avoid DbContext issues)
             // Cache all questions (Q1, Q2, Q3), not just asking mode
             // Conclusions are not cached (they are diagnosis results, not questions)
@@ -777,9 +777,9 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             if (!string.IsNullOrWhiteSpace(normalizedMessage))
             {
                 var exactMessageMatch = await _questionCacheService.FindExactMessageMatchAsync(
-                    normalizedMessage, 
+                    normalizedMessage,
                     questionNumber);
-                
+
                 if (exactMessageMatch != null)
                 {
                     await _questionCacheService.IncrementUsageAsync(exactMessageMatch.Id);
@@ -790,50 +790,50 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     return CreateResponseFromCache(exactMessageMatch, sessionId, questionNumber, tier: 0);
                 }
             }
-            
+
             // Extract keywords with full conversation context
             var keywords = _contextExtractor.ExtractKeywordsWithContext(userMessage, history);
-            
+
             if (string.IsNullOrEmpty(keywords))
             {
                 _logger.LogDebug("No keywords extracted, skipping cache lookup");
                 return null;
             }
-            
+
             _logger.LogDebug(
                 "Cache lookup: Message='{Message}', Keywords='{Keywords}', QuestionNumber={Number}",
                 normalizedMessage,
                 keywords,
                 questionNumber);
-            
+
             // Tier 1: Exact keywords match (~50ms)
             var exactMatch = await _questionCacheService.FindExactMatchAsync(keywords, questionNumber);
-            
+
             if (exactMatch != null)
             {
                 await _questionCacheService.IncrementUsageAsync(exactMatch.Id);
                 return CreateResponseFromCache(exactMatch, sessionId, questionNumber, tier: 1);
             }
-            
+
             // Tier 2: Fuzzy keywords match (~100ms)
             var fuzzyMatch = await _questionCacheService.FindFuzzyMatchAsync(
                 keywords,
                 questionNumber,
                 threshold: 0.75); // 75% similarity
-            
+
             if (fuzzyMatch != null)
             {
                 await _questionCacheService.IncrementUsageAsync(fuzzyMatch.Id);
                 return CreateResponseFromCache(fuzzyMatch, sessionId, questionNumber, tier: 2);
             }
-            
+
             // Cache miss
             _logger.LogInformation(
                 "❌ Cache miss for Message='{Message}', Keywords='{Keywords}' Q{Number} → Will call Groq",
                 normalizedMessage,
                 keywords,
                 questionNumber);
-            
+
             return null;
         }
         catch (Exception ex)
@@ -842,7 +842,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             return null;
         }
     }
-    
+
     /// <summary>
     /// Create response from cached question
     /// </summary>
@@ -870,7 +870,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             Timestamp = DateTime.UtcNow
         };
     }
-    
+
     /// <summary>
     /// Save question to cache (synchronous to avoid DbContext issues)
     /// Only saves if not already in cache
@@ -886,27 +886,27 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             // Extract components
             var initialSymptom = _contextExtractor.ExtractInitialSymptom(
                 history.FirstOrDefault()?.Content ?? userMessage);
-            
+
             var contextKeywords = _contextExtractor.ExtractContextFromAnswers(history);
             var conversationContext = string.Join(", ", contextKeywords);
-            
+
             var fullKeywords = _contextExtractor.ExtractKeywordsWithContext(
                 userMessage,
                 history);
-            
+
             // Normalize message for Tier 0 exact matching
             var normalizedMessage = _contextExtractor.NormalizeMessage(userMessage);
-            
+
             // Check if already exists in cache (check both message and keywords)
             var existingCache = !string.IsNullOrWhiteSpace(normalizedMessage)
                 ? await _questionCacheService.FindExactMessageMatchAsync(normalizedMessage, questionNumber)
                 : null;
-            
+
             if (existingCache == null)
             {
                 existingCache = await _questionCacheService.FindExactMatchAsync(fullKeywords, questionNumber);
             }
-            
+
             if (existingCache != null)
             {
                 _logger.LogDebug(
@@ -916,7 +916,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     questionNumber);
                 return;
             }
-            
+
             // Save to cache (only if not exists)
             await _questionCacheService.SaveQuestionAsync(
                 initialSymptom: initialSymptom,
@@ -928,7 +928,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                 purpose: response.NextQuestions?.FirstOrDefault()?.Purpose,
                 priority: response.NextQuestions?.FirstOrDefault()?.Priority,
                 createdBy: "GROQ");
-            
+
             _logger.LogInformation(
                 "💾 Saved to cache: Message='{Message}', Initial='{Initial}', Context='{Context}', Q{Number}",
                 normalizedMessage,
@@ -981,11 +981,11 @@ public class SymptomAnalysisService : ISymptomAnalysisService
 
 
     #endregion
-    
-    
+
+
     #region Cache Helper Methods
-    
-    
+
+
     /// <summary>
     /// Save conversation to database in background (fire-and-forget)
     /// </summary>
@@ -1014,7 +1014,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
                     disease: disease,
                     questionCount: questionCount,
                     analysisComplete: analysisComplete);
-                
+
                 _logger.LogDebug("Successfully saved conversation for session {SessionId}", sessionId);
             }
             catch (Exception ex)
@@ -1023,7 +1023,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             }
         });
     }
-    
+
     #endregion
 }
 

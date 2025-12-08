@@ -13,14 +13,14 @@ public interface ILabResultCacheService
     /// <param name="normalizedText">Normalized extracted text with stop words removed</param>
     /// <returns>Cached analysis entity or null if not found</returns>
     Task<LabResultAbnormalIndicatorCacheEntity?> FindExactTextMatchAsync(string normalizedText);
-    
+
     /// <summary>
     /// Find cached analysis with exact keyword match (Tier 1)
     /// </summary>
     /// <param name="keywords">Normalized keywords (e.g., "wbc,hemoglobin,glucose")</param>
     /// <returns>Cached analysis entity or null if not found</returns>
     Task<LabResultAbnormalIndicatorCacheEntity?> FindExactMatchAsync(string keywords);
-    
+
     /// <summary>
     /// Find cached analysis with fuzzy keyword match (Jaccard similarity)
     /// </summary>
@@ -30,7 +30,7 @@ public interface ILabResultCacheService
     Task<LabResultAbnormalIndicatorCacheEntity?> FindFuzzyMatchAsync(
         string keywords,
         double threshold = 0.75);
-    
+
     /// <summary>
     /// Save analysis to cache
     /// </summary>
@@ -42,12 +42,12 @@ public interface ILabResultCacheService
         string specialtiesJson,
         string? disclaimer,
         string createdBy = "GROQ");
-    
+
     /// <summary>
     /// Increment usage count for cache entry
     /// </summary>
     Task IncrementUsageAsync(Guid cacheId);
-    
+
     /// <summary>
     /// Get cache statistics for monitoring
     /// </summary>

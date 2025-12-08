@@ -26,7 +26,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
     private readonly ILabResultKeywordExtractor _keywordExtractor;
     private readonly string _tesseractDataPath;
     private readonly string _tesseractLanguage;
-    
+
     // Dùng encoder relaxed để giữ nguyên ký tự UTF-8 (tránh \uXXXX khi lưu DB)
     private static readonly JsonSerializerOptions Utf8JsonOptions = new()
     {
@@ -91,7 +91,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             // Try cache lookup first
             var cachedAnalysis = await TryGetCachedAnalysisAsync(extractedText);
             GeminiLabAnalysis aiAnalysis;
-            
+
             if (cachedAnalysis != null)
             {
                 _logger.LogInformation("✅ Cache hit! Using cached analysis");
@@ -101,11 +101,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             {
                 _logger.LogInformation("❌ Cache miss, calling Groq API");
                 aiAnalysis = await AnalyzeWithGroqAsync(extractedText);
-                
+
                 // Save to cache after successful analysis
                 await SaveAnalysisToCacheAsync(extractedText, aiAnalysis);
             }
-            
+
             _logger.LogInformation("Analysis completed");
 
             var (doctors, hospitals) = await _recommendationHelper.GetRecommendationsAsync(aiAnalysis.Specialties, location);
@@ -687,9 +687,9 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             _logger.LogError(ex, "Error saving lab result analysis for session {SessionId}", sessionId);
         }
     }
-    
+
     #region Cache Methods
-    
+
     /// <summary>
     /// Try to get cached analysis using 3-tier lookup (exact text → exact keywords → fuzzy)
     /// </summary>
@@ -702,7 +702,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             if (!string.IsNullOrWhiteSpace(normalizedText))
             {
                 var exactTextMatch = await _cacheService.FindExactTextMatchAsync(normalizedText);
-                
+
                 if (exactTextMatch != null)
                 {
                     await _cacheService.IncrementUsageAsync(exactTextMatch.Id);
@@ -711,46 +711,46 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                     return CreateAnalysisFromCache(exactTextMatch);
                 }
             }
-            
+
             // Extract keywords
             var keywords = _keywordExtractor.ExtractKeywords(extractedText);
-            
+
             if (string.IsNullOrEmpty(keywords))
             {
                 _logger.LogDebug("No keywords extracted, skipping cache lookup");
                 return null;
             }
-            
+
             _logger.LogDebug(
                 "Cache lookup: Text length={Length}, Keywords='{Keywords}'",
                 extractedText.Length,
                 keywords);
-            
+
             // Tier 1: Exact keywords match
             var exactMatch = await _cacheService.FindExactMatchAsync(keywords);
-            
+
             if (exactMatch != null)
             {
                 await _cacheService.IncrementUsageAsync(exactMatch.Id);
                 return CreateAnalysisFromCache(exactMatch);
             }
-            
+
             // Tier 2: Fuzzy keywords match
             var fuzzyMatch = await _cacheService.FindFuzzyMatchAsync(
                 keywords,
                 threshold: 0.75); // 75% similarity
-            
+
             if (fuzzyMatch != null)
             {
                 await _cacheService.IncrementUsageAsync(fuzzyMatch.Id);
                 return CreateAnalysisFromCache(fuzzyMatch);
             }
-            
+
             // Cache miss
             _logger.LogInformation(
                 "❌ Cache miss for Keywords='{Keywords}' → Will call Groq",
                 keywords);
-            
+
             return null;
         }
         catch (Exception ex)
@@ -759,7 +759,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             return null;
         }
     }
-    
+
     /// <summary>
     /// Create analysis from cached entity
     /// </summary>
@@ -774,7 +774,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 AbnormalIndicators = new List<AbnormalLabIndicator>(),
                 Specialties = new List<string>()
             };
-            
+
             // Deserialize normal indicators
             if (!string.IsNullOrEmpty(cached.NormalIndicatorsJson))
             {
@@ -783,7 +783,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                     ?? new List<LabIndicator>();
             }
-            
+
             // Deserialize abnormal indicators
             if (!string.IsNullOrEmpty(cached.AbnormalIndicatorsJson))
             {
@@ -792,7 +792,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                     ?? new List<AbnormalLabIndicator>();
             }
-            
+
             // Deserialize specialties
             if (!string.IsNullOrEmpty(cached.SpecialtiesJson))
             {
@@ -801,9 +801,9 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                     ?? new List<string>();
             }
-            
+
             analysis.Disclaimer = cached.Disclaimer;
-            
+
             return analysis;
         }
         catch (Exception ex)
@@ -812,7 +812,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             return null!;
         }
     }
-    
+
     /// <summary>
     /// Save analysis to cache (only if not already exists)
     /// </summary>
@@ -825,17 +825,17 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             // Extract components
             var keywords = _keywordExtractor.ExtractKeywords(extractedText);
             var normalizedText = _keywordExtractor.NormalizeText(extractedText);
-            
+
             // Check if already exists in cache
             var existingCache = !string.IsNullOrWhiteSpace(normalizedText)
                 ? await _cacheService.FindExactTextMatchAsync(normalizedText)
                 : null;
-            
+
             if (existingCache == null)
             {
                 existingCache = await _cacheService.FindExactMatchAsync(keywords);
             }
-            
+
             if (existingCache != null)
             {
                 _logger.LogDebug(
@@ -843,20 +843,20 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                     keywords);
                 return;
             }
-            
+
             // Serialize indicators
             var abnormalIndicatorsJson = JsonSerializer.Serialize(
                 analysis.AbnormalIndicators,
                 Utf8JsonOptions);
-            
+
             var normalIndicatorsJson = JsonSerializer.Serialize(
                 analysis.NormalIndicators,
                 Utf8JsonOptions);
-            
+
             var specialtiesJson = JsonSerializer.Serialize(
                 analysis.Specialties,
                 Utf8JsonOptions);
-            
+
             // Save to cache
             await _cacheService.SaveAnalysisAsync(
                 normalizedKeywords: keywords,
@@ -866,7 +866,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
                 specialtiesJson: specialtiesJson,
                 disclaimer: analysis.Disclaimer,
                 createdBy: "GROQ");
-            
+
             _logger.LogInformation(
                 "💾 Saved to cache: Keywords='{Keywords}', {AbnormalCount} abnormal indicators",
                 keywords,
@@ -877,7 +877,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             _logger.LogWarning(ex, "Failed to save analysis to cache (non-critical)");
         }
     }
-    
+
     #endregion
 }
 

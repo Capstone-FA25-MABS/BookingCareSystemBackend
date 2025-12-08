@@ -247,60 +247,60 @@ public class GroqApiHelper
                 var response = await _httpClient.SendAsync(request, timeoutCts.Token);
                 var responseContent = await response.Content.ReadAsStringAsync(timeoutCts.Token);
 
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        HandleErrorResponse(response, responseContent, model);
-                    }
-
-                    var groqResponse = ParseGroqResponse(responseContent);
-                    var generatedText = ExtractGeneratedTextOrThrow(groqResponse, responseContent);
-
-                    _logger.LogInformation(
-                        "Successfully called Groq using {Model}, generated {Length} characters",
-                        model,
-                        generatedText.Length);
-
-                    return generatedText;
-                }
-                catch (HttpRequestException ex) when (ex.Message.Contains("429") || ex.Message.Contains("quota") || ex.Message.Contains("rate limit"))
+                if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning(ex, "Groq API rate limit exceeded for model {Model}", model);
-                    if (attempt < maxRetries - 1)
-                    {
-                        var delay = (attempt + 1) * 1000; // Exponential backoff
-                        await Task.Delay(delay, cancellationToken);
-                        lastException = ex;
-                        continue;
-                    }
-                    throw new InvalidOperationException(
-                        $"Groq API rate limit exceeded for model {model}. Please wait and try again later.",
-                        ex);
+                    HandleErrorResponse(response, responseContent, model);
                 }
-                catch (TaskCanceledException ex) when (ex.CancellationToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-                {
-                    _logger.LogWarning(ex, "Timeout calling Groq API with model {Model} ({Timeout}s)", model, timeoutSeconds);
-                    if (attempt < maxRetries - 1)
-                    {
-                        lastException = ex;
-                        continue;
-                    }
-                    throw new InvalidOperationException(
-                        $"Timeout calling Groq API with model {model} after {maxRetries} attempts.",
-                        ex);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to call Groq API with model {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
-                    if (attempt < maxRetries - 1)
-                    {
-                        var delay = (attempt + 1) * 500;
-                        await Task.Delay(delay, cancellationToken);
-                        lastException = ex;
-                        continue;
-                    }
-                    throw;
-                }
+
+                var groqResponse = ParseGroqResponse(responseContent);
+                var generatedText = ExtractGeneratedTextOrThrow(groqResponse, responseContent);
+
+                _logger.LogInformation(
+                    "Successfully called Groq using {Model}, generated {Length} characters",
+                    model,
+                    generatedText.Length);
+
+                return generatedText;
             }
+            catch (HttpRequestException ex) when (ex.Message.Contains("429") || ex.Message.Contains("quota") || ex.Message.Contains("rate limit"))
+            {
+                _logger.LogWarning(ex, "Groq API rate limit exceeded for model {Model}", model);
+                if (attempt < maxRetries - 1)
+                {
+                    var delay = (attempt + 1) * 1000; // Exponential backoff
+                    await Task.Delay(delay, cancellationToken);
+                    lastException = ex;
+                    continue;
+                }
+                throw new InvalidOperationException(
+                    $"Groq API rate limit exceeded for model {model}. Please wait and try again later.",
+                    ex);
+            }
+            catch (TaskCanceledException ex) when (ex.CancellationToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(ex, "Timeout calling Groq API with model {Model} ({Timeout}s)", model, timeoutSeconds);
+                if (attempt < maxRetries - 1)
+                {
+                    lastException = ex;
+                    continue;
+                }
+                throw new InvalidOperationException(
+                    $"Timeout calling Groq API with model {model} after {maxRetries} attempts.",
+                    ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to call Groq API with model {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
+                if (attempt < maxRetries - 1)
+                {
+                    var delay = (attempt + 1) * 500;
+                    await Task.Delay(delay, cancellationToken);
+                    lastException = ex;
+                    continue;
+                }
+                throw;
+            }
+        }
 
         throw new InvalidOperationException(
             $"Failed to call Groq API with model {model} after {maxRetries} attempts. Last error: {lastException?.Message}",

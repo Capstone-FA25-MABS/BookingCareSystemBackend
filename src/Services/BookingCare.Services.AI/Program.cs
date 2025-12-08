@@ -154,7 +154,7 @@ try
     var context = scope.ServiceProvider.GetRequiredService<AiDbContext>();
     await context.Database.MigrateAsync();
     app.Logger.LogInformation("AI Service database migrated successfully");
-    
+
 }
 catch (Exception ex)
 {

@@ -10,14 +10,14 @@ namespace BookingCare.Services.AI.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-        migrationBuilder.AddColumn<string>(
-            name: "ReasonsJson",
-            table: "DermatologyDiseaseCache",
-            type: "nvarchar(max)",
-            nullable: true);
+            migrationBuilder.AddColumn<string>(
+                name: "ReasonsJson",
+                table: "DermatologyDiseaseCache",
+                type: "nvarchar(max)",
+                nullable: true);
 
-        // Clean up existing data: remove </think> tags from VietnameseName
-        migrationBuilder.Sql(@"
+            // Clean up existing data: remove </think> tags from VietnameseName
+            migrationBuilder.Sql(@"
             UPDATE DermatologyDiseaseCache
             SET VietnameseName = LTRIM(RTRIM(REPLACE(
                 REPLACE(

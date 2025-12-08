@@ -250,17 +250,17 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
         diagnosis.Confidence = topConfidence;
         ApplySeverityRules(topDiseaseName.ToLowerInvariant(), diagnosis, advice);
-        
+
         // Check cache for this English disease name
         var cachedDisease = await _dermatologyCacheService.FindByEnglishNameAsync(topDiseaseName);
-        
+
         if (cachedDisease != null)
         {
             // Use cached Vietnamese name and advice
             await _dermatologyCacheService.IncrementUsageAsync(cachedDisease.Id);
             // Clean Vietnamese name to remove any XML/HTML tags
             diagnosis.ConditionName = CleanVietnameseName(cachedDisease.VietnameseName);
-            
+
             // Load cached advice for this severity
             var severity = diagnosis.Severity ?? "Nhẹ";
             try
@@ -268,7 +268,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                 var adviceBySeverity = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, List<string>>>(
                     cachedDisease.AdviceJson,
                     new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                
+
                 if (adviceBySeverity != null && adviceBySeverity.TryGetValue(severity, out var cachedAdviceList))
                 {
                     advice.AddRange(cachedAdviceList);
@@ -289,7 +289,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             // No cache, translate name
             diagnosis.ConditionName = await MapDiseaseNameToVietnamese(topDiseaseName);
         }
-        
+
         return topDiseaseName; // Return English name for advice generation
     }
 
@@ -389,9 +389,9 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
         try
         {
-            _logger.LogInformation("Generating general advice for: {DiseaseName} (English: {EnglishName})", 
+            _logger.LogInformation("Generating general advice for: {DiseaseName} (English: {EnglishName})",
                 diagnosis.ConditionName, englishName);
-            
+
             var adviceText = await GenerateGeneralAdviceAsync(
                 diagnosis.ConditionName,
                 diagnosis.Severity ?? "Nhẹ");
@@ -411,13 +411,13 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                     "Added {Count} advice items for {DiseaseName}",
                     generatedAdvice.Count,
                     diagnosis.ConditionName);
-                
+
                 // Save to cache: English name, Vietnamese name, and advice by severity
                 var adviceBySeverity = new Dictionary<string, List<string>>
                 {
                     [diagnosis.Severity ?? "Nhẹ"] = generatedAdvice
                 };
-                
+
                 // Check if we already have this disease in cache
                 var cachedDisease = await _dermatologyCacheService.FindByEnglishNameAsync(englishName);
                 if (cachedDisease == null)
@@ -583,7 +583,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
                 _logger.LogInformation("✅ Using cached Vietnamese name for: {EnglishName}", englishName);
                 return cachedDisease.VietnameseName;
             }
-            
+
             // Check memory cache as fallback
             var cacheKey = $"{CACHE_KEY_PREFIX}{englishName.ToLower()}";
             if (_cache.TryGetValue<string>(cacheKey, out var cachedTranslation))
@@ -594,11 +594,11 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
             // Use Groq AI to translate disease name
             var vietnameseName = await TranslateDiseaseNameAsync(englishName);
-            
+
             // Save to database cache (will be saved with advice later in EnrichAdviceWithGroqAsync)
             // For now, just cache the translation in memory
             _cache.Set(cacheKey, vietnameseName, TranslationCacheDuration);
-            
+
             return vietnameseName;
         }
         catch (Exception ex)
@@ -647,7 +647,7 @@ Yêu cầu:
 }}";
 
             var response = await GenerateTextAsync(prompt, temperature: 0.1, cancellationToken);
-            
+
             // Parse JSON response
             var translation = ParseVietnameseNameFromJson(response);
 
@@ -707,7 +707,7 @@ Yêu cầu:
 }}";
 
             var response = await GenerateTextAsync(prompt, temperature: 0.3, cancellationToken);
-            
+
             // Parse JSON response
             var advice = ParseAdviceFromJson(response);
 
@@ -764,7 +764,7 @@ Yêu cầu:
     #endregion
 
     #region JSON Parsing Methods
-    
+
     /// <summary>
     /// Parse Vietnamese name from JSON response
     /// </summary>
@@ -774,17 +774,17 @@ Yêu cầu:
         {
             // Extract JSON from response
             var jsonText = ExtractJsonFromText(response);
-            
+
             using var doc = JsonDocument.Parse(jsonText);
             var root = doc.RootElement;
-            
+
             if (root.TryGetProperty("vietnameseName", out var nameProp))
             {
                 var name = nameProp.GetString() ?? "";
                 // Simple cleanup: remove XML/HTML tags if any
                 return CleanXmlTags(name);
             }
-            
+
             // Fallback: try to extract from text
             return CleanXmlTags(response);
         }
@@ -795,7 +795,7 @@ Yêu cầu:
             return CleanXmlTags(response);
         }
     }
-    
+
     /// <summary>
     /// Parse advice from JSON response
     /// </summary>
@@ -805,10 +805,10 @@ Yêu cầu:
         {
             // Extract JSON from response
             var jsonText = ExtractJsonFromText(response);
-            
+
             using var doc = JsonDocument.Parse(jsonText);
             var root = doc.RootElement;
-            
+
             if (root.TryGetProperty("advice", out var adviceArray))
             {
                 var adviceList = new List<string>();
@@ -820,10 +820,10 @@ Yêu cầu:
                         adviceList.Add($"- {CleanXmlTags(adviceItem)}");
                     }
                 }
-                
+
                 return string.Join("\n", adviceList);
             }
-            
+
             // Fallback: try to extract from text
             return CleanXmlTags(response);
         }
@@ -834,7 +834,7 @@ Yêu cầu:
             return CleanXmlTags(response);
         }
     }
-    
+
     /// <summary>
     /// Extract JSON from text (handles cases where Groq adds extra text)
     /// </summary>
@@ -842,19 +842,19 @@ Yêu cầu:
     {
         if (string.IsNullOrWhiteSpace(text))
             return text;
-        
+
         // Try to find JSON object in the text
         int startIndex = text.IndexOf('{');
         if (startIndex < 0)
             return text;
-        
+
         int endIndex = text.LastIndexOf('}');
         if (endIndex <= startIndex)
             return text;
-        
+
         return text.Substring(startIndex, endIndex - startIndex + 1);
     }
-    
+
     /// <summary>
     /// Simple cleanup: remove XML/HTML tags only
     /// </summary>
@@ -862,21 +862,21 @@ Yêu cầu:
     {
         if (string.IsNullOrWhiteSpace(text))
             return text;
-        
+
         // Remove XML/HTML tags
         var cleaned = System.Text.RegularExpressions.Regex.Replace(
             text,
             @"</?[^>]+>",
             "",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        
+
         return cleaned.Trim();
     }
-    
+
     #endregion
 
     #region Text Cleaning Methods (Legacy - kept for fallback)
-    
+
     /// <summary>
     /// Clean Vietnamese translation - remove English text, explanations, reasoning, and XML/HTML tags
     /// </summary>
@@ -884,21 +884,21 @@ Yêu cầu:
     {
         if (string.IsNullOrWhiteSpace(translation))
             return translation;
-        
+
         // Remove XML/HTML tags first (like </think>, <think>, etc.)
         translation = System.Text.RegularExpressions.Regex.Replace(
             translation,
             @"</?[^>]+>",
             "",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        
+
         // Remove common unwanted prefixes/suffixes
         translation = translation
             .Replace("</think>", "", StringComparison.OrdinalIgnoreCase)
             .Replace("<think>", "", StringComparison.OrdinalIgnoreCase)
             .Replace("</think>", "", StringComparison.OrdinalIgnoreCase)
             .Replace("<think>", "", StringComparison.OrdinalIgnoreCase);
-        
+
         // Remove common English phrases that Groq might add
         var englishPhrases = new[]
         {
@@ -916,40 +916,40 @@ Yêu cầu:
             "In Vietnamese",
             "In medical terminology"
         };
-        
+
         var lines = translation.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         var cleanedLines = new List<string>();
-        
+
         foreach (var line in lines)
         {
             var trimmedLine = line.Trim();
-            
+
             // Skip empty lines
             if (string.IsNullOrWhiteSpace(trimmedLine))
                 continue;
-            
+
             // Skip lines that start with English phrases
-            var isEnglishLine = englishPhrases.Any(phrase => 
+            var isEnglishLine = englishPhrases.Any(phrase =>
                 trimmedLine.StartsWith(phrase, StringComparison.OrdinalIgnoreCase) ||
                 trimmedLine.Contains(phrase, StringComparison.OrdinalIgnoreCase));
-            
+
             if (isEnglishLine)
                 continue;
-            
+
             // Skip lines that are mostly English (more than 50% English words)
             var words = trimmedLine.Split(new[] { ' ', ',', '.', '!', '?', ';', ':' }, StringSplitOptions.RemoveEmptyEntries);
             var englishWordCount = words.Count(w => IsEnglishWord(w));
             if (words.Length > 0 && (double)englishWordCount / words.Length > 0.5)
                 continue;
-            
+
             cleanedLines.Add(trimmedLine);
         }
-        
+
         var result = string.Join("\n", cleanedLines).Trim();
-        
+
         // Remove quotes, extra whitespace, etc.
         result = result.Trim().Trim('"', '\'', '.', ',', ':', ';');
-        
+
         // If result is empty or still contains too much English, try to extract Vietnamese part
         if (string.IsNullOrWhiteSpace(result) || IsMostlyEnglish(result))
         {
@@ -961,10 +961,10 @@ Yêu cầu:
                 result = string.Join(" ", matches.Cast<System.Text.RegularExpressions.Match>().Select(m => m.Value));
             }
         }
-        
+
         return result;
     }
-    
+
     /// <summary>
     /// Clean Vietnamese name - remove XML/HTML tags and unwanted text
     /// </summary>
@@ -972,14 +972,14 @@ Yêu cầu:
     {
         if (string.IsNullOrWhiteSpace(name))
             return name;
-        
+
         // Remove XML/HTML tags like </think>, <think>, </think>, etc.
         var cleaned = System.Text.RegularExpressions.Regex.Replace(
             name,
             @"</?[^>]+>",
             "",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        
+
         // Remove common unwanted prefixes/suffixes (including </think> and </think>)
         // Note: Regex already removes all XML/HTML tags, but we also explicitly remove common ones
         cleaned = cleaned
@@ -988,10 +988,10 @@ Yêu cầu:
             .Replace("</think>", "", StringComparison.OrdinalIgnoreCase)
             .Replace("<think>", "", StringComparison.OrdinalIgnoreCase)
             .Trim();
-        
+
         return cleaned;
     }
-    
+
     /// <summary>
     /// Clean Vietnamese advice - remove English text and explanations
     /// </summary>
@@ -999,22 +999,22 @@ Yêu cầu:
     {
         if (string.IsNullOrWhiteSpace(advice))
             return advice;
-        
+
         var lines = advice.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         var cleanedLines = new List<string>();
-        
+
         foreach (var line in lines)
         {
             var trimmedLine = line.Trim();
-            
+
             // Skip empty lines
             if (string.IsNullOrWhiteSpace(trimmedLine))
                 continue;
-            
+
             // Skip lines that are mostly English
             if (IsMostlyEnglish(trimmedLine))
                 continue;
-            
+
             // Only keep lines that start with "-" (bullet points) or contain Vietnamese characters
             if (trimmedLine.StartsWith("-") || ContainsVietnameseCharacters(trimmedLine))
             {
@@ -1026,10 +1026,10 @@ Yêu cầu:
                 }
             }
         }
-        
+
         return string.Join("\n", cleanedLines);
     }
-    
+
     /// <summary>
     /// Check if text is mostly English (more than 50% English words)
     /// </summary>
@@ -1037,15 +1037,15 @@ Yêu cầu:
     {
         if (string.IsNullOrWhiteSpace(text))
             return false;
-        
+
         var words = text.Split(new[] { ' ', ',', '.', '!', '?', ';', ':', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0)
             return false;
-        
+
         var englishWordCount = words.Count(w => IsEnglishWord(w));
         return (double)englishWordCount / words.Length > 0.5;
     }
-    
+
     /// <summary>
     /// Check if word is likely English (contains only ASCII letters, no Vietnamese diacritics)
     /// </summary>
@@ -1053,17 +1053,17 @@ Yêu cầu:
     {
         if (string.IsNullOrWhiteSpace(word))
             return false;
-        
+
         // Vietnamese characters are in range \u00C0-\u1EF9
         // If word contains Vietnamese characters, it's not English
         if (word.Any(c => c >= 0x00C0 && c <= 0x1EF9))
             return false;
-        
+
         // If word is mostly ASCII letters, it might be English
         var asciiLetters = word.Count(c => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
         return asciiLetters > word.Length * 0.7;
     }
-    
+
     /// <summary>
     /// Check if text contains Vietnamese characters
     /// </summary>
@@ -1071,11 +1071,11 @@ Yêu cầu:
     {
         if (string.IsNullOrWhiteSpace(text))
             return false;
-        
+
         // Vietnamese characters are in range \u00C0-\u1EF9
         return text.Any(c => c >= 0x00C0 && c <= 0x1EF9);
     }
-    
+
     #endregion
 
     #endregion

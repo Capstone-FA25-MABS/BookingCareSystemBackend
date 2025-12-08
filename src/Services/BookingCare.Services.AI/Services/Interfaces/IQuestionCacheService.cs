@@ -16,7 +16,7 @@ public interface IQuestionCacheService
     Task<SymptomQuestionCacheEntity?> FindExactMessageMatchAsync(
         string normalizedMessage,
         int questionNumber);
-    
+
     /// <summary>
     /// Find cached question with exact keyword match (Tier 1)
     /// </summary>
@@ -26,7 +26,7 @@ public interface IQuestionCacheService
     Task<SymptomQuestionCacheEntity?> FindExactMatchAsync(
         string keywords,
         int questionNumber);
-    
+
     /// <summary>
     /// Find cached question with fuzzy keyword match (Jaccard similarity)
     /// </summary>
@@ -38,7 +38,7 @@ public interface IQuestionCacheService
         string keywords,
         int questionNumber,
         double threshold = 0.75);
-    
+
     /// <summary>
     /// Save question to cache
     /// </summary>
@@ -52,12 +52,12 @@ public interface IQuestionCacheService
         string? purpose = null,
         string? priority = null,
         string createdBy = "GEMINI");
-    
+
     /// <summary>
     /// Increment usage count for cache entry
     /// </summary>
     Task IncrementUsageAsync(Guid cacheId);
-    
+
     /// <summary>
     /// Get cache statistics for monitoring
     /// </summary>

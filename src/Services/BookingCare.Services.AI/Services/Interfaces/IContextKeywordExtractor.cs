@@ -16,21 +16,21 @@ public interface IContextKeywordExtractor
     string ExtractKeywordsWithContext(
         string currentMessage,
         List<ConversationMessage> history);
-    
+
     /// <summary>
     /// Extract only initial symptom keywords from first user message
     /// </summary>
     /// <param name="message">User message</param>
     /// <returns>Normalized symptom keywords</returns>
     string ExtractInitialSymptom(string message);
-    
+
     /// <summary>
     /// Extract context keywords from user answers (location, intensity, etc.)
     /// </summary>
     /// <param name="history">Conversation history</param>
     /// <returns>List of context keywords</returns>
     List<string> ExtractContextFromAnswers(List<ConversationMessage> history);
-    
+
     /// <summary>
     /// Normalize message for exact matching: remove stop words, lowercase, normalize whitespace
     /// Used for Tier 0 exact message matching in cache
