@@ -125,7 +125,8 @@ public class DermatologyCacheService : IDermatologyCacheService
             name,
             @"</?[^>]+>",
             "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+            TimeSpan.FromSeconds(2));
 
         // Remove common unwanted prefixes/suffixes (including </think> and </think>)
         // Note: Regex already removes all XML/HTML tags, but we also explicitly remove common ones

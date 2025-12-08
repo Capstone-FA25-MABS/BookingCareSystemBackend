@@ -868,7 +868,8 @@ Yêu cầu:
             text,
             @"</?[^>]+>",
             "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+            TimeSpan.FromSeconds(2));
 
         return cleaned.Trim();
     }
@@ -890,7 +891,8 @@ Yêu cầu:
             translation,
             @"</?[^>]+>",
             "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+            TimeSpan.FromSeconds(2));
 
         // Remove common unwanted prefixes/suffixes
         translation = translation
@@ -955,7 +957,7 @@ Yêu cầu:
         {
             // Try to find Vietnamese text (contains Vietnamese characters)
             var vietnamesePattern = @"[\u00C0-\u1EF9]+";
-            var matches = System.Text.RegularExpressions.Regex.Matches(translation, vietnamesePattern);
+            var matches = System.Text.RegularExpressions.Regex.Matches(translation, vietnamesePattern, System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(2));
             if (matches.Count > 0)
             {
                 result = string.Join(" ", matches.Cast<System.Text.RegularExpressions.Match>().Select(m => m.Value));
@@ -978,7 +980,8 @@ Yêu cầu:
             name,
             @"</?[^>]+>",
             "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+            TimeSpan.FromSeconds(2));
 
         // Remove common unwanted prefixes/suffixes (including </think> and </think>)
         // Note: Regex already removes all XML/HTML tags, but we also explicitly remove common ones
