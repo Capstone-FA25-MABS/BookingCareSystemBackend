@@ -973,7 +973,7 @@ public static class EmailTemplate
         
         {(!string.IsNullOrEmpty(data.ChooseNewDoctorUrl) ? $@"
         <a href=""{data.ChooseNewDoctorUrl}"" class=""option-button tertiary"">
-          🔍 Option 3: Tự chọn bác sĩ mới
+          🔍 Option: Tự chọn bác sĩ mới
         </a>
         <p class=""option-desc"">Tự chọn bác sĩ khác cùng chuyên khoa</p>" : "")}
         
@@ -2350,6 +2350,101 @@ public static class EmailTemplate
       </div>
       
       <p class=""muted"">Nếu bạn cần đặt lịch tái khám hoặc có bất kỳ câu hỏi nào, vui lòng liên hệ:</p>
+      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
+      <strong>📧 Email:</strong> support@bookingcare.vn</p>
+      
+      <div class=""divider""></div>
+      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
+    </div>
+    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build email content for appointment rejection notification (PENDING status - before payment)
+    /// Used when hospital staff rejects a pending appointment
+    /// </summary>
+    public static string BuildAppointmentRejectedEmailHtml(
+        string patientName,
+        DateTime appointmentDate,
+        string appointmentTime,
+        string rejectionReason,
+        string? doctorName = null,
+        string? hospitalName = null)
+    {
+        var doctorInfo = !string.IsNullOrEmpty(doctorName)
+            ? $"<div class=\"info-item\"><strong>Bác sĩ:</strong> {doctorName}</div>"
+            : "";
+        var hospitalInfo = !string.IsNullOrEmpty(hospitalName)
+            ? $"<div class=\"info-item\"><strong>Bệnh viện:</strong> {hospitalName}</div>"
+            : "";
+
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>Thông báo từ chối lịch hẹn - BookingCare</title>
+  <style>
+    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
+    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
+    .header {{ background:#ef4444; color:#fff; padding:20px 24px; }}
+    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
+    .content {{ padding:24px; }}
+    .greeting {{ margin:0 0 12px; font-size:16px; }}
+    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
+    .reject-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
+    .info-box {{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:16px; margin:20px 0; }}
+    .info-box strong {{ color:#dc2626; }}
+    .info-item {{ margin:8px 0; }}
+    .reason-box {{ background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:16px; margin:20px 0; }}
+    .reason-box strong {{ color:#c2410c; }}
+    .action-box {{ background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:16px; margin:20px 0; }}
+    .action-box strong {{ color:#1d4ed8; }}
+    .book-button {{ display:inline-block; padding:14px 28px; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; margin:16px 0; }}
+    .book-button:hover {{ background:#0284c7; }}
+    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
+    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
+    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
+  </style>
+</head>
+<body>
+  <div class=""card"">
+    <div class=""header"">
+      <div class=""brand"">BookingCare - Thông báo từ chối lịch hẹn</div>
+    </div>
+    <div class=""content"">
+      <div class=""reject-icon"">❌</div>
+      <p class=""greeting"">Kính gửi {patientName},</p>
+      <p class=""lead"">Chúng tôi rất tiếc phải thông báo rằng yêu cầu đặt lịch hẹn của quý khách đã bị từ chối.</p>
+      
+      <div class=""info-box"">
+        <p><strong>📅 Thông tin lịch hẹn:</strong></p>
+        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy}</div>
+        <div class=""info-item""><strong>Giờ hẹn:</strong> {appointmentTime}</div>{doctorInfo}{hospitalInfo}
+      </div>
+      
+      <div class=""reason-box"">
+        <p><strong>📝 Lý do từ chối:</strong></p>
+        <p style=""margin:8px 0;"">{rejectionReason}</p>
+      </div>
+      
+      <div class=""action-box"">
+        <p><strong>💡 Gợi ý cho quý khách:</strong></p>
+        <ul style=""margin:8px 0; padding-left:20px;"">
+          <li>Quý khách có thể đặt lịch hẹn với bác sĩ/chuyên khoa khác</li>
+          <li>Hoặc chọn thời gian khác phù hợp hơn</li>
+          <li>Liên hệ trực tiếp với bệnh viện để được tư vấn thêm</li>
+        </ul>
+      </div>
+      
+      <div style=""text-align:center;"">
+        <a href=""https://bookingcare.vn"" class=""book-button"">Đặt lịch hẹn mới</a>
+      </div>
+      
+      <p class=""muted"">Chúng tôi xin lỗi vì sự bất tiện này. Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi:</p>
       <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
       <strong>📧 Email:</strong> support@bookingcare.vn</p>
       
