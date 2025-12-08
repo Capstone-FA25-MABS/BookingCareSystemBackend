@@ -620,47 +620,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         try
         {
             var userMessage = $"Đã gửi file xét nghiệm: {fileName}";
-            var aiMessage = new StringBuilder();
-            aiMessage.AppendLine("KẾT QUẢ PHÂN TÍCH XÉT NGHIỆM:");
-            aiMessage.AppendLine();
-
-            if (response.NormalIndicators.Count > 0)
-            {
-                aiMessage.AppendLine("Các chỉ số bình thường:");
-                foreach (var indicator in response.NormalIndicators)
-                {
-                    aiMessage.AppendLine($"- {indicator.Name}: {indicator.Value} {indicator.Unit} (Tham chiếu: {indicator.ReferenceRange})");
-                }
-                aiMessage.AppendLine();
-            }
-
-            if (response.AbnormalIndicators.Count > 0)
-            {
-                aiMessage.AppendLine("Các chỉ số bất thường:");
-                foreach (var indicator in response.AbnormalIndicators)
-                {
-                    aiMessage.AppendLine($"- {indicator.Name}: {indicator.Value} {indicator.Unit} (Tham chiếu: {indicator.ReferenceRange})");
-                    aiMessage.AppendLine($"- Giải thích: {indicator.Explanation}");
-                    aiMessage.AppendLine($"- Lời khuyên: {indicator.Advice}");
-                    if (!string.IsNullOrEmpty(indicator.PossibleDiagnosis))
-                    {
-                        aiMessage.AppendLine($"- Chẩn đoán có thể: {indicator.PossibleDiagnosis}");
-                        if (indicator.RecommendedSpecialties != null && indicator.RecommendedSpecialties.Count > 0)
-                        {
-                            var specialtyNames = string.Join(", ", indicator.RecommendedSpecialties.Select(s => s.SpecialtyName));
-                            aiMessage.AppendLine($"- Chuyên khoa phù hợp: {specialtyNames}");
-                        }
-                    }
-                    aiMessage.AppendLine();
-                }
-            }
-
-            // Add disclaimer
-            if (!string.IsNullOrEmpty(response.Disclaimer))
-            {
-                aiMessage.AppendLine();
-                aiMessage.AppendLine(response.Disclaimer);
-            }
+            var aiMessage = BuildAnalysisMessage(response);
 
             var suggestions = new
             {
@@ -672,7 +632,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             await _sessionService.SaveConversationHistoryAsync(
                 sessionId,
                 userMessage,
-                aiMessage.ToString(),
+                aiMessage,
                 location,
                 suggestions,
                 userId,
@@ -686,6 +646,85 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         {
             _logger.LogError(ex, "Error saving lab result analysis for session {SessionId}", sessionId);
         }
+    }
+
+    private static string BuildAnalysisMessage(LabResultAnalysisResponse response)
+    {
+        var aiMessage = new StringBuilder();
+        aiMessage.AppendLine("KẾT QUẢ PHÂN TÍCH XÉT NGHIỆM:");
+        aiMessage.AppendLine();
+
+        AppendNormalIndicators(aiMessage, response.NormalIndicators);
+        AppendAbnormalIndicators(aiMessage, response.AbnormalIndicators);
+        AppendDisclaimer(aiMessage, response.Disclaimer);
+
+        return aiMessage.ToString();
+    }
+
+    private static void AppendNormalIndicators(StringBuilder aiMessage, List<LabIndicator> normalIndicators)
+    {
+        if (normalIndicators.Count == 0)
+        {
+            return;
+        }
+
+        aiMessage.AppendLine("Các chỉ số bình thường:");
+        foreach (var indicator in normalIndicators)
+        {
+            aiMessage.AppendLine($"- {indicator.Name}: {indicator.Value} {indicator.Unit} (Tham chiếu: {indicator.ReferenceRange})");
+        }
+        aiMessage.AppendLine();
+    }
+
+    private static void AppendAbnormalIndicators(StringBuilder aiMessage, List<AbnormalLabIndicator> abnormalIndicators)
+    {
+        if (abnormalIndicators.Count == 0)
+        {
+            return;
+        }
+
+        aiMessage.AppendLine("Các chỉ số bất thường:");
+        foreach (var indicator in abnormalIndicators)
+        {
+            AppendAbnormalIndicatorDetails(aiMessage, indicator);
+        }
+    }
+
+    private static void AppendAbnormalIndicatorDetails(StringBuilder aiMessage, AbnormalLabIndicator indicator)
+    {
+        aiMessage.AppendLine($"- {indicator.Name}: {indicator.Value} {indicator.Unit} (Tham chiếu: {indicator.ReferenceRange})");
+        aiMessage.AppendLine($"- Giải thích: {indicator.Explanation}");
+        aiMessage.AppendLine($"- Lời khuyên: {indicator.Advice}");
+
+        if (!string.IsNullOrEmpty(indicator.PossibleDiagnosis))
+        {
+            aiMessage.AppendLine($"- Chẩn đoán có thể: {indicator.PossibleDiagnosis}");
+            AppendRecommendedSpecialties(aiMessage, indicator.RecommendedSpecialties);
+        }
+
+        aiMessage.AppendLine();
+    }
+
+    private static void AppendRecommendedSpecialties(StringBuilder aiMessage, List<SpecialtyMatch>? recommendedSpecialties)
+    {
+        if (recommendedSpecialties == null || recommendedSpecialties.Count == 0)
+        {
+            return;
+        }
+
+        var specialtyNames = string.Join(", ", recommendedSpecialties.Select(s => s.SpecialtyName));
+        aiMessage.AppendLine($"- Chuyên khoa phù hợp: {specialtyNames}");
+    }
+
+    private static void AppendDisclaimer(StringBuilder aiMessage, string? disclaimer)
+    {
+        if (string.IsNullOrEmpty(disclaimer))
+        {
+            return;
+        }
+
+        aiMessage.AppendLine();
+        aiMessage.AppendLine(disclaimer);
     }
 
     #region Cache Methods

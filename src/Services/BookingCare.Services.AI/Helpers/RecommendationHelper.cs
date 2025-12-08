@@ -87,55 +87,7 @@ public class RecommendationHelper
                 .Select(x => new { Doctor = x, Score = CalculateDoctorScore(x, location) })
                 .OrderByDescending(x => x.Score)
                 .Take(MAX_DOCTOR_RECOMMENDATIONS)
-                .Select(x =>
-                {
-                    var serviceOptions = x.Doctor.ServiceOptions
-                        .Select(o => new DoctorServiceOptionDto
-                        {
-                            ServiceTypeId = string.IsNullOrWhiteSpace(o.ServiceTypeId) ? null : o.ServiceTypeId,
-                            ServiceTypeName = o.ServiceTypeName,
-                            Price = o.ConsultationFee > 0 ? $"{o.ConsultationFee:N0} VNĐ" : null
-                        })
-                        .ToList();
-
-                    // Keep only allowed service types: IN_PERSON / TELEHEALTH (tư vấn trực tuyến)
-                    serviceOptions = serviceOptions
-                        .Where(o =>
-                        {
-                            var name = o.ServiceTypeName?.Trim().ToLowerInvariant() ?? string.Empty;
-                            return name == "in_person"
-                                || name.Contains("trực tiếp")
-                                || name == "telehealth"
-                                || name.Contains("tư vấn trực tuyến");
-                        })
-                        .ToList();
-
-                    if (serviceOptions.Count == 0)
-                    {
-                        return null;
-                    }
-
-                    var preferredOption = serviceOptions.FirstOrDefault(o =>
-                        o.ServiceTypeName.Equals("IN_PERSON", StringComparison.OrdinalIgnoreCase) ||
-                        o.ServiceTypeName.Contains("trực tiếp", StringComparison.OrdinalIgnoreCase));
-
-                    preferredOption ??= serviceOptions.FirstOrDefault();
-
-                    return new DoctorRecommendation
-                    {
-                        Id = x.Doctor.Id,
-                        Name = x.Doctor.FullName,
-                        SpecialtyName = x.Doctor.SpecialtyName,
-                        HospitalName = x.Doctor.HospitalName,
-                        Rating = x.Doctor.Rating,
-                        YearOfExperience = x.Doctor.YearsOfExperience,
-                        ServiceTypeName = preferredOption?.ServiceTypeName ?? x.Doctor.ServiceTypeName,
-                        Price = preferredOption?.Price ?? (x.Doctor.ConsultationFee > 0 ? $"{x.Doctor.ConsultationFee:N0} VNĐ" : null),
-                        AvatarUrl = x.Doctor.AvatarUrl,
-                        RecommendationScore = x.Score,
-                        ServiceOptions = serviceOptions
-                    };
-                })
+                .Select(x => MapToDoctorRecommendation(x.Doctor, x.Score))
                 .Where(x => x != null)
                 .Select(x => x!)
                 .ToList();
@@ -348,6 +300,82 @@ public class RecommendationHelper
         }
 
         return score;
+    }
+
+    private DoctorRecommendation? MapToDoctorRecommendation(DoctorRecommendationInfo doctor, double score)
+    {
+        var serviceOptions = ProcessServiceOptions(doctor.ServiceOptions);
+        
+        if (serviceOptions.Count == 0)
+        {
+            return null;
+        }
+
+        var preferredOption = FindPreferredServiceOption(serviceOptions);
+
+        return new DoctorRecommendation
+        {
+            Id = doctor.Id,
+            Name = doctor.FullName,
+            SpecialtyName = doctor.SpecialtyName,
+            HospitalName = doctor.HospitalName,
+            Rating = doctor.Rating,
+            YearOfExperience = doctor.YearsOfExperience,
+            ServiceTypeName = preferredOption?.ServiceTypeName ?? doctor.ServiceTypeName,
+            Price = preferredOption?.Price ?? FormatPrice(doctor.ConsultationFee),
+            AvatarUrl = doctor.AvatarUrl,
+            RecommendationScore = score,
+            ServiceOptions = serviceOptions
+        };
+    }
+
+    private List<DoctorServiceOptionDto> ProcessServiceOptions(IEnumerable<DoctorServiceOption> serviceOptions)
+    {
+        var mappedOptions = serviceOptions
+            .Select(o => new DoctorServiceOptionDto
+            {
+                ServiceTypeId = string.IsNullOrWhiteSpace(o.ServiceTypeId) ? null : o.ServiceTypeId,
+                ServiceTypeName = o.ServiceTypeName,
+                Price = FormatPrice(o.ConsultationFee)
+            })
+            .ToList();
+
+        return FilterAllowedServiceTypes(mappedOptions);
+    }
+
+    private List<DoctorServiceOptionDto> FilterAllowedServiceTypes(List<DoctorServiceOptionDto> serviceOptions)
+    {
+        return serviceOptions
+            .Where(o => IsAllowedServiceType(o.ServiceTypeName))
+            .ToList();
+    }
+
+    private static bool IsAllowedServiceType(string? serviceTypeName)
+    {
+        if (string.IsNullOrWhiteSpace(serviceTypeName))
+        {
+            return false;
+        }
+
+        var name = serviceTypeName.Trim().ToLowerInvariant();
+        return name == "in_person"
+            || name.Contains("trực tiếp")
+            || name == "telehealth"
+            || name.Contains("tư vấn trực tuyến");
+    }
+
+    private static DoctorServiceOptionDto? FindPreferredServiceOption(List<DoctorServiceOptionDto> serviceOptions)
+    {
+        var preferredOption = serviceOptions.FirstOrDefault(o =>
+            o.ServiceTypeName.Equals("IN_PERSON", StringComparison.OrdinalIgnoreCase) ||
+            o.ServiceTypeName.Contains("trực tiếp", StringComparison.OrdinalIgnoreCase));
+
+        return preferredOption ?? serviceOptions.FirstOrDefault();
+    }
+
+    private static string? FormatPrice(double consultationFee)
+    {
+        return consultationFee > 0 ? $"{consultationFee:N0} VNĐ" : null;
     }
 }
 

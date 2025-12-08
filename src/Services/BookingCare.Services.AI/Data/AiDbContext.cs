@@ -251,120 +251,188 @@ public class AiDbContext : DbContext
 
     private void UpdateTimestamps()
     {
-        // Update ConversationSessionEntity timestamps
-        var sessionEntries = ChangeTracker.Entries<ConversationSessionEntity>()
+        UpdateConversationSessionTimestamps();
+        UpdateCacheEntityTimestamps<SymptomQuestionCacheEntity>();
+        UpdateKeywordEntityTimestamps();
+        UpdateCacheEntityTimestamps<LabResultAbnormalIndicatorCacheEntity>();
+        UpdateCacheEntityTimestamps<DermatologyDiseaseCacheEntity>();
+    }
+
+    private void UpdateConversationSessionTimestamps()
+    {
+        var entries = ChangeTracker.Entries<ConversationSessionEntity>()
             .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
-        foreach (var entry in sessionEntries)
-        {
-            // Always use UTC time to ensure consistency
-            var utcNow = DateTime.UtcNow;
+        var utcNow = DateTime.UtcNow;
 
+        foreach (var entry in entries)
+        {
             if (entry.State == EntityState.Added)
             {
-                // Only set CreatedAt if it hasn't been set (default DateTime is 0001-01-01)
-                if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
-                {
-                    entry.Entity.CreatedAt = utcNow;
-                }
-                else
-                {
-                    // Ensure CreatedAt is in UTC (convert if needed)
-                    if (entry.Entity.CreatedAt.Kind != DateTimeKind.Utc)
-                    {
-                        entry.Entity.CreatedAt = entry.Entity.CreatedAt.ToUniversalTime();
-                    }
-                }
+                SetCreatedAtIfNeeded(entry.Entity, utcNow);
             }
 
-            // Always update UpdatedAt to current UTC time
-            entry.Entity.UpdatedAt = utcNow;
-
-            // Ensure UpdatedAt is in UTC (convert if needed)
-            if (entry.Entity.UpdatedAt.Kind != DateTimeKind.Utc)
-            {
-                entry.Entity.UpdatedAt = entry.Entity.UpdatedAt.ToUniversalTime();
-            }
+            SetUpdatedAt(entry.Entity, utcNow);
         }
+    }
 
-        // Update SymptomQuestionCacheEntity timestamps
-        var cacheEntries = ChangeTracker.Entries<SymptomQuestionCacheEntity>()
+    private void UpdateCacheEntityTimestamps<T>() where T : class
+    {
+        var entries = ChangeTracker.Entries<T>()
             .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
-        foreach (var entry in cacheEntries)
-        {
-            var utcNow = DateTime.UtcNow;
+        var utcNow = DateTime.UtcNow;
 
+        foreach (var entry in entries)
+        {
             if (entry.State == EntityState.Added)
             {
-                if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
-                {
-                    entry.Entity.CreatedAt = utcNow;
-                }
-
-                if (entry.Entity.LastUsedAt == default || entry.Entity.LastUsedAt == DateTime.MinValue)
-                {
-                    entry.Entity.LastUsedAt = utcNow;
-                }
+                SetCacheEntityTimestamps(entry.Entity, utcNow);
             }
         }
+    }
 
-        // Update ConversationContextKeywordEntity timestamps
-        var keywordEntries = ChangeTracker.Entries<ConversationContextKeywordEntity>()
+    private void UpdateKeywordEntityTimestamps()
+    {
+        var entries = ChangeTracker.Entries<ConversationContextKeywordEntity>()
             .Where(e => e.State == EntityState.Added);
 
-        foreach (var entry in keywordEntries)
+        var utcNow = DateTime.UtcNow;
+
+        foreach (var entry in entries)
         {
-            var utcNow = DateTime.UtcNow;
-
-            if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
-            {
-                entry.Entity.CreatedAt = utcNow;
-            }
+            SetCreatedAtIfNeeded(entry.Entity, utcNow);
         }
+    }
 
-        // Update LabResultAbnormalIndicatorCacheEntity timestamps
-        var labCacheEntries = ChangeTracker.Entries<LabResultAbnormalIndicatorCacheEntity>()
-            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
-
-        foreach (var entry in labCacheEntries)
+    private static void SetCreatedAtIfNeeded(ConversationSessionEntity entity, DateTime utcNow)
+    {
+        if (IsDefaultDateTime(entity.CreatedAt))
         {
-            var utcNow = DateTime.UtcNow;
-
-            if (entry.State == EntityState.Added)
-            {
-                if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
-                {
-                    entry.Entity.CreatedAt = utcNow;
-                }
-
-                if (entry.Entity.LastUsedAt == default || entry.Entity.LastUsedAt == DateTime.MinValue)
-                {
-                    entry.Entity.LastUsedAt = utcNow;
-                }
-            }
+            entity.CreatedAt = utcNow;
         }
-
-        // Update DermatologyDiseaseCacheEntity timestamps
-        var dermatologyCacheEntries = ChangeTracker.Entries<DermatologyDiseaseCacheEntity>()
-            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
-
-        foreach (var entry in dermatologyCacheEntries)
+        else if (entity.CreatedAt.Kind != DateTimeKind.Utc)
         {
-            var utcNow = DateTime.UtcNow;
-
-            if (entry.State == EntityState.Added)
-            {
-                if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
-                {
-                    entry.Entity.CreatedAt = utcNow;
-                }
-
-                if (entry.Entity.LastUsedAt == default || entry.Entity.LastUsedAt == DateTime.MinValue)
-                {
-                    entry.Entity.LastUsedAt = utcNow;
-                }
-            }
+            entity.CreatedAt = entity.CreatedAt.ToUniversalTime();
         }
+    }
+
+    private static void SetCreatedAtIfNeeded(ConversationContextKeywordEntity entity, DateTime utcNow)
+    {
+        if (IsDefaultDateTime(entity.CreatedAt))
+        {
+            entity.CreatedAt = utcNow;
+        }
+    }
+
+    private static void SetUpdatedAt(ConversationSessionEntity entity, DateTime utcNow)
+    {
+        entity.UpdatedAt = utcNow;
+        if (entity.UpdatedAt.Kind != DateTimeKind.Utc)
+        {
+            entity.UpdatedAt = entity.UpdatedAt.ToUniversalTime();
+        }
+    }
+
+    private static void SetCacheEntityTimestamps<T>(T entity, DateTime utcNow)
+    {
+        switch (entity)
+        {
+            case SymptomQuestionCacheEntity cacheEntity:
+                SetCacheEntityTimestampsInternal(cacheEntity, utcNow);
+                break;
+            case LabResultAbnormalIndicatorCacheEntity cacheEntity:
+                SetCacheEntityTimestampsInternal(cacheEntity, utcNow);
+                break;
+            case DermatologyDiseaseCacheEntity cacheEntity:
+                SetCacheEntityTimestampsInternal(cacheEntity, utcNow);
+                break;
+        }
+    }
+
+    private static void SetCacheEntityTimestampsInternal(SymptomQuestionCacheEntity entity, DateTime utcNow)
+    {
+        SetCacheTimestamps(entity, utcNow);
+    }
+
+    private static void SetCacheEntityTimestampsInternal(LabResultAbnormalIndicatorCacheEntity entity, DateTime utcNow)
+    {
+        SetCacheTimestamps(entity, utcNow);
+    }
+
+    private static void SetCacheEntityTimestampsInternal(DermatologyDiseaseCacheEntity entity, DateTime utcNow)
+    {
+        SetCacheTimestamps(entity, utcNow);
+    }
+
+    private static void SetCacheTimestamps(SymptomQuestionCacheEntity entity, DateTime utcNow)
+    {
+        SetCreatedAtIfNeeded(entity, utcNow);
+        SetLastUsedAtIfNeeded(entity, utcNow);
+    }
+
+    private static void SetCacheTimestamps(LabResultAbnormalIndicatorCacheEntity entity, DateTime utcNow)
+    {
+        SetCreatedAtIfNeeded(entity, utcNow);
+        SetLastUsedAtIfNeeded(entity, utcNow);
+    }
+
+    private static void SetCacheTimestamps(DermatologyDiseaseCacheEntity entity, DateTime utcNow)
+    {
+        SetCreatedAtIfNeeded(entity, utcNow);
+        SetLastUsedAtIfNeeded(entity, utcNow);
+    }
+
+    private static void SetCreatedAtIfNeeded(SymptomQuestionCacheEntity entity, DateTime utcNow)
+    {
+        if (IsDefaultDateTime(entity.CreatedAt))
+        {
+            entity.CreatedAt = utcNow;
+        }
+    }
+
+    private static void SetCreatedAtIfNeeded(LabResultAbnormalIndicatorCacheEntity entity, DateTime utcNow)
+    {
+        if (IsDefaultDateTime(entity.CreatedAt))
+        {
+            entity.CreatedAt = utcNow;
+        }
+    }
+
+    private static void SetCreatedAtIfNeeded(DermatologyDiseaseCacheEntity entity, DateTime utcNow)
+    {
+        if (IsDefaultDateTime(entity.CreatedAt))
+        {
+            entity.CreatedAt = utcNow;
+        }
+    }
+
+    private static void SetLastUsedAtIfNeeded(SymptomQuestionCacheEntity entity, DateTime utcNow)
+    {
+        if (IsDefaultDateTime(entity.LastUsedAt))
+        {
+            entity.LastUsedAt = utcNow;
+        }
+    }
+
+    private static void SetLastUsedAtIfNeeded(LabResultAbnormalIndicatorCacheEntity entity, DateTime utcNow)
+    {
+        if (IsDefaultDateTime(entity.LastUsedAt))
+        {
+            entity.LastUsedAt = utcNow;
+        }
+    }
+
+    private static void SetLastUsedAtIfNeeded(DermatologyDiseaseCacheEntity entity, DateTime utcNow)
+    {
+        if (IsDefaultDateTime(entity.LastUsedAt))
+        {
+            entity.LastUsedAt = utcNow;
+        }
+    }
+
+    private static bool IsDefaultDateTime(DateTime dateTime)
+    {
+        return dateTime == default || dateTime == DateTime.MinValue;
     }
 }

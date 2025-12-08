@@ -49,57 +49,9 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
         var keywords = new HashSet<string>();
         var lowerText = extractedText.ToLowerInvariant();
 
-        // Extract lab indicator names
-        foreach (var indicator in LabIndicatorNames)
-        {
-            if (lowerText.Contains(indicator, StringComparison.OrdinalIgnoreCase))
-            {
-                // Use normalized name (prefer English abbreviation if available)
-                var normalizedName = NormalizeIndicatorName(indicator);
-                keywords.Add(normalizedName);
-            }
-        }
+        ExtractKnownIndicators(lowerText, keywords);
+        ExtractPatternBasedKeywords(extractedText, keywords);
 
-        // Also extract common patterns: "Name: Value Unit" or "Name Value Unit"
-        // This helps catch indicators that might not be in our list
-        var lines = extractedText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-        foreach (var line in lines)
-        {
-            var lineLower = line.ToLowerInvariant();
-
-            // Look for patterns like "WBC: 5.2 x10^9/L" or "Hemoglobin 140 g/L"
-            // Extract the indicator name (first word or words before colon/space)
-            var colonIndex = lineLower.IndexOf(':');
-            var spaceIndex = lineLower.IndexOf(' ');
-
-            if (colonIndex > 0)
-            {
-                var potentialName = lineLower.Substring(0, colonIndex).Trim();
-                if (potentialName.Length >= 2 && potentialName.Length <= 30)
-                {
-                    // Clean up the name (remove common prefixes/suffixes)
-                    var cleaned = CleanIndicatorName(potentialName);
-                    if (cleaned.Length >= 2)
-                    {
-                        keywords.Add(cleaned);
-                    }
-                }
-            }
-            else if (spaceIndex > 0)
-            {
-                var potentialName = lineLower.Substring(0, spaceIndex).Trim();
-                if (potentialName.Length >= 2 && potentialName.Length <= 30)
-                {
-                    var cleaned = CleanIndicatorName(potentialName);
-                    if (cleaned.Length >= 2)
-                    {
-                        keywords.Add(cleaned);
-                    }
-                }
-            }
-        }
-
-        // Normalize and return
         var normalized = NormalizeKeywords(keywords);
 
         _logger.LogDebug(
@@ -108,6 +60,65 @@ public class LabResultKeywordExtractor : ILabResultKeywordExtractor
             normalized);
 
         return normalized;
+    }
+
+    private void ExtractKnownIndicators(string lowerText, HashSet<string> keywords)
+    {
+        foreach (var indicator in LabIndicatorNames)
+        {
+            if (!lowerText.Contains(indicator, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var normalizedName = NormalizeIndicatorName(indicator);
+            keywords.Add(normalizedName);
+        }
+    }
+
+    private void ExtractPatternBasedKeywords(string extractedText, HashSet<string> keywords)
+    {
+        var lines = extractedText.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            ExtractKeywordsFromLine(line, keywords);
+        }
+    }
+
+    private void ExtractKeywordsFromLine(string line, HashSet<string> keywords)
+    {
+        var lineLower = line.ToLowerInvariant();
+        var colonIndex = lineLower.IndexOf(':');
+        var spaceIndex = lineLower.IndexOf(' ');
+
+        if (colonIndex > 0)
+        {
+            TryAddKeywordFromSubstring(lineLower, 0, colonIndex, keywords);
+        }
+        else if (spaceIndex > 0)
+        {
+            TryAddKeywordFromSubstring(lineLower, 0, spaceIndex, keywords);
+        }
+    }
+
+    private void TryAddKeywordFromSubstring(string lineLower, int startIndex, int endIndex, HashSet<string> keywords)
+    {
+        var potentialName = lineLower.Substring(startIndex, endIndex - startIndex).Trim();
+        if (!IsValidKeywordLength(potentialName))
+        {
+            return;
+        }
+
+        var cleaned = CleanIndicatorName(potentialName);
+        if (IsValidKeywordLength(cleaned))
+        {
+            keywords.Add(cleaned);
+        }
+    }
+
+    private static bool IsValidKeywordLength(string keyword)
+    {
+        return keyword.Length >= 2 && keyword.Length <= 30;
     }
 
     public string NormalizeText(string extractedText)

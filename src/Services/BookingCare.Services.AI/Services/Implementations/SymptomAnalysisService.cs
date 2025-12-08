@@ -51,196 +51,56 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             _logger.LogInformation("Starting symptom analysis for user {UserId}, session {SessionId}",
                 request.UserId, request.SessionId);
 
-
-            // Step 1: Get or create session in database
             var sessionId = await _sessionService.GetOrCreateSessionAsync(
                 request.SessionId,
                 request.UserId ?? Guid.Empty,
                 request.Location);
 
-
             var conversationHistory = request.ConversationHistory ?? new List<ConversationMessage>();
-
-
-            // Step 2: Count how many questions AI has asked so far
             int totalQuestions = CountAIQuestions(conversationHistory);
             _logger.LogInformation("Total questions asked: {TotalQuestions}", totalQuestions);
             _logger.LogInformation("Conversation history count: {Count}", conversationHistory.Count);
 
-
-            // Step 3: Determine if we're in conclusion mode
-            // Conclusion mode triggers when we've completed 3 questions in a round
-            // totalQuestions = 3 (after Q1, Q2, Q3) → first conclusion (Round 1)
-            // totalQuestions = 6 (after Q4, Q5, Q6) → second conclusion (Round 2)
-            bool isConclusionMode = (totalQuestions % 3) == 0 && totalQuestions > 0 && totalQuestions <= 6;
-
-
-            // Step 4: Calculate current round and question number
-            // For conclusion mode: round is based on COMPLETED rounds
-            // For asking mode: round is based on CURRENT round in progress
-            int currentRound;
-            int questionInRound;
-
-
-            if (isConclusionMode)
-            {
-                // At conclusion: totalQuestions = 3 → Round 1, totalQuestions = 6 → Round 2
-                currentRound = totalQuestions / 3; // 3/3=1, 6/3=2
-                questionInRound = 3; // Always 3 at conclusion
-            }
-            else
-            {
-                // During asking: calculate which round and question we're on
-                // IMPORTANT: totalQuestions includes both questions AND conclusions
-                // Pattern: Q1, Q2, Q3, Conclusion (4 messages per round)
-                // We need to subtract conclusions to get actual question count
-                int numConclusions = totalQuestions / 4; // 0-3→0, 4-7→1, 8+→2
-                int actualQuestions = totalQuestions - numConclusions;
-
-
-                currentRound = (actualQuestions / 3) + 1; // 0-2→1, 3-5→2
-                questionInRound = (actualQuestions % 3) + 1; // 0→1, 1→2, 2→3
-
-
-                // Examples:
-                // totalQuestions=0: numConclusions=0, actualQuestions=0, round=1, question=1 ✓
-                // totalQuestions=1: numConclusions=0, actualQuestions=1, round=1, question=2 ✓
-                // totalQuestions=2: numConclusions=0, actualQuestions=2, round=1, question=3 ✓
-                // totalQuestions=4: numConclusions=1, actualQuestions=3, round=2, question=1 ✓ (after Round 1 conclusion)
-                // totalQuestions=5: numConclusions=1, actualQuestions=4, round=2, question=2 ✓
-                // totalQuestions=6: numConclusions=1, actualQuestions=5, round=2, question=3 ✓
-            }
-
-
+            var (isConclusionMode, currentRound, questionInRound) = CalculateRoundAndQuestion(totalQuestions);
             _logger.LogInformation(
                 "🔍 DEBUG - Round: {Round}, QuestionInRound: {QuestionInRound}, TotalQuestions: {TotalQuestions}, IsConclusionMode: {IsConclusionMode}",
                 currentRound, questionInRound, totalQuestions, isConclusionMode);
 
+            var cachedResponse = await TryGetCachedResponseIfApplicable(
+                isConclusionMode,
+                request.Message,
+                conversationHistory,
+                sessionId,
+                questionInRound,
+                request.Location,
+                request.UserId);
 
-            // Step 4: Try cache lookup for asking mode (skip cache for conclusion mode)
-            if (!isConclusionMode)
+            if (cachedResponse != null)
             {
-                var cachedResponse = await TryGetCachedQuestionAsync(
-                    request.Message,
-                    conversationHistory,
-                    sessionId,
-                    questionInRound);
-
-                if (cachedResponse != null)
-                {
-                    // Cache hit! Save conversation and return
-                    try
-                    {
-                        await _sessionService.SaveConversationHistoryAsync(
-                            sessionId: sessionId,
-                            userMessage: request.Message,
-                            aiMessage: cachedResponse.Message,
-                            location: request.Location,
-                            suggestions: null,
-                            userId: request.UserId,
-                            disease: null,
-                            questionCount: cachedResponse.QuestionCount,
-                            analysisComplete: false);
-
-                        _logger.LogDebug("Successfully saved cached question to conversation history for session {SessionId}", sessionId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error saving cached conversation for session {SessionId}", sessionId);
-                    }
-
-                    return cachedResponse;
-                }
+                return cachedResponse;
             }
 
-            // Step 5: Build prompt for Groq (cache miss or conclusion mode)
-            Task<string>? specialtyListTask = null;
-            if (isConclusionMode)
-            {
-                specialtyListTask = _recommendationHelper.GetSpecialtyListTextAsync();
-            }
+            var response = await ProcessAnalysisAsync(
+                request,
+                conversationHistory,
+                sessionId,
+                isConclusionMode,
+                currentRound,
+                questionInRound);
 
+            await SaveQuestionToCacheIfNeeded(
+                isConclusionMode,
+                request.Message,
+                conversationHistory,
+                questionInRound,
+                response);
 
-            string prompt = isConclusionMode
-                ? await BuildConclusionModePromptAsync(request.Message, conversationHistory, specialtyListTask!)
-                : BuildAskingModePrompt(request.Message, conversationHistory);
-
-
-            // Step 6: Call Groq API
-            string groqResponse = await CallGroqApiAsync(prompt, isConclusionMode);
-            _logger.LogDebug("Groq response: {Response}", groqResponse);
-
-
-            // Step 7: Parse response
-            SymptomAnalysisResponse response = isConclusionMode
-                ? await ParseConclusionModeResponse(
-                    groqResponse,
-                    sessionId,
-                    currentRound,
-                    request.Location)
-                : ParseAskingModeResponse(groqResponse, sessionId, questionInRound);
-
-            // Step 8: Save question to cache (synchronous to avoid DbContext issues)
-            // Cache all questions (Q1, Q2, Q3), not just asking mode
-            // Conclusions are not cached (they are diagnosis results, not questions)
-            if (!isConclusionMode && response.NextQuestions?.Count > 0)
-            {
-                await SaveQuestionToCacheAsync(
-                    request.Message,
-                    conversationHistory,
-                    questionInRound,
-                    response);
-            }
-
-
-            // Step 7: Prepare data for saving and return response (save in background)
-            object? suggestions = null;
-            object? disease = null;
-
-
-            if (response.AnalysisComplete && response.Disease != null)
-            {
-                disease = new
-                {
-                    Name = response.Disease.Name,
-                    Confidence = response.Disease.Confidence,
-                    Reasons = response.Disease.Reasons
-                };
-
-
-                if (response.RecommendedDoctors?.Count > 0 || response.RecommendedHospitals?.Count > 0)
-                {
-                    suggestions = new
-                    {
-                        doctors = response.RecommendedDoctors,
-                        hospitals = response.RecommendedHospitals
-                    };
-                }
-            }
-
-
-            // Save conversation to database
-            // Changed from fire-and-forget to awaited to ensure data is saved properly
-            try
-            {
-                await _sessionService.SaveConversationHistoryAsync(
-                    sessionId: sessionId,
-                    userMessage: request.Message,
-                    aiMessage: response.Message,
-                    location: request.Location,
-                    suggestions: suggestions,
-                    userId: request.UserId,
-                    disease: disease,
-                    questionCount: response.QuestionCount,
-                    analysisComplete: response.AnalysisComplete
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error saving conversation for session {SessionId}", sessionId);
-                // Don't throw - saving conversation failure shouldn't break the flow
-            }
-
+            await SaveConversationAsync(
+                sessionId,
+                request.Message,
+                response,
+                request.Location,
+                request.UserId);
 
             _logger.LogInformation("Symptom analysis completed successfully for session {SessionId}", sessionId);
             return response;
@@ -250,6 +110,191 @@ public class SymptomAnalysisService : ISymptomAnalysisService
             _logger.LogError(ex, "Error analyzing symptoms: {Message}", ex.Message);
             throw new SymptomAnalysisException("Failed to analyze symptoms", ex);
         }
+    }
+
+    private (bool isConclusionMode, int currentRound, int questionInRound) CalculateRoundAndQuestion(int totalQuestions)
+    {
+        bool isConclusionMode = (totalQuestions % 3) == 0 && totalQuestions > 0 && totalQuestions <= 6;
+
+        if (isConclusionMode)
+        {
+            int currentRound = totalQuestions / 3;
+            int questionInRound = 3;
+            return (isConclusionMode, currentRound, questionInRound);
+        }
+
+        int numConclusions = totalQuestions / 4;
+        int actualQuestions = totalQuestions - numConclusions;
+        int currentRound = (actualQuestions / 3) + 1;
+        int questionInRound = (actualQuestions % 3) + 1;
+
+        return (isConclusionMode, currentRound, questionInRound);
+    }
+
+    private async Task<SymptomAnalysisResponse?> TryGetCachedResponseIfApplicable(
+        bool isConclusionMode,
+        string userMessage,
+        List<ConversationMessage> conversationHistory,
+        Guid sessionId,
+        int questionInRound,
+        LocationContext? location,
+        Guid? userId)
+    {
+        if (isConclusionMode)
+        {
+            return null;
+        }
+
+        var cachedResponse = await TryGetCachedQuestionAsync(
+            userMessage,
+            conversationHistory,
+            sessionId,
+            questionInRound);
+
+        if (cachedResponse == null)
+        {
+            return null;
+        }
+
+        await SaveCachedConversationAsync(sessionId, userMessage, cachedResponse, location, userId);
+        return cachedResponse;
+    }
+
+    private async Task SaveCachedConversationAsync(
+        Guid sessionId,
+        string userMessage,
+        SymptomAnalysisResponse cachedResponse,
+        LocationContext? location,
+        Guid? userId)
+    {
+        try
+        {
+            await _sessionService.SaveConversationHistoryAsync(
+                sessionId: sessionId,
+                userMessage: userMessage,
+                aiMessage: cachedResponse.Message,
+                location: location,
+                suggestions: null,
+                userId: userId,
+                disease: null,
+                questionCount: cachedResponse.QuestionCount,
+                analysisComplete: false);
+
+            _logger.LogDebug("Successfully saved cached question to conversation history for session {SessionId}", sessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error saving cached conversation for session {SessionId}", sessionId);
+        }
+    }
+
+    private async Task<SymptomAnalysisResponse> ProcessAnalysisAsync(
+        SymptomAnalysisRequest request,
+        List<ConversationMessage> conversationHistory,
+        Guid sessionId,
+        bool isConclusionMode,
+        int currentRound,
+        int questionInRound)
+    {
+        string prompt = await BuildPromptAsync(
+            request.Message,
+            conversationHistory,
+            isConclusionMode);
+
+        string groqResponse = await CallGroqApiAsync(prompt, isConclusionMode);
+        _logger.LogDebug("Groq response: {Response}", groqResponse);
+
+        return isConclusionMode
+            ? await ParseConclusionModeResponse(groqResponse, sessionId, currentRound, request.Location)
+            : ParseAskingModeResponse(groqResponse, sessionId, questionInRound);
+    }
+
+    private async Task<string> BuildPromptAsync(
+        string userMessage,
+        List<ConversationMessage> conversationHistory,
+        bool isConclusionMode)
+    {
+        if (isConclusionMode)
+        {
+            var specialtyListTask = _recommendationHelper.GetSpecialtyListTextAsync();
+            return await BuildConclusionModePromptAsync(userMessage, conversationHistory, specialtyListTask);
+        }
+
+        return BuildAskingModePrompt(userMessage, conversationHistory);
+    }
+
+    private async Task SaveQuestionToCacheIfNeeded(
+        bool isConclusionMode,
+        string userMessage,
+        List<ConversationMessage> conversationHistory,
+        int questionInRound,
+        SymptomAnalysisResponse response)
+    {
+        if (isConclusionMode || response.NextQuestions?.Count == 0)
+        {
+            return;
+        }
+
+        await SaveQuestionToCacheAsync(
+            userMessage,
+            conversationHistory,
+            questionInRound,
+            response);
+    }
+
+    private async Task SaveConversationAsync(
+        Guid sessionId,
+        string userMessage,
+        SymptomAnalysisResponse response,
+        LocationContext? location,
+        Guid? userId)
+    {
+        var (suggestions, disease) = PrepareSaveData(response);
+
+        try
+        {
+            await _sessionService.SaveConversationHistoryAsync(
+                sessionId: sessionId,
+                userMessage: userMessage,
+                aiMessage: response.Message,
+                location: location,
+                suggestions: suggestions,
+                userId: userId,
+                disease: disease,
+                questionCount: response.QuestionCount,
+                analysisComplete: response.AnalysisComplete);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error saving conversation for session {SessionId}", sessionId);
+        }
+    }
+
+    private static (object? suggestions, object? disease) PrepareSaveData(SymptomAnalysisResponse response)
+    {
+        if (!response.AnalysisComplete || response.Disease == null)
+        {
+            return (null, null);
+        }
+
+        object disease = new
+        {
+            Name = response.Disease.Name,
+            Confidence = response.Disease.Confidence,
+            Reasons = response.Disease.Reasons
+        };
+
+        object? suggestions = null;
+        if (response.RecommendedDoctors?.Count > 0 || response.RecommendedHospitals?.Count > 0)
+        {
+            suggestions = new
+            {
+                doctors = response.RecommendedDoctors,
+                hospitals = response.RecommendedHospitals
+            };
+        }
+
+        return (suggestions, disease);
     }
 
 

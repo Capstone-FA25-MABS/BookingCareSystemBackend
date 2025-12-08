@@ -17,8 +17,8 @@ public class ContextKeywordExtractor : IContextKeywordExtractor
 {
     private readonly ILogger<ContextKeywordExtractor> _logger;
     private readonly AiDbContext _dbContext;
-    private static Dictionary<string, string[]>? _cachedPatterns;
-    private static DateTime? _lastCacheUpdate;
+    private Dictionary<string, string[]>? _cachedPatterns;
+    private DateTime? _lastCacheUpdate;
     private static readonly TimeSpan CacheExpiry = TimeSpan.FromMinutes(30);
 
     // JSON options to preserve Unicode characters (not escape them)
@@ -191,375 +191,25 @@ public class ContextKeywordExtractor : IContextKeywordExtractor
         var symptoms = new List<string>();
         var lowerText = text.ToLowerInvariant();
         var foundKeywords = new HashSet<string>();
-        var matchedPositions = new Dictionary<string, int>(); // Track match positions to avoid overlapping
+        var matchedPositions = new Dictionary<string, int>();
 
         try
         {
-            // Only extract SYMPTOM category - query synchronously (should be fast with index)
-            var symptomKeywords = _dbContext.ConversationContextKeywords
-                .Where(k => k.Category == "SYMPTOM")
-                .ToList();
+            var sortedKeywords = GetSortedSymptomKeywords();
 
-            // Sort by length (longest first) to prioritize multi-word phrases (e.g., "đau lưng" before "đau")
-            var sortedKeywords = symptomKeywords
-                .OrderByDescending(k => k.Keyword.Length)
-                .ToList();
+            MatchMultiWordPhrases(sortedKeywords, lowerText, symptoms, foundKeywords, matchedPositions);
+            var singleWordMatches = MatchSingleWordKeywords(sortedKeywords, lowerText, matchedPositions, foundKeywords);
 
-            // First pass: Match multi-word phrases (2+ words) first
-            foreach (var keyword in sortedKeywords.Where(k => k.Keyword.Contains(' ')))
-            {
-                TryMatchKeywordWithSynonyms(
-                    keyword,
-                    lowerText,
-                    matchedPositions,
-                    foundKeywords,
-                    (matchedKeyword, matchedIndex) =>
-                    {
-                        symptoms.Add(matchedKeyword);
-                        foundKeywords.Add(matchedKeyword.ToLowerInvariant());
-                        matchedPositions[matchedKeyword] = matchedIndex;
-                        _logger.LogDebug("Matched multi-word symptom: '{Symptom}' at position {Index}", matchedKeyword, matchedIndex);
-                    });
-            }
-
-            // Second pass: Match single-word keywords only if they don't overlap with matched phrases
-            // Store single-word matches temporarily to check for multi-word phrases later
-            var singleWordMatches = new List<(string keyword, int index)>();
-
-            foreach (var keyword in sortedKeywords.Where(k => !k.Keyword.Contains(' ')))
-            {
-                TryMatchKeywordWithSynonyms(
-                    keyword,
-                    lowerText,
-                    matchedPositions,
-                    foundKeywords,
-                    (matchedKeyword, matchedIndex) =>
-                    {
-                        singleWordMatches.Add((matchedKeyword, matchedIndex));
-                    });
-            }
-
-            // Before adding single-word matches, check if we can find multi-word phrases containing them
-            // This handles cases like "đau" being matched but "đau răng" should be preferred
             if (autoAddToDb && singleWordMatches.Count > 0)
             {
-                var commonSymptomPatterns = new[] { "đau", "sưng", "tê", "ngứa", "nóng", "lạnh", "chảy", "ho", "sốt" };
-                var commonBodyParts = new[] {
-                    "chân", "tay", "đầu", "bụng", "lưng", "ngực", "cổ", "mắt", "tai", "mũi", "họng",
-                    "răng", "lợi", "miệng", "hàm", "gót", "gối", "khuỷu", "vai", "cổ tay", "cổ chân",
-                    "thắt lưng", "vùng chậu", "ngón tay", "ngón chân", "bàn tay", "bàn chân"
-                };
-
-                // Check if any single-word match can form a multi-word phrase
-                foreach (var (matchedKeyword, matchedIndex) in singleWordMatches.ToList())
-                {
-                    var matchedKeywordLower = matchedKeyword.ToLowerInvariant();
-
-                    // Check if this keyword is a symptom pattern that could combine with body parts
-                    if (commonSymptomPatterns.Contains(matchedKeywordLower))
-                    {
-                        // Look for body parts immediately after this keyword in the text
-                        // Check if the phrase appears as a contiguous string in the original text
-                        foreach (var bodyPart in commonBodyParts)
-                        {
-                            var potentialPhrase = $"{matchedKeywordLower} {bodyPart}";
-
-                            // First check if the phrase appears in the original text as a contiguous string
-                            if (!lowerText.Contains(potentialPhrase, StringComparison.OrdinalIgnoreCase))
-                            {
-                                continue; // Skip if phrase doesn't appear in text
-                            }
-
-                            // Check if this phrase exists in DB or should be added
-                            var allSymptoms = _dbContext.ConversationContextKeywords
-                                .Where(k => k.Category == "SYMPTOM")
-                                .ToList();
-
-                            var exists = allSymptoms.Any(k =>
-                                k.Keyword.Equals(potentialPhrase, StringComparison.OrdinalIgnoreCase));
-
-                            if (exists)
-                            {
-                                // Phrase exists, use it instead of single word
-                                var existingKeyword = allSymptoms.FirstOrDefault(k =>
-                                    k.Keyword.Equals(potentialPhrase, StringComparison.OrdinalIgnoreCase));
-                                if (existingKeyword != null && !foundKeywords.Contains(potentialPhrase))
-                                {
-                                    // Remove single-word match
-                                    singleWordMatches.RemoveAll(m => m.keyword == matchedKeyword);
-
-                                    // Add multi-word phrase
-                                    symptoms.Add(existingKeyword.Keyword);
-                                    foundKeywords.Add(potentialPhrase);
-                                    matchedPositions[existingKeyword.Keyword] = matchedIndex;
-
-                                    _logger.LogDebug("Upgraded '{Single}' to '{Phrase}'", matchedKeyword, potentialPhrase);
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                // Phrase doesn't exist in DB but appears in text, add it
-                                try
-                                {
-                                    var newKeyword = new ConversationContextKeywordEntity
-                                    {
-                                        Id = Guid.NewGuid(),
-                                        Keyword = potentialPhrase,
-                                        Category = "SYMPTOM",
-                                        Synonyms = JsonSerializer.Serialize(new[] { potentialPhrase }, JsonOptions),
-                                        CreatedAt = DateTime.UtcNow
-                                    };
-
-                                    _dbContext.ConversationContextKeywords.Add(newKeyword);
-                                    _dbContext.SaveChanges();
-
-                                    // Remove single-word match
-                                    singleWordMatches.RemoveAll(m => m.keyword == matchedKeyword);
-
-                                    // Add multi-word phrase
-                                    symptoms.Add(potentialPhrase);
-                                    foundKeywords.Add(potentialPhrase);
-                                    matchedPositions[potentialPhrase] = matchedIndex;
-
-                                    _logger.LogInformation(
-                                        "Auto-added and upgraded '{Single}' to '{Phrase}' in ConversationContextKeywords",
-                                        matchedKeyword, potentialPhrase);
-                                    break;
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogWarning(ex, "Failed to auto-add symptom phrase '{Symptom}' to database", potentialPhrase);
-                                }
-                            }
-                        }
-                    }
-                }
+                UpgradeSingleWordToPhrases(singleWordMatches, lowerText, symptoms, foundKeywords, matchedPositions);
             }
 
-            // Add remaining single-word matches that weren't upgraded to phrases
-            foreach (var (keyword, index) in singleWordMatches)
-            {
-                if (!foundKeywords.Contains(keyword.ToLowerInvariant()))
-                {
-                    symptoms.Add(keyword);
-                    foundKeywords.Add(keyword.ToLowerInvariant());
-                    matchedPositions[keyword] = index;
-                }
-            }
+            AddRemainingSingleWordMatches(singleWordMatches, symptoms, foundKeywords, matchedPositions);
 
-            // If autoAddToDb is true and we still haven't found any symptoms, try intelligent extraction
             if (autoAddToDb && symptoms.Count == 0)
             {
-                // First, try to extract multi-word phrases (e.g., "đau chân", "đau đầu", "đau răng")
-                // Common symptom patterns: "đau [body part]", "[symptom] [location]"
-                var commonSymptomPatterns = new[] { "đau", "sưng", "tê", "ngứa", "nóng", "lạnh", "chảy", "ho", "sốt" };
-                var commonBodyParts = new[] {
-                    "chân", "tay", "đầu", "bụng", "lưng", "ngực", "cổ", "mắt", "tai", "mũi", "họng",
-                    "răng", "lợi", "miệng", "hàm", "gót", "gối", "khuỷu", "vai", "cổ tay", "cổ chân",
-                    "thắt lưng", "vùng chậu", "ngón tay", "ngón chân", "bàn tay", "bàn chân"
-                };
-
-                // Try to find multi-word symptoms first (e.g., "đau chân", "đau đầu", "đau răng")
-                // Strategy: Look for patterns like "đau [body part]" or "[symptom] [body part]"
-                var foundPhrase = false;
-
-                // First, try hardcoded patterns (fast path)
-                foreach (var pattern in commonSymptomPatterns)
-                {
-                    foreach (var bodyPart in commonBodyParts)
-                    {
-                        var phrase = $"{pattern} {bodyPart}";
-                        if (lowerText.Contains(phrase, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var normalizedPhrase = phrase.Trim();
-
-                            // Check if already exists
-                            var allSymptoms = _dbContext.ConversationContextKeywords
-                                .Where(k => k.Category == "SYMPTOM")
-                                .ToList();
-
-                            var exists = allSymptoms.Any(k =>
-                                k.Keyword.Equals(normalizedPhrase, StringComparison.OrdinalIgnoreCase));
-
-                            if (!exists)
-                            {
-                                try
-                                {
-                                    var newKeyword = new ConversationContextKeywordEntity
-                                    {
-                                        Id = Guid.NewGuid(),
-                                        Keyword = normalizedPhrase,
-                                        Category = "SYMPTOM",
-                                        Synonyms = JsonSerializer.Serialize(new[] { normalizedPhrase }, JsonOptions),
-                                        CreatedAt = DateTime.UtcNow
-                                    };
-
-                                    _dbContext.ConversationContextKeywords.Add(newKeyword);
-                                    _dbContext.SaveChanges();
-
-                                    symptoms.Add(normalizedPhrase);
-                                    foundKeywords.Add(normalizedPhrase.ToLowerInvariant());
-                                    foundPhrase = true;
-
-                                    _logger.LogInformation(
-                                        "Auto-added new symptom phrase '{Symptom}' to ConversationContextKeywords",
-                                        normalizedPhrase);
-                                    break; // Found a phrase, stop looking
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogWarning(ex, "Failed to auto-add symptom phrase '{Symptom}' to database", normalizedPhrase);
-                                }
-                            }
-                            else
-                            {
-                                // Phrase exists, add it to symptoms
-                                var existingKeyword = allSymptoms.FirstOrDefault(k =>
-                                    k.Keyword.Equals(normalizedPhrase, StringComparison.OrdinalIgnoreCase));
-                                if (existingKeyword != null)
-                                {
-                                    symptoms.Add(existingKeyword.Keyword);
-                                    foundKeywords.Add(existingKeyword.Keyword.ToLowerInvariant());
-                                    foundPhrase = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if (foundPhrase) break;
-                }
-
-                // If no hardcoded pattern found, try to extract multi-word symptom phrases intelligently
-                // Look for patterns like: "bị [symptom] [body part]" or "[symptom] [body part]"
-                if (!foundPhrase)
-                {
-                    // Remove common stop words and extract potential symptom phrases
-                    var stopWords = new HashSet<string> { "tôi", "bị", "có", "bạn", "anh", "chị", "em", "ông", "bà" };
-                    var words = lowerText.Split(new[] { ' ', ',', '.', '!', '?', ';', ':' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Where(w => !stopWords.Contains(w))
-                        .ToList();
-
-                    // Look for 2-word combinations that might be symptoms
-                    // Common pattern: symptom word + body part word
-                    for (int i = 0; i < words.Count - 1; i++)
-                    {
-                        var word1 = words[i];
-                        var word2 = words[i + 1];
-                        var potentialPhrase = $"{word1} {word2}";
-
-                        // Check if this phrase appears in the original text
-                        if (lowerText.Contains(potentialPhrase, StringComparison.OrdinalIgnoreCase) &&
-                            word1.Length >= 3 && word2.Length >= 3 &&
-                            !IsCommonWord(word1) && !IsCommonWord(word2))
-                        {
-                            // Check if already exists in DB
-                            var allSymptoms = _dbContext.ConversationContextKeywords
-                                .Where(k => k.Category == "SYMPTOM")
-                                .ToList();
-
-                            var exists = allSymptoms.Any(k =>
-                                k.Keyword.Equals(potentialPhrase, StringComparison.OrdinalIgnoreCase));
-
-                            if (!exists && !foundKeywords.Contains(potentialPhrase.ToLowerInvariant()))
-                            {
-                                try
-                                {
-                                    var newKeyword = new ConversationContextKeywordEntity
-                                    {
-                                        Id = Guid.NewGuid(),
-                                        Keyword = potentialPhrase,
-                                        Category = "SYMPTOM",
-                                        Synonyms = JsonSerializer.Serialize(new[] { potentialPhrase }, JsonOptions),
-                                        CreatedAt = DateTime.UtcNow
-                                    };
-
-                                    _dbContext.ConversationContextKeywords.Add(newKeyword);
-                                    _dbContext.SaveChanges();
-
-                                    symptoms.Add(potentialPhrase);
-                                    foundKeywords.Add(potentialPhrase.ToLowerInvariant());
-                                    foundPhrase = true;
-
-                                    _logger.LogInformation(
-                                        "Auto-added new symptom phrase '{Symptom}' to ConversationContextKeywords (intelligent extraction)",
-                                        potentialPhrase);
-                                    break; // Found a phrase, stop looking
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogWarning(ex, "Failed to auto-add symptom phrase '{Symptom}' to database", potentialPhrase);
-                                }
-                            }
-                            else if (exists)
-                            {
-                                // Phrase exists, add it to symptoms
-                                var existingKeyword = allSymptoms.FirstOrDefault(k =>
-                                    k.Keyword.Equals(potentialPhrase, StringComparison.OrdinalIgnoreCase));
-                                if (existingKeyword != null)
-                                {
-                                    symptoms.Add(existingKeyword.Keyword);
-                                    foundKeywords.Add(existingKeyword.Keyword.ToLowerInvariant());
-                                    foundPhrase = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // If no phrase found, fall back to single words
-                if (!foundPhrase)
-                {
-                    var words = lowerText.Split(new[] { ' ', ',', '.', '!', '?', ';', ':' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Where(w => w != "bị" && w != "có" && w != "tôi" && w != "bạn")
-                        .ToList();
-                    var potentialSymptoms = words.Where(w => w.Length >= 3 && !IsCommonWord(w)).Take(3).ToList();
-
-                    foreach (var potentialSymptom in potentialSymptoms)
-                    {
-                        var normalizedSymptom = potentialSymptom.Trim();
-                        if (normalizedSymptom.Length >= 3 && !foundKeywords.Contains(normalizedSymptom))
-                        {
-                            // Check if already exists (case-insensitive)
-                            var allSymptoms = _dbContext.ConversationContextKeywords
-                                .Where(k => k.Category == "SYMPTOM")
-                                .ToList();
-
-                            var exists = allSymptoms.Any(k =>
-                                k.Keyword.Equals(normalizedSymptom, StringComparison.OrdinalIgnoreCase));
-
-                            if (!exists)
-                            {
-                                try
-                                {
-                                    var newKeyword = new ConversationContextKeywordEntity
-                                    {
-                                        Id = Guid.NewGuid(),
-                                        Keyword = normalizedSymptom,
-                                        Category = "SYMPTOM",
-                                        Synonyms = JsonSerializer.Serialize(new[] { normalizedSymptom }, JsonOptions),
-                                        CreatedAt = DateTime.UtcNow
-                                    };
-
-                                    _dbContext.ConversationContextKeywords.Add(newKeyword);
-                                    _dbContext.SaveChanges();
-
-                                    symptoms.Add(normalizedSymptom);
-                                    foundKeywords.Add(normalizedSymptom);
-
-                                    _logger.LogInformation(
-                                        "Auto-added new symptom '{Symptom}' to ConversationContextKeywords",
-                                        normalizedSymptom);
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogWarning(ex, "Failed to auto-add symptom '{Symptom}' to database", normalizedSymptom);
-                                }
-                            }
-                        }
-                    }
-                }
+                TryIntelligentExtraction(lowerText, symptoms, foundKeywords);
             }
         }
         catch (Exception ex)
@@ -582,55 +232,511 @@ public class ContextKeywordExtractor : IContextKeywordExtractor
     {
         try
         {
-            var synonyms = string.IsNullOrEmpty(keyword.Synonyms)
-                ? new[] { keyword.Keyword }
-                : JsonSerializer.Deserialize<string[]>(keyword.Synonyms) ?? new[] { keyword.Keyword };
-
-            foreach (var synonym in synonyms)
-            {
-                var synonymLower = synonym.ToLowerInvariant();
-                var index = lowerText.IndexOf(synonymLower, StringComparison.OrdinalIgnoreCase);
-
-                if (index >= 0)
-                {
-                    // Check if this position overlaps with already matched keywords
-                    var overlaps = matchedPositions.Any(kvp =>
-                        (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
-                        (kvp.Value >= index && kvp.Value < index + synonymLower.Length));
-
-                    if (!overlaps)
-                    {
-                        var keywordLower = keyword.Keyword.ToLowerInvariant();
-                        if (!foundKeywords.Contains(keywordLower))
-                        {
-                            onMatch(keyword.Keyword, index);
-                            return true; // Found match
-                        }
-                    }
-                }
-            }
+            var synonyms = ParseSynonyms(keyword);
+            return TryMatchWithSynonyms(keyword, synonyms, lowerText, matchedPositions, foundKeywords, onMatch);
         }
         catch (JsonException)
         {
-            // If JSON parsing fails, just check the keyword itself
-            var keywordLower = keyword.Keyword.ToLowerInvariant();
-            var index = lowerText.IndexOf(keywordLower, StringComparison.OrdinalIgnoreCase);
+            return TryMatchKeywordOnly(keyword, lowerText, matchedPositions, foundKeywords, onMatch);
+        }
+    }
 
-            if (index >= 0)
+    private static string[] ParseSynonyms(ConversationContextKeywordEntity keyword)
+    {
+        return string.IsNullOrEmpty(keyword.Synonyms)
+            ? new[] { keyword.Keyword }
+            : JsonSerializer.Deserialize<string[]>(keyword.Synonyms) ?? new[] { keyword.Keyword };
+    }
+
+    private static bool TryMatchWithSynonyms(
+        ConversationContextKeywordEntity keyword,
+        string[] synonyms,
+        string lowerText,
+        Dictionary<string, int> matchedPositions,
+        HashSet<string> foundKeywords,
+        Action<string, int> onMatch)
+    {
+        foreach (var synonym in synonyms)
+        {
+            var synonymLower = synonym.ToLowerInvariant();
+            var index = lowerText.IndexOf(synonymLower, StringComparison.OrdinalIgnoreCase);
+
+            if (index < 0) continue;
+
+            if (IsValidMatch(keyword.Keyword, index, synonymLower.Length, matchedPositions, foundKeywords))
             {
-                var overlaps = matchedPositions.Any(kvp =>
-                    (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
-                    (kvp.Value >= index && kvp.Value < index + keywordLower.Length));
+                onMatch(keyword.Keyword, index);
+                return true;
+            }
+        }
 
-                if (!overlaps && !foundKeywords.Contains(keywordLower))
+        return false;
+    }
+
+    private static bool TryMatchKeywordOnly(
+        ConversationContextKeywordEntity keyword,
+        string lowerText,
+        Dictionary<string, int> matchedPositions,
+        HashSet<string> foundKeywords,
+        Action<string, int> onMatch)
+    {
+        var keywordLower = keyword.Keyword.ToLowerInvariant();
+        var index = lowerText.IndexOf(keywordLower, StringComparison.OrdinalIgnoreCase);
+
+        if (index < 0) return false;
+
+        if (IsValidMatch(keyword.Keyword, index, keywordLower.Length, matchedPositions, foundKeywords))
+        {
+            onMatch(keyword.Keyword, index);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsValidMatch(
+        string keyword,
+        int index,
+        int length,
+        Dictionary<string, int> matchedPositions,
+        HashSet<string> foundKeywords)
+    {
+        if (HasOverlap(index, length, matchedPositions))
+        {
+            return false;
+        }
+
+        var keywordLower = keyword.ToLowerInvariant();
+        return !foundKeywords.Contains(keywordLower);
+    }
+
+    private static bool HasOverlap(int index, int length, Dictionary<string, int> matchedPositions)
+    {
+        return matchedPositions.Any(kvp =>
+            (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
+            (kvp.Value >= index && kvp.Value < index + length));
+    }
+
+    private List<ConversationContextKeywordEntity> GetSortedSymptomKeywords()
+    {
+        var symptomKeywords = _dbContext.ConversationContextKeywords
+            .Where(k => k.Category == "SYMPTOM")
+            .ToList();
+
+        return symptomKeywords
+            .OrderByDescending(k => k.Keyword.Length)
+            .ToList();
+    }
+
+    private void MatchMultiWordPhrases(
+        List<ConversationContextKeywordEntity> sortedKeywords,
+        string lowerText,
+        List<string> symptoms,
+        HashSet<string> foundKeywords,
+        Dictionary<string, int> matchedPositions)
+    {
+        foreach (var keyword in sortedKeywords.Where(k => k.Keyword.Contains(' ')))
+        {
+            TryMatchKeywordWithSynonyms(
+                keyword,
+                lowerText,
+                matchedPositions,
+                foundKeywords,
+                (matchedKeyword, matchedIndex) =>
                 {
-                    onMatch(keyword.Keyword, index);
-                    return true; // Found match
+                    symptoms.Add(matchedKeyword);
+                    foundKeywords.Add(matchedKeyword.ToLowerInvariant());
+                    matchedPositions[matchedKeyword] = matchedIndex;
+                    _logger.LogDebug("Matched multi-word symptom: '{Symptom}' at position {Index}", matchedKeyword, matchedIndex);
+                });
+        }
+    }
+
+    private List<(string keyword, int index)> MatchSingleWordKeywords(
+        List<ConversationContextKeywordEntity> sortedKeywords,
+        string lowerText,
+        Dictionary<string, int> matchedPositions,
+        HashSet<string> foundKeywords)
+    {
+        var singleWordMatches = new List<(string keyword, int index)>();
+
+        foreach (var keyword in sortedKeywords.Where(k => !k.Keyword.Contains(' ')))
+        {
+            TryMatchKeywordWithSynonyms(
+                keyword,
+                lowerText,
+                matchedPositions,
+                foundKeywords,
+                (matchedKeyword, matchedIndex) =>
+                {
+                    singleWordMatches.Add((matchedKeyword, matchedIndex));
+                });
+        }
+
+        return singleWordMatches;
+    }
+
+    private void UpgradeSingleWordToPhrases(
+        List<(string keyword, int index)> singleWordMatches,
+        string lowerText,
+        List<string> symptoms,
+        HashSet<string> foundKeywords,
+        Dictionary<string, int> matchedPositions)
+    {
+        var commonSymptomPatterns = GetCommonSymptomPatterns();
+        var commonBodyParts = GetCommonBodyParts();
+
+        foreach (var (matchedKeyword, matchedIndex) in singleWordMatches.ToList())
+        {
+            var matchedKeywordLower = matchedKeyword.ToLowerInvariant();
+
+            if (!commonSymptomPatterns.Contains(matchedKeywordLower))
+            {
+                continue;
+            }
+
+            if (TryUpgradeToPhrase(matchedKeyword, matchedKeywordLower, matchedIndex, lowerText, commonBodyParts, symptoms, foundKeywords, matchedPositions, singleWordMatches))
+            {
+                break;
+            }
+        }
+    }
+
+    private bool TryUpgradeToPhrase(
+        string matchedKeyword,
+        string matchedKeywordLower,
+        int matchedIndex,
+        string lowerText,
+        string[] commonBodyParts,
+        List<string> symptoms,
+        HashSet<string> foundKeywords,
+        Dictionary<string, int> matchedPositions,
+        List<(string keyword, int index)> singleWordMatches)
+    {
+        foreach (var bodyPart in commonBodyParts)
+        {
+            var potentialPhrase = $"{matchedKeywordLower} {bodyPart}";
+
+            if (!lowerText.Contains(potentialPhrase, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var allSymptoms = GetAllSymptomKeywords();
+            var exists = allSymptoms.Any(k => k.Keyword.Equals(potentialPhrase, StringComparison.OrdinalIgnoreCase));
+
+            if (exists)
+            {
+                return UpgradeToExistingPhrase(matchedKeyword, potentialPhrase, matchedIndex, allSymptoms, symptoms, foundKeywords, matchedPositions, singleWordMatches);
+            }
+            else
+            {
+                return TryAddNewPhrase(matchedKeyword, potentialPhrase, matchedIndex, symptoms, foundKeywords, matchedPositions, singleWordMatches);
+            }
+        }
+
+        return false;
+    }
+
+    private bool UpgradeToExistingPhrase(
+        string matchedKeyword,
+        string potentialPhrase,
+        int matchedIndex,
+        List<ConversationContextKeywordEntity> allSymptoms,
+        List<string> symptoms,
+        HashSet<string> foundKeywords,
+        Dictionary<string, int> matchedPositions,
+        List<(string keyword, int index)> singleWordMatches)
+    {
+        var existingKeyword = allSymptoms.FirstOrDefault(k =>
+            k.Keyword.Equals(potentialPhrase, StringComparison.OrdinalIgnoreCase));
+
+        if (existingKeyword == null || foundKeywords.Contains(potentialPhrase))
+        {
+            return false;
+        }
+
+        singleWordMatches.RemoveAll(m => m.keyword == matchedKeyword);
+        symptoms.Add(existingKeyword.Keyword);
+        foundKeywords.Add(potentialPhrase);
+        matchedPositions[existingKeyword.Keyword] = matchedIndex;
+
+        _logger.LogDebug("Upgraded '{Single}' to '{Phrase}'", matchedKeyword, potentialPhrase);
+        return true;
+    }
+
+    private bool TryAddNewPhrase(
+        string matchedKeyword,
+        string potentialPhrase,
+        int matchedIndex,
+        List<string> symptoms,
+        HashSet<string> foundKeywords,
+        Dictionary<string, int> matchedPositions,
+        List<(string keyword, int index)> singleWordMatches)
+    {
+        try
+        {
+            var newKeyword = CreateSymptomKeyword(potentialPhrase);
+            _dbContext.ConversationContextKeywords.Add(newKeyword);
+            _dbContext.SaveChanges();
+
+            singleWordMatches.RemoveAll(m => m.keyword == matchedKeyword);
+            symptoms.Add(potentialPhrase);
+            foundKeywords.Add(potentialPhrase);
+            matchedPositions[potentialPhrase] = matchedIndex;
+
+            _logger.LogInformation(
+                "Auto-added and upgraded '{Single}' to '{Phrase}' in ConversationContextKeywords",
+                matchedKeyword, potentialPhrase);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-add symptom phrase '{Symptom}' to database", potentialPhrase);
+            return false;
+        }
+    }
+
+    private void AddRemainingSingleWordMatches(
+        List<(string keyword, int index)> singleWordMatches,
+        List<string> symptoms,
+        HashSet<string> foundKeywords,
+        Dictionary<string, int> matchedPositions)
+    {
+        foreach (var (keyword, index) in singleWordMatches)
+        {
+            var keywordLower = keyword.ToLowerInvariant();
+            if (!foundKeywords.Contains(keywordLower))
+            {
+                symptoms.Add(keyword);
+                foundKeywords.Add(keywordLower);
+                matchedPositions[keyword] = index;
+            }
+        }
+    }
+
+    private void TryIntelligentExtraction(
+        string lowerText,
+        List<string> symptoms,
+        HashSet<string> foundKeywords)
+    {
+        if (TryExtractHardcodedPatterns(lowerText, symptoms, foundKeywords))
+        {
+            return;
+        }
+
+        if (TryExtractIntelligentPhrases(lowerText, symptoms, foundKeywords))
+        {
+            return;
+        }
+
+        TryExtractSingleWords(lowerText, symptoms, foundKeywords);
+    }
+
+    private bool TryExtractHardcodedPatterns(
+        string lowerText,
+        List<string> symptoms,
+        HashSet<string> foundKeywords)
+    {
+        var commonSymptomPatterns = GetCommonSymptomPatterns();
+        var commonBodyParts = GetCommonBodyParts();
+
+        foreach (var pattern in commonSymptomPatterns)
+        {
+            foreach (var bodyPart in commonBodyParts)
+            {
+                var phrase = $"{pattern} {bodyPart}";
+                if (!lowerText.Contains(phrase, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var normalizedPhrase = phrase.Trim();
+                if (TryAddOrUseExistingPhrase(normalizedPhrase, symptoms, foundKeywords))
+                {
+                    return true;
                 }
             }
         }
 
-        return false; // No match found
+        return false;
+    }
+
+    private bool TryExtractIntelligentPhrases(
+        string lowerText,
+        List<string> symptoms,
+        HashSet<string> foundKeywords)
+    {
+        var stopWords = new HashSet<string> { "tôi", "bị", "có", "bạn", "anh", "chị", "em", "ông", "bà" };
+        var words = lowerText.Split(new[] { ' ', ',', '.', '!', '?', ';', ':' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => !stopWords.Contains(w))
+            .ToList();
+
+        for (int i = 0; i < words.Count - 1; i++)
+        {
+            var word1 = words[i];
+            var word2 = words[i + 1];
+            var potentialPhrase = $"{word1} {word2}";
+
+            if (!IsValidPotentialPhrase(potentialPhrase, lowerText, word1, word2))
+            {
+                continue;
+            }
+
+            if (TryAddOrUseExistingPhrase(potentialPhrase, symptoms, foundKeywords))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void TryExtractSingleWords(
+        string lowerText,
+        List<string> symptoms,
+        HashSet<string> foundKeywords)
+    {
+        var words = lowerText.Split(new[] { ' ', ',', '.', '!', '?', ';', ':' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w != "bị" && w != "có" && w != "tôi" && w != "bạn")
+            .ToList();
+
+        var potentialSymptoms = words.Where(w => w.Length >= 3 && !IsCommonWord(w)).Take(3).ToList();
+
+        foreach (var potentialSymptom in potentialSymptoms)
+        {
+            var normalizedSymptom = potentialSymptom.Trim();
+            if (normalizedSymptom.Length >= 3 && !foundKeywords.Contains(normalizedSymptom))
+            {
+                TryAddSingleWordSymptom(normalizedSymptom, symptoms, foundKeywords);
+            }
+        }
+    }
+
+    private bool TryAddOrUseExistingPhrase(
+        string phrase,
+        List<string> symptoms,
+        HashSet<string> foundKeywords)
+    {
+        var allSymptoms = GetAllSymptomKeywords();
+        var exists = allSymptoms.Any(k => k.Keyword.Equals(phrase, StringComparison.OrdinalIgnoreCase));
+
+        if (exists)
+        {
+            var existingKeyword = allSymptoms.FirstOrDefault(k => k.Keyword.Equals(phrase, StringComparison.OrdinalIgnoreCase));
+            if (existingKeyword != null)
+            {
+                symptoms.Add(existingKeyword.Keyword);
+                foundKeywords.Add(existingKeyword.Keyword.ToLowerInvariant());
+                return true;
+            }
+        }
+        else if (!foundKeywords.Contains(phrase.ToLowerInvariant()))
+        {
+            return TryAddNewPhraseToDb(phrase, symptoms, foundKeywords);
+        }
+
+        return false;
+    }
+
+    private bool TryAddNewPhraseToDb(
+        string phrase,
+        List<string> symptoms,
+        HashSet<string> foundKeywords)
+    {
+        try
+        {
+            var newKeyword = CreateSymptomKeyword(phrase);
+            _dbContext.ConversationContextKeywords.Add(newKeyword);
+            _dbContext.SaveChanges();
+
+            symptoms.Add(phrase);
+            foundKeywords.Add(phrase.ToLowerInvariant());
+
+            _logger.LogInformation(
+                "Auto-added new symptom phrase '{Symptom}' to ConversationContextKeywords",
+                phrase);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-add symptom phrase '{Symptom}' to database", phrase);
+            return false;
+        }
+    }
+
+    private void TryAddSingleWordSymptom(
+        string normalizedSymptom,
+        List<string> symptoms,
+        HashSet<string> foundKeywords)
+    {
+        var allSymptoms = GetAllSymptomKeywords();
+        var exists = allSymptoms.Any(k => k.Keyword.Equals(normalizedSymptom, StringComparison.OrdinalIgnoreCase));
+
+        if (exists)
+        {
+            return;
+        }
+
+        try
+        {
+            var newKeyword = CreateSymptomKeyword(normalizedSymptom);
+            _dbContext.ConversationContextKeywords.Add(newKeyword);
+            _dbContext.SaveChanges();
+
+            symptoms.Add(normalizedSymptom);
+            foundKeywords.Add(normalizedSymptom);
+
+            _logger.LogInformation(
+                "Auto-added new symptom '{Symptom}' to ConversationContextKeywords",
+                normalizedSymptom);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-add symptom '{Symptom}' to database", normalizedSymptom);
+        }
+    }
+
+    private static bool IsValidPotentialPhrase(string potentialPhrase, string lowerText, string word1, string word2)
+    {
+        return lowerText.Contains(potentialPhrase, StringComparison.OrdinalIgnoreCase) &&
+               word1.Length >= 3 &&
+               word2.Length >= 3 &&
+               !IsCommonWord(word1) &&
+               !IsCommonWord(word2);
+    }
+
+    private List<ConversationContextKeywordEntity> GetAllSymptomKeywords()
+    {
+        return _dbContext.ConversationContextKeywords
+            .Where(k => k.Category == "SYMPTOM")
+            .ToList();
+    }
+
+    private static string[] GetCommonSymptomPatterns()
+    {
+        return new[] { "đau", "sưng", "tê", "ngứa", "nóng", "lạnh", "chảy", "ho", "sốt" };
+    }
+
+    private static string[] GetCommonBodyParts()
+    {
+        return new[] {
+            "chân", "tay", "đầu", "bụng", "lưng", "ngực", "cổ", "mắt", "tai", "mũi", "họng",
+            "răng", "lợi", "miệng", "hàm", "gót", "gối", "khuỷu", "vai", "cổ tay", "cổ chân",
+            "thắt lưng", "vùng chậu", "ngón tay", "ngón chân", "bàn tay", "bàn chân"
+        };
+    }
+
+    private static ConversationContextKeywordEntity CreateSymptomKeyword(string keyword)
+    {
+        return new ConversationContextKeywordEntity
+        {
+            Id = Guid.NewGuid(),
+            Keyword = keyword,
+            Category = "SYMPTOM",
+            Synonyms = JsonSerializer.Serialize(new[] { keyword }, JsonOptions),
+            CreatedAt = DateTime.UtcNow
+        };
     }
 
     /// <summary>
