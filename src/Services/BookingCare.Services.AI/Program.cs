@@ -88,6 +88,13 @@ builder.Services.AddScoped<FileUploadHelper>();
 builder.Services.AddScoped<IContextKeywordExtractor, ContextKeywordExtractor>();
 builder.Services.AddScoped<IQuestionCacheService, QuestionCacheService>();
 
+// Register Cache Services for Lab Result Analysis
+builder.Services.AddScoped<ILabResultKeywordExtractor, LabResultKeywordExtractor>();
+builder.Services.AddScoped<ILabResultCacheService, LabResultCacheService>();
+
+// Register Cache Services for Dermatology Analysis
+builder.Services.AddScoped<IDermatologyCacheService, DermatologyCacheService>();
+
 // Register Conversation Session Service
 builder.Services.AddScoped<IConversationSessionService, ConversationSessionService>();
 

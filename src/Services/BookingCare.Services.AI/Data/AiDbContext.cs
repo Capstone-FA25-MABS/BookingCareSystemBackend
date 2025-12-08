@@ -26,6 +26,16 @@ public class AiDbContext : DbContext
     /// DbSet for conversation context keywords
     /// </summary>
     public DbSet<ConversationContextKeywordEntity> ConversationContextKeywords { get; set; }
+    
+    /// <summary>
+    /// DbSet for lab result abnormal indicator cache
+    /// </summary>
+    public DbSet<LabResultAbnormalIndicatorCacheEntity> LabResultAbnormalIndicatorCache { get; set; }
+    
+    /// <summary>
+    /// DbSet for dermatology disease cache
+    /// </summary>
+    public DbSet<DermatologyDiseaseCacheEntity> DermatologyDiseaseCache { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -155,6 +165,115 @@ public class AiDbContext : DbContext
                 .IsUnique();
             entity.HasIndex(e => e.Category);
         });
+        
+        // Configure LabResultAbnormalIndicatorCacheEntity
+        modelBuilder.Entity<LabResultAbnormalIndicatorCacheEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            
+            entity.Property(e => e.NormalizedKeywords)
+                .HasMaxLength(2000)
+                .IsRequired();
+            
+            entity.Property(e => e.NormalizedText)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired(false);
+            
+            entity.Property(e => e.AbnormalIndicatorsJson)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired();
+            
+            entity.Property(e => e.NormalIndicatorsJson)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired();
+            
+            entity.Property(e => e.SpecialtiesJson)
+                .HasMaxLength(2000)
+                .IsRequired();
+            
+            entity.Property(e => e.Disclaimer)
+                .HasMaxLength(1000)
+                .IsRequired(false);
+            
+            entity.Property(e => e.UsageCount)
+                .IsRequired()
+                .HasDefaultValue(0);
+            
+            entity.Property(e => e.SuccessRate)
+                .IsRequired()
+                .HasDefaultValue(0.0);
+            
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+            
+            entity.Property(e => e.LastUsedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+            
+            entity.Property(e => e.CreatedBy)
+                .HasMaxLength(100)
+                .IsRequired(false);
+            
+            // Indexes for fast lookup
+            // Note: NormalizedText is nvarchar(max) so cannot be indexed directly
+            // We'll use it for exact matching in code (acceptable for cache lookup)
+            entity.HasIndex(e => e.NormalizedKeywords)
+                .HasDatabaseName("IX_LabResult_NormalizedKeywords");
+            entity.HasIndex(e => e.UsageCount);
+            entity.HasIndex(e => e.LastUsedAt);
+        });
+        
+        // Configure DermatologyDiseaseCacheEntity
+        modelBuilder.Entity<DermatologyDiseaseCacheEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            
+            entity.Property(e => e.EnglishName)
+                .HasMaxLength(200)
+                .IsRequired();
+            
+            entity.Property(e => e.VietnameseName)
+                .HasMaxLength(200)
+                .IsRequired();
+            
+            entity.Property(e => e.ReasonsJson)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired(false);
+            
+            entity.Property(e => e.AdviceJson)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired();
+            
+            entity.Property(e => e.UsageCount)
+                .IsRequired()
+                .HasDefaultValue(0);
+            
+            entity.Property(e => e.SuccessRate)
+                .IsRequired()
+                .HasDefaultValue(0.0);
+            
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+            
+            entity.Property(e => e.LastUsedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+            
+            entity.Property(e => e.CreatedBy)
+                .HasMaxLength(100)
+                .IsRequired(false);
+            
+            // Indexes for fast lookup
+            entity.HasIndex(e => e.EnglishName)
+                .IsUnique()
+                .HasDatabaseName("IX_Dermatology_EnglishName");
+            entity.HasIndex(e => e.UsageCount);
+            entity.HasIndex(e => e.LastUsedAt);
+        });
     }
 
     public override int SaveChanges()
@@ -240,6 +359,50 @@ public class AiDbContext : DbContext
             if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
             {
                 entry.Entity.CreatedAt = utcNow;
+            }
+        }
+        
+        // Update LabResultAbnormalIndicatorCacheEntity timestamps
+        var labCacheEntries = ChangeTracker.Entries<LabResultAbnormalIndicatorCacheEntity>()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+        
+        foreach (var entry in labCacheEntries)
+        {
+            var utcNow = DateTime.UtcNow;
+            
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
+                {
+                    entry.Entity.CreatedAt = utcNow;
+                }
+                
+                if (entry.Entity.LastUsedAt == default || entry.Entity.LastUsedAt == DateTime.MinValue)
+                {
+                    entry.Entity.LastUsedAt = utcNow;
+                }
+            }
+        }
+        
+        // Update DermatologyDiseaseCacheEntity timestamps
+        var dermatologyCacheEntries = ChangeTracker.Entries<DermatologyDiseaseCacheEntity>()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+        
+        foreach (var entry in dermatologyCacheEntries)
+        {
+            var utcNow = DateTime.UtcNow;
+            
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Entity.CreatedAt == default || entry.Entity.CreatedAt == DateTime.MinValue)
+                {
+                    entry.Entity.CreatedAt = utcNow;
+                }
+                
+                if (entry.Entity.LastUsedAt == default || entry.Entity.LastUsedAt == DateTime.MinValue)
+                {
+                    entry.Entity.LastUsedAt = utcNow;
+                }
             }
         }
     }
