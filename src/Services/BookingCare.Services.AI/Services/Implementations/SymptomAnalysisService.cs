@@ -116,17 +116,21 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     {
         bool isConclusionMode = (totalQuestions % 3) == 0 && totalQuestions > 0 && totalQuestions <= 6;
 
+        int currentRound;
+        int questionInRound;
+
         if (isConclusionMode)
         {
-            int currentRound = totalQuestions / 3;
-            int questionInRound = 3;
-            return (isConclusionMode, currentRound, questionInRound);
+            currentRound = totalQuestions / 3;
+            questionInRound = 3;
         }
-
-        int numConclusions = totalQuestions / 4;
-        int actualQuestions = totalQuestions - numConclusions;
-        int currentRound = (actualQuestions / 3) + 1;
-        int questionInRound = (actualQuestions % 3) + 1;
+        else
+        {
+            int numConclusions = totalQuestions / 4;
+            int actualQuestions = totalQuestions - numConclusions;
+            currentRound = (actualQuestions / 3) + 1;
+            questionInRound = (actualQuestions % 3) + 1;
+        }
 
         return (isConclusionMode, currentRound, questionInRound);
     }

@@ -42,7 +42,7 @@ public static class CacheHelper
 
         var best = matches.FirstOrDefault();
 
-        return best?.Item;
+        return best != null ? best.Item : default(T);
     }
 
     /// <summary>
