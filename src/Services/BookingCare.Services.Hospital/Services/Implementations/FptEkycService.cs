@@ -271,98 +271,119 @@ public class FptEkycService : BaseService, IEkycService
             };
 
             // Step 1: OCR Processing
-            LogInfo("Step 1: Processing OCR...");
-            var ocrResult = await ProcessIdCardOcrAsync(new EkycOcrRequestDto
-            {
-                FrontImage = request.IdCardFrontImage,
-                BackImage = request.IdCardBackImage
-            });
-            result.OcrResult = ocrResult;
-
-            if (!ocrResult.Success)
-            {
-                result.Success = false;
-                result.Status = EkycStatus.FAILED;
-                result.ErrorMessage = $"OCR thất bại: {ocrResult.ErrorMessage}";
-                return result;
-            }
+            var ocrError = await ProcessOcrStepAsync(request, result);
+            if (ocrError != null) return ocrError;
 
             // Step 2: Face Matching
-            LogInfo("Step 2: Verifying face match...");
-            var faceMatchResult = await VerifyFaceMatchAsync(new EkycFaceMatchRequestDto
-            {
-                SelfieImage = request.SelfieImage,
-                IdCardFrontImage = request.IdCardFrontImage
-            });
-            result.FaceMatchResult = faceMatchResult;
+            var faceMatchError = await ProcessFaceMatchStepAsync(request, result);
+            if (faceMatchError != null) return faceMatchError;
 
-            if (!faceMatchResult.Success || !faceMatchResult.IsMatch)
-            {
-                result.Success = false;
-                result.Status = EkycStatus.FAILED;
-                result.ErrorMessage = faceMatchResult.Success
-                    ? "Khuôn mặt không khớp với ảnh trên CMND/CCCD"
-                    : $"Face matching thất bại: {faceMatchResult.ErrorMessage}";
-                return result;
-            }
-
-            // Step 3: Liveness Detection (FPT.AI requires video + ID card image)
-            var hasLivenessVideo = request.LivenessVideo != null;
-            if (_skipLivenessCheck && !hasLivenessVideo)
-            {
-                LogInfo("Step 3: Skipping liveness check (no video provided and configured to skip)");
-                result.LivenessResult = new EkycLivenessResponseDto
-                {
-                    Success = true,
-                    IsLive = true,
-                    LivenessScore = 100,
-                    Threshold = _livenessThreshold,
-                    Message = "Liveness check skipped (face match passed)"
-                };
-            }
-            else if (hasLivenessVideo)
-            {
-                LogInfo("Step 3: Checking liveness with video...");
-                var livenessResult = await CheckLivenessAsync(new EkycLivenessRequestDto
-                {
-                    Video = request.LivenessVideo,
-                    IdCardImage = request.IdCardFrontImage
-                });
-                result.LivenessResult = livenessResult;
-
-                if (!livenessResult.Success || !livenessResult.IsLive)
-                {
-                    result.Success = false;
-                    result.Status = EkycStatus.FAILED;
-                    result.ErrorMessage = livenessResult.Success
-                        ? "Không phát hiện người thật"
-                        : $"Liveness check thất bại: {livenessResult.ErrorMessage}";
-                    return result;
-                }
-            }
-            else
-            {
-                // No video and not configured to skip - fail
-                result.Success = false;
-                result.Status = EkycStatus.FAILED;
-                result.ErrorMessage = "Vui lòng quay video để xác thực người thật";
-                return result;
-            }
-
-            // Privacy-friendly: No longer upload/store images to S3
-            // Images are only used for verification and not persisted
-            LogInfo("Step 4: Verification complete (images not stored for privacy)");
+            // Step 3: Liveness Detection
+            var livenessError = await ProcessLivenessStepAsync(request, result);
+            if (livenessError != null) return livenessError;
 
             // All verifications passed
-            result.Success = true;
-            result.Status = EkycStatus.VERIFIED;
-            result.IsVerified = true;
-            result.VerifiedAt = DateTime.UtcNow;
-
-            LogInfo("eKYC verification completed successfully. SessionId: {SessionId}", null, sessionId);
-
-            return result;
+            LogInfo("Step 4: Verification complete (images not stored for privacy)");
+            return FinalizeVerificationSuccess(result, sessionId);
         }, "VerifyIdentity");
+    }
+
+    private async Task<EkycVerificationResponseDto?> ProcessOcrStepAsync(
+        EkycVerifyRequestDto request, EkycVerificationResponseDto result)
+    {
+        LogInfo("Step 1: Processing OCR...");
+        var ocrResult = await ProcessIdCardOcrAsync(new EkycOcrRequestDto
+        {
+            FrontImage = request.IdCardFrontImage,
+            BackImage = request.IdCardBackImage
+        });
+        result.OcrResult = ocrResult;
+
+        if (!ocrResult.Success)
+            return SetVerificationFailed(result, $"OCR thất bại: {ocrResult.ErrorMessage}");
+
+        return null;
+    }
+
+    private async Task<EkycVerificationResponseDto?> ProcessFaceMatchStepAsync(
+        EkycVerifyRequestDto request, EkycVerificationResponseDto result)
+    {
+        LogInfo("Step 2: Verifying face match...");
+        var faceMatchResult = await VerifyFaceMatchAsync(new EkycFaceMatchRequestDto
+        {
+            SelfieImage = request.SelfieImage,
+            IdCardFrontImage = request.IdCardFrontImage
+        });
+        result.FaceMatchResult = faceMatchResult;
+
+        if (!faceMatchResult.Success)
+            return SetVerificationFailed(result, $"Face matching thất bại: {faceMatchResult.ErrorMessage}");
+
+        if (!faceMatchResult.IsMatch)
+            return SetVerificationFailed(result, "Khuôn mặt không khớp với ảnh trên CMND/CCCD");
+
+        return null;
+    }
+
+    private async Task<EkycVerificationResponseDto?> ProcessLivenessStepAsync(
+        EkycVerifyRequestDto request, EkycVerificationResponseDto result)
+    {
+        var hasLivenessVideo = request.LivenessVideo != null;
+
+        if (_skipLivenessCheck && !hasLivenessVideo)
+        {
+            LogInfo("Step 3: Skipping liveness check (no video provided and configured to skip)");
+            result.LivenessResult = CreateSkippedLivenessResult();
+            return null;
+        }
+
+        if (!hasLivenessVideo)
+            return SetVerificationFailed(result, "Vui lòng quay video để xác thực người thật");
+
+        LogInfo("Step 3: Checking liveness with video...");
+        var livenessResult = await CheckLivenessAsync(new EkycLivenessRequestDto
+        {
+            Video = request.LivenessVideo,
+            IdCardImage = request.IdCardFrontImage
+        });
+        result.LivenessResult = livenessResult;
+
+        if (!livenessResult.Success)
+            return SetVerificationFailed(result, $"Liveness check thất bại: {livenessResult.ErrorMessage}");
+
+        if (!livenessResult.IsLive)
+            return SetVerificationFailed(result, "Không phát hiện người thật");
+
+        return null;
+    }
+
+    private static EkycVerificationResponseDto SetVerificationFailed(
+        EkycVerificationResponseDto result, string errorMessage)
+    {
+        result.Success = false;
+        result.Status = EkycStatus.FAILED;
+        result.ErrorMessage = errorMessage;
+        return result;
+    }
+
+    private EkycLivenessResponseDto CreateSkippedLivenessResult() => new()
+    {
+        Success = true,
+        IsLive = true,
+        LivenessScore = 100,
+        Threshold = _livenessThreshold,
+        Message = "Liveness check skipped (face match passed)"
+    };
+
+    private EkycVerificationResponseDto FinalizeVerificationSuccess(
+        EkycVerificationResponseDto result, string sessionId)
+    {
+        result.Success = true;
+        result.Status = EkycStatus.VERIFIED;
+        result.IsVerified = true;
+        result.VerifiedAt = DateTime.UtcNow;
+        LogInfo("eKYC verification completed successfully. SessionId: {SessionId}", null, sessionId);
+        return result;
     }
 
     private async Task<EkycOcrResponseDto> CallOcrApiAsync(IFormFile image)
@@ -516,7 +537,7 @@ public class FptEkycService : BaseService, IEkycService
     /// <summary>
     /// Parse liveness data from API response
     /// </summary>
-    private (bool isLive, double livenessScore, double spoofProb, string? errorMessage, string? errorCode) ParseLivenessData(JsonElement livenessObj)
+    private static (bool isLive, double livenessScore, double spoofProb, string? errorMessage, string? errorCode) ParseLivenessData(JsonElement livenessObj)
     {
         // Check liveness-specific code
         if (livenessObj.TryGetProperty("code", out var lCodeElement))
