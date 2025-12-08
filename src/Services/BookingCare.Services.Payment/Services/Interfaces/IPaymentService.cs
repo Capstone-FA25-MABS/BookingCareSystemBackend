@@ -20,6 +20,11 @@ public interface IPaymentService
     Task<PaymentResponse?> GetByAppointmentIdAsync(Guid appointmentId);
 
     /// <summary>
+    /// Get payments by multiple appointment IDs (batch operation)
+    /// </summary>
+    Task<List<PaymentResponse>> GetByAppointmentIdsAsync(List<Guid> appointmentIds);
+
+    /// <summary>
     /// Get payment by subscription ID
     /// </summary>
     Task<PaymentResponse?> GetBySubscriptionIdAsync(Guid subscriptionId);

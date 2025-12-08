@@ -361,6 +361,30 @@ public class AppointmentsController : BaseApiController
         return Success(result, "Staff statistics retrieved successfully");
     }
 
+    /// <summary>
+    /// Get appointment revenue statistics for hospital staff dashboard
+    /// Shows revenue from COMPLETED appointments only
+    /// If FromDate/ToDate not provided: default to last 6 months and monthly statistics
+    /// Admin dashboard uses Payment Service /api/v1.0/payments/statistics for subscription revenue
+    /// Staff dashboard uses this endpoint for appointment revenue
+    /// </summary>
+    [HttpGet("statistics")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Roles = "Staff, Admin")]
+    public async Task<IActionResult> GetAppointmentStatistics(
+        [FromQuery] GetAppointmentStatisticsRequest request
+    )
+    {
+        var result = await _appointmentService.GetAppointmentStatisticsAsync(request);
+
+        var usingDefaults = !request.FromDate.HasValue || !request.ToDate.HasValue;
+        var message = usingDefaults
+            ? $"Get appointment revenue statistics successful (default: {result.DateRange})"
+            : "Get appointment revenue statistics successful";
+
+        return Success(result, message);
+    }
+
     #region Assign Doctor To Appointment (NEW flow for "Hospital assigns doctor")
 
     /// <summary>
@@ -375,17 +399,21 @@ public class AppointmentsController : BaseApiController
     [Authorize(Roles = "Staff, Admin")]
     public async Task<IActionResult> GetDoctorsForAssignment(
         Guid id,
-        [FromQuery] bool checkAvailabilityAtOriginalTime = true)
+        [FromQuery] bool checkAvailabilityAtOriginalTime = true
+    )
     {
         var request = new GetDoctorsForAssignmentRequest
         {
             AppointmentId = id,
-            CheckAvailabilityAtOriginalTime = checkAvailabilityAtOriginalTime
+            CheckAvailabilityAtOriginalTime = checkAvailabilityAtOriginalTime,
         };
 
         var result = await _appointmentService.GetDoctorsForAssignmentAsync(request);
 
-        return Success(result, $"Found {result.TotalRecommended} recommended and {result.TotalPrevious} previous doctors");
+        return Success(
+            result,
+            $"Found {result.TotalRecommended} recommended and {result.TotalPrevious} previous doctors"
+        );
     }
 
     /// <summary>
@@ -400,7 +428,8 @@ public class AppointmentsController : BaseApiController
     [Authorize(Roles = "Staff, Admin")]
     public async Task<IActionResult> AssignDoctorToAppointment(
         Guid id,
-        [FromBody] AssignDoctorToAppointmentRequest request)
+        [FromBody] AssignDoctorToAppointmentRequest request
+    )
     {
         if (id != request.AppointmentId)
             return BadRequest(IdMismatchErrorMessage);
