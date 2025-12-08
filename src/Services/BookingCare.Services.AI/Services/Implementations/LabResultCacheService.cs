@@ -73,10 +73,7 @@ public class LabResultCacheService : ILabResultCacheService
         string keywords,
         double threshold = 0.75)
     {
-        var keywordList = keywords.ToLowerInvariant()
-            .Split(',', StringSplitOptions.RemoveEmptyEntries)
-            .Select(k => k.Trim())
-            .ToList();
+        var keywordList = CacheHelper.ParseKeywords(keywords);
 
         // Get candidates - limit to top 100 by usage for performance
         var candidates = await _dbContext.LabResultAbnormalIndicatorCache
@@ -99,15 +96,11 @@ public class LabResultCacheService : ILabResultCacheService
 
         if (bestMatch != null)
         {
-            _logger.LogInformation(
-                "✅ Tier 2 Hit: Fuzzy keywords match '{Input}' → '{Cached}' (similarity: {Similarity:P})",
-                keywords,
+            CacheHelper.CalculateAndLogSimilarity(
+                keywordList,
                 bestMatch.NormalizedKeywords,
-                CacheHelper.CalculateJaccardSimilarity(
-                    keywordList,
-                    bestMatch.NormalizedKeywords.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(k => k.Trim())
-                        .ToList()));
+                keywords,
+                _logger);
         }
 
         return bestMatch;

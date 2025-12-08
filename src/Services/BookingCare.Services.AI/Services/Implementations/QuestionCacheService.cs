@@ -83,10 +83,7 @@ public class QuestionCacheService : IQuestionCacheService
         int questionNumber,
         double threshold = 0.75)
     {
-        var keywordList = keywords.ToLowerInvariant()
-            .Split(',', StringSplitOptions.RemoveEmptyEntries)
-            .Select(k => k.Trim())
-            .ToList();
+        var keywordList = CacheHelper.ParseKeywords(keywords);
 
         // Get candidates for this question number
         // Limit to top 100 by usage for performance
@@ -111,15 +108,11 @@ public class QuestionCacheService : IQuestionCacheService
 
         if (bestMatch != null)
         {
-            _logger.LogInformation(
-                "✅ Tier 2 Hit: Fuzzy keywords match '{Input}' → '{Cached}' (similarity: {Similarity:P}) Q{Number}",
-                keywords,
+            CacheHelper.CalculateAndLogSimilarity(
+                keywordList,
                 bestMatch.NormalizedKeywords,
-                CacheHelper.CalculateJaccardSimilarity(
-                    keywordList,
-                    bestMatch.NormalizedKeywords.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(k => k.Trim())
-                        .ToList()),
+                keywords,
+                _logger,
                 questionNumber);
         }
 

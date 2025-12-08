@@ -62,5 +62,53 @@ public static class CacheHelper
 
         return union > 0 ? (double)intersection / union : 0.0;
     }
+
+    /// <summary>
+    /// Calculate similarity and log fuzzy match result
+    /// </summary>
+    public static double CalculateAndLogSimilarity(
+        List<string> keywordList,
+        string normalizedKeywords,
+        string inputKeywords,
+        Microsoft.Extensions.Logging.ILogger logger,
+        int? questionNumber = null)
+    {
+        var similarity = CalculateJaccardSimilarity(
+            keywordList,
+            normalizedKeywords.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(k => k.Trim())
+                .ToList());
+
+        if (questionNumber.HasValue)
+        {
+            logger.LogInformation(
+                "✅ Tier 2 Hit: Fuzzy keywords match '{Input}' → '{Cached}' (similarity: {Similarity:P}) Q{Number}",
+                inputKeywords,
+                normalizedKeywords,
+                similarity,
+                questionNumber.Value);
+        }
+        else
+        {
+            logger.LogInformation(
+                "✅ Tier 2 Hit: Fuzzy keywords match '{Input}' → '{Cached}' (similarity: {Similarity:P})",
+                inputKeywords,
+                normalizedKeywords,
+                similarity);
+        }
+
+        return similarity;
+    }
+
+    /// <summary>
+    /// Parse keywords string into normalized keyword list
+    /// </summary>
+    public static List<string> ParseKeywords(string keywords)
+    {
+        return keywords.ToLowerInvariant()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(k => k.Trim())
+            .ToList();
+    }
 }
 
