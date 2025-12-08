@@ -37,7 +37,12 @@ public class AppointmentResponse
     /// </summary>
     public decimal? Amount { get; set; }
 
-    // Payment information from gRPC call (deprecated - use Amount instead)
+    /// <summary>
+    /// Remaining payment amount for Staff role (Amount - Deposit from Payment)
+    /// This field is only populated for Staff users to show how much the patient still needs to pay
+    /// Calculation: Amount (total fee) - Payment.Amount (deposit already paid)
+    /// For other roles (Admin, Doctor, Patient), this field remains null
+    /// </summary>
     public decimal? ConsultationFees { get; set; }
 
     // Cancellation information
@@ -304,4 +309,16 @@ public class AssignDoctorToAppointmentResponse
     public DateTime AppointmentDate { get; set; }
     public string AppointmentTime { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response for rejecting a pending appointment
+/// </summary>
+public class RejectPendingAppointmentResponse
+{
+    public bool Success { get; set; }
+    public Guid AppointmentId { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public DateTime RejectedAt { get; set; }
+    public bool PatientNotified { get; set; }
 }

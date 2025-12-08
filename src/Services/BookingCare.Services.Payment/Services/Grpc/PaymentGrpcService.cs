@@ -1,6 +1,6 @@
-using Grpc.Core;
 using BookingCare.Services.Payment.Protos;
 using BookingCare.Services.Payment.Services.Interfaces;
+using Grpc.Core;
 
 namespace BookingCare.Services.Payment.Services.Grpc;
 
@@ -12,9 +12,7 @@ public class PaymentGrpcService : PaymentService.PaymentServiceBase
     private readonly IPaymentService _paymentService;
     private readonly ILogger<PaymentGrpcService> _logger;
 
-    public PaymentGrpcService(
-        IPaymentService paymentService,
-        ILogger<PaymentGrpcService> logger)
+    public PaymentGrpcService(IPaymentService paymentService, ILogger<PaymentGrpcService> logger)
     {
         _paymentService = paymentService;
         _logger = logger;
@@ -25,18 +23,22 @@ public class PaymentGrpcService : PaymentService.PaymentServiceBase
     /// </summary>
     public override async Task<GetPaymentByAppointmentIdResponse> GetPaymentByAppointmentId(
         GetPaymentByAppointmentIdRequest request,
-        ServerCallContext context)
+        ServerCallContext context
+    )
     {
         try
         {
             LogInfo("Getting payment for appointment {AppointmentId}", null, request.AppointmentId);
 
-            if (string.IsNullOrEmpty(request.AppointmentId) || !Guid.TryParse(request.AppointmentId, out var appointmentId))
+            if (
+                string.IsNullOrEmpty(request.AppointmentId)
+                || !Guid.TryParse(request.AppointmentId, out var appointmentId)
+            )
             {
                 return new GetPaymentByAppointmentIdResponse
                 {
                     Success = false,
-                    Message = "Invalid appointment ID format"
+                    Message = "Invalid appointment ID format",
                 };
             }
 
@@ -45,11 +47,15 @@ public class PaymentGrpcService : PaymentService.PaymentServiceBase
 
             if (payment == null)
             {
-                LogInfo("No payment found for appointment {AppointmentId}", null, request.AppointmentId);
+                LogInfo(
+                    "No payment found for appointment {AppointmentId}",
+                    null,
+                    request.AppointmentId
+                );
                 return new GetPaymentByAppointmentIdResponse
                 {
                     Success = false,
-                    Message = "Payment not found for this appointment"
+                    Message = "Payment not found for this appointment",
                 };
             }
 
@@ -63,22 +69,114 @@ public class PaymentGrpcService : PaymentService.PaymentServiceBase
                     Id = payment.Id.ToString(),
                     AppointmentId = payment.AppointmentId?.ToString() ?? "",
                     Amount = (double)payment.Amount,
-                }
+                },
             };
 
-            LogInfo("Successfully retrieved payment {PaymentId} for appointment {AppointmentId}",
-                null, payment.Id, request.AppointmentId);
+            LogInfo(
+                "Successfully retrieved payment {PaymentId} for appointment {AppointmentId}",
+                null,
+                payment.Id,
+                request.AppointmentId
+            );
 
             return response;
         }
         catch (Exception ex)
         {
-            LogError(ex, "Error getting payment for appointment {AppointmentId}", null, request.AppointmentId);
+            LogError(
+                ex,
+                "Error getting payment for appointment {AppointmentId}",
+                null,
+                request.AppointmentId
+            );
 
             return new GetPaymentByAppointmentIdResponse
             {
                 Success = false,
-                Message = "Internal server error occurred while retrieving payment information"
+                Message = "Internal server error occurred while retrieving payment information",
+            };
+        }
+    }
+
+    /// <summary>
+    /// Get payment information for multiple appointment IDs (batch operation)
+    /// </summary>
+    public override async Task<GetPaymentsByAppointmentIdsResponse> GetPaymentsByAppointmentIds(
+        GetPaymentsByAppointmentIdsRequest request,
+        ServerCallContext context
+    )
+    {
+        try
+        {
+            LogInfo(
+                "Getting payments for {Count} appointments",
+                null,
+                request.AppointmentIds.Count
+            );
+
+            if (request.AppointmentIds == null || request.AppointmentIds.Count == 0)
+            {
+                return new GetPaymentsByAppointmentIdsResponse
+                {
+                    Success = false,
+                    Message = "No appointment IDs provided",
+                };
+            }
+
+            // Parse and validate appointment IDs
+            var appointmentIds = request
+                .AppointmentIds.Where(id => Guid.TryParse(id, out _))
+                .Select(id => Guid.Parse(id))
+                .ToList();
+
+            if (appointmentIds.Count == 0)
+            {
+                return new GetPaymentsByAppointmentIdsResponse
+                {
+                    Success = false,
+                    Message = "No valid appointment IDs provided",
+                };
+            }
+
+            // Get payments by appointment IDs
+            var payments = await _paymentService.GetByAppointmentIdsAsync(appointmentIds);
+
+            // Map to gRPC response
+            var response = new GetPaymentsByAppointmentIdsResponse
+            {
+                Success = true,
+                Message = $"Retrieved {payments.Count} payments successfully",
+            };
+
+            foreach (var payment in payments)
+            {
+                response.Payments.Add(
+                    new PaymentInfo
+                    {
+                        Id = payment.Id.ToString(),
+                        AppointmentId = payment.AppointmentId?.ToString() ?? "",
+                        Amount = (double)payment.Amount,
+                    }
+                );
+            }
+
+            LogInfo(
+                "Successfully retrieved {Count} payments for {RequestCount} appointments",
+                null,
+                payments.Count,
+                appointmentIds.Count
+            );
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "Error getting payments for multiple appointments", null);
+
+            return new GetPaymentsByAppointmentIdsResponse
+            {
+                Success = false,
+                Message = "Internal server error occurred while retrieving payment information",
             };
         }
     }
@@ -90,7 +188,12 @@ public class PaymentGrpcService : PaymentService.PaymentServiceBase
         _logger.LogInformation(message, args);
     }
 
-    public void LogError(Exception exception, string message, string? correlationId, params object[] args)
+    public void LogError(
+        Exception exception,
+        string message,
+        string? correlationId,
+        params object[] args
+    )
     {
         _logger.LogError(exception, message, args);
     }

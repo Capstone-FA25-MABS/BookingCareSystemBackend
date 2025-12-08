@@ -60,6 +60,15 @@ public class PaymentService : BaseService, IPaymentService
     }
 
     /// <summary>
+    /// Get payments by multiple appointment IDs - Batch read operation
+    /// </summary>
+    public async Task<List<PaymentResponse>> GetByAppointmentIdsAsync(List<Guid> appointmentIds)
+    {
+        var payments = await _paymentRepository.GetByAppointmentIdsAsync(appointmentIds);
+        return _mapper.Map<List<PaymentResponse>>(payments);
+    }
+
+    /// <summary>
     /// Get payment by subscription ID - Simple read operation
     /// </summary>
     public async Task<PaymentResponse?> GetBySubscriptionIdAsync(Guid subscriptionId)
