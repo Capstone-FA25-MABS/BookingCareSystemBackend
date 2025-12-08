@@ -329,70 +329,16 @@ public class PaymentService : BaseService, IPaymentService
                     );
                 }
 
-                // Validate and apply discount if discount code is provided
-                Guid? discountId = null;
-                decimal finalAmount = request.Amount;
-
-                if (!string.IsNullOrWhiteSpace(request.DiscountCode))
+                // Discount has already been validated by frontend, just store the ID and code
+                if (request.DiscountId.HasValue)
                 {
-                    try
-                    {
-                        LogInfo(
-                            "Validating discount code: {DiscountCode} for appointment: {AppointmentId}",
-                            null,
-                            request.DiscountCode,
-                            request.AppointmentId
-                        );
-
-                        var validateRequest = new DiscountProtos.ValidateDiscountRequest
-                        {
-                            Code = request.DiscountCode,
-                            HospitalId = request.HospitalId?.ToString() ?? string.Empty,
-                            TotalAmount = (double)request.Amount,
-                        };
-
-                        var validateResponse = await _discountGrpcClient.ValidateDiscountAsync(
-                            validateRequest
-                        );
-
-                        if (!validateResponse.IsValid)
-                        {
-                            LogWarning(
-                                "Invalid discount code: {DiscountCode}. Message: {Message}",
-                                null,
-                                request.DiscountCode,
-                                validateResponse.Message
-                            );
-                            throw new ArgumentException(
-                                $"Mã giảm giá không hợp lệ: {validateResponse.Message}"
-                            );
-                        }
-
-                        finalAmount = (decimal)validateResponse.FinalAmount;
-                        if (validateResponse.Discount != null)
-                        {
-                            discountId = Guid.Parse(validateResponse.Discount.Id);
-                            LogInfo(
-                                "Discount validated successfully. DiscountId: {DiscountId}, Original: {Original}, Final: {Final}",
-                                null,
-                                discountId,
-                                request.Amount,
-                                finalAmount
-                            );
-                        }
-                    }
-                    catch (RpcException ex)
-                    {
-                        LogError(
-                            ex,
-                            "gRPC error while validating discount code: {DiscountCode}",
-                            null,
-                            request.DiscountCode
-                        );
-                        throw new InvalidOperationException(
-                            "Không thể xác thực mã giảm giá. Vui lòng thử lại sau."
-                        );
-                    }
+                    LogInfo(
+                        "Payment with discount: DiscountId={DiscountId}, Code={Code}, AppointmentId={AppointmentId}",
+                        null,
+                        request.DiscountId.Value,
+                        request.DiscountCode ?? "N/A",
+                        request.AppointmentId
+                    );
                 }
 
                 // Business logic - Map to PaymentEntity
@@ -402,10 +348,11 @@ public class PaymentService : BaseService, IPaymentService
                     PatientId = request.PatientId,
                     HospitalId = request.HospitalId,
                     SubscriptionId = null,
-                    Amount = finalAmount,
+                    Amount = request.Amount,
                     TransactionType = TransactionType.APPOINTMENT,
                     PaymentMethodId = request.PaymentMethodId,
-                    DiscountId = discountId,
+                    DiscountId = request.DiscountId,
+                    DiscountCode = request.DiscountCode,
                     Status = PaymentStatus.PENDING,
                     CreatedAt = DateTime.UtcNow,
                 };

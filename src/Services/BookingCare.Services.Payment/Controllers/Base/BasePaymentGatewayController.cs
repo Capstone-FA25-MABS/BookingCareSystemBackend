@@ -151,24 +151,35 @@ public abstract class BasePaymentGatewayController : BaseApiController
             // Regular payment - publish payment success event for appointment booking notification
             if (appointmentId.HasValue && payment.PatientId.HasValue)
             {
+                // Capture payment data BEFORE Task.Run to avoid DbContext disposed error
+                var capturedDiscountId = payment.DiscountId;
+                var capturedDiscountCode = payment.DiscountCode;
+                var capturedHospitalId = payment.HospitalId;
+                var capturedAmount = payment.Amount;
+                var capturedPaymentId = payment.Id;
+                var capturedPatientId = payment.PatientId.Value;
+                var capturedAppointmentId = appointmentId.Value;
+
                 _ = Task.Run(async () =>
                 {
                     try
                     {
                         // If payment has discount, increment usage count via gRPC
-                        if (payment.DiscountId.HasValue && DiscountClient != null)
+                        if (
+                            capturedDiscountId.HasValue
+                            && !string.IsNullOrWhiteSpace(capturedDiscountCode)
+                            && DiscountClient != null
+                        )
                         {
                             try
                             {
-                                // Get full payment details to retrieve discount code
-                                var fullPayment = await PaymentService.GetByIdAsync(payment.Id);
-                                if (fullPayment != null && fullPayment.HospitalId.HasValue)
+                                if (capturedHospitalId.HasValue)
                                 {
                                     var useDiscountRequest = new DiscountProtos.UseDiscountRequest
                                     {
-                                        Code = fullPayment.DiscountId.ToString(), // Will need to store DiscountCode separately or retrieve from DiscountService
-                                        HospitalId = fullPayment.HospitalId.ToString()!,
-                                        TotalAmount = (double)fullPayment.Amount,
+                                        Code = capturedDiscountCode, // Use discount code, not ID
+                                        HospitalId = capturedHospitalId.ToString()!,
+                                        TotalAmount = (double)capturedAmount,
                                     };
 
                                     var useDiscountResponse = await DiscountClient.UseDiscountAsync(
@@ -181,7 +192,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
                                             "{Gateway} Callback #{RequestId} - Discount usage incremented successfully for DiscountId: {DiscountId}, Remaining: {Remaining}",
                                             gatewayName,
                                             requestId,
-                                            payment.DiscountId,
+                                            capturedDiscountId,
                                             useDiscountResponse.RemainingUses
                                         );
                                     }
@@ -203,7 +214,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
                                     "{Gateway} Callback #{RequestId} - Error incrementing discount usage for DiscountId: {DiscountId}",
                                     gatewayName,
                                     requestId,
-                                    payment.DiscountId
+                                    capturedDiscountId
                                 );
                                 // Don't fail the payment if discount increment fails
                             }
@@ -211,10 +222,10 @@ public abstract class BasePaymentGatewayController : BaseApiController
 
                         var paymentSuccessEvent = new AppointmentPaymentSuccessIntegrationEvent
                         {
-                            AppointmentId = appointmentId.Value,
-                            PatientId = payment.PatientId.Value,
-                            PaymentId = payment.Id,
-                            Amount = payment.Amount,
+                            AppointmentId = capturedAppointmentId,
+                            PatientId = capturedPatientId,
+                            PaymentId = capturedPaymentId,
+                            Amount = capturedAmount,
                             PaymentMethod = gatewayName,
                             TransactionId = GetTransactionIdFromCallback(callbackResult),
                             PaymentCompletedAt = DateTime.UtcNow,
@@ -227,7 +238,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
                             "{Gateway} Callback #{RequestId} - Published appointment payment success event for AppointmentId: {AppointmentId}",
                             gatewayName,
                             requestId,
-                            appointmentId.Value
+                            capturedAppointmentId
                         );
                     }
                     catch (Exception ex)
@@ -237,7 +248,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
                             "{Gateway} Callback #{RequestId} - Failed to publish payment success event for AppointmentId: {AppointmentId}",
                             gatewayName,
                             requestId,
-                            appointmentId
+                            capturedAppointmentId
                         );
                     }
                 });

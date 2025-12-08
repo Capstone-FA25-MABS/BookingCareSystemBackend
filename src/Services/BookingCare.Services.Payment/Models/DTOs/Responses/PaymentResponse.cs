@@ -63,6 +63,12 @@ public class PaymentResponse
     public Guid? DiscountId { get; set; }
 
     /// <summary>
+    /// Discount code (if discount was applied)
+    /// Stored for audit trail and display purposes
+    /// </summary>
+    public string? DiscountCode { get; set; }
+
+    /// <summary>
     /// Payment status
     /// </summary>
     public PaymentStatus Status { get; set; }
