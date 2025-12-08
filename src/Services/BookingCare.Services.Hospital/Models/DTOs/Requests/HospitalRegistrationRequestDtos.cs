@@ -53,6 +53,29 @@ public class CreateHospitalRegistrationRequestDto
     [Required(ErrorMessage = "Mã số thuế là bắt buộc")]
     [RegularExpression(@"^\d{10}(-\d{3})?$", ErrorMessage = "Mã số thuế không hợp lệ. Mã số thuế phải có 10 chữ số hoặc 10 chữ số theo sau bởi -XXX")]
     public string TaxCode { get; set; } = string.Empty;
+
+    // eKYC Information (populated after eKYC verification)
+    // Privacy-friendly: Only store verification status and scores, not PII
+
+    /// <summary>
+    /// eKYC session ID from verification process
+    /// </summary>
+    public string? EkycSessionId { get; set; }
+
+    /// <summary>
+    /// Face matching similarity score (0-100)
+    /// </summary>
+    public decimal? FaceMatchScore { get; set; }
+
+    /// <summary>
+    /// Liveness detection score (0-100)
+    /// </summary>
+    public decimal? LivenessScore { get; set; }
+
+    /// <summary>
+    /// Whether eKYC verification was successful
+    /// </summary>
+    public bool IsEkycVerified { get; set; }
 }
 
 /// <summary>
