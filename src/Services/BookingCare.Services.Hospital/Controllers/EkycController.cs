@@ -43,6 +43,7 @@ public class EkycController : BaseApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [RequestSizeLimit(20 * 1024 * 1024)] // 20MB total
+    [RequestFormLimits(MultipartBodyLengthLimit = 20 * 1024 * 1024)]
     public async Task<IActionResult> ProcessIdCardOcr([FromForm] EkycOcrRequestDto request)
     {
         _logger.LogInformation("Processing OCR request for ID card");
@@ -83,6 +84,7 @@ public class EkycController : BaseApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [RequestSizeLimit(20 * 1024 * 1024)] // 20MB total
+    [RequestFormLimits(MultipartBodyLengthLimit = 20 * 1024 * 1024)]
     public async Task<IActionResult> VerifyFaceMatch([FromForm] EkycFaceMatchRequestDto request)
     {
         _logger.LogInformation("Processing face match verification request");
@@ -124,6 +126,7 @@ public class EkycController : BaseApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [RequestSizeLimit(10 * 1024 * 1024)] // 10MB
+    [RequestFormLimits(MultipartBodyLengthLimit = 10 * 1024 * 1024)]
     public async Task<IActionResult> CheckLiveness([FromForm] EkycLivenessRequestDto request)
     {
         _logger.LogInformation("Processing liveness detection request");
@@ -164,24 +167,31 @@ public class EkycController : BaseApiController
     [ProducesResponseType(typeof(EkycVerificationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    [RequestSizeLimit(30 * 1024 * 1024)] // 30MB total
+    [RequestSizeLimit(100 * 1024 * 1024)] // 100MB total (includes video up to 50MB)
+    [RequestFormLimits(MultipartBodyLengthLimit = 100 * 1024 * 1024)]
     public async Task<IActionResult> VerifyIdentity([FromForm] EkycVerifyRequestDto request)
     {
         _logger.LogInformation("Processing complete eKYC verification request");
 
-        var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png" };
+        var allowedImageTypes = new[] { "image/jpeg", "image/jpg", "image/png" };
+        var allowedVideoTypes = new[] { "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo" };
 
-        if (!allowedTypes.Contains(request.IdCardFrontImage.ContentType?.ToLower()))
+        if (!allowedImageTypes.Contains(request.IdCardFrontImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh mặt trước CMND/CCCD phải có định dạng JPG hoặc PNG");
         }
-        if (!allowedTypes.Contains(request.IdCardBackImage.ContentType?.ToLower()))
+        if (!allowedImageTypes.Contains(request.IdCardBackImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh mặt sau CMND/CCCD phải có định dạng JPG hoặc PNG");
         }
-        if (!allowedTypes.Contains(request.SelfieImage.ContentType?.ToLower()))
+        if (!allowedImageTypes.Contains(request.SelfieImage.ContentType?.ToLower()))
         {
             return BadRequest("Ảnh selfie phải có định dạng JPG hoặc PNG");
+        }
+        if (request.LivenessVideo != null &&
+            !allowedVideoTypes.Contains(request.LivenessVideo.ContentType?.ToLower()))
+        {
+            return BadRequest("Video phải có định dạng MP4, WebM, MOV hoặc AVI");
         }
 
         var result = await _ekycService.VerifyIdentityAsync(request);
