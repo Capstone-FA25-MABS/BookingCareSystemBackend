@@ -1,3 +1,5 @@
+﻿using BookingCare.Shared.EventBus.Events;
+
 namespace BookingCare.Services.Notification.Utils.SMS;
 
 /// <summary>
@@ -106,6 +108,33 @@ public static class SmsTemplate
         return $"BookingCare: Doi bac si thanh cong tu {originalDoctorName} sang {newDoctorName}. " +
                $"Cap nhat tai khoan ngan hang de nhan {refundAmount:N0} VND. " +
                $"Dang nhap: bookingcare.vn";
+    }
+
+    /// <summary>
+    /// Build SMS content for rejection notification
+    /// </summary>
+    public static string BuildSmsContent(
+        AppointmentRejectedNotificationEvent @event,
+        string appointmentTime)
+    {
+        var hospitalInfo = !string.IsNullOrEmpty(@event.HospitalName)
+            ? $" tại {TruncateText(@event.HospitalName, 20)}"
+            : "";
+
+        return $"[BookingCare] Yeu cau dat lich ngay {@event.AppointmentDate:dd/MM/yyyy} {appointmentTime}{hospitalInfo} da bi tu choi. Ly do: {TruncateText(@event.RejectionReason, 50)}. Vui long dat lich moi.";
+    }
+
+    /// <summary>
+    /// Truncate text to specified length with ellipsis
+    /// </summary>
+    private static string TruncateText(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        return text[..(maxLength - 3)] + "...";
     }
 }
 

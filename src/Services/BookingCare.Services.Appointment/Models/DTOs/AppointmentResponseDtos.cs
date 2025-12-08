@@ -310,3 +310,15 @@ public class AssignDoctorToAppointmentResponse
     public string AppointmentTime { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Response for rejecting a pending appointment
+/// </summary>
+public class RejectPendingAppointmentResponse
+{
+    public bool Success { get; set; }
+    public Guid AppointmentId { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public DateTime RejectedAt { get; set; }
+    public bool PatientNotified { get; set; }
+}

@@ -113,6 +113,13 @@ public interface IAppointmentService
         AssignDoctorToAppointmentRequest request
     );
 
+    /// <summary>
+    /// Reject a pending appointment (before payment)
+    /// Used by hospital staff to decline appointments that haven't been paid yet
+    /// No refund process needed since payment hasn't been made
+    /// </summary>
+    Task<RejectPendingAppointmentResponse> RejectPendingAppointmentAsync(RejectPendingAppointmentRequest request);
+
     // Validation operations
     Task<bool> ValidateAppointmentAsync(CreateAppointmentRequest request);
 

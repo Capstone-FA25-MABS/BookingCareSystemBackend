@@ -517,6 +517,7 @@ public class PaymentsController(
             {
                 { "SupplementaryPaymentId", supplementaryPaymentId },
                 { "IsStaffAssigned", request.IsStaffAssigned.ToString() },
+                { "AppointmentId", request.AppointmentId.ToString() },
             },
         };
 
