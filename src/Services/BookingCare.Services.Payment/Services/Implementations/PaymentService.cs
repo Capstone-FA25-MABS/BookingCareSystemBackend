@@ -21,7 +21,6 @@ public class PaymentService : BaseService, IPaymentService
     private readonly IPaymentRepository _paymentRepository;
     private readonly IPaymentMethodRepository _paymentMethodRepository;
     private readonly IAppointmentDetailsService _appointmentDetailsService;
-    private readonly DiscountProtos.DiscountService.DiscountServiceClient _discountGrpcClient;
     private readonly IMapper _mapper;
 
     public PaymentService(
@@ -37,7 +36,6 @@ public class PaymentService : BaseService, IPaymentService
         _paymentRepository = paymentRepository;
         _paymentMethodRepository = paymentMethodRepository;
         _appointmentDetailsService = appointmentDetailsService;
-        _discountGrpcClient = discountGrpcClient;
         _mapper = mapper;
     }
 

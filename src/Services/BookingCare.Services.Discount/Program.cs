@@ -1,11 +1,11 @@
 using BookingCare.Services.Discount.Data;
-using BookingCare.Services.Discount.Repositories;
-using BookingCare.Services.Discount.Services;
 using BookingCare.Services.Discount.Mappings;
 using BookingCare.Services.Discount.Middlewares;
-using Microsoft.EntityFrameworkCore;
+using BookingCare.Services.Discount.Repositories;
+using BookingCare.Services.Discount.Services;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,16 +91,25 @@ app.MapControllers();
 app.MapGrpcService<DiscountGrpcService>();
 
 // Default endpoint
-app.MapGet("/", () => "BookingCare Discount Service is running. REST API: /swagger, gRPC: port 6017");
+app.MapGet(
+    "/",
+    () => "BookingCare Discount Service is running. REST API: /swagger, gRPC: port 6017"
+);
 
 // Health check endpoint
-app.MapGet("/health", () => Results.Ok(new
-{
-    Service = "Discount",
-    Status = "Healthy",
-    Timestamp = DateTime.UtcNow,
-    Version = "1.0.0"
-}));
+app.MapGet(
+    "/health",
+    () =>
+        Results.Ok(
+            new
+            {
+                Service = "Discount",
+                Status = "Healthy",
+                Timestamp = DateTime.UtcNow,
+                Version = "1.0.0",
+            }
+        )
+);
 
 // Database migration and seeding (development only)
 if (app.Environment.IsDevelopment())

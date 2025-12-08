@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using BookingCare.Services.Discount.Enums;
+using BookingCare.Services.Discount.Infrastructure.JsonConverters;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Discount.Models.DTOs;
@@ -26,6 +28,7 @@ public class CreateDiscountRequest
     public decimal Amount { get; set; }
 
     [Required]
+    [JsonConverter(typeof(FlexibleEnumConverter<DiscountType>))]
     public DiscountType DiscountType { get; set; } = DiscountType.PERCENTAGE;
 
     [Required]
@@ -75,6 +78,7 @@ public class ValidateDiscountRequest
     public Guid? DoctorId { get; set; }
 
     [Required]
+    [JsonRequired]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
     public decimal TotalAmount { get; set; }
 }
@@ -89,6 +93,7 @@ public class UseDiscountRequest
     public Guid HospitalId { get; set; }
 
     [Required]
+    [JsonRequired]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
     public decimal TotalAmount { get; set; }
 }
@@ -110,6 +115,7 @@ public class CalculateDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
+    [JsonRequired]
     [Range(0.01, double.MaxValue, ErrorMessage = "Original amount must be greater than 0")]
     public decimal OriginalAmount { get; set; }
 

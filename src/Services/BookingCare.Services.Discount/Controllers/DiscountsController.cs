@@ -13,6 +13,7 @@ namespace BookingCare.Services.Discount.Controllers;
 [ApiVersion(ApiVersions.V1_0)]
 public class DiscountsController : BaseApiController
 {
+    private const string InvalidRequestDataMessage = "Invalid request data";
     private readonly IDiscountService _discountService;
     private readonly ILogger<DiscountsController> _logger;
 
@@ -111,7 +112,7 @@ public class DiscountsController : BaseApiController
         if (!ModelState.IsValid)
         {
             return BadRequest(
-                "Invalid request data",
+                InvalidRequestDataMessage,
                 ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
             );
         }
@@ -133,7 +134,7 @@ public class DiscountsController : BaseApiController
         if (!ModelState.IsValid)
         {
             return BadRequest(
-                "Invalid request data",
+                InvalidRequestDataMessage,
                 ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
             );
         }
@@ -168,7 +169,7 @@ public class DiscountsController : BaseApiController
         if (!ModelState.IsValid)
         {
             return BadRequest(
-                "Invalid request data",
+                InvalidRequestDataMessage,
                 ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
             );
         }
@@ -190,7 +191,7 @@ public class DiscountsController : BaseApiController
         if (!ModelState.IsValid)
         {
             return BadRequest(
-                "Invalid request data",
+                InvalidRequestDataMessage,
                 ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
             );
         }
@@ -277,7 +278,7 @@ public class DiscountsController : BaseApiController
         if (!ModelState.IsValid)
         {
             return BadRequest(
-                "Invalid request data",
+                InvalidRequestDataMessage,
                 ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
             );
         }

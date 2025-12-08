@@ -134,24 +134,18 @@ public class DiscountService : BaseService, IDiscountService
                 }
 
                 // Validate amount if provided
-                if (request.Amount.HasValue)
+                if (
+                    request.Amount.HasValue
+                    && existingDiscount.DiscountType == DiscountType.PERCENTAGE
+                    && request.Amount > 100
+                )
                 {
-                    if (
-                        existingDiscount.DiscountType == DiscountType.PERCENTAGE
-                        && request.Amount > 100
-                    )
-                    {
-                        throw new DiscountValidationException(
-                            new List<ValidationError>
-                            {
-                                new(
-                                    "Amount",
-                                    "Percentage discount cannot exceed 100%",
-                                    request.Amount
-                                ),
-                            }
-                        );
-                    }
+                    throw new DiscountValidationException(
+                        new List<ValidationError>
+                        {
+                            new("Amount", "Percentage discount cannot exceed 100%", request.Amount),
+                        }
+                    );
                 }
 
                 // Apply updates

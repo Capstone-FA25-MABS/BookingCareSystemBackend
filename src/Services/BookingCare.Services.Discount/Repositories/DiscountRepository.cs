@@ -130,14 +130,14 @@ public class DiscountRepository : IDiscountRepository
     }
 
     public async Task<List<DiscountEntity>> GetApplicableDiscountsAsync(
-        Guid clinicId,
+        Guid hospitalId,
         Guid? specialtyId = null,
         Guid? doctorId = null
     )
     {
         var now = DateTime.UtcNow;
         var query = _context.Discounts.Where(d =>
-            d.HospitalId == clinicId
+            d.HospitalId == hospitalId
             && d.Status == DiscountStatus.ACTIVE
             && d.StartDate <= now
             && d.EndDate >= now
@@ -149,7 +149,7 @@ public class DiscountRepository : IDiscountRepository
 
     public async Task<DiscountEntity?> GetValidDiscountAsync(
         string code,
-        Guid clinicId,
+        Guid hospitalId,
         Guid? specialtyId = null,
         Guid? doctorId = null
     )
@@ -157,7 +157,7 @@ public class DiscountRepository : IDiscountRepository
         var now = DateTime.UtcNow;
         var query = _context.Discounts.Where(d =>
             d.Code == code
-            && d.HospitalId == clinicId
+            && d.HospitalId == hospitalId
             && d.Status == DiscountStatus.ACTIVE
             && d.StartDate <= now
             && d.EndDate >= now
