@@ -108,25 +108,12 @@ public class AiDbContext : DbContext
                 .HasMaxLength(20)
                 .IsRequired(false);
 
-            entity.Property(e => e.UsageCount)
-                .IsRequired()
-                .HasDefaultValue(0);
-
-            entity.Property(e => e.SuccessRate)
-                .IsRequired()
-                .HasDefaultValue(0.0);
-
-            entity.Property(e => e.CreatedAt)
-                .IsRequired()
-                .HasDefaultValueSql("GETUTCDATE()");
-
-            entity.Property(e => e.LastUsedAt)
-                .IsRequired()
-                .HasDefaultValueSql("GETUTCDATE()");
-
-            entity.Property(e => e.CreatedBy)
-                .HasMaxLength(100)
-                .IsRequired(false);
+            entity.ConfigureCacheEntityProperties(
+                e => e.UsageCount,
+                e => e.SuccessRate,
+                e => e.CreatedAt,
+                e => e.LastUsedAt,
+                e => e.CreatedBy);
 
             // Indexes for fast lookup
             entity.HasIndex(e => new { e.NormalizedKeywords, e.QuestionNumber })
@@ -196,25 +183,12 @@ public class AiDbContext : DbContext
                 .HasMaxLength(1000)
                 .IsRequired(false);
 
-            entity.Property(e => e.UsageCount)
-                .IsRequired()
-                .HasDefaultValue(0);
-
-            entity.Property(e => e.SuccessRate)
-                .IsRequired()
-                .HasDefaultValue(0.0);
-
-            entity.Property(e => e.CreatedAt)
-                .IsRequired()
-                .HasDefaultValueSql("GETUTCDATE()");
-
-            entity.Property(e => e.LastUsedAt)
-                .IsRequired()
-                .HasDefaultValueSql("GETUTCDATE()");
-
-            entity.Property(e => e.CreatedBy)
-                .HasMaxLength(100)
-                .IsRequired(false);
+            entity.ConfigureCacheEntityProperties(
+                e => e.UsageCount,
+                e => e.SuccessRate,
+                e => e.CreatedAt,
+                e => e.LastUsedAt,
+                e => e.CreatedBy);
 
             // Indexes for fast lookup
             // Note: NormalizedText is nvarchar(max) so cannot be indexed directly
@@ -247,25 +221,12 @@ public class AiDbContext : DbContext
                 .HasColumnType("nvarchar(max)")
                 .IsRequired();
 
-            entity.Property(e => e.UsageCount)
-                .IsRequired()
-                .HasDefaultValue(0);
-
-            entity.Property(e => e.SuccessRate)
-                .IsRequired()
-                .HasDefaultValue(0.0);
-
-            entity.Property(e => e.CreatedAt)
-                .IsRequired()
-                .HasDefaultValueSql("GETUTCDATE()");
-
-            entity.Property(e => e.LastUsedAt)
-                .IsRequired()
-                .HasDefaultValueSql("GETUTCDATE()");
-
-            entity.Property(e => e.CreatedBy)
-                .HasMaxLength(100)
-                .IsRequired(false);
+            entity.ConfigureCacheEntityProperties(
+                e => e.UsageCount,
+                e => e.SuccessRate,
+                e => e.CreatedAt,
+                e => e.LastUsedAt,
+                e => e.CreatedBy);
 
             // Indexes for fast lookup
             entity.HasIndex(e => e.EnglishName)

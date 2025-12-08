@@ -259,7 +259,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
             // Use cached Vietnamese name and advice
             await _dermatologyCacheService.IncrementUsageAsync(cachedDisease.Id);
             // Clean Vietnamese name to remove any XML/HTML tags
-            diagnosis.ConditionName = CleanVietnameseName(cachedDisease.VietnameseName);
+            diagnosis.ConditionName = TextHelper.CleanVietnameseName(cachedDisease.VietnameseName);
 
             // Load cached advice for this severity
             var severity = diagnosis.Severity ?? "Nhẹ";
@@ -955,45 +955,16 @@ Yêu cầu:
         // If result is empty or still contains too much English, try to extract Vietnamese part
         if (string.IsNullOrWhiteSpace(result) || IsMostlyEnglish(result))
         {
-            // Try to find Vietnamese text (contains Vietnamese characters)
-            var vietnamesePattern = @"[\u00C0-\u1EF9]+";
-            var matches = System.Text.RegularExpressions.Regex.Matches(translation, vietnamesePattern, System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(2));
-            if (matches.Count > 0)
+            var extractedVietnamese = TextHelper.ExtractVietnameseText(translation);
+            if (!string.IsNullOrWhiteSpace(extractedVietnamese))
             {
-                result = string.Join(" ", matches.Cast<System.Text.RegularExpressions.Match>().Select(m => m.Value));
+                result = extractedVietnamese;
             }
         }
 
         return result;
     }
 
-    /// <summary>
-    /// Clean Vietnamese name - remove XML/HTML tags and unwanted text
-    /// </summary>
-    private string CleanVietnameseName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return name;
-
-        // Remove XML/HTML tags like </think>, <think>, </think>, etc.
-        var cleaned = System.Text.RegularExpressions.Regex.Replace(
-            name,
-            @"</?[^>]+>",
-            "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase,
-            TimeSpan.FromSeconds(2));
-
-        // Remove common unwanted prefixes/suffixes (including </think> and </think>)
-        // Note: Regex already removes all XML/HTML tags, but we also explicitly remove common ones
-        cleaned = cleaned
-            .Replace("</think>", "", StringComparison.OrdinalIgnoreCase)
-            .Replace("<think>", "", StringComparison.OrdinalIgnoreCase)
-            .Replace("</think>", "", StringComparison.OrdinalIgnoreCase)
-            .Replace("<think>", "", StringComparison.OrdinalIgnoreCase)
-            .Trim();
-
-        return cleaned;
-    }
 
     /// <summary>
     /// Clean Vietnamese advice - remove English text and explanations

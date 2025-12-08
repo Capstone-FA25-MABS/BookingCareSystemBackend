@@ -208,60 +208,18 @@ public class ContextKeywordExtractor : IContextKeywordExtractor
             // First pass: Match multi-word phrases (2+ words) first
             foreach (var keyword in sortedKeywords.Where(k => k.Keyword.Contains(' ')))
             {
-                try
-                {
-                    var synonyms = string.IsNullOrEmpty(keyword.Synonyms)
-                        ? new[] { keyword.Keyword }
-                        : JsonSerializer.Deserialize<string[]>(keyword.Synonyms) ?? new[] { keyword.Keyword };
-
-                    foreach (var synonym in synonyms)
+                TryMatchKeywordWithSynonyms(
+                    keyword,
+                    lowerText,
+                    matchedPositions,
+                    foundKeywords,
+                    (matchedKeyword, matchedIndex) =>
                     {
-                        var synonymLower = synonym.ToLowerInvariant();
-                        var index = lowerText.IndexOf(synonymLower, StringComparison.OrdinalIgnoreCase);
-
-                        if (index >= 0)
-                        {
-                            // Check if this position overlaps with already matched keywords
-                            var overlaps = matchedPositions.Any(kvp =>
-                                (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
-                                (kvp.Value >= index && kvp.Value < index + synonymLower.Length));
-
-                            if (!overlaps)
-                            {
-                                var keywordLower = keyword.Keyword.ToLowerInvariant();
-                                if (!foundKeywords.Contains(keywordLower))
-                                {
-                                    symptoms.Add(keyword.Keyword);
-                                    foundKeywords.Add(keywordLower);
-                                    matchedPositions[keyword.Keyword] = index;
-
-                                    _logger.LogDebug("Matched multi-word symptom: '{Symptom}' at position {Index}", keyword.Keyword, index);
-                                    break; // Found match, move to next keyword
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (JsonException)
-                {
-                    // If JSON parsing fails, just check the keyword itself
-                    var keywordLower = keyword.Keyword.ToLowerInvariant();
-                    var index = lowerText.IndexOf(keywordLower, StringComparison.OrdinalIgnoreCase);
-
-                    if (index >= 0)
-                    {
-                        var overlaps = matchedPositions.Any(kvp =>
-                            (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
-                            (kvp.Value >= index && kvp.Value < index + keywordLower.Length));
-
-                        if (!overlaps && !foundKeywords.Contains(keywordLower))
-                        {
-                            symptoms.Add(keyword.Keyword);
-                            foundKeywords.Add(keywordLower);
-                            matchedPositions[keyword.Keyword] = index;
-                        }
-                    }
-                }
+                        symptoms.Add(matchedKeyword);
+                        foundKeywords.Add(matchedKeyword.ToLowerInvariant());
+                        matchedPositions[matchedKeyword] = matchedIndex;
+                        _logger.LogDebug("Matched multi-word symptom: '{Symptom}' at position {Index}", matchedKeyword, matchedIndex);
+                    });
             }
 
             // Second pass: Match single-word keywords only if they don't overlap with matched phrases
@@ -270,54 +228,15 @@ public class ContextKeywordExtractor : IContextKeywordExtractor
 
             foreach (var keyword in sortedKeywords.Where(k => !k.Keyword.Contains(' ')))
             {
-                try
-                {
-                    var synonyms = string.IsNullOrEmpty(keyword.Synonyms)
-                        ? new[] { keyword.Keyword }
-                        : JsonSerializer.Deserialize<string[]>(keyword.Synonyms) ?? new[] { keyword.Keyword };
-
-                    foreach (var synonym in synonyms)
+                TryMatchKeywordWithSynonyms(
+                    keyword,
+                    lowerText,
+                    matchedPositions,
+                    foundKeywords,
+                    (matchedKeyword, matchedIndex) =>
                     {
-                        var synonymLower = synonym.ToLowerInvariant();
-                        var index = lowerText.IndexOf(synonymLower, StringComparison.OrdinalIgnoreCase);
-
-                        if (index >= 0)
-                        {
-                            // Check if this position overlaps with already matched keywords
-                            var overlaps = matchedPositions.Any(kvp =>
-                                (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
-                                (kvp.Value >= index && kvp.Value < index + synonymLower.Length));
-
-                            if (!overlaps)
-                            {
-                                var keywordLower = keyword.Keyword.ToLowerInvariant();
-                                if (!foundKeywords.Contains(keywordLower))
-                                {
-                                    // Store for potential multi-word phrase check
-                                    singleWordMatches.Add((keyword.Keyword, index));
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (JsonException)
-                {
-                    var keywordLower = keyword.Keyword.ToLowerInvariant();
-                    var index = lowerText.IndexOf(keywordLower, StringComparison.OrdinalIgnoreCase);
-
-                    if (index >= 0)
-                    {
-                        var overlaps = matchedPositions.Any(kvp =>
-                            (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
-                            (kvp.Value >= index && kvp.Value < index + keywordLower.Length));
-
-                        if (!overlaps && !foundKeywords.Contains(keywordLower))
-                        {
-                            singleWordMatches.Add((keyword.Keyword, index));
-                        }
-                    }
-                }
+                        singleWordMatches.Add((matchedKeyword, matchedIndex));
+                    });
             }
 
             // Before adding single-word matches, check if we can find multi-word phrases containing them
@@ -649,6 +568,69 @@ public class ContextKeywordExtractor : IContextKeywordExtractor
         }
 
         return symptoms;
+    }
+
+    /// <summary>
+    /// Try to match a keyword with its synonyms in the text
+    /// </summary>
+    private bool TryMatchKeywordWithSynonyms(
+        ConversationContextKeywordEntity keyword,
+        string lowerText,
+        Dictionary<string, int> matchedPositions,
+        HashSet<string> foundKeywords,
+        Action<string, int> onMatch)
+    {
+        try
+        {
+            var synonyms = string.IsNullOrEmpty(keyword.Synonyms)
+                ? new[] { keyword.Keyword }
+                : JsonSerializer.Deserialize<string[]>(keyword.Synonyms) ?? new[] { keyword.Keyword };
+
+            foreach (var synonym in synonyms)
+            {
+                var synonymLower = synonym.ToLowerInvariant();
+                var index = lowerText.IndexOf(synonymLower, StringComparison.OrdinalIgnoreCase);
+
+                if (index >= 0)
+                {
+                    // Check if this position overlaps with already matched keywords
+                    var overlaps = matchedPositions.Any(kvp =>
+                        (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
+                        (kvp.Value >= index && kvp.Value < index + synonymLower.Length));
+
+                    if (!overlaps)
+                    {
+                        var keywordLower = keyword.Keyword.ToLowerInvariant();
+                        if (!foundKeywords.Contains(keywordLower))
+                        {
+                            onMatch(keyword.Keyword, index);
+                            return true; // Found match
+                        }
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // If JSON parsing fails, just check the keyword itself
+            var keywordLower = keyword.Keyword.ToLowerInvariant();
+            var index = lowerText.IndexOf(keywordLower, StringComparison.OrdinalIgnoreCase);
+
+            if (index >= 0)
+            {
+                var overlaps = matchedPositions.Any(kvp =>
+                    (index >= kvp.Value && index < kvp.Value + kvp.Key.Length) ||
+                    (kvp.Value >= index && kvp.Value < index + keywordLower.Length));
+
+                if (!overlaps && !foundKeywords.Contains(keywordLower))
+                {
+                    onMatch(keyword.Keyword, index);
+                    return true; // Found match
+                }
+            }
+        }
+
+        return false; // No match found
     }
 
     /// <summary>

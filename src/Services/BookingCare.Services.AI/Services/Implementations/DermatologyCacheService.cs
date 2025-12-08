@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BookingCare.Services.AI.Data;
+using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -76,7 +77,7 @@ public class DermatologyCacheService : IDermatologyCacheService
         }
 
         // Clean Vietnamese name - remove XML/HTML tags and unwanted text
-        vietnameseName = CleanVietnameseName(vietnameseName);
+        vietnameseName = TextHelper.CleanVietnameseName(vietnameseName);
 
         // Serialize advice by severity (with UTF-8 encoding)
         var adviceJson = JsonSerializer.Serialize(adviceBySeverity, JsonOptions);
@@ -112,33 +113,6 @@ public class DermatologyCacheService : IDermatologyCacheService
             adviceBySeverity.Count);
     }
 
-    /// <summary>
-    /// Clean Vietnamese name - remove XML/HTML tags and unwanted text
-    /// </summary>
-    private string CleanVietnameseName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return name;
-
-        // Remove XML/HTML tags like </think>, <think>, </think>, etc.
-        var cleaned = System.Text.RegularExpressions.Regex.Replace(
-            name,
-            @"</?[^>]+>",
-            "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase,
-            TimeSpan.FromSeconds(2));
-
-        // Remove common unwanted prefixes/suffixes (including </think> and </think>)
-        // Note: Regex already removes all XML/HTML tags, but we also explicitly remove common ones
-        cleaned = cleaned
-            .Replace("</think>", "", StringComparison.OrdinalIgnoreCase)
-            .Replace("<think>", "", StringComparison.OrdinalIgnoreCase)
-            .Replace("</think>", "", StringComparison.OrdinalIgnoreCase)
-            .Replace("<think>", "", StringComparison.OrdinalIgnoreCase)
-            .Trim();
-
-        return cleaned;
-    }
 
     public async Task IncrementUsageAsync(Guid cacheId)
     {

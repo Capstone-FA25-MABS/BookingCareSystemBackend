@@ -1,4 +1,5 @@
 using BookingCare.Services.AI.Data;
+using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -88,33 +89,28 @@ public class LabResultCacheService : ILabResultCacheService
             return null;
         }
 
-        // Calculate Jaccard similarity for each candidate
-        var matches = candidates
-            .Select(c => new
-            {
-                Cache = c,
-                Similarity = CalculateJaccardSimilarity(
-                    keywordList,
-                    c.NormalizedKeywords.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(k => k.Trim())
-                        .ToList())
-            })
-            .Where(m => m.Similarity >= threshold)
-            .OrderByDescending(m => m.Similarity)
-            .ThenByDescending(m => m.Cache.UsageCount)
-            .ThenByDescending(m => m.Cache.SuccessRate)
-            .FirstOrDefault();
+        var bestMatch = CacheHelper.FindBestFuzzyMatch(
+            candidates,
+            c => c.NormalizedKeywords,
+            keywordList,
+            threshold,
+            c => c.UsageCount,
+            c => c.SuccessRate);
 
-        if (matches != null)
+        if (bestMatch != null)
         {
             _logger.LogInformation(
                 "✅ Tier 2 Hit: Fuzzy keywords match '{Input}' → '{Cached}' (similarity: {Similarity:P})",
                 keywords,
-                matches.Cache.NormalizedKeywords,
-                matches.Similarity);
+                bestMatch.NormalizedKeywords,
+                CacheHelper.CalculateJaccardSimilarity(
+                    keywordList,
+                    bestMatch.NormalizedKeywords.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(k => k.Trim())
+                        .ToList()));
         }
 
-        return matches?.Cache;
+        return bestMatch;
     }
 
     public async Task SaveAnalysisAsync(
@@ -192,22 +188,5 @@ public class LabResultCacheService : ILabResultCacheService
         };
     }
 
-    /// <summary>
-    /// Calculate Jaccard similarity between two keyword sets
-    /// Similarity = |intersection| / |union|
-    /// </summary>
-    private double CalculateJaccardSimilarity(List<string> set1, List<string> set2)
-    {
-        if (set1.Count == 0 && set2.Count == 0)
-            return 1.0;
-
-        if (set1.Count == 0 || set2.Count == 0)
-            return 0.0;
-
-        var intersection = set1.Intersect(set2, StringComparer.OrdinalIgnoreCase).Count();
-        var union = set1.Union(set2, StringComparer.OrdinalIgnoreCase).Count();
-
-        return union > 0 ? (double)intersection / union : 0.0;
-    }
 }
 
