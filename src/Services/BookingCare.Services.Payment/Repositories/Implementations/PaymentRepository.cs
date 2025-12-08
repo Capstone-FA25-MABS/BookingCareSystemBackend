@@ -34,6 +34,14 @@ public class PaymentRepository : IPaymentRepository
             .FirstOrDefaultAsync(p => p.AppointmentId == appointmentId);
     }
 
+    public async Task<List<PaymentEntity>> GetByAppointmentIdsAsync(List<Guid> appointmentIds)
+    {
+        return await _context
+            .Payments.Include(p => p.PaymentMethod)
+            .Where(p => p.AppointmentId.HasValue && appointmentIds.Contains(p.AppointmentId.Value))
+            .ToListAsync();
+    }
+
     public async Task<PaymentEntity?> GetBySubscriptionIdAsync(Guid subscriptionId)
     {
         return await _context

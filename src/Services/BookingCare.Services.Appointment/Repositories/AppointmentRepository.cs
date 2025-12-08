@@ -817,6 +817,7 @@ public class AppointmentRepository : IAppointmentRepository
     /// <summary>
     /// Get all booked appointment time IDs for a doctor on a specific date
     /// Returns appointments with status PENDING, CONFIRMED, or COMPLETED
+    /// Also includes soft reservations (AssignedDoctorId with valid SoftReservedUntil)
     /// </summary>
     public async Task<List<AppointmentTime>> GetBookedAppointmentTimesAsync(
         Guid doctorId,
@@ -827,8 +828,10 @@ public class AppointmentRepository : IAppointmentRepository
         {
             var startOfDay = appointmentDate.ToDateTime(TimeOnly.MinValue);
             var endOfDay = appointmentDate.ToDateTime(TimeOnly.MaxValue);
+            var now = DateTime.UtcNow;
 
-            var bookedTimeIds = await _context
+            // Query 1: Active appointments where doctor is assigned (DoctorId)
+            var activeBookedTimeIds = await _context
                 .Appointments.Where(a =>
                     a.DoctorId == doctorId
                     && a.AppointmentDate >= startOfDay
@@ -843,11 +846,34 @@ public class AppointmentRepository : IAppointmentRepository
                 .Distinct()
                 .ToListAsync();
 
+            // Query 2: Soft reservations where doctor is pending assignment (AssignedDoctorId)
+            // These are cancelled appointments with valid SoftReservedUntil
+            var softReservedTimeIds = await _context
+                .Appointments.Where(a =>
+                    a.AssignedDoctorId == doctorId
+                    && a.AppointmentDate >= startOfDay
+                    && a.AppointmentDate <= endOfDay
+                    && a.Status == AppointmentStatus.CANCELLED
+                    && a.SoftReservedUntil.HasValue
+                    && a.SoftReservedUntil.Value > now
+                )
+                .Select(a => a.AppointmentTimeId)
+                .Distinct()
+                .ToListAsync();
+
+            // Combine both lists and remove duplicates
+            var bookedTimeIds = activeBookedTimeIds
+                .Union(softReservedTimeIds)
+                .Distinct()
+                .ToList();
+
             _logger.LogDebug(
-                "Found {Count} booked time slots for doctor {DoctorId} on {Date}",
+                "Found {Count} booked time slots for doctor {DoctorId} on {Date} (Active: {ActiveCount}, SoftReserved: {SoftCount})",
                 bookedTimeIds.Count,
                 doctorId,
-                appointmentDate
+                appointmentDate,
+                activeBookedTimeIds.Count,
+                softReservedTimeIds.Count
             );
 
             return bookedTimeIds;
@@ -1219,6 +1245,7 @@ public class AppointmentRepository : IAppointmentRepository
     /// <summary>
     /// Get doctor IDs that have booked slots at a specific date/time
     /// Used to check availability
+    /// Also includes soft reservations (AssignedDoctorId with valid SoftReservedUntil)
     /// </summary>
     public async Task<List<Guid>> GetDoctorsWithBookedSlotAsync(
         List<Guid> doctorIds,
@@ -1234,8 +1261,10 @@ public class AppointmentRepository : IAppointmentRepository
             }
 
             var dateTime = date.ToDateTime(TimeOnly.MinValue);
+            var now = DateTime.UtcNow;
 
-            return await _context
+            // Query 1: Active appointments where doctor is assigned (DoctorId)
+            var activeDoctorIds = await _context
                 .Appointments.Where(a =>
                     a.DoctorId.HasValue
                     && doctorIds.Contains(a.DoctorId.Value)
@@ -1250,6 +1279,27 @@ public class AppointmentRepository : IAppointmentRepository
                 .Select(a => a.DoctorId!.Value)
                 .Distinct()
                 .ToListAsync();
+
+            // Query 2: Soft reservations where doctor is pending assignment (AssignedDoctorId)
+            var softReservedDoctorIds = await _context
+                .Appointments.Where(a =>
+                    a.AssignedDoctorId.HasValue
+                    && doctorIds.Contains(a.AssignedDoctorId.Value)
+                    && a.AppointmentDate.Date == dateTime.Date
+                    && a.AppointmentTimeId == appointmentTimeId
+                    && a.Status == AppointmentStatus.CANCELLED
+                    && a.SoftReservedUntil.HasValue
+                    && a.SoftReservedUntil.Value > now
+                )
+                .Select(a => a.AssignedDoctorId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            // Combine both lists and remove duplicates
+            return activeDoctorIds
+                .Union(softReservedDoctorIds)
+                .Distinct()
+                .ToList();
         }
         catch (Exception ex)
         {
