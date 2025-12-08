@@ -380,7 +380,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
     /// <summary>
     /// Data structure to capture payment data
     /// </summary>
-    private class CapturedPaymentData
+    private sealed class CapturedPaymentData
     {
         public Guid? DiscountId { get; init; }
         public string? DiscountCode { get; init; }

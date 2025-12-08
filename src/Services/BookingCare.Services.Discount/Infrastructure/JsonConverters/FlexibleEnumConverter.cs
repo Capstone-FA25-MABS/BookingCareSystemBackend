@@ -7,9 +7,14 @@ namespace BookingCare.Services.Discount.Infrastructure.JsonConverters;
 /// JSON converter that accepts both string numbers and numeric values for enums
 /// Allows "0", 0, "FIXED_AMOUNT" all to work
 /// </summary>
-public class FlexibleEnumConverter<TEnum> : JsonConverter<TEnum> where TEnum : struct, Enum
+public class FlexibleEnumConverter<TEnum> : JsonConverter<TEnum>
+    where TEnum : struct, Enum
 {
-    public override TEnum Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override TEnum Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options
+    )
     {
         switch (reader.TokenType)
         {
@@ -23,12 +28,17 @@ public class FlexibleEnumConverter<TEnum> : JsonConverter<TEnum> where TEnum : s
                 }
 
                 // Try to parse as numeric string (e.g., "0", "1")
-                if (int.TryParse(stringValue, out var numericValue) && Enum.IsDefined(typeof(TEnum), numericValue))
+                if (
+                    int.TryParse(stringValue, out var numericValue)
+                    && Enum.IsDefined(typeof(TEnum), numericValue)
+                )
                 {
                     return (TEnum)(object)numericValue;
                 }
 
-                throw new JsonException($"Unable to convert \"{stringValue}\" to enum {typeof(TEnum).Name}");
+                throw new JsonException(
+                    $"Unable to convert \"{stringValue}\" to enum {typeof(TEnum).Name}"
+                );
 
             case JsonTokenType.Number:
                 var intValue = reader.GetInt32();
@@ -36,10 +46,14 @@ public class FlexibleEnumConverter<TEnum> : JsonConverter<TEnum> where TEnum : s
                 {
                     return (TEnum)(object)intValue;
                 }
-                throw new JsonException($"Value {intValue} is not defined in enum {typeof(TEnum).Name}");
+                throw new JsonException(
+                    $"Value {intValue} is not defined in enum {typeof(TEnum).Name}"
+                );
 
             default:
-                throw new JsonException($"Unexpected token type {reader.TokenType} when parsing enum {typeof(TEnum).Name}");
+                throw new JsonException(
+                    $"Unexpected token type {reader.TokenType} when parsing enum {typeof(TEnum).Name}"
+                );
         }
     }
 

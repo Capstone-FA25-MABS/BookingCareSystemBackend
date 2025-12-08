@@ -21,6 +21,7 @@ public class CreateDiscountRequest
     public string? Description { get; set; }
 
     [Required]
+    [JsonRequired]
     public Guid HospitalId { get; set; }
 
     [Required]
@@ -71,6 +72,7 @@ public class ValidateDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
+    [JsonRequired]
     public Guid HospitalId { get; set; }
 
     public Guid? SpecialtyId { get; set; }
@@ -90,6 +92,7 @@ public class UseDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
+    [JsonRequired]
     public Guid HospitalId { get; set; }
 
     [Required]
@@ -105,6 +108,7 @@ public class RevertDiscountUsageRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
+    [JsonRequired]
     public Guid HospitalId { get; set; }
 }
 
@@ -120,5 +124,6 @@ public class CalculateDiscountRequest
     public decimal OriginalAmount { get; set; }
 
     [Required]
+    [JsonRequired]
     public Guid HospitalId { get; set; }
 }
