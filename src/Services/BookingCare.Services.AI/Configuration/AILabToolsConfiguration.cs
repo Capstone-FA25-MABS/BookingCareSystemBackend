@@ -11,8 +11,9 @@ public class AILabToolsConfiguration
     public string ApiBaseUrl { get; set; } = "https://www.ailabapi.com";
 
     /// <summary>
-    /// API Key for authentication (required)
+    /// API Key for authentication (deprecated - now stored in database)
     /// </summary>
+    [Obsolete("API keys are now managed in database via IAILabToolsApiKeyService")]
     public string ApiKey { get; set; } = string.Empty;
 
     /// <summary>

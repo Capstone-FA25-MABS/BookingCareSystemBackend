@@ -27,6 +27,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
     private readonly RecommendationHelper _recommendationHelper;
     private readonly FileUploadHelper _fileUploadHelper;
     private readonly IDermatologyCacheService _dermatologyCacheService;
+    private readonly IAILabToolsApiKeyService _apiKeyService;
 
     private const string CACHE_KEY_PREFIX = "groq_disease_translation_";
     private static readonly TimeSpan TranslationCacheDuration = TimeSpan.FromDays(30);
@@ -46,12 +47,14 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
         IMemoryCache cache,
         RecommendationHelper recommendationHelper,
         FileUploadHelper fileUploadHelper,
-        IDermatologyCacheService dermatologyCacheService)
+        IDermatologyCacheService dermatologyCacheService,
+        IAILabToolsApiKeyService apiKeyService)
     {
         _logger = logger;
         _httpClient = httpClient;
         _aiLabToolsConfig = aiLabToolsConfig.Value;
         _sessionService = sessionService;
+        _apiKeyService = apiKeyService;
         _groqApiHelper = groqApiHelper;
         _serviceConfig = groqServicesConfig.Value.DermatologyAnalysis;
         _cache = cache;
@@ -116,10 +119,11 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
     {
         try
         {
-            // Validate API key
-            if (string.IsNullOrEmpty(_aiLabToolsConfig.ApiKey))
+            // Get API key from service (automatically increments usage and deletes if reached max)
+            var apiKey = await _apiKeyService.GetApiKeyAsync();
+            if (string.IsNullOrEmpty(apiKey))
             {
-                throw new InvalidOperationException("AILabTools API key is not configured");
+                throw new InvalidOperationException("No active AILabTools API keys available. Please add API keys to the database.");
             }
 
             // Call AILabTools API
@@ -135,7 +139,7 @@ public class DermatologyAnalysisService : IDermatologyAnalysisService
 
             // Set API key header
             _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("ailabapi-api-key", _aiLabToolsConfig.ApiKey);
+            _httpClient.DefaultRequestHeaders.Add("ailabapi-api-key", apiKey);
 
             _logger.LogInformation("Calling AILabTools API: {Url}", url);
             var response = await _httpClient.PostAsync(url, formData);

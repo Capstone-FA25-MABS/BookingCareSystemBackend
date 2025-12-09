@@ -37,6 +37,11 @@ public class AiDbContext : DbContext
     /// </summary>
     public DbSet<DermatologyDiseaseCacheEntity> DermatologyDiseaseCache { get; set; }
 
+    /// <summary>
+    /// DbSet for AILabTools API keys
+    /// </summary>
+    public DbSet<AILabToolsApiKeyEntity> AILabToolsApiKeys { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -235,6 +240,45 @@ public class AiDbContext : DbContext
             entity.HasIndex(e => e.UsageCount);
             entity.HasIndex(e => e.LastUsedAt);
         });
+
+        // Configure AILabToolsApiKeyEntity
+        modelBuilder.Entity<AILabToolsApiKeyEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ApiKey)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            entity.Property(e => e.UsageCount)
+                .IsRequired()
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.MaxUsageCount)
+                .IsRequired()
+                .HasDefaultValue(10);
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.LastUsedAt)
+                .IsRequired(false);
+
+            entity.Property(e => e.Notes)
+                .HasMaxLength(500)
+                .IsRequired(false);
+
+            // Indexes for performance
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.UsageCount);
+            entity.HasIndex(e => e.LastUsedAt);
+        });
     }
 
     public override int SaveChanges()
@@ -256,6 +300,7 @@ public class AiDbContext : DbContext
         UpdateKeywordEntityTimestamps();
         UpdateCacheEntityTimestamps<LabResultAbnormalIndicatorCacheEntity>();
         UpdateCacheEntityTimestamps<DermatologyDiseaseCacheEntity>();
+        UpdateAILabToolsApiKeyTimestamps();
     }
 
     private void UpdateConversationSessionTimestamps()
@@ -428,6 +473,22 @@ public class AiDbContext : DbContext
         if (IsDefaultDateTime(entity.LastUsedAt))
         {
             entity.LastUsedAt = utcNow;
+        }
+    }
+
+    private void UpdateAILabToolsApiKeyTimestamps()
+    {
+        var entries = ChangeTracker.Entries<AILabToolsApiKeyEntity>()
+            .Where(e => e.State == EntityState.Added);
+
+        var utcNow = DateTime.UtcNow;
+
+        foreach (var entry in entries)
+        {
+            if (IsDefaultDateTime(entry.Entity.CreatedAt))
+            {
+                entry.Entity.CreatedAt = utcNow;
+            }
         }
     }
 

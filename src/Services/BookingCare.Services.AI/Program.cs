@@ -95,6 +95,9 @@ builder.Services.AddScoped<ILabResultCacheService, LabResultCacheService>();
 // Register Cache Services for Dermatology Analysis
 builder.Services.AddScoped<IDermatologyCacheService, DermatologyCacheService>();
 
+// Register AILabTools API Key Service
+builder.Services.AddScoped<IAILabToolsApiKeyService, AILabToolsApiKeyService>();
+
 // Register Conversation Session Service
 builder.Services.AddScoped<IConversationSessionService, ConversationSessionService>();
 
