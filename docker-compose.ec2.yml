@@ -1,0 +1,310 @@
+# BookingCare Docker Compose Configuration for EC2
+# This file provides an example of how to run services on EC2
+# In actual deployment, GitHub Actions will run individual containers
+
+version: '3.8'
+
+networks:
+  bookingcare-network:
+    driver: bridge
+    name: bookingcare-network
+
+services:
+  # API Gateway
+  apigateway:
+    image: ${ECR_REGISTRY}/bookingcare-apigateway:${VERSION_APIGATEWAY:-latest}
+    container_name: bookingcare-apigateway
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "5000:80"
+      - "5001:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+    depends_on:
+      - auth
+      - user
+      - appointment
+      - doctor
+      - hospital
+
+  # Auth Service
+  auth:
+    image: ${ECR_REGISTRY}/bookingcare-auth:${VERSION_AUTH:-latest}
+    container_name: bookingcare-auth
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6010:80"
+      - "6110:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - RabbitMQ__Host=${RABBITMQ_HOST}
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASS}
+
+  # User Service
+  user:
+    image: ${ECR_REGISTRY}/bookingcare-user:${VERSION_USER:-latest}
+    container_name: bookingcare-user
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6016:80"
+      - "6116:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - RabbitMQ__Host=${RABBITMQ_HOST}
+
+  # Doctor Service
+  doctor:
+    image: ${ECR_REGISTRY}/bookingcare-doctor:${VERSION_DOCTOR:-latest}
+    container_name: bookingcare-doctor
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6020:80"
+      - "6120:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Hospital Service
+  hospital:
+    image: ${ECR_REGISTRY}/bookingcare-hospital:${VERSION_HOSPITAL:-latest}
+    container_name: bookingcare-hospital
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6024:80"
+      - "6124:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Appointment Service
+  appointment:
+    image: ${ECR_REGISTRY}/bookingcare-appointment:${VERSION_APPOINTMENT:-latest}
+    container_name: bookingcare-appointment
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6012:80"
+      - "6112:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - RabbitMQ__Host=${RABBITMQ_HOST}
+
+  # Schedule Service
+  schedule:
+    image: ${ECR_REGISTRY}/bookingcare-schedule:${VERSION_SCHEDULE:-latest}
+    container_name: bookingcare-schedule
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6030:80"
+      - "6130:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Payment Service
+  payment:
+    image: ${ECR_REGISTRY}/bookingcare-payment:${VERSION_PAYMENT:-latest}
+    container_name: bookingcare-payment
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6028:80"
+      - "6128:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - RabbitMQ__Host=${RABBITMQ_HOST}
+
+  # Notification Service
+  notification:
+    image: ${ECR_REGISTRY}/bookingcare-notification:${VERSION_NOTIFICATION:-latest}
+    container_name: bookingcare-notification
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6026:80"
+      - "6126:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - RabbitMQ__Host=${RABBITMQ_HOST}
+
+  # Review Service
+  review:
+    image: ${ECR_REGISTRY}/bookingcare-review:${VERSION_REVIEW:-latest}
+    container_name: bookingcare-review
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6029:80"
+      - "6129:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Content Service
+  content:
+    image: ${ECR_REGISTRY}/bookingcare-content:${VERSION_CONTENT:-latest}
+    container_name: bookingcare-content
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6017:80"
+      - "6117:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Blog Service
+  blog:
+    image: ${ECR_REGISTRY}/bookingcare-blog:${VERSION_BLOG:-latest}
+    container_name: bookingcare-blog
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6014:80"
+      - "6114:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Analytics Service
+  analytics:
+    image: ${ECR_REGISTRY}/bookingcare-analytics:${VERSION_ANALYTICS:-latest}
+    container_name: bookingcare-analytics
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6011:80"
+      - "6111:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # AI Service
+  ai:
+    image: ${ECR_REGISTRY}/bookingcare-ai:${VERSION_AI:-latest}
+    container_name: bookingcare-ai
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6013:80"
+      - "6113:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Communication Service
+  communication:
+    image: ${ECR_REGISTRY}/bookingcare-communication:${VERSION_COMMUNICATION:-latest}
+    container_name: bookingcare-communication
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6018:80"
+      - "6118:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - RabbitMQ__Host=${RABBITMQ_HOST}
+
+  # Discount Service
+  discount:
+    image: ${ECR_REGISTRY}/bookingcare-discount:${VERSION_DISCOUNT:-latest}
+    container_name: bookingcare-discount
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6019:80"
+      - "6119:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Favorites Service
+  favorites:
+    image: ${ECR_REGISTRY}/bookingcare-favorites:${VERSION_FAVORITES:-latest}
+    container_name: bookingcare-favorites
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6023:80"
+      - "6123:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # ServiceMedical Service
+  servicemedical:
+    image: ${ECR_REGISTRY}/bookingcare-servicemedical:${VERSION_SERVICEMEDICAL:-latest}
+    container_name: bookingcare-servicemedical
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6031:80"
+      - "6131:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+
+  # Saga Service
+  saga:
+    image: ${ECR_REGISTRY}/bookingcare-saga:${VERSION_SAGA:-latest}
+    container_name: bookingcare-saga
+    restart: unless-stopped
+    networks:
+      - bookingcare-network
+    ports:
+      - "6032:80"
+      - "6132:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80;https://+:443
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
+      - RabbitMQ__Host=${RABBITMQ_HOST}
