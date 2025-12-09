@@ -4,6 +4,7 @@ using BookingCare.Services.Hospital.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Hospital.Migrations
 {
     [DbContext(typeof(HospitalDbContext))]
-    partial class HospitalDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251208043312_AddeKYCIndentity")]
+    partial class AddeKYCIndentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -323,6 +326,32 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("hospital_signature");
 
+                    b.Property<string>("IdCardAddress")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("id_card_address");
+
+                    b.Property<string>("IdCardBackImageUrl")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("id_card_back_image_url");
+
+                    b.Property<DateTime?>("IdCardDob")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("id_card_dob");
+
+                    b.Property<string>("IdCardFrontImageUrl")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("id_card_front_image_url");
+
+                    b.Property<string>("IdCardName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("id_card_name");
+
+                    b.Property<string>("IdCardNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("id_card_number");
+
                     b.Property<string>("IdentityCardFile")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -358,6 +387,10 @@ namespace BookingCare.Services.Hospital.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("representative_phone");
+
+                    b.Property<string>("SelfieImageUrl")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("selfie_image_url");
 
                     b.Property<DateTime?>("SignedAt")
                         .HasColumnType("datetime2")

@@ -319,6 +319,22 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/Ekyc/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6004
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/Ekyc/{everything}",
+      "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE", "OPTIONS" ],
+      "AuthenticationOptions": {
+        // "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/communications/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

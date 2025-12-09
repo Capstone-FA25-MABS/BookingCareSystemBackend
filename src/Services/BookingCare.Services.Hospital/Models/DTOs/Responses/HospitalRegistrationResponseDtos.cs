@@ -26,6 +26,14 @@ public class HospitalRegistrationResponseDto
     public RegistrationStatus Status { get; set; }
     public string StatusText { get; set; } = string.Empty;
 
+    // eKYC Information (Privacy-friendly: only verification status, no PII)
+    public EkycStatus EkycStatus { get; set; }
+    public string EkycStatusText { get; set; } = string.Empty;
+    public string? EkycSessionId { get; set; }
+    public DateTime? EkycVerifiedAt { get; set; }
+    public decimal? FaceMatchScore { get; set; }
+    public decimal? LivenessScore { get; set; }
+
     // Contract Information
     public string? ContractNumber { get; set; }
     public string? ContractFile { get; set; }
