@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using BookingCare.Services.Discount.Enums;
+using BookingCare.Services.Discount.Infrastructure.JsonConverters;
 using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Discount.Models.DTOs;
@@ -19,20 +21,15 @@ public class CreateDiscountRequest
     public string? Description { get; set; }
 
     [Required]
-    public Guid ClinicId { get; set; }
-
-    public Guid? SpecialtyId { get; set; }
-
-    public Guid? DoctorId { get; set; }
-
-    [Required]
-    public DiscountApplicableTo ApplicableTo { get; set; } = DiscountApplicableTo.ALL;
+    [JsonRequired]
+    public Guid HospitalId { get; set; }
 
     [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
     public decimal Amount { get; set; }
 
     [Required]
+    [JsonConverter(typeof(FlexibleEnumConverter<DiscountType>))]
     public DiscountType DiscountType { get; set; } = DiscountType.PERCENTAGE;
 
     [Required]
@@ -75,13 +72,15 @@ public class ValidateDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    public Guid ClinicId { get; set; }
+    [JsonRequired]
+    public Guid HospitalId { get; set; }
 
     public Guid? SpecialtyId { get; set; }
 
     public Guid? DoctorId { get; set; }
 
     [Required]
+    [JsonRequired]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
     public decimal TotalAmount { get; set; }
 }
@@ -93,13 +92,11 @@ public class UseDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    public Guid ClinicId { get; set; }
-
-    public Guid? SpecialtyId { get; set; }
-
-    public Guid? DoctorId { get; set; }
+    [JsonRequired]
+    public Guid HospitalId { get; set; }
 
     [Required]
+    [JsonRequired]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
     public decimal TotalAmount { get; set; }
 }
@@ -111,7 +108,8 @@ public class RevertDiscountUsageRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
-    public Guid ClinicId { get; set; }
+    [JsonRequired]
+    public Guid HospitalId { get; set; }
 }
 
 public class CalculateDiscountRequest
@@ -121,13 +119,11 @@ public class CalculateDiscountRequest
     public string Code { get; set; } = string.Empty;
 
     [Required]
+    [JsonRequired]
     [Range(0.01, double.MaxValue, ErrorMessage = "Original amount must be greater than 0")]
     public decimal OriginalAmount { get; set; }
 
     [Required]
-    public Guid ClinicId { get; set; }
-
-    public Guid? SpecialtyId { get; set; }
-
-    public Guid? DoctorId { get; set; }
+    [JsonRequired]
+    public Guid HospitalId { get; set; }
 }

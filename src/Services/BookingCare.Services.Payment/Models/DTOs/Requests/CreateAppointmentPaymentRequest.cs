@@ -41,4 +41,15 @@ public class CreateAppointmentPaymentRequest
     [Required]
     [JsonRequired]
     public Guid PaymentMethodId { get; set; }
+
+    /// <summary>
+    /// Discount ID (already validated by frontend)
+    /// </summary>
+    public Guid? DiscountId { get; set; }
+
+    /// <summary>
+    /// Discount code (needed for gRPC UseDiscount call)
+    /// </summary>
+    [MaxLength(50)]
+    public string? DiscountCode { get; set; }
 }

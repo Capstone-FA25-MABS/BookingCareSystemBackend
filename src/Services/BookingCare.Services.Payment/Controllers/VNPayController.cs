@@ -34,9 +34,10 @@ public class VNPayController : BasePaymentGatewayController
         IValidator<VNPayPaymentRequest> validator,
         ILogger<VNPayController> logger,
         AppointmentService.AppointmentServiceClient appointmentClient,
-        BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient
+        BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient,
+        BookingCare.Services.Discount.Protos.DiscountService.DiscountServiceClient discountClient
     )
-        : base(paymentService, eventBus, frontendOptions, logger, appointmentClient)
+        : base(paymentService, eventBus, frontendOptions, logger, appointmentClient, discountClient)
     {
         _vnpayService = vnpayService;
         _validator = validator;

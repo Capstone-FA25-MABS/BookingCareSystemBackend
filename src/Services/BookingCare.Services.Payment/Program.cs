@@ -129,6 +129,17 @@ builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.Hos
     }
 );
 
+// Add gRPC client for Discount Service (to validate and use discount codes)
+builder.Services.AddGrpcClient<BookingCare.Services.Discount.Protos.DiscountService.DiscountServiceClient>(
+    o =>
+    {
+        var discountServiceUrl =
+            builder.Configuration.GetSection("Services:Discount").GetValue<string>("GrpcUrl")
+            ?? "http://localhost:6107";
+        o.Address = new Uri(discountServiceUrl);
+    }
+);
+
 // Add API versioning support
 builder.Services.AddApiVersioningSupport();
 builder.Services.AddJwtAuthAndAuthorization();
