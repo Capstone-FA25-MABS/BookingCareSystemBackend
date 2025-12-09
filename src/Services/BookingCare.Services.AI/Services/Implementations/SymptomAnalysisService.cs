@@ -6,6 +6,7 @@ using BookingCare.Services.AI.Helpers;
 using BookingCare.Services.AI.Models.DTOs.Requests;
 using BookingCare.Services.AI.Models.DTOs.Responses;
 using BookingCare.Services.AI.Services.Interfaces;
+using Microsoft.Extensions.Options;
 
 
 namespace BookingCare.Services.AI.Services.Implementations;
@@ -19,6 +20,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     private readonly IConversationSessionService _sessionService;
     private readonly ILogger<SymptomAnalysisService> _logger;
     private readonly GroqApiHelper _groqApiHelper;
+    private readonly ServiceGroqConfiguration _serviceConfig;
     private readonly RecommendationHelper _recommendationHelper;
     private readonly IContextKeywordExtractor _contextExtractor;
     private readonly IQuestionCacheService _questionCacheService;
@@ -31,6 +33,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         IConversationSessionService sessionService,
         ILogger<SymptomAnalysisService> logger,
         GroqApiHelper groqApiHelper,
+        IOptions<GroqServicesConfiguration> groqServicesConfig,
         RecommendationHelper recommendationHelper,
         IContextKeywordExtractor contextExtractor,
         IQuestionCacheService questionCacheService)
@@ -38,6 +41,7 @@ public class SymptomAnalysisService : ISymptomAnalysisService
         _sessionService = sessionService;
         _logger = logger;
         _groqApiHelper = groqApiHelper;
+        _serviceConfig = groqServicesConfig.Value.SymptomAnalysis;
         _recommendationHelper = recommendationHelper;
         _contextExtractor = contextExtractor;
         _questionCacheService = questionCacheService;
@@ -442,14 +446,13 @@ public class SymptomAnalysisService : ISymptomAnalysisService
     /// </summary>
     private async Task<string> CallGroqApiAsync(string prompt, bool isConclusionMode)
     {
-        if (isConclusionMode)
-        {
-            return await _groqApiHelper.CallConclusionModeAsync(prompt);
-        }
-        else
-        {
-            return await _groqApiHelper.CallAskingModeAsync(prompt);
-        }
+        // Mỗi service dùng API key riêng từ GroqServicesConfiguration
+        return await _groqApiHelper.CallGroqApiAsync(
+            prompt,
+            _serviceConfig,
+            temperature: null,
+            maxTokens: null,
+            cancellationToken: default);
     }
 
 
