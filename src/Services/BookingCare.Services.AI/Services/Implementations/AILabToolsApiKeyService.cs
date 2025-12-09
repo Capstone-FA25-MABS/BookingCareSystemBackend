@@ -1,4 +1,5 @@
 using BookingCare.Services.AI.Data;
+using BookingCare.Services.AI.Exceptions;
 using BookingCare.Services.AI.Models.Entities;
 using BookingCare.Services.AI.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -72,7 +73,7 @@ public class AILabToolsApiKeyService : IAILabToolsApiKeyService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting AILabTools API key");
-            throw;
+            throw new AILabToolsApiKeyException("Failed to get AILabTools API key.", ex);
         }
         finally
         {
@@ -118,7 +119,8 @@ public class AILabToolsApiKeyService : IAILabToolsApiKeyService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error incrementing usage for AILabTools API key {KeyId}", apiKeyId);
-            throw;
+            throw new AILabToolsApiKeyException(
+                $"Failed to increment usage for AILabTools API key {apiKeyId}.", ex);
         }
         finally
         {
