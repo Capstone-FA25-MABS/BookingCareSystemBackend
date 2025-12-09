@@ -85,6 +85,17 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
                 IdentityCardFile = "PENDING_UPLOAD",
                 TaxCode = request.TaxCode,
                 Status = RegistrationStatus.PENDING,
+
+                // eKYC Information (Privacy-friendly: only verification status, no PII)
+                EkycSessionId = request.EkycSessionId,
+                FaceMatchScore = request.FaceMatchScore,
+                LivenessScore = request.LivenessScore,
+                EkycStatus = request.IsEkycVerified == true
+                    ? EkycStatus.VERIFIED
+                    : EkycStatus.NOT_STARTED,
+                EkycVerifiedAt = request.IsEkycVerified == true
+                    ? DateTime.UtcNow
+                    : null,
             };
 
             var created = await _registrationRepository.CreateAsync(registration);
@@ -493,6 +504,14 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
             Status = entity.Status,
             StatusText = GetStatusText(entity.Status),
 
+            // eKYC Information (Privacy-friendly: only verification status, no PII)
+            EkycStatus = entity.EkycStatus,
+            EkycStatusText = GetEkycStatusText(entity.EkycStatus),
+            EkycSessionId = entity.EkycSessionId,
+            EkycVerifiedAt = entity.EkycVerifiedAt,
+            FaceMatchScore = entity.FaceMatchScore,
+            LivenessScore = entity.LivenessScore,
+
             // Contract Information
             ContractNumber = entity.ContractNumber,
             ContractFile = entity.ContractFile,
@@ -513,8 +532,22 @@ public class HospitalRegistrationService : BaseService, IHospitalRegistrationSer
         return status switch
         {
             RegistrationStatus.PENDING => "Đang chờ xử lý",
+            RegistrationStatus.CONTRACT_GENERATED => "Đã tạo hợp đồng",
+            RegistrationStatus.CONTRACT_SIGNED => "Đã ký hợp đồng",
             RegistrationStatus.CONFIRMED => "Đã xác nhận",
             RegistrationStatus.CANCELLED => "Đã hủy",
+            _ => "Không xác định"
+        };
+    }
+
+    private static string GetEkycStatusText(EkycStatus status)
+    {
+        return status switch
+        {
+            EkycStatus.NOT_STARTED => "Chưa xác thực",
+            EkycStatus.IN_PROGRESS => "Đang xác thực",
+            EkycStatus.VERIFIED => "Đã xác thực",
+            EkycStatus.FAILED => "Xác thực thất bại",
             _ => "Không xác định"
         };
     }

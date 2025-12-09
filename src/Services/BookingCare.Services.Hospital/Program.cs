@@ -62,6 +62,10 @@ builder.Services.AddScoped<IAdminSignatureService, AdminSignatureService>();
 builder.Services.AddScoped<IContractGenerationService, ContractGenerationService>();
 builder.Services.AddScoped<IContractSigningService, ContractSigningService>();
 
+// eKYC Service (FPT.AI Integration)
+builder.Services.AddHttpClient<FptEkycService>();
+builder.Services.AddScoped<IEkycService>(sp => sp.GetRequiredService<FptEkycService>());
+
 // Add Event Bus (RabbitMQ) for message queue
 builder.Services.AddRabbitMQEventBus(builder.Configuration, "hospital-service-queue");
 
