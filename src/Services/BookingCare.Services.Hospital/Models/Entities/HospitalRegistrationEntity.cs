@@ -27,6 +27,38 @@ public class HospitalRegistrationEntity
     [Column("representative_phone")]
     public string RepresentativePhone { get; set; } = string.Empty;
 
+    // eKYC Information (Privacy-friendly: only store verification status, not PII)
+    /// <summary>
+    /// eKYC verification status
+    /// </summary>
+    [Column("ekyc_status")]
+    public EkycStatus EkycStatus { get; set; } = EkycStatus.NOT_STARTED;
+
+    /// <summary>
+    /// Session ID for audit trail (can query FPT.AI if needed)
+    /// </summary>
+    [MaxLength(100)]
+    [Column("ekyc_session_id")]
+    public string? EkycSessionId { get; set; }
+
+    /// <summary>
+    /// When eKYC verification was completed
+    /// </summary>
+    [Column("ekyc_verified_at")]
+    public DateTime? EkycVerifiedAt { get; set; }
+
+    /// <summary>
+    /// Face matching confidence score (percentage)
+    /// </summary>
+    [Column("face_match_score")]
+    public decimal? FaceMatchScore { get; set; }
+
+    /// <summary>
+    /// Liveness detection confidence score (percentage)
+    /// </summary>
+    [Column("liveness_score")]
+    public decimal? LivenessScore { get; set; }
+
     // Hospital Information
     [Required]
     [MaxLength(255)]

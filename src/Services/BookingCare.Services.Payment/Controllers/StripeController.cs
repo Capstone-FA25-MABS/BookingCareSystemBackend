@@ -32,9 +32,10 @@ public class StripeController : BasePaymentGatewayController
         IOptions<FrontendOptions> frontendOptions,
         ILogger<StripeController> logger,
         AppointmentService.AppointmentServiceClient appointmentClient,
-        BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient
+        BookingCare.Services.Hospital.HospitalSubscriptionGrpc.HospitalSubscriptionGrpcClient hospitalSubscriptionClient,
+        BookingCare.Services.Discount.Protos.DiscountService.DiscountServiceClient discountClient
     )
-        : base(paymentService, eventBus, frontendOptions, logger, appointmentClient)
+        : base(paymentService, eventBus, frontendOptions, logger, appointmentClient, discountClient)
     {
         _stripeService = stripeService;
         _hospitalSubscriptionClient = hospitalSubscriptionClient;

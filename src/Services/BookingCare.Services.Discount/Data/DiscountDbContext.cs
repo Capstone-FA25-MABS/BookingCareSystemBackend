@@ -6,9 +6,8 @@ namespace BookingCare.Services.Discount.Data;
 
 public class DiscountDbContext : DbContext
 {
-    public DiscountDbContext(DbContextOptions<DiscountDbContext> options) : base(options)
-    {
-    }
+    public DiscountDbContext(DbContextOptions<DiscountDbContext> options)
+        : base(options) { }
 
     public DbSet<DiscountEntity> Discounts { get; set; }
 
@@ -26,42 +25,29 @@ public class DiscountDbContext : DbContext
             entity.HasIndex(e => e.Code).IsUnique();
 
             // Configure decimal precision
-            entity.Property(e => e.Amount)
-                .HasPrecision(10, 2);
+            entity.Property(e => e.Amount).HasPrecision(10, 2);
 
             // Configure string properties
-            entity.Property(e => e.Code)
-                .HasMaxLength(50)
-                .IsRequired();
+            entity.Property(e => e.Code).HasMaxLength(50).IsRequired();
 
-            entity.Property(e => e.Name)
-                .HasMaxLength(50)
-                .IsRequired();
+            entity.Property(e => e.Name).HasMaxLength(50).IsRequired();
 
-            entity.Property(e => e.ApplicableTo)
-                .HasMaxLength(20)
-                .HasDefaultValue(DiscountApplicableTo.ALL);
+            entity.Property(e => e.DiscountType).HasMaxLength(20).IsRequired();
 
-            entity.Property(e => e.DiscountType)
-                .HasMaxLength(20)
-                .IsRequired();
-
-            entity.Property(e => e.Status)
+            entity
+                .Property(e => e.Status)
                 .HasMaxLength(10)
                 .HasDefaultValue(DiscountStatus.INACTIVE);
 
             // Configure datetime properties
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
 
-            entity.Property(e => e.UpdatedAt)
-                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETDATE()");
 
             // Configure default values
-            entity.Property(e => e.UsesCount)
-                .HasDefaultValue(0);
+            entity.Property(e => e.UsesCount).HasDefaultValue(0);
 
-            // Configure check constraints (Note: EF Core doesn't directly support check constraints, 
+            // Configure check constraints (Note: EF Core doesn't directly support check constraints,
             // but we can add them via raw SQL migrations if needed)
         });
     }

@@ -4,6 +4,7 @@ using BookingCare.Services.Discount.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Discount.Migrations
 {
     [DbContext(typeof(DiscountDbContext))]
-    partial class DiscountDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251206090351_RenameClinicIdToHospitalIdAndRemoveFields")]
+    partial class RenameClinicIdToHospitalIdAndRemoveFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -33,6 +36,13 @@ namespace BookingCare.Services.Discount.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("amount");
+
+                    b.Property<int>("ApplicableTo")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("int")
+                        .HasDefaultValue(0)
+                        .HasColumnName("applicable_to");
 
                     b.Property<string>("Code")
                         .IsRequired()

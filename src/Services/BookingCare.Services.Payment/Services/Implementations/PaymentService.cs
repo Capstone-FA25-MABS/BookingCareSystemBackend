@@ -8,6 +8,8 @@ using BookingCare.Services.Payment.Services.Interfaces;
 using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.Common.Models;
 using BookingCare.Shared.Common.Services;
+using Grpc.Core;
+using DiscountProtos = BookingCare.Services.Discount.Protos;
 
 namespace BookingCare.Services.Payment.Services.Implementations;
 
@@ -25,6 +27,7 @@ public class PaymentService : BaseService, IPaymentService
         IPaymentRepository paymentRepository,
         IPaymentMethodRepository paymentMethodRepository,
         IAppointmentDetailsService appointmentDetailsService,
+        DiscountProtos.DiscountService.DiscountServiceClient discountGrpcClient,
         IMapper mapper,
         ILogger<PaymentService> logger
     )
@@ -333,6 +336,18 @@ public class PaymentService : BaseService, IPaymentService
                     );
                 }
 
+                // Discount has already been validated by frontend, just store the ID and code
+                if (request.DiscountId.HasValue)
+                {
+                    LogInfo(
+                        "Payment with discount: DiscountId={DiscountId}, Code={Code}, AppointmentId={AppointmentId}",
+                        null,
+                        request.DiscountId.Value,
+                        request.DiscountCode ?? "N/A",
+                        request.AppointmentId
+                    );
+                }
+
                 // Business logic - Map to PaymentEntity
                 var paymentEntity = new PaymentEntity
                 {
@@ -343,6 +358,8 @@ public class PaymentService : BaseService, IPaymentService
                     Amount = request.Amount,
                     TransactionType = TransactionType.APPOINTMENT,
                     PaymentMethodId = request.PaymentMethodId,
+                    DiscountId = request.DiscountId,
+                    DiscountCode = request.DiscountCode,
                     Status = PaymentStatus.PENDING,
                     CreatedAt = DateTime.UtcNow,
                 };

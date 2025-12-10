@@ -17,6 +17,9 @@
     <Protobuf Include="..\BookingCare.Services.Hospital\Protos\hospital.proto" GrpcServices="Client">
       <Link>Protos\hospital.proto</Link>
     </Protobuf>
+    <Protobuf Include="..\BookingCare.Services.Discount\Protos\discount.proto" GrpcServices="Client">
+      <Link>Protos\discount.proto</Link>
+    </Protobuf>
   </ItemGroup>
 
   <ItemGroup>

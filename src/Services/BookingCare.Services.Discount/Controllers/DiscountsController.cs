@@ -13,10 +13,14 @@ namespace BookingCare.Services.Discount.Controllers;
 [ApiVersion(ApiVersions.V1_0)]
 public class DiscountsController : BaseApiController
 {
+    private const string InvalidRequestDataMessage = "Invalid request data";
     private readonly IDiscountService _discountService;
     private readonly ILogger<DiscountsController> _logger;
 
-    public DiscountsController(IDiscountService discountService, ILogger<DiscountsController> logger)
+    public DiscountsController(
+        IDiscountService discountService,
+        ILogger<DiscountsController> logger
+    )
     {
         _discountService = discountService;
         _logger = logger;
@@ -66,27 +70,35 @@ public class DiscountsController : BaseApiController
     }
 
     /// <summary>
-    /// Get active discounts for a clinic
+    /// Get active discounts for a hospital
     /// </summary>
-    [HttpGet("clinic/{clinicId}/active")]
+    [HttpGet("hospital/{hospitalId}/active")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDiscountsByClinic(Guid clinicId)
+    public async Task<IActionResult> GetActiveDiscountsByHospital(Guid hospitalId)
     {
-        var discounts = await _discountService.GetActiveDiscountsByClinicAsync(clinicId);
-        return Success(discounts, $"Active discounts for clinic {clinicId} retrieved successfully");
+        var discounts = await _discountService.GetActiveDiscountsByHospitalAsync(hospitalId);
+        return Success(
+            discounts,
+            $"Active discounts for hospital {hospitalId} retrieved successfully"
+        );
     }
 
     /// <summary>
-    /// Get applicable discounts for specific clinic/specialty/doctor
+    /// Get applicable discounts for specific hospital/specialty/doctor
     /// </summary>
     [HttpGet("applicable")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetApplicableDiscounts(
-        [FromQuery] Guid clinicId,
+        [FromQuery] Guid hospitalId,
         [FromQuery] Guid? specialtyId = null,
-        [FromQuery] Guid? doctorId = null)
+        [FromQuery] Guid? doctorId = null
+    )
     {
-        var discounts = await _discountService.GetApplicableDiscountsAsync(clinicId, specialtyId, doctorId);
+        var discounts = await _discountService.GetApplicableDiscountsAsync(
+            hospitalId,
+            specialtyId,
+            doctorId
+        );
         return Success(discounts, "Applicable discounts retrieved successfully");
     }
 
@@ -99,10 +111,10 @@ public class DiscountsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                InvalidRequestDataMessage,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         var discount = await _discountService.CreateDiscountAsync(request);
@@ -114,14 +126,17 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> UpdateDiscount(Guid id, [FromBody] UpdateDiscountRequest request)
+    public async Task<IActionResult> UpdateDiscount(
+        Guid id,
+        [FromBody] UpdateDiscountRequest request
+    )
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                InvalidRequestDataMessage,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         var discount = await _discountService.UpdateDiscountAsync(id, request);
@@ -153,14 +168,17 @@ public class DiscountsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                InvalidRequestDataMessage,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         var result = await _discountService.ValidateDiscountAsync(request);
-        return Success(result, result.IsValid ? "Discount is valid" : "Discount validation completed");
+        return Success(
+            result,
+            result.IsValid ? "Discount is valid" : "Discount validation completed"
+        );
     }
 
     /// <summary>
@@ -172,23 +190,31 @@ public class DiscountsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                InvalidRequestDataMessage,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         var result = await _discountService.UseDiscountAsync(request);
-        return Success(result, result.Success ? "Discount applied successfully" : "Discount usage completed");
+        return Success(
+            result,
+            result.Success ? "Discount applied successfully" : "Discount usage completed"
+        );
     }
 
     /// <summary>
     /// Revert discount usage (for order cancellations)
     /// </summary>
     [HttpPost("revert")]
-    public async Task<IActionResult> RevertDiscountUsage([FromBody] DiscountRequestDto.RevertDiscountUsageRequest request)
+    public async Task<IActionResult> RevertDiscountUsage(
+        [FromBody] DiscountRequestDto.RevertDiscountUsageRequest request
+    )
     {
-        var result = await _discountService.RevertDiscountUsageAsync(request.Code, request.ClinicId);
+        var result = await _discountService.RevertDiscountUsageAsync(
+            request.Code,
+            request.HospitalId
+        );
         if (!result)
         {
             return BadRequest("Unable to revert discount usage");
@@ -200,7 +226,7 @@ public class DiscountsController : BaseApiController
     /// <summary>
     /// Activate a discount
     /// </summary>
-    [HttpPatch("{id}/activate")]
+    [HttpPost("{id}/activate")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> ActivateDiscount(Guid id)
     {
@@ -216,7 +242,7 @@ public class DiscountsController : BaseApiController
     /// <summary>
     /// Deactivate a discount
     /// </summary>
-    [HttpPatch("{id}/deactivate")]
+    [HttpPost("{id}/deactivate")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> DeactivateDiscount(Guid id)
     {
@@ -245,22 +271,23 @@ public class DiscountsController : BaseApiController
     /// </summary>
     [HttpPost("calculate")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> CalculateDiscountAmount([FromBody] DiscountRequestDto.CalculateDiscountRequest request)
+    public async Task<IActionResult> CalculateDiscountAmount(
+        [FromBody] DiscountRequestDto.CalculateDiscountRequest request
+    )
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest("Invalid request data", ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                InvalidRequestDataMessage,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         var discountAmount = await _discountService.CalculateDiscountAmountAsync(
             request.Code,
             request.OriginalAmount,
-            request.ClinicId,
-            request.SpecialtyId,
-            request.DoctorId);
+            request.HospitalId
+        );
 
         var finalAmount = request.OriginalAmount - discountAmount;
 
@@ -268,7 +295,7 @@ public class DiscountsController : BaseApiController
         {
             DiscountAmount = discountAmount,
             FinalAmount = finalAmount,
-            OriginalAmount = request.OriginalAmount
+            OriginalAmount = request.OriginalAmount,
         };
 
         return Success(result, "Discount amount calculated successfully");
@@ -281,7 +308,12 @@ public class DiscountsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Health()
     {
-        var healthData = new { Status = "Healthy", Service = "Discount", Timestamp = DateTime.UtcNow };
+        var healthData = new
+        {
+            Status = "Healthy",
+            Service = "Discount",
+            Timestamp = DateTime.UtcNow,
+        };
         return Success(healthData, "Discount service is healthy");
     }
 }

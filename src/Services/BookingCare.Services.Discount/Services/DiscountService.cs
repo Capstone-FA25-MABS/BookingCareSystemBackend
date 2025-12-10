@@ -5,8 +5,8 @@ using BookingCare.Services.Discount.Models.DTOs;
 using BookingCare.Services.Discount.Models.Entities;
 using BookingCare.Services.Discount.Repositories;
 using BookingCare.Shared.Common.Enums;
-using BookingCare.Shared.Common.Services;
 using BookingCare.Shared.Common.Exceptions;
+using BookingCare.Shared.Common.Services;
 using Microsoft.Extensions.Logging;
 
 namespace BookingCare.Services.Discount.Services;
@@ -19,7 +19,9 @@ public class DiscountService : BaseService, IDiscountService
     public DiscountService(
         IDiscountRepository discountRepository,
         IMapper mapper,
-        ILogger<DiscountService> logger) : base(logger)
+        ILogger<DiscountService> logger
+    )
+        : base(logger)
     {
         _discountRepository = discountRepository;
         _mapper = mapper;
@@ -27,52 +29,67 @@ public class DiscountService : BaseService, IDiscountService
 
     public async Task<DiscountResponse> CreateDiscountAsync(CreateDiscountRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Creating discount with code: {Code}", null, request.Code);
-
-            // Validate business rules
-            ValidateCreateDiscountRequest(request);
-
-            // Check if code already exists
-            if (await _discountRepository.CodeExistsAsync(request.Code))
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new DiscountBusinessException($"Discount code '{request.Code}' already exists");
-            }
+                LogInfo("Creating discount with code: {Code}", null, request.Code);
 
-            // Validate dates
-            if (request.StartDate >= request.EndDate)
-            {
-                throw new DiscountValidationException(new List<ValidationError>
+                // Validate business rules
+                ValidateCreateDiscountRequest(request);
+
+                // Check if code already exists
+                if (await _discountRepository.CodeExistsAsync(request.Code))
                 {
-                    new("StartDate", "Start date must be before end date", request.StartDate),
-                    new("EndDate", "End date must be after start date", request.EndDate)
-                });
-            }
+                    throw new DiscountBusinessException(
+                        $"Discount code '{request.Code}' already exists"
+                    );
+                }
 
-            if (request.EndDate <= DateTime.UtcNow)
-            {
-                throw new DiscountValidationException(new List<ValidationError>
+                // Validate dates
+                if (request.StartDate >= request.EndDate)
                 {
-                    new("EndDate", "End date must be in the future", request.EndDate)
-                });
-            }
+                    throw new DiscountValidationException(
+                        new List<ValidationError>
+                        {
+                            new(
+                                "StartDate",
+                                "Start date must be before end date",
+                                request.StartDate
+                            ),
+                            new("EndDate", "End date must be after start date", request.EndDate),
+                        }
+                    );
+                }
 
-            // Validate percentage discount
-            if (request.DiscountType == DiscountType.PERCENTAGE && request.Amount > 100)
-            {
-                throw new DiscountValidationException(new List<ValidationError>
+                if (request.EndDate <= DateTime.UtcNow)
                 {
-                    new("Amount", "Percentage discount cannot exceed 100%", request.Amount)
-                });
-            }
+                    throw new DiscountValidationException(
+                        new List<ValidationError>
+                        {
+                            new("EndDate", "End date must be in the future", request.EndDate),
+                        }
+                    );
+                }
 
-            var discountEntity = _mapper.Map<DiscountEntity>(request);
-            var createdDiscount = await _discountRepository.CreateAsync(discountEntity);
+                // Validate percentage discount
+                if (request.DiscountType == DiscountType.PERCENTAGE && request.Amount > 100)
+                {
+                    throw new DiscountValidationException(
+                        new List<ValidationError>
+                        {
+                            new("Amount", "Percentage discount cannot exceed 100%", request.Amount),
+                        }
+                    );
+                }
 
-            LogInfo("Discount created successfully with ID: {Id}", null, createdDiscount.Id);
-            return _mapper.Map<DiscountResponse>(createdDiscount);
-        }, "CreateDiscount");
+                var discountEntity = _mapper.Map<DiscountEntity>(request);
+                var createdDiscount = await _discountRepository.CreateAsync(discountEntity);
+
+                LogInfo("Discount created successfully with ID: {Id}", null, createdDiscount.Id);
+                return _mapper.Map<DiscountResponse>(createdDiscount);
+            },
+            "CreateDiscount"
+        );
     }
 
     public async Task<DiscountResponse?> GetDiscountByIdAsync(Guid id)
@@ -89,228 +106,272 @@ public class DiscountService : BaseService, IDiscountService
 
     public async Task<DiscountResponse> UpdateDiscountAsync(Guid id, UpdateDiscountRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Updating discount with ID: {Id}", null, id);
-            ValidateRequired(request, nameof(request));
-
-            var existingDiscount = await _discountRepository.GetByIdAsync(id);
-            if (existingDiscount == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new DiscountNotFoundException(id);
-            }
+                LogInfo("Updating discount with ID: {Id}", null, id);
+                ValidateRequired(request, nameof(request));
 
-            // Validate dates if provided
-            var startDate = request.StartDate ?? existingDiscount.StartDate;
-            var endDate = request.EndDate ?? existingDiscount.EndDate;
-
-            if (startDate >= endDate)
-            {
-                throw new DiscountValidationException(new List<ValidationError>
+                var existingDiscount = await _discountRepository.GetByIdAsync(id);
+                if (existingDiscount == null)
                 {
-                    new("StartDate", "Start date must be before end date", startDate),
-                    new("EndDate", "End date must be after start date", endDate)
-                });
-            }
-
-            // Validate amount if provided
-            if (request.Amount.HasValue)
-            {
-                if (existingDiscount.DiscountType == DiscountType.PERCENTAGE && request.Amount > 100)
-                {
-                    throw new DiscountValidationException(new List<ValidationError>
-                    {
-                        new("Amount", "Percentage discount cannot exceed 100%", request.Amount)
-                    });
+                    throw new DiscountNotFoundException(id);
                 }
-            }
 
-            // Apply updates
-            _mapper.Map(request, existingDiscount);
-            var updatedDiscount = await _discountRepository.UpdateAsync(existingDiscount);
+                // Validate dates if provided
+                var startDate = request.StartDate ?? existingDiscount.StartDate;
+                var endDate = request.EndDate ?? existingDiscount.EndDate;
 
-            LogInfo("Discount updated successfully with ID: {Id}", null, updatedDiscount.Id);
-            return _mapper.Map<DiscountResponse>(updatedDiscount);
-        }, "UpdateDiscount");
+                if (startDate >= endDate)
+                {
+                    throw new DiscountValidationException(
+                        new List<ValidationError>
+                        {
+                            new("StartDate", "Start date must be before end date", startDate),
+                            new("EndDate", "End date must be after start date", endDate),
+                        }
+                    );
+                }
+
+                // Validate amount if provided
+                if (
+                    request.Amount.HasValue
+                    && existingDiscount.DiscountType == DiscountType.PERCENTAGE
+                    && request.Amount > 100
+                )
+                {
+                    throw new DiscountValidationException(
+                        new List<ValidationError>
+                        {
+                            new("Amount", "Percentage discount cannot exceed 100%", request.Amount),
+                        }
+                    );
+                }
+
+                // Apply updates
+                _mapper.Map(request, existingDiscount);
+                var updatedDiscount = await _discountRepository.UpdateAsync(existingDiscount);
+
+                LogInfo("Discount updated successfully with ID: {Id}", null, updatedDiscount.Id);
+                return _mapper.Map<DiscountResponse>(updatedDiscount);
+            },
+            "UpdateDiscount"
+        );
     }
 
     public async Task<bool> DeleteDiscountAsync(Guid id)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Deleting discount with ID: {Id}", null, id);
-
-            var discount = await _discountRepository.GetByIdAsync(id);
-            if (discount == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                throw new DiscountNotFoundException(id);
-            }
+                LogInfo("Deleting discount with ID: {Id}", null, id);
 
-            // Check if discount has been used
-            if (discount.UsesCount > 0)
-            {
-                throw new DiscountBusinessException("Cannot delete discount that has been used");
-            }
+                var discount = await _discountRepository.GetByIdAsync(id);
+                if (discount == null)
+                {
+                    throw new DiscountNotFoundException(id);
+                }
 
-            var result = await _discountRepository.DeleteAsync(id);
+                // Check if discount has been used
+                if (discount.UsesCount > 0)
+                {
+                    throw new DiscountBusinessException(
+                        "Cannot delete discount that has been used"
+                    );
+                }
 
-            if (result)
-            {
-                LogInfo("Discount deleted successfully with ID: {Id}", null, id);
-            }
+                var result = await _discountRepository.DeleteAsync(id);
 
-            return result;
-        }, "DeleteDiscount");
+                if (result)
+                {
+                    LogInfo("Discount deleted successfully with ID: {Id}", null, id);
+                }
+
+                return result;
+            },
+            "DeleteDiscount"
+        );
     }
 
     public async Task<DiscountListResponse> GetDiscountsAsync(DiscountQueryRequest query)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            ValidateRequired(query, "Query request is required");
-
-            LogInfo("Getting discounts - Page: {Page}, PageSize: {PageSize}", null, query.PageNumber, query.PageSize);
-
-            var (discounts, totalCount) = await _discountRepository.GetDiscountsAsync(query);
-
-            var response = _mapper.Map<DiscountListResponse>((discounts, totalCount));
-            response.PageNumber = query.PageNumber;
-            response.PageSize = query.PageSize;
-            response.TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
-
-            return response;
-        }, "GetDiscounts");
-    }
-
-    public async Task<List<DiscountResponse>> GetActiveDiscountsByClinicAsync(Guid clinicId)
-    {
-        var discounts = await _discountRepository.GetActiveDiscountsByClinicAsync(clinicId);
-        return _mapper.Map<List<DiscountResponse>>(discounts);
-    }
-
-    public async Task<List<DiscountResponse>> GetApplicableDiscountsAsync(Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
-    {
-        var discounts = await _discountRepository.GetApplicableDiscountsAsync(clinicId, specialtyId, doctorId);
-        return _mapper.Map<List<DiscountResponse>>(discounts);
-    }
-
-    public async Task<DiscountValidationResponse> ValidateDiscountAsync(ValidateDiscountRequest request)
-    {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Validating discount code: {Code}", null, request.Code);
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.Code, nameof(request.Code));
-
-            var discount = await _discountRepository.GetValidDiscountAsync(
-                request.Code,
-                request.ClinicId,
-                request.SpecialtyId,
-                request.DoctorId);
-
-            if (discount == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
+                ValidateRequired(query, "Query request is required");
+
+                LogInfo(
+                    "Getting discounts - Page: {Page}, PageSize: {PageSize}",
+                    null,
+                    query.PageNumber,
+                    query.PageSize
+                );
+
+                var (discounts, totalCount) = await _discountRepository.GetDiscountsAsync(query);
+
+                var response = _mapper.Map<DiscountListResponse>((discounts, totalCount));
+                response.PageNumber = query.PageNumber;
+                response.PageSize = query.PageSize;
+                response.TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize);
+
+                return response;
+            },
+            "GetDiscounts"
+        );
+    }
+
+    public async Task<List<DiscountResponse>> GetActiveDiscountsByHospitalAsync(Guid hospitalId)
+    {
+        var discounts = await _discountRepository.GetActiveDiscountsByHospitalAsync(hospitalId);
+        return _mapper.Map<List<DiscountResponse>>(discounts);
+    }
+
+    public async Task<List<DiscountResponse>> GetApplicableDiscountsAsync(
+        Guid hospitalId,
+        Guid? specialtyId = null,
+        Guid? doctorId = null
+    )
+    {
+        var discounts = await _discountRepository.GetApplicableDiscountsAsync(
+            hospitalId,
+            specialtyId,
+            doctorId
+        );
+        return _mapper.Map<List<DiscountResponse>>(discounts);
+    }
+
+    public async Task<DiscountValidationResponse> ValidateDiscountAsync(
+        ValidateDiscountRequest request
+    )
+    {
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo("Validating discount code: {Code}", null, request.Code);
+                ValidateRequired(request, nameof(request));
+                ValidateRequiredString(request.Code, nameof(request.Code));
+
+                var discount = await _discountRepository.GetValidDiscountAsync(
+                    request.Code,
+                    request.HospitalId,
+                    request.SpecialtyId,
+                    request.DoctorId
+                );
+
+                if (discount == null)
+                {
+                    return new DiscountValidationResponse
+                    {
+                        IsValid = false,
+                        Message = "Discount code is not valid or has expired",
+                    };
+                }
+
+                var discountAmount = CalculateDiscountAmount(discount, request.TotalAmount);
+                var finalAmount = request.TotalAmount - discountAmount;
+
                 return new DiscountValidationResponse
                 {
-                    IsValid = false,
-                    Message = "Discount code is not valid or has expired"
+                    IsValid = true,
+                    Message = "Discount is valid",
+                    DiscountAmount = discountAmount,
+                    FinalAmount = finalAmount,
+                    Discount = _mapper.Map<DiscountResponse>(discount),
                 };
-            }
-
-            var discountAmount = CalculateDiscountAmount(discount, request.TotalAmount);
-            var finalAmount = request.TotalAmount - discountAmount;
-
-            return new DiscountValidationResponse
-            {
-                IsValid = true,
-                Message = "Discount is valid",
-                DiscountAmount = discountAmount,
-                FinalAmount = finalAmount,
-                Discount = _mapper.Map<DiscountResponse>(discount)
-            };
-        }, "ValidateDiscount");
+            },
+            "ValidateDiscount"
+        );
     }
 
     public async Task<DiscountUsageResponse> UseDiscountAsync(UseDiscountRequest request)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Using discount code: {Code}", null, request.Code);
-            ValidateRequired(request, nameof(request));
-            ValidateRequiredString(request.Code, nameof(request.Code));
-
-            var discount = await _discountRepository.GetValidDiscountAsync(
-                request.Code,
-                request.ClinicId,
-                request.SpecialtyId,
-                request.DoctorId);
-
-            if (discount == null)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
+                LogInfo("Using discount code: {Code}", null, request.Code);
+                ValidateRequired(request, nameof(request));
+                ValidateRequiredString(request.Code, nameof(request.Code));
+
+                var discount = await _discountRepository.GetValidDiscountAsync(
+                    request.Code,
+                    request.HospitalId
+                );
+
+                if (discount == null)
+                {
+                    return new DiscountUsageResponse
+                    {
+                        Success = false,
+                        Message = "Discount code is not valid or has expired",
+                    };
+                }
+
+                // Check if usage limit exceeded
+                if (discount.MaxUses.HasValue && discount.UsesCount >= discount.MaxUses.Value)
+                {
+                    return new DiscountUsageResponse
+                    {
+                        Success = false,
+                        Message = "Discount usage limit has been reached",
+                    };
+                }
+
+                var discountAmount = CalculateDiscountAmount(discount, request.TotalAmount);
+                var finalAmount = request.TotalAmount - discountAmount;
+
+                // Increment usage count
+                await _discountRepository.IncrementUsageAsync(discount.Id);
+
+                var remainingUses = discount.MaxUses.HasValue
+                    ? Math.Max(0, discount.MaxUses.Value - discount.UsesCount - 1)
+                    : int.MaxValue;
+
+                LogInfo(
+                    "Discount used successfully. ID: {Id}, Remaining uses: {RemainingUses}",
+                    null,
+                    discount.Id,
+                    remainingUses
+                );
+
                 return new DiscountUsageResponse
                 {
-                    Success = false,
-                    Message = "Discount code is not valid or has expired"
+                    Success = true,
+                    Message = "Discount applied successfully",
+                    DiscountAmount = discountAmount,
+                    FinalAmount = finalAmount,
+                    DiscountId = discount.Id,
+                    RemainingUses = remainingUses,
                 };
-            }
-
-            // Check if usage limit exceeded
-            if (discount.MaxUses.HasValue && discount.UsesCount >= discount.MaxUses.Value)
-            {
-                return new DiscountUsageResponse
-                {
-                    Success = false,
-                    Message = "Discount usage limit has been reached"
-                };
-            }
-
-            var discountAmount = CalculateDiscountAmount(discount, request.TotalAmount);
-            var finalAmount = request.TotalAmount - discountAmount;
-
-            // Increment usage count
-            await _discountRepository.IncrementUsageAsync(discount.Id);
-
-            var remainingUses = discount.MaxUses.HasValue
-                ? Math.Max(0, discount.MaxUses.Value - discount.UsesCount - 1)
-                : int.MaxValue;
-
-            LogInfo("Discount used successfully. ID: {Id}, Remaining uses: {RemainingUses}",
-                null, discount.Id, remainingUses);
-
-            return new DiscountUsageResponse
-            {
-                Success = true,
-                Message = "Discount applied successfully",
-                DiscountAmount = discountAmount,
-                FinalAmount = finalAmount,
-                DiscountId = discount.Id,
-                RemainingUses = remainingUses
-            };
-        }, "UseDiscount");
+            },
+            "UseDiscount"
+        );
     }
 
-    public async Task<bool> RevertDiscountUsageAsync(string code, Guid clinicId)
+    public async Task<bool> RevertDiscountUsageAsync(string code, Guid hospitalId)
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Reverting discount usage for code: {Code}", null, code);
-            ValidateRequiredString(code, nameof(code));
-
-            var discount = await _discountRepository.GetByCodeAsync(code);
-            if (discount == null || discount.ClinicId != clinicId)
+        return await ExecuteWithErrorHandling(
+            async () =>
             {
-                return false;
-            }
+                LogInfo("Reverting discount usage for code: {Code}", null, code);
+                ValidateRequiredString(code, nameof(code));
 
-            var result = await _discountRepository.DecrementUsageAsync(discount.Id);
+                var discount = await _discountRepository.GetByCodeAsync(code);
+                if (discount == null || discount.HospitalId != hospitalId)
+                {
+                    return false;
+                }
 
-            if (result)
-            {
-                LogInfo("Discount usage reverted successfully for ID: {Id}", null, discount.Id);
-            }
+                var result = await _discountRepository.DecrementUsageAsync(discount.Id);
 
-            return result;
-        }, "RevertDiscountUsage");
+                if (result)
+                {
+                    LogInfo("Discount usage reverted successfully for ID: {Id}", null, discount.Id);
+                }
+
+                return result;
+            },
+            "RevertDiscountUsage"
+        );
     }
 
     public async Task<bool> ActivateDiscountAsync(Guid id)
@@ -325,25 +386,50 @@ public class DiscountService : BaseService, IDiscountService
 
     public async Task<int> UpdateExpiredDiscountsAsync()
     {
-        return await ExecuteWithErrorHandling(async () =>
-        {
-            LogInfo("Updating expired discounts");
-            var count = await _discountRepository.UpdateExpiredDiscountsAsync();
-            LogInfo("Updated {Count} expired discounts", null, count);
-            return count;
-        }, "UpdateExpiredDiscounts");
+        return await ExecuteWithErrorHandling(
+            async () =>
+            {
+                LogInfo("Updating expired discounts");
+                var count = await _discountRepository.UpdateExpiredDiscountsAsync();
+                LogInfo("Updated {Count} expired discounts", null, count);
+                return count;
+            },
+            "UpdateExpiredDiscounts"
+        );
     }
 
-    public async Task<bool> IsDiscountValidAsync(string code, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
+    public async Task<bool> IsDiscountValidAsync(
+        string code,
+        Guid hospitalId,
+        Guid? specialtyId = null,
+        Guid? doctorId = null
+    )
     {
-        var discount = await _discountRepository.GetValidDiscountAsync(code, clinicId, specialtyId, doctorId);
+        var discount = await _discountRepository.GetValidDiscountAsync(
+            code,
+            hospitalId,
+            specialtyId,
+            doctorId
+        );
         return discount != null;
     }
 
-    public async Task<decimal> CalculateDiscountAmountAsync(string code, decimal originalAmount, Guid clinicId, Guid? specialtyId = null, Guid? doctorId = null)
+    public async Task<decimal> CalculateDiscountAmountAsync(
+        string code,
+        decimal originalAmount,
+        Guid hospitalId,
+        Guid? specialtyId = null,
+        Guid? doctorId = null
+    )
     {
-        var discount = await _discountRepository.GetValidDiscountAsync(code, clinicId, specialtyId, doctorId);
-        if (discount == null) return 0;
+        var discount = await _discountRepository.GetValidDiscountAsync(
+            code,
+            hospitalId,
+            specialtyId,
+            doctorId
+        );
+        if (discount == null)
+            return 0;
 
         return CalculateDiscountAmount(discount, originalAmount);
     }
@@ -354,38 +440,21 @@ public class DiscountService : BaseService, IDiscountService
         {
             DiscountType.PERCENTAGE => originalAmount * (discount.Amount / 100),
             DiscountType.FIXED_AMOUNT => Math.Min(discount.Amount, originalAmount),
-            _ => 0
+            _ => 0,
         };
     }
 
     private static void ValidateCreateDiscountRequest(CreateDiscountRequest request)
     {
-        // Validate applicable_to and related fields
-        switch (request.ApplicableTo)
-        {
-            case DiscountApplicableTo.SPECIALTY:
-                if (!request.SpecialtyId.HasValue)
-                {
-                    throw new DiscountValidationException("SpecialtyId is required when ApplicableTo is SPECIALTY");
-                }
-                break;
-            case DiscountApplicableTo.DOCTOR:
-                if (!request.DoctorId.HasValue)
-                {
-                    throw new DiscountValidationException("DoctorId is required when ApplicableTo is DOCTOR");
-                }
-                break;
-            case DiscountApplicableTo.ALL:
-                // No additional validation needed
-                break;
-            default:
-                throw new DiscountValidationException("ApplicableTo must be one of: ALL, SPECIALTY, DOCTOR");
-        }
-
         // Validate discount type
-        if (request.DiscountType != DiscountType.PERCENTAGE && request.DiscountType != DiscountType.FIXED_AMOUNT)
+        if (
+            request.DiscountType != DiscountType.PERCENTAGE
+            && request.DiscountType != DiscountType.FIXED_AMOUNT
+        )
         {
-            throw new DiscountValidationException("DiscountType must be either PERCENTAGE or FIXED_AMOUNT");
+            throw new DiscountValidationException(
+                "DiscountType must be either PERCENTAGE or FIXED_AMOUNT"
+            );
         }
 
         // Validate status

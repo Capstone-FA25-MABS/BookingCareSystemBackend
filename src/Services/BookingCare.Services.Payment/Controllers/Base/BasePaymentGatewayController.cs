@@ -10,6 +10,7 @@ using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using DiscountProtos = BookingCare.Services.Discount.Protos;
 
 namespace BookingCare.Services.Payment.Controllers.Base;
 
@@ -26,13 +27,15 @@ public abstract class BasePaymentGatewayController : BaseApiController
     protected readonly FrontendOptions FrontendOptions;
     protected readonly ILogger Logger;
     protected readonly AppointmentService.AppointmentServiceClient AppointmentClient;
+    protected readonly DiscountProtos.DiscountService.DiscountServiceClient? DiscountClient;
 
     protected BasePaymentGatewayController(
         IPaymentService paymentService,
         IEventBus eventBus,
         IOptions<FrontendOptions> frontendOptions,
         ILogger logger,
-        AppointmentService.AppointmentServiceClient appointmentClient
+        AppointmentService.AppointmentServiceClient appointmentClient,
+        DiscountProtos.DiscountService.DiscountServiceClient? discountClient = null
     )
     {
         PaymentService = paymentService;
@@ -40,6 +43,7 @@ public abstract class BasePaymentGatewayController : BaseApiController
         FrontendOptions = frontendOptions.Value;
         Logger = logger;
         AppointmentClient = appointmentClient;
+        DiscountClient = discountClient;
     }
 
     /// <summary>
@@ -95,117 +99,296 @@ public abstract class BasePaymentGatewayController : BaseApiController
         where TResponse : class
     {
         var appointmentId = payment.AppointmentId;
-
-        // Check if this is a supplementary payment (price difference)
         var metadata = ExtractMetadataFromCallback(callbackResult);
         var isSupplementaryPayment = IsSupplementaryPayment(metadata, out var suppAppointmentId);
-        var isStaffAssigned = ExtractIsStaffAssigned(metadata);
 
         if (isSupplementaryPayment && suppAppointmentId.HasValue)
         {
-            // Handle supplementary payment - update existing payment and confirm appointment
-            // IMPORTANT: Execute synchronously within request scope to avoid DbContext disposed error
-            try
-            {
-                await HandleSupplementaryPaymentSuccessAsync(
-                    suppAppointmentId.Value,
-                    payment,
-                    callbackResult,
-                    requestId,
-                    gatewayName,
-                    isStaffAssigned
-                );
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(
-                    ex,
-                    "{Gateway} Callback #{RequestId} - Failed to process supplementary payment for AppointmentId: {AppointmentId}",
-                    gatewayName,
-                    requestId,
-                    suppAppointmentId.Value
-                );
-                // Continue to redirect even if update fails (user can retry)
-            }
-
-            // Redirect to booking confirmation page
-            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
-                FrontendOptions,
+            return await HandleSupplementaryPaymentFlow(
+                payment,
+                callbackResult,
+                requestId,
+                gatewayName,
                 suppAppointmentId.Value,
-                true
+                metadata
             );
-            Logger.LogInformation(
-                "{Gateway} Callback #{RequestId} - Supplementary payment successful, redirecting to confirmation for AppointmentId: {AppointmentId}",
+        }
+
+        ProcessRegularPaymentAsync(payment, callbackResult, requestId, gatewayName);
+
+        return HandleFrontendRedirectOrResponse(
+            payment,
+            callbackResult,
+            requestId,
+            gatewayName,
+            appointmentId,
+            createResponseFunc
+        );
+    }
+
+    /// <summary>
+    /// Handle supplementary payment flow
+    /// </summary>
+    private async Task<IActionResult> HandleSupplementaryPaymentFlow<TResponse>(
+        PaymentResponse payment,
+        TResponse callbackResult,
+        string requestId,
+        string gatewayName,
+        Guid suppAppointmentId,
+        string? metadata
+    )
+        where TResponse : class
+    {
+        var isStaffAssigned = ExtractIsStaffAssigned(metadata);
+
+        try
+        {
+            await HandleSupplementaryPaymentSuccessAsync(
+                suppAppointmentId,
+                payment,
+                callbackResult,
+                requestId,
+                gatewayName,
+                isStaffAssigned
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "{Gateway} Callback #{RequestId} - Failed to process supplementary payment for AppointmentId: {AppointmentId}",
                 gatewayName,
                 requestId,
-                suppAppointmentId.Value
+                suppAppointmentId
             );
-            return Redirect(frontendUrl);
         }
-        else
+
+        var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
+            FrontendOptions,
+            suppAppointmentId,
+            true
+        );
+        Logger.LogInformation(
+            "{Gateway} Callback #{RequestId} - Supplementary payment successful, redirecting to confirmation for AppointmentId: {AppointmentId}",
+            gatewayName,
+            requestId,
+            suppAppointmentId
+        );
+        return Redirect(frontendUrl);
+    }
+
+    /// <summary>
+    /// Process regular payment asynchronously
+    /// </summary>
+    private void ProcessRegularPaymentAsync<TResponse>(
+        PaymentResponse payment,
+        TResponse callbackResult,
+        string requestId,
+        string gatewayName
+    )
+        where TResponse : class
+    {
+        if (!payment.AppointmentId.HasValue || !payment.PatientId.HasValue)
         {
-            // Regular payment - publish payment success event for appointment booking notification
-            if (appointmentId.HasValue && payment.PatientId.HasValue)
+            return;
+        }
+
+        var capturedData = CapturePaymentData(payment);
+
+        _ = Task.Run(async () =>
+        {
+            await ProcessDiscountUsageAsync(capturedData, requestId, gatewayName);
+            await PublishPaymentSuccessEventAsync(
+                capturedData,
+                callbackResult,
+                requestId,
+                gatewayName
+            );
+        });
+    }
+
+    /// <summary>
+    /// Capture payment data to avoid DbContext disposed error
+    /// </summary>
+    private CapturedPaymentData CapturePaymentData(PaymentResponse payment)
+    {
+        return new CapturedPaymentData
+        {
+            DiscountId = payment.DiscountId,
+            DiscountCode = payment.DiscountCode,
+            HospitalId = payment.HospitalId,
+            Amount = payment.Amount,
+            PaymentId = payment.Id,
+            PatientId = payment.PatientId!.Value,
+            AppointmentId = payment.AppointmentId!.Value,
+        };
+    }
+
+    /// <summary>
+    /// Process discount usage via gRPC
+    /// </summary>
+    private async Task ProcessDiscountUsageAsync(
+        CapturedPaymentData data,
+        string requestId,
+        string gatewayName
+    )
+    {
+        if (
+            !data.DiscountId.HasValue
+            || string.IsNullOrWhiteSpace(data.DiscountCode)
+            || DiscountClient == null
+            || !data.HospitalId.HasValue
+        )
+        {
+            return;
+        }
+
+        try
+        {
+            var useDiscountRequest = new DiscountProtos.UseDiscountRequest
             {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var paymentSuccessEvent = new AppointmentPaymentSuccessIntegrationEvent
-                        {
-                            AppointmentId = appointmentId.Value,
-                            PatientId = payment.PatientId.Value,
-                            PaymentId = payment.Id,
-                            Amount = payment.Amount,
-                            PaymentMethod = gatewayName,
-                            TransactionId = GetTransactionIdFromCallback(callbackResult),
-                            PaymentCompletedAt = DateTime.UtcNow,
-                            CorrelationId = requestId,
-                        };
+                Code = data.DiscountCode,
+                HospitalId = data.HospitalId.ToString()!,
+                TotalAmount = (double)data.Amount,
+            };
 
-                        await EventBus.PublishAsync(paymentSuccessEvent);
+            var useDiscountResponse = await DiscountClient.UseDiscountAsync(useDiscountRequest);
 
-                        Logger.LogInformation(
-                            "{Gateway} Callback #{RequestId} - Published appointment payment success event for AppointmentId: {AppointmentId}",
-                            gatewayName,
-                            requestId,
-                            appointmentId.Value
-                        );
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(
-                            ex,
-                            "{Gateway} Callback #{RequestId} - Failed to publish payment success event for AppointmentId: {AppointmentId}",
-                            gatewayName,
-                            requestId,
-                            appointmentId
-                        );
-                    }
-                });
+            if (useDiscountResponse.Success)
+            {
+                Logger.LogInformation(
+                    "{Gateway} Callback #{RequestId} - Discount usage incremented successfully for DiscountId: {DiscountId}, Remaining: {Remaining}",
+                    gatewayName,
+                    requestId,
+                    data.DiscountId,
+                    useDiscountResponse.RemainingUses
+                );
+            }
+            else
+            {
+                Logger.LogWarning(
+                    "{Gateway} Callback #{RequestId} - Failed to increment discount usage: {Message}",
+                    gatewayName,
+                    requestId,
+                    useDiscountResponse.Message
+                );
             }
         }
-
-        if (PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
+        catch (Exception discountEx)
         {
-            var apptId = appointmentId!.Value;
-            var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
-                FrontendOptions,
-                apptId,
-                true
-            );
-            Logger.LogInformation(
-                "{Gateway} Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
+            Logger.LogError(
+                discountEx,
+                "{Gateway} Callback #{RequestId} - Error incrementing discount usage for DiscountId: {DiscountId}",
                 gatewayName,
                 requestId,
-                apptId,
-                frontendUrl
+                data.DiscountId
             );
+        }
+    }
 
-            return Redirect(frontendUrl);
+    /// <summary>
+    /// Publish payment success event
+    /// </summary>
+    private async Task PublishPaymentSuccessEventAsync<TResponse>(
+        CapturedPaymentData data,
+        TResponse callbackResult,
+        string requestId,
+        string gatewayName
+    )
+        where TResponse : class
+    {
+        try
+        {
+            var paymentSuccessEvent = new AppointmentPaymentSuccessIntegrationEvent
+            {
+                AppointmentId = data.AppointmentId,
+                PatientId = data.PatientId,
+                PaymentId = data.PaymentId,
+                Amount = data.Amount,
+                PaymentMethod = gatewayName,
+                TransactionId = GetTransactionIdFromCallback(callbackResult),
+                PaymentCompletedAt = DateTime.UtcNow,
+                CorrelationId = requestId,
+            };
+
+            await EventBus.PublishAsync(paymentSuccessEvent);
+
+            Logger.LogInformation(
+                "{Gateway} Callback #{RequestId} - Published appointment payment success event for AppointmentId: {AppointmentId}",
+                gatewayName,
+                requestId,
+                data.AppointmentId
+            );
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(
+                ex,
+                "{Gateway} Callback #{RequestId} - Failed to publish payment success event for AppointmentId: {AppointmentId}",
+                gatewayName,
+                requestId,
+                data.AppointmentId
+            );
+        }
+    }
+
+    /// <summary>
+    /// Handle frontend redirect or create response
+    /// </summary>
+    private IActionResult HandleFrontendRedirectOrResponse<TResponse>(
+        PaymentResponse payment,
+        TResponse callbackResult,
+        string requestId,
+        string gatewayName,
+        Guid? appointmentId,
+        Func<PaymentResponse, TResponse, string, IActionResult> createResponseFunc
+    )
+        where TResponse : class
+    {
+        if (!PaymentFrontendHelper.ShouldRedirectToFrontend(appointmentId))
+        {
+            return createResponseFunc(payment, callbackResult, requestId);
         }
 
-        return createResponseFunc(payment, callbackResult, requestId);
+        if (!appointmentId.HasValue)
+        {
+            Logger.LogError(
+                "{Gateway} Callback #{RequestId} - Cannot redirect to frontend: appointmentId is null",
+                gatewayName,
+                requestId
+            );
+            return createResponseFunc(payment, callbackResult, requestId);
+        }
+
+        var apptId = appointmentId.Value;
+        var frontendUrl = PaymentFrontendHelper.BuildAppointmentRedirectUrl(
+            FrontendOptions,
+            apptId,
+            true
+        );
+        Logger.LogInformation(
+            "{Gateway} Callback #{RequestId} - Redirecting to frontend for appointment: {AppointmentId}, URL: {RedirectUrl}",
+            gatewayName,
+            requestId,
+            apptId,
+            frontendUrl
+        );
+
+        return Redirect(frontendUrl);
+    }
+
+    /// <summary>
+    /// Data structure to capture payment data
+    /// </summary>
+    private sealed class CapturedPaymentData
+    {
+        public Guid? DiscountId { get; init; }
+        public string? DiscountCode { get; init; }
+        public Guid? HospitalId { get; init; }
+        public decimal Amount { get; init; }
+        public Guid PaymentId { get; init; }
+        public Guid PatientId { get; init; }
+        public Guid AppointmentId { get; init; }
     }
 
     /// <summary>
