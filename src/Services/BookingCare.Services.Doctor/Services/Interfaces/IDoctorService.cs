@@ -21,11 +21,20 @@ public interface IDoctorService : IAvatarService
     Task<DoctorListResponse> FilterDoctorsAsync(DoctorAdvancedFilterRequest filter);
     Task<DoctorSearchListResponse> FilterDoctorsOptimizedAsync(DoctorAdvancedFilterRequest filter);
     Task<List<DoctorResponse>> GetDoctorsByHospitalAsync(Guid hospitalId);
-    Task<DoctorSearchListResponse> GetDoctorsByHospitalOptimizedAsync(Guid hospitalId, int pageNumber = 1, int pageSize = 10);
+    Task<DoctorSearchListResponse> GetDoctorsByHospitalOptimizedAsync(
+        Guid hospitalId,
+        int pageNumber = 1,
+        int pageSize = 10
+    );
     Task<List<DoctorResponse>> GetDoctorsBySpecialtyAsync(Guid specialtyId);
     Task<List<DoctorResponse>> GetDoctorsByPositionAsync(Guid positionId);
     Task<List<DoctorResponse>> GetActiveDoctorsAsync();
-    Task<DoctorListResponse> GetPatientFavoriteDoctorsAsync(Guid patientId, int page = 1, int pageSize = 9, string? searchTerm = null);
+    Task<DoctorListResponse> GetPatientFavoriteDoctorsAsync(
+        Guid patientId,
+        int page = 1,
+        int pageSize = 9,
+        string? searchTerm = null
+    );
     Task<List<DoctorBasicInfoResponse>> GetDoctorsByAccountIdsAsync(IEnumerable<Guid> accountIds);
 
     // DoctorPrice operations
@@ -43,8 +52,14 @@ public interface IDoctorService : IAvatarService
     IQueryable<DoctorEntity> GetQueryableDoctors();
 
     // Optimized methods for Patient Search
-    Task<DoctorSearchListResponse> SearchDoctorsForPatientsAsync(DoctorQueryRequest query, Guid? patientId = null);
-    Task<DoctorListResponse> GetDoctorsWithFavoriteStatusAsync(DoctorQueryRequest query, Guid patientId);
+    Task<DoctorSearchListResponse> SearchDoctorsForPatientsAsync(
+        DoctorQueryRequest query,
+        Guid? patientId = null
+    );
+    Task<DoctorListResponse> GetDoctorsWithFavoriteStatusAsync(
+        DoctorQueryRequest query,
+        Guid patientId
+    );
 
     // Optimized methods for gRPC performance
     Task<DoctorEntity?> GetDoctorBasicInfoByIdAsync(Guid id);
@@ -54,27 +69,47 @@ public interface IDoctorService : IAvatarService
     /// Get consultation fees for multiple doctors by service type (batch operation for performance)
     /// Returns a dictionary of doctorId -> price, only includes doctors that have the specified service type
     /// </summary>
-    Task<Dictionary<Guid, decimal>> GetDoctorsPricesByServiceTypeAsync(IEnumerable<Guid> doctorIds, string serviceTypeName);
+    Task<Dictionary<Guid, decimal>> GetDoctorsPricesByServiceTypeAsync(
+        IEnumerable<Guid> doctorIds,
+        string serviceTypeName
+    );
 
     // Get available doctors by hospital, specialty (for Appointment Service)
     // Note: Availability check (appointment conflicts) is done by Appointment Service
-    Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId);
+    Task<List<DoctorEntity>> GetDoctorsByHospitalAndSpecialtyAsync(
+        Guid hospitalId,
+        Guid specialtyId
+    );
 
     /// <summary>
     /// Get active doctor IDs by hospital and specialty (optimized for schedule aggregation)
     /// Returns only active doctor IDs after filtering by Auth Service status
     /// Optionally filters by appointment type (service type name)
     /// </summary>
-    Task<List<Guid>> GetActiveDoctorIdsByHospitalAndSpecialtyAsync(Guid hospitalId, Guid specialtyId, string? appointmentType = null);
+    Task<List<Guid>> GetActiveDoctorIdsByHospitalAndSpecialtyAsync(
+        Guid hospitalId,
+        Guid specialtyId,
+        string? appointmentType = null
+    );
 
     // Get doctor price by ID (for Appointment Service - Option 3 reschedule)
     Task<DoctorPriceResponse?> GetDoctorPriceByIdAsync(Guid priceId);
 
     // Doctor count operations
-    Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(Guid hospitalId, IEnumerable<Guid> specialtyIds);
+    Task<Dictionary<Guid, int>> GetDoctorCountsBySpecialtyAndHospitalAsync(
+        Guid hospitalId,
+        IEnumerable<Guid> specialtyIds
+    );
 
     // Get service types by hospital with doctor count
-    Task<List<(Guid ServiceTypeId, string ServiceTypeName, string? ServiceTypeImageUrl, int DoctorCount)>> GetServiceTypesByHospitalAsync(Guid hospitalId);
+    Task<
+        List<(
+            Guid ServiceTypeId,
+            string ServiceTypeName,
+            string? ServiceTypeImageUrl,
+            int DoctorCount
+        )>
+    > GetServiceTypesByHospitalAsync(Guid hospitalId);
 
     // Avatar operations
     Task<bool> UpdateDoctorAvatarAsync(Guid accountId, string avatarUrl);
@@ -87,7 +122,8 @@ public interface IDoctorService : IAvatarService
         List<Guid> specialtyIds,
         string? provinceId,
         string? districtId,
-        int maxResults = 10);
+        int maxResults = 10
+    );
 
     // Methods for doctor assignment flow (hospital staff assigns doctor to pending appointments)
     /// <summary>
@@ -97,7 +133,11 @@ public interface IDoctorService : IAvatarService
     Task<List<DoctorForAssignmentResponse>> GetDoctorsForAssignmentAsync(
         Guid hospitalId,
         Guid specialtyId,
-        string appointmentType);
+        string appointmentType
+    );
+
+    // Performance optimization: get only doctor IDs
+    Task<List<Guid>> GetDoctorIdsByHospitalAsync(Guid hospitalId);
 
     /// <summary>
     /// Get doctors for assignment by specific doctor IDs
@@ -105,5 +145,6 @@ public interface IDoctorService : IAvatarService
     /// </summary>
     Task<List<DoctorForAssignmentResponse>> GetDoctorsByIdsForAssignmentAsync(
         List<Guid> doctorIds,
-        string appointmentType);
+        string appointmentType
+    );
 }

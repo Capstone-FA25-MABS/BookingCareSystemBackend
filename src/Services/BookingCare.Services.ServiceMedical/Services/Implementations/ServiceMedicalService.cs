@@ -1,13 +1,14 @@
 using AutoMapper;
+using BookingCare.Services.Hospital;
+using BookingCare.Services.Review.Grpc;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Models.Entities;
 using BookingCare.Services.ServiceMedical.Repositories.Interfaces;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
-using BookingCare.Services.Hospital;
-using BookingCare.Services.Review.Grpc;
 using BookingCare.Shared.Common.Interfaces;
 using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
 using GrpcStatusCode = Grpc.Core.StatusCode;
 using ServiceMedicalHospitalBasicInfo = BookingCare.Services.ServiceMedical.Models.DTOs.Responses.HospitalBasicInfo;
 
@@ -28,7 +29,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             public ServiceMedicalGrpcClients(
                 SubscriptionUsageGrpc.SubscriptionUsageGrpcClient subscriptionUsageClient,
-                ReviewService.ReviewServiceClient reviewServiceClient)
+                ReviewService.ReviewServiceClient reviewServiceClient
+            )
             {
                 SubscriptionUsageClient = subscriptionUsageClient;
                 ReviewServiceClient = reviewServiceClient;
@@ -45,7 +47,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             ILogger<ServiceMedicalService> logger,
             IHospitalService hospitalService,
             ILocationApiService locationApiService,
-            ServiceMedicalGrpcClients grpcClients)
+            ServiceMedicalGrpcClients grpcClients
+        )
         {
             _categoryRepository = categoryRepository;
             _serviceRepository = serviceRepository;
@@ -59,14 +62,19 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
         #region ServiceCategory Operations
 
-        public async Task<ServiceCategoryResponse> CreateServiceCategoryAsync(CreateServiceCategoryRequest request)
+        public async Task<ServiceCategoryResponse> CreateServiceCategoryAsync(
+            CreateServiceCategoryRequest request
+        )
         {
             try
             {
                 // Validate parent if provided
                 if (request.ParentId.HasValue)
                 {
-                    var isValidParent = await _categoryRepository.IsValidParentAsync(request.ParentId.Value, Guid.Empty);
+                    var isValidParent = await _categoryRepository.IsValidParentAsync(
+                        request.ParentId.Value,
+                        Guid.Empty
+                    );
                     if (!isValidParent)
                     {
                         throw new ArgumentException("Invalid parent category");
@@ -81,7 +89,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating service category: {Name}", request.Name);
-                throw new InvalidOperationException($"Failed to create service category '{request.Name}'", ex);
+                throw new InvalidOperationException(
+                    $"Failed to create service category '{request.Name}'",
+                    ex
+                );
             }
         }
 
@@ -95,11 +106,16 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting service category by id: {Id}", id);
-                throw new InvalidOperationException($"Failed to retrieve service category with ID '{id}'", ex);
+                throw new InvalidOperationException(
+                    $"Failed to retrieve service category with ID '{id}'",
+                    ex
+                );
             }
         }
 
-        public async Task<ServiceCategoryResponse> UpdateServiceCategoryAsync(UpdateServiceCategoryRequest request)
+        public async Task<ServiceCategoryResponse> UpdateServiceCategoryAsync(
+            UpdateServiceCategoryRequest request
+        )
         {
             try
             {
@@ -112,7 +128,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 // Validate parent if provided and different from current
                 if (request.ParentId.HasValue && request.ParentId != existingEntity.ParentId)
                 {
-                    var isValidParent = await _categoryRepository.IsValidParentAsync(request.ParentId.Value, request.Id);
+                    var isValidParent = await _categoryRepository.IsValidParentAsync(
+                        request.ParentId.Value,
+                        request.Id
+                    );
                     if (!isValidParent)
                     {
                         throw new ArgumentException("Invalid parent category");
@@ -127,7 +146,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating service category: {Id}", request.Id);
-                throw new InvalidOperationException($"Failed to update service category with ID '{request.Id}'", ex);
+                throw new InvalidOperationException(
+                    $"Failed to update service category with ID '{request.Id}'",
+                    ex
+                );
             }
         }
 
@@ -139,7 +161,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var hasChildren = await _categoryRepository.HasChildrenAsync(id);
                 if (hasChildren)
                 {
-                    throw new InvalidOperationException("Không thể xóa danh mục dịch vụ cha. Vui lòng xóa tất cả danh mục dịch vụ con trước.");
+                    throw new InvalidOperationException(
+                        "Không thể xóa danh mục dịch vụ cha. Vui lòng xóa tất cả danh mục dịch vụ con trước."
+                    );
                 }
 
                 return await _categoryRepository.DeleteAsync(id);
@@ -152,17 +176,28 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting service category: {Id}", id);
-                throw new InvalidOperationException($"Failed to delete service category with ID '{id}'", ex);
+                throw new InvalidOperationException(
+                    $"Failed to delete service category with ID '{id}'",
+                    ex
+                );
             }
         }
 
-        public async Task<ServiceCategoryListResponse> GetServiceCategoriesAsync(ServiceCategoryQueryRequest query)
+        public async Task<ServiceCategoryListResponse> GetServiceCategoriesAsync(
+            ServiceCategoryQueryRequest query
+        )
         {
             try
             {
                 var (categories, totalCount) = await _categoryRepository.GetPagedAsync(
-                    query.Page, query.PageSize, query.SearchTerm, query.Status, query.ParentId,
-                    query.SortBy, query.SortDirection);
+                    query.Page,
+                    query.PageSize,
+                    query.SearchTerm,
+                    query.Status,
+                    query.ParentId,
+                    query.SortBy,
+                    query.SortDirection
+                );
 
                 var response = new ServiceCategoryListResponse
                 {
@@ -170,7 +205,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     TotalCount = totalCount,
                     Page = query.Page,
                     PageSize = query.PageSize,
-                    TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
+                    TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize),
                 };
 
                 return response;
@@ -192,11 +227,16 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting parent service categories");
-                throw new InvalidOperationException("Failed to retrieve parent service categories", ex);
+                throw new InvalidOperationException(
+                    "Failed to retrieve parent service categories",
+                    ex
+                );
             }
         }
 
-        public async Task<List<ServiceCategoryResponse>> GetServiceCategoryChildrenAsync(GetServiceCategoryChildrenRequest request)
+        public async Task<List<ServiceCategoryResponse>> GetServiceCategoryChildrenAsync(
+            GetServiceCategoryChildrenRequest request
+        )
         {
             try
             {
@@ -205,8 +245,15 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting service category children for parent: {ParentId}", request.ParentId);
-                throw new InvalidOperationException($"Failed to retrieve service category children for parent '{request.ParentId}'", ex);
+                _logger.LogError(
+                    ex,
+                    "Error getting service category children for parent: {ParentId}",
+                    request.ParentId
+                );
+                throw new InvalidOperationException(
+                    $"Failed to retrieve service category children for parent '{request.ParentId}'",
+                    ex
+                );
             }
         }
 
@@ -220,11 +267,16 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting active service categories");
-                throw new InvalidOperationException("Failed to retrieve active service categories", ex);
+                throw new InvalidOperationException(
+                    "Failed to retrieve active service categories",
+                    ex
+                );
             }
         }
 
-        public async Task<List<ServiceCategoryResponse>> GetServiceCategoryHierarchyAsync(Guid categoryId)
+        public async Task<List<ServiceCategoryResponse>> GetServiceCategoryHierarchyAsync(
+            Guid categoryId
+        )
         {
             try
             {
@@ -233,8 +285,15 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting service category hierarchy for: {CategoryId}", categoryId);
-                throw new InvalidOperationException($"Failed to retrieve service category hierarchy for '{categoryId}'", ex);
+                _logger.LogError(
+                    ex,
+                    "Error getting service category hierarchy for: {CategoryId}",
+                    categoryId
+                );
+                throw new InvalidOperationException(
+                    $"Failed to retrieve service category hierarchy for '{categoryId}'",
+                    ex
+                );
             }
         }
 
@@ -249,7 +308,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 // Validate service category if provided
                 if (request.ServiceCategoryId.HasValue)
                 {
-                    var categoryExists = await _categoryRepository.ExistsAsync(request.ServiceCategoryId.Value);
+                    var categoryExists = await _categoryRepository.ExistsAsync(
+                        request.ServiceCategoryId.Value
+                    );
                     if (!categoryExists)
                     {
                         throw new ArgumentException("Invalid service category");
@@ -276,7 +337,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating service: {Name}", request.Name);
-                throw new InvalidOperationException($"Failed to create service '{request.Name}'", ex);
+                throw new InvalidOperationException(
+                    $"Failed to create service '{request.Name}'",
+                    ex
+                );
             }
         }
 
@@ -290,7 +354,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting service by id: {Id}", id);
-                throw new InvalidOperationException($"Failed to retrieve service with ID '{id}'", ex);
+                throw new InvalidOperationException(
+                    $"Failed to retrieve service with ID '{id}'",
+                    ex
+                );
             }
         }
 
@@ -308,7 +375,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var serviceResponse = _mapper.Map<ServiceWithHospitalResponse>(entity);
 
                 // Get hospital information
-                var hospitals = await _hospitalService.GetHospitalsByIdsAsync(new List<Guid> { entity.HospitalId });
+                var hospitals = await _hospitalService.GetHospitalsByIdsAsync(
+                    new List<Guid> { entity.HospitalId }
+                );
                 if (hospitals.Any())
                 {
                     serviceResponse.Hospital = _mapper.Map<HospitalInfoResponse>(hospitals[0]);
@@ -317,10 +386,14 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 // Get service category information
                 if (entity.ServiceCategoryId.HasValue)
                 {
-                    var category = await _categoryRepository.GetByIdAsync(entity.ServiceCategoryId.Value);
+                    var category = await _categoryRepository.GetByIdAsync(
+                        entity.ServiceCategoryId.Value
+                    );
                     if (category != null)
                     {
-                        serviceResponse.ServiceCategory = _mapper.Map<ServiceCategoryResponse>(category);
+                        serviceResponse.ServiceCategory = _mapper.Map<ServiceCategoryResponse>(
+                            category
+                        );
                     }
                 }
 
@@ -332,47 +405,51 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting service with hospital by id: {Id}", id);
-                throw new InvalidOperationException($"Failed to retrieve service with hospital information for ID '{id}'", ex);
+                throw new InvalidOperationException(
+                    $"Failed to retrieve service with hospital information for ID '{id}'",
+                    ex
+                );
             }
         }
 
         /// <summary>
         /// Get review statistics for a service from Review service via gRPC
         /// </summary>
-        private async Task<ServiceReviewStatisticsResponse?> GetServiceReviewStatisticsAsync(Guid serviceId)
+        private async Task<ServiceReviewStatisticsResponse?> GetServiceReviewStatisticsAsync(
+            Guid serviceId
+        )
         {
             try
             {
-                var request = new GetServiceStatisticsRequest
-                {
-                    ServiceId = serviceId.ToString()
-                };
+                var request = new GetServiceStatisticsRequest { ServiceId = serviceId.ToString() };
 
-                var response = await _reviewServiceClient.GetServiceDetailedStatisticsAsync(request);
+                var response = await _reviewServiceClient.GetServiceDetailedStatisticsAsync(
+                    request
+                );
 
                 return new ServiceReviewStatisticsResponse
                 {
                     AverageRating = response.AverageRating,
-                    TotalReviews = response.TotalReviews
+                    TotalReviews = response.TotalReviews,
                 };
             }
             catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.NotFound)
             {
-                _logger.LogInformation(ex, "No review statistics found for service: {ServiceId}", serviceId);
-                return new ServiceReviewStatisticsResponse
-                {
-                    AverageRating = 0,
-                    TotalReviews = 0
-                };
+                _logger.LogInformation(
+                    ex,
+                    "No review statistics found for service: {ServiceId}",
+                    serviceId
+                );
+                return new ServiceReviewStatisticsResponse { AverageRating = 0, TotalReviews = 0 };
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to get review statistics for service: {ServiceId}. Returning default values.", serviceId);
-                return new ServiceReviewStatisticsResponse
-                {
-                    AverageRating = 0,
-                    TotalReviews = 0
-                };
+                _logger.LogWarning(
+                    ex,
+                    "Failed to get review statistics for service: {ServiceId}. Returning default values.",
+                    serviceId
+                );
+                return new ServiceReviewStatisticsResponse { AverageRating = 0, TotalReviews = 0 };
             }
         }
 
@@ -387,9 +464,14 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 }
 
                 // Validate service category if provided and different from current
-                if (request.ServiceCategoryId.HasValue && request.ServiceCategoryId != existingEntity.ServiceCategoryId)
+                if (
+                    request.ServiceCategoryId.HasValue
+                    && request.ServiceCategoryId != existingEntity.ServiceCategoryId
+                )
                 {
-                    var categoryExists = await _categoryRepository.ExistsAsync(request.ServiceCategoryId.Value);
+                    var categoryExists = await _categoryRepository.ExistsAsync(
+                        request.ServiceCategoryId.Value
+                    );
                     if (!categoryExists)
                     {
                         throw new ArgumentException("Invalid service category");
@@ -406,7 +488,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating service: {Id}", request.Id);
-                throw new InvalidOperationException($"Failed to update service with ID '{request.Id}'", ex);
+                throw new InvalidOperationException(
+                    $"Failed to update service with ID '{request.Id}'",
+                    ex
+                );
             }
         }
 
@@ -450,7 +535,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     TotalCount = totalCount,
                     Page = query.Page,
                     PageSize = query.PageSize,
-                    TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize)
+                    TotalPages = (int)Math.Ceiling((double)totalCount / query.PageSize),
                 };
 
                 return response;
@@ -462,7 +547,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             }
         }
 
-        public async Task<ServiceListResponse> GetServicesByCategoryAsync(GetServicesByCategoryRequest request)
+        public async Task<ServiceListResponse> GetServicesByCategoryAsync(
+            GetServicesByCategoryRequest request
+        )
         {
             try
             {
@@ -474,13 +561,15 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     PageSize = request.PageSize,
                     ServiceCategoryId = request.ServiceCategoryId,
                     Status = request.IncludeInactive ? null : "ACTIVE",
-                    SearchTerm = request.SearchTerm
+                    SearchTerm = request.SearchTerm,
                 };
 
                 var (services, totalCount) = await _serviceRepository.GetPagedAsync(serviceQuery);
 
                 // Apply HospitalIds filter if provided (client-side filtering as repository doesn't support multiple hospital IDs)
-                List<ServiceResponse> filteredServices = _mapper.Map<List<ServiceResponse>>(services);
+                List<ServiceResponse> filteredServices = _mapper.Map<List<ServiceResponse>>(
+                    services
+                );
                 if (request.HospitalIds != null && request.HospitalIds.Any())
                 {
                     filteredServices = filteredServices
@@ -495,15 +584,22 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     TotalCount = totalCount,
                     Page = request.Page,
                     PageSize = request.PageSize,
-                    TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize)
+                    TotalPages = (int)Math.Ceiling((double)totalCount / request.PageSize),
                 };
 
                 return response;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting services by category: {CategoryId}", request.ServiceCategoryId);
-                throw new InvalidOperationException($"Failed to retrieve services for category '{request.ServiceCategoryId}'", ex);
+                _logger.LogError(
+                    ex,
+                    "Error getting services by category: {CategoryId}",
+                    request.ServiceCategoryId
+                );
+                throw new InvalidOperationException(
+                    $"Failed to retrieve services for category '{request.ServiceCategoryId}'",
+                    ex
+                );
             }
         }
 
@@ -516,8 +612,15 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting services by hospital: {HospitalId}", hospitalId);
-                throw new InvalidOperationException($"Failed to retrieve services for hospital '{hospitalId}'", ex);
+                _logger.LogError(
+                    ex,
+                    "Error getting services by hospital: {HospitalId}",
+                    hospitalId
+                );
+                throw new InvalidOperationException(
+                    $"Failed to retrieve services for hospital '{hospitalId}'",
+                    ex
+                );
             }
         }
 
@@ -536,7 +639,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         }
 
         // Luồng chính theo yêu cầu của bạn
-        public async Task<HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategoryAsync(GetHospitalsByServiceCategoryRequest request)
+        public async Task<HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategoryAsync(
+            GetHospitalsByServiceCategoryRequest request
+        )
         {
             try
             {
@@ -544,29 +649,42 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var category = await _categoryRepository.GetByIdAsync(request.ServiceCategoryId);
                 if (category == null)
                 {
-                    throw new ArgumentException($"Service category with ID {request.ServiceCategoryId} not found");
+                    throw new ArgumentException(
+                        $"Service category with ID {request.ServiceCategoryId} not found"
+                    );
                 }
 
                 // Get hospital IDs that have services in this category
-                var hospitalIds = await _serviceRepository.GetHospitalIdsByCategoryAsync(request.ServiceCategoryId);
+                var hospitalIds = await _serviceRepository.GetHospitalIdsByCategoryAsync(
+                    request.ServiceCategoryId
+                );
 
                 return new HospitalsByServiceCategoryResponse
                 {
                     ServiceCategoryId = request.ServiceCategoryId,
                     ServiceCategoryName = category.Name,
                     HospitalIds = hospitalIds,
-                    TotalHospitals = hospitalIds.Count
+                    TotalHospitals = hospitalIds.Count,
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting hospitals by service category: {CategoryId}", request.ServiceCategoryId);
-                throw new InvalidOperationException($"Failed to retrieve hospitals for service category '{request.ServiceCategoryId}'", ex);
+                _logger.LogError(
+                    ex,
+                    "Error getting hospitals by service category: {CategoryId}",
+                    request.ServiceCategoryId
+                );
+                throw new InvalidOperationException(
+                    $"Failed to retrieve hospitals for service category '{request.ServiceCategoryId}'",
+                    ex
+                );
             }
         }
 
         // Get services by category with hospital information (optimized)
-        public async Task<ServicesByCategoryOptimizedResponse> GetServicesByCategoryWithHospitalAsync(GetServicesByCategoryRequest request)
+        public async Task<ServicesByCategoryOptimizedResponse> GetServicesByCategoryWithHospitalAsync(
+            GetServicesByCategoryRequest request
+        )
         {
             try
             {
@@ -574,17 +692,25 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var category = await _categoryRepository.GetByIdAsync(request.ServiceCategoryId);
                 if (category == null)
                 {
-                    throw new ArgumentException($"Service category with ID {request.ServiceCategoryId} not found");
+                    throw new ArgumentException(
+                        $"Service category with ID {request.ServiceCategoryId} not found"
+                    );
                 }
 
                 // Check if we need location filtering - if yes, get all services first, then filter, then paginate
-                bool needsLocationFiltering = !string.IsNullOrEmpty(request.ProvinceId) || !string.IsNullOrEmpty(request.DistrictId);
-                bool needsHospitalFiltering = request.HospitalIds != null && request.HospitalIds.Any();
+                bool needsLocationFiltering =
+                    !string.IsNullOrEmpty(request.ProvinceId)
+                    || !string.IsNullOrEmpty(request.DistrictId);
+                bool needsHospitalFiltering =
+                    request.HospitalIds != null && request.HospitalIds.Any();
 
                 ServiceListResponse servicesResult;
                 if (needsLocationFiltering || needsHospitalFiltering)
                 {
-                    servicesResult = await GetFilteredServicesByCategoryAsync(request, needsLocationFiltering);
+                    servicesResult = await GetFilteredServicesByCategoryAsync(
+                        request,
+                        needsLocationFiltering
+                    );
                 }
                 else
                 {
@@ -593,8 +719,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 }
 
                 // Extract hospital IDs from paginated services for hospital info retrieval
-                var hospitalIds = servicesResult.Services
-                    .Select(s => s.HospitalId)
+                var hospitalIds = servicesResult
+                    .Services.Select(s => s.HospitalId)
                     .Distinct()
                     .ToList();
 
@@ -603,21 +729,24 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var hospitalDict = hospitals.ToDictionary(h => h.Id, h => h);
 
                 // Map services with optimized hospital information
-                var servicesOptimized = servicesResult.Services.Select(service =>
-                {
-                    var serviceOptimized = _mapper.Map<ServiceOptimizedResponse>(service);
-
-                    // Map hospital basic info
-                    if (hospitalDict.TryGetValue(service.HospitalId, out var hospital))
+                var servicesOptimized = servicesResult
+                    .Services.Select(service =>
                     {
-                        serviceOptimized.Hospital = _mapper.Map<ServiceMedicalHospitalBasicInfo>(hospital);
-                    }
+                        var serviceOptimized = _mapper.Map<ServiceOptimizedResponse>(service);
 
-                    // Set parent category name for each service
-                    serviceOptimized.ParentCategoryName = category.Parent?.Name;
+                        // Map hospital basic info
+                        if (hospitalDict.TryGetValue(service.HospitalId, out var hospital))
+                        {
+                            serviceOptimized.Hospital =
+                                _mapper.Map<ServiceMedicalHospitalBasicInfo>(hospital);
+                        }
 
-                    return serviceOptimized;
-                }).ToList();
+                        // Set parent category name for each service
+                        serviceOptimized.ParentCategoryName = category.Parent?.Name;
+
+                        return serviceOptimized;
+                    })
+                    .ToList();
 
                 return new ServicesByCategoryOptimizedResponse
                 {
@@ -629,13 +758,20 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     Page = servicesResult.Page,
                     PageSize = servicesResult.PageSize,
                     TotalPages = servicesResult.TotalPages,
-                    Services = servicesOptimized
+                    Services = servicesOptimized,
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", request.ServiceCategoryId);
-                throw new InvalidOperationException($"Failed to retrieve services with hospital information for category '{request.ServiceCategoryId}'", ex);
+                _logger.LogError(
+                    ex,
+                    "Error getting services by category with hospital info: {CategoryId}",
+                    request.ServiceCategoryId
+                );
+                throw new InvalidOperationException(
+                    $"Failed to retrieve services with hospital information for category '{request.ServiceCategoryId}'",
+                    ex
+                );
             }
         }
 
@@ -644,7 +780,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         /// </summary>
         private async Task<ServiceListResponse> GetFilteredServicesByCategoryAsync(
             GetServicesByCategoryRequest request,
-            bool needsLocationFiltering)
+            bool needsLocationFiltering
+        )
         {
             // Get all services first (without pagination) to apply location/hospital filtering
             var allServicesResponse = await GetAllServicesForCategoryAsync(request);
@@ -658,16 +795,23 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 allHospitals,
                 allHospitalIds,
                 request,
-                needsLocationFiltering);
+                needsLocationFiltering
+            );
 
             // Filter services and apply pagination
-            return ApplyPaginationToFilteredServices(allServicesResponse, filteredHospitalIds, request);
+            return ApplyPaginationToFilteredServices(
+                allServicesResponse,
+                filteredHospitalIds,
+                request
+            );
         }
 
         /// <summary>
         /// Get all services for a category without pagination
         /// </summary>
-        private async Task<List<ServiceResponse>> GetAllServicesForCategoryAsync(GetServicesByCategoryRequest request)
+        private async Task<List<ServiceResponse>> GetAllServicesForCategoryAsync(
+            GetServicesByCategoryRequest request
+        )
         {
             var serviceQueryAll = new ServiceQueryRequest
             {
@@ -675,7 +819,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 PageSize = int.MaxValue,
                 ServiceCategoryId = request.ServiceCategoryId,
                 Status = request.IncludeInactive ? null : "ACTIVE",
-                SearchTerm = request.SearchTerm
+                SearchTerm = request.SearchTerm,
             };
 
             var (allServices, _) = await _serviceRepository.GetPagedAsync(serviceQueryAll);
@@ -689,7 +833,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             List<HospitalInfoResponse> allHospitals,
             List<Guid> allHospitalIds,
             GetServicesByCategoryRequest request,
-            bool needsLocationFiltering)
+            bool needsLocationFiltering
+        )
         {
             List<Guid> filteredHospitalIds = allHospitalIds;
 
@@ -699,7 +844,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     allHospitals,
                     allHospitalIds,
                     request.ProvinceId,
-                    request.DistrictId);
+                    request.DistrictId
+                );
             }
 
             if (request.HospitalIds != null && request.HospitalIds.Any())
@@ -707,7 +853,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 filteredHospitalIds = filteredHospitalIds
                     .Where(id => request.HospitalIds.Contains(id))
                     .ToList();
-                _logger.LogInformation("HospitalIds filtering result: {FilteredCount} hospitals", filteredHospitalIds.Count);
+                _logger.LogInformation(
+                    "HospitalIds filtering result: {FilteredCount} hospitals",
+                    filteredHospitalIds.Count
+                );
             }
 
             return filteredHospitalIds;
@@ -720,19 +869,27 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             List<HospitalInfoResponse> allHospitals,
             List<Guid> allHospitalIds,
             string? provinceId,
-            string? districtId)
+            string? districtId
+        )
         {
-            _logger.LogInformation("Applying location filtering - ProvinceId: {ProvinceId}, DistrictId: {DistrictId}",
-                provinceId, districtId);
+            _logger.LogInformation(
+                "Applying location filtering - ProvinceId: {ProvinceId}, DistrictId: {DistrictId}",
+                provinceId,
+                districtId
+            );
 
             var locationFilteredHospitals = await FilterHospitalsByLocationAsync(
                 allHospitals,
                 provinceId,
-                districtId);
+                districtId
+            );
 
             var filteredIds = locationFilteredHospitals.Select(h => h.Id).ToList();
-            _logger.LogInformation("Location filtering result: {FilteredCount} out of {TotalCount} hospitals",
-                filteredIds.Count, allHospitalIds.Count);
+            _logger.LogInformation(
+                "Location filtering result: {FilteredCount} out of {TotalCount} hospitals",
+                filteredIds.Count,
+                allHospitalIds.Count
+            );
 
             return filteredIds;
         }
@@ -743,7 +900,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private ServiceListResponse ApplyPaginationToFilteredServices(
             List<ServiceResponse> allServices,
             List<Guid> filteredHospitalIds,
-            GetServicesByCategoryRequest request)
+            GetServicesByCategoryRequest request
+        )
         {
             var filteredServices = allServices
                 .Where(s => filteredHospitalIds.Contains(s.HospitalId))
@@ -763,7 +921,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 TotalCount = totalCount,
                 Page = request.Page,
                 PageSize = request.PageSize,
-                TotalPages = totalPages
+                TotalPages = totalPages,
             };
         }
 
@@ -773,7 +931,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private async Task<List<HospitalInfoResponse>> FilterHospitalsByLocationAsync(
             List<HospitalInfoResponse> hospitals,
             string? provinceId,
-            string? districtId)
+            string? districtId
+        )
         {
             if (string.IsNullOrEmpty(provinceId) && string.IsNullOrEmpty(districtId))
             {
@@ -782,7 +941,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
 
             try
             {
-                var (provinceName, districtName) = await GetLocationNamesAsync(provinceId, districtId);
+                var (provinceName, districtName) = await GetLocationNamesAsync(
+                    provinceId,
+                    districtId
+                );
                 if (string.IsNullOrEmpty(provinceName) && !string.IsNullOrEmpty(provinceId))
                 {
                     return hospitals; // Return all if cannot get province name
@@ -792,7 +954,10 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error filtering hospitals by location. Returning all hospitals.");
+                _logger.LogError(
+                    ex,
+                    "Error filtering hospitals by location. Returning all hospitals."
+                );
                 return hospitals; // Return all if error occurs
             }
         }
@@ -802,7 +967,8 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         /// </summary>
         private async Task<(string? provinceName, string? districtName)> GetLocationNamesAsync(
             string? provinceId,
-            string? districtId)
+            string? districtId
+        )
         {
             string? provinceName = null;
             string? districtName = null;
@@ -834,35 +1000,47 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         private List<HospitalInfoResponse> FilterHospitalsByLocationNames(
             List<HospitalInfoResponse> hospitals,
             string? provinceName,
-            string? districtName)
+            string? districtName
+        )
         {
-            var filteredHospitals = hospitals.Where(hospital =>
-            {
-                if (string.IsNullOrEmpty(hospital.Address))
+            var filteredHospitals = hospitals
+                .Where(hospital =>
                 {
+                    if (string.IsNullOrEmpty(hospital.Address))
+                    {
+                        return false;
+                    }
+
+                    var hospitalAddress = hospital.Address.ToLowerInvariant();
+                    var cleanProvinceName = CleanLocationName(provinceName, true);
+                    var cleanDistrictName = CleanLocationName(districtName, false);
+
+                    if (!string.IsNullOrEmpty(districtName))
+                    {
+                        return MatchesLocation(
+                            hospitalAddress,
+                            provinceName,
+                            cleanProvinceName,
+                            districtName,
+                            cleanDistrictName
+                        );
+                    }
+
+                    if (!string.IsNullOrEmpty(provinceName))
+                    {
+                        return hospitalAddress.Contains(provinceName.ToLowerInvariant())
+                            || hospitalAddress.Contains(cleanProvinceName);
+                    }
+
                     return false;
-                }
+                })
+                .ToList();
 
-                var hospitalAddress = hospital.Address.ToLowerInvariant();
-                var cleanProvinceName = CleanLocationName(provinceName, true);
-                var cleanDistrictName = CleanLocationName(districtName, false);
-
-                if (!string.IsNullOrEmpty(districtName))
-                {
-                    return MatchesLocation(hospitalAddress, provinceName, cleanProvinceName, districtName, cleanDistrictName);
-                }
-
-                if (!string.IsNullOrEmpty(provinceName))
-                {
-                    return hospitalAddress.Contains(provinceName.ToLowerInvariant()) ||
-                           hospitalAddress.Contains(cleanProvinceName);
-                }
-
-                return false;
-            }).ToList();
-
-            _logger.LogInformation("Location filtering completed. {FilteredCount} out of {TotalCount} hospitals match the criteria",
-                filteredHospitals.Count, hospitals.Count);
+            _logger.LogInformation(
+                "Location filtering completed. {FilteredCount} out of {TotalCount} hospitals match the criteria",
+                filteredHospitals.Count,
+                hospitals.Count
+            );
 
             return filteredHospitals;
         }
@@ -911,21 +1089,23 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             string? provinceName,
             string cleanProvinceName,
             string districtName,
-            string cleanDistrictName)
+            string cleanDistrictName
+        )
         {
             var provinceNameLower = provinceName?.ToLowerInvariant() ?? "";
             var districtNameLower = districtName.ToLowerInvariant();
 
-            var provinceMatch = string.IsNullOrEmpty(provinceName) ||
-                              hospitalAddress.Contains(provinceNameLower) ||
-                              hospitalAddress.Contains(cleanProvinceName);
+            var provinceMatch =
+                string.IsNullOrEmpty(provinceName)
+                || hospitalAddress.Contains(provinceNameLower)
+                || hospitalAddress.Contains(cleanProvinceName);
 
-            var districtMatch = hospitalAddress.Contains(districtNameLower) ||
-                              hospitalAddress.Contains(cleanDistrictName);
+            var districtMatch =
+                hospitalAddress.Contains(districtNameLower)
+                || hospitalAddress.Contains(cleanDistrictName);
 
             return provinceMatch && districtMatch;
         }
-
 
         // Get filter options (hospitals and service categories) for dropdown
         public async Task<FilterOptionsResponse> GetFilterOptionsAsync()
@@ -938,11 +1118,7 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 // Get hospital information from Hospital Service via gRPC
                 var hospitals = await _hospitalService.GetHospitalsByIdsAsync(hospitalIds);
                 var hospitalList = hospitals
-                    .Select(h => new SimpleItemResponse
-                    {
-                        Id = h.Id,
-                        Name = h.Name
-                    })
+                    .Select(h => new SimpleItemResponse { Id = h.Id, Name = h.Name })
                     .OrderBy(h => h.Name)
                     .ToList();
 
@@ -950,18 +1126,14 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var allCategories = await _categoryRepository.GetActiveCategoriesAsync();
                 var childCategories = allCategories
                     .Where(c => c.ParentId != null)
-                    .Select(c => new SimpleItemResponse
-                    {
-                        Id = c.Id,
-                        Name = c.Name
-                    })
+                    .Select(c => new SimpleItemResponse { Id = c.Id, Name = c.Name })
                     .OrderBy(c => c.Name)
                     .ToList();
 
                 return new FilterOptionsResponse
                 {
                     Hospitals = hospitalList,
-                    ServiceCategories = childCategories
+                    ServiceCategories = childCategories,
                 };
             }
             catch (Exception ex)
@@ -972,7 +1144,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         }
 
         // Get all services with hospital name and category name (with filtering and sorting)
-        public async Task<ServiceDetailListResponse> GetAllServicesWithDetailsAsync(ServiceQueryRequest? query = null)
+        public async Task<ServiceDetailListResponse> GetAllServicesWithDetailsAsync(
+            ServiceQueryRequest? query = null
+        )
         {
             try
             {
@@ -982,7 +1156,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                     query = new ServiceQueryRequest
                     {
                         Page = 1,
-                        PageSize = int.MaxValue // Get all if no pagination specified
+                        PageSize =
+                            int.MaxValue // Get all if no pagination specified
+                        ,
                     };
                 }
 
@@ -990,43 +1166,50 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
                 var (services, totalCount) = await _serviceRepository.GetPagedAsync(query);
 
                 // Extract unique hospital IDs from services
-                var hospitalIds = services
-                    .Select(s => s.HospitalId)
-                    .Distinct()
-                    .ToList();
+                var hospitalIds = services.Select(s => s.HospitalId).Distinct().ToList();
 
                 // Get hospital information from Hospital Service via gRPC
                 var hospitals = await _hospitalService.GetHospitalsByIdsAsync(hospitalIds);
                 var hospitalDict = hospitals.ToDictionary(h => h.Id, h => h);
 
                 // Map services with hospital name and category name
-                var serviceDetails = services.Select(service =>
-                {
-                    var serviceDetail = new ServiceDetailResponse
+                var serviceDetails = services
+                    .Select(service =>
                     {
-                        Id = service.Id,
-                        Name = service.Name,
-                        Description = service.Description,
-                        Price = service.Price,
-                        Duration = service.DurationTime,
-                        Status = service.Status,
-                        ServiceCategoryName = service.ServiceCategory?.Name,
-                        HospitalName = hospitalDict.TryGetValue(service.HospitalId, out var hospital) ? hospital.Name : null
-                    };
+                        var serviceDetail = new ServiceDetailResponse
+                        {
+                            Id = service.Id,
+                            Name = service.Name,
+                            Description = service.Description,
+                            Price = service.Price,
+                            Duration = service.DurationTime,
+                            Status = service.Status,
+                            ServiceCategoryName = service.ServiceCategory?.Name,
+                            HospitalName = hospitalDict.TryGetValue(
+                                service.HospitalId,
+                                out var hospital
+                            )
+                                ? hospital.Name
+                                : null,
+                        };
 
-                    return serviceDetail;
-                }).ToList();
+                        return serviceDetail;
+                    })
+                    .ToList();
 
                 return new ServiceDetailListResponse
                 {
                     Services = serviceDetails,
-                    TotalCount = totalCount
+                    TotalCount = totalCount,
                 };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all services with details");
-                throw new InvalidOperationException("Failed to retrieve all services with details", ex);
+                throw new InvalidOperationException(
+                    "Failed to retrieve all services with details",
+                    ex
+                );
             }
         }
 
@@ -1055,27 +1238,29 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                var request = new CheckLimitRequest
-                {
-                    HospitalId = hospitalId.ToString()
-                };
+                var request = new CheckLimitRequest { HospitalId = hospitalId.ToString() };
 
                 var response = await _subscriptionUsageClient.CheckServiceLimitAsync(request);
 
                 if (!response.CanAdd)
                 {
                     throw new InvalidOperationException(
-                        response.Message ?? "Bạn đã đạt giới hạn số lượng dịch vụ cho phép trong gói đăng ký. Vui lòng nâng cấp gói để thêm dịch vụ."
+                        response.Message
+                            ?? "Bạn đã đạt giới hạn số lượng dịch vụ cho phép trong gói đăng ký. Vui lòng nâng cấp gói để thêm dịch vụ."
                     );
                 }
             }
             catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.NotFound)
             {
-                throw new InvalidOperationException("Không tìm thấy gói đăng ký cho bệnh viện này.");
+                throw new InvalidOperationException(
+                    "Không tìm thấy gói đăng ký cho bệnh viện này."
+                );
             }
             catch (RpcException ex) when (ex.StatusCode == GrpcStatusCode.FailedPrecondition)
             {
-                throw new InvalidOperationException(ex.Status.Detail ?? "Không thể thêm dịch vụ do giới hạn gói đăng ký.");
+                throw new InvalidOperationException(
+                    ex.Status.Detail ?? "Không thể thêm dịch vụ do giới hạn gói đăng ký."
+                );
             }
             catch (InvalidOperationException)
             {
@@ -1083,7 +1268,11 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error checking service limit via gRPC for hospital {HospitalId}", hospitalId);
+                _logger.LogWarning(
+                    ex,
+                    "Error checking service limit via gRPC for hospital {HospitalId}",
+                    hospitalId
+                );
                 // Don't block creation if subscription service is unavailable, but log the warning
             }
         }
@@ -1095,16 +1284,17 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                var request = new IncrementRequest
-                {
-                    HospitalId = hospitalId.ToString()
-                };
+                var request = new IncrementRequest { HospitalId = hospitalId.ToString() };
 
                 await _subscriptionUsageClient.IncrementServiceCountAsync(request);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error incrementing service count via gRPC for hospital {HospitalId}", hospitalId);
+                _logger.LogWarning(
+                    ex,
+                    "Error incrementing service count via gRPC for hospital {HospitalId}",
+                    hospitalId
+                );
                 // Don't throw - service already created, just log the error
             }
         }
@@ -1116,16 +1306,17 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         {
             try
             {
-                var request = new IncrementRequest
-                {
-                    HospitalId = hospitalId.ToString()
-                };
+                var request = new IncrementRequest { HospitalId = hospitalId.ToString() };
 
                 await _subscriptionUsageClient.DecrementServiceCountAsync(request);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error decrementing service count via gRPC for hospital {HospitalId}", hospitalId);
+                _logger.LogWarning(
+                    ex,
+                    "Error decrementing service count via gRPC for hospital {HospitalId}",
+                    hospitalId
+                );
                 // Don't throw - service already deleted, just log the error
             }
         }
@@ -1138,7 +1329,9 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
         /// Get basic info for multiple services by IDs (batch operation for gRPC performance)
         /// Uses projection at repository level for optimal database query
         /// </summary>
-        public async Task<List<ServiceBasicInfoDto>> GetServicesBasicInfoByIdsAsync(IEnumerable<Guid> ids)
+        public async Task<List<ServiceBasicInfoDto>> GetServicesBasicInfoByIdsAsync(
+            IEnumerable<Guid> ids
+        )
         {
             try
             {
@@ -1155,6 +1348,47 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             {
                 _logger.LogError(ex, "Error getting services basic info by IDs");
                 throw new InvalidOperationException("Failed to get services basic info by IDs", ex);
+            }
+        }
+
+        #endregion
+
+        #region Performance Optimization Operations
+
+        /// <summary>
+        /// Get only service IDs by hospital (optimized for performance)
+        /// </summary>
+        public async Task<List<Guid>> GetServiceIdsByHospitalAsync(Guid hospitalId)
+        {
+            try
+            {
+                _logger.LogInformation("Getting service IDs for hospital {HospitalId}", hospitalId);
+
+                var serviceIds = await _serviceRepository
+                    .GetQueryable()
+                    .Where(s => s.HospitalId == hospitalId)
+                    .Select(s => s.Id)
+                    .ToListAsync();
+
+                _logger.LogInformation(
+                    "Found {Count} services for hospital {HospitalId}",
+                    serviceIds.Count,
+                    hospitalId
+                );
+
+                return serviceIds;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error getting service IDs for hospital {HospitalId}",
+                    hospitalId
+                );
+                throw new InvalidOperationException(
+                    $"Failed to get service IDs for hospital {hospitalId}",
+                    ex
+                );
             }
         }
 

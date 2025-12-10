@@ -20,7 +20,8 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         public ServicesController(
             IServiceMedicalService serviceMedicalService,
             FileUploadOrchestrator uploadOrchestrator,
-            ILogger<ServicesController> logger)
+            ILogger<ServicesController> logger
+        )
         {
             _serviceMedicalService = serviceMedicalService;
             _uploadOrchestrator = uploadOrchestrator;
@@ -37,12 +38,14 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         public IActionResult Health()
         {
-            return Ok(new
-            {
-                Status = "Healthy",
-                Service = "ServiceMedical - Services",
-                Timestamp = DateTime.UtcNow
-            });
+            return Ok(
+                new
+                {
+                    Status = "Healthy",
+                    Service = "ServiceMedical - Services",
+                    Timestamp = DateTime.UtcNow,
+                }
+            );
         }
 
         #endregion
@@ -55,7 +58,9 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="request">Service creation request</param>
         /// <returns>Created service</returns>
         [HttpPost]
-        public async Task<ActionResult<ServiceResponse>> CreateService([FromBody] CreateServiceRequest request)
+        public async Task<ActionResult<ServiceResponse>> CreateService(
+            [FromBody] CreateServiceRequest request
+        )
         {
             try
             {
@@ -68,7 +73,11 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                _logger.LogWarning(ex, "Invalid operation when creating service: {Message}", ex.Message);
+                _logger.LogWarning(
+                    ex,
+                    "Invalid operation when creating service: {Message}",
+                    ex.Message
+                );
                 return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
@@ -90,18 +99,26 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         public async Task<ActionResult<ServiceResponse>> CreateServiceWithImage(
             [FromForm] CreateServiceRequest request,
             [FromForm] IFormFile? imageFile,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             try
             {
                 // Log received data for debugging
-                _logger.LogInformation("Received CreateServiceWithImage: Name={Name}, Price={Price}, HospitalId={HospitalId}, ServiceCategoryId={ServiceCategoryId}, DurationTime={DurationTime}, HasImage={HasImage}",
-                    request?.Name, request?.Price, request?.HospitalId, request?.ServiceCategoryId, request?.DurationTime, imageFile != null);
+                _logger.LogInformation(
+                    "Received CreateServiceWithImage: Name={Name}, Price={Price}, HospitalId={HospitalId}, ServiceCategoryId={ServiceCategoryId}, DurationTime={DurationTime}, HasImage={HasImage}",
+                    request?.Name,
+                    request?.Price,
+                    request?.HospitalId,
+                    request?.ServiceCategoryId,
+                    request?.DurationTime,
+                    imageFile != null
+                );
 
                 if (!ModelState.IsValid)
                 {
-                    var errors = ModelState.Values
-                        .SelectMany(v => v.Errors)
+                    var errors = ModelState
+                        .Values.SelectMany(v => v.Errors)
                         .Select(e => e.ErrorMessage)
                         .ToList();
                     _logger.LogWarning("ModelState invalid: {Errors}", string.Join(", ", errors));
@@ -124,7 +141,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                         MaxSizeInMB = 5,
                         Folder = "services/images",
                         SuccessMessage = "Service image uploaded successfully",
-                        EntityType = "service-image"
+                        EntityType = "service-image",
                     };
 
                     var uploadResult = await _uploadOrchestrator.UploadFileAsync(
@@ -132,15 +149,20 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                         config,
                         request.HospitalId,
                         _logger,
-                        cancellationToken);
+                        cancellationToken
+                    );
 
                     if (!uploadResult.Success)
                     {
-                        return BadRequest(new { error = $"Image upload failed: {uploadResult.ErrorMessage}" });
+                        return BadRequest(
+                            new { error = $"Image upload failed: {uploadResult.ErrorMessage}" }
+                        );
                     }
 
                     // Set the image URL from upload result - use CloudFront URL for public access
-                    request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                    request.ImageUrl =
+                        uploadResult.UploadResult!.CloudFrontUrl
+                        ?? uploadResult.UploadResult!.FileUrl;
                 }
 
                 var result = await _serviceMedicalService.CreateServiceAsync(request);
@@ -149,24 +171,39 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "ArgumentException when creating service: {Message}", ex.Message);
+                _logger.LogWarning(
+                    ex,
+                    "ArgumentException when creating service: {Message}",
+                    ex.Message
+                );
                 return BadRequest(new { error = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
-                _logger.LogWarning(ex, "Invalid operation when creating service with image: {Message}", ex.Message);
+                _logger.LogWarning(
+                    ex,
+                    "Invalid operation when creating service with image: {Message}",
+                    ex.Message
+                );
                 return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating service with image: {Message}. StackTrace: {StackTrace}",
-                    ex.Message, ex.StackTrace);
-                return StatusCode(500, new
-                {
-                    error = StatusConstants.InternalServerError,
-                    message = ex.Message,
-                    innerException = ex.InnerException?.Message
-                });
+                _logger.LogError(
+                    ex,
+                    "Error creating service with image: {Message}. StackTrace: {StackTrace}",
+                    ex.Message,
+                    ex.StackTrace
+                );
+                return StatusCode(
+                    500,
+                    new
+                    {
+                        error = StatusConstants.InternalServerError,
+                        message = ex.Message,
+                        innerException = ex.InnerException?.Message,
+                    }
+                );
             }
         }
 
@@ -227,7 +264,10 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="request">Service update request</param>
         /// <returns>Updated service</returns>
         [HttpPut("{id}")]
-        public async Task<ActionResult<ServiceResponse>> UpdateService(Guid id, [FromBody] UpdateServiceRequest request)
+        public async Task<ActionResult<ServiceResponse>> UpdateService(
+            Guid id,
+            [FromBody] UpdateServiceRequest request
+        )
         {
             try
             {
@@ -264,7 +304,8 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             Guid id,
             [FromForm] UpdateServiceRequest request,
             [FromForm] IFormFile? imageFile,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             try
             {
@@ -296,18 +337,23 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                             FileUrl = currentService.ImageUrl,
                             ExpectedFolder = "services",
                             SuccessMessage = "Old service image deleted successfully",
-                            EntityType = "service-image"
+                            EntityType = "service-image",
                         };
 
                         var deleteResult = await _uploadOrchestrator.DeleteFileAsync(
                             deleteConfig,
                             currentService.HospitalId,
                             _logger,
-                            cancellationToken);
+                            cancellationToken
+                        );
 
                         if (!deleteResult.Success)
                         {
-                            _logger.LogWarning("Failed to delete old image for service {ServiceId}: {Error}", id, deleteResult.ErrorMessage);
+                            _logger.LogWarning(
+                                "Failed to delete old image for service {ServiceId}: {Error}",
+                                id,
+                                deleteResult.ErrorMessage
+                            );
                             // Continue with upload even if deletion fails
                         }
                     }
@@ -318,7 +364,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                         MaxSizeInMB = 5,
                         Folder = "services/images",
                         SuccessMessage = "Service image uploaded successfully",
-                        EntityType = "service-image"
+                        EntityType = "service-image",
                     };
 
                     var uploadResult = await _uploadOrchestrator.UploadFileAsync(
@@ -326,15 +372,20 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                         config,
                         currentService.HospitalId,
                         _logger,
-                        cancellationToken);
+                        cancellationToken
+                    );
 
                     if (!uploadResult.Success)
                     {
-                        return BadRequest(new { error = $"Image upload failed: {uploadResult.ErrorMessage}" });
+                        return BadRequest(
+                            new { error = $"Image upload failed: {uploadResult.ErrorMessage}" }
+                        );
                     }
 
                     // Set the image URL from upload result - use CloudFront URL for public access
-                    request.ImageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                    request.ImageUrl =
+                        uploadResult.UploadResult!.CloudFrontUrl
+                        ?? uploadResult.UploadResult!.FileUrl;
                 }
 
                 var result = await _serviceMedicalService.UpdateServiceAsync(request);
@@ -386,7 +437,9 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="query">Service query parameters</param>
         /// <returns>Paginated list of services</returns>
         [HttpGet]
-        public async Task<ActionResult<ServiceListResponse>> GetServices([FromQuery] ServiceQueryRequest query)
+        public async Task<ActionResult<ServiceListResponse>> GetServices(
+            [FromQuery] ServiceQueryRequest query
+        )
         {
             try
             {
@@ -413,7 +466,8 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             Guid categoryId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] bool includeInactive = false)
+            [FromQuery] bool includeInactive = false
+        )
         {
             try
             {
@@ -422,7 +476,7 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                     ServiceCategoryId = categoryId,
                     Page = page,
                     PageSize = pageSize,
-                    IncludeInactive = includeInactive
+                    IncludeInactive = includeInactive,
                 };
 
                 var result = await _serviceMedicalService.GetServicesByCategoryAsync(request);
@@ -430,7 +484,11 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting services by category: {CategoryId}", categoryId);
+                _logger.LogError(
+                    ex,
+                    "Error getting services by category: {CategoryId}",
+                    categoryId
+                );
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
@@ -441,7 +499,9 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="hospitalId">Hospital ID</param>
         /// <returns>List of services offered by the hospital</returns>
         [HttpGet("hospital/{hospitalId}")]
-        public async Task<ActionResult<List<ServiceResponse>>> GetServicesByHospital(Guid hospitalId)
+        public async Task<ActionResult<List<ServiceResponse>>> GetServicesByHospital(
+            Guid hospitalId
+        )
         {
             try
             {
@@ -450,7 +510,35 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting services by hospital: {HospitalId}", hospitalId);
+                _logger.LogError(
+                    ex,
+                    "Error getting services by hospital: {HospitalId}",
+                    hospitalId
+                );
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Get service IDs by hospital (optimized for performance - returns only IDs)
+        /// </summary>
+        /// <param name="hospitalId">Hospital ID</param>
+        /// <returns>List of service IDs</returns>
+        [HttpGet("hospital/{hospitalId}/ids")]
+        public async Task<ActionResult<List<Guid>>> GetServiceIdsByHospital(Guid hospitalId)
+        {
+            try
+            {
+                var ids = await _serviceMedicalService.GetServiceIdsByHospitalAsync(hospitalId);
+                return Ok(new { serviceIds = ids });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error getting service IDs by hospital: {HospitalId}",
+                    hospitalId
+                );
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
@@ -481,31 +569,52 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="queryParams">Query parameters for filtering and pagination</param>
         /// <returns>List of services in the category with hospital information</returns>
         [HttpGet("category/{categoryId}/with-hospital")]
-        public async Task<ActionResult<ServicesByCategoryOptimizedResponse>> GetServicesByCategoryWithHospital(
+        public async Task<
+            ActionResult<ServicesByCategoryOptimizedResponse>
+        > GetServicesByCategoryWithHospital(
             Guid categoryId,
-            [FromQuery] GetServicesByCategoryWithHospitalQueryParams queryParams)
+            [FromQuery] GetServicesByCategoryWithHospitalQueryParams queryParams
+        )
         {
             try
             {
                 // Validate model state to ensure ProvinceId and DistrictId meet security requirements
                 if (!ModelState.IsValid)
                 {
-                    var errors = ModelState.Values
-                        .SelectMany(v => v.Errors)
+                    var errors = ModelState
+                        .Values.SelectMany(v => v.Errors)
                         .Select(e => e.ErrorMessage)
                         .ToList();
-                    return BadRequest(new { error = "Invalid request parameters", errors = errors });
+                    return BadRequest(
+                        new { error = "Invalid request parameters", errors = errors }
+                    );
                 }
 
                 // Additional validation for ProvinceId and DistrictId to prevent path traversal
-                if (!string.IsNullOrWhiteSpace(queryParams.ProvinceId) && !IsValidLocationId(queryParams.ProvinceId))
+                if (
+                    !string.IsNullOrWhiteSpace(queryParams.ProvinceId)
+                    && !IsValidLocationId(queryParams.ProvinceId)
+                )
                 {
-                    return BadRequest(new { error = "Invalid ProvinceId format. Only alphanumeric characters, hyphens, and underscores are allowed." });
+                    return BadRequest(
+                        new
+                        {
+                            error = "Invalid ProvinceId format. Only alphanumeric characters, hyphens, and underscores are allowed.",
+                        }
+                    );
                 }
 
-                if (!string.IsNullOrWhiteSpace(queryParams.DistrictId) && !IsValidLocationId(queryParams.DistrictId))
+                if (
+                    !string.IsNullOrWhiteSpace(queryParams.DistrictId)
+                    && !IsValidLocationId(queryParams.DistrictId)
+                )
                 {
-                    return BadRequest(new { error = "Invalid DistrictId format. Only alphanumeric characters, hyphens, and underscores are allowed." });
+                    return BadRequest(
+                        new
+                        {
+                            error = "Invalid DistrictId format. Only alphanumeric characters, hyphens, and underscores are allowed.",
+                        }
+                    );
                 }
 
                 var request = new GetServicesByCategoryRequest
@@ -516,13 +625,14 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                     IncludeInactive = queryParams.IncludeInactive,
                     SearchTerm = queryParams.SearchTerm,
                     ProvinceId = queryParams.ProvinceId,
-                    DistrictId = queryParams.DistrictId
+                    DistrictId = queryParams.DistrictId,
                 };
 
                 // Parse hospital IDs from comma-separated string
                 if (!string.IsNullOrEmpty(queryParams.HospitalIds))
                 {
-                    var hospitalIdList = queryParams.HospitalIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    var hospitalIdList = queryParams
+                        .HospitalIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
                         .Select(id => Guid.TryParse(id.Trim(), out var guid) ? guid : (Guid?)null)
                         .Where(id => id.HasValue)
                         .Select(id => id!.Value)
@@ -534,7 +644,9 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                     }
                 }
 
-                var result = await _serviceMedicalService.GetServicesByCategoryWithHospitalAsync(request);
+                var result = await _serviceMedicalService.GetServicesByCategoryWithHospitalAsync(
+                    request
+                );
                 return Ok(result);
             }
             catch (ArgumentException ex)
@@ -543,7 +655,11 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting services by category with hospital info: {CategoryId}", categoryId);
+                _logger.LogError(
+                    ex,
+                    "Error getting services by category with hospital info: {CategoryId}",
+                    categoryId
+                );
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
@@ -561,8 +677,8 @@ namespace BookingCare.Services.ServiceMedical.Controllers
 
             // Allow only alphanumeric characters, hyphens, and underscores
             // This prevents path traversal characters like ../, ..\, etc.
-            return locationId.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_') &&
-                   locationId.Length <= 50; // Reasonable length limit
+            return locationId.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_')
+                && locationId.Length <= 50; // Reasonable length limit
         }
 
         /// <summary>
@@ -572,7 +688,9 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         /// <param name="query">Query parameters for filtering, sorting, and pagination</param>
         /// <returns>List of services with detailed information</returns>
         [HttpGet("all-details")]
-        public async Task<ActionResult<ServiceDetailListResponse>> GetAllServicesWithDetails([FromQuery] ServiceQueryRequest? query)
+        public async Task<ActionResult<ServiceDetailListResponse>> GetAllServicesWithDetails(
+            [FromQuery] ServiceQueryRequest? query
+        )
         {
             try
             {
@@ -605,7 +723,6 @@ namespace BookingCare.Services.ServiceMedical.Controllers
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
-
 
         #endregion
     }

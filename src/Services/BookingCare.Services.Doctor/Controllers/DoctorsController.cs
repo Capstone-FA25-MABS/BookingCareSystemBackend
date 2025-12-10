@@ -24,7 +24,8 @@ public class DoctorsController : BaseApiController
     public DoctorsController(
         IDoctorService doctorService,
         FileUploadOrchestrator uploadOrchestrator,
-        ILogger<DoctorsController> logger)
+        ILogger<DoctorsController> logger
+    )
     {
         _doctorService = doctorService;
         _uploadOrchestrator = uploadOrchestrator;
@@ -41,13 +42,15 @@ public class DoctorsController : BaseApiController
     [MapToApiVersion(ApiVersions.V1_0)]
     public IActionResult Health()
     {
-        return Ok(new
-        {
-            Status = "Healthy",
-            Service = "Doctor",
-            Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
-            Timestamp = DateTime.UtcNow
-        });
+        return Ok(
+            new
+            {
+                Status = "Healthy",
+                Service = "Doctor",
+                Version = HttpContext.GetRequestedApiVersion()?.ToString() ?? ApiVersions.Default,
+                Timestamp = DateTime.UtcNow,
+            }
+        );
     }
 
     #endregion
@@ -142,7 +145,6 @@ public class DoctorsController : BaseApiController
         {
             return Unauthorized(ex.Message);
         }
-
     }
 
     /// <summary>
@@ -161,7 +163,10 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/active")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDoctorsForPatients([FromQuery] DoctorQueryRequest query, [FromQuery] Guid? patientId)
+    public async Task<IActionResult> GetActiveDoctorsForPatients(
+        [FromQuery] DoctorQueryRequest query,
+        [FromQuery] Guid? patientId
+    )
     {
         // Only return ACTIVE doctors for patients
         query.Status = BookingCare.Shared.Common.Enums.Status.ACTIVE;
@@ -175,7 +180,10 @@ public class DoctorsController : BaseApiController
         {
             result = await _doctorService.GetDoctorsAsync(query);
         }
-        return Success<DoctorListResponse>(result, "Active doctors retrieved successfully for patients");
+        return Success<DoctorListResponse>(
+            result,
+            "Active doctors retrieved successfully for patients"
+        );
     }
 
     /// <summary>
@@ -183,7 +191,10 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetDoctors([FromQuery] DoctorQueryRequest query, [FromQuery] Guid? patientId)
+    public async Task<IActionResult> GetDoctors(
+        [FromQuery] DoctorQueryRequest query,
+        [FromQuery] Guid? patientId
+    )
     {
         DoctorListResponse result;
         if (patientId.HasValue && patientId.Value != Guid.Empty)
@@ -202,10 +213,35 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("hospital/{hospitalId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetDoctorsByHospital(Guid hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetDoctorsByHospital(
+        Guid hospitalId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10
+    )
     {
-        var result = await _doctorService.GetDoctorsByHospitalOptimizedAsync(hospitalId, pageNumber, pageSize);
-        return Success<DoctorSearchListResponse>(result, $"Doctors for hospital {hospitalId} retrieved successfully");
+        var result = await _doctorService.GetDoctorsByHospitalOptimizedAsync(
+            hospitalId,
+            pageNumber,
+            pageSize
+        );
+        return Success<DoctorSearchListResponse>(
+            result,
+            $"Doctors for hospital {hospitalId} retrieved successfully"
+        );
+    }
+
+    /// <summary>
+    /// Get doctor IDs by hospital (optimized for performance - returns only IDs)
+    /// </summary>
+    [HttpGet("hospital/{hospitalId}/ids")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetDoctorIdsByHospital(Guid hospitalId)
+    {
+        var ids = await _doctorService.GetDoctorIdsByHospitalAsync(hospitalId);
+        return Success(
+            new { doctorIds = ids },
+            $"Doctor IDs for hospital {hospitalId} retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -216,7 +252,10 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorsBySpecialty(Guid specialtyId)
     {
         var doctors = await _doctorService.GetDoctorsBySpecialtyAsync(specialtyId);
-        return Success<List<DoctorResponse>>(doctors, $"Doctors for specialty {specialtyId} retrieved successfully");
+        return Success<List<DoctorResponse>>(
+            doctors,
+            $"Doctors for specialty {specialtyId} retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -227,7 +266,10 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorsByPosition(Guid positionId)
     {
         var doctors = await _doctorService.GetDoctorsByPositionAsync(positionId);
-        return Success<List<DoctorResponse>>(doctors, $"Doctors for position {positionId} retrieved successfully");
+        return Success<List<DoctorResponse>>(
+            doctors,
+            $"Doctors for position {positionId} retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -246,10 +288,23 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patient/{patientId}/favorites")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetPatientFavoriteDoctors(Guid patientId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 9, [FromQuery] string? searchTerm = null)
+    public async Task<IActionResult> GetPatientFavoriteDoctors(
+        Guid patientId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 9,
+        [FromQuery] string? searchTerm = null
+    )
     {
-        var result = await _doctorService.GetPatientFavoriteDoctorsAsync(patientId, pageNumber, pageSize, searchTerm);
-        return Success<DoctorListResponse>(result, $"Favorite doctors for patient {patientId} retrieved successfully");
+        var result = await _doctorService.GetPatientFavoriteDoctorsAsync(
+            patientId,
+            pageNumber,
+            pageSize,
+            searchTerm
+        );
+        return Success<DoctorListResponse>(
+            result,
+            $"Favorite doctors for patient {patientId} retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -264,7 +319,8 @@ public class DoctorsController : BaseApiController
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] Guid? patientId = null,
-        [FromQuery(Name = "serviceTypes[]")] List<string>? serviceTypes = null)
+        [FromQuery(Name = "serviceTypes[]")] List<string>? serviceTypes = null
+    )
     {
         var query = new DoctorQueryRequest
         {
@@ -274,12 +330,15 @@ public class DoctorsController : BaseApiController
             ServiceTypes = serviceTypes,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
             PageNumber = pageNumber,
-            PageSize = pageSize
+            PageSize = pageSize,
         };
 
         // Use optimized search method that returns only necessary fields
         var result = await _doctorService.SearchDoctorsForPatientsAsync(query, patientId);
-        return Success<DoctorSearchListResponse>(result, "Active doctors search completed successfully");
+        return Success<DoctorSearchListResponse>(
+            result,
+            "Active doctors search completed successfully"
+        );
     }
 
     /// <summary>
@@ -287,14 +346,19 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/specialty/{specialtyId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDoctorsBySpecialty(Guid specialtyId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> GetActiveDoctorsBySpecialty(
+        Guid specialtyId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] Guid? patientId = null
+    )
     {
         var query = new DoctorQueryRequest
         {
             SpecialtyId = specialtyId,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
             PageNumber = pageNumber,
-            PageSize = pageSize
+            PageSize = pageSize,
         };
 
         DoctorListResponse result;
@@ -306,7 +370,10 @@ public class DoctorsController : BaseApiController
         {
             result = await _doctorService.GetDoctorsAsync(query);
         }
-        return Success<DoctorListResponse>(result, $"Active doctors in specialty {specialtyId} retrieved successfully");
+        return Success<DoctorListResponse>(
+            result,
+            $"Active doctors in specialty {specialtyId} retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -314,14 +381,19 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/hospital/{hospitalId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetActiveDoctorsByHospital(Guid hospitalId, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> GetActiveDoctorsByHospital(
+        Guid hospitalId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] Guid? patientId = null
+    )
     {
         var query = new DoctorQueryRequest
         {
             HospitalId = hospitalId,
             Status = BookingCare.Shared.Common.Enums.Status.ACTIVE, // Only active doctors
             PageNumber = pageNumber,
-            PageSize = pageSize
+            PageSize = pageSize,
         };
 
         DoctorListResponse result;
@@ -333,7 +405,10 @@ public class DoctorsController : BaseApiController
         {
             result = await _doctorService.GetDoctorsAsync(query);
         }
-        return Success<DoctorListResponse>(result, $"Active doctors in hospital {hospitalId} retrieved successfully");
+        return Success<DoctorListResponse>(
+            result,
+            $"Active doctors in hospital {hospitalId} retrieved successfully"
+        );
     }
 
     /// <summary>
@@ -341,7 +416,10 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("patients/featured")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> GetFeaturedActiveDoctors([FromQuery] int limit = 6, [FromQuery] Guid? patientId = null)
+    public async Task<IActionResult> GetFeaturedActiveDoctors(
+        [FromQuery] int limit = 6,
+        [FromQuery] Guid? patientId = null
+    )
     {
         var query = new DoctorQueryRequest
         {
@@ -349,7 +427,7 @@ public class DoctorsController : BaseApiController
             SortBy = "YearsOfExperience", // Sort by experience
             SortOrder = "desc", // Most experienced first
             PageNumber = 1,
-            PageSize = limit
+            PageSize = limit,
         };
 
         DoctorListResponse result;
@@ -361,9 +439,11 @@ public class DoctorsController : BaseApiController
         {
             result = await _doctorService.GetDoctorsAsync(query);
         }
-        return Success<DoctorListResponse>(result, "Featured active doctors retrieved successfully");
+        return Success<DoctorListResponse>(
+            result,
+            "Featured active doctors retrieved successfully"
+        );
     }
-
 
     /// <summary>
     /// Create a new doctor
@@ -374,10 +454,10 @@ public class DoctorsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                DoctorConstants.ValidationMessages.InvalidRequestData,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         try
@@ -388,13 +468,16 @@ public class DoctorsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating doctor: {Message}", ex.Message);
-            return StatusCode(500, new
-            {
-                success = false,
-                message = ex.Message,
-                errors = new[] { ex.GetType().Name },
-                timestamp = DateTime.UtcNow
-            });
+            return StatusCode(
+                500,
+                new
+                {
+                    success = false,
+                    message = ex.Message,
+                    errors = new[] { ex.GetType().Name },
+                    timestamp = DateTime.UtcNow,
+                }
+            );
         }
     }
 
@@ -406,14 +489,16 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpPut("profile")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> UpdateCurrentDoctorProfile([FromBody] UpdateDoctorRequest request)
+    public async Task<IActionResult> UpdateCurrentDoctorProfile(
+        [FromBody] UpdateDoctorRequest request
+    )
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                DoctorConstants.ValidationMessages.InvalidRequestData,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         try
@@ -444,10 +529,10 @@ public class DoctorsController : BaseApiController
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                DoctorConstants.ValidationMessages.InvalidRequestData,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         request.Id = id; // Ensure the ID in the request matches the route parameter
@@ -464,16 +549,17 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> CreateDoctorWithAvatar(
         [FromForm] CreateDoctorRequest request,
         [FromForm] IFormFile? avatarFile,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
+                return BadRequest(
+                    DoctorConstants.ValidationMessages.InvalidRequestData,
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+                );
             }
 
             // Handle avatar upload if provided
@@ -485,10 +571,16 @@ public class DoctorsController : BaseApiController
                     MaxSizeInMB = 5,
                     Folder = "avatars/doctors",
                     SuccessMessage = "Doctor avatar uploaded successfully",
-                    EntityType = "doctor-avatar"
+                    EntityType = "doctor-avatar",
                 };
 
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(avatarFile, config, request.AccountId, _logger, cancellationToken);
+                var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+                    avatarFile,
+                    config,
+                    request.AccountId,
+                    _logger,
+                    cancellationToken
+                );
 
                 if (!uploadResult.Success)
                 {
@@ -496,7 +588,8 @@ public class DoctorsController : BaseApiController
                 }
 
                 // Set the avatar URL from upload result - use CloudFront URL for public access
-                request.AvatarUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                request.AvatarUrl =
+                    uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
             }
 
             var doctor = await _doctorService.CreateDoctorAsync(request);
@@ -505,13 +598,16 @@ public class DoctorsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating doctor with avatar: {Message}", ex.Message);
-            return StatusCode(500, new
-            {
-                success = false,
-                message = ex.Message,
-                errors = new[] { ex.GetType().Name },
-                timestamp = DateTime.UtcNow
-            });
+            return StatusCode(
+                500,
+                new
+                {
+                    success = false,
+                    message = ex.Message,
+                    errors = new[] { ex.GetType().Name },
+                    timestamp = DateTime.UtcNow,
+                }
+            );
         }
     }
 
@@ -525,16 +621,17 @@ public class DoctorsController : BaseApiController
         Guid id,
         [FromForm] UpdateDoctorRequest request,
         [FromForm] IFormFile? avatarFile,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
-                    .SelectMany(v => v.Errors)
-                    .Select(e => e.ErrorMessage)
-                    .ToList());
+                return BadRequest(
+                    DoctorConstants.ValidationMessages.InvalidRequestData,
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+                );
             }
 
             request.Id = id; // Ensure the ID in the request matches the route parameter
@@ -550,21 +647,32 @@ public class DoctorsController : BaseApiController
             if (avatarFile != null)
             {
                 // Delete old avatar if exists (not default avatar)
-                if (!string.IsNullOrEmpty(currentDoctor.AvatarUrl) &&
-                    currentDoctor.AvatarUrl != "https://bookingcaree.com/user-avatar-default.png")
+                if (
+                    !string.IsNullOrEmpty(currentDoctor.AvatarUrl)
+                    && currentDoctor.AvatarUrl != "https://bookingcaree.com/user-avatar-default.png"
+                )
                 {
                     var deleteConfig = new FileDeletionConfig
                     {
                         FileUrl = currentDoctor.AvatarUrl,
                         ExpectedFolder = "avatars",
                         SuccessMessage = "Old avatar deleted successfully",
-                        EntityType = "doctor-avatar"
+                        EntityType = "doctor-avatar",
                     };
 
-                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentDoctor.AccountId, _logger, cancellationToken);
+                    var deleteResult = await _uploadOrchestrator.DeleteFileAsync(
+                        deleteConfig,
+                        currentDoctor.AccountId,
+                        _logger,
+                        cancellationToken
+                    );
                     if (!deleteResult.Success)
                     {
-                        _logger.LogWarning("Failed to delete old avatar for doctor {DoctorId}: {Error}", id, deleteResult.ErrorMessage);
+                        _logger.LogWarning(
+                            "Failed to delete old avatar for doctor {DoctorId}: {Error}",
+                            id,
+                            deleteResult.ErrorMessage
+                        );
                         // Continue with upload even if deletion fails
                     }
                 }
@@ -575,10 +683,16 @@ public class DoctorsController : BaseApiController
                     MaxSizeInMB = 5,
                     Folder = "avatars/doctors",
                     SuccessMessage = "Doctor avatar uploaded successfully",
-                    EntityType = "doctor-avatar"
+                    EntityType = "doctor-avatar",
                 };
 
-                var uploadResult = await _uploadOrchestrator.UploadFileAsync(avatarFile, config, currentDoctor.AccountId, _logger, cancellationToken);
+                var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+                    avatarFile,
+                    config,
+                    currentDoctor.AccountId,
+                    _logger,
+                    cancellationToken
+                );
 
                 if (!uploadResult.Success)
                 {
@@ -586,7 +700,8 @@ public class DoctorsController : BaseApiController
                 }
 
                 // Set the avatar URL from upload result - use CloudFront URL for public access
-                request.AvatarUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+                request.AvatarUrl =
+                    uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
             }
 
             var doctor = await _doctorService.UpdateDoctorAsync(request);
@@ -595,13 +710,16 @@ public class DoctorsController : BaseApiController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating doctor with avatar: {Message}", ex.Message);
-            return StatusCode(500, new
-            {
-                success = false,
-                message = ex.Message,
-                errors = new[] { ex.GetType().Name },
-                timestamp = DateTime.UtcNow
-            });
+            return StatusCode(
+                500,
+                new
+                {
+                    success = false,
+                    message = ex.Message,
+                    errors = new[] { ex.GetType().Name },
+                    timestamp = DateTime.UtcNow,
+                }
+            );
         }
     }
 
@@ -660,21 +778,26 @@ public class DoctorsController : BaseApiController
     public async Task<IActionResult> GetDoctorPrices(Guid doctorId)
     {
         var prices = await _doctorService.GetDoctorPricesAsync(doctorId);
-        return Success<List<DoctorPriceResponse>>(prices, $"Prices for doctor {doctorId} retrieved successfully");
+        return Success<List<DoctorPriceResponse>>(
+            prices,
+            $"Prices for doctor {doctorId} retrieved successfully"
+        );
     }
 
     /// <summary>
     /// Assign price to doctor
     /// </summary>
     [HttpPost("assign-price")]
-    public async Task<IActionResult> AssignPriceToDoctor([FromBody] AssignPriceToDoctorRequest request)
+    public async Task<IActionResult> AssignPriceToDoctor(
+        [FromBody] AssignPriceToDoctorRequest request
+    )
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(DoctorConstants.ValidationMessages.InvalidRequestData, ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList());
+            return BadRequest(
+                DoctorConstants.ValidationMessages.InvalidRequestData,
+                ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+            );
         }
 
         var doctorPrice = await _doctorService.AssignPriceToDoctorAsync(request);
@@ -706,7 +829,10 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("validate/email/{email}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> ValidateDoctorEmail(string email, [FromQuery] Guid? excludeId = null)
+    public async Task<IActionResult> ValidateDoctorEmail(
+        string email,
+        [FromQuery] Guid? excludeId = null
+    )
     {
         var exists = await _doctorService.DoctorEmailExistsAsync(email, excludeId);
         return Success<object>(new { exists }, "Email validation completed");
@@ -717,7 +843,10 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("validate/account/{accountId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> ValidateDoctorAccount(Guid accountId, [FromQuery] Guid? excludeId = null)
+    public async Task<IActionResult> ValidateDoctorAccount(
+        Guid accountId,
+        [FromQuery] Guid? excludeId = null
+    )
     {
         var exists = await _doctorService.DoctorAccountExistsAsync(accountId, excludeId);
         return Success<object>(new { exists }, "Account validation completed");
@@ -728,12 +857,14 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("validate/doctor-price")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    public async Task<IActionResult> ValidateDoctorPrice([FromQuery] Guid doctorId, [FromQuery] Guid priceId)
+    public async Task<IActionResult> ValidateDoctorPrice(
+        [FromQuery] Guid doctorId,
+        [FromQuery] Guid priceId
+    )
     {
         var exists = await _doctorService.DoctorPriceExistsAsync(doctorId, priceId);
         return Success<object>(new { exists }, "Doctor-price relationship validation completed");
     }
-
 
     #endregion
 }
