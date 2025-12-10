@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Exceptions;
@@ -16,29 +17,42 @@ namespace BookingCare.Services.AI.Services.Implementations;
 public class LabResultAnalysisService : ILabResultAnalysisService
 {
     private readonly ILogger<LabResultAnalysisService> _logger;
-    private readonly GeminiApiHelper _geminiApiHelper;
-    private readonly ServiceGeminiConfiguration _serviceConfig;
+    private readonly GroqApiHelper _groqApiHelper;
+    private readonly ServiceGroqConfiguration _serviceConfig;
     private readonly IConversationSessionService _sessionService;
     private readonly RecommendationHelper _recommendationHelper;
     private readonly FileUploadHelper _fileUploadHelper;
+    private readonly ILabResultCacheService _cacheService;
+    private readonly ILabResultKeywordExtractor _keywordExtractor;
     private readonly string _tesseractDataPath;
     private readonly string _tesseractLanguage;
 
+    // Dùng encoder relaxed để giữ nguyên ký tự UTF-8 (tránh \uXXXX khi lưu DB)
+    private static readonly JsonSerializerOptions Utf8JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     public LabResultAnalysisService(
         ILogger<LabResultAnalysisService> logger,
-        GeminiApiHelper geminiApiHelper,
-        IOptions<GeminiServicesConfiguration> geminiServicesConfig,
+        GroqApiHelper groqApiHelper,
+        IOptions<GroqServicesConfiguration> groqServicesConfig,
         IConversationSessionService sessionService,
         RecommendationHelper recommendationHelper,
         FileUploadHelper fileUploadHelper,
+        ILabResultCacheService cacheService,
+        ILabResultKeywordExtractor keywordExtractor,
         IConfiguration configuration)
     {
         _logger = logger;
-        _geminiApiHelper = geminiApiHelper;
-        _serviceConfig = geminiServicesConfig.Value.LabResultAnalysis;
+        _groqApiHelper = groqApiHelper;
+        _serviceConfig = groqServicesConfig.Value.LabResultAnalysis;
         _sessionService = sessionService;
         _recommendationHelper = recommendationHelper;
         _fileUploadHelper = fileUploadHelper;
+        _cacheService = cacheService;
+        _keywordExtractor = keywordExtractor;
         _tesseractDataPath = configuration["Tesseract:DataPath"] ?? "tessdata";
         _tesseractLanguage = configuration["Tesseract:Language"] ?? "vie+eng";
     }
@@ -74,8 +88,25 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             _logger.LogInformation("Uploaded image to {ImageUrl}", imageUrl);
             _logger.LogInformation("Extracted {Length} characters from image", extractedText.Length);
 
-            var aiAnalysis = await AnalyzeWithGeminiAsync(extractedText);
-            _logger.LogInformation("Gemini analysis completed");
+            // Try cache lookup first
+            var cachedAnalysis = await TryGetCachedAnalysisAsync(extractedText);
+            GeminiLabAnalysis aiAnalysis;
+
+            if (cachedAnalysis != null)
+            {
+                _logger.LogInformation("✅ Cache hit! Using cached analysis");
+                aiAnalysis = cachedAnalysis;
+            }
+            else
+            {
+                _logger.LogInformation("❌ Cache miss, calling Groq API");
+                aiAnalysis = await AnalyzeWithGroqAsync(extractedText);
+
+                // Save to cache after successful analysis
+                await SaveAnalysisToCacheAsync(extractedText, aiAnalysis);
+            }
+
+            _logger.LogInformation("Analysis completed");
 
             var (doctors, hospitals) = await _recommendationHelper.GetRecommendationsAsync(aiAnalysis.Specialties, location);
 
@@ -341,11 +372,11 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         return extractedText;
     }
 
-    private async Task<GeminiLabAnalysis> AnalyzeWithGeminiAsync(string extractedText)
+    private async Task<GeminiLabAnalysis> AnalyzeWithGroqAsync(string extractedText)
     {
         var prompt = BuildAnalysisPrompt(extractedText);
-        var geminiResponse = await CallGeminiApiAsync(prompt);
-        return await ParseGeminiResponseAsync(geminiResponse);
+        var groqResponse = await CallGroqApiAsync(prompt);
+        return await ParseGeminiResponseAsync(groqResponse);
     }
 
     private string BuildAnalysisPrompt(string extractedText)
@@ -357,17 +388,19 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         promptBuilder.AppendLine("**KẾT QUẢ XÉT NGHIỆM:**");
         promptBuilder.AppendLine(extractedText);
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("**YÊU CẦU:**");
+        promptBuilder.AppendLine("**YÊU CẦU QUAN TRỌNG:**");
+        promptBuilder.AppendLine("⚠️ TẤT CẢ NỘI DUNG PHẢI TRẢ VỀ BẰNG TIẾNG VIỆT (tên chỉ số, giải thích, lời khuyên, chẩn đoán, chuyên khoa, disclaimer)");
+        promptBuilder.AppendLine();
         promptBuilder.AppendLine("1. Phân loại các chỉ số thành bình thường và bất thường");
         promptBuilder.AppendLine("2. Với mỗi chỉ số bất thường:");
-        promptBuilder.AppendLine("   - Giải thích ngắn gọn tại sao bất thường");
-        promptBuilder.AppendLine("   - Đưa ra lời khuyên");
-        promptBuilder.AppendLine("   - Chẩn đoán bệnh có thể");
-        promptBuilder.AppendLine("   - **BẮT BUỘC**: Đề xuất 1 chuyên khoa phù hợp với confidence (0.0-1.0), urgency (NORMAL/URGENT), và reasons");
-        promptBuilder.AppendLine("3. Đề xuất 1-3 chuyên khoa tổng quát");
-        promptBuilder.AppendLine("4. Tạo disclaimer ngắn gọn");
+        promptBuilder.AppendLine("   - Giải thích ngắn gọn tại sao bất thường (BẰNG TIẾNG VIỆT)");
+        promptBuilder.AppendLine("   - Đưa ra lời khuyên cụ thể (BẰNG TIẾNG VIỆT)");
+        promptBuilder.AppendLine("   - Chẩn đoán bệnh có thể (BẰNG TIẾNG VIỆT)");
+        promptBuilder.AppendLine("   - **BẮT BUỘC**: Đề xuất 1 chuyên khoa phù hợp với confidence (0.0-1.0), urgency (NORMAL/URGENT), và reasons (BẰNG TIẾNG VIỆT)");
+        promptBuilder.AppendLine("3. Đề xuất 1-3 chuyên khoa tổng quát (TÊN CHUYÊN KHOA BẰNG TIẾNG VIỆT)");
+        promptBuilder.AppendLine("4. Tạo disclaimer ngắn gọn (BẰNG TIẾNG VIỆT)");
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("**TRẢ VỀ JSON (ngắn gọn, chỉ các chỉ số quan trọng):**");
+        promptBuilder.AppendLine("**TRẢ VỀ JSON (ngắn gọn, chỉ các chỉ số quan trọng, TẤT CẢ BẰNG TIẾNG VIỆT):**");
         promptBuilder.AppendLine("{");
         promptBuilder.AppendLine("  \"normalIndicators\": [{\"name\": \"Hemoglobin\", \"value\": \"140\", \"unit\": \"g/L\", \"referenceRange\": \"130-170\"}],");
         promptBuilder.AppendLine("  \"abnormalIndicators\": [");
@@ -390,24 +423,24 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         promptBuilder.AppendLine("    }");
         promptBuilder.AppendLine("  ],");
         promptBuilder.AppendLine("  \"specialties\": [\"Nội tổng quát\", \"Huyết học\"],");
-        promptBuilder.AppendLine("  \"disclaimer\": \"Đây chỉ là gợi ý, cần khám bác sĩ để chẩn đoán chính xác.\"");
+        promptBuilder.AppendLine("  \"disclaimer\": \"Kết quả này chỉ mang tính chất tham khảo. Bạn nên tham khảo ý kiến bác sĩ chuyên khoa để chẩn đoán và điều trị chính xác.\"");
         promptBuilder.AppendLine("}");
 
         return promptBuilder.ToString();
     }
 
-    private async Task<string> CallGeminiApiAsync(string prompt)
+    private async Task<string> CallGroqApiAsync(string prompt)
     {
-        return await _geminiApiHelper.CallGeminiApiWithDefaultsAsync(
+        return await _groqApiHelper.CallGroqApiWithDefaultsAsync(
             prompt,
             _serviceConfig);
     }
 
-    private async Task<GeminiLabAnalysis> ParseGeminiResponseAsync(string geminiResponse)
+    private async Task<GeminiLabAnalysis> ParseGeminiResponseAsync(string groqResponse)
     {
         try
         {
-            var root = ExtractRootJsonElement(geminiResponse);
+            var root = ExtractRootJsonElement(groqResponse);
             var analysis = CreateEmptyGeminiAnalysis();
 
             PopulateNormalIndicators(root, analysis);
@@ -424,17 +457,17 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         }
     }
 
-    private static JsonElement ExtractRootJsonElement(string geminiResponse)
+    private static JsonElement ExtractRootJsonElement(string responseText)
     {
-        var jsonStart = geminiResponse.IndexOf('{');
-        var jsonEnd = geminiResponse.LastIndexOf('}');
+        var jsonStart = responseText.IndexOf('{');
+        var jsonEnd = responseText.LastIndexOf('}');
 
         if (jsonStart == -1 || jsonEnd == -1)
         {
-            throw new InvalidOperationException("No JSON found in Gemini response");
+            throw new InvalidOperationException("No JSON found in AI response");
         }
 
-        var jsonText = geminiResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+        var jsonText = responseText.Substring(jsonStart, jsonEnd - jsonStart + 1);
         var jsonDoc = JsonDocument.Parse(jsonText);
         return jsonDoc.RootElement;
     }
@@ -587,44 +620,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
         try
         {
             var userMessage = $"Đã gửi file xét nghiệm: {fileName}";
-            var aiMessage = new StringBuilder();
-            aiMessage.AppendLine("**KẾT QUẢ PHÂN TÍCH XÉT NGHIỆM:**");
-            aiMessage.AppendLine();
-
-            if (response.NormalIndicators.Count > 0)
-            {
-                aiMessage.AppendLine("**Các chỉ số bình thường:**");
-                foreach (var indicator in response.NormalIndicators)
-                {
-                    aiMessage.AppendLine($"- {indicator.Name}: {indicator.Value} {indicator.Unit} (Tham chiếu: {indicator.ReferenceRange})");
-                }
-                aiMessage.AppendLine();
-            }
-
-            if (response.AbnormalIndicators.Count > 0)
-            {
-                aiMessage.AppendLine("**Các chỉ số bất thường:**");
-                foreach (var indicator in response.AbnormalIndicators)
-                {
-                    aiMessage.AppendLine($"- **{indicator.Name}**: {indicator.Value} {indicator.Unit} (Tham chiếu: {indicator.ReferenceRange})");
-                    aiMessage.AppendLine($"  - Giải thích: {indicator.Explanation}");
-                    aiMessage.AppendLine($"  - Lời khuyên: {indicator.Advice}");
-                    if (!string.IsNullOrEmpty(indicator.PossibleDiagnosis))
-                    {
-                        aiMessage.AppendLine($"  - Chẩn đoán có thể: **{indicator.PossibleDiagnosis}**");
-                        if (indicator.RecommendedSpecialties != null && indicator.RecommendedSpecialties.Count > 0)
-                        {
-                            var specialtyNames = string.Join(", ", indicator.RecommendedSpecialties.Select(s => $"**{s.SpecialtyName}**"));
-                            aiMessage.AppendLine($"    - Chuyên khoa phù hợp: {specialtyNames}");
-                        }
-                    }
-                    aiMessage.AppendLine();
-                }
-            }
-
-            // Add disclaimer (plain text format like SymptomAnalysis)
-            aiMessage.AppendLine();
-            aiMessage.AppendLine($"Lưu ý: {response.Disclaimer}");
+            var aiMessage = BuildAnalysisMessage(response);
 
             var suggestions = new
             {
@@ -636,7 +632,7 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             await _sessionService.SaveConversationHistoryAsync(
                 sessionId,
                 userMessage,
-                aiMessage.ToString(),
+                aiMessage,
                 location,
                 suggestions,
                 userId,
@@ -651,6 +647,277 @@ public class LabResultAnalysisService : ILabResultAnalysisService
             _logger.LogError(ex, "Error saving lab result analysis for session {SessionId}", sessionId);
         }
     }
+
+    private static string BuildAnalysisMessage(LabResultAnalysisResponse response)
+    {
+        var aiMessage = new StringBuilder();
+        aiMessage.AppendLine("KẾT QUẢ PHÂN TÍCH XÉT NGHIỆM:");
+        aiMessage.AppendLine();
+
+        AppendNormalIndicators(aiMessage, response.NormalIndicators);
+        AppendAbnormalIndicators(aiMessage, response.AbnormalIndicators);
+        AppendDisclaimer(aiMessage, response.Disclaimer);
+
+        return aiMessage.ToString();
+    }
+
+    private static void AppendNormalIndicators(StringBuilder aiMessage, List<LabIndicator> normalIndicators)
+    {
+        if (normalIndicators.Count == 0)
+        {
+            return;
+        }
+
+        aiMessage.AppendLine("Các chỉ số bình thường:");
+        foreach (var indicator in normalIndicators)
+        {
+            aiMessage.AppendLine($"- {indicator.Name}: {indicator.Value} {indicator.Unit} (Tham chiếu: {indicator.ReferenceRange})");
+        }
+        aiMessage.AppendLine();
+    }
+
+    private static void AppendAbnormalIndicators(StringBuilder aiMessage, List<AbnormalLabIndicator> abnormalIndicators)
+    {
+        if (abnormalIndicators.Count == 0)
+        {
+            return;
+        }
+
+        aiMessage.AppendLine("Các chỉ số bất thường:");
+        foreach (var indicator in abnormalIndicators)
+        {
+            AppendAbnormalIndicatorDetails(aiMessage, indicator);
+        }
+    }
+
+    private static void AppendAbnormalIndicatorDetails(StringBuilder aiMessage, AbnormalLabIndicator indicator)
+    {
+        aiMessage.AppendLine($"- {indicator.Name}: {indicator.Value} {indicator.Unit} (Tham chiếu: {indicator.ReferenceRange})");
+        aiMessage.AppendLine($"- Giải thích: {indicator.Explanation}");
+        aiMessage.AppendLine($"- Lời khuyên: {indicator.Advice}");
+
+        if (!string.IsNullOrEmpty(indicator.PossibleDiagnosis))
+        {
+            aiMessage.AppendLine($"- Chẩn đoán có thể: {indicator.PossibleDiagnosis}");
+            AppendRecommendedSpecialties(aiMessage, indicator.RecommendedSpecialties);
+        }
+
+        aiMessage.AppendLine();
+    }
+
+    private static void AppendRecommendedSpecialties(StringBuilder aiMessage, List<SpecialtyMatch>? recommendedSpecialties)
+    {
+        if (recommendedSpecialties == null || recommendedSpecialties.Count == 0)
+        {
+            return;
+        }
+
+        var specialtyNames = string.Join(", ", recommendedSpecialties.Select(s => s.SpecialtyName));
+        aiMessage.AppendLine($"- Chuyên khoa phù hợp: {specialtyNames}");
+    }
+
+    private static void AppendDisclaimer(StringBuilder aiMessage, string? disclaimer)
+    {
+        if (string.IsNullOrEmpty(disclaimer))
+        {
+            return;
+        }
+
+        aiMessage.AppendLine();
+        aiMessage.AppendLine(disclaimer);
+    }
+
+    #region Cache Methods
+
+    /// <summary>
+    /// Try to get cached analysis using 3-tier lookup (exact text → exact keywords → fuzzy)
+    /// </summary>
+    private async Task<GeminiLabAnalysis?> TryGetCachedAnalysisAsync(string extractedText)
+    {
+        try
+        {
+            // Tier 0: Exact normalized text match (fastest, most accurate)
+            var normalizedText = _keywordExtractor.NormalizeText(extractedText);
+            if (!string.IsNullOrWhiteSpace(normalizedText))
+            {
+                var exactTextMatch = await _cacheService.FindExactTextMatchAsync(normalizedText);
+
+                if (exactTextMatch != null)
+                {
+                    await _cacheService.IncrementUsageAsync(exactTextMatch.Id);
+                    _logger.LogInformation(
+                        "✅ Tier 0 Cache Hit: Exact text match");
+                    return CreateAnalysisFromCache(exactTextMatch);
+                }
+            }
+
+            // Extract keywords
+            var keywords = _keywordExtractor.ExtractKeywords(extractedText);
+
+            if (string.IsNullOrEmpty(keywords))
+            {
+                _logger.LogDebug("No keywords extracted, skipping cache lookup");
+                return null;
+            }
+
+            _logger.LogDebug(
+                "Cache lookup: Text length={Length}, Keywords='{Keywords}'",
+                extractedText.Length,
+                keywords);
+
+            // Tier 1: Exact keywords match
+            var exactMatch = await _cacheService.FindExactMatchAsync(keywords);
+
+            if (exactMatch != null)
+            {
+                await _cacheService.IncrementUsageAsync(exactMatch.Id);
+                return CreateAnalysisFromCache(exactMatch);
+            }
+
+            // Tier 2: Fuzzy keywords match
+            var fuzzyMatch = await _cacheService.FindFuzzyMatchAsync(
+                keywords,
+                threshold: 0.75); // 75% similarity
+
+            if (fuzzyMatch != null)
+            {
+                await _cacheService.IncrementUsageAsync(fuzzyMatch.Id);
+                return CreateAnalysisFromCache(fuzzyMatch);
+            }
+
+            // Cache miss
+            _logger.LogInformation(
+                "❌ Cache miss for Keywords='{Keywords}' → Will call Groq",
+                keywords);
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during cache lookup, falling back to Groq");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Create analysis from cached entity
+    /// </summary>
+    private GeminiLabAnalysis CreateAnalysisFromCache(
+        Models.Entities.LabResultAbnormalIndicatorCacheEntity cached)
+    {
+        try
+        {
+            var analysis = new GeminiLabAnalysis
+            {
+                NormalIndicators = new List<LabIndicator>(),
+                AbnormalIndicators = new List<AbnormalLabIndicator>(),
+                Specialties = new List<string>()
+            };
+
+            // Deserialize normal indicators
+            if (!string.IsNullOrEmpty(cached.NormalIndicatorsJson))
+            {
+                analysis.NormalIndicators = JsonSerializer.Deserialize<List<LabIndicator>>(
+                    cached.NormalIndicatorsJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? new List<LabIndicator>();
+            }
+
+            // Deserialize abnormal indicators
+            if (!string.IsNullOrEmpty(cached.AbnormalIndicatorsJson))
+            {
+                analysis.AbnormalIndicators = JsonSerializer.Deserialize<List<AbnormalLabIndicator>>(
+                    cached.AbnormalIndicatorsJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? new List<AbnormalLabIndicator>();
+            }
+
+            // Deserialize specialties
+            if (!string.IsNullOrEmpty(cached.SpecialtiesJson))
+            {
+                analysis.Specialties = JsonSerializer.Deserialize<List<string>>(
+                    cached.SpecialtiesJson,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? new List<string>();
+            }
+
+            analysis.Disclaimer = cached.Disclaimer;
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deserializing cached analysis, falling back to Groq");
+            return null!;
+        }
+    }
+
+    /// <summary>
+    /// Save analysis to cache (only if not already exists)
+    /// </summary>
+    private async Task SaveAnalysisToCacheAsync(
+        string extractedText,
+        GeminiLabAnalysis analysis)
+    {
+        try
+        {
+            // Extract components
+            var keywords = _keywordExtractor.ExtractKeywords(extractedText);
+            var normalizedText = _keywordExtractor.NormalizeText(extractedText);
+
+            // Check if already exists in cache
+            var existingCache = !string.IsNullOrWhiteSpace(normalizedText)
+                ? await _cacheService.FindExactTextMatchAsync(normalizedText)
+                : null;
+
+            if (existingCache == null)
+            {
+                existingCache = await _cacheService.FindExactMatchAsync(keywords);
+            }
+
+            if (existingCache != null)
+            {
+                _logger.LogDebug(
+                    "⏭️ Skipping cache save: Analysis already exists for Keywords='{Keywords}'",
+                    keywords);
+                return;
+            }
+
+            // Serialize indicators
+            var abnormalIndicatorsJson = JsonSerializer.Serialize(
+                analysis.AbnormalIndicators,
+                Utf8JsonOptions);
+
+            var normalIndicatorsJson = JsonSerializer.Serialize(
+                analysis.NormalIndicators,
+                Utf8JsonOptions);
+
+            var specialtiesJson = JsonSerializer.Serialize(
+                analysis.Specialties,
+                Utf8JsonOptions);
+
+            // Save to cache
+            await _cacheService.SaveAnalysisAsync(
+                normalizedKeywords: keywords,
+                normalizedText: normalizedText,
+                abnormalIndicatorsJson: abnormalIndicatorsJson,
+                normalIndicatorsJson: normalIndicatorsJson,
+                specialtiesJson: specialtiesJson,
+                disclaimer: analysis.Disclaimer,
+                createdBy: "GROQ");
+
+            _logger.LogInformation(
+                "💾 Saved to cache: Keywords='{Keywords}', {AbnormalCount} abnormal indicators",
+                keywords,
+                analysis.AbnormalIndicators.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save analysis to cache (non-critical)");
+        }
+    }
+
+    #endregion
 }
 
 internal class GeminiLabAnalysis

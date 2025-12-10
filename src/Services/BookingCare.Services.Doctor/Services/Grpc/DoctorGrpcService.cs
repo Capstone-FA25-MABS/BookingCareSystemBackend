@@ -925,6 +925,41 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
     }
 
     /// <summary>
+    /// Get all service options (service type + price) for a list of doctors
+    /// </summary>
+    private async Task<Dictionary<Guid, List<(Guid ServiceTypeId, string ServiceTypeName, decimal Amount)>>> GetDoctorServiceOptionsAsync(
+        List<Guid> doctorIds)
+    {
+        var result = new Dictionary<Guid, List<(Guid ServiceTypeId, string ServiceTypeName, decimal Amount)>>();
+
+        foreach (var doctorId in doctorIds)
+        {
+            try
+            {
+                var prices = await _doctorService.GetDoctorPricesAsync(doctorId);
+                result[doctorId] = prices
+                    .Select(p => (p.ServiceTypeId, p.ServiceTypeName, p.Amount))
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[DoctorGrpcService] Failed to get service options for doctor {DoctorId}", doctorId);
+            }
+        }
+
+        return result;
+    }
+
+    private static bool IsAllowedServiceType(string name)
+    {
+        var normalized = (name ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized == "in_person"
+            || normalized.Contains("trực tiếp")
+            || normalized == "telehealth"
+            || normalized.Contains("tư vấn trực tuyến");
+    }
+
+    /// <summary>
     /// Get alternative prices for doctors without IN_PERSON price
     /// </summary>
     private async Task GetAlternativePricesAsync(
@@ -993,7 +1028,8 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
         Dictionary<Guid, double> ratingMap,
         Dictionary<Guid, (string Name, string Address)> hospitalMap,
         Dictionary<Guid, (decimal Amount, string ServiceTypeName)> priceMap,
-        Dictionary<Guid, string> specialtyMap)
+        Dictionary<Guid, string> specialtyMap,
+        Dictionary<Guid, List<(Guid ServiceTypeId, string ServiceTypeName, decimal Amount)>> serviceOptionsMap)
     {
         var specialtyName = doctor.SpecialtyId.HasValue && specialtyMap.TryGetValue(doctor.SpecialtyId.Value, out var name)
             ? name
@@ -1021,9 +1057,30 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             doctorInfo.HospitalName = hospitalInfo.Name;
         }
 
-        // Add price info
-        if (priceMap.TryGetValue(doctor.Id, out var priceInfo))
+        // Add price info (prefer first allowed service type)
+        if (serviceOptionsMap.TryGetValue(doctor.Id, out var options) && options.Any())
         {
+            var filtered = options.Where(o => IsAllowedServiceType(o.ServiceTypeName)).ToList();
+            foreach (var option in filtered)
+            {
+                doctorInfo.ServiceOptions.Add(new Protos.DoctorServiceOption
+                {
+                    ServiceTypeId = option.ServiceTypeId.ToString(),
+                    ServiceTypeName = option.ServiceTypeName,
+                    ConsultationFee = (double)option.Amount
+                });
+            }
+
+            var preferred = filtered.FirstOrDefault();
+            if (preferred != default)
+            {
+                doctorInfo.ServiceTypeName = preferred.ServiceTypeName;
+                doctorInfo.ConsultationFee = (double)preferred.Amount;
+            }
+        }
+        else if (priceMap.TryGetValue(doctor.Id, out var priceInfo))
+        {
+            // Fallback to legacy map if available
             doctorInfo.ConsultationFee = (double)priceInfo.Amount;
             doctorInfo.ServiceTypeName = priceInfo.ServiceTypeName;
         }
@@ -1077,6 +1134,23 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
             var hospitalMap = await GetHospitalInfoAsync(hospitalIds);
 
             var priceMap = await GetDoctorPricesAsync(doctorIds, doctors);
+            var serviceOptionsMap = await GetDoctorServiceOptionsAsync(doctorIds);
+
+            // Filter out doctors that do NOT have allowed service types
+            var doctorsWithAllowedServices = doctors
+                .Where(d =>
+                {
+                    if (!serviceOptionsMap.TryGetValue(d.Id, out var options) || options.Count == 0)
+                        return false;
+                    return options.Any(o => IsAllowedServiceType(o.ServiceTypeName));
+                })
+                .ToList();
+
+            if (!doctorsWithAllowedServices.Any())
+            {
+                _logger.LogInformation("[DoctorGrpcService] No doctors with allowed service types (IN_PERSON/TELEHEALTH)");
+                return new Protos.FilterDoctorsForRecommendationResponse();
+            }
 
             // Get specialty names
             var specialtyMap = await GetSpecialtyNamesAsync(doctors);
@@ -1087,9 +1161,15 @@ public class DoctorGrpcService : Protos.DoctorService.DoctorServiceBase
                 TotalCount = doctors.Count
             };
 
-            foreach (var doctor in doctors)
+            foreach (var doctor in doctorsWithAllowedServices)
             {
-                var doctorInfo = BuildDoctorRecommendationInfo(doctor, ratingMap, hospitalMap, priceMap, specialtyMap);
+                var doctorInfo = BuildDoctorRecommendationInfo(
+                    doctor,
+                    ratingMap,
+                    hospitalMap,
+                    priceMap,
+                    specialtyMap,
+                    serviceOptionsMap);
                 response.Doctors.Add(doctorInfo);
             }
 

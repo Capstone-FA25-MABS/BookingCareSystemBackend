@@ -4,6 +4,9 @@ using BookingCare.Services.Doctor.Protos;
 using BookingCare.Services.Hospital;
 using Grpc.Core;
 using Microsoft.Extensions.Caching.Memory;
+using System.Globalization;
+using System.Text;
+using DoctorServiceOptionDto = BookingCare.Services.AI.Models.DTOs.Responses.DoctorServiceOption;
 
 namespace BookingCare.Services.AI.Helpers;
 
@@ -86,19 +89,9 @@ public class RecommendationHelper
                 .Select(x => new { Doctor = x, Score = CalculateDoctorScore(x, location) })
                 .OrderByDescending(x => x.Score)
                 .Take(MAX_DOCTOR_RECOMMENDATIONS)
-                .Select(x => new DoctorRecommendation
-                {
-                    Id = x.Doctor.Id,
-                    Name = x.Doctor.FullName,
-                    SpecialtyName = x.Doctor.SpecialtyName,
-                    HospitalName = x.Doctor.HospitalName,
-                    Rating = x.Doctor.Rating,
-                    YearOfExperience = x.Doctor.YearsOfExperience,
-                    ServiceTypeName = x.Doctor.ServiceTypeName,
-                    Price = x.Doctor.ConsultationFee > 0 ? $"{x.Doctor.ConsultationFee:N0} VNĐ" : null,
-                    AvatarUrl = x.Doctor.AvatarUrl,
-                    RecommendationScore = x.Score
-                })
+                .Select(x => MapToDoctorRecommendation(x.Doctor, x.Score))
+                .Where(x => x != null)
+                .Select(x => x!)
                 .ToList();
         }
         catch (Exception ex)
@@ -120,8 +113,11 @@ public class RecommendationHelper
 
         try
         {
-            var specialtyIds = await MatchSpecialtiesToIdsAsync(specialties);
+            var mappedSpecialties = NormalizeAndMapSpecialties(specialties);
+            var specialtyIds = await MatchSpecialtiesToIdsAsync(mappedSpecialties);
             if (specialtyIds.Count == 0) return new List<HospitalRecommendation>();
+            var specialtyNames = await GetSpecialtyNamesByIdsAsync(specialtyIds);
+            var filteredSpecialtyNames = FilterSpecialtyNames(specialtyNames);
 
             // Run hospital queries in parallel for better performance
             var hospitalTasks = specialtyIds.Take(3).Select<Guid, Task<List<HospitalReply>>>(async specialtyId =>
@@ -147,20 +143,20 @@ public class RecommendationHelper
             var allHospitals = hospitalResults.SelectMany(h => h).ToList();
 
             return allHospitals
-                .GroupBy(h => h.Id)
-                .Select(g => g.First())
-                .Select(h => new HospitalRecommendation
-                {
-                    Id = h.Id,
-                    Name = h.Name,
-                    Address = h.Address,
-                    SpecialtyNames = specialties,
-                    ImageUrl = h.AvatarUrl,
-                    RecommendationScore = CalculateHospitalScore(h, location)
-                })
-                .OrderByDescending(h => h.RecommendationScore)
-                .Take(MAX_HOSPITAL_RECOMMENDATIONS)
-                .ToList();
+                    .GroupBy(h => h.Id)
+                    .Select(g => g.First())
+                    .Select(h => new HospitalRecommendation
+                    {
+                        Id = h.Id,
+                        Name = h.Name,
+                        Address = h.Address,
+                        SpecialtyNames = filteredSpecialtyNames,
+                        ImageUrl = h.AvatarUrl,
+                        RecommendationScore = CalculateHospitalScore(h, location)
+                    })
+                    .OrderByDescending(h => h.RecommendationScore)
+                    .Take(MAX_HOSPITAL_RECOMMENDATIONS)
+                    .ToList();
         }
         catch (Exception ex)
         {
@@ -309,6 +305,187 @@ public class RecommendationHelper
         }
 
         return score;
+    }
+
+    private DoctorRecommendation? MapToDoctorRecommendation(DoctorRecommendationInfo doctor, double score)
+    {
+        var serviceOptions = ProcessServiceOptions(doctor.ServiceOptions.AsEnumerable());
+
+        if (serviceOptions.Count == 0)
+        {
+            return null;
+        }
+
+        var preferredOption = FindPreferredServiceOption(serviceOptions);
+
+        return new DoctorRecommendation
+        {
+            Id = doctor.Id,
+            Name = doctor.FullName,
+            SpecialtyName = doctor.SpecialtyName,
+            HospitalName = doctor.HospitalName,
+            Rating = doctor.Rating,
+            YearOfExperience = doctor.YearsOfExperience,
+            ServiceTypeName = preferredOption?.ServiceTypeName ?? doctor.ServiceTypeName,
+            Price = preferredOption?.Price ?? FormatPrice(doctor.ConsultationFee),
+            AvatarUrl = doctor.AvatarUrl,
+            RecommendationScore = score,
+            ServiceOptions = serviceOptions
+        };
+    }
+
+    private List<DoctorServiceOptionDto> ProcessServiceOptions(IEnumerable<BookingCare.Services.Doctor.Protos.DoctorServiceOption> serviceOptions)
+    {
+        var mappedOptions = serviceOptions
+            .Select(o => new DoctorServiceOptionDto
+            {
+                ServiceTypeId = string.IsNullOrWhiteSpace(o.ServiceTypeId) ? null : o.ServiceTypeId,
+                ServiceTypeName = o.ServiceTypeName,
+                Price = FormatPrice(o.ConsultationFee)
+            })
+            .ToList();
+
+        return FilterAllowedServiceTypes(mappedOptions);
+    }
+
+    private List<DoctorServiceOptionDto> FilterAllowedServiceTypes(List<DoctorServiceOptionDto> serviceOptions)
+    {
+        return serviceOptions
+            .Where(o => IsAllowedServiceType(o.ServiceTypeName))
+            .ToList();
+    }
+
+    private static bool IsAllowedServiceType(string? serviceTypeName)
+    {
+        if (string.IsNullOrWhiteSpace(serviceTypeName))
+        {
+            return false;
+        }
+
+        var name = serviceTypeName.Trim().ToLowerInvariant();
+        return name == "in_person"
+            || name.Contains("trực tiếp")
+            || name == "telehealth"
+            || name.Contains("tư vấn trực tuyến");
+    }
+
+    private static DoctorServiceOptionDto? FindPreferredServiceOption(List<DoctorServiceOptionDto> serviceOptions)
+    {
+        var preferredOption = serviceOptions.FirstOrDefault(o =>
+            o.ServiceTypeName.Equals("IN_PERSON", StringComparison.OrdinalIgnoreCase) ||
+            o.ServiceTypeName.Contains("trực tiếp", StringComparison.OrdinalIgnoreCase));
+
+        return preferredOption ?? serviceOptions.FirstOrDefault();
+    }
+
+    private static string? FormatPrice(double consultationFee)
+    {
+        return consultationFee > 0 ? $"{consultationFee:N0} VNĐ" : null;
+    }
+
+    /// <summary>
+    /// Lấy tên chuyên khoa từ DB (cache) theo danh sách ID. Fallback về tên AI trả ra nếu không match.
+    /// </summary>
+    /// <summary>
+    /// Chuẩn hóa và map specialty từ AI sang tên chuẩn (tiếng Việt) nếu có từ điển.
+    /// </summary>
+    private List<string> NormalizeAndMapSpecialties(List<string> specialties)
+    {
+        if (specialties.Count == 0) return specialties;
+
+        return specialties
+            .Select(MapToKnownSpecialtyName)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private string MapToKnownSpecialtyName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+
+        var norm = NormalizeText(name);
+
+        // Map các tên tiếng Anh phổ biến về tiếng Việt để match DB
+        if (norm.Contains("dermatology")) return "Da liễu";
+        if (norm.Contains("cardiology")) return "Tim mạch";
+        if (norm.Contains("neurology")) return "Thần kinh";
+
+        return name.Trim();
+    }
+
+    private async Task<List<string>> GetSpecialtyNamesByIdsAsync(List<Guid> specialtyIds)
+    {
+        if (specialtyIds.Count == 0)
+        {
+            return new List<string>();
+        }
+
+        try
+        {
+            if (!_cache.TryGetValue(SPECIALTY_CACHE_KEY, out GetAllSpecialtiesResponse? cachedResponse))
+            {
+                var request = new GetAllSpecialtiesRequest();
+                cachedResponse = await _doctorClient.GetAllSpecialtiesAsync(request);
+                _cache.Set(SPECIALTY_CACHE_KEY, cachedResponse, SpecialtyCacheDuration);
+                _logger.LogInformation("Cached specialty list for {Duration}", SpecialtyCacheDuration);
+            }
+
+            var lookup = cachedResponse.Specialties.ToDictionary(s => s.Id, s => s.Name, StringComparer.OrdinalIgnoreCase);
+            var names = specialtyIds
+                .Select(id => lookup.TryGetValue(id.ToString(), out var name) ? name : null)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return names;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to map specialty IDs to names");
+            return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Loại bỏ bản dịch trùng (ví dụ Dermatology) nếu đã có bản tiếng Việt (Da liễu)
+    /// </summary>
+    private List<string> FilterSpecialtyNames(List<string> specialties)
+    {
+        if (specialties.Count == 0) return specialties;
+
+        var normalized = specialties.Select(s => new
+        {
+            Original = s,
+            Normalized = NormalizeText(s)
+        }).ToList();
+
+        bool hasDaLieu = normalized.Any(n => n.Normalized.Contains("da lieu"));
+
+        return normalized
+            .Where(n => !(hasDaLieu && n.Normalized.Contains("dermatology")))
+            .Select(n => n.Original)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string NormalizeText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+
+        var formD = value.Normalize(NormalizationForm.FormD);
+        Span<char> buffer = stackalloc char[formD.Length];
+        int idx = 0;
+
+        foreach (var ch in formD)
+        {
+            var uc = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (uc != UnicodeCategory.NonSpacingMark)
+            {
+                buffer[idx++] = ch;
+            }
+        }
+
+        return new string(buffer[..idx]).ToLowerInvariant().Trim();
     }
 }
 

@@ -11,22 +11,22 @@ using Microsoft.Extensions.Options;
 namespace BookingCare.Services.AI.Services.Implementations;
 
 /// <summary>
-/// Service implementation for AI operations using Google Gemini API
+/// Service implementation for AI operations using Groq API
 /// </summary>
 public class AIService : IAIService
 {
-    private readonly GeminiApiHelper _geminiApiHelper;
-    private readonly ServiceGeminiConfiguration _serviceConfig;
+    private readonly GroqApiHelper _groqApiHelper;
+    private readonly ServiceGroqConfiguration _serviceConfig;
     private readonly ILogger<AIService> _logger;
 
     public AIService(
-        GeminiApiHelper geminiApiHelper,
-        IOptions<GeminiServicesConfiguration> geminiServicesConfig,
+        GroqApiHelper groqApiHelper,
+        IOptions<GroqServicesConfiguration> groqServicesConfig,
         ILogger<AIService> logger
     )
     {
-        _geminiApiHelper = geminiApiHelper;
-        _serviceConfig = geminiServicesConfig.Value.MedicalSummary;
+        _groqApiHelper = groqApiHelper;
+        _serviceConfig = groqServicesConfig.Value.MedicalSummary;
         _logger = logger;
     }
 
@@ -41,11 +41,11 @@ public class AIService : IAIService
                 request.AppointmentId
             );
 
-            // Build the prompt for Gemini
+            // Build the prompt for Groq
             var prompt = BuildMedicalSummaryPrompt(request);
 
-            // Call Gemini API
-            var geminiResponse = await CallGeminiApiAsync(prompt);
+            // Call Groq API
+            var groqResponse = await CallGroqApiAsync(prompt);
 
             _logger.LogInformation(
                 "Successfully generated medical summary for appointment {AppointmentId}",
@@ -54,7 +54,7 @@ public class AIService : IAIService
 
             return new MedicalSummaryResponse
             {
-                Summary = geminiResponse,
+                Summary = groqResponse,
                 AppointmentId = request.AppointmentId,
                 GeneratedAt = DateTime.UtcNow,
                 Success = true,
@@ -80,7 +80,7 @@ public class AIService : IAIService
     }
 
     /// <summary>
-    /// Build medical summary prompt for Gemini AI
+    /// Build medical summary prompt for Groq AI
     /// </summary>
     private static string BuildMedicalSummaryPrompt(GenerateMedicalSummaryRequest request)
     {
@@ -303,15 +303,15 @@ public class AIService : IAIService
     }
 
     /// <summary>
-    /// Call Gemini API to generate content with fallback support
+    /// Call Groq API to generate content with fallback support
     /// </summary>
-    private async Task<string> CallGeminiApiAsync(string prompt)
+    private async Task<string> CallGroqApiAsync(string prompt)
     {
-        return await _geminiApiHelper.CallGeminiApiAsync(
+        return await _groqApiHelper.CallGroqApiAsync(
             prompt,
             _serviceConfig,
-            temperature: null, // Use default from common config
-            maxOutputTokens: null, // Use default from common config
+            temperature: null, // Use default from config
+            maxTokens: null, // Use default from config
             cancellationToken: default);
     }
 

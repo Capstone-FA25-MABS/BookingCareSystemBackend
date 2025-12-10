@@ -4,6 +4,7 @@ using BookingCare.Services.AI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.AI.Migrations
 {
     [DbContext(typeof(AiDbContext))]
-    partial class AiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251207181805_AddLabResultAbnormalIndicatorCache")]
+    partial class AddLabResultAbnormalIndicatorCache
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,55 +24,6 @@ namespace BookingCare.Services.AI.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("BookingCare.Services.AI.Models.Entities.AILabToolsApiKeyEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ApiKey")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<DateTime?>("LastUsedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("MaxUsageCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(10);
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("UsageCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsActive");
-
-                    b.HasIndex("LastUsedAt");
-
-                    b.HasIndex("UsageCount");
-
-                    b.ToTable("AILabToolsApiKeys");
-                });
 
             modelBuilder.Entity("BookingCare.Services.AI.Models.Entities.ConversationContextKeywordEntity", b =>
                 {
@@ -141,66 +95,6 @@ namespace BookingCare.Services.AI.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("ConversationSessions");
-                });
-
-            modelBuilder.Entity("BookingCare.Services.AI.Models.Entities.DermatologyDiseaseCacheEntity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AdviceJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("EnglishName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime>("LastUsedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("ReasonsJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<double>("SuccessRate")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("float")
-                        .HasDefaultValue(0.0);
-
-                    b.Property<int>("UsageCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<string>("VietnameseName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EnglishName")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Dermatology_EnglishName");
-
-                    b.HasIndex("LastUsedAt");
-
-                    b.HasIndex("UsageCount");
-
-                    b.ToTable("DermatologyDiseaseCache");
                 });
 
             modelBuilder.Entity("BookingCare.Services.AI.Models.Entities.LabResultAbnormalIndicatorCacheEntity", b =>
