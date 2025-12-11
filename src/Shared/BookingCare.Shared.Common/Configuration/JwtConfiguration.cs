@@ -34,11 +34,11 @@ public static class JwtConfiguration
     /// <exception cref="InvalidOperationException">Thrown when JWT_SECRET_KEY or JWT_KEY is not set</exception>
     public static (string SecretKey, string Issuer, string Audience, int AccessTokenExpirationMinutes, int RefreshTokenExpirationDays) GetConfiguration()
     {
-        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") 
+        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
                        ?? Environment.GetEnvironmentVariable("JWT_KEY")
                        ?? Environment.GetEnvironmentVariable("Jwt__SecretKey")  // ASP.NET Core format
                        ?? Environment.GetEnvironmentVariable("Jwt__Key");       // ASP.NET Core format
-        
+
         if (string.IsNullOrEmpty(secretKey))
         {
             throw new InvalidOperationException(
@@ -68,13 +68,13 @@ public static class JwtConfiguration
         // PRIORITY ORDER: Environment Variables > appsettings.json
         // This ensures docker-compose env vars override hard-coded values
         // Supports both JWT_KEY and Jwt__SecretKey (ASP.NET Core double-underscore convention)
-        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") 
+        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
                        ?? Environment.GetEnvironmentVariable("JWT_KEY")
                        ?? Environment.GetEnvironmentVariable("Jwt__SecretKey")  // ASP.NET Core format
                        ?? Environment.GetEnvironmentVariable("Jwt__Key")        // ASP.NET Core format
-                       ?? configuration["Jwt:SecretKey"] 
+                       ?? configuration["Jwt:SecretKey"]
                        ?? configuration["Jwt:Key"];
-        
+
         if (string.IsNullOrEmpty(secretKey))
         {
             throw new InvalidOperationException(
