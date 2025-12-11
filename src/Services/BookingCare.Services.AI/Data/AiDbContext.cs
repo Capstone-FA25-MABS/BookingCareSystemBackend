@@ -42,6 +42,21 @@ public class AiDbContext : DbContext
     /// </summary>
     public DbSet<AILabToolsApiKeyEntity> AILabToolsApiKeys { get; set; }
 
+    /// <summary>
+    /// DbSet for nutrition profiles
+    /// </summary>
+    public DbSet<NutritionProfileEntity> NutritionProfiles { get; set; }
+
+    /// <summary>
+    /// DbSet for meal plans
+    /// </summary>
+    public DbSet<MealPlanEntity> MealPlans { get; set; }
+
+    /// <summary>
+    /// DbSet for workout plans
+    /// </summary>
+    public DbSet<WorkoutPlanEntity> WorkoutPlans { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -278,6 +293,113 @@ public class AiDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
             entity.HasIndex(e => e.UsageCount);
             entity.HasIndex(e => e.LastUsedAt);
+        });
+
+        // Configure NutritionProfileEntity
+        modelBuilder.Entity<NutritionProfileEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.HeightCm).IsRequired();
+            entity.Property(e => e.WeightKg).IsRequired();
+            entity.Property(e => e.BMI).IsRequired();
+            entity.Property(e => e.ActivityLevel).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.HealthGoal).HasMaxLength(50).IsRequired();
+
+            entity.Property(e => e.HealthConditionsJson)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired(false);
+
+            entity.Property(e => e.DietaryPreferencesJson)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired(false);
+
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.UpdatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            // Indexes for performance
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        // Configure MealPlanEntity
+        modelBuilder.Entity<MealPlanEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.NutritionProfileId).IsRequired();
+            entity.Property(e => e.Date).IsRequired();
+
+            entity.Property(e => e.MealsJson)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired()
+                .HasDefaultValue("[]");
+
+            entity.Property(e => e.GeneratedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.IsNotificationSent)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            // Foreign key relationship
+            entity.HasOne(e => e.NutritionProfile)
+                .WithMany(p => p.MealPlans)
+                .HasForeignKey(e => e.NutritionProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes for performance
+            entity.HasIndex(e => new { e.UserId, e.Date })
+                .HasDatabaseName("IX_MealPlans_UserId_Date");
+            entity.HasIndex(e => e.NutritionProfileId);
+            entity.HasIndex(e => e.IsNotificationSent);
+        });
+
+        // Configure WorkoutPlanEntity
+        modelBuilder.Entity<WorkoutPlanEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.NutritionProfileId).IsRequired();
+            entity.Property(e => e.Date).IsRequired();
+            entity.Property(e => e.WorkoutType).HasMaxLength(100).IsRequired();
+
+            entity.Property(e => e.ExercisesJson)
+                .HasColumnType("nvarchar(max)")
+                .IsRequired()
+                .HasDefaultValue("[]");
+
+            entity.Property(e => e.GeneratedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.IsNotificationSent)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            // Foreign key relationship
+            entity.HasOne(e => e.NutritionProfile)
+                .WithMany(p => p.WorkoutPlans)
+                .HasForeignKey(e => e.NutritionProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes for performance
+            entity.HasIndex(e => new { e.UserId, e.Date })
+                .HasDatabaseName("IX_WorkoutPlans_UserId_Date");
+            entity.HasIndex(e => e.NutritionProfileId);
+            entity.HasIndex(e => e.IsNotificationSent);
         });
     }
 

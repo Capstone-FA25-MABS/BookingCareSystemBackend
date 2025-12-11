@@ -1,3 +1,4 @@
+using BookingCare.Services.AI.BackgroundServices;
 using BookingCare.Services.AI.Configuration;
 using BookingCare.Services.AI.Data;
 using BookingCare.Services.AI.Helpers;
@@ -9,9 +10,11 @@ using BookingCare.Services.AI.Workflows;
 using BookingCare.Services.Doctor.Protos;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
+using BookingCare.Shared.EventBus.Extensions;
 using BookingCare.Shared.FileUpload.Extensions;
 using Grpc.Net.Client;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,7 +57,16 @@ builder.Services.Configure<AILabToolsConfiguration>(builder.Configuration.GetSec
 builder.Services.AddHttpClient<GeminiApiHelper>();
 
 // Register GroqApiHelper (shared helper for all Groq API calls)
-builder.Services.AddHttpClient<GroqApiHelper>();
+// Use scoped registration with HttpClient from IHttpClientFactory
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<GroqApiHelper>(sp =>
+{
+    var logger = sp.GetRequiredService<ILogger<GroqApiHelper>>();
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient();
+    var config = sp.GetRequiredService<IOptions<GroqConfiguration>>();
+    return new GroqApiHelper(logger, httpClient, config);
+});
 
 // Register AI Service for medical summary generation
 builder.Services.AddScoped<IAIService, AIService>();
@@ -77,6 +89,18 @@ builder.Services.AddGrpcClient<BookingCare.Services.Hospital.HospitalService.Hos
     options =>
     {
         options.Address = new Uri(hospitalGrpcAddress);
+    }
+);
+
+// Add User service gRPC client for nutrition service
+var userGrpcAddress =
+    builder.Configuration["GrpcClients:User:Address"]
+    ?? builder.Configuration["Services:User:GrpcUrl"]
+    ?? "http://localhost:6101";
+builder.Services.AddGrpcClient<BookingCare.Services.User.Protos.UserService.UserServiceClient>(
+    options =>
+    {
+        options.Address = new Uri(userGrpcAddress);
     }
 );
 
@@ -116,11 +140,22 @@ builder.Services.AddScoped<IGeminiTranscriptionService, GeminiTranscriptionServi
 // Register Audio Transcription Workflow
 builder.Services.AddScoped<IAudioTranscriptionWorkflow, AudioTranscriptionWorkflow>();
 
+// Register Nutrition Services
+builder.Services.AddScoped<HealthMetricsCalculator>();
+builder.Services.AddScoped<INutritionService, NutritionService>();
+builder.Services.AddScoped<INutritionConversationService, NutritionConversationService>();
+
+// Register Nutrition Background Service
+builder.Services.AddHostedService<DailyNutritionPlanService>();
+
 // Add S3 File Upload services
 builder.Services.AddS3FileUpload(builder.Configuration);
 
 // Add Memory Cache for token caching
 builder.Services.AddMemoryCache();
+
+// Add RabbitMQ Event Bus for nutrition notifications
+builder.Services.AddRabbitMQEventBus(builder.Configuration, "ai-service-queue");
 
 // Add JWT Authentication and Authorization using centralized configuration
 // This includes: JWT auth, authorization policies, and AutoToken middleware

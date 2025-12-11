@@ -1628,3 +1628,103 @@ public class AppointmentRejectedNotificationEvent : IntegrationEvent
     public string? HospitalName { get; set; }
 }
 
+// Nutrition-related events
+/// <summary>
+/// Event published when daily meal plan is generated for a user
+/// This event is consumed by Notification Service to send meal plan notification
+/// </summary>
+public class DailyMealPlanGeneratedEvent : IntegrationEvent
+{
+    /// <summary>
+    /// User ID
+    /// </summary>
+    public Guid UserId { get; set; }
+
+    /// <summary>
+    /// Meal plan ID
+    /// </summary>
+    public Guid MealPlanId { get; set; }
+
+    /// <summary>
+    /// Date of the meal plan
+    /// </summary>
+    public DateTime Date { get; set; }
+
+    /// <summary>
+    /// Total calories for the day
+    /// </summary>
+    public int TotalCalories { get; set; }
+
+    /// <summary>
+    /// Total protein in grams
+    /// </summary>
+    public decimal TotalProteinG { get; set; }
+
+    /// <summary>
+    /// Total carbs in grams
+    /// </summary>
+    public decimal TotalCarbsG { get; set; }
+
+    /// <summary>
+    /// Total fat in grams
+    /// </summary>
+    public decimal TotalFatG { get; set; }
+
+    /// <summary>
+    /// Number of meals in the plan
+    /// </summary>
+    public int MealCount { get; set; }
+
+    /// <summary>
+    /// Generated timestamp
+    /// </summary>
+    public DateTime GeneratedAt { get; set; }
+}
+
+/// <summary>
+/// Event published when daily workout plan is generated for a user
+/// This event is consumed by Notification Service to send workout plan notification
+/// </summary>
+public class DailyWorkoutPlanGeneratedEvent : IntegrationEvent
+{
+    /// <summary>
+    /// User ID
+    /// </summary>
+    public Guid UserId { get; set; }
+
+    /// <summary>
+    /// Workout plan ID
+    /// </summary>
+    public Guid WorkoutPlanId { get; set; }
+
+    /// <summary>
+    /// Date of the workout plan
+    /// </summary>
+    public DateTime Date { get; set; }
+
+    /// <summary>
+    /// Workout type (Cardio, Strength, Mixed, etc.)
+    /// </summary>
+    public string WorkoutType { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Total duration in minutes
+    /// </summary>
+    public int DurationMinutes { get; set; }
+
+    /// <summary>
+    /// Estimated calories burned
+    /// </summary>
+    public int EstimatedCaloriesBurned { get; set; }
+
+    /// <summary>
+    /// Number of exercises in the plan
+    /// </summary>
+    public int ExerciseCount { get; set; }
+
+    /// <summary>
+    /// Generated timestamp
+    /// </summary>
+    public DateTime GeneratedAt { get; set; }
+}
+

@@ -25,5 +25,10 @@ public class GroqServicesConfiguration
     /// Cấu hình cho Medical Summary Service
     /// </summary>
     public ServiceGroqConfiguration MedicalSummary { get; set; } = new();
+
+    /// <summary>
+    /// Cấu hình cho Nutrition Service
+    /// </summary>
+    public ServiceGroqConfiguration NutritionService { get; set; } = new();
 }
 
