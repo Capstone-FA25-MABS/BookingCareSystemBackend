@@ -3534,5 +3534,35 @@ public class DoctorService : BaseService, IDoctorService
         }
     }
 
+    /// <summary>
+    /// Get all doctor IDs (optimized for Admin Dashboard - returns only IDs)
+    /// </summary>
+    public async Task<List<Guid>> GetAllDoctorIdsAsync()
+    {
+        LogInfo("[DoctorService] Getting all doctor IDs", null);
+
+        try
+        {
+            var doctorIds = await _repository
+                .Value.GetQueryableDoctors()
+                .Select(d => d.Id)
+                .ToListAsync();
+
+            LogInfo("[DoctorService] Found {Count} doctors in total", null, doctorIds.Count);
+
+            return doctorIds;
+        }
+        catch (Exception ex)
+        {
+            LogError(ex, "[DoctorService] Error getting all doctor IDs: {Error}", null, ex.Message);
+            throw new DoctorException(
+                "Failed to get all doctor IDs",
+                "DOCTOR_IDS_FETCH_ERROR",
+                HttpStatusCode.InternalServerError,
+                ex
+            );
+        }
+    }
+
     #endregion
 }

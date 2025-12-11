@@ -544,6 +544,25 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         }
 
         /// <summary>
+        /// Get all service IDs (optimized for Admin Dashboard - returns only IDs)
+        /// </summary>
+        /// <returns>List of all service IDs</returns>
+        [HttpGet("ids")]
+        public async Task<ActionResult<List<Guid>>> GetAllServiceIds()
+        {
+            try
+            {
+                var ids = await _serviceMedicalService.GetAllServiceIdsAsync();
+                return Ok(new { serviceIds = ids });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all service IDs");
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
         /// Get all active services
         /// </summary>
         /// <returns>List of active services</returns>

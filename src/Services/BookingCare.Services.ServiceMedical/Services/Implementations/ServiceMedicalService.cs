@@ -1392,6 +1392,31 @@ namespace BookingCare.Services.ServiceMedical.Services.Implementations
             }
         }
 
+        /// <summary>
+        /// Get all service IDs (optimized for Admin Dashboard - returns only IDs)
+        /// </summary>
+        public async Task<List<Guid>> GetAllServiceIdsAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Getting all service IDs");
+
+                var serviceIds = await _serviceRepository
+                    .GetQueryable()
+                    .Select(s => s.Id)
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {Count} services in total", serviceIds.Count);
+
+                return serviceIds;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all service IDs");
+                throw new InvalidOperationException("Failed to get all service IDs", ex);
+            }
+        }
+
         #endregion
     }
 }

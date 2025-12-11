@@ -245,6 +245,20 @@ public class DoctorsController : BaseApiController
     }
 
     /// <summary>
+    /// Get all doctor IDs (optimized for Admin Dashboard - returns only IDs)
+    /// </summary>
+    [HttpGet("ids")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    public async Task<IActionResult> GetAllDoctorIds()
+    {
+        var ids = await _doctorService.GetAllDoctorIdsAsync();
+        return Success(
+            new { doctorIds = ids },
+            $"All doctor IDs retrieved successfully. Total: {ids.Count}"
+        );
+    }
+
+    /// <summary>
     /// Get doctors by specialty
     /// </summary>
     [HttpGet("specialty/{specialtyId}")]

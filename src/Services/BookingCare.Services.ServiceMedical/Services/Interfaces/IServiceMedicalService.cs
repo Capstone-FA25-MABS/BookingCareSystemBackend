@@ -91,6 +91,11 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
         /// </summary>
         Task<List<Guid>> GetServiceIdsByHospitalAsync(Guid hospitalId);
 
+        /// <summary>
+        /// Get all service IDs (optimized for Admin Dashboard - returns only IDs)
+        /// </summary>
+        Task<List<Guid>> GetAllServiceIdsAsync();
+
         #endregion
     }
 }

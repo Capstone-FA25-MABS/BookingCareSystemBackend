@@ -140,6 +140,11 @@ public interface IDoctorService : IAvatarService
     Task<List<Guid>> GetDoctorIdsByHospitalAsync(Guid hospitalId);
 
     /// <summary>
+    /// Get all doctor IDs (optimized for Admin Dashboard - returns only IDs)
+    /// </summary>
+    Task<List<Guid>> GetAllDoctorIdsAsync();
+
+    /// <summary>
     /// Get doctors for assignment by specific doctor IDs
     /// Used for "previous doctors" section - doctors who have treated this patient before
     /// </summary>
