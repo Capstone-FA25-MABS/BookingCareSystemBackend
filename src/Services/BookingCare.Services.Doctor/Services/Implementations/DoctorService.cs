@@ -2198,7 +2198,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Filter doctors by rating for search results
     /// </summary>
-    private List<DoctorOptimizedResponse> FilterDoctorsByRatingForSearch(
+    private static List<DoctorOptimizedResponse> FilterDoctorsByRatingForSearch(
         List<DoctorOptimizedResponse> doctors,
         double? minRating,
         List<double>? minRatings
@@ -2296,7 +2296,7 @@ public class DoctorService : BaseService, IDoctorService
         return doctors;
     }
 
-    private List<DoctorResponse> FilterDoctorsByRating(
+    private static List<DoctorResponse> FilterDoctorsByRating(
         List<DoctorResponse> doctors,
         double? minRating,
         List<double>? minRatings
