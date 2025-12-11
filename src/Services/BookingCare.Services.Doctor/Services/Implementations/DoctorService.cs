@@ -40,6 +40,9 @@ public class DoctorService : BaseService, IDoctorService
 
     private readonly IEventBus _eventBus;
 
+    private const string DefaultAvatarUrl =
+        "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png";
+
     public DoctorService(
         IServiceProvider serviceProvider,
         IEventBus eventBus,
@@ -545,9 +548,7 @@ public class DoctorService : BaseService, IDoctorService
                 FullName = $"{updatedUser.FirstName} {updatedUser.LastName}".Trim(),
                 FirstName = updatedUser.FirstName,
                 LastName = updatedUser.LastName,
-                AvatarUrl =
-                    updatedUser.AvatarUrl
-                    ?? "https://d24em9p7s2uixh.cloudfront.net/avatars/patients/male_20251003_f9c91483.png",
+                AvatarUrl = updatedUser.AvatarUrl ?? DefaultAvatarUrl,
 
                 Role = "DOCTOR", // Default role, could be enhanced to get from Auth Service
                 Gender = updatedUser.Gender?.ToString(),
@@ -1484,7 +1485,7 @@ public class DoctorService : BaseService, IDoctorService
         return allRes.Items.Select(i => Guid.Parse(i.DoctorId)).ToList();
     }
 
-    private List<DoctorEntity> FilterDoctorsBySearchTerm(
+    private static List<DoctorEntity> FilterDoctorsBySearchTerm(
         List<DoctorEntity> doctors,
         string searchTerm
     )
@@ -2122,7 +2123,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Check if doctor is in specified location for search results
     /// </summary>
-    private bool IsDoctorInLocationForSearch(
+    private static bool IsDoctorInLocationForSearch(
         DoctorOptimizedResponse doctor,
         LocationInfo locationInfo
     )
@@ -2257,7 +2258,7 @@ public class DoctorService : BaseService, IDoctorService
     /// <summary>
     /// Generic method to filter doctors by rating to eliminate code duplication
     /// </summary>
-    private List<T> FilterDoctorsByRatingGeneric<T>(
+    private static List<T> FilterDoctorsByRatingGeneric<T>(
         List<T> doctors,
         double? minRating,
         List<double>? minRatings,
@@ -2669,9 +2670,10 @@ public class DoctorService : BaseService, IDoctorService
                 }
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
             Logger.LogWarning(
+                ex,
                 "Review gRPC GetBatchDoctorsStatistics timed out during patient search"
             );
             SetDefaultReviewStatistics(doctors);
@@ -2812,9 +2814,10 @@ public class DoctorService : BaseService, IDoctorService
                 };
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
             Logger.LogWarning(
+                ex,
                 "Review gRPC GetBatchDoctorsStatistics timed out for doctor {DoctorId}",
                 doctor.Id
             );
