@@ -56,8 +56,8 @@ public class DailyWorkoutPlanGeneratedEventHandler : IIntegrationEventHandler<Da
                         ["exerciseCount"] = @event.ExerciseCount,
                         ["caloriesBurned"] = @event.EstimatedCaloriesBurned
                     },
-                    ActionUrl = $"/nutrition/workout-plans/{@event.Date:yyyy-MM-dd}",
-                    Icon = "isax isax-weight",
+                    ActionUrl = "/user/profile?tab=notifications&category=workout",
+                    Icon = "isax isax-activity",
                     Priority = NotificationPriority.Normal,
                     ExpirationDays = 1
                 }

@@ -87,7 +87,7 @@ public class NutritionConversationService : INutritionConversationService
             return new NutritionConversationResponse
             {
                 SessionId = sessionId,
-                Question = $"{errorMessage}\\n\\n{GetQuestionForStep(state.CurrentStep)}",
+                Question = $"{errorMessage} {GetQuestionForStep(state.CurrentStep)}",
                 CurrentStep = state.CurrentStep,
                 TotalSteps = TotalSteps,
                 IsComplete = false
@@ -150,10 +150,10 @@ public class NutritionConversationService : INutritionConversationService
         {
             1 => "Xin chào! Tôi sẽ giúp bạn tạo kế hoạch dinh dưỡng cá nhân. Chiều cao của bạn là bao nhiêu? (cm)",
             2 => "Cảm ơn! Cân nặng hiện tại của bạn là bao nhiêu? (kg)",
-            3 => "Mức độ hoạt động của bạn?\\n1: Ít vận động (ngồi nhiều)\\n2: Nhẹ (tập 1-3 ngày/tuần)\\n3: Vừa phải (tập 3-5 ngày/tuần)\\n4: Nhiều (tập 6-7 ngày/tuần)\\n5: Rất nhiều (vận động viên)\\n\\nVui lòng nhập số từ 1-5:",
-            4 => "Mục tiêu sức khỏe của bạn?\\n1: Giảm cân\\n2: Tăng cơ\\n3: Duy trì cân nặng\\n\\nVui lòng nhập số từ 1-3:",
-            5 => "Bạn có tình trạng sức khỏe đặc biệt nào không? (tiểu đường, huyết áp cao, dị ứng thực phẩm...)\\n\\nNếu không có, vui lòng nhập 'Không'",
-            6 => "Bạn có chế độ ăn đặc biệt không? (chay, keto, ăn chay trứng sữa, low-carb...)\\n\\nNếu không có, vui lòng nhập 'Không'",
+            3 => "Mức độ hoạt động của bạn? Bạn có thể chọn: Ít vận động (ngồi nhiều), Nhẹ (tập 1-3 ngày/tuần), Vừa phải (tập 3-5 ngày/tuần), Nhiều (tập 6-7 ngày/tuần), hoặc Rất nhiều (vận động viên)",
+            4 => "Mục tiêu sức khỏe của bạn? Bạn có thể chọn: Giảm cân, Tăng cơ, hoặc Duy trì cân nặng",
+            5 => "Bạn có tình trạng sức khỏe đặc biệt nào không? (ví dụ: tiểu đường, huyết áp cao, dị ứng thực phẩm...) Nếu không có, vui lòng nhập 'Không'",
+            6 => "Bạn có chế độ ăn đặc biệt không? (ví dụ: chay, keto, ăn chay trứng sữa, low-carb...) Nếu không có, vui lòng nhập 'Không'",
             _ => throw new ArgumentException($"Invalid step: {step}")
         };
     }
@@ -172,7 +172,7 @@ public class NutritionConversationService : INutritionConversationService
                 case 1: // Height
                     if (!decimal.TryParse(trimmedAnswer, out var height) || height < 100 || height > 250)
                     {
-                        return (false, "❌ Chiều cao không hợp lệ. Vui lòng nhập số từ 100-250 cm.");
+                        return (false, "Xin lỗi, chiều cao bạn nhập chưa hợp lệ. Vui lòng nhập số từ 100-250 cm.");
                     }
                     state.HeightCm = height;
                     return (true, string.Empty);
@@ -180,7 +180,7 @@ public class NutritionConversationService : INutritionConversationService
                 case 2: // Weight
                     if (!decimal.TryParse(trimmedAnswer, out var weight) || weight < 30 || weight > 300)
                     {
-                        return (false, "❌ Cân nặng không hợp lệ. Vui lòng nhập số từ 30-300 kg.");
+                        return (false, "Xin lỗi, cân nặng bạn nhập chưa hợp lệ. Vui lòng nhập số từ 30-300 kg.");
                     }
                     state.WeightKg = weight;
                     return (true, string.Empty);
@@ -189,7 +189,7 @@ public class NutritionConversationService : INutritionConversationService
                     var activityLevel = ParseActivityLevel(trimmedAnswer);
                     if (activityLevel == null)
                     {
-                        return (false, "❌ Mức độ hoạt động không hợp lệ. Vui lòng nhập số từ 1-5.");
+                        return (false, "Xin lỗi, tôi chưa hiểu mức độ hoạt động của bạn. Bạn có thể chọn: Ít vận động, Nhẹ, Vừa phải, Nhiều, hoặc Rất nhiều.");
                     }
                     state.ActivityLevel = activityLevel;
                     return (true, string.Empty);
@@ -198,7 +198,7 @@ public class NutritionConversationService : INutritionConversationService
                     var healthGoal = ParseHealthGoal(trimmedAnswer);
                     if (healthGoal == null)
                     {
-                        return (false, "❌ Mục tiêu sức khỏe không hợp lệ. Vui lòng nhập số từ 1-3.");
+                        return (false, "Xin lỗi, tôi chưa hiểu mục tiêu của bạn. Bạn có thể chọn: Giảm cân, Tăng cơ, hoặc Duy trì cân nặng.");
                     }
                     state.HealthGoal = healthGoal;
                     return (true, string.Empty);
@@ -212,36 +212,42 @@ public class NutritionConversationService : INutritionConversationService
                     return (true, string.Empty);
 
                 default:
-                    return (false, "❌ Lỗi hệ thống. Vui lòng thử lại.");
+                    return (false, "Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.");
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error parsing answer for step {Step}", step);
-            return (false, "❌ Có lỗi xảy ra khi xử lý câu trả lời. Vui lòng thử lại.");
+            return (false, "Xin lỗi, có lỗi xảy ra khi xử lý câu trả lời của bạn. Vui lòng thử lại.");
         }
     }
 
     private string? ParseActivityLevel(string answer)
     {
-        return answer.Trim() switch
+        var trimmed = answer.Trim().ToLower();
+        
+        // Support both number and text input
+        return trimmed switch
         {
-            "1" => "Sedentary",
-            "2" => "LightlyActive",
-            "3" => "ModeratelyActive",
-            "4" => "VeryActive",
-            "5" => "ExtraActive",
+            "1" or "ít vận động" or "it van dong" or "sedentary" or "ngồi nhiều" or "ngoi nhieu" => "Sedentary",
+            "2" or "nhẹ" or "nhe" or "lightly active" or "lightly" or "tập 1-3" or "tap 1-3" => "LightlyActive",
+            "3" or "vừa phải" or "vua phai" or "moderately active" or "moderate" or "tập 3-5" or "tap 3-5" => "ModeratelyActive",
+            "4" or "nhiều" or "nhieu" or "very active" or "very" or "tập 6-7" or "tap 6-7" => "VeryActive",
+            "5" or "rất nhiều" or "rat nhieu" or "extra active" or "extra" or "vận động viên" or "van dong vien" => "ExtraActive",
             _ => null
         };
     }
 
     private string? ParseHealthGoal(string answer)
     {
-        return answer.Trim() switch
+        var trimmed = answer.Trim().ToLower();
+        
+        // Support both number and text input
+        return trimmed switch
         {
-            "1" => "WeightLoss",
-            "2" => "MuscleGain",
-            "3" => "Maintenance",
+            "1" or "giảm cân" or "giam can" or "weight loss" or "lose weight" or "giảm" or "giam" => "WeightLoss",
+            "2" or "tăng cơ" or "tang co" or "muscle gain" or "gain muscle" or "tăng" or "tang" => "MuscleGain",
+            "3" or "duy trì" or "duy tri" or "maintenance" or "maintain" or "giữ" or "giu" => "Maintenance",
             _ => null
         };
     }

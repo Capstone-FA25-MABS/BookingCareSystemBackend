@@ -57,8 +57,8 @@ public class DailyMealPlanGeneratedEventHandler : IIntegrationEventHandler<Daily
                         ["carbs"] = @event.TotalCarbsG,
                         ["fat"] = @event.TotalFatG
                     },
-                    ActionUrl = "/user/profile?tab=nutrition",
-                    Icon = "restaurant",
+                    ActionUrl = "/user/profile?tab=notifications&category=nutrition",
+                    Icon = "isax isax-cake",
                     Priority = NotificationPriority.Normal,
                     ExpirationDays = 1
                 }
