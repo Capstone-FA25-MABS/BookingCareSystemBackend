@@ -64,3 +64,14 @@ public class HospitalDetailResponse : HospitalResponse
 {
     public List<HospitalSubscriptionResponse>? SubscriptionHistory { get; set; }
 }
+
+/// <summary>
+/// Optimized hospital overview response with aggregate counts
+/// </summary>
+public class HospitalOverviewResponse
+{
+    public int SpecialtiesCount { get; set; }
+    public int ServiceTypesCount { get; set; }
+    public int DoctorsCount { get; set; }
+    public int ServiceMedicalsCount { get; set; }
+}

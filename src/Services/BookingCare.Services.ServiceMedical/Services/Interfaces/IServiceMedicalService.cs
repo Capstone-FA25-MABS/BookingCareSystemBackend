@@ -8,15 +8,23 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
         #region ServiceCategory Operations
 
         // CRUD Operations
-        Task<ServiceCategoryResponse> CreateServiceCategoryAsync(CreateServiceCategoryRequest request);
+        Task<ServiceCategoryResponse> CreateServiceCategoryAsync(
+            CreateServiceCategoryRequest request
+        );
         Task<ServiceCategoryResponse?> GetServiceCategoryByIdAsync(Guid id);
-        Task<ServiceCategoryResponse> UpdateServiceCategoryAsync(UpdateServiceCategoryRequest request);
+        Task<ServiceCategoryResponse> UpdateServiceCategoryAsync(
+            UpdateServiceCategoryRequest request
+        );
         Task<bool> DeleteServiceCategoryAsync(Guid id);
 
         // Query Operations
-        Task<ServiceCategoryListResponse> GetServiceCategoriesAsync(ServiceCategoryQueryRequest query);
+        Task<ServiceCategoryListResponse> GetServiceCategoriesAsync(
+            ServiceCategoryQueryRequest query
+        );
         Task<List<ServiceCategoryResponse>> GetParentServiceCategoriesAsync();
-        Task<List<ServiceCategoryResponse>> GetServiceCategoryChildrenAsync(GetServiceCategoryChildrenRequest request);
+        Task<List<ServiceCategoryResponse>> GetServiceCategoryChildrenAsync(
+            GetServiceCategoryChildrenRequest request
+        );
         Task<List<ServiceCategoryResponse>> GetActiveServiceCategoriesAsync();
 
         // Business Operations
@@ -40,13 +48,19 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
         Task<List<ServiceResponse>> GetActiveServicesAsync();
 
         // Business Operations - Theo luồng bạn yêu cầu
-        Task<HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategoryAsync(GetHospitalsByServiceCategoryRequest request);
+        Task<HospitalsByServiceCategoryResponse> GetHospitalsByServiceCategoryAsync(
+            GetHospitalsByServiceCategoryRequest request
+        );
 
         // Get services by category with hospital information (optimized)
-        Task<ServicesByCategoryOptimizedResponse> GetServicesByCategoryWithHospitalAsync(GetServicesByCategoryRequest request);
+        Task<ServicesByCategoryOptimizedResponse> GetServicesByCategoryWithHospitalAsync(
+            GetServicesByCategoryRequest request
+        );
 
         // Get all services with hospital name and category name (with filtering and sorting)
-        Task<ServiceDetailListResponse> GetAllServicesWithDetailsAsync(ServiceQueryRequest? query = null);
+        Task<ServiceDetailListResponse> GetAllServicesWithDetailsAsync(
+            ServiceQueryRequest? query = null
+        );
 
         // Get filter options (hospitals and service categories) for dropdown
         Task<FilterOptionsResponse> GetFilterOptionsAsync();
@@ -67,6 +81,20 @@ namespace BookingCare.Services.ServiceMedical.Services.Interfaces
         /// Get basic info for multiple services by IDs (batch operation for gRPC performance)
         /// </summary>
         Task<List<ServiceBasicInfoDto>> GetServicesBasicInfoByIdsAsync(IEnumerable<Guid> ids);
+
+        #endregion
+
+        #region Performance Optimization Operations
+
+        /// <summary>
+        /// Get only service IDs by hospital (optimized for performance)
+        /// </summary>
+        Task<List<Guid>> GetServiceIdsByHospitalAsync(Guid hospitalId);
+
+        /// <summary>
+        /// Get all service IDs (optimized for Admin Dashboard - returns only IDs)
+        /// </summary>
+        Task<List<Guid>> GetAllServiceIdsAsync();
 
         #endregion
     }

@@ -205,47 +205,64 @@ public class HospitalService : IHospitalService
         if (_dependencies.ServiceMedicalClient == null)
         {
             response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
-            _logger.LogWarning("ServiceMedicalClient is null, cannot enrich service medicals for hospital {HospitalId}", hospitalId);
+            _logger.LogWarning(
+                "ServiceMedicalClient is null, cannot enrich service medicals for hospital {HospitalId}",
+                hospitalId
+            );
             return;
         }
 
         try
         {
-            _logger.LogInformation("Calling ServiceMedical gRPC GetServicesByHospital for hospital {HospitalId}", hospitalId);
+            _logger.LogInformation(
+                "Calling ServiceMedical gRPC GetServicesByHospital for hospital {HospitalId}",
+                hospitalId
+            );
 
             // Use GetServicesByHospital to get all services for this hospital in a single call
             var request = new ServiceMedical.Protos.GetServicesByHospitalGrpcRequest
             {
                 HospitalId = hospitalId.ToString(),
-                IncludeInactive = false
+                IncludeInactive = false,
             };
 
-            var servicesResponse = await _dependencies.ServiceMedicalClient.GetServicesByHospitalAsync(request);
+            var servicesResponse =
+                await _dependencies.ServiceMedicalClient.GetServicesByHospitalAsync(request);
 
             if (servicesResponse?.Services == null || !servicesResponse.Services.Any())
             {
                 response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
-                _logger.LogInformation("No service medicals returned from gRPC for hospital {HospitalId}", hospitalId);
+                _logger.LogInformation(
+                    "No service medicals returned from gRPC for hospital {HospitalId}",
+                    hospitalId
+                );
                 return;
             }
 
-            response.ServiceMedicals = servicesResponse.Services
-                .Where(s => !string.IsNullOrEmpty(s.Id) && Guid.TryParse(s.Id, out _))
+            response.ServiceMedicals = servicesResponse
+                .Services.Where(s => !string.IsNullOrEmpty(s.Id) && Guid.TryParse(s.Id, out _))
                 .Select(s => new HospitalServiceMedicalResponse
                 {
                     Id = Guid.Parse(s.Id),
                     Name = s.Name,
                     ImageUrl = s.ImageUrl,
-                    Price = decimal.TryParse(s.Price, out var price) ? price : 0
+                    Price = decimal.TryParse(s.Price, out var price) ? price : 0,
                 })
                 .ToList();
 
-            _logger.LogInformation("Enriched {Count} service medicals for hospital {HospitalId}",
-                response.ServiceMedicals.Count, hospitalId);
+            _logger.LogInformation(
+                "Enriched {Count} service medicals for hospital {HospitalId}",
+                response.ServiceMedicals.Count,
+                hospitalId
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to enrich service medicals for hospital {HospitalId}, returning empty list", hospitalId);
+            _logger.LogWarning(
+                ex,
+                "Failed to enrich service medicals for hospital {HospitalId}, returning empty list",
+                hospitalId
+            );
             response.ServiceMedicals = new List<HospitalServiceMedicalResponse>();
         }
     }
@@ -1726,6 +1743,113 @@ public class HospitalService : IHospitalService
                 hospitalId
             );
             // Don't throw - hospital creation should succeed even if subscription assignment fails
+        }
+    }
+
+    #endregion
+
+    #region Performance Optimization Methods
+
+    /// <summary>
+    /// Get hospital overview with aggregate counts (optimized for dashboard performance)
+    /// </summary>
+    public async Task<HospitalOverviewResponse> GetHospitalOverviewAsync(Guid hospitalId)
+    {
+        try
+        {
+            _logger.LogInformation("Getting hospital overview for {HospitalId}", hospitalId);
+
+            var hospital = await _hospitalRepository.GetByIdAsync(hospitalId);
+            if (hospital == null)
+            {
+                _logger.LogWarning("Hospital with ID {HospitalId} not found", hospitalId);
+                throw new HospitalNotFoundException($"Hospital with ID {hospitalId} not found");
+            }
+
+            // Get counts in parallel for better performance
+            var specialtiesCount = hospital.HospitalSpecialties?.Count ?? 0;
+            var serviceTypesCount = hospital.HospitalServiceTypes?.Count ?? 0;
+
+            // Get doctor count via gRPC (with fallback)
+            int doctorsCount = 0;
+            if (_dependencies.DoctorClient != null)
+            {
+                try
+                {
+                    var doctorRequest = new Doctor.Protos.GetDoctorsByHospitalIdRequest
+                    {
+                        HospitalId = hospitalId.ToString(),
+                    };
+                    var doctorResponse =
+                        await _dependencies.DoctorClient.GetDoctorsByHospitalIdAsync(doctorRequest);
+                    doctorsCount = doctorResponse?.Doctors?.Count ?? 0;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to get doctor count for hospital {HospitalId}, returning 0",
+                        hospitalId
+                    );
+                }
+            }
+
+            // Get service medical count via gRPC (with fallback)
+            int serviceMedicalsCount = 0;
+            if (_dependencies.ServiceMedicalClient != null)
+            {
+                try
+                {
+                    var serviceRequest = new ServiceMedical.Protos.GetServicesByHospitalGrpcRequest
+                    {
+                        HospitalId = hospitalId.ToString(),
+                        IncludeInactive = false,
+                    };
+                    var serviceResponse =
+                        await _dependencies.ServiceMedicalClient.GetServicesByHospitalAsync(
+                            serviceRequest
+                        );
+                    serviceMedicalsCount = serviceResponse?.Services?.Count ?? 0;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to get service count for hospital {HospitalId}, returning 0",
+                        hospitalId
+                    );
+                }
+            }
+
+            var overview = new HospitalOverviewResponse
+            {
+                SpecialtiesCount = specialtiesCount,
+                ServiceTypesCount = serviceTypesCount,
+                DoctorsCount = doctorsCount,
+                ServiceMedicalsCount = serviceMedicalsCount,
+            };
+
+            _logger.LogInformation(
+                "Hospital overview retrieved: Specialties={SpecialtiesCount}, ServiceTypes={ServiceTypesCount}, Doctors={DoctorsCount}, Services={ServicesCount}",
+                overview.SpecialtiesCount,
+                overview.ServiceTypesCount,
+                overview.DoctorsCount,
+                overview.ServiceMedicalsCount
+            );
+
+            return overview;
+        }
+        catch (HospitalNotFoundException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting hospital overview for {HospitalId}", hospitalId);
+            throw new HospitalOperationException(
+                $"Failed to get hospital overview for {hospitalId}",
+                ex
+            );
         }
     }
 
