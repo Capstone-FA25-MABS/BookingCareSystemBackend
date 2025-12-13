@@ -7,7 +7,6 @@ using BookingCare.Services.Hospital;
 using BookingCare.Services.User.Protos;
 using BookingCare.Shared.EventBus.Abstractions;
 using BookingCare.Shared.EventBus.Events;
-using BookingCare.Shared.Common.Enums;
 
 namespace BookingCare.Services.Appointment.BackgroundServices;
 
