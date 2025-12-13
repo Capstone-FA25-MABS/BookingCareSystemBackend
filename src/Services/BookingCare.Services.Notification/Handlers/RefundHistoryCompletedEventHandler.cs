@@ -34,7 +34,7 @@ public class RefundHistoryCompletedEventHandler
             var patientName = @event.UserFullName ?? "Quý khách";
 
             // Build notification content
-            var emailSubject = "Hoàn tiền thành công - BookingCare";
+            var emailSubject = "Hoàn tiền thành công - MedCure";
             var emailContent = EmailTemplate.BuildRefundCompletedEmailHtml(
                 patientName,
                 @event.RefundAmount,
@@ -42,7 +42,7 @@ public class RefundHistoryCompletedEventHandler
                 @event.BankAccount.AccountNumber,
                 @event.TransferDate);
 
-            var smsContent = $"BookingCare: Hoan tien thanh cong {@event.RefundAmount:N0} VND vao TK {@event.BankAccount.BankName} - {@event.BankAccount.AccountNumber}. Vui long kiem tra tai khoan ngan hang cua quy khach.";
+            var smsContent = $"MedCure: Hoan tien thanh cong {@event.RefundAmount:N0} VND vao TK {@event.BankAccount.BankName} - {@event.BankAccount.AccountNumber}. Vui long kiem tra tai khoan ngan hang cua quy khach.";
 
             // Send Email
             await SendEmailNotificationAsync(

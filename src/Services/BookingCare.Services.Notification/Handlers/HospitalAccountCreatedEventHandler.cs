@@ -42,7 +42,7 @@ public class HospitalAccountCreatedEventHandler
 
             await _emailService.SendEmailAsync(
                 toEmail: @event.RepresentativeEmail,
-                subject: "Thông Tin Tài Khoản Bệnh Viện - BookingCare",
+                subject: "Thông Tin Tài Khoản Bệnh Viện - MedCure",
                 content: emailBody,
                 isHtml: true,
                 cancellationToken: cancellationToken

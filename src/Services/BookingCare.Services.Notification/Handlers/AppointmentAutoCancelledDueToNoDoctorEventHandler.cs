@@ -54,7 +54,7 @@ public class AppointmentAutoCancelledDueToNoDoctorEventHandler : IIntegrationEve
             var specialtyName = string.IsNullOrEmpty(@event.SpecialtyName) ? "chuyên khoa" : @event.SpecialtyName;
 
             // Build email content
-            var emailSubject = $"[BookingCare] Thông báo hủy lịch hẹn - Bệnh viện không gán bác sĩ";
+            var emailSubject = $"[MedCure] Thông báo hủy lịch hẹn - Bệnh viện không gán bác sĩ";
             var emailContent = EmailTemplate.BuildAutoCancelledEmailHtml(
                 patientName,
                 hospitalName,
