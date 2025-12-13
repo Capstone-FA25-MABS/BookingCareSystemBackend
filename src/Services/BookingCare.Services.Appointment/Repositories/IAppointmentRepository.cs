@@ -168,4 +168,30 @@ public interface IAppointmentRepository
     );
 
     #endregion
+
+    #region Appointment Reminder
+
+    /// <summary>
+    /// Get CONFIRMED appointments within a time window for sending reminders
+    /// Excludes appointments that have already received this type of reminder
+    /// </summary>
+    /// <param name="windowStart">Start of the appointment date window</param>
+    /// <param name="windowEnd">End of the appointment date window</param>
+    /// <param name="hoursBeforeAppointment">Hours before appointment (24 or 1)</param>
+    /// <returns>List of appointments needing reminders</returns>
+    Task<List<AppointmentEntity>> GetAppointmentsForReminderAsync(
+        DateTime windowStart,
+        DateTime windowEnd,
+        int hoursBeforeAppointment
+    );
+
+    /// <summary>
+    /// Mark that a reminder has been sent for an appointment
+    /// </summary>
+    Task<bool> MarkReminderSentAsync(
+        Guid appointmentId,
+        int hoursBeforeAppointment
+    );
+
+    #endregion
 }
