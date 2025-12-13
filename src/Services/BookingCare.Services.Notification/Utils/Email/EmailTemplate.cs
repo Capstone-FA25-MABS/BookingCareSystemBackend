@@ -1,93 +1,124 @@
 ﻿using System.Text.Json;
 using BookingCare.Services.Notification.Models.DTOs;
+using BookingCare.Shared.EventBus.Events;
 
 namespace BookingCare.Services.Notification.Utils.Email;
 
 public static class EmailTemplate
 {
+    // Brand constants
+    private const string BRAND_NAME = "MedCure";
+    private const string HOTLINE = "19001979";
+    private const string SUPPORT_EMAIL = "medcure.contact@gmail.com";
+
+    // Color scheme - Professional medical theme
+    private const string PRIMARY_COLOR = "#0d9488";      // Teal - main brand color
+    private const string PRIMARY_DARK = "#0f766e";       // Darker teal
+    private const string SUCCESS_COLOR = "#059669";      // Green
+    private const string WARNING_COLOR = "#d97706";      // Amber
+    private const string DANGER_COLOR = "#dc2626";       // Red
+    private const string TEXT_PRIMARY = "#1f2937";       // Dark gray
+    private const string TEXT_SECONDARY = "#6b7280";     // Medium gray
+    private const string BG_LIGHT = "#f9fafb";           // Light gray background
+    private const string BORDER_COLOR = "#e5e7eb";       // Border gray
+
+    // Date format constants
+    private const string DateTimeFormat = "dd/MM/yyyy HH:mm";
+    private const string DateFormat = "dd/MM/yyyy";
+
+    /// <summary>
+    /// Common email wrapper with consistent styling
+    /// </summary>
+    private static string WrapEmailContent(string headerBgColor, string headerTitle, string bodyContent)
+    {
+        return $@"<!DOCTYPE html>
+<html lang=""vi"">
+<head>
+  <meta charset=""UTF-8"" />
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+  <title>{headerTitle} - {BRAND_NAME}</title>
+</head>
+<body style=""margin:0; padding:0; font-family:'Segoe UI',Arial,sans-serif; background:{BG_LIGHT}; color:{TEXT_PRIMARY};"">
+  <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background:{BG_LIGHT}; padding:32px 16px;"">
+    <tr>
+      <td align=""center"">
+        <table width=""560"" cellpadding=""0"" cellspacing=""0"" style=""background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1);"">
+          <tr>
+            <td style=""background:{headerBgColor}; padding:24px 32px;"">
+              <h1 style=""margin:0; color:#ffffff; font-size:20px; font-weight:600;"">{headerTitle}</h1>
+              <p style=""margin:8px 0 0; color:rgba(255,255,255,0.9); font-size:13px;"">{BRAND_NAME}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style=""padding:32px;"">
+              {bodyContent}
+            </td>
+          </tr>
+          <tr>
+            <td style=""padding:20px 32px; background:{BG_LIGHT}; border-top:1px solid {BORDER_COLOR};"">
+              <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:12px; text-align:center;"">
+                Email tự động từ {BRAND_NAME}. Vui lòng không trả lời email này.<br/>
+                Hotline: {HOTLINE} | Email: {SUPPORT_EMAIL}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>";
+    }
+
+    /// <summary>
+    /// Build info box HTML
+    /// </summary>
+    private static string BuildInfoBox(string bgColor, string borderColor, string content)
+    {
+        return $@"<div style=""background:{bgColor}; border-left:3px solid {borderColor}; padding:16px; margin:20px 0; border-radius:4px;"">{content}</div>";
+    }
+
+    /// <summary>
+    /// Build button HTML
+    /// </summary>
+    private static string BuildButton(string url, string text, string bgColor)
+    {
+        return $@"<div style=""text-align:center; margin:24px 0;"">
+  <a href=""{url}"" style=""display:inline-block; padding:12px 28px; background:{bgColor}; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:500; font-size:14px;"">{text}</a>
+</div>";
+    }
+
     /// <summary>
     /// Parse and build HTML for features from JSON string
-    /// Returns HTML for features to be included in the same card
     /// </summary>
     private static string BuildFeaturesHtml(string? featuresJson)
     {
-        if (string.IsNullOrWhiteSpace(featuresJson))
-        {
-            return "";
-        }
+        if (string.IsNullOrWhiteSpace(featuresJson)) return "";
 
         try
         {
-            // Try to parse as JSON array
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var features = JsonSerializer.Deserialize<List<FeatureItem>>(featuresJson, options);
 
-            if (features == null || features.Count == 0)
+            if (features == null || features.Count == 0) return "";
+
+            var featuresHtml = string.Join("", features.Select(f =>
             {
-                // If parsing succeeds but list is empty, show debug info
-                return $@"
-        <div style=""height:1px; background:#e5e7eb; margin:12px 0;""></div>
-        <div style=""margin-top:12px;"">
-          <strong style=""color:#047857;"">✨ Tính năng của gói:</strong>
-        </div>
-        <div class=""info-item"" style=""color:#ef4444;"">(Không có tính năng nào được cấu hình)</div>";
-            }
+                var text = string.IsNullOrWhiteSpace(f.Text) ? "" : f.Text;
+                return $@"<li style=""margin:4px 0;"">{text}</li>";
+            }));
 
-            // Build feature items as simple div rows (no list)
-            var featuresHtml = string.Join(
-                "",
-                features.Select(f =>
-                {
-                    var icon = GetFeatureIcon(f.IconType);
-                    var text = string.IsNullOrWhiteSpace(f.Text) ? "(Không có mô tả)" : f.Text;
-                    var subtext = !string.IsNullOrWhiteSpace(f.Subtext)
-                        ? $"<div style=\"font-size:11px; color:#6b7280; margin-left:24px; margin-top:2px;\">{f.Subtext}</div>"
-                        : "";
-                    return $@"
-        <div class=""info-item"">{icon} {text}{subtext}</div>";
-                })
-            );
-
-            // Return as part of the same card with a separator
-            return $@"
-        <div style=""height:1px; background:#e5e7eb; margin:12px 0;""></div>
-        <div style=""margin-top:12px;"">
-          <strong style=""color:#047857;"">✨ Tính năng của gói:</strong>
-        </div>{featuresHtml}";
+            return $@"<div style=""margin-top:16px;"">
+  <p style=""margin:0 0 8px; font-weight:500; color:{TEXT_PRIMARY};"">Tính năng của gói:</p>
+  <ul style=""margin:0; padding-left:20px; color:{TEXT_SECONDARY};"">{featuresHtml}</ul>
+</div>";
         }
-        catch (Exception ex)
+        catch
         {
-            // If JSON parsing fails, show the raw data for debugging
-            return $@"
-        <div style=""height:1px; background:#e5e7eb; margin:12px 0;""></div>
-        <div style=""margin-top:12px;"">
-          <strong style=""color:#047857;"">✨ Tính năng của gói:</strong>
-        </div>
-        <div class=""info-item"" style=""color:#6b7280; font-size:12px; word-break:break-all;"">{featuresJson}</div>
-        <div class=""info-item"" style=""color:#ef4444; font-size:11px;"">(Lỗi parse: {ex.Message})</div>";
+            return "";
         }
     }
 
-    /// <summary>
-    /// Get icon for feature based on iconType
-    /// </summary>
-    private static string GetFeatureIcon(string? iconType)
-    {
-        return iconType?.ToLower() switch
-        {
-            "check" => "✅",
-            "plus" => "➕",
-            "star" => "⭐",
-            "heart" => "❤️",
-            "shield" => "🛡️",
-            "rocket" => "🚀",
-            _ => "✅",
-        };
-    }
-
-    /// <summary>
-    /// Feature item model for JSON parsing
-    /// </summary>
     private class FeatureItem
     {
         public string Text { get; set; } = string.Empty;
@@ -95,915 +126,428 @@ public static class EmailTemplate
         public string? Subtext { get; set; }
     }
 
-    // Date format constants to avoid code duplication (SonarQube S1192)
-    private const string DateTimeFormat = "dd/MM/yyyy HH:mm";
-
     public static string BuildOtpEmailHtml(string otpCode, string purpose)
     {
         var safePurpose = string.IsNullOrWhiteSpace(purpose) ? "xác thực" : purpose;
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>BookingCare OTP</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#0ea5e9; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .otp {{ display:inline-block; padding:12px 20px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; font-weight:700; font-size:20px; letter-spacing:4px; color:#111827; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
 
-  </head>
-  <body>
-    <div class=""card"">
-      <div class=""header"">
-        <div class=""brand"">BookingCare Security</div>
-      </div>
-      <div class=""content"">
-        <p class=""greeting"">Xin chào,</p>
-        <p class=""lead"">Đây là mã xác thực một lần (OTP) của bạn. Vui lòng nhập mã dưới đây để tiếp tục quy trình ""{safePurpose}"".</p>
-        <div class=""otp"">{otpCode}</div>
-        <p class=""muted"">Mã sẽ hết hạn sau 5 phút. Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email.</p>
-        <div class=""divider""></div>
-        <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-      </div>
-      <div class=""footer"">Bạn nhận được email này vì có yêu cầu xác thực từ hệ thống BookingCare.</div>
-    </div>
-  </body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Xin chào,</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Mã xác thực (OTP) của bạn để {safePurpose}:
+</p>
+<div style=""text-align:center; margin:24px 0;"">
+  <span style=""display:inline-block; padding:16px 32px; background:{BG_LIGHT}; border:1px solid {BORDER_COLOR}; border-radius:8px; font-size:28px; font-weight:700; letter-spacing:6px; color:{TEXT_PRIMARY};"">{otpCode}</span>
+</div>
+<p style=""margin:20px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+  Mã có hiệu lực trong 5 phút. Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email.
+</p>
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">Trân trọng,<br/>{BRAND_NAME}</p>
+</div>";
+
+        return WrapEmailContent(PRIMARY_COLOR, "Mã xác thực OTP", body);
     }
 
-    /// <summary>
-    /// Build email content for doctor credentials (auto-generated password)
-    /// </summary>
     public static string BuildDoctorCredentialsEmailHtml(
         string fullName,
         string email,
         string password,
         string loginUrl,
-        string? hospitalName = null
-    )
+        string? hospitalName = null)
     {
         var hospitalInfo = !string.IsNullOrEmpty(hospitalName)
-            ? $"<div class=\"info-item\"><strong>Bệnh viện:</strong> {hospitalName}</div>"
+            ? $@"<p style=""margin:8px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>"
             : "";
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Chào mừng đến với BookingCare - Thông tin đăng nhập</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#0ea5e9; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .welcome-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .credentials-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
-    .credentials-box strong {{ color:#0369a1; }}
-    .info-item {{ margin:8px 0; }}
-    .credential-value {{ display:inline-block; padding:8px 12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; font-family:'Courier New', monospace; font-weight:600; color:#111827; margin-left:8px; word-break:break-all; }}
-    .password-value {{ background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }}
-    .login-button {{ display:inline-block; padding:14px 28px; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; margin:16px 0; }}
-    .login-button:hover {{ background:#0284c7; }}
-    .warning {{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:16px; margin:20px 0; color:#991b1b; }}
-    .warning-icon {{ font-weight:bold; color:#dc2626; }}
-    .security-tips {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px; margin:20px 0; }}
-    .security-tips strong {{ color:#166534; }}
-    .security-tips ul {{ margin:8px 0; padding-left:20px; }}
-    .security-tips li {{ margin:4px 0; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Hệ thống quản lý khám bệnh</div>
-    </div>
-    <div class=""content"">
-      <div class=""welcome-icon"">🎉</div>
-      <p class=""greeting"">Kính gửi BS. {fullName},</p>
-      <p class=""lead"">Chào mừng bạn đến với hệ thống BookingCare! Tài khoản của bạn đã được tạo thành công.</p>
-      
-      <div class=""credentials-box"">
-        <p><strong>🔐 Thông tin đăng nhập:</strong></p>{hospitalInfo}
-        <div class=""info-item"">
-          <strong>Email:</strong>
-          <span class=""credential-value"">{email}</span>
-        </div>
-        <div class=""info-item"">
-          <strong>Mật khẩu tạm thời:</strong>
-          <span class=""credential-value password-value"">{password}</span>
-        </div>
-      </div>
-      
-      <div style=""text-align:center;"">
-        <a href=""{loginUrl}"" class=""login-button"">Đăng nhập ngay</a>
-      </div>
-      
-      <div class=""warning"">
-        <p><span class=""warning-icon"">⚠️</span> <strong>BẮT BUỘC ĐỔI MẬT KHẨU:</strong></p>
-        <p>Đây là mật khẩu tạm thời được hệ thống tự động tạo. Vì lý do bảo mật, bạn <strong>BẮT BUỘC phải đổi mật khẩu</strong> ngay khi đăng nhập lần đầu tiên.</p>
-      </div>
-      
-      <div class=""security-tips"">
-        <p><strong>🛡️ Hướng dẫn bảo mật:</strong></p>
-        <ul>
-          <li>Không chia sẻ mật khẩu này với bất kỳ ai</li>
-          <li>Đăng nhập và đổi mật khẩu ngay lập tức</li>
-          <li>Mật khẩu mới phải:
-            <ul>
-              <li>Có ít nhất 8 ký tự</li>
-              <li>Bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt</li>
-              <li>Không sử dụng thông tin cá nhân dễ đoán</li>
-            </ul>
-          </li>
-          <li>Xóa email này sau khi đã đổi mật khẩu thành công</li>
-        </ul>
-      </div>
-      
-      <p class=""muted"">Nếu bạn không yêu cầu tạo tài khoản này hoặc có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi ngay:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
-      <strong>📧 Email:</strong> support@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi BS. {fullName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Chào mừng bạn đến với {BRAND_NAME}. Tài khoản của bạn đã được tạo thành công.
+</p>
+
+{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin đăng nhập</p>
+  {hospitalInfo}
+  <p style=""margin:8px 0;""><strong>Email:</strong> {email}</p>
+  <p style=""margin:8px 0;""><strong>Mật khẩu tạm thời:</strong> <code style=""background:#fee2e2; padding:2px 8px; border-radius:4px; color:{DANGER_COLOR};"">{password}</code></p>
+")}
+
+{BuildButton(loginUrl, "Đăng nhập ngay", PRIMARY_COLOR)}
+
+{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{DANGER_COLOR};"">Lưu ý bảo mật</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Đây là mật khẩu tạm thời. Vui lòng đổi mật khẩu ngay sau khi đăng nhập lần đầu.
+  </p>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">Trân trọng,<br/>{BRAND_NAME}</p>
+</div>";
+
+        return WrapEmailContent(PRIMARY_COLOR, "Thông tin tài khoản bác sĩ", body);
     }
 
     public static string BuildPasswordResetEmailHtml(string resetUrl)
     {
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Đặt lại mật khẩu - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#dc2626; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .reset-button {{ display:inline-block; padding:14px 28px; background:#dc2626; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; margin:16px 0; }}
-    .reset-button:hover {{ background:#b91c1c; }}
-    .warning {{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:16px; margin:20px 0; color:#991b1b; }}
-    .warning-icon {{ font-weight:bold; color:#dc2626; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-    .url-fallback {{ word-break:break-all; color:#6b7280; font-size:12px; margin-top:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare Security</div>
-    </div>
-    <div class=""content"">
-      <p class=""greeting"">Xin chào,</p>
-      <p class=""lead"">Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn. Nếu bạn đã yêu cầu thay đổi này, vui lòng nhấp vào nút bên dưới để tạo mật khẩu mới.</p>
-      
-      <div style=""text-align:center;"">
-        <a href=""{resetUrl}"" class=""reset-button"">Đặt lại mật khẩu</a>
-      </div>
-      
-      <div class=""warning"">
-        <p><span class=""warning-icon"">⚠️</span> <strong>Lưu ý bảo mật:</strong></p>
-        <ul style=""margin:8px 0; padding-left:20px;"">
-          <li>Liên kết này chỉ có hiệu lực trong 24 giờ</li>
-          <li>Chỉ sử dụng một lần duy nhất</li>
-          <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này</li>
-          <li>Mật khẩu mới phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt</li>
-        </ul>
-      </div>
-      
-      <p class=""muted"">Nếu nút không hoạt động, bạn có thể sao chép và dán liên kết sau vào trình duyệt:</p>
-      <div class=""url-fallback"">{resetUrl}</div>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Xin chào,</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.
+</p>
+
+{BuildButton(resetUrl, "Đặt lại mật khẩu", DANGER_COLOR)}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Liên kết có hiệu lực trong 24 giờ</li>
+    <li>Chỉ sử dụng một lần duy nhất</li>
+    <li>Nếu bạn không yêu cầu, vui lòng bỏ qua email này</li>
+  </ul>
+")}
+
+<p style=""margin:20px 0 0; color:{TEXT_SECONDARY}; font-size:12px;"">
+  Nếu nút không hoạt động, sao chép liên kết sau vào trình duyệt:<br/>
+  <span style=""word-break:break-all; color:{PRIMARY_COLOR};"">{resetUrl}</span>
+</p>
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">Trân trọng,<br/>{BRAND_NAME}</p>
+</div>";
+
+        return WrapEmailContent(DANGER_COLOR, "Đặt lại mật khẩu", body);
     }
 
-    /// <summary>
-    /// Build email content for appointment cancellation refund (patient has bank account - PENDING status)
-    /// </summary>
     public static string BuildRefundEmailWithBankAccountHtml(
         string patientName,
         DateTime appointmentDate,
         string cancellationReason,
-        decimal refundAmount
-    )
+        decimal refundAmount)
     {
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Xác nhận hủy lịch hẹn - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#4CAF50; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .info-box {{ background:#e8f5e9; border:1px solid #c8e6c9; border-radius:8px; padding:16px; margin:20px 0; }}
-    .info-box strong {{ color:#2e7d32; }}
-    .info-item {{ margin:8px 0; }}
-    .amount {{ font-size:20px; font-weight:700; color:#2e7d32; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Xác nhận hủy lịch hẹn</div>
-    </div>
-    <div class=""content"">
-      <p class=""greeting"">Kính gửi {patientName},</p>
-      <p class=""lead"">Chúng tôi rất tiếc phải thông báo rằng lịch hẹn của quý khách đã được hủy.</p>
-      
-      <div class=""info-box"">
-        <p><strong>📅 Thông tin lịch hẹn:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy HH:mm}</div>
-        <div class=""info-item""><strong>Lý do hủy:</strong> {cancellationReason}</div>
-        <div class=""info-item""><strong>Số tiền hoàn trả:</strong> <span class=""amount"">{refundAmount:N0} VNĐ</span></div>
-      </div>
-      
-      <p><strong>💰 Về việc hoàn tiền:</strong></p>
-      <p class=""lead"">Chúng tôi sẽ tiến hành hoàn trả số tiền <strong>{refundAmount:N0} VNĐ</strong> vào tài khoản ngân hàng của quý khách trong vòng <strong>5-7 ngày làm việc</strong>.</p>
-      
-      <p class=""muted"">Chúng tôi xin lỗi vì sự bất tiện này. Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua hotline: <strong>1900-xxxx</strong>.</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Lịch hẹn của bạn đã được hủy. Thông tin chi tiết như sau:
+</p>
+
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin lịch hẹn</p>
+  <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateTimeFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Lý do hủy:</strong> {cancellationReason}</p>
+  <p style=""margin:4px 0;""><strong>Số tiền hoàn trả:</strong> <span style=""font-size:18px; font-weight:600; color:{SUCCESS_COLOR};"">{refundAmount:N0} VNĐ</span></p>
+")}
+
+<p style=""margin:20px 0; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Chúng tôi sẽ hoàn trả số tiền trên vào tài khoản ngân hàng của bạn trong vòng <strong>5-7 ngày làm việc</strong>.
+</p>
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Xác nhận hủy lịch hẹn", body);
     }
 
-    /// <summary>
-    /// Build email content for appointment cancellation refund (patient has NO bank account - WAITING status)
-    /// </summary>
     public static string BuildRefundEmailNoBankAccountHtml(
         string patientName,
         DateTime appointmentDate,
         string cancellationReason,
-        decimal refundAmount
-    )
+        decimal refundAmount)
     {
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Xác nhận hủy lịch hẹn - Cần hành động - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#FF9800; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .warning-box {{ background:#fff3e0; border:1px solid #ffe0b2; border-radius:8px; padding:16px; margin:20px 0; }}
-    .warning-box strong {{ color:#f57c00; }}
-    .action-required {{ background:#ffebee; border:2px solid #ef5350; border-radius:8px; padding:16px; margin:20px 0; }}
-    .action-required strong {{ color:#c62828; }}
-    .action-required ol {{ margin:12px 0; padding-left:20px; }}
-    .action-required li {{ margin:8px 0; }}
-    .info-item {{ margin:8px 0; }}
-    .amount {{ font-size:20px; font-weight:700; color:#f57c00; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Xác nhận hủy lịch hẹn</div>
-    </div>
-    <div class=""content"">
-      <p class=""greeting"">Kính gửi {patientName},</p>
-      <p class=""lead"">Chúng tôi rất tiếc phải thông báo rằng lịch hẹn của quý khách đã được hủy.</p>
-      
-      <div class=""warning-box"">
-        <p><strong>📅 Thông tin lịch hẹn:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy HH:mm}</div>
-        <div class=""info-item""><strong>Lý do hủy:</strong> {cancellationReason}</div>
-        <div class=""info-item""><strong>Số tiền hoàn trả:</strong> <span class=""amount"">{refundAmount:N0} VNĐ</span></div>
-      </div>
-      
-      <div class=""action-required"">
-        <p><strong>⚠️ HÀNH ĐỘNG YÊU CẦU - VUI LÒNG ĐỌC KỸ:</strong></p>
-        <p>Để nhận lại số tiền <strong>{refundAmount:N0} VNĐ</strong>, quý khách vui lòng thực hiện các bước sau:</p>
-        <ol>
-          <li>Đăng nhập vào tài khoản BookingCare của quý khách</li>
-          <li>Vào phần <strong>""Tài khoản ngân hàng""</strong> trong cài đặt</li>
-          <li>Thêm thông tin tài khoản ngân hàng để nhận hoàn tiền</li>
-        </ol>
-        <p><strong>⏰ Lưu ý quan trọng:</strong> Nếu không cung cấp thông tin tài khoản ngân hàng, chúng tôi sẽ không thể hoàn trả tiền cho quý khách.</p>
-      </div>
-      
-      <p class=""muted"">Sau khi cập nhật thông tin tài khoản ngân hàng, chúng tôi sẽ tiến hành hoàn tiền trong vòng <strong>5-7 ngày làm việc</strong>.</p>
-      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua hotline: <strong>1900-xxxx</strong>.</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Lịch hẹn của bạn đã được hủy. Thông tin chi tiết như sau:
+</p>
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:#92400e;"">Thông tin lịch hẹn</p>
+  <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateTimeFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Lý do hủy:</strong> {cancellationReason}</p>
+  <p style=""margin:4px 0;""><strong>Số tiền hoàn trả:</strong> <span style=""font-size:18px; font-weight:600; color:{WARNING_COLOR};"">{refundAmount:N0} VNĐ</span></p>
+")}
+
+{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{DANGER_COLOR};"">Yêu cầu hành động</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Để nhận hoàn tiền, vui lòng đăng nhập và cập nhật thông tin tài khoản ngân hàng trong phần Cài đặt.
+  </p>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(WARNING_COLOR, "Xác nhận hủy lịch hẹn", body);
     }
 
-    /// <summary>
-    /// Build email content for successful refund completion
-    /// </summary>
     public static string BuildRefundCompletedEmailHtml(
         string patientName,
         decimal refundAmount,
         string bankName,
         string accountNumber,
-        DateTime transferDate
-    )
+        DateTime transferDate)
     {
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Hoàn tiền thành công - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .success-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
-    .success-box strong {{ color:#047857; }}
-    .info-item {{ margin:8px 0; }}
-    .amount {{ font-size:24px; font-weight:700; color:#10b981; }}
-    .check-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Hoàn tiền thành công</div>
-    </div>
-    <div class=""content"">
-      <div class=""check-icon"">✅</div>
-      <p class=""greeting"">Kính gửi {patientName},</p>
-      <p class=""lead"">Chúng tôi xin thông báo rằng khoản hoàn tiền của quý khách đã được chuyển thành công!</p>
-      
-      <div class=""success-box"">
-        <p><strong>💰 Thông tin hoàn tiền:</strong></p>
-        <div class=""info-item""><strong>Số tiền:</strong> <span class=""amount"">{refundAmount:N0} VNĐ</span></div>
-        <div class=""info-item""><strong>Ngân hàng:</strong> {bankName}</div>
-        <div class=""info-item""><strong>Số tài khoản:</strong> {accountNumber}</div>
-        <div class=""info-item""><strong>Ngày chuyển:</strong> {transferDate:dd/MM/yyyy HH:mm}</div>
-      </div>
-      
-      <p><strong>📝 Lưu ý:</strong></p>
-      <p class=""lead"">Số tiền sẽ được ghi nhận vào tài khoản ngân hàng của quý khách trong vòng <strong>1-2 ngày làm việc</strong>, tùy thuộc vào quy trình xử lý của từng ngân hàng.</p>
-      <p class=""lead"">Vui lòng kiểm tra tài khoản ngân hàng của quý khách để xác nhận giao dịch.</p>
-      
-      <p class=""muted"">Cảm ơn quý khách đã sử dụng dịch vụ BookingCare. Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua hotline: <strong>1900-xxxx</strong>.</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Khoản hoàn tiền của bạn đã được chuyển thành công.
+</p>
+
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin hoàn tiền</p>
+  <p style=""margin:4px 0;""><strong>Số tiền:</strong> <span style=""font-size:20px; font-weight:600; color:{SUCCESS_COLOR};"">{refundAmount:N0} VNĐ</span></p>
+  <p style=""margin:4px 0;""><strong>Ngân hàng:</strong> {bankName}</p>
+  <p style=""margin:4px 0;""><strong>Số tài khoản:</strong> {accountNumber}</p>
+  <p style=""margin:4px 0;""><strong>Ngày chuyển:</strong> {transferDate.ToString(DateTimeFormat)}</p>
+")}
+
+<p style=""margin:20px 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+  Số tiền sẽ được ghi nhận vào tài khoản trong 1-2 ngày làm việc tùy theo ngân hàng.
+</p>
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Cảm ơn bạn đã sử dụng {BRAND_NAME}.<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Hoàn tiền thành công", body);
     }
 
-    /// <summary>
-    /// Build email content for bank account issue report
-    /// </summary>
     public static string BuildRefundBankIssueReportedEmailHtml(
         string patientName,
         decimal refundAmount,
         string issueDescription,
         string? bankName,
-        string? accountNumber
-    )
+        string? accountNumber)
     {
         var bankInfoHtml = "";
         if (!string.IsNullOrEmpty(bankName) && !string.IsNullOrEmpty(accountNumber))
         {
-            bankInfoHtml =
-                $@"
-        <div class=""info-item""><strong>Ngân hàng hiện tại:</strong> {bankName}</div>
-        <div class=""info-item""><strong>Số tài khoản:</strong> {accountNumber}</div>";
+            bankInfoHtml = $@"
+  <p style=""margin:4px 0;""><strong>Ngân hàng:</strong> {bankName}</p>
+  <p style=""margin:4px 0;""><strong>Số tài khoản:</strong> {accountNumber}</p>";
         }
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Sự cố tài khoản ngân hàng - Cần cập nhật - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#ef4444; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .error-box {{ background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:16px; margin:20px 0; }}
-    .error-box strong {{ color:#dc2626; }}
-    .action-required {{ background:#fef3c7; border:2px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
-    .action-required strong {{ color:#92400e; }}
-    .action-required ol {{ margin:12px 0; padding-left:20px; }}
-    .action-required li {{ margin:8px 0; }}
-    .info-item {{ margin:8px 0; }}
-    .amount {{ font-size:20px; font-weight:700; color:#dc2626; }}
-    .warning-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Sự cố hoàn tiền</div>
-    </div>
-    <div class=""content"">
-      <div class=""warning-icon"">⚠️</div>
-      <p class=""greeting"">Kính gửi {patientName},</p>
-      <p class=""lead"">Chúng tôi rất tiếc phải thông báo rằng có sự cố xảy ra trong quá trình hoàn tiền cho quý khách.</p>
-      
-      <div class=""error-box"">
-        <p><strong>❌ Sự cố đã phát sinh:</strong></p>
-        <div class=""info-item""><strong>Số tiền hoàn trả:</strong> <span class=""amount"">{refundAmount:N0} VNĐ</span></div>{bankInfoHtml}
-        <div class=""info-item""><strong>Vấn đề:</strong> {issueDescription}</div>
-      </div>
-      
-      <div class=""action-required"">
-        <p><strong>🔔 HÀNH ĐỘNG YÊU CẦU - VUI LÒNG ĐỌC KỸ:</strong></p>
-        <p>Để tiếp tục nhận khoản hoàn trả <strong>{refundAmount:N0} VNĐ</strong>, quý khách vui lòng:</p>
-        <ol>
-          <li>Đăng nhập vào tài khoản BookingCare</li>
-          <li>Vào phần <strong>""Tài khoản ngân hàng""</strong></li>
-          <li>Kiểm tra và <strong>cập nhật lại thông tin chính xác</strong></li>
-          <li>Đảm bảo thông tin tài khoản đúng với tên chủ tài khoản</li>
-        </ol>
-        <p><strong>📞 Hoặc liên hệ trực tiếp:</strong> Nếu cần hỗ trợ, vui lòng gọi hotline: <strong>1900-xxxx</strong></p>
-      </div>
-      
-      <p class=""muted"">Sau khi quý khách cập nhật thông tin chính xác, chúng tôi sẽ tiến hành hoàn tiền trong vòng <strong>2-3 ngày làm việc</strong>.</p>
-      <p class=""muted"">Chúng tôi xin lỗi vì sự bất tiện này và mong nhận được sự hợp tác của quý khách.</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Có sự cố xảy ra trong quá trình hoàn tiền cho bạn.
+</p>
+
+{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{DANGER_COLOR};"">Thông tin sự cố</p>
+  <p style=""margin:4px 0;""><strong>Số tiền:</strong> {refundAmount:N0} VNĐ</p>
+  {bankInfoHtml}
+  <p style=""margin:4px 0;""><strong>Vấn đề:</strong> {issueDescription}</p>
+")}
+
+<p style=""margin:20px 0; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Vui lòng đăng nhập và cập nhật lại thông tin tài khoản ngân hàng chính xác để tiếp tục nhận hoàn tiền.
+</p>
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(DANGER_COLOR, "Sự cố hoàn tiền", body);
     }
 
-    /// <summary>
-    /// Build email content for no refund case (0% refund due to late cancellation)
-    /// </summary>
     public static string BuildNoRefundEmailHtml(
         string patientName,
         DateTime appointmentDate,
-        string cancellationReason
-    )
+        string cancellationReason)
     {
-        var appointmentDateStr = appointmentDate.ToString(DateTimeFormat);
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Lịch hẹn của bạn đã được hủy thành công.
+</p>
 
-        return $@"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset=""utf-8"">
-    <title>Thông báo hủy lịch hẹn</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .container {{ background: #f9f9f9; padding: 30px; border-radius: 10px; }}
-        .header {{ background: #dc3545; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; }}
-        .content {{ background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-        .alert {{ background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }}
-        .info-box {{ background: #f8f9fa; padding: 15px; border-left: 4px solid #dc3545; margin: 15px 0; }}
-        .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
-        .warning-icon {{ color: #dc3545; font-size: 18px; }}
-    </style>
-</head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <h2>🚫 Lịch hẹn đã được hủy</h2>
-        </div>
-        
-        <div class=""content"">
-            <p>Xin chào <strong>{patientName}</strong>,</p>
-            
-            <p>Chúng tôi xin thông báo rằng lịch hẹn của bạn đã được hủy thành công.</p>
-            
-            <div class=""info-box"">
-                <p><strong>📅 Thời gian hẹn:</strong> {appointmentDateStr}</p>
-                <p><strong>📝 Lý do hủy:</strong> {cancellationReason}</p>
-            </div>
-            
-            <div class=""alert"">
-                <p><span class=""warning-icon"">⚠️</span> <strong>Thông báo về chính sách hoàn tiền:</strong></p>
-                <p>Do lịch hẹn được hủy trong vòng 12 giờ trước thời gian hẹn, theo chính sách của chúng tôi, <strong>không có khoản hoàn tiền nào được áp dụng</strong>.</p>
-                <p>Chúng tôi hiểu rằng điều này có thể gây bất tiện và chân thành xin lỗi về sự bất tiện này.</p>
-            </div>
-            
-            <p>Nếu bạn có bất kỳ thắc mắc nào về chính sách hoàn tiền hoặc cần hỗ trợ thêm, vui lòng liên hệ với chúng tôi.</p>
-            
-            <p>Trân trọng,<br/>
-            <strong>Đội ngũ BookingCare</strong></p>
-        </div>
-        
-        <div class=""footer"">
-            Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
-        </div>
-    </div>
-</body>
-</html>";
+{BuildInfoBox(BG_LIGHT, BORDER_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{TEXT_PRIMARY};"">Thông tin lịch hẹn</p>
+  <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateTimeFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Lý do hủy:</strong> {cancellationReason}</p>
+")}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Thông báo về hoàn tiền</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Do lịch hẹn được hủy trong vòng 12 giờ trước thời gian hẹn, theo chính sách của chúng tôi, không có khoản hoàn tiền nào được áp dụng.
+  </p>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(WARNING_COLOR, "Thông báo hủy lịch hẹn", body);
     }
 
-    /// <summary>
-    /// Build email content for successful appointment cancellation without payment
-    /// Used when appointment is cancelled but no payment record exists
-    /// </summary>
     public static string BuildCancellationSuccessEmailHtml(
         string patientName,
         DateTime appointmentDate,
         string cancellationReason,
         string? doctorName = null,
-        string? hospitalName = null
-    )
+        string? hospitalName = null)
     {
-        var appointmentDateStr = appointmentDate.ToString(DateTimeFormat);
+        var doctorInfo = !string.IsNullOrEmpty(doctorName) ? $@"<p style=""margin:4px 0;""><strong>Bác sĩ:</strong> {doctorName}</p>" : "";
+        var hospitalInfo = !string.IsNullOrEmpty(hospitalName) ? $@"<p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>" : "";
 
-        var doctorInfoHtml = !string.IsNullOrEmpty(doctorName)
-            ? $"<p><strong>&#x1F468;&#x200D;&#x2695;&#xFE0F; Bác sĩ:</strong> {doctorName}</p>"
-            : "";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Lịch hẹn của bạn đã được hủy thành công.
+</p>
 
-        var hospitalInfoHtml = !string.IsNullOrEmpty(hospitalName)
-            ? $"<p><strong>🏥 Bệnh viện:</strong> {hospitalName}</p>"
-            : "";
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin lịch hẹn đã hủy</p>
+  <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateTimeFormat)}</p>
+  {doctorInfo}
+  {hospitalInfo}
+  <p style=""margin:4px 0;""><strong>Lý do hủy:</strong> {cancellationReason}</p>
+")}
 
-        return $@"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset=""utf-8"">
-    <title>Thông báo hủy lịch hẹn thành công</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .container {{ background: #f9f9f9; padding: 30px; border-radius: 10px; }}
-        .header {{ background: #22c55e; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; }}
-        .content {{ background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
-        .info-box {{ background: #f0fdf4; padding: 15px; border-left: 4px solid #22c55e; margin: 15px 0; }}
-        .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
-        .success-icon {{ color: #22c55e; font-size: 18px; }}
-    </style>
-</head>
-<body>
-    <div class=""container"">
-        <div class=""header"">
-            <h2>✅ Hủy lịch hẹn thành công</h2>
-        </div>
-        
-        <div class=""content"">
-            <p>Xin chào <strong>{patientName}</strong>,</p>
-            
-            <p>Chúng tôi xin xác nhận rằng lịch hẹn của bạn đã được hủy thành công.</p>
-            
-            <div class=""info-box"">
-                <p><strong>📅 Thời gian hẹn đã hủy:</strong> {appointmentDateStr}</p>
-                {doctorInfoHtml}
-                {hospitalInfoHtml}
-                <p><strong>📝 Lý do hủy:</strong> {cancellationReason}</p>
-            </div>
-            
-            <p>Nếu bạn muốn đặt lịch hẹn mới, vui lòng truy cập website của chúng tôi hoặc liên hệ trực tiếp với chúng tôi.</p>
-            
-            <p>Chúng tôi mong được phục vụ bạn trong tương lai!</p>
-            
-            <p>Trân trọng,<br/>
-            <strong>Đội ngũ BookingCare</strong></p>
-        </div>
-        
-        <div class=""footer"">
-            Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
-        </div>
-    </div>
-</body>
-</html>";
+<p style=""margin:20px 0; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Nếu bạn muốn đặt lịch hẹn mới, vui lòng truy cập website hoặc ứng dụng {BRAND_NAME}.
+</p>
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">Trân trọng,<br/>{BRAND_NAME}</p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Hủy lịch hẹn thành công", body);
     }
 
-    /// <summary>
-    /// Build email content for successful appointment booking
-    /// Fixed SonarQube issue: Reduced from 10 parameters to 1 parameter object
-    /// Updated to use pure composition pattern with AppointmentData
-    /// </summary>
-    public static string BuildAppointmentBookedSuccessEmailHtml(
-        AppointmentBookingEmailData emailData
-    )
+
+    public static string BuildAppointmentBookedSuccessEmailHtml(AppointmentBookingEmailData emailData)
     {
-        var appointmentData = emailData.AppointmentData; // Direct access to avoid repetition
+        var data = emailData.AppointmentData;
 
-        var doctorInfoHtml = "";
-        if (!string.IsNullOrEmpty(appointmentData.DoctorName))
-        {
-            doctorInfoHtml =
-                $@"
-        <div class=""info-item""><strong>Bác sĩ:</strong> {appointmentData.DoctorName}</div>";
-            if (!string.IsNullOrEmpty(appointmentData.DoctorSpecialty))
-            {
-                doctorInfoHtml +=
-                    $@"
-        <div class=""info-item""><strong>Chuyên khoa:</strong> {appointmentData.DoctorSpecialty}</div>";
-            }
-        }
-
-        var hospitalInfoHtml = "";
-        if (!string.IsNullOrEmpty(appointmentData.HospitalName))
-        {
-            hospitalInfoHtml =
-                $@"
-        <div class=""info-item""><strong>Bệnh viện:</strong> {appointmentData.HospitalName}</div>";
-            if (!string.IsNullOrEmpty(appointmentData.HospitalAddress))
-            {
-                hospitalInfoHtml +=
-                    $@"
-        <div class=""info-item""><strong>Địa chỉ:</strong> {appointmentData.HospitalAddress}</div>";
-            }
-        }
-
-        var serviceInfoHtml = "";
-        if (!string.IsNullOrEmpty(appointmentData.ServiceName))
-        {
-            serviceInfoHtml =
-                $@"
-        <div class=""info-item""><strong>Dịch vụ:</strong> {appointmentData.ServiceName}</div>";
-        }
-
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Đặt lịch hẹn thành công - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .success-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
-    .success-box strong {{ color:#047857; }}
-    .info-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
-    .info-box strong {{ color:#0369a1; }}
-    .info-item {{ margin:8px 0; }}
-    .amount {{ font-size:20px; font-weight:700; color:#10b981; }}
-    .check-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .reminder {{ background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:16px; margin:20px 0; }}
-    .reminder strong {{ color:#c2410c; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Đặt lịch hẹn thành công</div>
-    </div>
-    <div class=""content"">
-      <div class=""check-icon"">✅</div>
-      <p class=""greeting"">Kính gửi {appointmentData.PatientName},</p>
-      <p class=""lead"">Chúc mừng! Lịch hẹn của quý khách đã được đặt thành công và thanh toán hoàn tất.</p>
-      
-      <div class=""success-box"">
-        <p><strong>🎉 Thông tin lịch hẹn:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentData.AppointmentDate:dd/MM/yyyy}</div>
-        <div class=""info-item""><strong>Thời gian:</strong> {appointmentData.AppointmentTime}</div>
-        <div class=""info-item""><strong>Loại hẹn:</strong> {appointmentData.AppointmentType}</div>{doctorInfoHtml}{serviceInfoHtml}
-        <div class=""info-item""><strong>Số tiền đã thanh toán:</strong> <span class=""amount"">{appointmentData.Amount:N0} VNĐ</span></div>
-      </div>
-      
-      <div class=""info-box"">
-        <p><strong>🏥 Địa điểm khám:</strong></p>{hospitalInfoHtml}
-      </div>
-      
-      <div class=""reminder"">
-        <p><strong>📋 Lưu ý quan trọng:</strong></p>
-        <ul style=""margin:8px 0; padding-left:20px;"">
-          <li>Vui lòng có mặt <strong>15 phút trước</strong> giờ hẹn</li>
-          <li>Mang theo giấy tờ tùy thân (CMND/CCCD/Hộ chiếu)</li>
-          <li>Mang theo sổ bảo hiểm y tế (nếu có)</li>
-          <li>Chuẩn bị các kết quả xét nghiệm, chẩn đoán hình ảnh liên quan (nếu có)</li>
-          <li>Nếu cần hủy lịch hẹn, vui lòng thông báo trước <strong>24 giờ</strong></li>
-        </ul>
-      </div>
-      
-      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
-      <strong>📧 Email:</strong> support@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Cảm ơn quý khách đã tin tương và sử dụng dịch vụ BookingCare.<br/><br/>
-      Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
-    }
-
-    /// <summary>
-    /// Build email content for staff-initiated cancellation with reschedule options
-    /// Patient can choose from 4 options: reschedule same doctor, confirm new doctor, choose new doctor, or request refund
-    /// </summary>
-    public static string BuildCancellationWithOptionsEmailHtml(
-        CancellationWithOptionsEmailData data
-    )
-    {
         var doctorInfo = !string.IsNullOrEmpty(data.DoctorName)
-            ? $" với bác sĩ <strong>{data.DoctorName}</strong>"
+            ? $@"<p style=""margin:4px 0;""><strong>Bác sĩ:</strong> {data.DoctorName}</p>"
+            : "";
+        var specialtyInfo = !string.IsNullOrEmpty(data.DoctorSpecialty)
+            ? $@"<p style=""margin:4px 0;""><strong>Chuyên khoa:</strong> {data.DoctorSpecialty}</p>"
             : "";
         var hospitalInfo = !string.IsNullOrEmpty(data.HospitalName)
-            ? $" tại <strong>{data.HospitalName}</strong>"
+            ? $@"<p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {data.HospitalName}</p>"
             : "";
+        var addressInfo = !string.IsNullOrEmpty(data.HospitalAddress)
+            ? $@"<p style=""margin:4px 0;""><strong>Địa chỉ:</strong> {data.HospitalAddress}</p>"
+            : "";
+        var serviceInfo = !string.IsNullOrEmpty(data.ServiceName)
+            ? $@"<p style=""margin:4px 0;""><strong>Dịch vụ:</strong> {data.ServiceName}</p>"
+            : "";
+
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {data.PatientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Lịch hẹn của bạn đã được đặt thành công và thanh toán hoàn tất.
+</p>
+
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin lịch hẹn</p>
+  <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString(DateFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Thời gian:</strong> {data.AppointmentTime}</p>
+  <p style=""margin:4px 0;""><strong>Loại hẹn:</strong> {data.AppointmentType}</p>
+  {doctorInfo}
+  {specialtyInfo}
+  {serviceInfo}
+  {hospitalInfo}
+  {addressInfo}
+  <p style=""margin:8px 0 0;""><strong>Đã thanh toán:</strong> <span style=""font-size:18px; font-weight:600; color:{SUCCESS_COLOR};"">{data.Amount:N0} VNĐ</span></p>
+")}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Vui lòng có mặt trước giờ hẹn 15 phút</li>
+    <li>Mang theo giấy tờ tùy thân (CMND/CCCD)</li>
+    <li>Mang theo thẻ BHYT nếu có</li>
+    <li>Hủy lịch trước 24 giờ nếu cần</li>
+  </ul>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Đặt lịch hẹn thành công", body);
+    }
+
+    public static string BuildCancellationWithOptionsEmailHtml(CancellationWithOptionsEmailData data)
+    {
+        var doctorInfo = !string.IsNullOrEmpty(data.DoctorName) ? $" với BS. {data.DoctorName}" : "";
+        var hospitalInfo = !string.IsNullOrEmpty(data.HospitalName) ? $" tại {data.HospitalName}" : "";
 
         var refundInfo = "";
         if (data.PotentialRefundAmount.HasValue && data.PotentialRefundPercentage.HasValue)
         {
-            refundInfo =
-                $@"
-        <div class=""refund-info"">
-            <p>💰 <strong>Thông tin hoàn tiền (nếu chọn Option 4):</strong></p>
-            <div class=""info-item"">Tỷ lệ hoàn: <strong>{data.PotentialRefundPercentage:N0}%</strong></div>
-            <div class=""info-item"">Số tiền ước tính: <strong>{data.PotentialRefundAmount:N0} VNĐ</strong></div>
-        </div>";
+            refundInfo = $@"<p style=""margin:8px 0;""><strong>Hoàn tiền (nếu chọn):</strong> {data.PotentialRefundAmount:N0} VNĐ ({data.PotentialRefundPercentage:N0}%)</p>";
         }
 
         var expiryInfo = data.TokenExpiry.HasValue
-            ? $"<p class=\"warning\">⏰ <strong>Lưu ý:</strong> Các tùy chọn đổi lịch có hiệu lực đến <strong>{data.TokenExpiry.Value.ToString(DateTimeFormat)}</strong> (trước ngày hẹn gốc)</p>"
+            ? $@"<p style=""margin:16px 0 0; color:{WARNING_COLOR}; font-size:13px;"">Các tùy chọn có hiệu lực đến: {data.TokenExpiry.Value.ToString(DateTimeFormat)}</p>"
             : "";
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Lịch hẹn đã bị hủy - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:12px; color:#222; }}
-    .card {{ max-width:600px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#f59e0b; color:#fff; padding:16px 20px; }}
-    .brand {{ font-size:16px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:20px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 16px; color:#444; line-height:1.5; }}
-    .cancel-box {{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin:16px 0; }}
-    .cancel-box strong {{ color:#991b1b; }}
-    .info-item {{ margin:6px 0; font-size:14px; word-break:break-word; }}
-    .refund-info {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:12px; margin:16px 0; }}
-    .refund-info strong {{ color:#166534; }}
-    .options-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:16px 0; }}
-    .option-button {{ display:block; width:100%; max-width:100%; padding:12px 16px; margin:8px 0; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:6px; font-weight:600; text-align:center; transition:background 0.3s; font-size:14px; word-wrap:break-word; overflow-wrap:break-word; box-sizing:border-box; }}
-    .option-button:hover {{ background:#0284c7; }}
-    .option-button.secondary {{ background:#8b5cf6; }}
-    .option-button.secondary:hover {{ background:#7c3aed; }}
-    .option-button.tertiary {{ background:#10b981; }}
-    .option-button.tertiary:hover {{ background:#059669; }}
-    .option-button.danger {{ background:#ef4444; }}
-    .option-button.danger:hover {{ background:#dc2626; }}
-    .option-desc {{ font-size:12px; color:#6b7280; margin:4px 0 12px; text-align:center; line-height:1.4; word-break:break-word; }}
-    .warning {{ background:#fff7ed; border:1px solid #fed7aa; padding:10px; border-radius:6px; margin:12px 0; color:#c2410c; font-size:13px; word-break:break-word; }}
-    .muted {{ margin-top:12px; color:#6b7280; font-size:12px; word-break:break-word; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:16px 0; }}
-    .footer {{ padding:12px 20px 16px; color:#6b7280; font-size:11px; text-align:center; word-break:break-word; }}
-    
-    /* Mobile responsive */
-    @media only screen and (max-width: 600px) {{
-      body {{ padding:8px; }}
-      .content {{ padding:16px; }}
-      .header {{ padding:12px 16px; }}
-      .brand {{ font-size:14px; }}
-      .option-button {{ padding:10px 12px; font-size:13px; }}
-      .option-desc {{ font-size:11px; }}
-      .info-item {{ font-size:13px; }}
-    }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Thông báo hủy lịch hẹn</div>
-    </div>
-    <div class=""content"">
-      <p class=""greeting"">Kính gửi {data.PatientName},</p>
-      <p class=""lead"">Chúng tôi rất tiếc phải thông báo rằng lịch hẹn của quý khách{doctorInfo}{hospitalInfo} đã bị hủy bởi bệnh viện.</p>
-      
-      <div class=""cancel-box"">
-        <p><strong>📅 Thông tin lịch hẹn bị hủy:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString(DateTimeFormat)}</div>
-        <div class=""info-item""><strong>Lý do hủy:</strong> {data.CancellationReason}</div>
-      </div>
-      {refundInfo}
-      
-      <div class=""options-box"">
-        <p style=""text-align:center; font-size:16px; font-weight:600; margin-bottom:20px; color:#0369a1;"">
-          🔄 VUI LÒNG CHỌN PHƯƠNG ÁN XỬ LÝ
-        </p>
-        
-        {(!string.IsNullOrEmpty(data.SameDoctorRescheduleUrl) ? $@"
-        <a href=""{data.SameDoctorRescheduleUrl}"" class=""option-button"">
-          📆 Option: Đổi lịch với cùng bác sĩ
-        </a>
-        <p class=""option-desc"">Chọn ngày giờ khác với bác sĩ {data.DoctorName}</p>" : "")}
-        
-        {(!string.IsNullOrEmpty(data.ConfirmNewDoctorUrl) ? $@"
-        <a href=""{data.ConfirmNewDoctorUrl}"" class=""option-button secondary"">
-          👨‍⚕️ Option: Xác nhận bác sĩ mới (do bệnh viện chỉ định)
-        </a>
-        <p class=""option-desc"">Bệnh viện chỉ định bác sĩ thay thế</p>" : "")}
-        
-        {(!string.IsNullOrEmpty(data.ChooseNewDoctorUrl) ? $@"
-        <a href=""{data.ChooseNewDoctorUrl}"" class=""option-button tertiary"">
-          🔍 Option: Tự chọn bác sĩ mới
-        </a>
-        <p class=""option-desc"">Tự chọn bác sĩ khác cùng chuyên khoa</p>" : "")}
-        
-        {(!string.IsNullOrEmpty(data.RefundRequestUrl) ? $@"
-        <a href=""{data.RefundRequestUrl}"" class=""option-button danger"">
-          💰 Option: Yêu cầu hoàn tiền
-        </a>
-        <p class=""option-desc"">Không muốn đổi lịch, xin hoàn tiền</p>" : "")}
-      </div>
-      
-      {expiryInfo}
-      
-      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
-      <strong>📧 Email:</strong> support@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Chúng tôi chân thành xin lỗi vì sự bất tiện này và hy vọng quý khách sẽ tiếp tục tin tưởng sử dụng dịch vụ của BookingCare.<br/><br/>
-      Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var optionsHtml = "";
+        if (!string.IsNullOrEmpty(data.SameDoctorRescheduleUrl))
+            optionsHtml += $@"<a href=""{data.SameDoctorRescheduleUrl}"" style=""display:block; padding:12px 16px; margin:8px 0; background:{PRIMARY_COLOR}; color:#fff; text-decoration:none; border-radius:6px; text-align:center; font-size:14px;"">Đổi lịch với cùng bác sĩ</a>";
+        if (!string.IsNullOrEmpty(data.ConfirmNewDoctorUrl))
+            optionsHtml += $@"<a href=""{data.ConfirmNewDoctorUrl}"" style=""display:block; padding:12px 16px; margin:8px 0; background:#8b5cf6; color:#fff; text-decoration:none; border-radius:6px; text-align:center; font-size:14px;"">Xác nhận bác sĩ mới do bệnh viện chỉ định</a>";
+        if (!string.IsNullOrEmpty(data.ChooseNewDoctorUrl))
+            optionsHtml += $@"<a href=""{data.ChooseNewDoctorUrl}"" style=""display:block; padding:12px 16px; margin:8px 0; background:{SUCCESS_COLOR}; color:#fff; text-decoration:none; border-radius:6px; text-align:center; font-size:14px;"">Tự chọn bác sĩ mới</a>";
+        if (!string.IsNullOrEmpty(data.RefundRequestUrl))
+            optionsHtml += $@"<a href=""{data.RefundRequestUrl}"" style=""display:block; padding:12px 16px; margin:8px 0; background:{DANGER_COLOR}; color:#fff; text-decoration:none; border-radius:6px; text-align:center; font-size:14px;"">Yêu cầu hoàn tiền</a>";
+
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {data.PatientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Lịch hẹn của bạn{doctorInfo}{hospitalInfo} đã bị hủy bởi bệnh viện.
+</p>
+
+{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{DANGER_COLOR};"">Thông tin lịch hẹn bị hủy</p>
+  <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString(DateTimeFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Lý do:</strong> {data.CancellationReason}</p>
+  {refundInfo}
+")}
+
+<div style=""background:{BG_LIGHT}; padding:20px; border-radius:8px; margin:20px 0;"">
+  <p style=""margin:0 0 16px; font-weight:500; color:{TEXT_PRIMARY}; text-align:center;"">Vui lòng chọn phương án xử lý</p>
+  {optionsHtml}
+  {expiryInfo}
+</div>
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(WARNING_COLOR, "Lịch hẹn đã bị hủy", body);
     }
 
-    /// <summary>
-    /// Build email content for doctor change refund (patient has bank account - PENDING status)
-    /// Used when patient chooses new doctor with lower deposit price (Option 3: Lower price scenario)
-    /// </summary>
     public static string BuildDoctorChangeRefundEmailWithBankAccountHtml(
         string patientName,
         DateTime appointmentDate,
@@ -1011,90 +555,45 @@ public static class EmailTemplate
         decimal originalFee,
         string newDoctorName,
         decimal newFee,
-        decimal refundAmount
-    )
+        decimal refundAmount)
     {
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Xác nhận thay đổi bác sĩ - Hoàn tiền chênh lệch - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .change-box {{ background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
-    .change-box strong {{ color:#0369a1; }}
-    .doctor-change {{ display:flex; align-items:center; justify-content:space-between; margin:16px 0; }}
-    .doctor-item {{ flex:1; text-align:center; }}
-    .doctor-name {{ font-weight:700; color:#0c4a6e; margin:8px 0; }}
-    .doctor-price {{ color:#6b7280; font-size:14px; }}
-    .arrow {{ font-size:24px; color:#10b981; margin:0 16px; }}
-    .refund-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
-    .refund-box strong {{ color:#047857; }}
-    .amount {{ font-size:20px; font-weight:700; color:#10b981; }}
-    .info-item {{ margin:8px 0; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Xác nhận thay đổi bác sĩ</div>
-    </div>
-    <div class=""content"">
-      <div class=""success-icon"">✅</div>
-      <p class=""greeting"">Kính gửi {patientName},</p>
-      <p class=""lead"">Chúng tôi xác nhận rằng quý khách đã thay đổi bác sĩ khám thành công!</p>
-      
-      <div class=""change-box"">
-        <p><strong>👨‍⚕️ Thông tin thay đổi:</strong></p>
-        <div class=""doctor-change"">
-          <div class=""doctor-item"">
-            <p class=""muted"" style=""margin:0;"">Bác sĩ cũ</p>
-            <p class=""doctor-name"">{originalDoctorName}</p>
-            <p class=""doctor-price"">Cọc: {originalFee:N0} VNĐ</p>
-          </div>
-          <div class=""arrow"">→</div>
-          <div class=""doctor-item"">
-            <p class=""muted"" style=""margin:0;"">Bác sĩ mới</p>
-            <p class=""doctor-name"">{newDoctorName}</p>
-            <p class=""doctor-price"">Cọc: {newFee:N0} VNĐ</p>
-          </div>
-        </div>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy HH:mm}</div>
-      </div>
-      
-      <div class=""refund-box"">
-        <p><strong>💰 Hoàn tiền chênh lệch:</strong></p>
-        <div class=""info-item"">Do bác sĩ mới có mức cọc thấp hơn, chúng tôi sẽ hoàn lại cho quý khách số tiền chênh lệch:</div>
-        <div class=""info-item""><strong>Số tiền hoàn trả:</strong> <span class=""amount"">{refundAmount:N0} VNĐ</span></div>
-        <div class=""info-item"">Tiền sẽ được chuyển vào tài khoản ngân hàng của quý khách trong vòng <strong>5-7 ngày làm việc</strong>.</div>
-      </div>
-      
-      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua hotline: <strong>1900-xxxx</strong>.</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Bạn đã thay đổi bác sĩ khám thành công.
+</p>
+
+{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin thay đổi</p>
+  <table style=""width:100%; font-size:14px;"">
+    <tr>
+      <td style=""padding:8px 0; color:{TEXT_SECONDARY};"">Bác sĩ cũ:</td>
+      <td style=""padding:8px 0;"">{originalDoctorName} ({originalFee:N0} VNĐ)</td>
+    </tr>
+    <tr>
+      <td style=""padding:8px 0; color:{TEXT_SECONDARY};"">Bác sĩ mới:</td>
+      <td style=""padding:8px 0;"">{newDoctorName} ({newFee:N0} VNĐ)</td>
+    </tr>
+    <tr>
+      <td style=""padding:8px 0; color:{TEXT_SECONDARY};"">Ngày hẹn:</td>
+      <td style=""padding:8px 0;"">{appointmentDate.ToString(DateTimeFormat)}</td>
+    </tr>
+  </table>
+")}
+
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{SUCCESS_COLOR};"">Hoàn tiền chênh lệch</p>
+  <p style=""margin:8px 0 0;"">Số tiền: <span style=""font-size:18px; font-weight:600; color:{SUCCESS_COLOR};"">{refundAmount:N0} VNĐ</span></p>
+  <p style=""margin:4px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">Sẽ được chuyển trong 5-7 ngày làm việc.</p>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">Trân trọng,<br/>{BRAND_NAME}</p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Thay đổi bác sĩ thành công", body);
     }
 
-    /// <summary>
-    /// Build email content for doctor change refund (patient has NO bank account - WAITING status)
-    /// Used when patient chooses new doctor with lower deposit price (Option 3: Lower price scenario)
-    /// </summary>
     public static string BuildDoctorChangeRefundEmailNoBankAccountHtml(
         string patientName,
         DateTime appointmentDate,
@@ -1102,98 +601,51 @@ public static class EmailTemplate
         decimal originalFee,
         string newDoctorName,
         decimal newFee,
-        decimal refundAmount
-    )
+        decimal refundAmount)
     {
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Xác nhận thay đổi bác sĩ - Cần cung cấp tài khoản - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#FF9800; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .change-box {{ background:#e0f2fe; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
-    .change-box strong {{ color:#0369a1; }}
-    .doctor-change {{ display:flex; align-items:center; justify-content:space-between; margin:16px 0; }}
-    .doctor-item {{ flex:1; text-align:center; }}
-    .doctor-name {{ font-weight:700; color:#0c4a6e; margin:8px 0; }}
-    .doctor-price {{ color:#6b7280; font-size:14px; }}
-    .arrow {{ font-size:24px; color:#10b981; margin:0 16px; }}
-    .action-required {{ background:#ffebee; border:2px solid #ef5350; border-radius:8px; padding:16px; margin:20px 0; }}
-    .action-required strong {{ color:#c62828; }}
-    .action-required ol {{ margin:12px 0; padding-left:20px; }}
-    .action-required li {{ margin:8px 0; }}
-    .info-item {{ margin:8px 0; }}
-    .amount {{ font-size:20px; font-weight:700; color:#f57c00; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Xác nhận thay đổi bác sĩ</div>
-    </div>
-    <div class=""content"">
-      <p class=""greeting"">Kính gửi {patientName},</p>
-      <p class=""lead"">Chúng tôi xác nhận rằng quý khách đã thay đổi bác sĩ khám thành công!</p>
-      
-      <div class=""change-box"">
-        <p><strong>👨‍⚕️ Thông tin thay đổi:</strong></p>
-        <div class=""doctor-change"">
-          <div class=""doctor-item"">
-            <p class=""muted"" style=""margin:0;"">Bác sĩ cũ</p>
-            <p class=""doctor-name"">{originalDoctorName}</p>
-            <p class=""doctor-price"">Cọc: {originalFee:N0} VNĐ</p>
-          </div>
-          <div class=""arrow"">→</div>
-          <div class=""doctor-item"">
-            <p class=""muted"" style=""margin:0;"">Bác sĩ mới</p>
-            <p class=""doctor-name"">{newDoctorName}</p>
-            <p class=""doctor-price"">Cọc: {newFee:N0} VNĐ</p>
-          </div>
-        </div>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy HH:mm}</div>
-      </div>
-      
-      <div class=""action-required"">
-        <p><strong>⚠️ HÀNH ĐỘNG YÊU CẦU - VUI LÒNG ĐỌC KỸ:</strong></p>
-        <p>Do bác sĩ mới có mức cọc thấp hơn, quý khách sẽ được hoàn lại <strong>{refundAmount:N0} VNĐ</strong>.</p>
-        <p>Để nhận lại số tiền này, quý khách vui lòng:</p>
-        <ol>
-          <li>Đăng nhập vào tài khoản BookingCare</li>
-          <li>Vào phần <strong>""Tài khoản ngân hàng""</strong> trong cài đặt</li>
-          <li>Thêm thông tin tài khoản ngân hàng để nhận hoàn tiền</li>
-        </ol>
-        <p><strong>⏰ Lưu ý quan trọng:</strong> Nếu không cung cấp thông tin tài khoản ngân hàng, chúng tôi sẽ không thể hoàn trả tiền cho quý khách.</p>
-      </div>
-      
-      <p class=""muted"">Sau khi cập nhật thông tin tài khoản ngân hàng, chúng tôi sẽ tiến hành hoàn tiền trong vòng <strong>5-7 ngày làm việc</strong>.</p>
-      <p class=""muted"">Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua hotline: <strong>1900-xxxx</strong>.</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Bạn đã thay đổi bác sĩ khám thành công.
+</p>
+
+{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin thay đổi</p>
+  <table style=""width:100%; font-size:14px;"">
+    <tr>
+      <td style=""padding:8px 0; color:{TEXT_SECONDARY};"">Bác sĩ cũ:</td>
+      <td style=""padding:8px 0;"">{originalDoctorName} ({originalFee:N0} VNĐ)</td>
+    </tr>
+    <tr>
+      <td style=""padding:8px 0; color:{TEXT_SECONDARY};"">Bác sĩ mới:</td>
+      <td style=""padding:8px 0;"">{newDoctorName} ({newFee:N0} VNĐ)</td>
+    </tr>
+    <tr>
+      <td style=""padding:8px 0; color:{TEXT_SECONDARY};"">Ngày hẹn:</td>
+      <td style=""padding:8px 0;"">{appointmentDate.ToString(DateTimeFormat)}</td>
+    </tr>
+  </table>
+")}
+
+{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{DANGER_COLOR};"">Yêu cầu hành động</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Bạn được hoàn <strong>{refundAmount:N0} VNĐ</strong>. Vui lòng đăng nhập và cập nhật thông tin tài khoản ngân hàng để nhận tiền.
+  </p>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(WARNING_COLOR, "Thay đổi bác sĩ thành công", body);
     }
 
-    /// <summary>
-    /// Build email content for successful hospital subscription registration
-    /// </summary>
-    public static string BuildHospitalSubscriptionCreatedEmailHtml(
-        HospitalSubscriptionCreatedEmailData data
-    )
+
+    public static string BuildHospitalSubscriptionCreatedEmailHtml(HospitalSubscriptionCreatedEmailData data)
     {
         var billingCycleDisplay = data.BillingCycle?.ToUpper() switch
         {
@@ -1203,561 +655,250 @@ public static class EmailTemplate
             _ => "Tháng",
         };
 
-        var maxDoctorsInfo = data.MaxDoctors.HasValue
-            ? $@"
-        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.MaxDoctors} bác sĩ</div>"
-            : "";
-
-        var maxAppointmentsInfo = data.MaxAppointmentsPerMonth.HasValue
-            ? $@"
-        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.MaxAppointmentsPerMonth} lịch hẹn</div>"
-            : "";
-
+        var maxDoctorsInfo = data.MaxDoctors.HasValue ? $@"<p style=""margin:4px 0;""><strong>Số bác sĩ tối đa:</strong> {data.MaxDoctors}</p>" : "";
+        var maxAppointmentsInfo = data.MaxAppointmentsPerMonth.HasValue ? $@"<p style=""margin:4px 0;""><strong>Lịch hẹn/tháng:</strong> {data.MaxAppointmentsPerMonth}</p>" : "";
         var featuresInfo = BuildFeaturesHtml(data.Features);
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Đăng ký gói dịch vụ thành công - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .success-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
-    .success-box strong {{ color:#047857; }}
-    .info-item {{ margin:8px 0; }}
-    .plan-price {{ font-size:24px; font-weight:700; color:#10b981; }}
-    .reminder {{ background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:16px; margin:20px 0; }}
-    .reminder strong {{ color:#c2410c; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Đăng ký gói dịch vụ thành công</div>
-    </div>
-    <div class=""content"">
-      <div class=""success-icon"">🎉</div>
-      <p class=""greeting"">Kính gửi {data.ContactPersonName},</p>
-      <p class=""lead"">Chúc mừng! Bệnh viện <strong>{data.HospitalName}</strong> đã đăng ký gói dịch vụ <strong>{data.PlanName}</strong> thành công.</p>
-      
-      <div class=""success-box"">
-        <p><strong>📦 Thông tin gói dịch vụ:</strong></p>
-        <div class=""info-item""><strong>Tên gói:</strong> {data.PlanName}</div>
-        <div class=""info-item""><strong>Chu kỳ thanh toán:</strong> {billingCycleDisplay}</div>
-        <div class=""info-item""><strong>Giá gói:</strong> <span class=""plan-price"">{data.Price:N0} VNĐ/{billingCycleDisplay}</span></div>
-        <div class=""info-item""><strong>Ngày bắt đầu:</strong> {data.StartDate:dd/MM/yyyy HH:mm}</div>
-        <div class=""info-item""><strong>Ngày hết hạn:</strong> {data.EndDate:dd/MM/yyyy HH:mm}</div>{maxDoctorsInfo}{maxAppointmentsInfo}{featuresInfo}
-      </div>
-      
-      <div class=""reminder"">
-        <p><strong>📋 Lưu ý quan trọng:</strong></p>
-        <ul style=""margin:8px 0; padding-left:20px;"">
-          <li>Gói dịch vụ của quý bệnh viện đã được kích hoạt và có hiệu lực ngay</li>
-          <li>Vui lòng quản lý số lượng bác sĩ và lịch hẹn theo giới hạn của gói đã đăng ký</li>
-          <li>Để nâng cấp gói dịch vụ, vui lòng truy cập vào phần Quản lý Gói dịch vụ</li>
-          <li>Trước khi hết hạn 7 ngày, hệ thống sẽ gửi thông báo nhắc nhở gia hạn</li>
-        </ul>
-      </div>
-      
-      <p class=""muted"">Nếu quý bệnh viện có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
-      <strong>📧 Email:</strong> support@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Cảm ơn quý bệnh viện đã tin tưởng và sử dụng dịch vụ BookingCare.<br/><br/>
-      Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {data.ContactPersonName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Bệnh viện <strong>{data.HospitalName}</strong> đã đăng ký gói dịch vụ thành công.
+</p>
+
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin gói dịch vụ</p>
+  <p style=""margin:4px 0;""><strong>Tên gói:</strong> {data.PlanName}</p>
+  <p style=""margin:4px 0;""><strong>Chu kỳ:</strong> {billingCycleDisplay}</p>
+  <p style=""margin:4px 0;""><strong>Giá:</strong> <span style=""font-size:18px; font-weight:600; color:{SUCCESS_COLOR};"">{data.Price:N0} VNĐ/{billingCycleDisplay}</span></p>
+  <p style=""margin:4px 0;""><strong>Bắt đầu:</strong> {data.StartDate.ToString(DateTimeFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Hết hạn:</strong> {data.EndDate.ToString(DateTimeFormat)}</p>
+  {maxDoctorsInfo}
+  {maxAppointmentsInfo}
+  {featuresInfo}
+")}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Gói dịch vụ đã được kích hoạt ngay</li>
+    <li>Hệ thống sẽ nhắc nhở gia hạn trước 7 ngày</li>
+  </ul>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Đăng ký gói dịch vụ thành công", body);
     }
 
-    /// <summary>
-    /// Build email content for hospital partnership registration submission confirmation
-    /// </summary>
     public static string BuildHospitalRegistrationSubmittedEmailHtml(
         string hospitalName,
         string hospitalEmail,
         string hospitalPhone,
         string address,
-        string taxCode
-    )
+        string taxCode)
     {
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Xác nhận đăng ký hợp tác - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#0ea5e9; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .info-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
-    .info-box strong {{ color:#0369a1; }}
-    .info-item {{ margin:8px 0; }}
-    .next-steps {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px; margin:20px 0; }}
-    .next-steps strong {{ color:#166534; }}
-    .next-steps ul {{ margin:8px 0; padding-left:20px; }}
-    .next-steps li {{ margin:4px 0; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Đăng ký hợp tác</div>
-    </div>
-    <div class=""content"">
-      <div class=""success-icon"">✅</div>
-      <p class=""greeting"">Kính gửi đại diện {hospitalName},</p>
-      <p class=""lead"">Chúng tôi đã nhận được đơn đăng ký hợp tác của quý bệnh viện. Cảm ơn quý bệnh viện đã quan tâm đến nền tảng BookingCare!</p>
-      
-      <div class=""info-box"">
-        <p><strong>📋 Thông tin đăng ký:</strong></p>
-        <div class=""info-item""><strong>Tên bệnh viện:</strong> {hospitalName}</div>
-        <div class=""info-item""><strong>Email:</strong> {hospitalEmail}</div>
-        <div class=""info-item""><strong>Số điện thoại:</strong> {hospitalPhone}</div>
-        <div class=""info-item""><strong>Địa chỉ:</strong> {address}</div>
-        <div class=""info-item""><strong>Mã số thuế:</strong> {taxCode}</div>
-      </div>
-      
-      <div class=""next-steps"">
-        <p><strong>📌 Các bước tiếp theo:</strong></p>
-        <ul>
-          <li>Đội ngũ của chúng tôi sẽ xem xét hồ sơ đăng ký trong vòng <strong>2-3 ngày làm việc</strong></li>
-          <li>Chúng tôi sẽ kiểm tra tính xác thực của các tài liệu đã gửi</li>
-          <li>Sau khi hoàn tất kiểm tra, chúng tôi sẽ liên hệ lại qua email hoặc điện thoại</li>
-          <li>Nếu được chấp thuận, chúng tôi sẽ tiến hành ký kết hợp đồng hợp tác</li>
-        </ul>
-      </div>
-      
-      <p class=""muted"">Nếu quý bệnh viện có bất kỳ thắc mắc nào trong thời gian chờ đợi, vui lòng liên hệ với chúng tôi qua:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> +84 236 3 822 888<br/>
-      <strong>📧 Email:</strong> partnership@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi đại diện {hospitalName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Chúng tôi đã nhận được đơn đăng ký hợp tác của quý bệnh viện.
+</p>
+
+{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin đăng ký</p>
+  <p style=""margin:4px 0;""><strong>Tên bệnh viện:</strong> {hospitalName}</p>
+  <p style=""margin:4px 0;""><strong>Email:</strong> {hospitalEmail}</p>
+  <p style=""margin:4px 0;""><strong>Điện thoại:</strong> {hospitalPhone}</p>
+  <p style=""margin:4px 0;""><strong>Địa chỉ:</strong> {address}</p>
+  <p style=""margin:4px 0;""><strong>Mã số thuế:</strong> {taxCode}</p>
+")}
+
+{BuildInfoBox(BG_LIGHT, BORDER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{TEXT_PRIMARY};"">Các bước tiếp theo</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Đội ngũ sẽ xem xét hồ sơ trong 2-3 ngày làm việc</li>
+    <li>Kiểm tra tính xác thực của tài liệu</li>
+    <li>Liên hệ lại qua email hoặc điện thoại</li>
+  </ul>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ: {HOTLINE} | {SUPPORT_EMAIL}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(PRIMARY_COLOR, "Xác nhận đăng ký hợp tác", body);
     }
 
-    /// <summary>
-    /// Build email content for hospital partnership registration approval
-    /// </summary>
-    public static string BuildHospitalRegistrationApprovedEmailHtml(
-        string hospitalName,
-        string? contractFileUrl
-    )
+    public static string BuildHospitalRegistrationApprovedEmailHtml(string hospitalName, string? contractFileUrl)
     {
         var contractSection = !string.IsNullOrEmpty(contractFileUrl)
-            ? $@"<p class=""lead"">Hợp đồng hợp tác đã được đính kèm. Quý bệnh viện có thể tải về tại đây:</p>
-      <div style=""text-align:center; margin:20px 0;"">
-        <a href=""{contractFileUrl}"" class=""download-button"">📄 Tải hợp đồng</a>
-      </div>"
-            : @"<p class=""lead"">Chúng tôi sẽ liên hệ trực tiếp để hoàn tất thủ tục ký kết hợp đồng.</p>";
+            ? BuildButton(contractFileUrl, "Tải hợp đồng", PRIMARY_COLOR)
+            : "<p style=\"margin:20px 0; color:" + TEXT_SECONDARY + ";\">Chúng tôi sẽ liên hệ trực tiếp để hoàn tất thủ tục ký kết hợp đồng.</p>";
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Chúc mừng - Đăng ký được chấp thuận - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .approved-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
-    .approved-box strong {{ color:#047857; }}
-    .download-button {{ display:inline-block; padding:14px 28px; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; }}
-    .download-button:hover {{ background:#0284c7; }}
-    .next-steps {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
-    .next-steps strong {{ color:#0369a1; }}
-    .next-steps ul {{ margin:8px 0; padding-left:20px; }}
-    .next-steps li {{ margin:4px 0; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Chúc mừng đối tác mới</div>
-    </div>
-    <div class=""content"">
-      <div class=""success-icon"">🎉</div>
-      <p class=""greeting"">Kính gửi đại diện {hospitalName},</p>
-      <p class=""lead""><strong>Chúc mừng!</strong> Đơn đăng ký hợp tác của quý bệnh viện đã được chấp thuận. Chúng tôi rất vui mừng được chào đón {hospitalName} trở thành đối tác của BookingCare!</p>
-      
-      <div class=""approved-box"">
-        <p><strong>✅ Trạng thái: ĐÃ CHẤP THUẬN</strong></p>
-        <p>Đơn đăng ký của quý bệnh viện đã vượt qua tất cả các bước kiểm tra và đánh giá của chúng tôi.</p>
-      </div>
-      
-      {contractSection}
-      
-      <div class=""next-steps"">
-        <p><strong>🚀 Các bước tiếp theo:</strong></p>
-        <ul>
-          <li>Đội ngũ của chúng tôi sẽ liên hệ trong vòng <strong>24 giờ</strong> để hướng dẫn chi tiết</li>
-          <li>Thiết lập tài khoản quản trị cho bệnh viện</li>
-          <li>Hướng dẫn sử dụng hệ thống quản lý</li>
-          <li>Cung cấp tài liệu đào tạo và hỗ trợ kỹ thuật</li>
-          <li>Triển khai chính thức trên nền tảng BookingCare</li>
-        </ul>
-      </div>
-      
-      <p class=""lead"">Chúng tôi mong muốn được hợp tác lâu dài và cùng phát triển với {hospitalName}!</p>
-      
-      <p class=""muted"">Nếu có bất kỳ câu hỏi nào, vui lòng liên hệ:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> +84 236 3 822 888<br/>
-      <strong>📧 Email:</strong> partnership@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi đại diện {hospitalName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Đơn đăng ký hợp tác của quý bệnh viện đã được <strong style=""color:{SUCCESS_COLOR};"">CHẤP THUẬN</strong>.
+</p>
+
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{SUCCESS_COLOR};"">Trạng thái: ĐÃ CHẤP THUẬN</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Chào mừng {hospitalName} trở thành đối tác của {BRAND_NAME}!
+  </p>
+")}
+
+{contractSection}
+
+{BuildInfoBox(BG_LIGHT, BORDER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{TEXT_PRIMARY};"">Các bước tiếp theo</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Đội ngũ sẽ liên hệ trong 24 giờ</li>
+    <li>Thiết lập tài khoản quản trị</li>
+    <li>Hướng dẫn sử dụng hệ thống</li>
+    <li>Triển khai chính thức</li>
+  </ul>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ: {HOTLINE} | {SUPPORT_EMAIL}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Đăng ký hợp tác được chấp thuận", body);
     }
 
-    /// <summary>
-    /// Build email content for successful hospital subscription upgrade
-    /// </summary>
-    public static string BuildHospitalSubscriptionUpgradedEmailHtml(
-        HospitalSubscriptionUpgradedEmailData data
-    )
+    public static string BuildHospitalSubscriptionUpgradedEmailHtml(HospitalSubscriptionUpgradedEmailData data)
     {
-        var previousBillingCycleDisplay = data.PreviousBillingCycle?.ToUpper() switch
-        {
-            "MONTHLY" => "Tháng",
-            "QUARTERLY" => "Quý",
-            "YEARLY" => "Năm",
-            _ => "Tháng",
-        };
+        var prevCycle = data.PreviousBillingCycle?.ToUpper() switch { "MONTHLY" => "Tháng", "QUARTERLY" => "Quý", "YEARLY" => "Năm", _ => "Tháng" };
+        var newCycle = data.NewBillingCycle?.ToUpper() switch { "MONTHLY" => "Tháng", "QUARTERLY" => "Quý", "YEARLY" => "Năm", _ => "Tháng" };
 
-        var newBillingCycleDisplay = data.NewBillingCycle?.ToUpper() switch
-        {
-            "MONTHLY" => "Tháng",
-            "QUARTERLY" => "Quý",
-            "YEARLY" => "Năm",
-            _ => "Tháng",
-        };
-
-        var bonusDaysInfo =
-            data.BonusDays > 0
-                ? $@"
-        <div class=""info-item""><strong>Số ngày thưởng (từ gói cũ):</strong> {data.BonusDays:N0} ngày</div>"
-                : "";
-
-        var maxDoctorsInfo = data.NewMaxDoctors.HasValue
-            ? $@"
-        <div class=""info-item""><strong>Số lượng bác sĩ tối đa:</strong> {data.NewMaxDoctors} bác sĩ</div>"
-            : "";
-
-        var maxAppointmentsInfo = data.NewMaxAppointmentsPerMonth.HasValue
-            ? $@"
-        <div class=""info-item""><strong>Số lượng lịch hẹn/tháng:</strong> {data.NewMaxAppointmentsPerMonth} lịch hẹn</div>"
-            : "";
-
+        var bonusDaysInfo = data.BonusDays > 0 ? $@"<p style=""margin:4px 0;""><strong>Ngày thưởng:</strong> {data.BonusDays:N0} ngày</p>" : "";
+        var maxDoctorsInfo = data.NewMaxDoctors.HasValue ? $@"<p style=""margin:4px 0;""><strong>Số bác sĩ tối đa:</strong> {data.NewMaxDoctors}</p>" : "";
+        var maxAppointmentsInfo = data.NewMaxAppointmentsPerMonth.HasValue ? $@"<p style=""margin:4px 0;""><strong>Lịch hẹn/tháng:</strong> {data.NewMaxAppointmentsPerMonth}</p>" : "";
         var featuresInfo = BuildFeaturesHtml(data.NewFeatures);
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Nâng cấp gói dịch vụ thành công - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#8b5cf6; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .success-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .comparison-box {{ background:#f3f4f6; border:1px solid #d1d5db; border-radius:8px; padding:16px; margin:20px 0; }}
-    .comparison-box strong {{ color:#6b7280; }}
-    .upgrade-arrow {{ text-align:center; font-size:28px; color:#8b5cf6; margin:12px 0; }}
-    .new-plan-box {{ background:#ede9fe; border:1px solid #c4b5fd; border-radius:8px; padding:16px; margin:20px 0; }}
-    .new-plan-box strong {{ color:#6d28d9; }}
-    .info-item {{ margin:8px 0; }}
-    .plan-price {{ font-size:24px; font-weight:700; color:#8b5cf6; }}
-    .bonus-highlight {{ background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
-    .bonus-highlight strong {{ color:#92400e; }}
-    .reminder {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px; margin:20px 0; }}
-    .reminder strong {{ color:#166534; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Nâng cấp gói dịch vụ thành công</div>
-    </div>
-    <div class=""content"">
-      <div class=""success-icon"">🚀</div>
-      <p class=""greeting"">Kính gửi {data.ContactPersonName},</p>
-      <p class=""lead"">Chúc mừng! Bệnh viện <strong>{data.HospitalName}</strong> đã nâng cấp gói dịch vụ thành công.</p>
-      
-      <div class=""comparison-box"">
-        <p><strong>📦 Gói dịch vụ trước đây:</strong></p>
-        <div class=""info-item""><strong>Tên gói:</strong> {data.PreviousPlanName}</div>
-        <div class=""info-item""><strong>Chu kỳ:</strong> {previousBillingCycleDisplay}</div>
-        <div class=""info-item""><strong>Giá:</strong> {data.PreviousPrice:N0} VNĐ/{previousBillingCycleDisplay}</div>
-      </div>
-      
-      <div class=""upgrade-arrow"">⬇️</div>
-      
-      <div class=""new-plan-box"">
-        <p><strong>🎁 Gói dịch vụ mới:</strong></p>
-        <div class=""info-item""><strong>Tên gói:</strong> {data.NewPlanName}</div>
-        <div class=""info-item""><strong>Chu kỳ thanh toán:</strong> {newBillingCycleDisplay}</div>
-        <div class=""info-item""><strong>Giá gói:</strong> <span class=""plan-price"">{data.NewPrice:N0} VNĐ/{newBillingCycleDisplay}</span></div>
-        <div class=""info-item""><strong>Ngày bắt đầu:</strong> {data.NewStartDate:dd/MM/yyyy HH:mm}</div>
-        <div class=""info-item""><strong>Ngày hết hạn:</strong> {data.NewEndDate:dd/MM/yyyy HH:mm}</div>{bonusDaysInfo}{maxDoctorsInfo}{maxAppointmentsInfo}{featuresInfo}
-      </div>
-      
-      {(data.BonusDays > 0 ? $@"<div class=""bonus-highlight"">
-        <p><strong>🎉 Ưu đãi đặc biệt:</strong></p>
-        <p>Quý bệnh viện được cộng thêm <strong>{data.BonusDays:N0} ngày</strong> miễn phí từ giá trị còn lại của gói cũ!</p>
-      </div>" : "")}
-      
-      <div class=""reminder"">
-        <p><strong>✨ Quyền lợi mới:</strong></p>
-        <ul style=""margin:8px 0; padding-left:20px;"">
-          <li>Gói dịch vụ mới đã được kích hoạt ngay lập tức</li>
-          <li>Toàn bộ tính năng và giới hạn mới đã có hiệu lực</li>
-          <li>Giá trị còn lại của gói cũ đã được quy đổi thành ngày thưởng</li>
-          <li>Hệ thống sẽ nhắc nhở gia hạn trước khi hết hạn 7 ngày</li>
-        </ul>
-      </div>
-      
-      <p class=""muted"">Nếu quý bệnh viện có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi qua:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
-      <strong>📧 Email:</strong> support@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Cảm ơn quý bệnh viện đã tin tưởng và sử dụng dịch vụ BookingCare.<br/><br/>
-      Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {data.ContactPersonName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Bệnh viện <strong>{data.HospitalName}</strong> đã nâng cấp gói dịch vụ thành công.
+</p>
+
+{BuildInfoBox(BG_LIGHT, BORDER_COLOR, $@"
+  <p style=""margin:0 0 8px; font-weight:500; color:{TEXT_SECONDARY};"">Gói cũ</p>
+  <p style=""margin:4px 0;"">{data.PreviousPlanName} - {data.PreviousPrice:N0} VNĐ/{prevCycle}</p>
+")}
+
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Gói mới</p>
+  <p style=""margin:4px 0;""><strong>Tên gói:</strong> {data.NewPlanName}</p>
+  <p style=""margin:4px 0;""><strong>Giá:</strong> <span style=""font-size:18px; font-weight:600; color:{SUCCESS_COLOR};"">{data.NewPrice:N0} VNĐ/{newCycle}</span></p>
+  <p style=""margin:4px 0;""><strong>Bắt đầu:</strong> {data.NewStartDate.ToString(DateTimeFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Hết hạn:</strong> {data.NewEndDate.ToString(DateTimeFormat)}</p>
+  {bonusDaysInfo}
+  {maxDoctorsInfo}
+  {maxAppointmentsInfo}
+  {featuresInfo}
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Nâng cấp gói dịch vụ thành công", body);
     }
 
-    /// <summary>
-    /// Build email content for hospital partnership registration rejection
-    /// </summary>
-    public static string BuildHospitalRegistrationRejectedEmailHtml(
-        string hospitalName,
-        string reason
-    )
+    public static string BuildHospitalRegistrationRejectedEmailHtml(string hospitalName, string reason)
     {
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Thông báo về đơn đăng ký hợp tác - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#ef4444; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .rejected-box {{ background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:16px; margin:20px 0; }}
-    .rejected-box strong {{ color:#dc2626; }}
-    .reason-box {{ background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
-    .reason-box strong {{ color:#92400e; }}
-    .reapply-box {{ background:#f0f9ff; border:1px solid #7dd3fc; border-radius:8px; padding:16px; margin:20px 0; }}
-    .reapply-box strong {{ color:#0369a1; }}
-    .reapply-box ul {{ margin:8px 0; padding-left:20px; }}
-    .reapply-box li {{ margin:4px 0; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Thông báo đơn đăng ký</div>
-    </div>
-    <div class=""content"">
-      <p class=""greeting"">Kính gửi đại diện {hospitalName},</p>
-      <p class=""lead"">Cảm ơn quý bệnh viện đã quan tâm và gửi đơn đăng ký hợp tác với BookingCare. Sau khi xem xét kỹ lưỡng, chúng tôi rất tiếc phải thông báo rằng đơn đăng ký của quý bệnh viện chưa được chấp thuận trong thời điểm này.</p>
-      
-      <div class=""rejected-box"">
-        <p><strong>❌ Trạng thái: CHƯA CHẤP THUẬN</strong></p>
-      </div>
-      
-      <div class=""reason-box"">
-        <p><strong>📝 Lý do:</strong></p>
-        <p>{reason}</p>
-      </div>
-      
-      <div class=""reapply-box"">
-        <p><strong>🔄 Đăng ký lại:</strong></p>
-        <p>Quý bệnh viện có thể đăng ký lại sau khi:</p>
-        <ul>
-          <li>Khắc phục các vấn đề được nêu trong phần lý do</li>
-          <li>Chuẩn bị đầy đủ các tài liệu cần thiết theo yêu cầu</li>
-          <li>Liên hệ với chúng tôi để được tư vấn thêm</li>
-        </ul>
-        <p>Chúng tôi luôn chào đón quý bệnh viện nộp đơn đăng ký lại khi đã đáp ứng đầy đủ các tiêu chí.</p>
-      </div>
-      
-      <p class=""muted"">Nếu có bất kỳ thắc mắc hoặc cần hỗ trợ thêm, vui lòng liên hệ:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> +84 236 3 822 888<br/>
-      <strong>📧 Email:</strong> partnership@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi đại diện {hospitalName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Sau khi xem xét, đơn đăng ký hợp tác của quý bệnh viện chưa được chấp thuận.
+</p>
+
+{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{DANGER_COLOR};"">Trạng thái: CHƯA CHẤP THUẬN</p>
+")}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lý do</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY};"">{reason}</p>
+")}
+
+{BuildInfoBox(BG_LIGHT, BORDER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{TEXT_PRIMARY};"">Đăng ký lại</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Quý bệnh viện có thể đăng ký lại sau khi khắc phục các vấn đề được nêu. Liên hệ với chúng tôi để được tư vấn thêm.
+  </p>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ: {HOTLINE} | {SUPPORT_EMAIL}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(DANGER_COLOR, "Thông báo về đơn đăng ký", body);
     }
 
-    /// <summary>
-    /// Build email content for hospital account credentials
-    /// </summary>
     public static string BuildHospitalAccountCredentialsEmailHtml(
         string hospitalName,
         string email,
         string generatedPassword,
         string loginUrl,
-        string? contractFileUrl
-    )
+        string? contractFileUrl)
     {
         var contractSection = !string.IsNullOrEmpty(contractFileUrl)
-            ? $@"<div class=""contract-box"">
-        <p><strong>📄 Hợp đồng hợp tác:</strong></p>
-        <p>Hợp đồng hợp tác đã được đính kèm. Quý bệnh viện có thể tải về tại đây:</p>
-        <div style=""text-align:center; margin:12px 0;"">
-          <a href=""{contractFileUrl}"" class=""download-button"">📄 Tải hợp đồng</a>
-        </div>
-      </div>"
+            ? BuildButton(contractFileUrl, "Tải hợp đồng", SUCCESS_COLOR)
             : "";
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Thông tin tài khoản bệnh viện - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .success-box {{ background:#d1fae5; border:1px solid #6ee7b7; border-radius:8px; padding:16px; margin:20px 0; }}
-    .success-box strong {{ color:#047857; }}
-    .credentials-box {{ background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:16px; margin:20px 0; }}
-    .credentials-box strong {{ color:#1e40af; }}
-    .credentials-box p {{ margin:8px 0; }}
-    .contract-box {{ background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
-    .contract-box strong {{ color:#92400e; }}
-    .download-button {{ display:inline-block; background:#10b981; color:#fff; padding:10px 24px; border-radius:6px; text-decoration:none; font-weight:500; }}
-    .login-button {{ display:inline-block; background:#3b82f6; color:#fff; padding:12px 28px; border-radius:6px; text-decoration:none; font-weight:500; margin:20px 0; }}
-    .warning-box {{ background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:16px; margin:20px 0; }}
-    .warning-box strong {{ color:#92400e; }}
-    .warning-box ul {{ margin:8px 0; padding-left:20px; }}
-    .warning-box li {{ margin:4px 0; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Tài khoản bệnh viện</div>
-    </div>
-    <div class=""content"">
-      <p class=""greeting"">Kính gửi đại diện {hospitalName},</p>
-      <p class=""lead"">Chúng tôi rất vui mừng thông báo rằng đơn đăng ký hợp tác của quý bệnh viện với BookingCare đã được <strong>PHÊ DUYỆT</strong>. Tài khoản quản lý bệnh viện đã được tạo thành công!</p>
-      
-      <div class=""success-box"">
-        <p><strong>✅ Trạng thái: ĐÃ PHÊ DUYỆT</strong></p>
-        <p>Tài khoản của quý bệnh viện đã sẵn sàng để sử dụng.</p>
-      </div>
-      
-      <div class=""credentials-box"">
-        <p><strong>🔐 Thông tin đăng nhập:</strong></p>
-        <p><strong>Email:</strong> {email}</p>
-        <p><strong>Mật khẩu tạm thời:</strong> {generatedPassword}</p>
-        <p style=""color:#dc2626; font-size:13px; margin-top:12px;"">⚠️ Đây là mật khẩu tạm thời. Vui lòng đổi mật khẩu ngay sau khi đăng nhập lần đầu.</p>
-      </div>
-      
-      {contractSection}
-      
-      <div style=""text-align:center;"">
-        <a href=""{loginUrl}"" class=""login-button"">🚀 Đăng nhập ngay</a>
-      </div>
-      
-      <div class=""warning-box"">
-        <p><strong>📌 Lưu ý quan trọng:</strong></p>
-        <ul>
-          <li>Vui lòng bảo mật thông tin đăng nhập</li>
-          <li>Đổi mật khẩu ngay sau khi đăng nhập lần đầu</li>
-          <li>Không chia sẻ thông tin tài khoản với người không có thẩm quyền</li>
-          <li>Liên hệ với chúng tôi nếu gặp bất kỳ vấn đề nào</li>
-        </ul>
-      </div>
-      
-      <p class=""muted"">Nếu có bất kỳ thắc mắc hoặc cần hỗ trợ thêm, vui lòng liên hệ:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> +84 236 3 822 888<br/>
-      <strong>📧 Email:</strong> support@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ Phát triển Đối tác - BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi đại diện {hospitalName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Đơn đăng ký hợp tác đã được <strong style=""color:{SUCCESS_COLOR};"">PHÊ DUYỆT</strong>. Tài khoản quản lý đã được tạo.
+</p>
+
+{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin đăng nhập</p>
+  <p style=""margin:4px 0;""><strong>Email:</strong> {email}</p>
+  <p style=""margin:4px 0;""><strong>Mật khẩu tạm thời:</strong> <code style=""background:#fee2e2; padding:2px 8px; border-radius:4px; color:{DANGER_COLOR};"">{generatedPassword}</code></p>
+")}
+
+{BuildButton(loginUrl, "Đăng nhập ngay", PRIMARY_COLOR)}
+
+{contractSection}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý bảo mật</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Đổi mật khẩu ngay sau khi đăng nhập</li>
+    <li>Không chia sẻ thông tin tài khoản</li>
+  </ul>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ: {HOTLINE} | {SUPPORT_EMAIL}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Tài khoản bệnh viện", body);
     }
+
 
     public static string BuildDoctorAssignedEmailHtml(
         string patientName,
@@ -1768,123 +909,44 @@ public static class EmailTemplate
         string appointmentTime,
         string? staffNote)
     {
-        var staffNoteSection = string.IsNullOrEmpty(staffNote)
-            ? ""
-            : $@"
-                <tr>
-                    <td style=""padding: 15px 20px; background-color: #fff8e1; border-radius: 8px; margin-top: 15px;"">
-                        <p style=""margin: 0; font-size: 14px; color: #f57c00;"">
-                            <strong>📝 Ghi chú từ nhân viên:</strong><br/>
-                            {staffNote}
-                        </p>
-                    </td>
-                </tr>";
+        var staffNoteSection = string.IsNullOrEmpty(staffNote) ? "" : BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Ghi chú từ nhân viên</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY};"">{staffNote}</p>
+");
 
-        return $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset=""UTF-8"">
-    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-    <title>Bác sĩ đã được gán cho lịch hẹn</title>
-</head>
-<body style=""margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;"">
-    <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
-        <tr>
-            <td align=""center"" style=""padding: 40px 0;"">
-                <table role=""presentation"" style=""width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"">
-                    <!-- Header -->
-                    <tr>
-                        <td style=""padding: 30px 40px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-radius: 12px 12px 0 0;"">
-                            <h1 style=""margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;"">
-                                ✅ Bác sĩ đã được gán
-                            </h1>
-                            <p style=""margin: 10px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 14px;"">
-                                Lịch hẹn của bạn đã được gán bác sĩ
-                            </p>
-                        </td>
-                    </tr>
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Bệnh viện đã gán bác sĩ cho lịch hẹn của bạn.
+</p>
 
-                    <!-- Content -->
-                    <tr>
-                        <td style=""padding: 30px 40px;"">
-                            <p style=""margin: 0 0 20px; font-size: 16px; color: #374151;"">
-                                Xin chào <strong>{patientName}</strong>,
-                            </p>
-                            <p style=""margin: 0 0 25px; font-size: 15px; color: #4b5563; line-height: 1.6;"">
-                                Bệnh viện đã gán bác sĩ cho lịch hẹn khám bệnh của bạn. Dưới đây là thông tin chi tiết:
-                            </p>
+{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin bác sĩ</p>
+  <p style=""margin:4px 0;""><strong>Bác sĩ:</strong> {doctorName}</p>
+  <p style=""margin:4px 0;""><strong>Chuyên khoa:</strong> {specialty}</p>
+")}
 
-                            <!-- Doctor Info Card -->
-                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse; background-color: #f0f9ff; border-radius: 10px; margin-bottom: 20px;"">
-                                <tr>
-                                    <td style=""padding: 20px;"">
-                                        <h3 style=""margin: 0 0 15px; color: #0284c7; font-size: 16px;"">
-                                            👨‍⚕️ Thông tin bác sĩ
-                                        </h3>
-                                        <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px; width: 120px;"">Bác sĩ:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;"">{doctorName}</td>
-                                            </tr>
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Chuyên khoa:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{specialty}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin lịch hẹn</p>
+  <p style=""margin:4px 0;""><strong>Ngày khám:</strong> {appointmentDate}</p>
+  <p style=""margin:4px 0;""><strong>Giờ khám:</strong> {appointmentTime}</p>
+  <p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>
+")}
 
-                            <!-- Appointment Info Card -->
-                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse; background-color: #f0fdf4; border-radius: 10px; margin-bottom: 20px;"">
-                                <tr>
-                                    <td style=""padding: 20px;"">
-                                        <h3 style=""margin: 0 0 15px; color: #16a34a; font-size: 16px;"">
-                                            📅 Thông tin lịch hẹn
-                                        </h3>
-                                        <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px; width: 120px;"">Ngày khám:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;"">{appointmentDate}</td>
-                                            </tr>
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Giờ khám:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;"">{appointmentTime}</td>
-                                            </tr>
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Bệnh viện:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{hospitalName}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+{staffNoteSection}
 
-                            {staffNoteSection}
+<p style=""margin:20px 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+  Vui lòng đến đúng giờ. Nếu cần thay đổi, liên hệ trước ít nhất 24 giờ.
+</p>
 
-                            <p style=""margin: 25px 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;"">
-                                Vui lòng đến đúng giờ để được phục vụ tốt nhất. Nếu bạn cần thay đổi hoặc hủy lịch hẹn, 
-                                vui lòng liên hệ với chúng tôi trước ít nhất 24 giờ.
-                            </p>
-                        </td>
-                    </tr>
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
 
-                    <!-- Footer -->
-                    <tr>
-                        <td style=""padding: 20px 40px 30px; border-top: 1px solid #e5e7eb;"">
-                            <p style=""margin: 0; font-size: 13px; color: #9ca3af; text-align: center;"">
-                                Đây là email tự động từ hệ thống BookingCare.<br/>
-                                Vui lòng không trả lời email này.
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>";
+        return WrapEmailContent(PRIMARY_COLOR, "Bác sĩ đã được gán", body);
     }
 
     public static string BuildAutoCancelledEmailHtml(
@@ -1894,132 +956,42 @@ public static class EmailTemplate
         string appointmentDate,
         string appointmentTime)
     {
-        return $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset=""UTF-8"">
-    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-    <title>Thông báo hủy lịch hẹn</title>
-</head>
-<body style=""margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;"">
-    <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
-        <tr>
-            <td align=""center"" style=""padding: 40px 0;"">
-                <table role=""presentation"" style=""width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);"">
-                    <!-- Header -->
-                    <tr>
-                        <td style=""padding: 30px 40px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 12px 12px 0 0;"">
-                            <h1 style=""margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;"">
-                                ❌ Lịch hẹn đã bị hủy
-                            </h1>
-                            <p style=""margin: 10px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 14px;"">
-                                Bệnh viện không gán bác sĩ trước ngày hẹn
-                            </p>
-                        </td>
-                    </tr>
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Lịch hẹn của bạn đã bị <strong style=""color:{DANGER_COLOR};"">tự động hủy</strong> do bệnh viện không gán bác sĩ trước ngày hẹn.
+</p>
 
-                    <!-- Content -->
-                    <tr>
-                        <td style=""padding: 30px 40px;"">
-                            <p style=""margin: 0 0 20px; font-size: 16px; color: #374151;"">
-                                Xin chào <strong>{patientName}</strong>,
-                            </p>
-                            <p style=""margin: 0 0 25px; font-size: 15px; color: #4b5563; line-height: 1.6;"">
-                                Chúng tôi rất tiếc phải thông báo rằng lịch hẹn khám bệnh của bạn đã bị <strong style=""color: #ef4444;"">tự động hủy</strong> 
-                                do bệnh viện không thể gán bác sĩ trước ngày hẹn.
-                            </p>
+{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{DANGER_COLOR};"">Thông tin lịch hẹn đã hủy</p>
+  <p style=""margin:4px 0;""><strong>Chuyên khoa:</strong> {specialtyName}</p>
+  <p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>
+  <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate}</p>
+  <p style=""margin:4px 0;""><strong>Giờ hẹn:</strong> {appointmentTime}</p>
+  <p style=""margin:4px 0;""><strong>Lý do:</strong> Bệnh viện không gán bác sĩ trước ngày hẹn</p>
+")}
 
-                            <!-- Appointment Info Card -->
-                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse; background-color: #fef2f2; border-radius: 10px; margin-bottom: 20px; border: 1px solid #fecaca;"">
-                                <tr>
-                                    <td style=""padding: 20px;"">
-                                        <h3 style=""margin: 0 0 15px; color: #dc2626; font-size: 16px;"">
-                                            📅 Thông tin lịch hẹn đã hủy
-                                        </h3>
-                                        <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px; width: 120px;"">Chuyên khoa:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;"">{specialtyName}</td>
-                                            </tr>
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Bệnh viện:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{hospitalName}</td>
-                                            </tr>
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Ngày hẹn:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{appointmentDate}</td>
-                                            </tr>
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Giờ hẹn:</td>
-                                                <td style=""padding: 8px 0; color: #1f2937; font-size: 14px;"">{appointmentTime}</td>
-                                            </tr>
-                                            <tr>
-                                                <td style=""padding: 8px 0; color: #6b7280; font-size: 14px;"">Lý do hủy:</td>
-                                                <td style=""padding: 8px 0; color: #dc2626; font-size: 14px; font-weight: 500;"">Bệnh viện không gán bác sĩ trước ngày hẹn</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Gợi ý</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Đặt lịch hẹn mới tại bệnh viện khác</li>
+    <li>Chọn bác sĩ cụ thể thay vì để bệnh viện gán</li>
+    <li>Liên hệ bệnh viện để được hỗ trợ</li>
+  </ul>
+")}
 
-                            <!-- Apology & Next Steps -->
-                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse; background-color: #fffbeb; border-radius: 10px; margin-bottom: 20px; border: 1px solid #fcd34d;"">
-                                <tr>
-                                    <td style=""padding: 20px;"">
-                                        <h3 style=""margin: 0 0 15px; color: #d97706; font-size: 16px;"">
-                                            💡 Bước tiếp theo
-                                        </h3>
-                                        <p style=""margin: 0; font-size: 14px; color: #92400e; line-height: 1.6;"">
-                                            Chúng tôi thành thật xin lỗi vì sự bất tiện này. Bạn có thể:
-                                        </p>
-                                        <ul style=""margin: 10px 0 0; padding-left: 20px; font-size: 14px; color: #92400e; line-height: 1.8;"">
-                                            <li>Đặt lịch hẹn mới tại bệnh viện khác</li>
-                                            <li>Chọn bác sĩ cụ thể thay vì để bệnh viện gán</li>
-                                            <li>Liên hệ với bệnh viện để được hỗ trợ thêm</li>
-                                        </ul>
-                                    </td>
-                                </tr>
-                            </table>
+{BuildButton("https://medcure.vn/booking", "Đặt lịch hẹn mới", PRIMARY_COLOR)}
 
-                            <!-- CTA Button -->
-                            <table role=""presentation"" style=""width: 100%; border-collapse: collapse;"">
-                                <tr>
-                                    <td align=""center"" style=""padding: 20px 0;"">
-                                        <a href=""https://bookingcare.vn/booking"" 
-                                           style=""display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;"">
-                                            Đặt lịch hẹn mới
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
 
-                            <p style=""margin: 25px 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;"">
-                                Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với chúng tôi qua email hoặc hotline.
-                            </p>
-                        </td>
-                    </tr>
-
-                    <!-- Footer -->
-                    <tr>
-                        <td style=""padding: 20px 40px 30px; border-top: 1px solid #e5e7eb;"">
-                            <p style=""margin: 0; font-size: 13px; color: #9ca3af; text-align: center;"">
-                                Đây là email tự động từ hệ thống BookingCare.<br/>
-                                Vui lòng không trả lời email này.
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>";
+        return WrapEmailContent(DANGER_COLOR, "Lịch hẹn đã bị hủy", body);
     }
 
-    /// <summary>
-    /// Build email content for contract generated - send signing link to hospital
-    /// </summary>
     public static string BuildContractGeneratedEmailHtml(
         string hospitalName,
         string representativeName,
@@ -2027,345 +999,135 @@ public static class EmailTemplate
         string signingLink,
         DateTime linkExpiresAt)
     {
-        var expiryDateStr = linkExpiresAt.ToString("dd/MM/yyyy HH:mm");
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {representativeName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Hợp đồng hợp tác giữa <strong>{hospitalName}</strong> và <strong>{BRAND_NAME}</strong> đã được tạo.
+</p>
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"">
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-  <title>Hợp Đồng Hợp Tác - BookingCare</title>
-  <style>
-    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; }}
-    .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-    .header {{ background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 30px 20px; text-align: center; }}
-    .header h1 {{ margin: 0; font-size: 28px; font-weight: 600; }}
-    .header p {{ margin: 10px 0 0 0; font-size: 14px; opacity: 0.95; }}
-    .content {{ padding: 30px; }}
-    .greeting {{ font-size: 16px; color: #1f2937; margin-bottom: 20px; }}
-    .info-box {{ background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; }}
-    .info-box strong {{ color: #1e40af; }}
-    .contract-details {{ background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-    .contract-details h3 {{ margin: 0 0 15px 0; color: #1f2937; font-size: 18px; }}
-    .detail-item {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }}
-    .detail-item:last-child {{ border-bottom: none; }}
-    .detail-label {{ color: #6b7280; font-weight: 500; }}
-    .detail-value {{ color: #1f2937; font-weight: 600; }}
-    .cta-button {{ display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; margin: 20px 0; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3); transition: transform 0.2s; }}
-    .cta-button:hover {{ transform: translateY(-2px); }}
-    .warning-box {{ background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }}
-    .warning-box strong {{ color: #92400e; }}
-    .steps {{ margin: 20px 0; }}
-    .step {{ display: flex; margin: 15px 0; }}
-    .step-number {{ background-color: #3b82f6; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; margin-right: 15px; flex-shrink: 0; }}
-    .step-content {{ flex: 1; }}
-    .step-title {{ font-weight: 600; color: #1f2937; margin-bottom: 5px; }}
-    .step-desc {{ color: #6b7280; font-size: 14px; }}
-    .footer {{ background-color: #f9fafb; padding: 20px; text-align: center; color: #6b7280; font-size: 13px; border-top: 1px solid #e5e7eb; }}
-    .button-container {{ text-align: center; margin: 30px 0; }}
-  </style>
-</head>
-<body>
-  <div class=""container"">
-    <div class=""header"">
-      <h1>📄 Hợp Đồng Hợp Tác</h1>
-      <p>Vui lòng ký hợp đồng để hoàn tất đăng ký</p>
-    </div>
-    
-    <div class=""content"">
-      <div class=""greeting"">
-        Kính gửi <strong>{representativeName}</strong>,<br>
-        Đại diện <strong>{hospitalName}</strong>
-      </div>
-      
-      <p>Chúng tôi rất vui mừng thông báo rằng hợp đồng hợp tác giữa <strong>{hospitalName}</strong> và <strong>BookingCare</strong> đã được tạo thành công!</p>
-      
-      <div class=""contract-details"">
-        <h3>📋 Thông Tin Hợp Đồng</h3>
-        <div class=""detail-item"">
-          <span class=""detail-label"">Số hợp đồng:</span>
-          <span class=""detail-value"">{contractNumber}</span>
-        </div>
-        <div class=""detail-item"">
-          <span class=""detail-label"">Bệnh viện:</span>
-          <span class=""detail-value"">{hospitalName}</span>
-        </div>
-        <div class=""detail-item"">
-          <span class=""detail-label"">Người đại diện:</span>
-          <span class=""detail-value"">{representativeName}</span>
-        </div>
-        <div class=""detail-item"">
-          <span class=""detail-label"">Link hết hạn:</span>
-          <span class=""detail-value"">{expiryDateStr}</span>
-        </div>
-      </div>
-      
-      <div class=""info-box"">
-        <strong>🔔 Bước tiếp theo:</strong> Vui lòng ký hợp đồng điện tử để hoàn tất quá trình đăng ký hợp tác.
-      </div>
-      
-      <div class=""steps"">
-        <h3 style=""color: #1f2937; margin-bottom: 15px;"">📝 Hướng Dẫn Ký Hợp Đồng:</h3>
-        
-        <div class=""step"">
-          <div class=""step-number"">1</div>
-          <div class=""step-content"">
-            <div class=""step-title"">Truy cập link ký hợp đồng</div>
-            <div class=""step-desc"">Click vào nút bên dưới để mở trang ký hợp đồng</div>
-          </div>
-        </div>
-        
-        <div class=""step"">
-          <div class=""step-number"">2</div>
-          <div class=""step-content"">
-            <div class=""step-title"">Xem xét nội dung hợp đồng</div>
-            <div class=""step-desc"">Đọc kỹ các điều khoản và điều kiện trong hợp đồng</div>
-          </div>
-        </div>
-        
-        <div class=""step"">
-          <div class=""step-number"">3</div>
-          <div class=""step-content"">
-            <div class=""step-title"">Vẽ chữ ký điện tử</div>
-            <div class=""step-desc"">Sử dụng chuột hoặc màn hình cảm ứng để vẽ chữ ký của bạn</div>
-          </div>
-        </div>
-        
-        <div class=""step"">
-          <div class=""step-number"">4</div>
-          <div class=""step-content"">
-            <div class=""step-title"">Xác thực bằng OTP</div>
-            <div class=""step-desc"">Nhập mã OTP được gửi đến email của bạn để xác nhận chữ ký</div>
-          </div>
-        </div>
-        
-        <div class=""step"">
-          <div class=""step-number"">5</div>
-          <div class=""step-content"">
-            <div class=""step-title"">Hoàn tất</div>
-            <div class=""step-desc"">Sau khi ký, admin sẽ xem xét và phê duyệt trong thời gian sớm nhất</div>
-          </div>
-        </div>
-      </div>
-      
-      <div class=""button-container"">
-        <a href=""{signingLink}"" class=""cta-button"">✍️ Ký Hợp Đồng Ngay</a>
-      </div>
-      
-      <div class=""warning-box"">
-        <strong>⚠️ Lưu ý quan trọng:</strong>
-        <ul style=""margin: 10px 0; padding-left: 20px;"">
-          <li>Link ký hợp đồng chỉ có hiệu lực đến <strong>{expiryDateStr}</strong></li>
-          <li>Mỗi link chỉ có thể sử dụng một lần duy nhất</li>
-          <li>Vui lòng không chia sẻ link này với người khác</li>
-          <li>Nếu link hết hạn, vui lòng liên hệ admin để nhận link mới</li>
-        </ul>
-      </div>
-      
-      <p style=""color: #6b7280; font-size: 14px; margin-top: 30px;"">
-        Nếu bạn gặp bất kỳ vấn đề nào trong quá trình ký hợp đồng, vui lòng liên hệ với chúng tôi qua email 
-        <a href=""mailto:support@bookingcare.vn"" style=""color: #3b82f6;"">support@bookingcare.vn</a> 
-        hoặc hotline <strong>1900-xxxx</strong>.
-      </p>
-    </div>
-    
-    <div class=""footer"">
-      Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
-    </div>
-  </div>
-</body>
-</html>";
+{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin hợp đồng</p>
+  <p style=""margin:4px 0;""><strong>Số hợp đồng:</strong> {contractNumber}</p>
+  <p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>
+  <p style=""margin:4px 0;""><strong>Người đại diện:</strong> {representativeName}</p>
+  <p style=""margin:4px 0;""><strong>Link hết hạn:</strong> {linkExpiresAt.ToString(DateTimeFormat)}</p>
+")}
+
+{BuildButton(signingLink, "Ký hợp đồng ngay", SUCCESS_COLOR)}
+
+{BuildInfoBox(BG_LIGHT, BORDER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{TEXT_PRIMARY};"">Hướng dẫn ký hợp đồng</p>
+  <ol style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Truy cập link ký hợp đồng</li>
+    <li>Xem xét nội dung hợp đồng</li>
+    <li>Vẽ chữ ký điện tử</li>
+    <li>Xác thực bằng OTP</li>
+    <li>Hoàn tất</li>
+  </ol>
+")}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Link có hiệu lực đến {linkExpiresAt.ToString(DateTimeFormat)}</li>
+    <li>Mỗi link chỉ sử dụng một lần</li>
+    <li>Không chia sẻ link với người khác</li>
+  </ul>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ: {HOTLINE} | {SUPPORT_EMAIL}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(PRIMARY_COLOR, "Hợp đồng hợp tác", body);
     }
 
-    /// <summary>
-    /// Build email content for contract signed confirmation - send to hospital
-    /// </summary>
     public static string BuildContractSignedConfirmationEmailHtml(
         string hospitalName,
         string representativeName,
         string contractNumber,
         DateTime signedAt)
     {
-        var signedAtStr = signedAt.ToString("dd/MM/yyyy HH:mm");
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {representativeName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Bạn đã ký hợp đồng hợp tác thành công với {BRAND_NAME}.
+</p>
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"">
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
-  <title>Xác Nhận Ký Hợp Đồng Thành Công - BookingCare</title>
-  <style>
-    body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; margin: 0; padding: 20px; }}
-    .container {{ max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-    .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }}
-    .header h1 {{ margin: 0; font-size: 28px; font-weight: 600; }}
-    .header p {{ margin: 10px 0 0 0; font-size: 14px; opacity: 0.95; }}
-    .content {{ padding: 30px; }}
-    .success-icon {{ text-align: center; font-size: 64px; margin: 20px 0; }}
-    .contract-details {{ background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #86efac; }}
-    .contract-details h3 {{ margin: 0 0 15px 0; color: #166534; font-size: 18px; }}
-    .detail-item {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #d1fae5; }}
-    .detail-item:last-child {{ border-bottom: none; }}
-    .detail-label {{ color: #047857; font-weight: 500; }}
-    .detail-value {{ color: #166534; font-weight: 600; }}
-    .info-box {{ background-color: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; }}
-    .footer {{ background-color: #f9fafb; padding: 20px; text-align: center; color: #6b7280; font-size: 13px; border-top: 1px solid #e5e7eb; }}
-  </style>
-</head>
-<body>
-  <div class=""container"">
-    <div class=""header"">
-      <h1>🎉 Ký Hợp Đồng Thành Công!</h1>
-      <p>Xác nhận ký hợp đồng hợp tác với BookingCare</p>
-    </div>
-    
-    <div class=""content"">
-      <div class=""success-icon"">✍️</div>
-      
-      <p style=""text-align: center; font-size: 18px; color: #166534; font-weight: 600; margin: 20px 0;"">
-        Chúc mừng! Bạn đã ký hợp đồng hợp tác thành công với BookingCare.
-      </p>
-      
-      <div class=""contract-details"">
-        <h3>📋 Thông Tin Hợp Đồng</h3>
-        <div class=""detail-item"">
-          <span class=""detail-label"">Số hợp đồng:</span>
-          <span class=""detail-value"">{contractNumber}</span>
-        </div>
-        <div class=""detail-item"">
-          <span class=""detail-label"">Bệnh viện:</span>
-          <span class=""detail-value"">{hospitalName}</span>
-        </div>
-        <div class=""detail-item"">
-          <span class=""detail-label"">Người đại diện:</span>
-          <span class=""detail-value"">{representativeName}</span>
-        </div>
-        <div class=""detail-item"">
-          <span class=""detail-label"">Thời gian ký:</span>
-          <span class=""detail-value"">{signedAtStr}</span>
-        </div>
-      </div>
-      
-      <div class=""info-box"">
-        <strong>📋 Bước tiếp theo:</strong> Đội ngũ BookingCare sẽ xem xét và phê duyệt hợp đồng trong thời gian sớm nhất. Bạn sẽ nhận được email thông báo khi quá trình hoàn tất.
-      </div>
-      
-      <p style=""color: #6b7280; font-size: 14px; margin-top: 30px;"">
-        Cảm ơn bạn đã tin tưởng và lựa chọn BookingCare làm đối tác. Chúng tôi sẽ liên hệ với bạn sớm nhất để hoàn tất các thủ tục còn lại.
-      </p>
-    </div>
-    
-    <div class=""footer"">
-      Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.
-    </div>
-  </div>
-</body>
-</html>";
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin hợp đồng</p>
+  <p style=""margin:4px 0;""><strong>Số hợp đồng:</strong> {contractNumber}</p>
+  <p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>
+  <p style=""margin:4px 0;""><strong>Người đại diện:</strong> {representativeName}</p>
+  <p style=""margin:4px 0;""><strong>Thời gian ký:</strong> {signedAt.ToString(DateTimeFormat)}</p>
+")}
+
+{BuildInfoBox(BG_LIGHT, BORDER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{TEXT_PRIMARY};"">Bước tiếp theo</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Đội ngũ {BRAND_NAME} sẽ xem xét và phê duyệt hợp đồng trong thời gian sớm nhất. Bạn sẽ nhận được email thông báo khi hoàn tất.
+  </p>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Cảm ơn bạn đã tin tưởng {BRAND_NAME}.<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Ký hợp đồng thành công", body);
     }
 
-    /// <summary>
-    /// Build email content for appointment result notification
-    /// </summary>
     public static string BuildAppointmentResultEmailHtml(
         string patientName,
         DateTime appointmentDate,
         string appointmentTime,
         string resultUrl,
         string? doctorName = null,
-        string? hospitalName = null
-    )
+        string? hospitalName = null)
     {
-        var appointmentDateFormatted = appointmentDate.ToString("dd/MM/yyyy");
+        var doctorInfo = !string.IsNullOrEmpty(doctorName) ? $@"<p style=""margin:4px 0;""><strong>Bác sĩ:</strong> {doctorName}</p>" : "";
+        var hospitalInfo = !string.IsNullOrEmpty(hospitalName) ? $@"<p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>" : "";
 
-        var doctorInfo = !string.IsNullOrEmpty(doctorName)
-            ? $@"<div class=""info-item""><strong>Bác sĩ khám:</strong> {doctorName}</div>"
-            : "";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Bác sĩ đã hoàn tất khám bệnh và cập nhật kết quả cho buổi khám của bạn.
+</p>
 
-        var hospitalInfo = !string.IsNullOrEmpty(hospitalName)
-            ? $@"<div class=""info-item""><strong>Bệnh viện:</strong> {hospitalName}</div>"
-            : "";
+{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin buổi khám</p>
+  <p style=""margin:4px 0;""><strong>Ngày khám:</strong> {appointmentDate.ToString(DateFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Giờ khám:</strong> {appointmentTime}</p>
+  {doctorInfo}
+  {hospitalInfo}
+")}
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Kết quả khám bệnh - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#10b981; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .result-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .appointment-details {{ background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px; margin:20px 0; }}
-    .appointment-details strong {{ color:#166534; }}
-    .info-item {{ margin:8px 0; }}
-    .result-box {{ background:#fef3c7; border:2px solid #fbbf24; border-radius:8px; padding:20px; margin:20px 0; text-align:center; }}
-    .result-box strong {{ color:#92400e; font-size:16px; display:block; margin-bottom:12px; }}
-    .download-button {{ display:inline-block; padding:14px 28px; background:#10b981; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; margin:8px 0; }}
-    .download-button:hover {{ background:#059669; }}
-    .icon-text {{ display:inline-block; margin-right:8px; }}
-    .info-note {{ background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:16px; margin:20px 0; color:#1e40af; }}
-    .info-note strong {{ color:#1e3a8a; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Kết quả khám bệnh</div>
-    </div>
-    <div class=""content"">
-      <div class=""result-icon"">📋</div>
-      <p class=""greeting"">Kính gửi {patientName},</p>
-      <p class=""lead"">Bác sĩ đã hoàn tất quá trình khám bệnh và cập nhật kết quả cho buổi khám của bạn. Vui lòng xem chi tiết kết quả khám bên dưới.</p>
-      
-      <div class=""appointment-details"">
-        <p><strong>📅 Thông tin buổi khám:</strong></p>
-        <div class=""info-item""><strong>Ngày khám:</strong> {appointmentDateFormatted}</div>
-        <div class=""info-item""><strong>Giờ khám:</strong> {appointmentTime}</div>{doctorInfo}{hospitalInfo}
-      </div>
-      
-      <div class=""result-box"">
-        <strong>📄 Kết quả khám bệnh đã sẵn sàng</strong>
-        <p style=""margin:8px 0; color:#78350f;"">Nhấp vào nút bên dưới để xem kết quả khám bệnh chi tiết</p>
-        <a href=""{resultUrl}"" class=""download-button"" target=""_blank"">
-          <span class=""icon-text"">📥</span> Xem kết quả khám bệnh
-        </a>
-      </div>
-      
-      <div class=""info-note"">
-        <p><strong>ℹ️ Lưu ý quan trọng:</strong></p>
-        <ul style=""margin:8px 0; padding-left:20px;"">
-          <li>Vui lòng đọc kỹ kết quả và tuân thủ theo hướng dẫn của bác sĩ</li>
-          <li>Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ trực tiếp với bác sĩ hoặc bệnh viện</li>
-          <li>Lưu giữ kết quả này để theo dõi sức khỏe và tái khám (nếu cần)</li>
-          <li>Kết quả khám bệnh được lưu trữ bảo mật trên hệ thống BookingCare</li>
-        </ul>
-      </div>
-      
-      <p class=""muted"">Nếu bạn cần đặt lịch tái khám hoặc có bất kỳ câu hỏi nào, vui lòng liên hệ:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
-      <strong>📧 Email:</strong> support@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+{BuildButton(resultUrl, "Xem kết quả khám bệnh", PRIMARY_COLOR)}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Đọc kỹ kết quả và tuân thủ hướng dẫn của bác sĩ</li>
+    <li>Liên hệ bác sĩ nếu có thắc mắc</li>
+    <li>Lưu giữ kết quả để theo dõi sức khỏe</li>
+  </ul>
+")}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(SUCCESS_COLOR, "Kết quả khám bệnh", body);
     }
 
-    /// <summary>
-    /// Build email content for appointment rejection notification (PENDING status - before payment)
-    /// Used when hospital staff rejects a pending appointment
-    /// </summary>
     public static string BuildAppointmentRejectedEmailHtml(
         string patientName,
         DateTime appointmentDate,
@@ -2374,86 +1136,100 @@ public static class EmailTemplate
         string? doctorName = null,
         string? hospitalName = null)
     {
-        var doctorInfo = !string.IsNullOrEmpty(doctorName)
-            ? $"<div class=\"info-item\"><strong>Bác sĩ:</strong> {doctorName}</div>"
-            : "";
-        var hospitalInfo = !string.IsNullOrEmpty(hospitalName)
-            ? $"<div class=\"info-item\"><strong>Bệnh viện:</strong> {hospitalName}</div>"
-            : "";
+        var doctorInfo = !string.IsNullOrEmpty(doctorName) ? $@"<p style=""margin:4px 0;""><strong>Bác sĩ:</strong> {doctorName}</p>" : "";
+        var hospitalInfo = !string.IsNullOrEmpty(hospitalName) ? $@"<p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>" : "";
 
-        return $@"<!DOCTYPE html>
-<html lang=""vi"">
-<head>
-  <meta charset=""UTF-8"" />
-  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>Thông báo từ chối lịch hẹn - BookingCare</title>
-  <style>
-    body {{ font-family: Arial, Helvetica, sans-serif; background:#f6f7fb; margin:0; padding:24px; color:#222; }}
-    .card {{ max-width:560px; margin:0 auto; background:#ffffff; border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.06); overflow:hidden; }}
-    .header {{ background:#ef4444; color:#fff; padding:20px 24px; }}
-    .brand {{ font-size:18px; font-weight:600; letter-spacing:0.3px; }}
-    .content {{ padding:24px; }}
-    .greeting {{ margin:0 0 12px; font-size:16px; }}
-    .lead {{ margin:0 0 20px; color:#444; line-height:1.6; }}
-    .reject-icon {{ font-size:48px; text-align:center; margin:16px 0; }}
-    .info-box {{ background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:16px; margin:20px 0; }}
-    .info-box strong {{ color:#dc2626; }}
-    .info-item {{ margin:8px 0; }}
-    .reason-box {{ background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:16px; margin:20px 0; }}
-    .reason-box strong {{ color:#c2410c; }}
-    .action-box {{ background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:16px; margin:20px 0; }}
-    .action-box strong {{ color:#1d4ed8; }}
-    .book-button {{ display:inline-block; padding:14px 28px; background:#0ea5e9; color:#fff; text-decoration:none; border-radius:8px; font-weight:600; font-size:16px; margin:16px 0; }}
-    .book-button:hover {{ background:#0284c7; }}
-    .muted {{ margin-top:16px; color:#6b7280; font-size:13px; }}
-    .divider {{ height:1px; background:#f1f5f9; margin:24px 0; }}
-    .footer {{ padding:16px 24px 24px; color:#6b7280; font-size:12px; }}
-  </style>
-</head>
-<body>
-  <div class=""card"">
-    <div class=""header"">
-      <div class=""brand"">BookingCare - Thông báo từ chối lịch hẹn</div>
-    </div>
-    <div class=""content"">
-      <div class=""reject-icon"">❌</div>
-      <p class=""greeting"">Kính gửi {patientName},</p>
-      <p class=""lead"">Chúng tôi rất tiếc phải thông báo rằng yêu cầu đặt lịch hẹn của quý khách đã bị từ chối.</p>
-      
-      <div class=""info-box"">
-        <p><strong>📅 Thông tin lịch hẹn:</strong></p>
-        <div class=""info-item""><strong>Ngày hẹn:</strong> {appointmentDate:dd/MM/yyyy}</div>
-        <div class=""info-item""><strong>Giờ hẹn:</strong> {appointmentTime}</div>{doctorInfo}{hospitalInfo}
-      </div>
-      
-      <div class=""reason-box"">
-        <p><strong>📝 Lý do từ chối:</strong></p>
-        <p style=""margin:8px 0;"">{rejectionReason}</p>
-      </div>
-      
-      <div class=""action-box"">
-        <p><strong>💡 Gợi ý cho quý khách:</strong></p>
-        <ul style=""margin:8px 0; padding-left:20px;"">
-          <li>Quý khách có thể đặt lịch hẹn với bác sĩ/chuyên khoa khác</li>
-          <li>Hoặc chọn thời gian khác phù hợp hơn</li>
-          <li>Liên hệ trực tiếp với bệnh viện để được tư vấn thêm</li>
-        </ul>
-      </div>
-      
-      <div style=""text-align:center;"">
-        <a href=""https://bookingcare.vn"" class=""book-button"">Đặt lịch hẹn mới</a>
-      </div>
-      
-      <p class=""muted"">Chúng tôi xin lỗi vì sự bất tiện này. Nếu quý khách có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi:</p>
-      <p class=""muted""><strong>📞 Hotline:</strong> 1900-xxxx<br/>
-      <strong>📧 Email:</strong> support@bookingcare.vn</p>
-      
-      <div class=""divider""></div>
-      <p class=""muted"">Trân trọng,<br/>Đội ngũ BookingCare</p>
-    </div>
-    <div class=""footer"">Email này được gửi tự động từ hệ thống BookingCare. Vui lòng không trả lời email này.</div>
-  </div>
-</body>
-</html>";
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {patientName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Yêu cầu đặt lịch hẹn của bạn đã bị từ chối.
+</p>
+
+{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{DANGER_COLOR};"">Thông tin lịch hẹn</p>
+  <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateFormat)}</p>
+  <p style=""margin:4px 0;""><strong>Giờ hẹn:</strong> {appointmentTime}</p>
+  {doctorInfo}
+  {hospitalInfo}
+")}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lý do từ chối</p>
+  <p style=""margin:8px 0 0; color:{TEXT_SECONDARY};"">{rejectionReason}</p>
+")}
+
+{BuildInfoBox(BG_LIGHT, BORDER_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:{TEXT_PRIMARY};"">Gợi ý</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Đặt lịch với bác sĩ/chuyên khoa khác</li>
+    <li>Chọn thời gian khác phù hợp hơn</li>
+    <li>Liên hệ bệnh viện để được tư vấn</li>
+  </ul>
+")}
+
+{BuildButton("https://medcure.vn", "Đặt lịch hẹn mới", PRIMARY_COLOR)}
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(DANGER_COLOR, "Lịch hẹn bị từ chối", body);
+    }
+
+    public static string BuildReminderEmailHtml(AppointmentReminderEvent @event)
+    {
+        var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        var vietnamTime = TimeZoneInfo.ConvertTimeFromUtc(@event.AppointmentDate, vietnamTimeZone);
+        var formattedDate = vietnamTime.ToString(DateFormat);
+
+        var timeText = @event.ReminderType == "24_HOURS" ? "24 giờ" : "1 giờ";
+        var headerColor = @event.ReminderType == "1_HOUR" ? DANGER_COLOR : PRIMARY_COLOR;
+
+        var doctorInfo = !string.IsNullOrEmpty(@event.DoctorName) ? $@"<p style=""margin:4px 0;""><strong>Bác sĩ:</strong> BS. {@event.DoctorName}</p>" : "";
+        var specialtyInfo = !string.IsNullOrEmpty(@event.SpecialtyName) ? $@"<p style=""margin:4px 0;""><strong>Chuyên khoa:</strong> {@event.SpecialtyName}</p>" : "";
+        var serviceInfo = !string.IsNullOrEmpty(@event.ServiceName) ? $@"<p style=""margin:4px 0;""><strong>Dịch vụ:</strong> {@event.ServiceName}</p>" : "";
+        var addressInfo = !string.IsNullOrEmpty(@event.HospitalAddress) ? $@"<p style=""margin:4px 0;""><strong>Địa chỉ:</strong> {@event.HospitalAddress}</p>" : "";
+
+        var body = $@"
+<p style=""margin:0 0 16px; font-size:15px;"">Kính gửi {@event.PatientFullName},</p>
+<p style=""margin:0 0 20px; color:{TEXT_SECONDARY}; line-height:1.6;"">
+  Đây là lời nhắc về lịch hẹn khám sắp tới của bạn. Còn <strong>{timeText}</strong> nữa là đến giờ hẹn.
+</p>
+
+{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+  <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Chi tiết lịch hẹn</p>
+  <p style=""margin:4px 0;""><strong>Ngày khám:</strong> {formattedDate}</p>
+  <p style=""margin:4px 0;""><strong>Giờ khám:</strong> {@event.AppointmentTime}</p>
+  <p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {@event.HospitalName}</p>
+  {addressInfo}
+  {doctorInfo}
+  {specialtyInfo}
+  {serviceInfo}
+")}
+
+{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+  <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
+  <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
+    <li>Vui lòng đến trước giờ hẹn 15 phút</li>
+    <li>Mang theo CMND/CCCD và thẻ BHYT (nếu có)</li>
+    <li>Mang theo kết quả xét nghiệm trước đó (nếu có)</li>
+  </ul>
+")}
+
+<p style=""margin:20px 0; color:{TEXT_SECONDARY}; font-size:13px;"">
+  Nếu cần thay đổi lịch hẹn, vui lòng truy cập ứng dụng {BRAND_NAME} hoặc liên hệ hotline.
+</p>
+
+<div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
+  <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
+    Liên hệ hỗ trợ: {HOTLINE}<br/>
+    Trân trọng, {BRAND_NAME}
+  </p>
+</div>";
+
+        return WrapEmailContent(headerColor, $"Nhắc lịch hẹn - Còn {timeText}", body);
     }
 }
