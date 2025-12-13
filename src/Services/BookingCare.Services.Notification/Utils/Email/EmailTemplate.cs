@@ -22,6 +22,16 @@ public static class EmailTemplate
     private const string BG_LIGHT = "#f9fafb";           // Light gray background
     private const string BORDER_COLOR = "#e5e7eb";       // Border gray
 
+    // Background colors for info boxes
+    private const string BG_TEAL_LIGHT = "#f0fdfa";      // Light teal background
+    private const string BG_RED_LIGHT = "#fef2f2";       // Light red background
+    private const string BG_AMBER_LIGHT = "#fef3c7";     // Light amber background
+    private const string BG_GREEN_LIGHT = "#f0fdf4";     // Light green background
+
+    // URLs
+    private const string BOOKING_URL = "https://medcure.vn/booking";
+    private const string HOME_URL = "https://medcure.vn";
+
     // Date format constants
     private const string DateTimeFormat = "dd/MM/yyyy HH:mm";
     private const string DateFormat = "dd/MM/yyyy";
@@ -165,7 +175,7 @@ public static class EmailTemplate
   Chào mừng bạn đến với {BRAND_NAME}. Tài khoản của bạn đã được tạo thành công.
 </p>
 
-{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+{BuildInfoBox(BG_TEAL_LIGHT, PRIMARY_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin đăng nhập</p>
   {hospitalInfo}
   <p style=""margin:8px 0;""><strong>Email:</strong> {email}</p>
@@ -174,7 +184,7 @@ public static class EmailTemplate
 
 {BuildButton(loginUrl, "Đăng nhập ngay", PRIMARY_COLOR)}
 
-{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+{BuildInfoBox(BG_RED_LIGHT, DANGER_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:{DANGER_COLOR};"">Lưu ý bảo mật</p>
   <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
     Đây là mật khẩu tạm thời. Vui lòng đổi mật khẩu ngay sau khi đăng nhập lần đầu.
@@ -198,7 +208,7 @@ public static class EmailTemplate
 
 {BuildButton(resetUrl, "Đặt lại mật khẩu", DANGER_COLOR)}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
   <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
     <li>Liên kết có hiệu lực trong 24 giờ</li>
@@ -231,7 +241,7 @@ public static class EmailTemplate
   Lịch hẹn của bạn đã được hủy. Thông tin chi tiết như sau:
 </p>
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin lịch hẹn</p>
   <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateTimeFormat)}</p>
   <p style=""margin:4px 0;""><strong>Lý do hủy:</strong> {cancellationReason}</p>
@@ -264,14 +274,14 @@ public static class EmailTemplate
   Lịch hẹn của bạn đã được hủy. Thông tin chi tiết như sau:
 </p>
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:#92400e;"">Thông tin lịch hẹn</p>
   <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateTimeFormat)}</p>
   <p style=""margin:4px 0;""><strong>Lý do hủy:</strong> {cancellationReason}</p>
   <p style=""margin:4px 0;""><strong>Số tiền hoàn trả:</strong> <span style=""font-size:18px; font-weight:600; color:{WARNING_COLOR};"">{refundAmount:N0} VNĐ</span></p>
 ")}
 
-{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+{BuildInfoBox(BG_RED_LIGHT, DANGER_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:{DANGER_COLOR};"">Yêu cầu hành động</p>
   <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
     Để nhận hoàn tiền, vui lòng đăng nhập và cập nhật thông tin tài khoản ngân hàng trong phần Cài đặt.
@@ -301,7 +311,7 @@ public static class EmailTemplate
   Khoản hoàn tiền của bạn đã được chuyển thành công.
 </p>
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin hoàn tiền</p>
   <p style=""margin:4px 0;""><strong>Số tiền:</strong> <span style=""font-size:20px; font-weight:600; color:{SUCCESS_COLOR};"">{refundAmount:N0} VNĐ</span></p>
   <p style=""margin:4px 0;""><strong>Ngân hàng:</strong> {bankName}</p>
@@ -344,7 +354,7 @@ public static class EmailTemplate
   Có sự cố xảy ra trong quá trình hoàn tiền cho bạn.
 </p>
 
-{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+{BuildInfoBox(BG_RED_LIGHT, DANGER_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{DANGER_COLOR};"">Thông tin sự cố</p>
   <p style=""margin:4px 0;""><strong>Số tiền:</strong> {refundAmount:N0} VNĐ</p>
   {bankInfoHtml}
@@ -382,7 +392,7 @@ public static class EmailTemplate
   <p style=""margin:4px 0;""><strong>Lý do hủy:</strong> {cancellationReason}</p>
 ")}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Thông báo về hoàn tiền</p>
   <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
     Do lịch hẹn được hủy trong vòng 12 giờ trước thời gian hẹn, theo chính sách của chúng tôi, không có khoản hoàn tiền nào được áp dụng.
@@ -415,7 +425,7 @@ public static class EmailTemplate
   Lịch hẹn của bạn đã được hủy thành công.
 </p>
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin lịch hẹn đã hủy</p>
   <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateTimeFormat)}</p>
   {doctorInfo}
@@ -461,7 +471,7 @@ public static class EmailTemplate
   Lịch hẹn của bạn đã được đặt thành công và thanh toán hoàn tất.
 </p>
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin lịch hẹn</p>
   <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString(DateFormat)}</p>
   <p style=""margin:4px 0;""><strong>Thời gian:</strong> {data.AppointmentTime}</p>
@@ -474,7 +484,7 @@ public static class EmailTemplate
   <p style=""margin:8px 0 0;""><strong>Đã thanh toán:</strong> <span style=""font-size:18px; font-weight:600; color:{SUCCESS_COLOR};"">{data.Amount:N0} VNĐ</span></p>
 ")}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
   <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
     <li>Vui lòng có mặt trước giờ hẹn 15 phút</li>
@@ -525,7 +535,7 @@ public static class EmailTemplate
   Lịch hẹn của bạn{doctorInfo}{hospitalInfo} đã bị hủy bởi bệnh viện.
 </p>
 
-{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+{BuildInfoBox(BG_RED_LIGHT, DANGER_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{DANGER_COLOR};"">Thông tin lịch hẹn bị hủy</p>
   <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {data.AppointmentDate.ToString(DateTimeFormat)}</p>
   <p style=""margin:4px 0;""><strong>Lý do:</strong> {data.CancellationReason}</p>
@@ -563,7 +573,7 @@ public static class EmailTemplate
   Bạn đã thay đổi bác sĩ khám thành công.
 </p>
 
-{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+{BuildInfoBox(BG_TEAL_LIGHT, PRIMARY_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin thay đổi</p>
   <table style=""width:100%; font-size:14px;"">
     <tr>
@@ -581,7 +591,7 @@ public static class EmailTemplate
   </table>
 ")}
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:{SUCCESS_COLOR};"">Hoàn tiền chênh lệch</p>
   <p style=""margin:8px 0 0;"">Số tiền: <span style=""font-size:18px; font-weight:600; color:{SUCCESS_COLOR};"">{refundAmount:N0} VNĐ</span></p>
   <p style=""margin:4px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">Sẽ được chuyển trong 5-7 ngày làm việc.</p>
@@ -609,7 +619,7 @@ public static class EmailTemplate
   Bạn đã thay đổi bác sĩ khám thành công.
 </p>
 
-{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+{BuildInfoBox(BG_TEAL_LIGHT, PRIMARY_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin thay đổi</p>
   <table style=""width:100%; font-size:14px;"">
     <tr>
@@ -627,7 +637,7 @@ public static class EmailTemplate
   </table>
 ")}
 
-{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+{BuildInfoBox(BG_RED_LIGHT, DANGER_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:{DANGER_COLOR};"">Yêu cầu hành động</p>
   <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
     Bạn được hoàn <strong>{refundAmount:N0} VNĐ</strong>. Vui lòng đăng nhập và cập nhật thông tin tài khoản ngân hàng để nhận tiền.
@@ -665,7 +675,7 @@ public static class EmailTemplate
   Bệnh viện <strong>{data.HospitalName}</strong> đã đăng ký gói dịch vụ thành công.
 </p>
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin gói dịch vụ</p>
   <p style=""margin:4px 0;""><strong>Tên gói:</strong> {data.PlanName}</p>
   <p style=""margin:4px 0;""><strong>Chu kỳ:</strong> {billingCycleDisplay}</p>
@@ -677,7 +687,7 @@ public static class EmailTemplate
   {featuresInfo}
 ")}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
   <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
     <li>Gói dịch vụ đã được kích hoạt ngay</li>
@@ -708,7 +718,7 @@ public static class EmailTemplate
   Chúng tôi đã nhận được đơn đăng ký hợp tác của quý bệnh viện.
 </p>
 
-{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+{BuildInfoBox(BG_TEAL_LIGHT, PRIMARY_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin đăng ký</p>
   <p style=""margin:4px 0;""><strong>Tên bệnh viện:</strong> {hospitalName}</p>
   <p style=""margin:4px 0;""><strong>Email:</strong> {hospitalEmail}</p>
@@ -748,7 +758,7 @@ public static class EmailTemplate
   Đơn đăng ký hợp tác của quý bệnh viện đã được <strong style=""color:{SUCCESS_COLOR};"">CHẤP THUẬN</strong>.
 </p>
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:{SUCCESS_COLOR};"">Trạng thái: ĐÃ CHẤP THUẬN</p>
   <p style=""margin:8px 0 0; color:{TEXT_SECONDARY}; font-size:13px;"">
     Chào mừng {hospitalName} trở thành đối tác của {BRAND_NAME}!
@@ -798,7 +808,7 @@ public static class EmailTemplate
   <p style=""margin:4px 0;"">{data.PreviousPlanName} - {data.PreviousPrice:N0} VNĐ/{prevCycle}</p>
 ")}
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Gói mới</p>
   <p style=""margin:4px 0;""><strong>Tên gói:</strong> {data.NewPlanName}</p>
   <p style=""margin:4px 0;""><strong>Giá:</strong> <span style=""font-size:18px; font-weight:600; color:{SUCCESS_COLOR};"">{data.NewPrice:N0} VNĐ/{newCycle}</span></p>
@@ -828,11 +838,11 @@ public static class EmailTemplate
   Sau khi xem xét, đơn đăng ký hợp tác của quý bệnh viện chưa được chấp thuận.
 </p>
 
-{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+{BuildInfoBox(BG_RED_LIGHT, DANGER_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:{DANGER_COLOR};"">Trạng thái: CHƯA CHẤP THUẬN</p>
 ")}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lý do</p>
   <p style=""margin:8px 0 0; color:{TEXT_SECONDARY};"">{reason}</p>
 ")}
@@ -871,7 +881,7 @@ public static class EmailTemplate
   Đơn đăng ký hợp tác đã được <strong style=""color:{SUCCESS_COLOR};"">PHÊ DUYỆT</strong>. Tài khoản quản lý đã được tạo.
 </p>
 
-{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+{BuildInfoBox(BG_TEAL_LIGHT, PRIMARY_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin đăng nhập</p>
   <p style=""margin:4px 0;""><strong>Email:</strong> {email}</p>
   <p style=""margin:4px 0;""><strong>Mật khẩu tạm thời:</strong> <code style=""background:#fee2e2; padding:2px 8px; border-radius:4px; color:{DANGER_COLOR};"">{generatedPassword}</code></p>
@@ -881,7 +891,7 @@ public static class EmailTemplate
 
 {contractSection}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý bảo mật</p>
   <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
     <li>Đổi mật khẩu ngay sau khi đăng nhập</li>
@@ -909,7 +919,7 @@ public static class EmailTemplate
         string appointmentTime,
         string? staffNote)
     {
-        var staffNoteSection = string.IsNullOrEmpty(staffNote) ? "" : BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+        var staffNoteSection = string.IsNullOrEmpty(staffNote) ? "" : BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Ghi chú từ nhân viên</p>
   <p style=""margin:8px 0 0; color:{TEXT_SECONDARY};"">{staffNote}</p>
 ");
@@ -920,13 +930,13 @@ public static class EmailTemplate
   Bệnh viện đã gán bác sĩ cho lịch hẹn của bạn.
 </p>
 
-{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+{BuildInfoBox(BG_TEAL_LIGHT, PRIMARY_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin bác sĩ</p>
   <p style=""margin:4px 0;""><strong>Bác sĩ:</strong> {doctorName}</p>
   <p style=""margin:4px 0;""><strong>Chuyên khoa:</strong> {specialty}</p>
 ")}
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin lịch hẹn</p>
   <p style=""margin:4px 0;""><strong>Ngày khám:</strong> {appointmentDate}</p>
   <p style=""margin:4px 0;""><strong>Giờ khám:</strong> {appointmentTime}</p>
@@ -962,7 +972,7 @@ public static class EmailTemplate
   Lịch hẹn của bạn đã bị <strong style=""color:{DANGER_COLOR};"">tự động hủy</strong> do bệnh viện không gán bác sĩ trước ngày hẹn.
 </p>
 
-{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+{BuildInfoBox(BG_RED_LIGHT, DANGER_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{DANGER_COLOR};"">Thông tin lịch hẹn đã hủy</p>
   <p style=""margin:4px 0;""><strong>Chuyên khoa:</strong> {specialtyName}</p>
   <p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>
@@ -971,7 +981,7 @@ public static class EmailTemplate
   <p style=""margin:4px 0;""><strong>Lý do:</strong> Bệnh viện không gán bác sĩ trước ngày hẹn</p>
 ")}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Gợi ý</p>
   <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
     <li>Đặt lịch hẹn mới tại bệnh viện khác</li>
@@ -980,7 +990,7 @@ public static class EmailTemplate
   </ul>
 ")}
 
-{BuildButton("https://medcure.vn/booking", "Đặt lịch hẹn mới", PRIMARY_COLOR)}
+{BuildButton(BOOKING_URL, "Đặt lịch hẹn mới", PRIMARY_COLOR)}
 
 <div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
   <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
@@ -1005,7 +1015,7 @@ public static class EmailTemplate
   Hợp đồng hợp tác giữa <strong>{hospitalName}</strong> và <strong>{BRAND_NAME}</strong> đã được tạo.
 </p>
 
-{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+{BuildInfoBox(BG_TEAL_LIGHT, PRIMARY_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Thông tin hợp đồng</p>
   <p style=""margin:4px 0;""><strong>Số hợp đồng:</strong> {contractNumber}</p>
   <p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>
@@ -1026,7 +1036,7 @@ public static class EmailTemplate
   </ol>
 ")}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
   <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
     <li>Link có hiệu lực đến {linkExpiresAt.ToString(DateTimeFormat)}</li>
@@ -1057,7 +1067,7 @@ public static class EmailTemplate
   Bạn đã ký hợp đồng hợp tác thành công với {BRAND_NAME}.
 </p>
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin hợp đồng</p>
   <p style=""margin:4px 0;""><strong>Số hợp đồng:</strong> {contractNumber}</p>
   <p style=""margin:4px 0;""><strong>Bệnh viện:</strong> {hospitalName}</p>
@@ -1099,7 +1109,7 @@ public static class EmailTemplate
   Bác sĩ đã hoàn tất khám bệnh và cập nhật kết quả cho buổi khám của bạn.
 </p>
 
-{BuildInfoBox("#f0fdf4", SUCCESS_COLOR, $@"
+{BuildInfoBox(BG_GREEN_LIGHT, SUCCESS_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{SUCCESS_COLOR};"">Thông tin buổi khám</p>
   <p style=""margin:4px 0;""><strong>Ngày khám:</strong> {appointmentDate.ToString(DateFormat)}</p>
   <p style=""margin:4px 0;""><strong>Giờ khám:</strong> {appointmentTime}</p>
@@ -1109,7 +1119,7 @@ public static class EmailTemplate
 
 {BuildButton(resultUrl, "Xem kết quả khám bệnh", PRIMARY_COLOR)}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
   <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
     <li>Đọc kỹ kết quả và tuân thủ hướng dẫn của bác sĩ</li>
@@ -1145,7 +1155,7 @@ public static class EmailTemplate
   Yêu cầu đặt lịch hẹn của bạn đã bị từ chối.
 </p>
 
-{BuildInfoBox("#fef2f2", DANGER_COLOR, $@"
+{BuildInfoBox(BG_RED_LIGHT, DANGER_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{DANGER_COLOR};"">Thông tin lịch hẹn</p>
   <p style=""margin:4px 0;""><strong>Ngày hẹn:</strong> {appointmentDate.ToString(DateFormat)}</p>
   <p style=""margin:4px 0;""><strong>Giờ hẹn:</strong> {appointmentTime}</p>
@@ -1153,7 +1163,7 @@ public static class EmailTemplate
   {hospitalInfo}
 ")}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lý do từ chối</p>
   <p style=""margin:8px 0 0; color:{TEXT_SECONDARY};"">{rejectionReason}</p>
 ")}
@@ -1167,7 +1177,7 @@ public static class EmailTemplate
   </ul>
 ")}
 
-{BuildButton("https://medcure.vn", "Đặt lịch hẹn mới", PRIMARY_COLOR)}
+{BuildButton(HOME_URL, "Đặt lịch hẹn mới", PRIMARY_COLOR)}
 
 <div style=""margin-top:24px; padding-top:20px; border-top:1px solid {BORDER_COLOR};"">
   <p style=""margin:0; color:{TEXT_SECONDARY}; font-size:13px;"">
@@ -1199,7 +1209,7 @@ public static class EmailTemplate
   Đây là lời nhắc về lịch hẹn khám sắp tới của bạn. Còn <strong>{timeText}</strong> nữa là đến giờ hẹn.
 </p>
 
-{BuildInfoBox("#f0fdfa", PRIMARY_COLOR, $@"
+{BuildInfoBox(BG_TEAL_LIGHT, PRIMARY_COLOR, $@"
   <p style=""margin:0 0 12px; font-weight:500; color:{PRIMARY_DARK};"">Chi tiết lịch hẹn</p>
   <p style=""margin:4px 0;""><strong>Ngày khám:</strong> {formattedDate}</p>
   <p style=""margin:4px 0;""><strong>Giờ khám:</strong> {@event.AppointmentTime}</p>
@@ -1210,7 +1220,7 @@ public static class EmailTemplate
   {serviceInfo}
 ")}
 
-{BuildInfoBox("#fef3c7", WARNING_COLOR, $@"
+{BuildInfoBox(BG_AMBER_LIGHT, WARNING_COLOR, $@"
   <p style=""margin:0; font-weight:500; color:#92400e;"">Lưu ý</p>
   <ul style=""margin:8px 0 0; padding-left:20px; color:{TEXT_SECONDARY}; font-size:13px;"">
     <li>Vui lòng đến trước giờ hẹn 15 phút</li>
