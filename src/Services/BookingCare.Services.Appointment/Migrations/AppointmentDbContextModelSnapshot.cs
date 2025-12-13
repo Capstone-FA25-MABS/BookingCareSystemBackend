@@ -69,7 +69,7 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.Property<bool>("IsRescheduled")
                         .HasColumnType("bit");
 
-                    b.Property<Guid?>("PatientAccountId")
+                    b.Property<Guid>("PatientAccountId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("PatientId")
