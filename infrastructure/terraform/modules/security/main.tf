@@ -61,31 +61,18 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = var.allowed_http_cidr
   }
 
-  # Microservices HTTP ports (6000-6020)
-  ingress {
-    description = "Microservices HTTP"
-    from_port   = 6000
-    to_port     = 6020
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_http_cidr
-  }
+  # NOTE: Microservices ports (6000-6020, 6100-6120) are NOT exposed
+  # They communicate internally via Docker network
+  # Only API Gateway is exposed to handle external requests
 
-  # Microservices gRPC ports (6100-6120)
-  ingress {
-    description = "Microservices gRPC"
-    from_port   = 6100
-    to_port     = 6120
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_http_cidr
-  }
-
-  # RabbitMQ Management
+  # RabbitMQ Management (OPTIONAL - only for admin access)
+  # Consider restricting to admin IPs only in production
   ingress {
     description = "RabbitMQ Management UI"
     from_port   = 15672
     to_port     = 15672
     protocol    = "tcp"
-    cidr_blocks = var.allowed_http_cidr
+    cidr_blocks = var.allowed_ssh_cidr  # Changed from allowed_http_cidr to allowed_ssh_cidr
   }
 
   # Grafana

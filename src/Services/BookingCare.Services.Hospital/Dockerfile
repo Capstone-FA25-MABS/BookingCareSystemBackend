@@ -8,7 +8,8 @@ EXPOSE 6004
 EXPOSE 6104
 
 # Use the official .NET 8 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
@@ -22,7 +23,7 @@ COPY ["src/Shared/BookingCare.Shared.FileUpload/BookingCare.Shared.FileUpload.cs
 COPY ["src/Services/BookingCare.Services.Doctor/Protos/", "src/Services/BookingCare.Services.Doctor/Protos/"]
 
 # Restore NuGet packages
-RUN dotnet restore "src/Services/BookingCare.Services.Hospital/BookingCare.Services.Hospital.csproj"
+RUN dotnet restore "src/Services/BookingCare.Services.Hospital/BookingCare.Services.Hospital.csproj" -a $TARGETARCH
 
 # Copy the entire source code
 COPY . .
@@ -31,12 +32,13 @@ COPY . .
 WORKDIR "/src/src/Services/BookingCare.Services.Hospital"
 
 # Build the application
-RUN dotnet build "BookingCare.Services.Hospital.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "BookingCare.Services.Hospital.csproj" -c $BUILD_CONFIGURATION -o /app/build -a $TARGETARCH
 
 # Publish the application
 FROM build AS publish
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "BookingCare.Services.Hospital.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "BookingCare.Services.Hospital.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false -a $TARGETARCH
 
 # Final stage: create the runtime image
 FROM base AS final

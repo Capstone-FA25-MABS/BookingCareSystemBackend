@@ -28,12 +28,12 @@ builder.Services.AddOcelot();
 // Add CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontEnd", builder =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        builder.WithOrigins(allowedOrigins ?? [])
-               .AllowAnyMethod()
-               .AllowAnyHeader()
-               .AllowCredentials();
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 

@@ -52,7 +52,7 @@ module "compute" {
   docker_volume_type     = var.docker_volume_type
   enable_monitoring      = var.enable_monitoring
   enable_eip             = var.enable_eip
-  user_data_script       = "${path.module}/user-data.sh"
+  user_data_script       = "${path.module}/user-data-compact.sh"
   tags                   = var.tags
 }
 
