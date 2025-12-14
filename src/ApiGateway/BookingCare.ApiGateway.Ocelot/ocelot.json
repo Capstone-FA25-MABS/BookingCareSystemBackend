@@ -597,6 +597,21 @@
       }
     },
     {
+      "DownstreamPathTemplate": "/api/v{version}/hospital-faqs/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "localhost",
+          "Port": 6060
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/hospital-faqs/{everything}",
+      "UpstreamHttpMethod": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "AuthenticationOptions": {
+        "AllowedScopes": []
+      }
+    },
+    {
       "DownstreamPathTemplate": "/api/v{version}/payments/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

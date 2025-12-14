@@ -3,7 +3,11 @@ using BookingCare.Services.ServiceMedical.Constants;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Requests;
 using BookingCare.Services.ServiceMedical.Models.DTOs.Responses;
 using BookingCare.Services.ServiceMedical.Services.Interfaces;
+using BookingCare.Shared.FileUpload.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Threading;
 
 namespace BookingCare.Services.ServiceMedical.Controllers
 {
@@ -16,12 +20,18 @@ namespace BookingCare.Services.ServiceMedical.Controllers
         private readonly IServiceMedicalService _serviceMedicalService;
         private readonly ILogger<ServiceCategoriesController> _logger;
         private readonly IMapper _mapper;
+        private readonly FileUploadOrchestrator _uploadOrchestrator;
 
-        public ServiceCategoriesController(IServiceMedicalService serviceMedicalService, ILogger<ServiceCategoriesController> logger, IMapper mapper)
+        public ServiceCategoriesController(
+            IServiceMedicalService serviceMedicalService,
+            ILogger<ServiceCategoriesController> logger,
+            IMapper mapper,
+            FileUploadOrchestrator uploadOrchestrator)
         {
             _serviceMedicalService = serviceMedicalService;
             _logger = logger;
             _mapper = mapper;
+            _uploadOrchestrator = uploadOrchestrator;
         }
 
         #region Health Check
@@ -66,6 +76,64 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating service category");
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Create a new service category with image upload
+        /// </summary>
+        [HttpPost("upload-image")]
+        public async Task<ActionResult<ServiceCategoryResponse>> CreateServiceCategoryWithImage(
+            [FromForm] CreateServiceCategoryRequest request,
+            [FromForm] IFormFile? imageFile,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return BadRequest(new { error = "Request data is required" });
+                }
+
+                if (imageFile == null)
+                {
+                    return BadRequest(new { error = "Image file is required" });
+                }
+
+                var config = new FileUploadConfig
+                {
+                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" },
+                    MaxSizeInMB = 5,
+                    Folder = "service-categories/images",
+                    SuccessMessage = "Service category image uploaded successfully",
+                    EntityType = "service-category-image"
+                };
+
+                var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+                    imageFile,
+                    config,
+                    Guid.Empty,
+                    _logger,
+                    cancellationToken);
+
+                if (!uploadResult.Success || uploadResult.UploadResult == null)
+                {
+                    return BadRequest(new { error = uploadResult.ErrorMessage ?? "Image upload failed" });
+                }
+
+                request.ImageUrl = uploadResult.UploadResult.CloudFrontUrl ?? uploadResult.UploadResult.FileUrl;
+
+                var result = await _serviceMedicalService.CreateServiceCategoryAsync(request);
+                return CreatedAtAction(nameof(GetServiceCategory), new { id = result.Id }, result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating service category with image");
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
@@ -121,6 +189,70 @@ namespace BookingCare.Services.ServiceMedical.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating service category: {Id}", id);
+                return StatusCode(500, new { error = StatusConstants.InternalServerError });
+            }
+        }
+
+        /// <summary>
+        /// Update service category with image upload
+        /// </summary>
+        [HttpPut("{id}/upload-image")]
+        public async Task<ActionResult<ServiceCategoryResponse>> UpdateServiceCategoryWithImage(
+            Guid id,
+            [FromForm] UpdateServiceCategoryRequest request,
+            [FromForm] IFormFile? imageFile,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return BadRequest(new { error = "Request data is required" });
+                }
+
+                if (id != request.Id)
+                {
+                    return BadRequest(new { error = "ID mismatch" });
+                }
+
+                if (imageFile == null)
+                {
+                    return BadRequest(new { error = "Image file is required" });
+                }
+
+                var config = new FileUploadConfig
+                {
+                    AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" },
+                    MaxSizeInMB = 5,
+                    Folder = "service-categories/images",
+                    SuccessMessage = "Service category image uploaded successfully",
+                    EntityType = "service-category-image"
+                };
+
+                var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+                    imageFile,
+                    config,
+                    Guid.Empty,
+                    _logger,
+                    cancellationToken);
+
+                if (!uploadResult.Success || uploadResult.UploadResult == null)
+                {
+                    return BadRequest(new { error = uploadResult.ErrorMessage ?? "Image upload failed" });
+                }
+
+                request.ImageUrl = uploadResult.UploadResult.CloudFrontUrl ?? uploadResult.UploadResult.FileUrl;
+
+                var result = await _serviceMedicalService.UpdateServiceCategoryAsync(request);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating service category with image: {Id}", id);
                 return StatusCode(500, new { error = StatusConstants.InternalServerError });
             }
         }
