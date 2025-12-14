@@ -54,6 +54,16 @@ public class BlogRepository : IBlogRepository
             query = query.Where(b => b.CreatedBy == filter.CreatedByAccountId.Value);
         }
 
+        if (filter.CreatedByDoctorId.HasValue)
+        {
+            query = query.Where(b => b.CreatedByDoctorId == filter.CreatedByDoctorId.Value);
+        }
+
+        if (filter.CreatedByHospitalId.HasValue)
+        {
+            query = query.Where(b => b.CreatedByHospitalId == filter.CreatedByHospitalId.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
         {
             query = query.Where(b =>
