@@ -59,6 +59,9 @@ builder.Services.AddHttpClient<GroqApiHelper>();
 // Register AI Service for medical summary generation
 builder.Services.AddScoped<IAIService, AIService>();
 
+// Register DatabaseInitializationService
+builder.Services.AddSingleton<BookingCare.Services.AI.Services.DatabaseInitializationService>();
+
 // Register gRPC clients
 var doctorGrpcAddress =
     builder.Configuration["GrpcClients:Doctor:Address"]
@@ -150,18 +153,11 @@ app.MapControllers();
 
 app.MapGet("/", () => "BookingCare AI Service is running...");
 
-// Database migration and seeding
-using var scope = app.Services.CreateScope();
-try
+// Initialize database from SQL script if not exists
+using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<AiDbContext>();
-    await context.Database.MigrateAsync();
-    app.Logger.LogInformation("AI Service database migrated successfully");
-
-}
-catch (Exception ex)
-{
-    app.Logger.LogError(ex, "An error occurred while migrating database");
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.AI.Services.DatabaseInitializationService>();
+    await dbInitService.InitializeAsync();
 }
 
 app.Run();

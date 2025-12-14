@@ -46,6 +46,7 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 // Add Services
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<DataInitializationService>();
+builder.Services.AddSingleton<BookingCare.Services.Appointment.Services.DatabaseInitializationService>();
 
 // Add Configuration
 builder.Services.Configure<FrontendConfiguration>(builder.Configuration.GetSection("Frontend"));
@@ -184,6 +185,13 @@ app.UseEventBus(eventBus =>
         AppointmentPaymentSuccessEventHandler
     >();
 });
+
+// Initialize database from SQL script if not exists
+using (var scope = app.Services.CreateScope())
+{
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.Appointment.Services.DatabaseInitializationService>();
+    await dbInitService.InitializeAsync();
+}
 
 // Initialize default data
 if (app.Environment.IsDevelopment())

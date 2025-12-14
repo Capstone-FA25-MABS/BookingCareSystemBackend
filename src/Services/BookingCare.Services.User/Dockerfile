@@ -51,6 +51,9 @@ WORKDIR /app
 # Copy the published application
 COPY --from=publish /app/publish .
 
+# Copy SQL initialization scripts
+COPY --chown=app:app ["data/db_user.sql", "./data/"]
+
 # Set environment variables
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:6016;http://+:6116

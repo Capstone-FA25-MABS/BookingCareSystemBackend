@@ -34,30 +34,35 @@ public class CookieService
             var cookieRefreshTokenName = $"refresh_token_{prefix}";
             var cookieUserName = $"{prefix}_current_user";
 
+            // Determine if using HTTPS
+            var isSecure = httpContext.Request.IsHttps;
+            // SameSite=None requires Secure=true (HTTPS), otherwise use Lax for HTTP
+            var sameSiteMode = isSecure ? SameSiteMode.None : SameSiteMode.Lax;
+
             // Save access token
             httpContext.Response.Cookies.Append(cookieTokenName, accessToken, new CookieOptions
             {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                HttpOnly = false,
+                Secure = isSecure,
+                SameSite = sameSiteMode,
                 Expires = DateTime.UtcNow.AddMinutes(30)
             });
 
             // Save refresh token
             httpContext.Response.Cookies.Append(cookieRefreshTokenName, refreshToken, new CookieOptions
             {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                HttpOnly = false,
+                Secure = isSecure,
+                SameSite = sameSiteMode,
                 Expires = DateTime.UtcNow.AddDays(7)
             });
 
             // Save user ID
             httpContext.Response.Cookies.Append(cookieUserName, userId.ToString(), new CookieOptions
             {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                HttpOnly = false,
+                Secure = isSecure,
+                SameSite = sameSiteMode,
                 Expires = DateTime.UtcNow.AddMinutes(30)
             });
 

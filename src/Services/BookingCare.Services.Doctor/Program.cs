@@ -46,6 +46,7 @@ builder.Services.AddScoped<ISpecialtyService, SpecialtyService>();
 builder.Services.AddScoped<ILanguageService, LanguageService>();
 builder.Services.AddScoped<IServiceTypeService, ServiceTypeService>();
 builder.Services.AddScoped<ILocationApiService, LocationApiService>();
+builder.Services.AddSingleton<BookingCare.Services.Doctor.Services.DatabaseInitializationService>();
 
 // AutoMapper configuration
 builder.Services.AddAutoMapper(typeof(DoctorMappingProfile), typeof(PositionMappingProfile), typeof(LanguageMappingProfile), typeof(SpecialtyMappingProfile), typeof(SimpleMappingProfile));
@@ -123,20 +124,11 @@ app.MapGet("/", () => "BookingCare Doctor Service is running. REST API: /swagger
 // Health check endpoint
 app.MapCommonHealthCheck("Doctor");
 
-// Database migration and seeding (development only)
-if (app.Environment.IsDevelopment())
+// Initialize database from SQL script if not exists
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    try
-    {
-        var context = scope.ServiceProvider.GetRequiredService<DoctorDbContext>();
-        await context.Database.EnsureCreatedAsync();
-        app.Logger.LogInformation("Database ensured created successfully");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "An error occurred while ensuring database creation");
-    }
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.Doctor.Services.DatabaseInitializationService>();
+    await dbInitService.InitializeAsync();
 }
 
 app.Run();

@@ -1,12 +1,13 @@
 # BookingCare Microservices - Full Docker Compose
 # Sử dụng: docker-compose -f docker-compose-full.yml up -d
 
-version: "3.8"
+version: '3.8'
 
 services:
   # Infrastructure
   rabbitmq:
     image: rabbitmq:3.12-management
+    platform: linux/amd64
     container_name: bookingcare_rabbitmq
     hostname: rabbitmq
     ports:
@@ -25,11 +26,12 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    platform: linux/amd64
     container_name: bookingcare_redis
     ports:
       - "6379:6379"
@@ -46,6 +48,7 @@ services:
 
   mongodb:
     image: mongo:7
+    platform: linux/amd64
     container_name: bookingcare_mongodb
     ports:
       - "27017:27017"
@@ -67,6 +70,7 @@ services:
   # SQL Server Databases
   sqlserver-discount:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_discount
     ports:
       - "1434:1433"
@@ -79,16 +83,16 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-saga:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_saga
     ports:
       - "1400:1433"
@@ -101,16 +105,16 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-user:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_user
     ports:
       - "1445:1433"
@@ -119,20 +123,20 @@ services:
       - SA_PASSWORD=${SQLSERVER_USER_PASSWORD}
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_user_data_v3:/var/opt/mssql
+      - sqlserver_user_data:/var/opt/mssql
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-doctor:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_doctor
     ports:
       - "1447:1433"
@@ -141,20 +145,20 @@ services:
       - SA_PASSWORD=${SQLSERVER_DOCTOR_PASSWORD}
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_doctor_data_v2:/var/opt/mssql
+      - sqlserver_doctor_data:/var/opt/mssql
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-auth:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_auth
     ports:
       - "1449:1433"
@@ -167,16 +171,16 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-appointment:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_appointment
     ports:
       - "1450:1433"
@@ -189,16 +193,16 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-hospital:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_hospital
     ports:
       - "1448:1433"
@@ -207,20 +211,20 @@ services:
       - SA_PASSWORD=${SQLSERVER_HOSPITAL_PASSWORD}
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_hospital_data_v2:/var/opt/mssql
+      - sqlserver_hospital_data:/var/opt/mssql
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-schedule:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_schedule
     ports:
       - "1446:1433"
@@ -233,16 +237,16 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-payment:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_payment
     ports:
       - "1451:1433"
@@ -255,16 +259,16 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-servicemedical:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_servicemedical
     ports:
       - "1452:1433"
@@ -277,16 +281,16 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   sqlserver-ai:
     image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
     container_name: bookingcare_sqlserver_ai
     ports:
       - "1453:1433"
@@ -295,23 +299,21 @@ services:
       - SA_PASSWORD=${SQLSERVER_AI_PASSWORD}
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_ai_data_v2:/var/opt/mssql
+      - sqlserver_ai_data:/var/opt/mssql
     networks:
       - bookingcare-network
     healthcheck:
-      test:
-        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 20s
     restart: unless-stopped
 
   # Microservices
   api-gateway:
-    build:
-      context: .
-      dockerfile: src/ApiGateway/BookingCare.ApiGateway.Ocelot/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-api-gateway:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_api_gateway
     ports:
       - "5001:5001"
@@ -344,9 +346,8 @@ services:
     restart: unless-stopped
 
   ai-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.AI/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-ai-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_ai_service
     ports:
       - "6001:6001"
@@ -358,6 +359,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6001;http://+:6101
       - ConnectionStrings__DefaultConnection=${AI_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - Gemini__ApiKey=${GEMINI_API_KEY}
       - AWS__S3__AccessKey=${S3_AI_ACCESS_KEY}
       - AWS__S3__SecretKey=${S3_AI_SECRET_KEY}
@@ -368,9 +372,8 @@ services:
     restart: unless-stopped
 
   analytics-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Analytics/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-analytics-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_analytics_service
     ports:
       - "6000:6000"
@@ -381,6 +384,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6000;http://+:6100
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Analytics
     networks:
@@ -388,9 +394,8 @@ services:
     restart: unless-stopped
 
   appointment-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Appointment/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-appointment-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_appointment_service
     ports:
       - "6002:6002"
@@ -406,6 +411,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6002;http://+:6102
       - ConnectionStrings__DefaultConnection=${APPOINTMENT_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - Cache__ConnectionString=${REDIS_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
@@ -425,9 +433,8 @@ services:
     restart: unless-stopped
 
   auth-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Auth/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-auth-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_auth_service
     ports:
       - "6003:6003"
@@ -460,19 +467,13 @@ services:
       - ExternalAuth__Google__ClientId=${GOOGLE_CLIENT_ID}
       - ExternalAuth__Facebook__AppId=${FACEBOOK_APP_ID}
       - ExternalAuth__Facebook__AppSecret=${FACEBOOK_APP_SECRET}
-      - FrontendOptions__Client__BaseUrl=${FRONTEND_CLIENT_BASEURL}
-      - FrontendOptions__Admin__BaseUrl=${FRONTEND_ADMIN_BASEURL}
-      - FrontendOptions__Default__BaseUrl=${FRONTEND_DEFAULT_BASEURL}
-      - FrontendOptions__HostMap__localhost:5174=${admin}
-      - FrontendOptions__HostMap__localhost:5173=${FRONTEND_DEFAULT_BASEURL}
     networks:
       - bookingcare-network
     restart: unless-stopped
 
   communication-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Communication/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-communication-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_communication_service
     ports:
       - "6006:6006"
@@ -487,6 +488,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6006;http://+:6106
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDB__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDB__DatabaseName=MABS_Communication
       - Cache__ConnectionString=${REDIS_CONNECTION_STRING}
@@ -506,9 +510,8 @@ services:
     restart: unless-stopped
 
   content-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Content/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-content-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_content_service
     ports:
       - "6005:6005"
@@ -519,6 +522,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6005;http://+:6105
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Content
     networks:
@@ -526,9 +532,8 @@ services:
     restart: unless-stopped
 
   discount-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Discount/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-discount-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_discount_service
     ports:
       - "6007:6007"
@@ -542,6 +547,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6007;http://+:6017
       - ConnectionStrings__DefaultConnection=${DISCOUNT_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
@@ -551,9 +559,8 @@ services:
     restart: unless-stopped
 
   doctor-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Doctor/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-doctor-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_doctor_service
     ports:
       - "6008:6008"
@@ -567,6 +574,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6008;http://+:6108
       - ConnectionStrings__DefaultConnection=${DOCTOR_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
@@ -580,9 +590,8 @@ services:
     restart: unless-stopped
 
   favorites-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Favorites/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-favorites-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_favorites_service
     ports:
       - "6009:6009"
@@ -593,6 +602,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6009;http://+:6109
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Favorites
     networks:
@@ -600,9 +612,8 @@ services:
     restart: unless-stopped
 
   hospital-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Hospital/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-hospital-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_hospital_service
     ports:
       - "6004:6004"
@@ -616,6 +627,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6004;http://+:6104
       - ConnectionStrings__DefaultConnection=${HOSPITAL_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
@@ -630,9 +644,8 @@ services:
     restart: unless-stopped
 
   notification-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Notification/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-notification-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_notification_service
     ports:
       - "6010:6010"
@@ -647,6 +660,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6010;http://+:6110
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDb__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDb__DatabaseName=MABS_Notification
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
@@ -667,12 +683,11 @@ services:
     restart: unless-stopped
 
   payment-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Payment/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-payment-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_payment_service
     ports:
-      - "6099:6011"
+      - "6088:6088"
       - "6111:6111"
     depends_on:
       sqlserver-payment:
@@ -683,6 +698,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6011;http://+:6111
       - ConnectionStrings__DefaultConnection=${PAYMENT_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__Port=${RABBITMQ_PORT}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
@@ -700,9 +718,8 @@ services:
     restart: unless-stopped
 
   review-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Review/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-review-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_review_service
     ports:
       - "6012:6012"
@@ -713,6 +730,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6012;http://+:6112
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Reviews
       - Services__Auth__GrpcUrl=http://auth-service:6103
@@ -723,9 +743,8 @@ services:
     restart: unless-stopped
 
   saga-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Saga/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-saga-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_saga_service
     ports:
       - "6013:6013"
@@ -736,15 +755,17 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6013;http://+:6113
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - Saga__ConnectionString=${SAGA_CONNECTION_STRING}
     networks:
       - bookingcare-network
     restart: unless-stopped
 
   schedule-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.Schedule/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-schedule-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_schedule_service
     ports:
       - "6014:6014"
@@ -760,6 +781,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6014;http://+:6114
       - ConnectionStrings__DefaultConnection=${SCHEDULE_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - Cache__ConnectionString=${REDIS_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
@@ -773,9 +797,8 @@ services:
     restart: unless-stopped
 
   servicemedical-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.ServiceMedical/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-servicemedical-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_servicemedical_service
     ports:
       - "6015:6015"
@@ -787,6 +810,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6015;http://+:6115
       - ConnectionStrings__DefaultConnection=${SERVICEMEDICAL_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - GrpcClients__Hospital__Address=http://hospital-service:6104
       - AWS__S3__AccessKey=${S3_ACCESS_KEY}
       - AWS__S3__SecretKey=${S3_SECRET_KEY}
@@ -797,9 +823,8 @@ services:
     restart: unless-stopped
 
   user-service:
-    build:
-      context: .
-      dockerfile: src/Services/BookingCare.Services.User/Dockerfile
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-user-service:${VERSION:-latest}
+    platform: linux/amd64
     container_name: bookingcare_user_service
     ports:
       - "6016:6016"
@@ -813,6 +838,9 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6016;http://+:6116
       - ConnectionStrings__DefaultConnection=${USER_CONNECTION_STRING}
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
@@ -825,21 +853,69 @@ services:
       - bookingcare-network
     restart: unless-stopped
 
+  ui-user:
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-frontend:${VERSION:-latest}
+    platform: linux/amd64
+    container_name: bookingcare_ui_user
+    ports:
+      - "5173:80"
+    depends_on:
+      - api-gateway
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+      - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
+      - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+      - VITE_FACEBOOK_APP_ID=${VITE_FACEBOOK_APP_ID}
+      - VITE_DEVICE_ID=${VITE_DEVICE_ID}
+    networks:
+      - bookingcare-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  ui-admin:
+    image: ${DOCKER_USERNAME:-hiumx}/bookingcare-frontend-admin:${VERSION:-latest}
+    platform: linux/amd64
+    container_name: bookingcare_ui_admin
+    ports:
+      - "5174:80"
+    depends_on:
+      - api-gateway
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+      - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
+      - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+      - VITE_FACEBOOK_APP_ID=${VITE_FACEBOOK_APP_ID}
+      - MABS_APP_NAME=${MABS_APP_NAME}
+    networks:
+      - bookingcare-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
 volumes:
   rabbitmq_data:
   redis_data:
   mongodb_data:
   sqlserver_discount_data:
   sqlserver_saga_data:
-  sqlserver_user_data_v3:
-  sqlserver_doctor_data_v2:
+  sqlserver_user_data:
+  sqlserver_doctor_data:
   sqlserver_auth_data:
   sqlserver_appointment_data:
-  sqlserver_hospital_data_v2:
+  sqlserver_hospital_data:
   sqlserver_schedule_data:
   sqlserver_payment_data:
   sqlserver_servicemedical_data:
-  sqlserver_ai_data_v2:
+  sqlserver_ai_data:
 
 networks:
   bookingcare-network:
