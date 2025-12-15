@@ -346,6 +346,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6001;http://+:6101
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${AI_CONNECTION_STRING}
       - Gemini__ApiKey=${GEMINI_API_KEY}
       - AWS__S3__AccessKey=${S3_AI_ACCESS_KEY}
@@ -370,6 +373,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6000;http://+:6100
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Analytics
     networks:
@@ -394,6 +400,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6002;http://+:6102
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${APPOINTMENT_CONNECTION_STRING}
       - Cache__ConnectionString=${REDIS_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
@@ -471,6 +480,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6006;http://+:6106
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDB__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDB__DatabaseName=MABS_Communication
       - Cache__ConnectionString=${REDIS_CONNECTION_STRING}
@@ -503,6 +515,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6005;http://+:6105
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Content
     networks:
@@ -525,6 +540,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6007;http://+:6017
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${DISCOUNT_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
@@ -550,6 +568,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6008;http://+:6108
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${DOCTOR_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
@@ -577,6 +598,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6009;http://+:6109
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Favorites
     networks:
@@ -599,6 +623,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6004;http://+:6104
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${HOSPITAL_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
@@ -631,6 +658,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6010;http://+:6110
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDb__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDb__DatabaseName=MABS_Notification
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
@@ -666,6 +696,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6011;http://+:6111
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${PAYMENT_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__Port=${RABBITMQ_PORT}
@@ -697,6 +730,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6012;http://+:6112
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
       - MongoDbSettings__DatabaseName=MABS_Reviews
       - Services__Auth__GrpcUrl=http://auth-service:6103
@@ -720,6 +756,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6013;http://+:6113
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - Saga__ConnectionString=${SAGA_CONNECTION_STRING}
     networks:
       - bookingcare-network
@@ -743,6 +782,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6014;http://+:6114
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${SCHEDULE_CONNECTION_STRING}
       - Cache__ConnectionString=${REDIS_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
@@ -770,6 +812,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6015;http://+:6115
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${SERVICEMEDICAL_CONNECTION_STRING}
       - GrpcClients__Hospital__Address=http://hospital-service:6104
       - AWS__S3__AccessKey=${S3_ACCESS_KEY}
@@ -796,6 +841,9 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
       - ASPNETCORE_URLS=http://+:6016;http://+:6116
+      - Jwt__SecretKey=${JWT_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
       - ConnectionStrings__DefaultConnection=${USER_CONNECTION_STRING}
       - RabbitMQ__HostName=${RABBITMQ_HOSTNAME}
       - RabbitMQ__UserName=${RABBITMQ_DEFAULT_USER}
