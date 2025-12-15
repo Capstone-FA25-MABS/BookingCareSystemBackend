@@ -325,7 +325,9 @@ public class ReviewService : BaseService, IReviewService
     public async Task<PagedReviewsResponse> GetReviewsByDoctorAsync(
         Guid doctorId,
         int page = 1,
-        int pageSize = 10
+        int pageSize = 10,
+        int? minRating = null,
+        int? maxRating = null
     )
     {
         return await ExecuteWithErrorHandling(
@@ -334,16 +336,20 @@ public class ReviewService : BaseService, IReviewService
                 ValidateGuid(doctorId, nameof(doctorId));
 
                 LogInfo(
-                    "Getting reviews for doctor: {DoctorId} with optimized enrichment",
+                    "Getting reviews for doctor: {DoctorId} with optimized enrichment (minRating: {MinRating}, maxRating: {MaxRating})",
                     null,
-                    doctorId
+                    doctorId,
+                    minRating,
+                    maxRating
                 );
 
                 // Get reviews from repository
                 var pagedReviews = await _reviewRepository.GetReviewsByDoctorAsync(
                     doctorId,
                     page,
-                    pageSize
+                    pageSize,
+                    minRating,
+                    maxRating
                 );
 
                 // Enrich with optimized information (UserService for patients, AuthService for reply authors)
