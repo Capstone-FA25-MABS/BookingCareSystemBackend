@@ -25,5 +25,10 @@ public class GroqServicesConfiguration
     /// Cấu hình cho Medical Summary Service
     /// </summary>
     public ServiceGroqConfiguration MedicalSummary { get; set; } = new();
+
+    /// <summary>
+    /// Cấu hình cho AI Insights (tóm tắt KPI)
+    /// </summary>
+    public ServiceGroqConfiguration InsightsSummary { get; set; } = new();
 }
 
