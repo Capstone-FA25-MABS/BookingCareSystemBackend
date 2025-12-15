@@ -25,8 +25,10 @@ public class GroqApiHelper
         _httpClient = httpClient;
         _config = config.Value;
 
-        // Configure HttpClient timeout
-        _httpClient.Timeout = TimeSpan.FromSeconds(_config.TimeoutSeconds);
+        // Configure HttpClient timeout to maximum possible value
+        // Individual requests will use CancellationTokenSource for specific timeouts
+        // Set to 180 seconds to accommodate all service timeouts (max is typically 90-120s)
+        _httpClient.Timeout = TimeSpan.FromSeconds(180);
     }
 
     /// <summary>
@@ -320,24 +322,36 @@ public class GroqApiHelper
             maxRetries
         );
 
-        var response = await _httpClient.SendAsync(request, timeoutCts.Token);
-        var responseContent = await response.Content.ReadAsStringAsync(timeoutCts.Token);
-
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            HandleErrorResponse(response, responseContent);
+            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
+            var responseContent = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                HandleErrorResponse(response, responseContent);
+            }
+
+            var groqResponse = ParseGroqResponse(responseContent);
+            var generatedText = ExtractGeneratedTextOrThrow(groqResponse, responseContent);
+
+            _logger.LogInformation(
+                "Successfully called Groq using {Model}, generated {Length} characters",
+                model,
+                generatedText.Length);
+
+            return generatedText;
         }
-
-        var groqResponse = ParseGroqResponse(responseContent);
-        var generatedText = ExtractGeneratedTextOrThrow(groqResponse, responseContent);
-
-        _logger.LogInformation(
-            "Successfully called Groq using {Model}, generated {Length} characters",
-            model,
-            generatedText.Length
-        );
-
-        return generatedText;
+        catch (TaskCanceledException ex) when (timeoutCts.Token.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(
+                ex,
+                "Request timeout after {TimeoutSeconds}s for model {Model}. HttpClient timeout is {HttpClientTimeout}s",
+                timeoutSeconds,
+                model,
+                _httpClient.Timeout.TotalSeconds);
+            throw;
+        }
     }
 
     private HttpRequestMessage CreateHttpRequest(

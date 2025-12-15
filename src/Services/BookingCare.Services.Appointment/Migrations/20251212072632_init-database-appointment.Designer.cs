@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Appointment.Migrations
 {
     [DbContext(typeof(AppointmentDbContext))]
-    [Migration("20251126134719_AddAmountToAppointment")]
-    partial class AddAmountToAppointment
+    [Migration("20251212072632_init-database-appointment")]
+    partial class initdatabaseappointment
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -72,7 +72,7 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.Property<bool>("IsRescheduled")
                         .HasColumnType("bit");
 
-                    b.Property<Guid?>("PatientAccountId")
+                    b.Property<Guid>("PatientAccountId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("PatientId")
@@ -94,6 +94,9 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.Property<string>("Reason")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid?>("RelativeId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("RescheduleToken")
                         .HasMaxLength(100)
@@ -134,18 +137,32 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.HasIndex("DoctorId", "AppointmentDate", "AppointmentTimeId")
                         .IsUnique()
                         .HasDatabaseName("IX_Doctor_Date_Time_Unique")
-                        .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
+                        .HasFilter("[DoctorId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
 
                     b.HasIndex("DoctorId", "AppointmentDate", "Status")
-                        .HasDatabaseName("IX_Doctor_Date_Status");
+                        .HasDatabaseName("IX_Doctor_Date_Status")
+                        .HasFilter("[DoctorId] IS NOT NULL");
 
                     b.HasIndex("PatientId", "AppointmentDate", "AppointmentTimeId")
                         .IsUnique()
                         .HasDatabaseName("IX_Patient_Date_Time_Unique")
-                        .HasFilter("[Status] IN ('PENDING', 'CONFIRMED')");
+                        .HasFilter("[RelativeId] IS NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
 
                     b.HasIndex("PatientId", "AppointmentDate", "Status")
                         .HasDatabaseName("IX_Patient_Date_Status");
+
+                    b.HasIndex("RelativeId", "AppointmentDate", "AppointmentTimeId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Relative_Date_Time_Unique")
+                        .HasFilter("[RelativeId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
+
+                    b.HasIndex("ServiceId", "AppointmentDate", "AppointmentTimeId")
+                        .HasDatabaseName("IX_Service_Date_Time")
+                        .HasFilter("[ServiceId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
+
+                    b.HasIndex("ServiceId", "AppointmentDate", "Status")
+                        .HasDatabaseName("IX_Service_Date_Status")
+                        .HasFilter("[ServiceId] IS NOT NULL");
 
                     b.ToTable("Appointments");
                 });
