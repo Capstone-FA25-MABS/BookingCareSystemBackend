@@ -124,6 +124,22 @@ public static class SmsTemplate
         return $"[BookingCare] Yeu cau dat lich ngay {@event.AppointmentDate:dd/MM/yyyy} {appointmentTime}{hospitalInfo} da bi tu choi. Ly do: {TruncateText(@event.RejectionReason, 50)}. Vui long dat lich moi.";
     }
 
+    public static string BuildSmsContent(AppointmentReminderEvent @event)
+    {
+        var vietnamTimeZone = TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        var vietnamTime = TimeZoneInfo.ConvertTimeFromUtc(@event.AppointmentDate, vietnamTimeZone);
+        var formattedDate = vietnamTime.ToString("dd/MM/yyyy");
+
+        var timeText = @event.ReminderType == "24_HOURS" ? "24h" : "1h";
+        var doctorInfo = !string.IsNullOrEmpty(@event.DoctorName)
+            ? $" voi BS.{@event.DoctorName}"
+            : "";
+
+        return $"[BookingCare] Nhac lich hen: Con {timeText}. " +
+               $"Ngay {formattedDate} luc {@event.AppointmentTime}{doctorInfo} " +
+               $"tai {@event.HospitalName}. Vui long den dung gio.";
+    }
+
     /// <summary>
     /// Truncate text to specified length with ellipsis
     /// </summary>

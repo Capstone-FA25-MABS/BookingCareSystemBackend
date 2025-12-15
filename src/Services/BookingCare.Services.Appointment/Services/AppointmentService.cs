@@ -925,6 +925,8 @@ public class AppointmentService : BaseService, IAppointmentService
         // Batch fetch Specialty info for specialty booking (hospital assigns doctor mode)
         await FetchAndMapSpecialtyInfoAsync(responses, entities, "appointments enrichment");
 
+        await FetchAndCalculateRemainingPaymentAsync(responses, entities);
+
         // Batch fetch Hospital info to avoid N+1 problem
         var hospitalIds = entities
             .Where(e => e.HospitalId.HasValue)
@@ -3398,7 +3400,7 @@ public class AppointmentService : BaseService, IAppointmentService
                 {
                     AppointmentId = appointmentId,
                     PatientId = patientId,
-                    AccountId = accountId,
+                    AccountId = appointment.PatientAccountId.ToString() ?? accountId,
                     PatientEmail = patientInfo.Email,
                     AppointmentData = new AppointmentData
                     {
@@ -3413,7 +3415,7 @@ public class AppointmentService : BaseService, IAppointmentService
                         Amount = amount, // Use the actual payment amount from the event
                         AppointmentType = appointmentTypeText,
                     },
-                    EmailSubject = "Đặt lịch hẹn thành công - BookingCare",
+                    EmailSubject = "Đặt lịch hẹn thành công - MedCure",
                     CorrelationId = Guid.NewGuid().ToString(),
                 };
 

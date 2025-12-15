@@ -53,6 +53,7 @@ builder.Services.Configure<FrontendConfiguration>(builder.Configuration.GetSecti
 // Add Background Services
 builder.Services.AddHostedService<AppointmentStatusUpdateService>();
 builder.Services.AddHostedService<TokenCleanupService>();
+builder.Services.AddHostedService<AppointmentReminderService>();
 
 // Add S3 File Upload Service
 builder.Services.AddS3FileUpload(builder.Configuration);
