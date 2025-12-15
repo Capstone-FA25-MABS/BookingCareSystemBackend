@@ -51,6 +51,8 @@ public class CreateBlogRequest
     public BlogStatus Status { get; set; } = BlogStatus.Pending;
     public bool Featured { get; set; }
     public DateTime? PublishedAt { get; set; }
+    public Guid? CreatedByDoctorId { get; set; }
+    public Guid? CreatedByHospitalId { get; set; }
 }
 
 public class UpdateBlogRequest : CreateBlogRequest
@@ -66,6 +68,8 @@ public class BlogFilterParameters
     public bool? Featured { get; set; }
     public string? Keyword { get; set; }
     public Guid? CreatedByAccountId { get; set; }
+    public Guid? CreatedByDoctorId { get; set; }
+    public Guid? CreatedByHospitalId { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

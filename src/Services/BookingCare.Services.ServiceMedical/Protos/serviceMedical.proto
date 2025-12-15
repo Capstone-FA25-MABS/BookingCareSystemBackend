@@ -29,6 +29,9 @@ service ServiceMedicalService {
   
   // Get multiple services basic info by IDs (batch operation for performance)
   rpc GetServicesBasicInfo (GetServicesBasicInfoRequest) returns (ServicesBasicInfoResponse);
+  
+  // Get single service basic info by ID
+  rpc GetServiceMedicalBasicInfo (GetServiceMedicalBasicInfoRequest) returns (ServiceMedicalBasicInfoResponse);
 }
 
 // Request messages
@@ -131,4 +134,18 @@ message ServiceBasicInfoResponse {
 // Response for batch fetching services basic info
 message ServicesBasicInfoResponse {
   repeated ServiceBasicInfoResponse services = 1;
+}
+
+// Request for single service basic info
+message GetServiceMedicalBasicInfoRequest {
+  string id = 1;
+}
+
+// Response for single service basic info
+message ServiceMedicalBasicInfoResponse {
+  string id = 1;
+  string name = 2;
+  string price = 3;
+  string image_url = 4;
+  string hospital_id = 5;
 }

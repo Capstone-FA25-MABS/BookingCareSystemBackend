@@ -361,7 +361,7 @@ public static class MedicalReportHtmlGenerator
         html.AppendLine("        <div class=\"header\">");
         html.AppendLine("            <div class=\"logo-section\">");
         html.AppendLine(
-            "                <div class=\"clinic-name\">BOOKINGCARE MEDICAL CENTER</div>"
+            "                <div class=\"clinic-name\">MEDCURE MEDICAL CENTER</div>"
         );
         html.AppendLine(
             "                <div class=\"clinic-subtitle\">Trung Tâm Y Tế Chuyên Nghiệp</div>"
@@ -409,7 +409,7 @@ public static class MedicalReportHtmlGenerator
         // Footer
         html.AppendLine("        <div class=\"footer\">");
         html.AppendLine(
-            "            <div class=\"footer-info\">BookingCare - Nền tảng đặt lịch khám bệnh trực tuyến hàng đầu Việt Nam</div>"
+            "            <div class=\"footer-info\">MedCure - Nền tảng đặt lịch khám bệnh trực tuyến hàng đầu Việt Nam</div>"
         );
         html.AppendLine(
             $"            <div class=\"footer-info\">Tạo lúc: {DateTime.Now:dd/MM/yyyy HH:mm:ss}</div>"

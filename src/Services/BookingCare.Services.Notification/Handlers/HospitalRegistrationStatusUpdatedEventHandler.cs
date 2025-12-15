@@ -48,7 +48,7 @@ public class HospitalRegistrationStatusUpdatedEventHandler : IIntegrationEventHa
                         hospitalName: @event.HospitalName,
                         contractFileUrl: @event.ContractFileUrl
                     );
-                    subject = $"🎉 Chúc mừng - Đăng ký hợp tác được chấp thuận - {@event.HospitalName}";
+                    subject = $"Chúc mừng - Đăng ký hợp tác được chấp thuận - {@event.HospitalName}";
                     break;
 
                 case STATUS_CANCELLED:

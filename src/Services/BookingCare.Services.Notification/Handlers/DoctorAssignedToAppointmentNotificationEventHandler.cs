@@ -54,7 +54,7 @@ public class DoctorAssignedToAppointmentNotificationEventHandler : IIntegrationE
             var specialty = @event.DoctorSpecialty ?? "chuyên khoa";
 
             // Build email content
-            var emailSubject = $"[BookingCare] Bác sĩ đã được gán cho lịch hẹn của bạn";
+            var emailSubject = $"[MedCure] Bác sĩ đã được gán cho lịch hẹn của bạn";
             var emailContent = EmailTemplate.BuildDoctorAssignedEmailHtml(
                 patientName,
                 doctorName,

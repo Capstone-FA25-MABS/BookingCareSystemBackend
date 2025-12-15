@@ -4,6 +4,8 @@ using BookingCare.Services.Blog.Repositories;
 using BookingCare.Services.Blog.Services;
 using BookingCare.Services.Blog.Validators;
 using BookingCare.Services.User.Protos;
+using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.Hospital;
 using BookingCare.Shared.Common.Extensions;
 using BookingCare.Shared.Common.Versioning;
 using FluentValidation;
@@ -45,6 +47,20 @@ builder.Services.AddGrpc();
 builder.Services.AddGrpcClient<UserService.UserServiceClient>(o =>
 {
     var endpoint = builder.Configuration.GetSection("Services:User").GetValue<string>("GrpcUrl") ?? "http://localhost:6116";
+    o.Address = new Uri(endpoint);
+});
+
+// Doctor service client
+builder.Services.AddGrpcClient<DoctorService.DoctorServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Doctor").GetValue<string>("GrpcUrl") ?? "http://localhost:6119";
+    o.Address = new Uri(endpoint);
+});
+
+// Hospital service client
+builder.Services.AddGrpcClient<HospitalService.HospitalServiceClient>(o =>
+{
+    var endpoint = builder.Configuration.GetSection("Services:Hospital").GetValue<string>("GrpcUrl") ?? "http://localhost:6120";
     o.Address = new Uri(endpoint);
 });
 

@@ -59,7 +59,7 @@ public class HospitalSubscriptionCreatedEventHandler : IIntegrationEventHandler<
             };
             var emailHtml = EmailTemplate.BuildHospitalSubscriptionCreatedEmailHtml(emailData);
 
-            var subject = $"Đăng ký gói dịch vụ {@event.PlanName} thành công - BookingCare";
+            var subject = $"Đăng ký gói dịch vụ {@event.PlanName} thành công - MedCure";
 
             // Send email
             await _emailService.SendEmailAsync(
