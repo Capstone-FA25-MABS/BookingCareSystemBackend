@@ -271,7 +271,7 @@ public class GroqApiHelper
 
         var request = CreateHttpRequest(prompt, model, apiKey, temperature, maxTokens, url);
         _logger.LogInformation(
-            "Calling Groq API: {Model} (attempt {Attempt}/{MaxRetries}, timeout: {Timeout}s)", 
+            "Calling Groq API: {Model} (attempt {Attempt}/{MaxRetries}, timeout: {Timeout}s)",
             model, attempt + 1, maxRetries, timeoutSeconds);
 
         try

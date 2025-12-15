@@ -56,12 +56,12 @@ public class AiInsightsService : IAiInsightsService
             {
                 currentStart = request.FromDate.Value.Date;
                 currentEnd = request.ToDate.Value.Date.AddDays(1).AddTicks(-1); // End of day
-                
+
                 // Tính previous period: cùng độ dài, trước đó
                 var periodLength = (currentEnd - currentStart).TotalDays;
                 previousEnd = currentStart.AddTicks(-1);
                 previousStart = previousEnd.AddDays(-periodLength).Date;
-                
+
                 periodLabel = $"Tùy chỉnh ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})";
             }
             else
@@ -76,7 +76,7 @@ public class AiInsightsService : IAiInsightsService
                 periodLabel = Label;
             }
 
-            _logger.LogInformation("Collecting metrics for period {Period} ({Start} to {End})", 
+            _logger.LogInformation("Collecting metrics for period {Period} ({Start} to {End})",
                 periodLabel, currentStart, currentEnd);
 
             var metrics = await CollectMetricsAsync(
@@ -96,7 +96,7 @@ public class AiInsightsService : IAiInsightsService
                 previousEnd,
                 periodLabel);
 
-            _logger.LogInformation("Calling Groq API with model {Model}, maxTokens: {MaxTokens}", 
+            _logger.LogInformation("Calling Groq API with model {Model}, maxTokens: {MaxTokens}",
                 _groqConfig.PrimaryModel, _groqConfig.MaxTokens ?? 6000);
 
             var summary = await _groqApiHelper.CallGroqApiAsync(
@@ -345,7 +345,7 @@ ORDER BY Cnt DESC";
             foreach (var (doctorId, count) in doctorIds)
             {
                 var utilization = total == 0 ? 0 : Math.Round((double)count / total * 100, 2);
-                
+
                 // Try to get doctor name (optional, can be null)
                 string? doctorName = null;
                 try
@@ -412,7 +412,7 @@ ORDER BY Cnt DESC";
         foreach (var (hospitalId, count) in hospitalIds)
         {
             var share = total == 0 ? 0 : Math.Round((double)count / total * 100, 2);
-            
+
             // Try to get hospital name (optional, can be null)
             string? hospitalName = null;
             try
@@ -530,7 +530,7 @@ ORDER BY Cnt DESC";
 
             // First, collect all specialty data from reader
             var specialtyData = new List<(Guid SpecialtyId, int CurrentCount)>();
-            
+
             using (var command = new SqlCommand(sql, connection))
             {
                 command.Parameters.AddWithValue("@start", currentStart);
@@ -1129,7 +1129,7 @@ LƯU Ý JSON:
 
         // Remove markdown code blocks if present
         jsonContent = jsonContent.Trim();
-        
+
         // Remove ```json or ``` at start/end
         if (jsonContent.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
         {
@@ -1139,7 +1139,7 @@ LƯU Ý JSON:
         {
             jsonContent = jsonContent.Substring(3).TrimStart();
         }
-        
+
         if (jsonContent.EndsWith("```", StringComparison.OrdinalIgnoreCase))
         {
             jsonContent = jsonContent.Substring(0, jsonContent.Length - 3).TrimEnd();

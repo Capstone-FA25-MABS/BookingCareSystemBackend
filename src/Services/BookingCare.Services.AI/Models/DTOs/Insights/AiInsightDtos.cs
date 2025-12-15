@@ -116,13 +116,13 @@ public class AiInsightMetrics
     public int CurrentCancelled { get; set; }
     public double CancellationRate { get; set; }
     public double CancellationDeltaPercent { get; set; }
-    
+
     // Specialty metrics
     public Guid? TopSpecialtyId { get; set; }
     public string? TopSpecialtyName { get; set; }
     public int TopSpecialtyCount { get; set; }
     public double TopSpecialtyShare { get; set; }
-    
+
     // Extended analytics
     public List<DoctorUtilization> TopDoctors { get; set; } = new();
     public List<HospitalStats> TopHospitals { get; set; } = new();
@@ -141,12 +141,12 @@ public class AiInsightResponse
     public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
     public string Model { get; set; } = string.Empty;
     public AiInsightMetrics Metrics { get; set; } = new();
-    
+
     // New fields for enhanced insights
     public List<FuturePrediction> Predictions { get; set; } = new();
     public List<Alert> Alerts { get; set; } = new();
     public List<RootCauseAnalysis> RootCauseAnalyses { get; set; } = new();
-    
+
     // Conclusion texts
     public string AnalysisConclusion { get; set; } = string.Empty; // Kết luận phân tích dạng văn bản
     public string PredictionConclusion { get; set; } = string.Empty; // Kết luận dự đoán dạng văn bản
