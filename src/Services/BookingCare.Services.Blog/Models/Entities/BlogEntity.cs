@@ -17,6 +17,8 @@ public class BlogEntity : ITimestampedEntity
     public bool Featured { get; set; }
     public DateTime? PublishedAt { get; set; }
     public Guid? CreatedBy { get; set; }
+    public Guid? CreatedByDoctorId { get; set; }
+    public Guid? CreatedByHospitalId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

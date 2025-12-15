@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <Protobuf Include="..\BookingCare.Services.User\Protos\user.proto" GrpcServices="Client" Link="Protos\user.proto" />
+    <Protobuf Include="..\BookingCare.Services.Doctor\Protos\doctor.proto" GrpcServices="Client" Link="Protos\doctor.proto" />
+    <Protobuf Include="..\BookingCare.Services.Hospital\Protos\hospital.proto" GrpcServices="Client" Link="Protos\hospital.proto" />
   </ItemGroup>
 
   <ItemGroup>
