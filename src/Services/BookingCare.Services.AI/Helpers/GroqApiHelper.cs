@@ -322,9 +322,6 @@ public class GroqApiHelper
             maxRetries
         );
 
-        var response = await _httpClient.SendAsync(request, timeoutCts.Token);
-        var responseContent = await response.Content.ReadAsStringAsync(timeoutCts.Token);
-
         try
         {
             var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
