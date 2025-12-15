@@ -39,7 +39,7 @@ public class DoctorCredentialsGeneratedEventHandler : IIntegrationEventHandler<D
                 loginUrl: @event.LoginUrl
             );
 
-            var subject = "Chào mừng đến với Hệ thống BookingCare - Thông tin đăng nhập";
+            var subject = "Chào mừng đến với Hệ thống MedCure - Thông tin đăng nhập";
 
             // Send email
             await _emailService.SendEmailAsync(

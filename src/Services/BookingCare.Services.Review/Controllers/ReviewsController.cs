@@ -130,16 +130,26 @@ public class ReviewsController : BaseApiController
     /// <param name="doctorId">Doctor ID</param>
     /// <param name="page">Page number</param>
     /// <param name="pageSize">Page size</param>
+    /// <param name="minRating">Minimum rating filter (1-5)</param>
+    /// <param name="maxRating">Maximum rating filter (1-5)</param>
     /// <returns>Paginated reviews for the doctor</returns>
     [HttpGet("doctor/{doctorId:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
     public async Task<IActionResult> GetReviewsByDoctor(
         Guid doctorId,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10
+        [FromQuery] int pageSize = 10,
+        [FromQuery] int? minRating = null,
+        [FromQuery] int? maxRating = null
     )
     {
-        var result = await _reviewService.GetReviewsByDoctorAsync(doctorId, page, pageSize);
+        var result = await _reviewService.GetReviewsByDoctorAsync(
+            doctorId,
+            page,
+            pageSize,
+            minRating,
+            maxRating
+        );
         return Success(result, "Doctor reviews retrieved successfully");
     }
 

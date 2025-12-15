@@ -80,7 +80,7 @@ public class AppointmentResultNotificationEventHandler
             // Send the email
             await _emailService.SendEmailAsync(
                 toEmail: @event.PatientEmail,
-                subject: "Kết quả khám bệnh - BookingCare",
+                subject: "Kết quả khám bệnh - MedCure",
                 content: emailContent,
                 isHtml: true,
                 cancellationToken: cancellationToken

@@ -35,7 +35,7 @@ public class AppointmentCancelledSuccessNotificationEventHandler
             var patientName = @event.PatientFullName ?? "Quý khách";
 
             // Build notification content for cancellation success
-            var emailSubject = "Hủy lịch hẹn thành công - BookingCare";
+            var emailSubject = "Hủy lịch hẹn thành công - MedCure";
             var emailContent = EmailTemplate.BuildCancellationSuccessEmailHtml(
                 patientName,
                 @event.AppointmentDate,
@@ -43,7 +43,7 @@ public class AppointmentCancelledSuccessNotificationEventHandler
                 @event.DoctorName,
                 @event.HospitalName);
 
-            var smsContent = $"[BookingCare] Lịch hẹn ngày {@event.AppointmentDate:dd/MM/yyyy HH:mm} của bạn đã được hủy thành công. Cảm ơn bạn đã sử dụng dịch vụ.";
+            var smsContent = $"[MedCure] Lịch hẹn ngày {@event.AppointmentDate:dd/MM/yyyy HH:mm} của bạn đã được hủy thành công. Cảm ơn bạn đã sử dụng dịch vụ.";
 
             // Send Email
             await SendEmailNotificationAsync(

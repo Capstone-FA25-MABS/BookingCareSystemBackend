@@ -330,6 +330,48 @@ namespace BookingCare.Services.ServiceMedical.Services.Grpc
             }
         }
 
+        public override async Task<Protos.ServiceMedicalBasicInfoResponse> GetServiceMedicalBasicInfo(
+            Protos.GetServiceMedicalBasicInfoRequest request, ServerCallContext context)
+        {
+            try
+            {
+                if (!Guid.TryParse(request.Id, out var serviceId))
+                {
+                    throw new RpcException(new Status(StatusCode.InvalidArgument, "Invalid service ID"));
+                }
+
+                var service = await _serviceMedicalService.GetServiceByIdAsync(serviceId);
+                if (service == null)
+                {
+                    throw new RpcException(new Status(StatusCode.NotFound, "Service not found"));
+                }
+
+                var response = new Protos.ServiceMedicalBasicInfoResponse
+                {
+                    Id = service.Id.ToString(),
+                    Name = service.Name,
+                    Price = service.Price.ToString("F2"),
+                    ImageUrl = service.ImageUrl ?? string.Empty,
+                    HospitalId = service.HospitalId.ToString()
+                };
+
+                _logger.LogInformation(
+                    "[ServiceMedicalGrpcService] GetServiceMedicalBasicInfo returned service: {ServiceId}, Name: {Name}",
+                    serviceId, service.Name);
+
+                return response;
+            }
+            catch (RpcException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[ServiceMedicalGrpcService] Error in GetServiceMedicalBasicInfo for ID: {Id}", request.Id);
+                throw new RpcException(new Status(StatusCode.Internal, StatusConstants.InternalServerError));
+            }
+        }
+
         private Protos.ServiceResponse MapToServiceResponse(Models.DTOs.Responses.ServiceResponse service)
         {
             var serviceResponse = new Protos.ServiceResponse

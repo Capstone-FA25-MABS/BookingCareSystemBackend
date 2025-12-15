@@ -115,6 +115,20 @@ public class AppointmentEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal? Amount { get; set; }
 
+    #region Reminder Tracking
+
+    /// <summary>
+    /// Whether 24-hour reminder has been sent
+    /// </summary>
+    public bool Reminder24HoursSent { get; set; } = false;
+
+    /// <summary>
+    /// Whether 1-hour reminder has been sent
+    /// </summary>
+    public bool Reminder1HourSent { get; set; } = false;
+
+    #endregion
+
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

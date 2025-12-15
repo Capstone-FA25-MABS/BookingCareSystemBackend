@@ -34,7 +34,7 @@ public class RefundHistoryBankIssueReportedEventHandler
             var patientName = "Quý khách"; // We don't have UserFullName in BankIssueReportedEvent
 
             // Build notification content
-            var emailSubject = "Sự cố hoàn tiền - Cần cập nhật thông tin tài khoản - BookingCare";
+            var emailSubject = "Sự cố hoàn tiền - Cần cập nhật thông tin tài khoản - MedCure";
             var emailContent = EmailTemplate.BuildRefundBankIssueReportedEmailHtml(
                 patientName,
                 @event.RefundAmount,
@@ -42,7 +42,7 @@ public class RefundHistoryBankIssueReportedEventHandler
                 @event.BankAccount?.BankName,
                 @event.BankAccount?.AccountNumber);
 
-            var smsContent = $"BookingCare: Su co hoan tien {@event.RefundAmount:N0} VND. Ly do: {@event.IssueDescription}. Vui long cap nhat lai thong tin tai khoan ngan hang de nhan tien. Hotline: 1900-xxxx";
+            var smsContent = $"MedCure: Su co hoan tien {@event.RefundAmount:N0} VND. Ly do: {@event.IssueDescription}. Vui long cap nhat lai thong tin tai khoan ngan hang de nhan tien. Hotline: 1900-xxxx";
 
             // Send Email
             await SendEmailNotificationAsync(
