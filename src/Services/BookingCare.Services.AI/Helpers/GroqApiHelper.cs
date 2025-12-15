@@ -18,7 +18,8 @@ public class GroqApiHelper
     public GroqApiHelper(
         ILogger<GroqApiHelper> logger,
         HttpClient httpClient,
-        IOptions<GroqConfiguration> config)
+        IOptions<GroqConfiguration> config
+    )
     {
         _logger = logger;
         _httpClient = httpClient;
@@ -41,14 +42,16 @@ public class GroqApiHelper
         string prompt,
         double? temperature = null,
         int? maxTokens = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         return await CallGroqApiAsync(
             prompt,
             _config.AskingModel,
             temperature,
             maxTokens,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -64,14 +67,16 @@ public class GroqApiHelper
         string prompt,
         double? temperature = null,
         int? maxTokens = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         return await CallGroqApiAsync(
             prompt,
             _config.ConclusionModel,
             temperature,
             maxTokens,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -89,7 +94,8 @@ public class GroqApiHelper
         ServiceGroqConfiguration serviceConfig,
         double? temperature = null,
         int? maxTokens = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (string.IsNullOrEmpty(serviceConfig.ApiKey))
         {
@@ -103,11 +109,7 @@ public class GroqApiHelper
 
         // Thử primary model trước, sau đó fallback
         // Try primary model first, then fallback
-        var modelsToTry = new[]
-        {
-            serviceConfig.PrimaryModel,
-            serviceConfig.FallbackModel
-        };
+        var modelsToTry = new[] { serviceConfig.PrimaryModel, serviceConfig.FallbackModel };
 
         Exception? lastException = null;
 
@@ -123,16 +125,22 @@ public class GroqApiHelper
                     actualMaxTokens,
                     actualMaxRetries,
                     actualTimeoutSeconds,
-                    cancellationToken);
+                    cancellationToken
+                );
             }
-            catch (HttpRequestException ex) when (ex.Message.Contains("404") || ex.Message.Contains("Model not found"))
+            catch (HttpRequestException ex)
+                when (ex.Message.Contains("404") || ex.Message.Contains("Model not found"))
             {
                 _logger.LogDebug(ex, "Model {Model} not found, trying next model", model);
                 lastException = ex;
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
-                _logger.LogWarning(ex, "Timeout calling Groq API with model {Model}, trying next model", model);
+                _logger.LogWarning(
+                    ex,
+                    "Timeout calling Groq API with model {Model}, trying next model",
+                    model
+                );
                 lastException = ex;
             }
             catch (Exception ex)
@@ -144,7 +152,8 @@ public class GroqApiHelper
 
         throw new InvalidOperationException(
             $"Failed to call Groq API with all models (tried: {string.Join(", ", modelsToTry)}). Last error: {lastException?.Message}",
-            lastException);
+            lastException
+        );
     }
 
     /// <summary>
@@ -153,14 +162,16 @@ public class GroqApiHelper
     public async Task<string> CallGroqApiWithDefaultsAsync(
         string prompt,
         ServiceGroqConfiguration serviceConfig,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         return await CallGroqApiAsync(
             prompt,
             serviceConfig,
             temperature: null, // Use default from config
             maxTokens: null, // Use default from config
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken
+        );
     }
 
     /// <summary>
@@ -172,7 +183,8 @@ public class GroqApiHelper
         string model,
         double? temperature = null,
         int? maxTokens = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (!_config.Enabled)
         {
@@ -192,7 +204,8 @@ public class GroqApiHelper
             maxTokens ?? _config.MaxTokens,
             _config.MaxRetries,
             _config.TimeoutSeconds,
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -207,7 +220,8 @@ public class GroqApiHelper
         int maxTokens,
         int maxRetries,
         int timeoutSeconds,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         ValidateApiConfiguration(apiKey);
 
@@ -218,25 +232,55 @@ public class GroqApiHelper
         {
             try
             {
-                return await ExecuteApiCall(prompt, model, apiKey, temperature, maxTokens, timeoutSeconds, url, attempt, maxRetries, cancellationToken);
+                return await ExecuteApiCall(
+                    prompt,
+                    model,
+                    apiKey,
+                    temperature,
+                    maxTokens,
+                    timeoutSeconds,
+                    url,
+                    attempt,
+                    maxRetries,
+                    cancellationToken
+                );
             }
             catch (HttpRequestException ex) when (IsRateLimitException(ex))
             {
-                lastException = await HandleRateLimitException(ex, model, attempt, maxRetries, cancellationToken);
+                lastException = await HandleRateLimitException(
+                    ex,
+                    model,
+                    attempt,
+                    maxRetries,
+                    cancellationToken
+                );
             }
             catch (TaskCanceledException ex) when (IsTimeoutException(ex, cancellationToken))
             {
-                lastException = await HandleTimeoutException(ex, model, timeoutSeconds, attempt, maxRetries);
+                lastException = await HandleTimeoutException(
+                    ex,
+                    model,
+                    timeoutSeconds,
+                    attempt,
+                    maxRetries
+                );
             }
             catch (Exception ex)
             {
-                lastException = await HandleGenericException(ex, model, attempt, maxRetries, cancellationToken);
+                lastException = await HandleGenericException(
+                    ex,
+                    model,
+                    attempt,
+                    maxRetries,
+                    cancellationToken
+                );
             }
         }
 
         throw new InvalidOperationException(
             $"Failed to call Groq API with model {model} after {maxRetries} attempts. Last error: {lastException?.Message}",
-            lastException);
+            lastException
+        );
     }
 
     private void ValidateApiConfiguration(string apiKey)
@@ -262,13 +306,19 @@ public class GroqApiHelper
         string url,
         int attempt,
         int maxRetries,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
         var request = CreateHttpRequest(prompt, model, apiKey, temperature, maxTokens, url);
-        _logger.LogInformation("Calling Groq API: {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
+        _logger.LogInformation(
+            "Calling Groq API: {Model} (attempt {Attempt}/{MaxRetries})",
+            model,
+            attempt + 1,
+            maxRetries
+        );
 
         var response = await _httpClient.SendAsync(request, timeoutCts.Token);
         var responseContent = await response.Content.ReadAsStringAsync(timeoutCts.Token);
@@ -284,7 +334,8 @@ public class GroqApiHelper
         _logger.LogInformation(
             "Successfully called Groq using {Model}, generated {Length} characters",
             model,
-            generatedText.Length);
+            generatedText.Length
+        );
 
         return generatedText;
     }
@@ -295,16 +346,14 @@ public class GroqApiHelper
         string apiKey,
         double temperature,
         int maxTokens,
-        string url)
+        string url
+    )
     {
         var requestBody = BuildRequestBody(prompt, model, temperature, maxTokens);
         var jsonContent = JsonSerializer.Serialize(requestBody);
         var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-        var request = new HttpRequestMessage(HttpMethod.Post, url)
-        {
-            Content = httpContent
-        };
+        var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = httpContent };
         request.Headers.Add("Authorization", $"Bearer {apiKey}");
 
         return request;
@@ -312,12 +361,18 @@ public class GroqApiHelper
 
     private static bool IsRateLimitException(HttpRequestException ex)
     {
-        return ex.Message.Contains("429") || ex.Message.Contains("quota") || ex.Message.Contains("rate limit");
+        return ex.Message.Contains("429")
+            || ex.Message.Contains("quota")
+            || ex.Message.Contains("rate limit");
     }
 
-    private static bool IsTimeoutException(TaskCanceledException ex, CancellationToken cancellationToken)
+    private static bool IsTimeoutException(
+        TaskCanceledException ex,
+        CancellationToken cancellationToken
+    )
     {
-        return ex.CancellationToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
+        return ex.CancellationToken.IsCancellationRequested
+            && !cancellationToken.IsCancellationRequested;
     }
 
     private async Task<Exception> HandleRateLimitException(
@@ -325,7 +380,8 @@ public class GroqApiHelper
         string model,
         int attempt,
         int maxRetries,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         _logger.LogWarning(ex, "Groq API rate limit exceeded for model {Model}", model);
 
@@ -333,7 +389,8 @@ public class GroqApiHelper
         {
             throw new InvalidOperationException(
                 $"Groq API rate limit exceeded for model {model}. Please wait and try again later.",
-                ex);
+                ex
+            );
         }
 
         var delay = (attempt + 1) * 1000;
@@ -346,15 +403,22 @@ public class GroqApiHelper
         string model,
         int timeoutSeconds,
         int attempt,
-        int maxRetries)
+        int maxRetries
+    )
     {
-        _logger.LogWarning(ex, "Timeout calling Groq API with model {Model} ({Timeout}s)", model, timeoutSeconds);
+        _logger.LogWarning(
+            ex,
+            "Timeout calling Groq API with model {Model} ({Timeout}s)",
+            model,
+            timeoutSeconds
+        );
 
         if (attempt >= maxRetries - 1)
         {
             throw new InvalidOperationException(
                 $"Timeout calling Groq API with model {model} after {maxRetries} attempts.",
-                ex);
+                ex
+            );
         }
 
         return Task.FromResult<Exception>(ex);
@@ -365,15 +429,23 @@ public class GroqApiHelper
         string model,
         int attempt,
         int maxRetries,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        _logger.LogWarning(ex, "Failed to call Groq API with model {Model} (attempt {Attempt}/{MaxRetries})", model, attempt + 1, maxRetries);
+        _logger.LogWarning(
+            ex,
+            "Failed to call Groq API with model {Model} (attempt {Attempt}/{MaxRetries})",
+            model,
+            attempt + 1,
+            maxRetries
+        );
 
         if (attempt >= maxRetries - 1)
         {
             throw new InvalidOperationException(
                 $"Failed to call Groq API with model {model} after {maxRetries} attempts. Error: {ex.Message}",
-                ex);
+                ex
+            );
         }
 
         var delay = (attempt + 1) * 500;
@@ -386,28 +458,23 @@ public class GroqApiHelper
         return new
         {
             model = model,
-            messages = new[]
-            {
-                new
-                {
-                    role = "user",
-                    content = prompt
-                }
-            },
+            messages = new[] { new { role = "user", content = prompt } },
             temperature = temperature,
-            max_tokens = maxTokens
+            max_tokens = maxTokens,
         };
     }
 
-    private void HandleErrorResponse(
-        HttpResponseMessage response,
-        string responseContent)
+    private void HandleErrorResponse(HttpResponseMessage response, string responseContent)
     {
         if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
-            _logger.LogWarning("Groq API rate limit exceeded. Response: {Response}", responseContent);
+            _logger.LogWarning(
+                "Groq API rate limit exceeded. Response: {Response}",
+                responseContent
+            );
             throw new HttpRequestException(
-                "Groq API rate limit exceeded. Please wait and try again later.");
+                "Groq API rate limit exceeded. Please wait and try again later."
+            );
         }
 
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -419,7 +486,8 @@ public class GroqApiHelper
         _logger.LogWarning(
             "Groq API failed: {StatusCode}, Response: {Response}",
             response.StatusCode,
-            responseContent);
+            responseContent
+        );
 
         throw new HttpRequestException($"Groq API returned error: {response.StatusCode}");
     }
@@ -427,9 +495,9 @@ public class GroqApiHelper
     private GroqApiResponse ParseGroqResponse(string responseContent)
     {
         return JsonSerializer.Deserialize<GroqApiResponse>(
-                   responseContent,
-                   new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-               ?? new GroqApiResponse();
+                responseContent,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            ) ?? new GroqApiResponse();
     }
 
     private string ExtractGeneratedTextOrThrow(GroqApiResponse groqResponse, string responseContent)
@@ -438,18 +506,21 @@ public class GroqApiHelper
 
         if (!string.IsNullOrEmpty(generatedText))
         {
-            return generatedText;
+            // Clean response to remove thinking tags and unwanted formatting
+            return TextHelper.CleanMedicalResponse(generatedText);
         }
 
         var finishReason = groqResponse.Choices?[0]?.FinishReason ?? "unknown";
         _logger.LogWarning(
             "Groq API returned empty text. FinishReason: {FinishReason}. Full response: {Response}",
             finishReason,
-            responseContent);
+            responseContent
+        );
 
         throw new InvalidOperationException(
-            $"Groq API returned empty text. FinishReason: {finishReason}. " +
-            "This may indicate an issue with the prompt or API response format.");
+            $"Groq API returned empty text. FinishReason: {finishReason}. "
+                + "This may indicate an issue with the prompt or API response format."
+        );
     }
 
     #region Response Models
@@ -472,4 +543,3 @@ public class GroqApiHelper
 
     #endregion
 }
-
