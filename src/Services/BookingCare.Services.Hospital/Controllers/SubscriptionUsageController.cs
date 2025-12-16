@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Models.DTOs.Responses;
 
@@ -23,6 +24,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpGet("health")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
@@ -30,6 +32,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpGet("hospital/{hospitalId}")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(SubscriptionUsageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetUsageByHospitalId(Guid hospitalId)
@@ -47,6 +50,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpGet("hospital/{hospitalId}/doctor-limit")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CheckDoctorLimit(Guid hospitalId)
@@ -64,6 +68,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpGet("hospital/{hospitalId}/specialty-limit")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CheckSpecialtyLimit(Guid hospitalId)
@@ -81,6 +86,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpGet("hospital/{hospitalId}/appointment-limit")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CheckAppointmentLimit(Guid hospitalId, [FromQuery] int additionalAppointments = 1)
@@ -103,6 +109,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpGet("hospital/{hospitalId}/service-limit")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CheckServiceLimit(Guid hospitalId)
@@ -121,6 +128,7 @@ public class SubscriptionUsageController : ControllerBase
 
     // Increment/Decrement endpoints
     [HttpPost("hospital/{hospitalId}/doctor/increment")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> IncrementDoctorCount(Guid hospitalId)
@@ -138,6 +146,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpPost("hospital/{hospitalId}/doctor/decrement")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DecrementDoctorCount(Guid hospitalId)
@@ -155,6 +164,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpPost("hospital/{hospitalId}/specialty/increment")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> IncrementSpecialtyCount(Guid hospitalId)
@@ -172,6 +182,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpPost("hospital/{hospitalId}/specialty/decrement")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DecrementSpecialtyCount(Guid hospitalId)
@@ -189,6 +200,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpPost("hospital/{hospitalId}/service/increment")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> IncrementServiceCount(Guid hospitalId)
@@ -206,6 +218,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpPost("hospital/{hospitalId}/service/decrement")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DecrementServiceCount(Guid hospitalId)
@@ -223,6 +236,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpPost("hospital/{hospitalId}/appointment/increment")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> IncrementAppointmentCount(Guid hospitalId, [FromQuery] int count = 1)
@@ -240,6 +254,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpPost("hospital/{hospitalId}/appointment/decrement")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> DecrementAppointmentCount(Guid hospitalId, [FromQuery] int count = 1)
@@ -257,6 +272,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpGet("hospital/{hospitalId}/alerts")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(SubscriptionUsageAlertResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CheckUsageAlerts(Guid hospitalId)
@@ -274,6 +290,7 @@ public class SubscriptionUsageController : ControllerBase
     }
 
     [HttpGet("report")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(List<SubscriptionUsageResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetUsageReport([FromQuery] DateTime? fromDate = null, [FromQuery] DateTime? toDate = null)
