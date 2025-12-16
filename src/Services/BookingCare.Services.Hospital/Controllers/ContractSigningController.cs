@@ -104,7 +104,7 @@ public class ContractSigningController : BaseApiController
     /// </summary>
     [HttpGet("signing-link/{registrationId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetSigningLink(Guid registrationId)
     {
         var link = await _contractSigningService.GetSigningLinkAsync(registrationId);

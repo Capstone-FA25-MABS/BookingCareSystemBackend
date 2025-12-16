@@ -46,7 +46,7 @@ public class AisController : BaseApiController
     /// <response code="400">Invalid request data or generation failed</response>
     /// <response code="401">Unauthorized - user must be authenticated as Doctor/Staff/Admin</response>
     [HttpPost("generate-medical-summary")]
-    [Authorize(Roles = "Doctor,Staff,Admin")]
+    [Authorize(Policy = "Role:Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]

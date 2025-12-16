@@ -14,7 +14,6 @@ namespace BookingCare.Services.Hospital.Controllers;
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Route("api/[controller]")]
-[Authorize]
 public class HospitalsController : BaseApiController
 {
     private readonly IHospitalService _hospitalService;
@@ -65,6 +64,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpPut("{hospitalId}/specialties")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospitalSpecialties(
         Guid hospitalId,
         [FromBody] UpdateIdsRequest request
@@ -119,6 +119,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpPut("{hospitalId}/service-types")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospitalServiceTypes(
         Guid hospitalId,
         [FromBody] UpdateIdsRequest request
@@ -177,6 +178,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpGet("health")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
@@ -191,6 +193,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAllHospitals([FromQuery] HospitalFilterRequest filter)
     {
         try
@@ -209,6 +212,7 @@ public class HospitalsController : BaseApiController
     /// Get all hospitals (no pagination) - Optimized for performance
     /// </summary>
     [HttpGet("all")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAllHospitalsSimple()
     {
         try
@@ -260,6 +264,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetHospitalById(Guid id)
     {
         try
@@ -361,6 +366,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpPost]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateHospital([FromBody] CreateHospitalRequest request)
     {
         try
@@ -387,6 +393,7 @@ public class HospitalsController : BaseApiController
     /// Update hospital with avatar upload
     /// </summary>
     [HttpPut("{id}/upload-avatar")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospitalWithAvatar(
         Guid id,
         [FromForm] UpdateHospitalRequest request,
@@ -439,6 +446,7 @@ public class HospitalsController : BaseApiController
     /// Update hospital with background upload
     /// </summary>
     [HttpPut("{id}/upload-background")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospitalWithBackground(
         Guid id,
         [FromForm] UpdateHospitalRequest request,
@@ -491,6 +499,7 @@ public class HospitalsController : BaseApiController
     /// Update hospital with both avatar and background upload
     /// </summary>
     [HttpPut("{id}/upload-files")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospitalWithFiles(
         Guid id,
         [FromForm] UpdateHospitalRequest request,
@@ -557,6 +566,7 @@ public class HospitalsController : BaseApiController
     /// Upload hospital images
     /// </summary>
     [HttpPost("{id}/images")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UploadHospitalImages(
         Guid id,
         [FromForm] List<IFormFile> imageFiles,
@@ -606,6 +616,7 @@ public class HospitalsController : BaseApiController
     /// Delete hospital image
     /// </summary>
     [HttpDelete("{id}/images/{imageId}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> DeleteHospitalImage(
         Guid id,
         Guid imageId,
@@ -656,6 +667,7 @@ public class HospitalsController : BaseApiController
     /// Update current hospital profile (authenticated account)
     /// </summary>
     [HttpPut("profile")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateCurrentHospitalProfile(
         [FromBody] UpdateHospitalRequest request
     )
@@ -710,6 +722,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospital(
         Guid id,
         [FromBody] UpdateHospitalRequest request
@@ -751,6 +764,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> DeleteHospital(Guid id)
     {
         try
@@ -774,6 +788,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpPost("{hospitalId}/specialties/{specialtyId}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> AddSpecialtyToHospital(Guid hospitalId, Guid specialtyId)
     {
         try
@@ -802,6 +817,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpDelete("{hospitalId}/specialties/{specialtyId}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> RemoveSpecialtyFromHospital(Guid hospitalId, Guid specialtyId)
     {
         try

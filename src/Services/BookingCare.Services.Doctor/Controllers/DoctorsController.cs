@@ -152,6 +152,7 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpGet("admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetDoctorsForAdmin([FromQuery] DoctorQueryRequest query)
     {
         var result = await _doctorService.GetDoctorsAsync(query);
@@ -464,6 +465,7 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> CreateDoctor([FromBody] CreateDoctorRequest request)
     {
         if (!ModelState.IsValid)
@@ -539,6 +541,7 @@ public class DoctorsController : BaseApiController
 
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Doctor,Staff")]
     public async Task<IActionResult> UpdateDoctor(Guid id, [FromBody] UpdateDoctorRequest request)
     {
         if (!ModelState.IsValid)
@@ -559,7 +562,7 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpPost("upload-avatar")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize]
+    [Authorize(Policy = "Role:Doctor,Staff")]
     public async Task<IActionResult> CreateDoctorWithAvatar(
         [FromForm] CreateDoctorRequest request,
         [FromForm] IFormFile? avatarFile,
@@ -630,7 +633,7 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpPut("{id}/upload-avatar")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize]
+    [Authorize(Policy = "Role:Doctor,Staff")]
     public async Task<IActionResult> UpdateDoctorWithAvatar(
         Guid id,
         [FromForm] UpdateDoctorRequest request,
@@ -742,6 +745,7 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> DeleteDoctor(Guid id)
     {
         var result = await _doctorService.DeleteDoctorAsync(id);
@@ -758,6 +762,7 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpPatch("{id}/toggle-status")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> ToggleDoctorStatus(Guid id)
     {
         var result = await _doctorService.ToggleDoctorStatusAsync(id);
@@ -802,6 +807,7 @@ public class DoctorsController : BaseApiController
     /// Assign price to doctor
     /// </summary>
     [HttpPost("assign-price")]
+    [Authorize(Policy = "Role:Doctor,Staff")]
     public async Task<IActionResult> AssignPriceToDoctor(
         [FromBody] AssignPriceToDoctorRequest request
     )
@@ -823,6 +829,7 @@ public class DoctorsController : BaseApiController
     /// </summary>
     [HttpDelete("{doctorId}/prices/{doctorPriceId}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Doctor,Staff")]
     public async Task<IActionResult> RemovePriceFromDoctor(Guid doctorId, Guid doctorPriceId)
     {
         var result = await _doctorService.RemovePriceFromDoctorAsync(doctorId, doctorPriceId);

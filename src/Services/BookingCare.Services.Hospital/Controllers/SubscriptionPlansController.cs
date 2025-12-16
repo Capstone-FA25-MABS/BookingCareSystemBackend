@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
 using BookingCare.Services.Hospital.Models.DTOs.Responses;
@@ -25,6 +26,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpGet("health")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
@@ -32,6 +34,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(SubscriptionPlanResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -54,6 +57,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpGet("name/{name}")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(SubscriptionPlanResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -76,6 +80,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(SubscriptionPlanListResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetAllSubscriptionPlans()
@@ -93,6 +98,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpGet("filtered")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(SubscriptionPlanListResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -122,6 +128,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpGet("active")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     [ProducesResponseType(typeof(List<SubscriptionPlanResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetActiveSubscriptionPlans()
@@ -139,6 +146,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(typeof(SubscriptionPlanDetailResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -175,6 +183,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(typeof(SubscriptionPlanResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -207,6 +216,7 @@ public class SubscriptionPlansController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
