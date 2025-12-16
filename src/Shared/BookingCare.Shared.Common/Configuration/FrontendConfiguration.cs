@@ -12,15 +12,15 @@ public static class FrontendConfiguration
     /// </summary>
     public static class Defaults
     {
-        public const string ClientBaseUrl = "http://localhost:5173/";
-        public const string AdminBaseUrl = "http://localhost:5174/";
-        public const string DefaultBaseUrl = "http://localhost:5173/";
+        public const string ClientBaseUrl = "http://medcure.com.vn";
+        public const string AdminBaseUrl = "http://admin.medcure.com.vn/";
+        public const string DefaultBaseUrl = "http://medcure.com.vn/";
 
         public static readonly IReadOnlyDictionary<string, string> HostMap =
             new ReadOnlyDictionary<string, string>(new Dictionary<string, string>
             {
-                { "localhost:5174", "admin" },
-                { "localhost:5173", "client" }
+                { "admin.medcure.com.vn", "admin" },
+                { "medcure.com.vn", "client" }
             });
     }
 
@@ -31,9 +31,9 @@ public static class FrontendConfiguration
     public static (string ClientBaseUrl, string AdminBaseUrl, string DefaultBaseUrl, IReadOnlyDictionary<string, string> HostMap) GetConfiguration()
     {
         return (
-            ClientBaseUrl: Environment.GetEnvironmentVariable("FRONTEND_CLIENT_BASE_URL") ?? Defaults.ClientBaseUrl,
-            AdminBaseUrl: Environment.GetEnvironmentVariable("FRONTEND_ADMIN_BASE_URL") ?? Defaults.AdminBaseUrl,
-            DefaultBaseUrl: Environment.GetEnvironmentVariable("FRONTEND_DEFAULT_BASE_URL") ?? Defaults.DefaultBaseUrl,
+            ClientBaseUrl: Environment.GetEnvironmentVariable("FRONTEND_CLIENT_BASEURL") ?? Defaults.ClientBaseUrl,
+            AdminBaseUrl: Environment.GetEnvironmentVariable("FRONTEND_ADMIN_BASEURL") ?? Defaults.AdminBaseUrl,
+            DefaultBaseUrl: Environment.GetEnvironmentVariable("FRONTEND_DEFAULT_BASEURL") ?? Defaults.DefaultBaseUrl,
             HostMap: ParseHostMap(Environment.GetEnvironmentVariable("FRONTEND_HOST_MAP")) ?? Defaults.HostMap
         );
     }
