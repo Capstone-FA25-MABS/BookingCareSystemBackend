@@ -62,7 +62,7 @@ public class VoiceController : BaseApiController
     /// <response code="400">Invalid file or unsupported format</response>
     /// <response code="401">Unauthorized</response>
     [HttpPost("upload")]
-    [Authorize(Roles = "Doctor,Staff,Admin")]
+    [Authorize(Policy = "Role:Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [RequestSizeLimit(FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
     [RequestFormLimits(MultipartBodyLengthLimit = FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
@@ -149,7 +149,7 @@ public class VoiceController : BaseApiController
     /// <param name="fileName">The name of the file to delete</param>
     /// <returns>Deletion result</returns>
     [HttpDelete("temp/{fileName}")]
-    [Authorize(Roles = "Doctor,Staff,Admin")]
+    [Authorize(Policy = "Role:Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
@@ -210,7 +210,7 @@ public class VoiceController : BaseApiController
     /// <response code="404">Audio file not found</response>
     /// <response code="401">Unauthorized</response>
     [HttpPost("transcribe/{fileName}")]
-    [Authorize(Roles = "Doctor,Staff,Admin")]
+    [Authorize(Policy = "Role:Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
@@ -319,7 +319,7 @@ public class VoiceController : BaseApiController
     /// <response code="400">Invalid file or unsupported format</response>
     /// <response code="401">Unauthorized</response>
     [HttpPost("upload-and-transcribe")]
-    [Authorize(Roles = "Doctor,Staff,Admin")]
+    [Authorize(Policy = "Role:Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [RequestSizeLimit(FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
     [RequestFormLimits(MultipartBodyLengthLimit = FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
@@ -409,7 +409,7 @@ public class VoiceController : BaseApiController
     /// <response code="400">Invalid file or unsupported format</response>
     /// <response code="401">Unauthorized</response>
     [HttpPost("process")]
-    [Authorize(Roles = "Doctor,Staff,Admin")]
+    [Authorize(Policy = "Role:Doctor,Staff,Admin")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [RequestSizeLimit(FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
     [RequestFormLimits(MultipartBodyLengthLimit = FileSizeLimitConfiguration.DefaultFileSizeBytes)] // Configurable limit (default: 100 MB, max: 500 MB) - validated in constructor
