@@ -865,8 +865,8 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
-          "Port": 6055
+          "Host": "content-service",
+          "Port": 6006
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/blogs/{everything}",
@@ -886,11 +886,32 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
-          "Port": 6055
+          "Host": "content-service",
+          "Port": 6006
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/blog/categories/{everything}",
+      "UpstreamHttpMethod": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "AuthenticationOptions": {
+        "AllowedScopes": []
+      }
+    },
+    {
+      "DownstreamPathTemplate": "/api/v{version}/hospital-faqs/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "content-service",
+          "Port": 6006
+        }
+      ],
+      "UpstreamPathTemplate": "/api/v{version}/hospital-faqs/{everything}",
       "UpstreamHttpMethod": [
         "GET",
         "POST",
