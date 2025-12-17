@@ -49,4 +49,7 @@ public interface IHospitalService
     Task UpdateHospitalSpecialtiesAsync(Guid hospitalId, List<Guid> specialtyIds);
     Task<List<Guid>> GetHospitalServiceTypeIdsAsync(Guid hospitalId);
     Task UpdateHospitalServiceTypesAsync(Guid hospitalId, List<Guid> serviceTypeIds);
+
+    // Performance optimization: aggregate overview endpoint
+    Task<HospitalOverviewResponse> GetHospitalOverviewAsync(Guid hospitalId);
 }

@@ -7,6 +7,8 @@ using BookingCare.Services.Blog.Repositories;
 using BookingCare.Services.User.Protos;
 using BookingCare.Shared.Common.Exceptions;
 using Grpc.Core;
+using BookingCare.Services.Doctor.Protos;
+using BookingCare.Services.Hospital;
 
 namespace BookingCare.Services.Blog.Services;
 
@@ -16,17 +18,23 @@ public class BlogService : IBlogService
     private readonly IBlogCategoryRepository _categoryRepository;
     private readonly IMapper _mapper;
     private readonly UserService.UserServiceClient _userClient;
+    private readonly DoctorService.DoctorServiceClient _doctorClient;
+    private readonly HospitalService.HospitalServiceClient _hospitalClient;
 
     public BlogService(
         IBlogRepository blogRepository,
         IBlogCategoryRepository categoryRepository,
         IMapper mapper,
-        UserService.UserServiceClient userClient)
+        UserService.UserServiceClient userClient,
+        DoctorService.DoctorServiceClient doctorClient,
+        HospitalService.HospitalServiceClient hospitalClient)
     {
         _blogRepository = blogRepository;
         _categoryRepository = categoryRepository;
         _mapper = mapper;
         _userClient = userClient;
+        _doctorClient = doctorClient;
+        _hospitalClient = hospitalClient;
     }
 
     public async Task<PagedResponse<BlogSummaryDto>> GetBlogsAsync(BlogFilterParameters filter, CancellationToken cancellationToken = default)
@@ -35,18 +43,22 @@ public class BlogService : IBlogService
         var (blogs, totalItems) = await _blogRepository.GetBlogsAsync(sanitizedFilter, cancellationToken);
         var summaries = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(blogs);
 
-        // Batch load creator names
-        var creatorNames = await GetCreatorNamesBatchAsync(
-            blogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value).Distinct().ToList(),
+        // Batch load creator names (account/doctor/hospital)
+        var accountIds = blogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value);
+        var doctorIds = blogs.Where(b => b.CreatedByDoctorId.HasValue).Select(b => b.CreatedByDoctorId!.Value);
+        var hospitalIds = blogs.Where(b => b.CreatedByHospitalId.HasValue).Select(b => b.CreatedByHospitalId!.Value);
+
+        var (accountNames, doctorNames, hospitalNames) = await GetCreatorNamesBatchAsync(
+            accountIds,
+            doctorIds,
+            hospitalIds,
             cancellationToken);
 
         // Set CreatedByName for all summaries
         var summariesWithCreatorNames = summaries.Select(dto =>
         {
             var blog = blogs.First(b => b.Id == dto.Id);
-            var creatorName = blog.CreatedBy.HasValue && creatorNames.TryGetValue(blog.CreatedBy.Value, out var name)
-                ? name
-                : null;
+            var creatorName = ResolveCreatorName(blog, accountNames, doctorNames, hospitalNames);
             return dto with { CreatedByName = creatorName };
         }).ToList();
 
@@ -58,18 +70,21 @@ public class BlogService : IBlogService
         var blogs = await _blogRepository.GetAllBlogsAsync(cancellationToken);
         var blogDtos = _mapper.Map<IReadOnlyList<BlogDetailDto>>(blogs);
 
-        // Batch load creator names
-        var creatorNames = await GetCreatorNamesBatchAsync(
-            blogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value).Distinct().ToList(),
+        var accountIds = blogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value);
+        var doctorIds = blogs.Where(b => b.CreatedByDoctorId.HasValue).Select(b => b.CreatedByDoctorId!.Value);
+        var hospitalIds = blogs.Where(b => b.CreatedByHospitalId.HasValue).Select(b => b.CreatedByHospitalId!.Value);
+
+        var (accountNames, doctorNames, hospitalNames) = await GetCreatorNamesBatchAsync(
+            accountIds,
+            doctorIds,
+            hospitalIds,
             cancellationToken);
 
         // Set RelatedBlogs to empty list and CreatedByName for all blogs
         return blogDtos.Select(dto =>
         {
             var blog = blogs.First(b => b.Id == dto.Id);
-            var creatorName = blog.CreatedBy.HasValue && creatorNames.TryGetValue(blog.CreatedBy.Value, out var name)
-                ? name
-                : null;
+            var creatorName = ResolveCreatorName(blog, accountNames, doctorNames, hospitalNames);
             return dto with
             {
                 RelatedBlogs = Array.Empty<BlogSummaryDto>(),
@@ -96,6 +111,8 @@ public class BlogService : IBlogService
 
         var entity = _mapper.Map<BlogEntity>(request);
         entity.CreatedBy = createdBy;
+        entity.CreatedByDoctorId = request.CreatedByDoctorId;
+        entity.CreatedByHospitalId = request.CreatedByHospitalId;
         await _blogRepository.AddAsync(entity, cancellationToken);
 
         var created = await _blogRepository.GetByIdAsync(entity.Id, cancellationToken)
@@ -218,32 +235,32 @@ public class BlogService : IBlogService
         var relatedBlogsDto = _mapper.Map<IReadOnlyList<BlogSummaryDto>>(relatedBlogs);
 
         // Batch load creator names for main blog and related blogs
-        var allAccountIds = new List<Guid>();
-        if (mainBlog.CreatedBy.HasValue)
-        {
-            allAccountIds.Add(mainBlog.CreatedBy.Value);
-        }
-        allAccountIds.AddRange(relatedBlogs
-            .Where(b => b.CreatedBy.HasValue)
-            .Select(b => b.CreatedBy!.Value)
-            .Distinct());
+        var accountIds = new List<Guid>();
+        var doctorIds = new List<Guid>();
+        var hospitalIds = new List<Guid>();
 
-        var creatorNames = await GetCreatorNamesBatchAsync(allAccountIds.Distinct().ToList(), cancellationToken);
+        if (mainBlog.CreatedBy.HasValue) accountIds.Add(mainBlog.CreatedBy.Value);
+        if (mainBlog.CreatedByDoctorId.HasValue) doctorIds.Add(mainBlog.CreatedByDoctorId.Value);
+        if (mainBlog.CreatedByHospitalId.HasValue) hospitalIds.Add(mainBlog.CreatedByHospitalId.Value);
+
+        accountIds.AddRange(relatedBlogs.Where(b => b.CreatedBy.HasValue).Select(b => b.CreatedBy!.Value));
+        doctorIds.AddRange(relatedBlogs.Where(b => b.CreatedByDoctorId.HasValue).Select(b => b.CreatedByDoctorId!.Value));
+        hospitalIds.AddRange(relatedBlogs.Where(b => b.CreatedByHospitalId.HasValue).Select(b => b.CreatedByHospitalId!.Value));
+
+        var (accountNames, doctorNames, hospitalNames) = await GetCreatorNamesBatchAsync(
+            accountIds,
+            doctorIds,
+            hospitalIds,
+            cancellationToken);
 
         // Get creator name for main blog
-        var creatorName = mainBlog.CreatedBy.HasValue &&
-                          creatorNames.TryGetValue(mainBlog.CreatedBy.Value, out var name)
-            ? name
-            : null;
+        var creatorName = ResolveCreatorName(mainBlog, accountNames, doctorNames, hospitalNames);
 
         // Set CreatedByName for related blogs
         var relatedBlogsWithCreatorNames = relatedBlogsDto.Select(dto =>
         {
             var relatedBlog = relatedBlogs.First(b => b.Id == dto.Id);
-            var relatedCreatorName = relatedBlog.CreatedBy.HasValue &&
-                                     creatorNames.TryGetValue(relatedBlog.CreatedBy.Value, out var relatedName)
-                ? relatedName
-                : null;
+            var relatedCreatorName = ResolveCreatorName(relatedBlog, accountNames, doctorNames, hospitalNames);
             return dto with { CreatedByName = relatedCreatorName };
         }).ToList();
 
@@ -254,41 +271,144 @@ public class BlogService : IBlogService
         };
     }
 
-    private async Task<Dictionary<Guid, string>> GetCreatorNamesBatchAsync(
-        List<Guid> accountIds,
+    private static string? ResolveCreatorName(
+        BlogEntity blog,
+        IReadOnlyDictionary<Guid, string> accountNames,
+        IReadOnlyDictionary<Guid, string> doctorNames,
+        IReadOnlyDictionary<Guid, string> hospitalNames)
+    {
+        if (blog.CreatedByDoctorId.HasValue &&
+            doctorNames.TryGetValue(blog.CreatedByDoctorId.Value, out var doctorName))
+        {
+            return doctorName;
+        }
+
+        if (blog.CreatedByHospitalId.HasValue &&
+            hospitalNames.TryGetValue(blog.CreatedByHospitalId.Value, out var hospitalName))
+        {
+            return hospitalName;
+        }
+
+        if (blog.CreatedBy.HasValue &&
+            accountNames.TryGetValue(blog.CreatedBy.Value, out var accountName))
+        {
+            return accountName;
+        }
+
+        return null;
+    }
+
+    private async Task<(Dictionary<Guid, string> accountNames, Dictionary<Guid, string> doctorNames, Dictionary<Guid, string> hospitalNames)> GetCreatorNamesBatchAsync(
+        IEnumerable<Guid> accountIds,
+        IEnumerable<Guid> doctorIds,
+        IEnumerable<Guid> hospitalIds,
         CancellationToken cancellationToken = default)
     {
-        var result = new Dictionary<Guid, string>();
+        var accountNames = new Dictionary<Guid, string>();
+        var doctorNames = new Dictionary<Guid, string>();
+        var hospitalNames = new Dictionary<Guid, string>();
 
-        if (!accountIds.Any())
+        var accountList = accountIds?.Distinct().ToList() ?? new List<Guid>();
+        var doctorList = doctorIds?.Distinct().ToList() ?? new List<Guid>();
+        var hospitalList = hospitalIds?.Distinct().ToList() ?? new List<Guid>();
+
+        // Accounts
+        if (accountList.Any())
         {
-            return result;
-        }
-
-        try
-        {
-            var request = new GetUsersByAccountIdsRequest();
-            request.AccountIds.AddRange(accountIds.Select(id => id.ToString()));
-
-            var response = await _userClient.GetUsersByAccountIdsAsync(request, cancellationToken: cancellationToken);
-
-            foreach (var user in response.Users)
+            try
             {
-                if (Guid.TryParse(user.AccountId, out var accountId))
+                var request = new GetUsersByAccountIdsRequest();
+                request.AccountIds.AddRange(accountList.Select(id => id.ToString()));
+
+                var response = await _userClient.GetUsersByAccountIdsAsync(request, cancellationToken: cancellationToken);
+
+                foreach (var user in response.Users)
                 {
-                    var fullName = !string.IsNullOrWhiteSpace(user.FullName)
-                        ? user.FullName
-                        : string.Empty;
-                    result[accountId] = fullName;
+                    if (Guid.TryParse(user.AccountId, out var accountId))
+                    {
+                        var fullName = !string.IsNullOrWhiteSpace(user.FullName)
+                            ? user.FullName
+                            : string.Empty;
+                        accountNames[accountId] = fullName;
+                    }
                 }
             }
-        }
-        catch (RpcException)
-        {
-            // If service unavailable, return empty dictionary
+            catch (RpcException)
+            {
+                // ignore
+            }
         }
 
-        return result;
+        // Doctors (basic info)
+        if (doctorList.Any())
+        {
+            try
+            {
+                var request = new GetDoctorsBasicInfoRequest();
+                request.Ids.AddRange(doctorList.Select(id => id.ToString()));
+                var response = await _doctorClient.GetDoctorsBasicInfoAsync(request, cancellationToken: cancellationToken);
+                foreach (var doc in response.Doctors)
+                {
+                    if (Guid.TryParse(doc.Id, out var id))
+                    {
+                        doctorNames[id] = doc.FullName ?? string.Empty;
+                    }
+                }
+
+                // Also try by account IDs (in case column stores account_id)
+                var accountRequest = new GetDoctorsByAccountIdsRequest();
+                accountRequest.AccountIds.AddRange(doctorList.Select(id => id.ToString()));
+                var accountResponse = await _doctorClient.GetDoctorsByAccountIdsAsync(accountRequest, cancellationToken: cancellationToken);
+                foreach (var doc in accountResponse.Doctors)
+                {
+                    if (Guid.TryParse(doc.AccountId, out var accId))
+                    {
+                        doctorNames[accId] = doc.FullName ?? string.Empty;
+                    }
+                }
+            }
+            catch (RpcException)
+            {
+                // ignore
+            }
+        }
+
+        // Hospitals (names only)
+        if (hospitalList.Any())
+        {
+            try
+            {
+                // Attempt by hospital Ids
+                var request = new GetHospitalNamesRequest();
+                request.Ids.AddRange(hospitalList.Select(id => id.ToString()));
+                var response = await _hospitalClient.GetHospitalNamesAsync(request, cancellationToken: cancellationToken);
+                foreach (var hos in response.Hospitals)
+                {
+                    if (Guid.TryParse(hos.Id, out var id))
+                    {
+                        hospitalNames[id] = hos.Name ?? string.Empty;
+                    }
+                }
+
+                // Also try by account Ids (in case column stores account_id)
+                var accountRequest = new GetHospitalsByAccountIdsRequest();
+                accountRequest.AccountIds.AddRange(hospitalList.Select(id => id.ToString()));
+                var accountResponse = await _hospitalClient.GetHospitalsByAccountIdsAsync(accountRequest, cancellationToken: cancellationToken);
+                foreach (var hos in accountResponse.Hospitals)
+                {
+                    if (Guid.TryParse(hos.AccountId, out var accId))
+                    {
+                        hospitalNames[accId] = hos.FullName ?? hos.Email ?? string.Empty;
+                    }
+                }
+            }
+            catch (RpcException)
+            {
+                // ignore
+            }
+        }
+
+        return (accountNames, doctorNames, hospitalNames);
     }
 
     private static BlogFilterParameters SanitizeFilter(BlogFilterParameters filter)
@@ -297,6 +417,8 @@ public class BlogService : IBlogService
         {
             CategoryId = filter.CategoryId,
             CreatedByAccountId = filter.CreatedByAccountId,
+            CreatedByDoctorId = filter.CreatedByDoctorId,
+            CreatedByHospitalId = filter.CreatedByHospitalId,
             Tag = filter.Tag,
             Source = filter.Source,
             Status = filter.Status,

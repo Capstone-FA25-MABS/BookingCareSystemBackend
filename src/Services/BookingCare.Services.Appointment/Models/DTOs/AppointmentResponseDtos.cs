@@ -10,7 +10,7 @@ public class AppointmentResponse
 {
     public Guid Id { get; set; }
     public Guid PatientId { get; set; }
-    public Guid? PatientAccountId { get; set; }
+    public Guid PatientAccountId { get; set; }
 
     /// <summary>
     /// Relative ID when booking for a family member (null = booking for self)

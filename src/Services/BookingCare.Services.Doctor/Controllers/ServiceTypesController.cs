@@ -5,6 +5,7 @@ using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Services;
 using BookingCare.Shared.FileUpload.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Doctor.Controllers;
@@ -124,6 +125,7 @@ public class ServiceTypesController : BaseImageUploadController
     /// </summary>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateServiceType([FromBody] CreateServiceTypeRequest request)
     {
         if (!ModelState.IsValid)
@@ -143,6 +145,7 @@ public class ServiceTypesController : BaseImageUploadController
     /// </summary>
     [HttpPost("upload-image")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateServiceTypeWithImage(
         [FromForm] CreateServiceTypeWithImageRequest request,
         [FromForm] IFormFile? imageFile,
@@ -192,6 +195,7 @@ public class ServiceTypesController : BaseImageUploadController
     /// </summary>
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdateServiceType(Guid id, [FromBody] UpdateServiceTypeRequest request)
     {
         if (!ModelState.IsValid)
@@ -228,6 +232,7 @@ public class ServiceTypesController : BaseImageUploadController
     /// </summary>
     [HttpPut("{id}/upload-image")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdateServiceTypeWithImage(
         Guid id,
         [FromForm] UpdateServiceTypeWithImageRequest request,
@@ -296,6 +301,7 @@ public class ServiceTypesController : BaseImageUploadController
     /// </summary>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> DeleteServiceType(Guid id)
     {
         var result = await _serviceTypeService.DeleteServiceTypeAsync(id);
@@ -311,6 +317,7 @@ public class ServiceTypesController : BaseImageUploadController
     /// </summary>
     [HttpPatch("{id}/toggle-status")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> ToggleServiceTypeStatus(Guid id)
     {
         var result = await _serviceTypeService.ToggleServiceTypeStatusAsync(id);

@@ -3,6 +3,7 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Doctor.Controllers;
@@ -103,6 +104,7 @@ public class LanguagesController : BaseApiController
     /// </summary>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateLanguage([FromBody] CreateLanguageRequest request)
     {
         if (!ModelState.IsValid)
@@ -122,6 +124,7 @@ public class LanguagesController : BaseApiController
     /// </summary>
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdateLanguage(Guid id, [FromBody] UpdateLanguageRequest request)
     {
         if (!ModelState.IsValid)
@@ -142,6 +145,7 @@ public class LanguagesController : BaseApiController
     /// </summary>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> DeleteLanguage(Guid id)
     {
         var result = await _languageService.DeleteLanguageAsync(id);
@@ -158,6 +162,7 @@ public class LanguagesController : BaseApiController
     /// </summary>
     [HttpPatch("{id}/toggle-status")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> ToggleLanguageStatus(Guid id)
     {
         var result = await _languageService.ToggleLanguageStatusAsync(id);

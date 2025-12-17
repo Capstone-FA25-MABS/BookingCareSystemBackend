@@ -77,7 +77,7 @@ public static class MedicalReportPdfGenerator
             {
                 row.RelativeItem().Column(col =>
                 {
-                    col.Item().Text("BOOKINGCARE MEDICAL CENTER")
+                    col.Item().Text("MEDCURE MEDICAL CENTER")
                         .FontSize(18)
                         .Bold()
                         .FontColor(Colors.Primary);
@@ -565,7 +565,7 @@ public static class MedicalReportPdfGenerator
 
             column.Item().BorderTop(1).BorderColor(Colors.Border).PaddingTop(12);
 
-            column.Item().Text("BookingCare - Nền tảng đặt lịch khám bệnh trực tuyến hàng đầu Việt Nam")
+            column.Item().Text("MedCure - Nền tảng đặt lịch khám bệnh trực tuyến hàng đầu Việt Nam")
                 .FontSize(9)
                 .FontColor(Colors.Secondary);
 

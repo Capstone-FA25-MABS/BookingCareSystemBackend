@@ -70,6 +70,7 @@ builder.Services.AddScoped<GroqApiHelper>(sp =>
 
 // Register AI Service for medical summary generation
 builder.Services.AddScoped<IAIService, AIService>();
+builder.Services.AddScoped<IAiInsightsService, AiInsightsService>();
 
 // Register gRPC clients
 var doctorGrpcAddress =

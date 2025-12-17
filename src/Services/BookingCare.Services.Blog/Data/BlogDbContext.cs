@@ -77,6 +77,12 @@ public class BlogDbContext : DbContext
             entity.Property(e => e.CreatedBy)
                 .HasColumnName("CreatedBy");
 
+            entity.Property(e => e.CreatedByDoctorId)
+                .HasColumnName("CreatedByDoctorId");
+
+            entity.Property(e => e.CreatedByHospitalId)
+                .HasColumnName("CreatedByHospitalId");
+
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("GETDATE()");
 
