@@ -157,4 +157,17 @@ public interface IReviewQueryOperations
     /// <param name="hospitalId">The hospital ID</param>
     /// <returns>Detailed review statistics including rating distribution</returns>
     Task<ReviewDetailedStatisticsResponse> GetHospitalDetailedStatisticsAsync(Guid hospitalId);
+
+    /// <summary>
+    /// Gets high-quality reviews from across the platform for testimonial display
+    /// </summary>
+    /// <param name="page">Page number</param>
+    /// <param name="pageSize">Page size</param>
+    /// <param name="minRating">Minimum rating filter (default 4)</param>
+    /// <returns>Paginated high-quality reviews from all sources</returns>
+    Task<PagedReviewsResponse> GetTestimonialReviewsAsync(
+        int page = 1,
+        int pageSize = 20,
+        int minRating = 4
+    );
 }

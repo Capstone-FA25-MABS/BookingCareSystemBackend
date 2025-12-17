@@ -1003,4 +1003,49 @@ public class ReviewRepository : IReviewRepository
 
         return await _reviews.Find(filter).FirstOrDefaultAsync();
     }
+
+    /// <summary>
+    /// Gets high-quality reviews from across the platform for testimonial display
+    /// Fetches reviews with high ratings (4-5 stars) from all sources
+    /// </summary>
+    public async Task<PagedReviewsResponse> GetTestimonialReviewsAsync(
+        int page = 1,
+        int pageSize = 20,
+        int minRating = 4
+    )
+    {
+        // Build filter for high-quality reviews
+        var filter = Builders<ReviewEntity>.Filter.Gte(r => r.Rating, minRating);
+
+        // Sort by created date descending to get recent reviews
+        var sort = Builders<ReviewEntity>.Sort.Descending(r => r.CreatedAt);
+
+        // Calculate skip
+        var skip = (page - 1) * pageSize;
+
+        // Get total count
+        var totalCount = await _reviews.CountDocumentsAsync(filter);
+
+        // Get reviews
+        var reviews = await _reviews
+            .Find(filter)
+            .Sort(sort)
+            .Skip(skip)
+            .Limit(pageSize)
+            .ToListAsync();
+
+        // Calculate pagination metadata
+        var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+        var hasNextPage = page < totalPages;
+
+        return new PagedReviewsResponse
+        {
+            Reviews = _mapper.Map<List<ReviewResponse>>(reviews),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize,
+            TotalPages = totalPages,
+            HasNextPage = hasNextPage,
+        };
+    }
 }
