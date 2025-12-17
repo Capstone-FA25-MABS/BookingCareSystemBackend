@@ -115,6 +115,16 @@ public class AiInsightsController : BaseApiController
         {
             return Unauthorized(ex.Message);
         }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid argument for doctor {DoctorId}: {Message}", doctorId, ex.Message);
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error generating AI insights for doctor {DoctorId}: {Message}", doctorId, ex.Message);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "An unexpected error occurred", Details = ex.Message });
+        }
     }
 
     [HttpPost("generate-for-hospital")]
