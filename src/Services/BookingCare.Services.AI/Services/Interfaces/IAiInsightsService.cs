@@ -8,6 +8,18 @@ public interface IAiInsightsService
         GenerateAiInsightRequest request,
         CancellationToken cancellationToken = default
     );
+
+    Task<AiInsightResponse> GenerateForDoctorAsync(
+        Guid doctorId,
+        GenerateAiInsightRequest request,
+        CancellationToken cancellationToken = default
+    );
+
+    Task<AiInsightResponse> GenerateForHospitalAsync(
+        Guid hospitalId,
+        GenerateAiInsightRequest request,
+        CancellationToken cancellationToken = default
+    );
 }
 
 
