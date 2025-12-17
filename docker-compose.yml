@@ -338,8 +338,8 @@ services:
       dockerfile: src/Services/BookingCare.Services.AI/Dockerfile
     container_name: bookingcare_ai_service
     ports:
-      - "6001:6001"
-      - "6101:6101"
+      - "6000:6000"
+      - "6100:6100"
     depends_on:
       sqlserver-ai:
         condition: service_healthy
@@ -355,6 +355,8 @@ services:
       - AWS__S3__SecretKey=${S3_AI_SECRET_KEY}
       - AWS__S3__BucketName=${S3_BUCKET_NAME}
       - AWS__S3__Region=${S3_REGION}
+      - Services__Hospital__GrpcUrl=http://hospital-service:6104
+      - Services__Doctor__GrpcUrl=http://doctor-service:6108
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -365,8 +367,8 @@ services:
       dockerfile: src/Services/BookingCare.Services.Analytics/Dockerfile
     container_name: bookingcare_analytics_service
     ports:
-      - "6000:6000"
-      - "6100:6100"
+      - "6001:6001"
+      - "6101:6101"
     depends_on:
       mongodb:
         condition: service_healthy
