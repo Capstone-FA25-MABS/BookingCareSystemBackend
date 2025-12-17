@@ -44,7 +44,7 @@ public class HospitalRegistrationsController : BaseApiController
     /// <param name="id">Registration ID</param>
     /// <returns>Registration details</returns>
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = "ADMIN")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(typeof(HospitalRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetRegistrationById(Guid id)
@@ -59,7 +59,7 @@ public class HospitalRegistrationsController : BaseApiController
     /// <param name="filter">Filter parameters</param>
     /// <returns>Paginated list of registrations</returns>
     [HttpGet]
-    //[Authorize(Roles = "ADMIN")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(typeof(HospitalRegistrationListResponseDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllRegistrations([FromQuery] HospitalRegistrationFilterRequestDto filter)
     {
@@ -74,7 +74,7 @@ public class HospitalRegistrationsController : BaseApiController
     /// <param name="request">Update request</param>
     /// <returns>Updated registration</returns>
     [HttpPut("{id:guid}/update")]
-    //[Authorize(Roles = "ADMIN")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(typeof(HospitalRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -92,7 +92,7 @@ public class HospitalRegistrationsController : BaseApiController
     /// <param name="id">Registration ID</param>
     /// <returns>Success status</returns>
     [HttpDelete("{id:guid}")]
-    //[Authorize(Roles = "ADMIN")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteRegistration(Guid id)
@@ -133,7 +133,7 @@ public class HospitalRegistrationsController : BaseApiController
     /// <param name="request">Approval request with optional notes</param>
     /// <returns>Updated registration</returns>
     [HttpPost("{id:guid}/approve")]
-    //[Authorize(Roles = "ADMIN")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(typeof(HospitalRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -152,7 +152,7 @@ public class HospitalRegistrationsController : BaseApiController
     /// <param name="request">Rejection request with reason</param>
     /// <returns>Updated registration</returns>
     [HttpPost("{id:guid}/reject")]
-    //[Authorize(Roles = "ADMIN")]
+    [Authorize(Policy = "Role:Admin")]
     [ProducesResponseType(typeof(HospitalRegistrationResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

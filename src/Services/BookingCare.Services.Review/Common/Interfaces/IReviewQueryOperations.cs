@@ -20,11 +20,15 @@ public interface IReviewQueryOperations
     /// <param name="doctorId">The doctor ID</param>
     /// <param name="page">Page number</param>
     /// <param name="pageSize">Page size</param>
+    /// <param name="minRating">Minimum rating filter</param>
+    /// <param name="maxRating">Maximum rating filter</param>
     /// <returns>Paginated reviews for the doctor</returns>
     Task<PagedReviewsResponse> GetReviewsByDoctorAsync(
         Guid doctorId,
         int page = 1,
-        int pageSize = 10
+        int pageSize = 10,
+        int? minRating = null,
+        int? maxRating = null
     );
 
     /// <summary>

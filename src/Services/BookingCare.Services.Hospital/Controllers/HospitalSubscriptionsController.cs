@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
 using BookingCare.Services.Hospital.Exceptions;
@@ -24,6 +25,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpGet("health")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
@@ -31,6 +33,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetSubscriptionById(Guid id)
     {
         try
@@ -50,6 +53,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpGet("hospital/{hospitalId}")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetSubscriptionsByHospitalId(Guid hospitalId)
     {
         try
@@ -65,6 +69,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpGet("hospital/{hospitalId}/active")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetActiveSubscriptionByHospitalId(Guid hospitalId)
     {
         try
@@ -106,6 +111,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpGet("expiring")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetExpiringSoon([FromQuery] int days = 30)
     {
         try
@@ -126,6 +132,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateSubscription([FromBody] CreateHospitalSubscriptionRequest request)
     {
         try
@@ -154,6 +161,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdateSubscription(Guid id, [FromBody] UpdateHospitalSubscriptionRequest request)
     {
         try
@@ -173,6 +181,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpPost("{id}/cancel")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CancelSubscription(Guid id, [FromBody] CancelSubscriptionRequest? request = null)
     {
         try
@@ -193,6 +202,7 @@ public class HospitalSubscriptionsController : ControllerBase
     }
 
     [HttpPost("{id}/upgrade")]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpgradeSubscription(Guid id, [FromBody] UpgradeHospitalSubscriptionRequest request)
     {
         try

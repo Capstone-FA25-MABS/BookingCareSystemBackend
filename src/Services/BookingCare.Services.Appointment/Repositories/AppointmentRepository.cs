@@ -1317,4 +1317,105 @@ public class AppointmentRepository : IAppointmentRepository
     }
 
     #endregion
+
+    #region Appointment Reminder
+
+    /// <summary>
+    /// Get CONFIRMED appointments within a time window for sending reminders
+    /// Excludes appointments that have already received this type of reminder
+    /// </summary>
+    public async Task<List<AppointmentEntity>> GetAppointmentsForReminderAsync(
+        DateTime windowStart,
+        DateTime windowEnd,
+        int hoursBeforeAppointment
+    )
+    {
+        try
+        {
+            var query = _context.Appointments
+                .Where(a =>
+                    a.Status == AppointmentStatus.CONFIRMED &&
+                    a.AppointmentDate >= windowStart &&
+                    a.AppointmentDate <= windowEnd);
+
+            // Filter based on reminder type
+            if (hoursBeforeAppointment == 24)
+            {
+                query = query.Where(a => !a.Reminder24HoursSent);
+            }
+            else if (hoursBeforeAppointment == 1)
+            {
+                query = query.Where(a => !a.Reminder1HourSent);
+            }
+
+            var appointments = await query.ToListAsync();
+
+            _logger.LogInformation(
+                "Found {Count} appointments for {Hours}h reminder between {Start} and {End}",
+                appointments.Count,
+                hoursBeforeAppointment,
+                windowStart,
+                windowEnd);
+
+            return appointments;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error getting appointments for reminder. Window: {Start} - {End}, Hours: {Hours}",
+                windowStart, windowEnd, hoursBeforeAppointment);
+            throw new AppointmentException(
+                "Failed to get appointments for reminder",
+                innerException: ex);
+        }
+    }
+
+    /// <summary>
+    /// Mark that a reminder has been sent for an appointment
+    /// </summary>
+    public async Task<bool> MarkReminderSentAsync(
+        Guid appointmentId,
+        int hoursBeforeAppointment)
+    {
+        try
+        {
+            var appointment = await _context.Appointments
+                .FirstOrDefaultAsync(a => a.Id == appointmentId);
+
+            if (appointment == null)
+            {
+                _logger.LogWarning(
+                    "Appointment {AppointmentId} not found for marking reminder sent",
+                    appointmentId);
+                return false;
+            }
+
+            if (hoursBeforeAppointment == 24)
+            {
+                appointment.Reminder24HoursSent = true;
+            }
+            else if (hoursBeforeAppointment == 1)
+            {
+                appointment.Reminder1HourSent = true;
+            }
+
+            appointment.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Marked {Hours}h reminder sent for appointment {AppointmentId}",
+                hoursBeforeAppointment, appointmentId);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error marking reminder sent for appointment {AppointmentId}",
+                appointmentId);
+            return false;
+        }
+    }
+
+    #endregion
 }

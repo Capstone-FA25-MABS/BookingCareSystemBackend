@@ -58,6 +58,7 @@ builder.Services.AddHttpClient<GroqApiHelper>();
 
 // Register AI Service for medical summary generation
 builder.Services.AddScoped<IAIService, AIService>();
+builder.Services.AddScoped<IAiInsightsService, AiInsightsService>();
 
 // Register DatabaseInitializationService
 builder.Services.AddSingleton<BookingCare.Services.AI.Services.DatabaseInitializationService>();

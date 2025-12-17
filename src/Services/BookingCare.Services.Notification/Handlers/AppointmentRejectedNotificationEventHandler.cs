@@ -37,7 +37,7 @@ public class AppointmentRejectedNotificationEventHandler
             var appointmentTime = @event.AppointmentTimeId;
 
             // Build email content
-            var emailSubject = "Thông báo từ chối lịch hẹn - BookingCare";
+            var emailSubject = "Thông báo từ chối lịch hẹn - MedCure";
             var emailContent = EmailTemplate.BuildAppointmentRejectedEmailHtml(
                 patientName,
                 @event.AppointmentDate,

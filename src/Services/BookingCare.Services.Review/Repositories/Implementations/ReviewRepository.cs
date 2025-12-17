@@ -105,6 +105,10 @@ public class ReviewRepository : IReviewRepository
             filter &= filterBuilder.Lte(r => r.Rating, request.MaxRating.Value);
         }
 
+        if (request.HospitalId.HasValue)
+        {
+            filter &= filterBuilder.Eq(r => r.HospitalId, request.HospitalId.Value);
+        }
         // Get total count
         var totalCount = await _reviews.CountDocumentsAsync(filter);
 
@@ -138,7 +142,9 @@ public class ReviewRepository : IReviewRepository
     public async Task<PagedReviewsResponse> GetReviewsByDoctorAsync(
         Guid doctorId,
         int page = 1,
-        int pageSize = 10
+        int pageSize = 10,
+        int? minRating = null,
+        int? maxRating = null
     )
     {
         var request = new GetReviewsRequest
@@ -147,6 +153,8 @@ public class ReviewRepository : IReviewRepository
             TargetType = TargetType.DOCTOR,
             Page = page,
             PageSize = pageSize,
+            MinRating = minRating,
+            MaxRating = maxRating,
         };
         return await GetReviewsAsync(request);
     }

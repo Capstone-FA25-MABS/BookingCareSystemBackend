@@ -1,20 +1,19 @@
-using Microsoft.AspNetCore.Mvc;
-using BookingCare.Services.Hospital.Services.Interfaces;
+using BookingCare.Services.Hospital.Exceptions;
 using BookingCare.Services.Hospital.Models.DTOs.Requests;
 using BookingCare.Services.Hospital.Models.DTOs.Responses;
-using BookingCare.Services.Hospital.Exceptions;
-using BookingCare.Shared.Common.Helpers;
+using BookingCare.Services.Hospital.Repositories.Interfaces;
+using BookingCare.Services.Hospital.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
+using BookingCare.Shared.Common.Helpers;
 using BookingCare.Shared.FileUpload.Services;
 using Microsoft.AspNetCore.Authorization;
-using BookingCare.Services.Hospital.Repositories.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Hospital.Controllers;
 
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Route("api/[controller]")]
-[Authorize]
 public class HospitalsController : BaseApiController
 {
     private readonly IHospitalService _hospitalService;
@@ -28,7 +27,8 @@ public class HospitalsController : BaseApiController
         IHospitalRepository hospitalRepository,
         FileUploadOrchestrator uploadOrchestrator,
         IHospitalImageRepository hospitalImageRepository,
-        ILogger<HospitalsController> logger)
+        ILogger<HospitalsController> logger
+    )
     {
         _hospitalService = hospitalService;
         _hospitalRepository = hospitalRepository;
@@ -49,7 +49,11 @@ public class HospitalsController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving specialties for hospital {HospitalId}", hospitalId);
+            _logger.LogError(
+                ex,
+                "Error retrieving specialties for hospital {HospitalId}",
+                hospitalId
+            );
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
@@ -60,21 +64,37 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpPut("{hospitalId}/specialties")]
-    public async Task<IActionResult> UpdateHospitalSpecialties(Guid hospitalId, [FromBody] UpdateIdsRequest request)
+    [Authorize(Policy = "Role:Staff")]
+    public async Task<IActionResult> UpdateHospitalSpecialties(
+        Guid hospitalId,
+        [FromBody] UpdateIdsRequest request
+    )
     {
         try
         {
-            await _hospitalService.UpdateHospitalSpecialtiesAsync(hospitalId, request.Ids ?? new List<Guid>());
+            await _hospitalService.UpdateHospitalSpecialtiesAsync(
+                hospitalId,
+                request.Ids ?? new List<Guid>()
+            );
             return Success<object?>(null, "Hospital specialties updated successfully");
         }
         catch (HospitalOperationException ex)
         {
-            _logger.LogWarning(ex, "Hospital operation error updating specialties for hospital {HospitalId}: {Message}", hospitalId, ex.Message);
+            _logger.LogWarning(
+                ex,
+                "Hospital operation error updating specialties for hospital {HospitalId}: {Message}",
+                hospitalId,
+                ex.Message
+            );
             return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating specialties for hospital {HospitalId}", hospitalId);
+            _logger.LogError(
+                ex,
+                "Error updating specialties for hospital {HospitalId}",
+                hospitalId
+            );
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
@@ -89,39 +109,91 @@ public class HospitalsController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving service types for hospital {HospitalId}", hospitalId);
+            _logger.LogError(
+                ex,
+                "Error retrieving service types for hospital {HospitalId}",
+                hospitalId
+            );
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
 
     [HttpPut("{hospitalId}/service-types")]
-    public async Task<IActionResult> UpdateHospitalServiceTypes(Guid hospitalId, [FromBody] UpdateIdsRequest request)
+    [Authorize(Policy = "Role:Staff")]
+    public async Task<IActionResult> UpdateHospitalServiceTypes(
+        Guid hospitalId,
+        [FromBody] UpdateIdsRequest request
+    )
     {
         try
         {
-            await _hospitalService.UpdateHospitalServiceTypesAsync(hospitalId, request.Ids ?? new List<Guid>());
+            await _hospitalService.UpdateHospitalServiceTypesAsync(
+                hospitalId,
+                request.Ids ?? new List<Guid>()
+            );
             return Success<object?>(null, "Hospital service types updated successfully");
         }
         catch (HospitalOperationException ex)
         {
-            _logger.LogWarning(ex, "Hospital operation error updating service types for hospital {HospitalId}: {Message}", hospitalId, ex.Message);
+            _logger.LogWarning(
+                ex,
+                "Hospital operation error updating service types for hospital {HospitalId}: {Message}",
+                hospitalId,
+                ex.Message
+            );
             return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating service types for hospital {HospitalId}", hospitalId);
+            _logger.LogError(
+                ex,
+                "Error updating service types for hospital {HospitalId}",
+                hospitalId
+            );
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
 
+    /// <summary>
+    /// Get hospital overview with aggregate counts (optimized for dashboard performance)
+    /// </summary>
+    [HttpGet("{hospitalId}/overview")]
+    [ProducesResponseType(typeof(HospitalOverviewResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetHospitalOverview(Guid hospitalId)
+    {
+        try
+        {
+            var overview = await _hospitalService.GetHospitalOverviewAsync(hospitalId);
+            return Success(overview, "Hospital overview retrieved successfully");
+        }
+        catch (HospitalNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting hospital overview for {HospitalId}", hospitalId);
+            return StatusCode(500, "An error occurred while retrieving hospital overview");
+        }
+    }
+
     [HttpGet("health")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     public IActionResult Health()
     {
-        return Ok(new { Status = "Healthy", Service = "Hospital", Timestamp = DateTime.UtcNow });
+        return Ok(
+            new
+            {
+                Status = "Healthy",
+                Service = "Hospital",
+                Timestamp = DateTime.UtcNow,
+            }
+        );
     }
 
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAllHospitals([FromQuery] HospitalFilterRequest filter)
     {
         try
@@ -140,12 +212,16 @@ public class HospitalsController : BaseApiController
     /// Get all hospitals (no pagination) - Optimized for performance
     /// </summary>
     [HttpGet("all")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetAllHospitalsSimple()
     {
         try
         {
             var hospitals = await _hospitalService.GetActiveHospitalsSimpleAsync();
-            return Success<List<HospitalSimpleResponse>>(hospitals, "All active hospitals retrieved successfully");
+            return Success<List<HospitalSimpleResponse>>(
+                hospitals,
+                "All active hospitals retrieved successfully"
+            );
         }
         catch (Exception ex)
         {
@@ -158,15 +234,27 @@ public class HospitalsController : BaseApiController
     /// Get optimized hospital list with essential fields, filters, and pagination
     /// </summary>
     [HttpGet("list")]
-    public async Task<IActionResult> GetOptimizedHospitalList([FromQuery] HospitalListOptimizedFilterRequest filter)
+    public async Task<IActionResult> GetOptimizedHospitalList(
+        [FromQuery] HospitalListOptimizedFilterRequest filter
+    )
     {
         try
         {
-            _logger.LogInformation("Controller received filter: Search={Search}, SpecialtyIds={SpecialtyIds}, ProvinceId={ProvinceId}, DistrictId={DistrictId}, Page={Page}, PageSize={PageSize}",
-                filter.Search, string.Join(",", filter.SpecialtyIds ?? new string[0]), filter.ProvinceId, filter.DistrictId, filter.Page, filter.PageSize);
+            _logger.LogInformation(
+                "Controller received filter: Search={Search}, SpecialtyIds={SpecialtyIds}, ProvinceId={ProvinceId}, DistrictId={DistrictId}, Page={Page}, PageSize={PageSize}",
+                filter.Search,
+                string.Join(",", filter.SpecialtyIds ?? new string[0]),
+                filter.ProvinceId,
+                filter.DistrictId,
+                filter.Page,
+                filter.PageSize
+            );
 
             var result = await _hospitalService.GetOptimizedHospitalListAsync(filter);
-            return Success<HospitalListOptimizedPaginatedResponse>(result, "Hospital list retrieved successfully");
+            return Success<HospitalListOptimizedPaginatedResponse>(
+                result,
+                "Hospital list retrieved successfully"
+            );
         }
         catch (Exception ex)
         {
@@ -176,6 +264,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetHospitalById(Guid id)
     {
         try
@@ -193,7 +282,6 @@ public class HospitalsController : BaseApiController
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
-
 
     [HttpGet("email/{email}")]
     public async Task<IActionResult> GetHospitalByEmail(string email)
@@ -256,7 +344,6 @@ public class HospitalsController : BaseApiController
         {
             return Unauthorized(ex.Message);
         }
-
     }
 
     [HttpGet("specialty/{specialtyId}")]
@@ -269,12 +356,17 @@ public class HospitalsController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving hospitals for specialty {SpecialtyId}", specialtyId);
+            _logger.LogError(
+                ex,
+                "Error retrieving hospitals for specialty {SpecialtyId}",
+                specialtyId
+            );
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
 
     [HttpPost]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateHospital([FromBody] CreateHospitalRequest request)
     {
         try
@@ -301,11 +393,13 @@ public class HospitalsController : BaseApiController
     /// Update hospital with avatar upload
     /// </summary>
     [HttpPut("{id}/upload-avatar")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospitalWithAvatar(
         Guid id,
         [FromForm] UpdateHospitalRequest request,
         [FromForm] IFormFile? avatarFile,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var validationResult = ValidateModelState();
         if (validationResult != null)
@@ -322,7 +416,13 @@ public class HospitalsController : BaseApiController
             }
 
             // Handle avatar upload if provided
-            var uploadResult = await HandleAvatarUploadAsync(avatarFile, currentHospital, request, id, cancellationToken);
+            var uploadResult = await HandleAvatarUploadAsync(
+                avatarFile,
+                currentHospital,
+                request,
+                id,
+                cancellationToken
+            );
             if (uploadResult != null)
             {
                 return uploadResult;
@@ -346,11 +446,13 @@ public class HospitalsController : BaseApiController
     /// Update hospital with background upload
     /// </summary>
     [HttpPut("{id}/upload-background")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospitalWithBackground(
         Guid id,
         [FromForm] UpdateHospitalRequest request,
         [FromForm] IFormFile? backgroundFile,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var validationResult = ValidateModelState();
         if (validationResult != null)
@@ -367,7 +469,13 @@ public class HospitalsController : BaseApiController
             }
 
             // Handle background upload if provided
-            var uploadResult = await HandleBackgroundUploadAsync(backgroundFile, currentHospital, request, id, cancellationToken);
+            var uploadResult = await HandleBackgroundUploadAsync(
+                backgroundFile,
+                currentHospital,
+                request,
+                id,
+                cancellationToken
+            );
             if (uploadResult != null)
             {
                 return uploadResult;
@@ -391,12 +499,14 @@ public class HospitalsController : BaseApiController
     /// Update hospital with both avatar and background upload
     /// </summary>
     [HttpPut("{id}/upload-files")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UpdateHospitalWithFiles(
         Guid id,
         [FromForm] UpdateHospitalRequest request,
         [FromForm] IFormFile? avatarFile,
         [FromForm] IFormFile? backgroundFile,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var validationResult = ValidateModelState();
         if (validationResult != null)
@@ -413,14 +523,26 @@ public class HospitalsController : BaseApiController
             }
 
             // Handle avatar upload if provided
-            var avatarUploadResult = await HandleAvatarUploadAsync(avatarFile, currentHospital, request, id, cancellationToken);
+            var avatarUploadResult = await HandleAvatarUploadAsync(
+                avatarFile,
+                currentHospital,
+                request,
+                id,
+                cancellationToken
+            );
             if (avatarUploadResult != null)
             {
                 return avatarUploadResult;
             }
 
             // Handle background upload if provided
-            var backgroundUploadResult = await HandleBackgroundUploadAsync(backgroundFile, currentHospital, request, id, cancellationToken);
+            var backgroundUploadResult = await HandleBackgroundUploadAsync(
+                backgroundFile,
+                currentHospital,
+                request,
+                id,
+                cancellationToken
+            );
             if (backgroundUploadResult != null)
             {
                 return backgroundUploadResult;
@@ -444,10 +566,12 @@ public class HospitalsController : BaseApiController
     /// Upload hospital images
     /// </summary>
     [HttpPost("{id}/images")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> UploadHospitalImages(
         Guid id,
         [FromForm] List<IFormFile> imageFiles,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
@@ -462,9 +586,20 @@ public class HospitalsController : BaseApiController
                 return BadRequest("No image files provided");
             }
 
-            var uploadedImages = await ProcessImageUploadsAsync(imageFiles, id, currentHospital.AccountId, cancellationToken);
+            var uploadedImages = await ProcessImageUploadsAsync(
+                imageFiles,
+                id,
+                currentHospital.AccountId,
+                cancellationToken
+            );
 
-            return Ok(new { Images = uploadedImages, Message = $"{uploadedImages.Count} image(s) uploaded successfully" });
+            return Ok(
+                new
+                {
+                    Images = uploadedImages,
+                    Message = $"{uploadedImages.Count} image(s) uploaded successfully",
+                }
+            );
         }
         catch (HospitalNotFoundException ex)
         {
@@ -481,10 +616,12 @@ public class HospitalsController : BaseApiController
     /// Delete hospital image
     /// </summary>
     [HttpDelete("{id}/images/{imageId}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> DeleteHospitalImage(
         Guid id,
         Guid imageId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
@@ -500,7 +637,12 @@ public class HospitalsController : BaseApiController
                 return NotFound(new { Message = "Hospital image not found" });
             }
 
-            await DeleteImageFileFromStorageAsync(imageEntity.ImageUrl, id, imageId, cancellationToken);
+            await DeleteImageFileFromStorageAsync(
+                imageEntity.ImageUrl,
+                id,
+                imageId,
+                cancellationToken
+            );
 
             var result = await _hospitalService.DeleteHospitalImageAsync(id, imageId);
             if (result)
@@ -511,7 +653,12 @@ public class HospitalsController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting hospital image {ImageId} for hospital {HospitalId}", imageId, id);
+            _logger.LogError(
+                ex,
+                "Error deleting hospital image {ImageId} for hospital {HospitalId}",
+                imageId,
+                id
+            );
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
@@ -520,7 +667,10 @@ public class HospitalsController : BaseApiController
     /// Update current hospital profile (authenticated account)
     /// </summary>
     [HttpPut("profile")]
-    public async Task<IActionResult> UpdateCurrentHospitalProfile([FromBody] UpdateHospitalRequest request)
+    [Authorize(Policy = "Role:Staff")]
+    public async Task<IActionResult> UpdateCurrentHospitalProfile(
+        [FromBody] UpdateHospitalRequest request
+    )
     {
         if (!ModelState.IsValid)
         {
@@ -572,7 +722,11 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateHospital(Guid id, [FromBody] UpdateHospitalRequest request)
+    [Authorize(Policy = "Role:Staff")]
+    public async Task<IActionResult> UpdateHospital(
+        Guid id,
+        [FromBody] UpdateHospitalRequest request
+    )
     {
         if (!ModelState.IsValid)
         {
@@ -610,6 +764,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> DeleteHospital(Guid id)
     {
         try
@@ -633,6 +788,7 @@ public class HospitalsController : BaseApiController
     }
 
     [HttpPost("{hospitalId}/specialties/{specialtyId}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> AddSpecialtyToHospital(Guid hospitalId, Guid specialtyId)
     {
         try
@@ -650,12 +806,18 @@ public class HospitalsController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error adding specialty {SpecialtyId} to hospital {HospitalId}", specialtyId, hospitalId);
+            _logger.LogError(
+                ex,
+                "Error adding specialty {SpecialtyId} to hospital {HospitalId}",
+                specialtyId,
+                hospitalId
+            );
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
 
     [HttpDelete("{hospitalId}/specialties/{specialtyId}")]
+    [Authorize(Policy = "Role:Staff")]
     public async Task<IActionResult> RemoveSpecialtyFromHospital(Guid hospitalId, Guid specialtyId)
     {
         try
@@ -673,7 +835,12 @@ public class HospitalsController : BaseApiController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing specialty {SpecialtyId} from hospital {HospitalId}", specialtyId, hospitalId);
+            _logger.LogError(
+                ex,
+                "Error removing specialty {SpecialtyId} from hospital {HospitalId}",
+                specialtyId,
+                hospitalId
+            );
             return StatusCode(500, new { Message = "Internal server error" });
         }
     }
@@ -706,9 +873,11 @@ public class HospitalsController : BaseApiController
         HospitalProfileResponse currentHospital,
         UpdateHospitalRequest request,
         Guid hospitalId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        if (avatarFile == null) return null;
+        if (avatarFile == null)
+            return null;
 
         // Delete old avatar if exists
         if (!string.IsNullOrEmpty(currentHospital.AvatarUrl))
@@ -718,13 +887,22 @@ public class HospitalsController : BaseApiController
                 FileUrl = currentHospital.AvatarUrl,
                 ExpectedFolder = "avatars",
                 SuccessMessage = "Old avatar deleted successfully",
-                EntityType = "hospital-avatar"
+                EntityType = "hospital-avatar",
             };
 
-            var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentHospital.AccountId, _logger, cancellationToken);
+            var deleteResult = await _uploadOrchestrator.DeleteFileAsync(
+                deleteConfig,
+                currentHospital.AccountId,
+                _logger,
+                cancellationToken
+            );
             if (!deleteResult.Success)
             {
-                _logger.LogWarning("Failed to delete old avatar for hospital {HospitalId}: {Error}", hospitalId, deleteResult.ErrorMessage);
+                _logger.LogWarning(
+                    "Failed to delete old avatar for hospital {HospitalId}: {Error}",
+                    hospitalId,
+                    deleteResult.ErrorMessage
+                );
             }
         }
 
@@ -734,10 +912,16 @@ public class HospitalsController : BaseApiController
             MaxSizeInMB = 5,
             Folder = "avatars/hospitals",
             SuccessMessage = "Hospital avatar uploaded successfully",
-            EntityType = "hospital-avatar"
+            EntityType = "hospital-avatar",
         };
 
-        var uploadResult = await _uploadOrchestrator.UploadFileAsync(avatarFile, config, currentHospital.AccountId, _logger, cancellationToken);
+        var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+            avatarFile,
+            config,
+            currentHospital.AccountId,
+            _logger,
+            cancellationToken
+        );
 
         if (!uploadResult.Success)
         {
@@ -745,7 +929,8 @@ public class HospitalsController : BaseApiController
         }
 
         // Set the avatar URL from upload result - use CloudFront URL for public access
-        request.AvatarUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+        request.AvatarUrl =
+            uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
         return null;
     }
 
@@ -757,9 +942,11 @@ public class HospitalsController : BaseApiController
         HospitalProfileResponse currentHospital,
         UpdateHospitalRequest request,
         Guid hospitalId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        if (backgroundFile == null) return null;
+        if (backgroundFile == null)
+            return null;
 
         // Delete old background if exists
         if (!string.IsNullOrEmpty(currentHospital.BackgroundUrl))
@@ -769,13 +956,22 @@ public class HospitalsController : BaseApiController
                 FileUrl = currentHospital.BackgroundUrl,
                 ExpectedFolder = "hospitals",
                 SuccessMessage = "Old background deleted successfully",
-                EntityType = "hospital-background"
+                EntityType = "hospital-background",
             };
 
-            var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, currentHospital.AccountId, _logger, cancellationToken);
+            var deleteResult = await _uploadOrchestrator.DeleteFileAsync(
+                deleteConfig,
+                currentHospital.AccountId,
+                _logger,
+                cancellationToken
+            );
             if (!deleteResult.Success)
             {
-                _logger.LogWarning("Failed to delete old background for hospital {HospitalId}: {Error}", hospitalId, deleteResult.ErrorMessage);
+                _logger.LogWarning(
+                    "Failed to delete old background for hospital {HospitalId}: {Error}",
+                    hospitalId,
+                    deleteResult.ErrorMessage
+                );
             }
         }
 
@@ -785,10 +981,16 @@ public class HospitalsController : BaseApiController
             MaxSizeInMB = 5,
             Folder = "hospitals/backgrounds",
             SuccessMessage = "Hospital background uploaded successfully",
-            EntityType = "hospital-background"
+            EntityType = "hospital-background",
         };
 
-        var uploadResult = await _uploadOrchestrator.UploadFileAsync(backgroundFile, config, currentHospital.AccountId, _logger, cancellationToken);
+        var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+            backgroundFile,
+            config,
+            currentHospital.AccountId,
+            _logger,
+            cancellationToken
+        );
 
         if (!uploadResult.Success)
         {
@@ -796,7 +998,8 @@ public class HospitalsController : BaseApiController
         }
 
         // Set the background URL from upload result
-        request.BackgroundUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
+        request.BackgroundUrl =
+            uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl;
         return null;
     }
 
@@ -807,13 +1010,19 @@ public class HospitalsController : BaseApiController
         List<IFormFile> imageFiles,
         Guid hospitalId,
         Guid accountId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var uploadedImages = new List<HospitalImageResponse>();
 
         foreach (var imageFile in imageFiles)
         {
-            var image = await UploadSingleHospitalImageAsync(imageFile, hospitalId, accountId, cancellationToken);
+            var image = await UploadSingleHospitalImageAsync(
+                imageFile,
+                hospitalId,
+                accountId,
+                cancellationToken
+            );
             if (image != null)
             {
                 uploadedImages.Add(image);
@@ -830,7 +1039,8 @@ public class HospitalsController : BaseApiController
         IFormFile imageFile,
         Guid hospitalId,
         Guid accountId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var config = new FileUploadConfig
         {
@@ -838,23 +1048,36 @@ public class HospitalsController : BaseApiController
             MaxSizeInMB = 5,
             Folder = "hospitals/hospital-images",
             SuccessMessage = "Hospital image uploaded successfully",
-            EntityType = "hospital-image"
+            EntityType = "hospital-image",
         };
 
-        var uploadResult = await _uploadOrchestrator.UploadFileAsync(imageFile, config, accountId, _logger, cancellationToken);
+        var uploadResult = await _uploadOrchestrator.UploadFileAsync(
+            imageFile,
+            config,
+            accountId,
+            _logger,
+            cancellationToken
+        );
 
         if (!uploadResult.Success)
         {
-            _logger.LogWarning("Failed to upload image for hospital {HospitalId}: {Error}", hospitalId, uploadResult.ErrorMessage);
+            _logger.LogWarning(
+                "Failed to upload image for hospital {HospitalId}: {Error}",
+                hospitalId,
+                uploadResult.ErrorMessage
+            );
             return null;
         }
 
-        var imageUrl = uploadResult.UploadResult!.CloudFrontUrl ?? uploadResult.UploadResult!.FileUrl ?? string.Empty;
+        var imageUrl =
+            uploadResult.UploadResult!.CloudFrontUrl
+            ?? uploadResult.UploadResult!.FileUrl
+            ?? string.Empty;
 
         var createImageRequest = new CreateHospitalImageRequest
         {
             HospitalId = hospitalId,
-            ImageUrl = imageUrl
+            ImageUrl = imageUrl,
         };
 
         var image = await _hospitalService.AddHospitalImageAsync(createImageRequest);
@@ -863,11 +1086,7 @@ public class HospitalsController : BaseApiController
             return null;
         }
 
-        return new HospitalImageResponse
-        {
-            Id = image.Id,
-            ImageUrl = image.ImageUrl
-        };
+        return new HospitalImageResponse { Id = image.Id, ImageUrl = image.ImageUrl };
     }
 
     /// <summary>
@@ -877,7 +1096,8 @@ public class HospitalsController : BaseApiController
         string? imageUrl,
         Guid hospitalId,
         Guid imageId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (string.IsNullOrEmpty(imageUrl))
         {
@@ -895,13 +1115,22 @@ public class HospitalsController : BaseApiController
             FileUrl = imageUrl,
             ExpectedFolder = "hospitals",
             SuccessMessage = "Hospital image deleted successfully",
-            EntityType = "hospital-image"
+            EntityType = "hospital-image",
         };
 
-        var deleteResult = await _uploadOrchestrator.DeleteFileAsync(deleteConfig, hospitalEntity.AccountId, _logger, cancellationToken);
+        var deleteResult = await _uploadOrchestrator.DeleteFileAsync(
+            deleteConfig,
+            hospitalEntity.AccountId,
+            _logger,
+            cancellationToken
+        );
         if (!deleteResult.Success)
         {
-            _logger.LogWarning("Failed to delete hospital image file from S3 for image {ImageId}: {Error}", imageId, deleteResult.ErrorMessage);
+            _logger.LogWarning(
+                "Failed to delete hospital image file from S3 for image {ImageId}: {Error}",
+                imageId,
+                deleteResult.ErrorMessage
+            );
         }
     }
 

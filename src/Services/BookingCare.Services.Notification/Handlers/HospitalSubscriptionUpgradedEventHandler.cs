@@ -63,7 +63,7 @@ public class HospitalSubscriptionUpgradedEventHandler : IIntegrationEventHandler
             };
             var emailHtml = EmailTemplate.BuildHospitalSubscriptionUpgradedEmailHtml(emailData);
 
-            var subject = $"Nâng cấp lên {@event.NewPlanName} thành công - BookingCare";
+            var subject = $"Nâng cấp lên {@event.NewPlanName} thành công - MedCure";
 
             // Send email
             await _emailService.SendEmailAsync(

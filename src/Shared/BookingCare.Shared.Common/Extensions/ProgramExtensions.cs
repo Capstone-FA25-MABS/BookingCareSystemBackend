@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
+using System.Text.Encodings.Web;
 
 namespace BookingCare.Shared.Common.Extensions;
 
@@ -24,8 +25,26 @@ public static class ProgramExtensions
                 // Handle reference loops to prevent circular reference errors
                 options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
                 options.JsonSerializerOptions.MaxDepth = 32;
+                // Allow Vietnamese and other Unicode characters without escaping
+                options.JsonSerializerOptions.Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
+                options.JsonSerializerOptions.WriteIndented = false;
             });
         return services;
+    }
+
+    /// <summary>
+    /// Gets common JSON serializer options with Vietnamese character support
+    /// </summary>
+    public static System.Text.Json.JsonSerializerOptions GetCommonJsonSerializerOptions()
+    {
+        return new System.Text.Json.JsonSerializerOptions
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = false,
+            ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles,
+            MaxDepth = 32,
+            Converters = { new JsonStringEnumConverter() }
+        };
     }
 
     /// <summary>

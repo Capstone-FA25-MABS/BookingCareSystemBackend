@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.Appointment.Migrations
 {
     [DbContext(typeof(AppointmentDbContext))]
-    [Migration("20251023050419_AddPendingRescheduleAction")]
-    partial class AddPendingRescheduleAction
+    [Migration("20251212081352_AddReminderTrackingField")]
+    partial class AddReminderTrackingField
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -30,6 +30,9 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("AppointmentDate")
                         .HasColumnType("datetime2");
@@ -69,6 +72,9 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.Property<bool>("IsRescheduled")
                         .HasColumnType("bit");
 
+                    b.Property<Guid>("PatientAccountId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("PatientId")
                         .HasColumnType("uniqueidentifier");
 
@@ -88,6 +94,15 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.Property<string>("Reason")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid?>("RelativeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Reminder1HourSent")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Reminder24HoursSent")
+                        .HasColumnType("bit");
 
                     b.Property<string>("RescheduleToken")
                         .HasMaxLength(100)
@@ -128,17 +143,32 @@ namespace BookingCare.Services.Appointment.Migrations
                     b.HasIndex("DoctorId", "AppointmentDate", "AppointmentTimeId")
                         .IsUnique()
                         .HasDatabaseName("IX_Doctor_Date_Time_Unique")
-                        .HasFilter("[DoctorId] IS NOT NULL");
+                        .HasFilter("[DoctorId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
 
                     b.HasIndex("DoctorId", "AppointmentDate", "Status")
-                        .HasDatabaseName("IX_Doctor_Date_Status");
+                        .HasDatabaseName("IX_Doctor_Date_Status")
+                        .HasFilter("[DoctorId] IS NOT NULL");
 
                     b.HasIndex("PatientId", "AppointmentDate", "AppointmentTimeId")
                         .IsUnique()
-                        .HasDatabaseName("IX_Patient_Date_Time_Unique");
+                        .HasDatabaseName("IX_Patient_Date_Time_Unique")
+                        .HasFilter("[RelativeId] IS NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
 
                     b.HasIndex("PatientId", "AppointmentDate", "Status")
                         .HasDatabaseName("IX_Patient_Date_Status");
+
+                    b.HasIndex("RelativeId", "AppointmentDate", "AppointmentTimeId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Relative_Date_Time_Unique")
+                        .HasFilter("[RelativeId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
+
+                    b.HasIndex("ServiceId", "AppointmentDate", "AppointmentTimeId")
+                        .HasDatabaseName("IX_Service_Date_Time")
+                        .HasFilter("[ServiceId] IS NOT NULL AND [Status] IN ('PENDING', 'CONFIRMED')");
+
+                    b.HasIndex("ServiceId", "AppointmentDate", "Status")
+                        .HasDatabaseName("IX_Service_Date_Status")
+                        .HasFilter("[ServiceId] IS NOT NULL");
 
                     b.ToTable("Appointments");
                 });

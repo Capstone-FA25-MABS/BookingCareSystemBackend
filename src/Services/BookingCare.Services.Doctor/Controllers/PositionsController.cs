@@ -3,6 +3,7 @@ using BookingCare.Services.Doctor.Models.DTOs.Responses;
 using BookingCare.Services.Doctor.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Doctor.Controllers;
@@ -103,6 +104,7 @@ public class PositionsController : BaseApiController
     /// </summary>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreatePosition([FromBody] CreatePositionRequest request)
     {
         if (!ModelState.IsValid)
@@ -122,6 +124,7 @@ public class PositionsController : BaseApiController
     /// </summary>
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdatePosition(Guid id, [FromBody] UpdatePositionRequest request)
     {
         if (!ModelState.IsValid)
@@ -142,6 +145,7 @@ public class PositionsController : BaseApiController
     /// </summary>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> DeletePosition(Guid id)
     {
         var result = await _positionService.DeletePositionAsync(id);
@@ -158,6 +162,7 @@ public class PositionsController : BaseApiController
     /// </summary>
     [HttpPatch("{id}/toggle-status")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> TogglePositionStatus(Guid id)
     {
         var result = await _positionService.TogglePositionStatusAsync(id);

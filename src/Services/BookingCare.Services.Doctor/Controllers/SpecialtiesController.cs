@@ -5,6 +5,7 @@ using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Versioning;
 using BookingCare.Shared.FileUpload.Services;
 using BookingCare.Shared.FileUpload.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BookingCare.Services.Doctor.Controllers;
@@ -141,6 +142,7 @@ public class SpecialtiesController : BaseImageUploadController
     /// </summary>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateSpecialty([FromBody] CreateSpecialtyRequest request)
     {
         if (!ModelState.IsValid)
@@ -160,6 +162,7 @@ public class SpecialtiesController : BaseImageUploadController
     /// </summary>
     [HttpPost("upload-image")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> CreateSpecialtyWithImage(
         [FromForm] CreateSpecialtyWithImageRequest request,
         [FromForm] IFormFile? imageFile,
@@ -208,6 +211,7 @@ public class SpecialtiesController : BaseImageUploadController
     /// </summary>
     [HttpPut("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdateSpecialty(Guid id, [FromBody] UpdateSpecialtyRequest request)
     {
         if (!ModelState.IsValid)
@@ -228,6 +232,7 @@ public class SpecialtiesController : BaseImageUploadController
     /// </summary>
     [HttpPut("{id}/upload-image")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> UpdateSpecialtyWithImage(
         Guid id,
         [FromForm] UpdateSpecialtyWithImageRequest request,
@@ -295,6 +300,7 @@ public class SpecialtiesController : BaseImageUploadController
     /// </summary>
     [HttpDelete("{id}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> DeleteSpecialty(Guid id)
     {
         try
@@ -340,6 +346,7 @@ public class SpecialtiesController : BaseImageUploadController
     /// </summary>
     [HttpPatch("{id}/toggle-status")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> ToggleSpecialtyStatus(Guid id)
     {
         var result = await _specialtyService.ToggleSpecialtyStatusAsync(id);
