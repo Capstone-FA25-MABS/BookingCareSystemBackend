@@ -84,12 +84,12 @@ public class DailyNutritionPlanService : BackgroundService
                 {
                     // Generate meal plan
                     var mealPlan = await nutritionService.GenerateDailyMealPlanAsync(
-                        profile.UserId, today, cancellationToken);
+                        profile.AccountId, today, cancellationToken);
 
                     // Publish meal plan event
                     var mealPlanEvent = new DailyMealPlanGeneratedEvent
                     {
-                        UserId = profile.UserId,
+                        UserId = profile.AccountId,
                         MealPlanId = mealPlan.Id,
                         Date = today,
                         TotalCalories = mealPlan.TotalCalories,
@@ -106,12 +106,12 @@ public class DailyNutritionPlanService : BackgroundService
 
                     // Generate workout plan
                     var workoutPlan = await nutritionService.GenerateDailyWorkoutPlanAsync(
-                        profile.UserId, today, cancellationToken);
+                        profile.AccountId, today, cancellationToken);
 
                     // Publish workout plan event
                     var workoutPlanEvent = new DailyWorkoutPlanGeneratedEvent
                     {
-                        UserId = profile.UserId,
+                        UserId = profile.AccountId,
                         WorkoutPlanId = workoutPlan.Id,
                         Date = today,
                         WorkoutType = workoutPlan.WorkoutType,
@@ -127,15 +127,15 @@ public class DailyNutritionPlanService : BackgroundService
 
                     successCount++;
                     _logger.LogInformation(
-                        "Successfully generated plans for UserId: {UserId}",
-                        profile.UserId);
+                        "Successfully generated plans for AccountId: {AccountId}",
+                        profile.AccountId);
                 }
                 catch (Exception ex)
                 {
                     errorCount++;
                     _logger.LogError(ex,
-                        "Error generating plans for UserId: {UserId}",
-                        profile.UserId);
+                        "Error generating plans for AccountId: {AccountId}",
+                        profile.AccountId);
                 }
             }
 

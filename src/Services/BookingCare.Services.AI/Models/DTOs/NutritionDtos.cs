@@ -30,12 +30,14 @@ public class DietaryPreferencesDto
 public class NutritionProfileDto
 {
     public Guid Id { get; set; }
-    public Guid UserId { get; set; }
+    public Guid AccountId { get; set; }
     public int Age { get; set; }
     public string Gender { get; set; } = string.Empty;
     public decimal HeightCm { get; set; }
     public decimal WeightKg { get; set; }
     public decimal BMI { get; set; }
+    public decimal BMR { get; set; }
+    public decimal TDEE { get; set; }
     public string ActivityLevel { get; set; } = string.Empty;
     public string HealthGoal { get; set; } = string.Empty;
     public int TargetCalories { get; set; }
@@ -44,6 +46,8 @@ public class NutritionProfileDto
     public decimal TargetFatG { get; set; }
     public List<string>? HealthConditions { get; set; }
     public DietaryPreferencesDto? DietaryPreferences { get; set; }
+    public int StreakCount { get; set; }
+    public DateTime? LastCompletedDate { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
@@ -54,13 +58,15 @@ public class NutritionProfileDto
 public class MealPlanDto
 {
     public Guid Id { get; set; }
-    public Guid UserId { get; set; }
+    public Guid AccountId { get; set; }
     public DateTime Date { get; set; }
     public int TotalCalories { get; set; }
     public decimal TotalProteinG { get; set; }
     public decimal TotalCarbsG { get; set; }
     public decimal TotalFatG { get; set; }
     public List<MealDto> Meals { get; set; } = new();
+    public List<int>? CompletedItems { get; set; } // Indices of completed meals
+    public bool IsFullyCompleted { get; set; }
     public DateTime GeneratedAt { get; set; }
 }
 
@@ -108,12 +114,14 @@ public class NutritionInfoDto
 public class WorkoutPlanDto
 {
     public Guid Id { get; set; }
-    public Guid UserId { get; set; }
+    public Guid AccountId { get; set; }
     public DateTime Date { get; set; }
     public string WorkoutType { get; set; } = string.Empty;
     public int DurationMinutes { get; set; }
     public int EstimatedCaloriesBurned { get; set; }
     public List<ExerciseDto> Exercises { get; set; } = new();
+    public List<int>? CompletedItems { get; set; } // Indices of completed exercises
+    public bool IsFullyCompleted { get; set; }
     public DateTime GeneratedAt { get; set; }
 }
 
@@ -145,4 +153,47 @@ public class HealthMetricsDto
     public decimal TargetCarbsG { get; set; }
     public decimal TargetFatG { get; set; }
     public string BMICategory { get; set; } = string.Empty; // "Underweight", "Normal", "Overweight", "Obese"
+}
+
+/// <summary>
+/// DTO for daily plan (meal + workout combined)
+/// </summary>
+public class DailyPlanDto
+{
+    public DateTime Date { get; set; }
+    public MealPlanDto? MealPlan { get; set; }
+    public WorkoutPlanDto? WorkoutPlan { get; set; }
+    public decimal CompletionPercentage { get; set; }
+    public int TotalCaloriesConsumed { get; set; }
+    public int TotalCaloriesBurned { get; set; }
+}
+
+/// <summary>
+/// DTO for progress statistics
+/// </summary>
+public class ProgressStatsDto
+{
+    public int StreakCount { get; set; }
+    public DateTime? LastCompletedDate { get; set; }
+    public List<DailyCompletionDto> WeeklyCompletion { get; set; } = new();
+    public decimal AverageCompletionRate { get; set; }
+    public int TotalDaysCompleted { get; set; }
+}
+
+/// <summary>
+/// DTO for daily completion
+/// </summary>
+public class DailyCompletionDto
+{
+    public DateTime Date { get; set; }
+    public decimal CompletionPercentage { get; set; }
+    public bool IsFullyCompleted { get; set; }
+}
+
+/// <summary>
+/// DTO for marking item as completed
+/// </summary>
+public class CompleteItemDto
+{
+    public int ItemIndex { get; set; }
 }

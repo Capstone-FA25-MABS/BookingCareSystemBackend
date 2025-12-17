@@ -43,9 +43,11 @@ public class NutritionProfilesController : BaseApiController
         [FromBody] CreateNutritionProfileDto dto,
         CancellationToken cancellationToken = default)
     {
-        var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        _logger.LogInformation("Creating/updating profile for AccountId: {AccountId}", accountId);
+
         var profile = await _nutritionService.CreateOrUpdateProfileAsync(
-            userId, dto, cancellationToken);
+            accountId, dto, cancellationToken);
 
         return Success(profile, "Nutrition profile created/updated successfully");
     }
@@ -54,18 +56,24 @@ public class NutritionProfilesController : BaseApiController
     /// Get nutrition profile for current user
     /// </summary>
     [HttpGet]
+    [HttpGet("me")]
     [MapToApiVersion(ApiVersions.V1_0)]
     [Authorize]
     public async Task<IActionResult> GetProfile(CancellationToken cancellationToken = default)
     {
-        var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-        var profile = await _nutritionService.GetProfileByUserIdAsync(userId, cancellationToken);
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        _logger.LogInformation("Getting profile for AccountId: {AccountId}", accountId);
+
+        var profile = await _nutritionService.GetProfileByUserIdAsync(accountId, cancellationToken);
 
         if (profile == null)
         {
+            _logger.LogWarning("No profile found for AccountId: {AccountId}", accountId);
             return NotFound("Nutrition profile not found. Please create one first.");
         }
 
+        _logger.LogInformation("Profile found for AccountId: {AccountId}, ProfileId: {ProfileId}",
+            accountId, profile.Id);
         return Success(profile, "Profile retrieved successfully");
     }
 
@@ -79,8 +87,8 @@ public class NutritionProfilesController : BaseApiController
         [FromBody] CreateNutritionProfileDto dto,
         CancellationToken cancellationToken = default)
     {
-        var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-        var metrics = await _nutritionService.CalculateHealthMetricsAsync(userId, dto, cancellationToken);
+        var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+        var metrics = await _nutritionService.CalculateHealthMetricsAsync(accountId, dto, cancellationToken);
         return Success(metrics, "Metrics calculated successfully");
     }
 
@@ -94,31 +102,31 @@ public class NutritionProfilesController : BaseApiController
     {
         try
         {
-            var userId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-            
-            _logger.LogInformation("Test notification requested by UserId: {UserId}", userId);
-            
+            var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
+
+            _logger.LogInformation("Test notification requested by AccountId: {AccountId}", accountId);
+
             // Schedule notification sau 1 phút (không block request)
             _ = Task.Run(async () =>
             {
                 try
                 {
                     await Task.Delay(TimeSpan.FromMinutes(1));
-                    
-                    _logger.LogInformation("Sending test notification to UserId: {UserId}", userId);
-                    
+
+                    _logger.LogInformation("Sending test notification to AccountId: {AccountId}", accountId);
+
                     var today = DateTime.UtcNow.Date;
-                    
+
                     // Generate plans
                     var mealPlan = await _nutritionService.GenerateDailyMealPlanAsync(
-                        userId, today, CancellationToken.None);
+                        accountId, today, CancellationToken.None);
                     var workoutPlan = await _nutritionService.GenerateDailyWorkoutPlanAsync(
-                        userId, today, CancellationToken.None);
-                    
+                        accountId, today, CancellationToken.None);
+
                     // Publish events (sẽ trigger email + web notification)
                     var mealPlanEvent = new DailyMealPlanGeneratedEvent
                     {
-                        UserId = userId,
+                        UserId = accountId,
                         MealPlanId = mealPlan.Id,
                         Date = today,
                         TotalCalories = mealPlan.TotalCalories,
@@ -129,10 +137,10 @@ public class NutritionProfilesController : BaseApiController
                         GeneratedAt = DateTime.UtcNow
                     };
                     await _eventBus.PublishAsync(mealPlanEvent);
-                    
+
                     var workoutPlanEvent = new DailyWorkoutPlanGeneratedEvent
                     {
-                        UserId = userId,
+                        UserId = accountId,
                         WorkoutPlanId = workoutPlan.Id,
                         Date = today,
                         WorkoutType = workoutPlan.WorkoutType,
@@ -142,15 +150,15 @@ public class NutritionProfilesController : BaseApiController
                         GeneratedAt = DateTime.UtcNow
                     };
                     await _eventBus.PublishAsync(workoutPlanEvent);
-                    
-                    _logger.LogInformation("Test notification sent successfully to UserId: {UserId}", userId);
+
+                    _logger.LogInformation("Test notification sent successfully to AccountId: {AccountId}", accountId);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error sending test notification to UserId: {UserId}", userId);
+                    _logger.LogError(ex, "Error sending test notification to AccountId: {AccountId}", accountId);
                 }
             });
-            
+
             return Success<object?>(null, "Thông báo test sẽ được gửi sau 1 phút. Vui lòng kiểm tra email và thông báo web.");
         }
         catch (Exception ex)

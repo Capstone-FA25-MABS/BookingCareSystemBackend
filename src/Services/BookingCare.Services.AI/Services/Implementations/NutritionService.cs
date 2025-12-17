@@ -74,7 +74,7 @@ public class NutritionService : INutritionService
 
         // Check if profile exists
         var existingProfile = await _context.NutritionProfiles
-            .FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.AccountId == userId, cancellationToken);
 
         NutritionProfileEntity profile;
 
@@ -84,6 +84,8 @@ public class NutritionService : INutritionService
             existingProfile.HeightCm = dto.HeightCm;
             existingProfile.WeightKg = dto.WeightKg;
             existingProfile.BMI = metrics.BMI;
+            existingProfile.BMR = metrics.BMR;
+            existingProfile.TDEE = metrics.TDEE;
             existingProfile.ActivityLevel = dto.ActivityLevel;
             existingProfile.HealthGoal = dto.HealthGoal;
             existingProfile.TargetCalories = metrics.TargetCalories;
@@ -105,10 +107,12 @@ public class NutritionService : INutritionService
             // Create new profile
             profile = new NutritionProfileEntity
             {
-                UserId = userId,
+                AccountId = userId,
                 HeightCm = dto.HeightCm,
                 WeightKg = dto.WeightKg,
                 BMI = metrics.BMI,
+                BMR = metrics.BMR,
+                TDEE = metrics.TDEE,
                 ActivityLevel = dto.ActivityLevel,
                 HealthGoal = dto.HealthGoal,
                 TargetCalories = metrics.TargetCalories,
@@ -138,7 +142,7 @@ public class NutritionService : INutritionService
         CancellationToken cancellationToken = default)
     {
         var profile = await _context.NutritionProfiles
-            .FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.AccountId == userId, cancellationToken);
 
         return profile != null ? await MapToDtoAsync(profile, cancellationToken) : null;
     }
@@ -189,7 +193,7 @@ public class NutritionService : INutritionService
 
         // Check if meal plan already exists for this date
         var existingPlan = await _context.MealPlans
-            .FirstOrDefaultAsync(m => m.UserId == userId && m.Date.Date == date.Date, cancellationToken);
+            .FirstOrDefaultAsync(m => m.AccountId == userId && m.Date.Date == date.Date, cancellationToken);
 
         if (existingPlan != null)
         {
@@ -212,7 +216,7 @@ public class NutritionService : INutritionService
         // Save to database
         var entity = new MealPlanEntity
         {
-            UserId = userId,
+            AccountId = userId,
             NutritionProfileId = profile.Id,
             Date = date.Date,
             TotalCalories = mealPlan.TotalCalories,
@@ -240,7 +244,7 @@ public class NutritionService : INutritionService
         CancellationToken cancellationToken = default)
     {
         var entity = await _context.MealPlans
-            .FirstOrDefaultAsync(m => m.UserId == userId && m.Date.Date == date.Date, cancellationToken);
+            .FirstOrDefaultAsync(m => m.AccountId == userId && m.Date.Date == date.Date, cancellationToken);
 
         return entity != null ? MapMealPlanToDto(entity) : null;
     }
@@ -261,7 +265,7 @@ public class NutritionService : INutritionService
 
         // Check if workout plan already exists for this date
         var existingPlan = await _context.WorkoutPlans
-            .FirstOrDefaultAsync(w => w.UserId == userId && w.Date.Date == date.Date, cancellationToken);
+            .FirstOrDefaultAsync(w => w.AccountId == userId && w.Date.Date == date.Date, cancellationToken);
 
         if (existingPlan != null)
         {
@@ -285,7 +289,7 @@ public class NutritionService : INutritionService
         // Save to database
         var entity = new WorkoutPlanEntity
         {
-            UserId = userId,
+            AccountId = userId,
             NutritionProfileId = profile.Id,
             Date = date.Date,
             WorkoutType = workoutPlan.WorkoutType,
@@ -312,7 +316,7 @@ public class NutritionService : INutritionService
         CancellationToken cancellationToken = default)
     {
         var entity = await _context.WorkoutPlans
-            .FirstOrDefaultAsync(w => w.UserId == userId && w.Date.Date == date.Date, cancellationToken);
+            .FirstOrDefaultAsync(w => w.AccountId == userId && w.Date.Date == date.Date, cancellationToken);
 
         return entity != null ? MapWorkoutPlanToDto(entity) : null;
     }
@@ -372,7 +376,7 @@ public class NutritionService : INutritionService
         {
             _logger.LogInformation(
                 "Generating meal plan for UserId: {UserId}, Goal: {Goal}",
-                profile.UserId, profile.HealthGoal);
+                profile.AccountId, profile.HealthGoal);
 
             var response = await _groqApiHelper.CallGroqApiAsync(
                 prompt,
@@ -399,7 +403,7 @@ public class NutritionService : INutritionService
             }
 
             // Set metadata
-            mealPlan.UserId = profile.UserId;
+            mealPlan.AccountId = profile.AccountId;
             mealPlan.Date = DateTime.UtcNow.Date;
             mealPlan.GeneratedAt = DateTime.UtcNow;
 
@@ -411,7 +415,7 @@ public class NutritionService : INutritionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate meal plan for UserId: {UserId}", profile.UserId);
+            _logger.LogError(ex, "Failed to generate meal plan for UserId: {UserId}", profile.AccountId);
             throw;
         }
     }
@@ -429,7 +433,7 @@ public class NutritionService : INutritionService
         {
             _logger.LogInformation(
                 "Generating workout plan for UserId: {UserId}, Goal: {Goal}",
-                profile.UserId, profile.HealthGoal);
+                profile.AccountId, profile.HealthGoal);
 
             var response = await _groqApiHelper.CallGroqApiAsync(
                 prompt,
@@ -452,7 +456,7 @@ public class NutritionService : INutritionService
             }
 
             // Set metadata
-            workoutPlan.UserId = profile.UserId;
+            workoutPlan.AccountId = profile.AccountId;
             workoutPlan.Date = DateTime.UtcNow.Date;
             workoutPlan.GeneratedAt = DateTime.UtcNow;
 
@@ -464,7 +468,7 @@ public class NutritionService : INutritionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to generate workout plan for UserId: {UserId}", profile.UserId);
+            _logger.LogError(ex, "Failed to generate workout plan for UserId: {UserId}", profile.AccountId);
             throw;
         }
     }
@@ -671,9 +675,9 @@ YÊU CẦU:
         CancellationToken cancellationToken)
     {
         var startDate = currentDate.AddDays(-7);
-        
+
         return await _context.MealPlans
-            .Where(m => m.UserId == userId && m.Date >= startDate && m.Date < currentDate)
+            .Where(m => m.AccountId == userId && m.Date >= startDate && m.Date < currentDate)
             .OrderByDescending(m => m.Date)
             .ToListAsync(cancellationToken);
     }
@@ -684,7 +688,7 @@ YÊU CẦU:
     private HashSet<string> ExtractMealNamesFromPlans(List<MealPlanEntity> plans)
     {
         var mealNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        
+
         foreach (var plan in plans)
         {
             try
@@ -706,7 +710,7 @@ YÊU CẦU:
                 _logger.LogWarning(ex, "Failed to parse meals from plan {PlanId}", plan.Id);
             }
         }
-        
+
         return mealNames;
     }
 
@@ -724,9 +728,9 @@ YÊU CẦU:
     {
         // Get last 30 days of workout history
         var startDate = currentDate.AddDays(-30);
-        
+
         return await _context.WorkoutPlans
-            .Where(w => w.UserId == userId && w.Date >= startDate && w.Date < currentDate)
+            .Where(w => w.AccountId == userId && w.Date >= startDate && w.Date < currentDate)
             .OrderBy(w => w.Date)
             .ToListAsync(cancellationToken);
     }
@@ -744,11 +748,11 @@ YÊU CẦU:
 
         // Get first workout date
         var firstWorkoutDate = history.First().Date;
-        
+
         // Calculate weeks since first workout
         var daysSinceStart = (currentDate - firstWorkoutDate).Days;
         var weeksSinceStart = daysSinceStart / 7;
-        
+
         // 4-week cycle (1, 2, 3, 4, 1, 2, 3, 4, ...)
         return (weeksSinceStart % 4) + 1;
     }
@@ -832,7 +836,7 @@ YÊU CẦU:
         CancellationToken cancellationToken = default)
     {
         // Fetch user data to get Age and Gender
-        var userRequest = new GetUserByAccountIdRequest { AccountId = entity.UserId.ToString() };
+        var userRequest = new GetUserByAccountIdRequest { AccountId = entity.AccountId.ToString() };
         var userResponse = await _userServiceClient.GetUserByAccountIdAsync(userRequest, cancellationToken: cancellationToken);
 
         int age = 0;
@@ -849,12 +853,14 @@ YÊU CẦU:
         return new NutritionProfileDto
         {
             Id = entity.Id,
-            UserId = entity.UserId,
+            AccountId = entity.AccountId,
             Age = age,
             Gender = gender,
             HeightCm = entity.HeightCm,
             WeightKg = entity.WeightKg,
             BMI = entity.BMI,
+            BMR = entity.BMR,
+            TDEE = entity.TDEE,
             ActivityLevel = entity.ActivityLevel,
             HealthGoal = entity.HealthGoal,
             TargetCalories = entity.TargetCalories,
@@ -867,6 +873,8 @@ YÊU CẦU:
             DietaryPreferences = !string.IsNullOrEmpty(entity.DietaryPreferencesJson)
                 ? JsonSerializer.Deserialize<DietaryPreferencesDto>(entity.DietaryPreferencesJson)
                 : null,
+            StreakCount = entity.StreakCount,
+            LastCompletedDate = entity.LastCompletedDate,
             CreatedAt = entity.CreatedAt,
             UpdatedAt = entity.UpdatedAt
         };
@@ -877,13 +885,17 @@ YÊU CẦU:
         return new MealPlanDto
         {
             Id = entity.Id,
-            UserId = entity.UserId,
+            AccountId = entity.AccountId,
             Date = entity.Date,
             TotalCalories = entity.TotalCalories,
             TotalProteinG = entity.TotalProteinG,
             TotalCarbsG = entity.TotalCarbsG,
             TotalFatG = entity.TotalFatG,
             Meals = JsonSerializer.Deserialize<List<MealDto>>(entity.MealsJson) ?? new List<MealDto>(),
+            CompletedItems = !string.IsNullOrEmpty(entity.CompletedItemsJson)
+                ? JsonSerializer.Deserialize<List<int>>(entity.CompletedItemsJson)
+                : new List<int>(),
+            IsFullyCompleted = entity.IsFullyCompleted,
             GeneratedAt = entity.GeneratedAt
         };
     }
@@ -893,14 +905,251 @@ YÊU CẦU:
         return new WorkoutPlanDto
         {
             Id = entity.Id,
-            UserId = entity.UserId,
+            AccountId = entity.AccountId,
             Date = entity.Date,
             WorkoutType = entity.WorkoutType,
             DurationMinutes = entity.DurationMinutes,
             EstimatedCaloriesBurned = entity.EstimatedCaloriesBurned,
             Exercises = JsonSerializer.Deserialize<List<ExerciseDto>>(entity.ExercisesJson) ?? new List<ExerciseDto>(),
+            CompletedItems = !string.IsNullOrEmpty(entity.CompletedItemsJson)
+                ? JsonSerializer.Deserialize<List<int>>(entity.CompletedItemsJson)
+                : new List<int>(),
+            IsFullyCompleted = entity.IsFullyCompleted,
             GeneratedAt = entity.GeneratedAt
         };
+    }
+
+    #endregion
+
+    #region New Methods for Plan Completion and Progress
+
+    public async Task<DailyPlanDto> GetDailyPlanAsync(
+        Guid userId,
+        DateTime date,
+        CancellationToken cancellationToken = default)
+    {
+        var mealPlan = await GetMealPlanByDateAsync(userId, date, cancellationToken);
+        var workoutPlan = await GetWorkoutPlanByDateAsync(userId, date, cancellationToken);
+
+        var completionPercentage = CalculateCompletionPercentage(mealPlan, workoutPlan);
+
+        return new DailyPlanDto
+        {
+            Date = date,
+            MealPlan = mealPlan,
+            WorkoutPlan = workoutPlan,
+            CompletionPercentage = completionPercentage,
+            TotalCaloriesConsumed = mealPlan?.TotalCalories ?? 0,
+            TotalCaloriesBurned = workoutPlan?.EstimatedCaloriesBurned ?? 0
+        };
+    }
+
+    public async Task<MealPlanDto> CompleteMealAsync(
+        Guid mealPlanId,
+        int mealIndex,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.MealPlans.FindAsync(new object[] { mealPlanId }, cancellationToken);
+        if (entity == null)
+        {
+            throw new InvalidOperationException($"Meal plan not found: {mealPlanId}");
+        }
+
+        // Parse completed items
+        var completedItems = !string.IsNullOrEmpty(entity.CompletedItemsJson)
+            ? JsonSerializer.Deserialize<List<int>>(entity.CompletedItemsJson) ?? new List<int>()
+            : new List<int>();
+
+        // Add meal index if not already completed
+        if (!completedItems.Contains(mealIndex))
+        {
+            completedItems.Add(mealIndex);
+            entity.CompletedItemsJson = JsonSerializer.Serialize(completedItems);
+
+            // Check if all meals are completed
+            var meals = JsonSerializer.Deserialize<List<MealDto>>(entity.MealsJson) ?? new List<MealDto>();
+            entity.IsFullyCompleted = completedItems.Count >= meals.Count;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Update streak if fully completed
+            if (entity.IsFullyCompleted)
+            {
+                await UpdateStreakAsync(entity.AccountId, entity.Date, cancellationToken);
+            }
+        }
+
+        return MapMealPlanToDto(entity);
+    }
+
+    public async Task<WorkoutPlanDto> CompleteExerciseAsync(
+        Guid workoutPlanId,
+        int exerciseIndex,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.WorkoutPlans.FindAsync(new object[] { workoutPlanId }, cancellationToken);
+        if (entity == null)
+        {
+            throw new InvalidOperationException($"Workout plan not found: {workoutPlanId}");
+        }
+
+        // Parse completed items
+        var completedItems = !string.IsNullOrEmpty(entity.CompletedItemsJson)
+            ? JsonSerializer.Deserialize<List<int>>(entity.CompletedItemsJson) ?? new List<int>()
+            : new List<int>();
+
+        // Add exercise index if not already completed
+        if (!completedItems.Contains(exerciseIndex))
+        {
+            completedItems.Add(exerciseIndex);
+            entity.CompletedItemsJson = JsonSerializer.Serialize(completedItems);
+
+            // Check if all exercises are completed
+            var exercises = JsonSerializer.Deserialize<List<ExerciseDto>>(entity.ExercisesJson) ?? new List<ExerciseDto>();
+            entity.IsFullyCompleted = completedItems.Count >= exercises.Count;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Update streak if fully completed
+            if (entity.IsFullyCompleted)
+            {
+                await UpdateStreakAsync(entity.AccountId, entity.Date, cancellationToken);
+            }
+        }
+
+        return MapWorkoutPlanToDto(entity);
+    }
+
+    public async Task<ProgressStatsDto> GetProgressStatsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var profile = await _context.NutritionProfiles
+            .FirstOrDefaultAsync(p => p.AccountId == userId, cancellationToken);
+
+        if (profile == null)
+        {
+            throw new InvalidOperationException($"Nutrition profile not found for UserId: {userId}");
+        }
+
+        // Get last 7 days completion
+        var today = DateTime.UtcNow.Date;
+        var weekAgo = today.AddDays(-6);
+
+        var mealPlans = await _context.MealPlans
+            .Where(m => m.AccountId == userId && m.Date >= weekAgo && m.Date <= today)
+            .ToListAsync(cancellationToken);
+
+        var workoutPlans = await _context.WorkoutPlans
+            .Where(w => w.AccountId == userId && w.Date >= weekAgo && w.Date <= today)
+            .ToListAsync(cancellationToken);
+
+        var weeklyCompletion = new List<DailyCompletionDto>();
+        var totalDaysCompleted = 0;
+        var totalCompletionRate = 0m;
+
+        for (var date = weekAgo; date <= today; date = date.AddDays(1))
+        {
+            var mealPlan = mealPlans.FirstOrDefault(m => m.Date.Date == date);
+            var workoutPlan = workoutPlans.FirstOrDefault(w => w.Date.Date == date);
+
+            var completionPercentage = CalculateCompletionPercentage(
+                mealPlan != null ? MapMealPlanToDto(mealPlan) : null,
+                workoutPlan != null ? MapWorkoutPlanToDto(workoutPlan) : null);
+
+            var isFullyCompleted = completionPercentage >= 80; // 80% threshold
+
+            weeklyCompletion.Add(new DailyCompletionDto
+            {
+                Date = date,
+                CompletionPercentage = completionPercentage,
+                IsFullyCompleted = isFullyCompleted
+            });
+
+            if (isFullyCompleted)
+            {
+                totalDaysCompleted++;
+            }
+
+            totalCompletionRate += completionPercentage;
+        }
+
+        return new ProgressStatsDto
+        {
+            StreakCount = profile.StreakCount,
+            LastCompletedDate = profile.LastCompletedDate,
+            WeeklyCompletion = weeklyCompletion,
+            AverageCompletionRate = weeklyCompletion.Count > 0 ? totalCompletionRate / weeklyCompletion.Count : 0,
+            TotalDaysCompleted = totalDaysCompleted
+        };
+    }
+
+    private async Task UpdateStreakAsync(Guid userId, DateTime completedDate, CancellationToken cancellationToken)
+    {
+        var profile = await _context.NutritionProfiles
+            .FirstOrDefaultAsync(p => p.AccountId == userId, cancellationToken);
+
+        if (profile == null) return;
+
+        // Check if both meal and workout are completed for this date
+        var mealPlan = await _context.MealPlans
+            .FirstOrDefaultAsync(m => m.AccountId == userId && m.Date.Date == completedDate.Date, cancellationToken);
+        var workoutPlan = await _context.WorkoutPlans
+            .FirstOrDefaultAsync(w => w.AccountId == userId && w.Date.Date == completedDate.Date, cancellationToken);
+
+        if (mealPlan?.IsFullyCompleted == true && workoutPlan?.IsFullyCompleted == true)
+        {
+            // Both completed - update streak
+            if (profile.LastCompletedDate.HasValue)
+            {
+                var daysDiff = (completedDate.Date - profile.LastCompletedDate.Value.Date).Days;
+                if (daysDiff == 1)
+                {
+                    // Consecutive day - increment streak
+                    profile.StreakCount++;
+                }
+                else if (daysDiff > 1)
+                {
+                    // Streak broken - reset to 1
+                    profile.StreakCount = 1;
+                }
+                // If daysDiff == 0, same day - don't change streak
+            }
+            else
+            {
+                // First completion
+                profile.StreakCount = 1;
+            }
+
+            profile.LastCompletedDate = completedDate.Date;
+            profile.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private decimal CalculateCompletionPercentage(MealPlanDto? mealPlan, WorkoutPlanDto? workoutPlan)
+    {
+        if (mealPlan == null && workoutPlan == null)
+        {
+            return 0;
+        }
+
+        var totalItems = 0;
+        var completedItems = 0;
+
+        if (mealPlan != null)
+        {
+            totalItems += mealPlan.Meals.Count;
+            completedItems += mealPlan.CompletedItems?.Count ?? 0;
+        }
+
+        if (workoutPlan != null)
+        {
+            totalItems += workoutPlan.Exercises.Count;
+            completedItems += workoutPlan.CompletedItems?.Count ?? 0;
+        }
+
+        return totalItems > 0 ? (decimal)completedItems / totalItems * 100 : 0;
     }
 
     #endregion

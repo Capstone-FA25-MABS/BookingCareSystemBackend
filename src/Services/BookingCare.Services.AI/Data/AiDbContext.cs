@@ -301,7 +301,7 @@ public class AiDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
 
-            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.AccountId).IsRequired();
             entity.Property(e => e.HeightCm).IsRequired();
             entity.Property(e => e.WeightKg).IsRequired();
             entity.Property(e => e.BMI).IsRequired();
@@ -325,7 +325,7 @@ public class AiDbContext : DbContext
                 .HasDefaultValueSql("GETUTCDATE()");
 
             // Indexes for performance
-            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.AccountId);
             entity.HasIndex(e => e.CreatedAt);
         });
 
@@ -335,7 +335,7 @@ public class AiDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
 
-            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.AccountId).IsRequired();
             entity.Property(e => e.NutritionProfileId).IsRequired();
             entity.Property(e => e.Date).IsRequired();
 
@@ -359,8 +359,8 @@ public class AiDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Indexes for performance
-            entity.HasIndex(e => new { e.UserId, e.Date })
-                .HasDatabaseName("IX_MealPlans_UserId_Date");
+            entity.HasIndex(e => new { e.AccountId, e.Date })
+                .HasDatabaseName("IX_MealPlans_AccountId_Date");
             entity.HasIndex(e => e.NutritionProfileId);
             entity.HasIndex(e => e.IsNotificationSent);
         });
@@ -371,7 +371,7 @@ public class AiDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
 
-            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.AccountId).IsRequired();
             entity.Property(e => e.NutritionProfileId).IsRequired();
             entity.Property(e => e.Date).IsRequired();
             entity.Property(e => e.WorkoutType).HasMaxLength(100).IsRequired();
@@ -396,8 +396,8 @@ public class AiDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             // Indexes for performance
-            entity.HasIndex(e => new { e.UserId, e.Date })
-                .HasDatabaseName("IX_WorkoutPlans_UserId_Date");
+            entity.HasIndex(e => new { e.AccountId, e.Date })
+                .HasDatabaseName("IX_WorkoutPlans_AccountId_Date");
             entity.HasIndex(e => e.NutritionProfileId);
             entity.HasIndex(e => e.IsNotificationSent);
         });

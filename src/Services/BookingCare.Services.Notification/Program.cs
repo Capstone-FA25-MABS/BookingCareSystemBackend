@@ -207,7 +207,7 @@ app.UseEventBus(eventBus =>
     // Subscribe to nutrition events for daily meal and workout plan notifications
     eventBus.Subscribe<DailyMealPlanGeneratedEvent, DailyMealPlanGeneratedEventHandler>();
     eventBus.Subscribe<DailyWorkoutPlanGeneratedEvent, DailyWorkoutPlanGeneratedEventHandler>();
-    
+
     // Subscribe to appointment reminder event (24h and 1h before appointment)
     eventBus.Subscribe<AppointmentReminderEvent, AppointmentReminderEventHandler>();
 });

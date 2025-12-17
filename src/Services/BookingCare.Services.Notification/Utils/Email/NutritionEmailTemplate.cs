@@ -10,7 +10,7 @@ public static class NutritionEmailTemplate
     public static string BuildMealPlanEmail(DailyMealPlanGeneratedEvent data)
     {
         var appUrl = Environment.GetEnvironmentVariable("APP_URL") ?? "https://bookingcare.com";
-        
+
         return $@"
 <!DOCTYPE html>
 <html lang='vi'>
@@ -108,11 +108,11 @@ public static class NutritionEmailTemplate
 </html>
 ";
     }
-    
+
     public static string BuildWorkoutPlanEmail(DailyWorkoutPlanGeneratedEvent data)
     {
         var appUrl = Environment.GetEnvironmentVariable("APP_URL") ?? "https://bookingcare.com";
-        
+
         return $@"
 <!DOCTYPE html>
 <html lang='vi'>

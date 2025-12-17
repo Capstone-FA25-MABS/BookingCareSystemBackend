@@ -225,7 +225,7 @@ public class NutritionConversationService : INutritionConversationService
     private string? ParseActivityLevel(string answer)
     {
         var trimmed = answer.Trim().ToLower();
-        
+
         // Support both number and text input
         return trimmed switch
         {
@@ -241,7 +241,7 @@ public class NutritionConversationService : INutritionConversationService
     private string? ParseHealthGoal(string answer)
     {
         var trimmed = answer.Trim().ToLower();
-        
+
         // Support both number and text input
         return trimmed switch
         {

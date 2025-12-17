@@ -1,3 +1,4 @@
+using BookingCare.Services.AI.Models.DTOs;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
@@ -14,6 +15,7 @@ namespace BookingCare.Services.AI.Controllers;
 [Route("api/v{version:apiVersion}/workout-plans")]
 [ApiVersion(ApiVersions.V1_0)]
 [Produces("application/json")]
+[Authorize(Policy = "Role:Patient")]
 public class WorkoutPlansController : BaseApiController
 {
     private readonly INutritionService _nutritionService;
@@ -83,5 +85,22 @@ public class WorkoutPlansController : BaseApiController
         }
 
         return Success(workoutPlan, "Today's workout plan retrieved successfully");
+    }
+
+    /// <summary>
+    /// Mark an exercise as completed
+    /// </summary>
+    [HttpPost("{id}/complete")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize]
+    public async Task<IActionResult> CompleteExercise(
+        Guid id,
+        [FromBody] CompleteItemDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var workoutPlan = await _nutritionService.CompleteExerciseAsync(
+            id, dto.ItemIndex, cancellationToken);
+
+        return Success(workoutPlan, "Exercise marked as completed");
     }
 }

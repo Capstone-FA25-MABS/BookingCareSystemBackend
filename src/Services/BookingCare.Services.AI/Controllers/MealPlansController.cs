@@ -1,3 +1,4 @@
+using BookingCare.Services.AI.Models.DTOs;
 using BookingCare.Services.AI.Services.Interfaces;
 using BookingCare.Shared.Common.Controllers;
 using BookingCare.Shared.Common.Helpers;
@@ -14,6 +15,7 @@ namespace BookingCare.Services.AI.Controllers;
 [Route("api/v{version:apiVersion}/meal-plans")]
 [ApiVersion(ApiVersions.V1_0)]
 [Produces("application/json")]
+[Authorize(Policy = "Role:Patient")]
 public class MealPlansController : BaseApiController
 {
     private readonly INutritionService _nutritionService;
@@ -83,5 +85,22 @@ public class MealPlansController : BaseApiController
         }
 
         return Success(mealPlan, "Today's meal plan retrieved successfully");
+    }
+
+    /// <summary>
+    /// Mark a meal as completed
+    /// </summary>
+    [HttpPost("{id}/complete")]
+    [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize]
+    public async Task<IActionResult> CompleteMeal(
+        Guid id,
+        [FromBody] CompleteItemDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var mealPlan = await _nutritionService.CompleteMealAsync(
+            id, dto.ItemIndex, cancellationToken);
+
+        return Success(mealPlan, "Meal marked as completed");
     }
 }

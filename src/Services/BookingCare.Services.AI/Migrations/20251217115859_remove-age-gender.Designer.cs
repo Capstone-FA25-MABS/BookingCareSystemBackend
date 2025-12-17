@@ -4,6 +4,7 @@ using BookingCare.Services.AI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BookingCare.Services.AI.Migrations
 {
     [DbContext(typeof(AiDbContext))]
-    partial class AiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251217115859_remove-age-gender")]
+    partial class removeagegender
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -276,9 +279,6 @@ namespace BookingCare.Services.AI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("CompletedItemsJson")
                         .HasColumnType("nvarchar(max)");
 
@@ -319,14 +319,17 @@ namespace BookingCare.Services.AI.Migrations
                     b.Property<decimal>("TotalProteinG")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IsNotificationSent");
 
                     b.HasIndex("NutritionProfileId");
 
-                    b.HasIndex("AccountId", "Date")
-                        .HasDatabaseName("IX_MealPlans_AccountId_Date");
+                    b.HasIndex("UserId", "Date")
+                        .HasDatabaseName("IX_MealPlans_UserId_Date");
 
                     b.ToTable("MealPlans");
                 });
@@ -335,9 +338,6 @@ namespace BookingCare.Services.AI.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AccountId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ActivityLevel")
@@ -396,14 +396,17 @@ namespace BookingCare.Services.AI.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("WeightKg")
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AccountId");
-
                     b.HasIndex("CreatedAt");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("NutritionProfiles");
                 });
@@ -495,9 +498,6 @@ namespace BookingCare.Services.AI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("CompletedItemsJson")
                         .HasColumnType("nvarchar(max)");
 
@@ -532,6 +532,9 @@ namespace BookingCare.Services.AI.Migrations
                     b.Property<Guid>("NutritionProfileId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("WorkoutType")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -543,8 +546,8 @@ namespace BookingCare.Services.AI.Migrations
 
                     b.HasIndex("NutritionProfileId");
 
-                    b.HasIndex("AccountId", "Date")
-                        .HasDatabaseName("IX_WorkoutPlans_AccountId_Date");
+                    b.HasIndex("UserId", "Date")
+                        .HasDatabaseName("IX_WorkoutPlans_UserId_Date");
 
                     b.ToTable("WorkoutPlans");
                 });

@@ -33,8 +33,15 @@ public class DailyMealPlanGeneratedEventHandler : IIntegrationEventHandler<Daily
         try
         {
             _logger.LogInformation(
-                "Handling DailyMealPlanGeneratedEvent for UserId: {UserId}, Date: {Date}",
+                "Handling DailyMealPlanGeneratedEvent for UserId: {UserId}, Date: {Date}. Will send notification after 1 minute delay.",
                 @event.UserId, @event.Date);
+
+            // Delay 1 minute before sending notification (for testing purposes)
+            await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
+
+            _logger.LogInformation(
+                "1 minute delay completed. Now sending meal plan notification for UserId: {UserId}",
+                @event.UserId);
 
             // Create notification event to be handled by CreateInAppNotificationEventHandler
             var notificationEvent = new CreateInAppNotificationEvent
@@ -92,12 +99,12 @@ public class DailyMealPlanGeneratedEventHandler : IIntegrationEventHandler<Daily
             // TODO: Get user email from event or cache
             // For now, skip email sending if email not provided in event
             // This will be implemented when event includes user email
-            
+
             _logger.LogInformation(
                 "Meal plan email sending skipped for UserId: {UserId} (email not available in event)",
                 @event.UserId
             );
-            
+
             // Uncomment when event includes user email:
             /*
             if (string.IsNullOrEmpty(@event.UserEmail))

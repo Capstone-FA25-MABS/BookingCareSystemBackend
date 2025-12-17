@@ -81,4 +81,35 @@ public interface INutritionService
     Task MarkWorkoutPlanNotificationSentAsync(
         Guid workoutPlanId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get daily plan (meal + workout) for a specific date
+    /// </summary>
+    Task<DailyPlanDto> GetDailyPlanAsync(
+        Guid userId,
+        DateTime date,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Mark meal as completed
+    /// </summary>
+    Task<MealPlanDto> CompleteMealAsync(
+        Guid mealPlanId,
+        int mealIndex,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Mark exercise as completed
+    /// </summary>
+    Task<WorkoutPlanDto> CompleteExerciseAsync(
+        Guid workoutPlanId,
+        int exerciseIndex,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get progress statistics
+    /// </summary>
+    Task<ProgressStatsDto> GetProgressStatsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
 }
