@@ -109,7 +109,7 @@ variable "enable_monitoring" {
 variable "enable_eip" {
   description = "Allocate Elastic IP for EC2 instance"
   type        = bool
-  default     = true
+  default     = false  # Disabled to save costs - using dynamic public IP
 }
 
 variable "tags" {

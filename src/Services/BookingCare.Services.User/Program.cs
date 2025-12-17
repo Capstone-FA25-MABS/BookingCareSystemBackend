@@ -34,6 +34,7 @@ builder.Services.AddScoped<IPatientRelativeRepository, PatientRelativeRepository
 // Register services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPatientRelativeService, PatientRelativeService>();
+builder.Services.AddSingleton<DatabaseInitializationService>();
 
 // Add S3 File Upload Service
 builder.Services.AddS3FileUpload(builder.Configuration);
@@ -66,11 +67,11 @@ var app = builder.Build();
 // Configure the HTTP request pipeline
 app.UseCommonSwaggerUI("User");
 
-// Ensure database is created
+// Initialize database from SQL script if not exists
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<UserDbContext>();
-    await context.Database.EnsureCreatedAsync();
+    var dbInitService = scope.ServiceProvider.GetRequiredService<DatabaseInitializationService>();
+    await dbInitService.InitializeAsync();
 }
 app.UseGlobalExceptionHandling();
 app.UseStandardAuthPipeline();

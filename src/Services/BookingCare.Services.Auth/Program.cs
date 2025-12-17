@@ -90,6 +90,7 @@ builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<AuthGrpcService>();
 builder.Services.AddScoped<DataInitializationService>();
+builder.Services.AddSingleton<DatabaseInitializationService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<CookieService>();
 // Register External Auth Providers
@@ -194,16 +195,14 @@ try
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
-    // 1. Initialize Auth Database (apply migrations)
+    // 1. Initialize Auth Database from SQL script if not exists
     logger.LogInformation("Initializing Auth database...");
     try
     {
         using var scope = app.Services.CreateScope();
-        var authDbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
-
-        // Apply pending migrations (will create database if it doesn't exist)
-        await authDbContext.Database.MigrateAsync();
-        logger.LogInformation("Auth database initialized and migrations applied successfully");
+        var dbInitService = scope.ServiceProvider.GetRequiredService<DatabaseInitializationService>();
+        await dbInitService.InitializeAsync();
+        logger.LogInformation("Auth database initialized successfully");
     }
     catch (Exception ex)
     {

@@ -8,7 +8,8 @@ EXPOSE 6015
 EXPOSE 6115
 
 # Use the official .NET 8 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
@@ -29,7 +30,7 @@ COPY ["src/Services/BookingCare.Services.Notification/Protos/", "src/Services/Bo
 COPY ["src/Services/BookingCare.Services.Review/Protos/", "src/Services/BookingCare.Services.Review/Protos/"]
 
 # Restore NuGet packages
-RUN dotnet restore "src/Services/BookingCare.Services.ServiceMedical/BookingCare.Services.ServiceMedical.csproj"
+RUN dotnet restore "src/Services/BookingCare.Services.ServiceMedical/BookingCare.Services.ServiceMedical.csproj" -a $TARGETARCH
 
 # Copy only the necessary source code for this service and its dependencies
 COPY ["src/Services/BookingCare.Services.ServiceMedical/", "src/Services/BookingCare.Services.ServiceMedical/"]
@@ -40,12 +41,13 @@ COPY ["src/Shared/", "src/Shared/"]
 WORKDIR "/src/src/Services/BookingCare.Services.ServiceMedical"
 
 # Build the application
-RUN dotnet build "BookingCare.Services.ServiceMedical.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "BookingCare.Services.ServiceMedical.csproj" -c $BUILD_CONFIGURATION -o /app/build -a $TARGETARCH
 
 # Publish the application
 FROM build AS publish
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "BookingCare.Services.ServiceMedical.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "BookingCare.Services.ServiceMedical.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false -a $TARGETARCH
 
 # Final stage: create the runtime image
 FROM base AS final
@@ -60,6 +62,9 @@ WORKDIR /app
 
 # Copy the published application
 COPY --from=publish /app/publish .
+
+# Copy SQL initialization scripts
+COPY --chown=app:app ["data/db_service-medical.sql", "./data/"]
 
 # Set environment variables
 ENV ASPNETCORE_ENVIRONMENT=Production

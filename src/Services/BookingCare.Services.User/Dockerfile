@@ -8,7 +8,8 @@ EXPOSE 6016
 EXPOSE 6116
 
 # Use the official .NET 8 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
@@ -19,7 +20,7 @@ COPY ["src/Shared/BookingCare.Shared.EventBus/BookingCare.Shared.EventBus.csproj
 COPY ["src/Shared/BookingCare.Shared.FileUpload/BookingCare.Shared.FileUpload.csproj", "src/Shared/BookingCare.Shared.FileUpload/"]
 
 # Restore NuGet packages
-RUN dotnet restore "src/Services/BookingCare.Services.User/BookingCare.Services.User.csproj"
+RUN dotnet restore "src/Services/BookingCare.Services.User/BookingCare.Services.User.csproj" -a $TARGETARCH
 
 # Copy the entire source code
 COPY . .
@@ -28,12 +29,13 @@ COPY . .
 WORKDIR "/src/src/Services/BookingCare.Services.User"
 
 # Build the application
-RUN dotnet build "BookingCare.Services.User.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "BookingCare.Services.User.csproj" -c $BUILD_CONFIGURATION -o /app/build -a $TARGETARCH
 
 # Publish the application
 FROM build AS publish
+ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "BookingCare.Services.User.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "BookingCare.Services.User.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false -a $TARGETARCH
 
 # Final stage: create the runtime image
 FROM base AS final
@@ -48,6 +50,9 @@ WORKDIR /app
 
 # Copy the published application
 COPY --from=publish /app/publish .
+
+# Copy SQL initialization scripts
+COPY --chown=app:app ["data/db_user.sql", "./data/"]
 
 # Set environment variables
 ENV ASPNETCORE_ENVIRONMENT=Production
