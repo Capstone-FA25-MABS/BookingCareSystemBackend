@@ -68,7 +68,7 @@ public class AiInsightsController : BaseApiController
         try
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-            
+
             // Get doctor ID from account ID (you may need to inject a service to do this)
             // For now, we'll need to get it from the doctor service via gRPC or similar
             // This is a placeholder - you'll need to implement the actual lookup
@@ -96,11 +96,11 @@ public class AiInsightsController : BaseApiController
         try
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-            
+
             // TODO: Verify that the authenticated doctor can access this doctorId
             // For Doctor role, verify doctorId matches their own ID
             // For Staff/Admin, allow any doctorId
-            
+
             var safeRequest = request ?? new GenerateAiInsightRequest();
             _logger.LogInformation("Generating AI insights for doctor {DoctorId}, period {Period}", doctorId, safeRequest.Period);
 
@@ -138,7 +138,7 @@ public class AiInsightsController : BaseApiController
         try
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-            
+
             // Get hospital ID from account ID (you may need to inject a service to do this)
             var safeRequest = request ?? new GenerateAiInsightRequest();
             _logger.LogInformation("Generating AI insights for hospital account {AccountId}, period {Period}", accountId, safeRequest.Period);
@@ -164,11 +164,11 @@ public class AiInsightsController : BaseApiController
         try
         {
             var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
-            
+
             // TODO: Verify that the authenticated staff can access this hospitalId
             // For Staff role, verify hospitalId matches their own hospital
             // For Admin, allow any hospitalId
-            
+
             var safeRequest = request ?? new GenerateAiInsightRequest();
             _logger.LogInformation("Generating AI insights for hospital {HospitalId}, period {Period}", hospitalId, safeRequest.Period);
 

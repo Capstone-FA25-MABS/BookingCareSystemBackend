@@ -280,7 +280,7 @@ public class AiInsightsService : IAiInsightsService
 SELECT TOP 1 SpecialtyId, COUNT(1) as Cnt
 FROM Appointments
 WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId IS NOT NULL";
-        
+
         if (doctorId.HasValue)
         {
             sql += " AND DoctorId = @doctorId";
@@ -289,7 +289,7 @@ WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId IS NOT NULL";
         {
             sql += " AND HospitalId = @hospitalId";
         }
-        
+
         sql += @"
 GROUP BY SpecialtyId
 ORDER BY Cnt DESC";
@@ -407,12 +407,12 @@ ORDER BY Cnt DESC";
 SELECT TOP 5 DoctorId, COUNT(1) as Cnt
 FROM Appointments
 WHERE AppointmentDate BETWEEN @start AND @end AND DoctorId IS NOT NULL";
-            
+
             if (hospitalId.HasValue)
             {
                 sql += " AND HospitalId = @hospitalId";
             }
-            
+
             sql += @"
 GROUP BY DoctorId
 ORDER BY Cnt DESC";
@@ -548,7 +548,7 @@ ORDER BY Cnt DESC";
 SELECT AppointmentTimeId, COUNT(1) as Cnt
 FROM Appointments
 WHERE AppointmentDate BETWEEN @start AND @end AND AppointmentTimeId IS NOT NULL";
-        
+
         if (doctorId.HasValue)
         {
             sql += " AND DoctorId = @doctorId";
@@ -557,7 +557,7 @@ WHERE AppointmentDate BETWEEN @start AND @end AND AppointmentTimeId IS NOT NULL"
         {
             sql += " AND HospitalId = @hospitalId";
         }
-        
+
         sql += @"
 GROUP BY AppointmentTimeId
 ORDER BY Cnt DESC";
@@ -642,7 +642,7 @@ ORDER BY Cnt DESC";
 SELECT SpecialtyId, COUNT(1) as Cnt
 FROM Appointments
 WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId IS NOT NULL";
-            
+
             if (doctorId.HasValue)
             {
                 sql += " AND DoctorId = @doctorId";
@@ -651,7 +651,7 @@ WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId IS NOT NULL";
             {
                 sql += " AND HospitalId = @hospitalId";
             }
-            
+
             sql += @"
 GROUP BY SpecialtyId
 ORDER BY Cnt DESC";
@@ -726,7 +726,7 @@ ORDER BY Cnt DESC";
         var sql = @"
 SELECT COUNT(1) FROM Appointments 
 WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId = @specialtyId";
-        
+
         if (doctorId.HasValue)
         {
             sql += " AND DoctorId = @doctorId";
@@ -768,7 +768,7 @@ SELECT
     SUM(CASE WHEN CancelledBy = 'SYSTEM' OR CancelledBy = 'ADMIN' THEN 1 ELSE 0 END) as CancelledBySystem
 FROM Appointments
 WHERE AppointmentDate BETWEEN @start AND @end AND Status = 'CANCELLED'";
-        
+
         if (doctorId.HasValue)
         {
             sql += " AND DoctorId = @doctorId";
@@ -834,7 +834,7 @@ WHERE AppointmentDate BETWEEN @start AND @end AND Status = 'CANCELLED'";
 SELECT COUNT(DISTINCT PatientAccountId) as NewPatients
 FROM Appointments
 WHERE AppointmentDate BETWEEN @start AND @end";
-            
+
             if (doctorId.HasValue)
             {
                 sqlNewPatients += " AND DoctorId = @doctorId";
@@ -843,12 +843,12 @@ WHERE AppointmentDate BETWEEN @start AND @end";
             {
                 sqlNewPatients += " AND HospitalId = @hospitalId";
             }
-            
+
             sqlNewPatients += @"
   AND PatientAccountId IN (
       SELECT PatientAccountId
       FROM Appointments";
-            
+
             if (doctorId.HasValue)
             {
                 sqlNewPatients += " WHERE DoctorId = @doctorId";
@@ -857,7 +857,7 @@ WHERE AppointmentDate BETWEEN @start AND @end";
             {
                 sqlNewPatients += doctorId.HasValue ? " AND HospitalId = @hospitalId" : " WHERE HospitalId = @hospitalId";
             }
-            
+
             sqlNewPatients += @"
       GROUP BY PatientAccountId
       HAVING MIN(AppointmentDate) BETWEEN @start AND @end
@@ -867,7 +867,7 @@ WHERE AppointmentDate BETWEEN @start AND @end";
 SELECT COUNT(DISTINCT PatientAccountId) as ReturningPatients
 FROM Appointments
 WHERE AppointmentDate BETWEEN @start AND @end";
-            
+
             if (doctorId.HasValue)
             {
                 sqlReturningPatients += " AND DoctorId = @doctorId";
@@ -876,12 +876,12 @@ WHERE AppointmentDate BETWEEN @start AND @end";
             {
                 sqlReturningPatients += " AND HospitalId = @hospitalId";
             }
-            
+
             sqlReturningPatients += @"
   AND PatientAccountId IN (
       SELECT PatientAccountId
       FROM Appointments";
-            
+
             if (doctorId.HasValue)
             {
                 sqlReturningPatients += " WHERE DoctorId = @doctorId";
@@ -890,7 +890,7 @@ WHERE AppointmentDate BETWEEN @start AND @end";
             {
                 sqlReturningPatients += doctorId.HasValue ? " AND HospitalId = @hospitalId" : " WHERE HospitalId = @hospitalId";
             }
-            
+
             sqlReturningPatients += @"
       GROUP BY PatientAccountId
       HAVING MIN(AppointmentDate) < @start
