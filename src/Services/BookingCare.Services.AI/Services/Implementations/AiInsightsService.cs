@@ -228,12 +228,22 @@ public class AiInsightsService : IAiInsightsService
         DateTime start,
         DateTime end,
         string? status,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? doctorId = null,
+        Guid? hospitalId = null)
     {
         var sql = "SELECT COUNT(1) FROM Appointments WHERE AppointmentDate BETWEEN @start AND @end";
         if (!string.IsNullOrWhiteSpace(status))
         {
             sql += " AND Status = @status";
+        }
+        if (doctorId.HasValue)
+        {
+            sql += " AND DoctorId = @doctorId";
+        }
+        if (hospitalId.HasValue)
+        {
+            sql += " AND HospitalId = @hospitalId";
         }
 
         using var command = new SqlCommand(sql, connection);
@@ -242,6 +252,14 @@ public class AiInsightsService : IAiInsightsService
         if (!string.IsNullOrWhiteSpace(status))
         {
             command.Parameters.AddWithValue("@status", status);
+        }
+        if (doctorId.HasValue)
+        {
+            command.Parameters.AddWithValue("@doctorId", doctorId.Value);
+        }
+        if (hospitalId.HasValue)
+        {
+            command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
         }
 
         var result = await command.ExecuteScalarAsync(cancellationToken);
@@ -254,18 +272,39 @@ public class AiInsightsService : IAiInsightsService
         SqlConnection connection,
         DateTime start,
         DateTime end,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? doctorId = null,
+        Guid? hospitalId = null)
     {
-        const string sql = @"
+        var sql = @"
 SELECT TOP 1 SpecialtyId, COUNT(1) as Cnt
 FROM Appointments
-WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId IS NOT NULL
+WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId IS NOT NULL";
+
+        if (doctorId.HasValue)
+        {
+            sql += " AND DoctorId = @doctorId";
+        }
+        if (hospitalId.HasValue)
+        {
+            sql += " AND HospitalId = @hospitalId";
+        }
+
+        sql += @"
 GROUP BY SpecialtyId
 ORDER BY Cnt DESC";
 
         using var command = new SqlCommand(sql, connection);
         command.Parameters.AddWithValue("@start", start);
         command.Parameters.AddWithValue("@end", end);
+        if (doctorId.HasValue)
+        {
+            command.Parameters.AddWithValue("@doctorId", doctorId.Value);
+        }
+        if (hospitalId.HasValue)
+        {
+            command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
+        }
 
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (await reader.ReadAsync(cancellationToken))
@@ -300,6 +339,51 @@ ORDER BY Cnt DESC";
         }
     }
 
+    private async Task<string> ResolveDoctorNameAsync(Guid doctorId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _doctorClient.GetDoctorAsync(
+                new GetDoctorRequest { Id = doctorId.ToString() },
+                cancellationToken: cancellationToken);
+
+            if (response != null && !string.IsNullOrWhiteSpace(response.FirstName))
+            {
+                var fullName = $"{response.FirstName} {response.LastName}".Trim();
+                return string.IsNullOrWhiteSpace(fullName) ? $"Bác sĩ {doctorId}" : fullName;
+            }
+
+            return $"Bác sĩ {doctorId}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không thể lấy tên bác sĩ {DoctorId}", doctorId);
+            return $"Bác sĩ {doctorId}";
+        }
+    }
+
+    private async Task<string> ResolveHospitalNameAsync(Guid hospitalId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _hospitalClient.GetHospitalAsync(
+                new GetHospitalRequest { Id = hospitalId.ToString() },
+                cancellationToken: cancellationToken);
+
+            if (response != null && !string.IsNullOrWhiteSpace(response.Name))
+            {
+                return response.Name;
+            }
+
+            return $"Bệnh viện {hospitalId}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không thể lấy tên bệnh viện {HospitalId}", hospitalId);
+            return $"Bệnh viện {hospitalId}";
+        }
+    }
+
     private static double CalculateDeltaPercent(int currentValue, int previousValue)
     {
         if (previousValue <= 0)
@@ -314,23 +398,35 @@ ORDER BY Cnt DESC";
         SqlConnection connection,
         DateTime start,
         DateTime end,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? hospitalId = null)
     {
         try
         {
-            const string sql = @"
+            var sql = @"
 SELECT TOP 5 DoctorId, COUNT(1) as Cnt
 FROM Appointments
-WHERE AppointmentDate BETWEEN @start AND @end AND DoctorId IS NOT NULL
+WHERE AppointmentDate BETWEEN @start AND @end AND DoctorId IS NOT NULL";
+
+            if (hospitalId.HasValue)
+            {
+                sql += " AND HospitalId = @hospitalId";
+            }
+
+            sql += @"
 GROUP BY DoctorId
 ORDER BY Cnt DESC";
 
             using var command = new SqlCommand(sql, connection);
             command.Parameters.AddWithValue("@start", start);
             command.Parameters.AddWithValue("@end", end);
+            if (hospitalId.HasValue)
+            {
+                command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
+            }
 
             var doctorIds = new List<(Guid DoctorId, int Count)>();
-            var total = await CountAppointmentsAsync(connection, start, end, null, cancellationToken);
+            var total = await CountAppointmentsAsync(connection, start, end, null, cancellationToken, hospitalId: hospitalId);
 
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
@@ -444,21 +540,42 @@ ORDER BY Cnt DESC";
         SqlConnection connection,
         DateTime start,
         DateTime end,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? doctorId = null,
+        Guid? hospitalId = null)
     {
-        const string sql = @"
+        var sql = @"
 SELECT AppointmentTimeId, COUNT(1) as Cnt
 FROM Appointments
-WHERE AppointmentDate BETWEEN @start AND @end AND AppointmentTimeId IS NOT NULL
+WHERE AppointmentDate BETWEEN @start AND @end AND AppointmentTimeId IS NOT NULL";
+
+        if (doctorId.HasValue)
+        {
+            sql += " AND DoctorId = @doctorId";
+        }
+        if (hospitalId.HasValue)
+        {
+            sql += " AND HospitalId = @hospitalId";
+        }
+
+        sql += @"
 GROUP BY AppointmentTimeId
 ORDER BY Cnt DESC";
 
         using var command = new SqlCommand(sql, connection);
         command.Parameters.AddWithValue("@start", start);
         command.Parameters.AddWithValue("@end", end);
+        if (doctorId.HasValue)
+        {
+            command.Parameters.AddWithValue("@doctorId", doctorId.Value);
+        }
+        if (hospitalId.HasValue)
+        {
+            command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
+        }
 
         var peakHours = new List<PeakHourStats>();
-        var total = await CountAppointmentsAsync(connection, start, end, null, cancellationToken);
+        var total = await CountAppointmentsAsync(connection, start, end, null, cancellationToken, doctorId: doctorId, hospitalId: hospitalId);
 
         using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -515,18 +632,31 @@ ORDER BY Cnt DESC";
         DateTime currentEnd,
         DateTime previousStart,
         DateTime previousEnd,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? doctorId = null,
+        Guid? hospitalId = null)
     {
         try
         {
-            const string sql = @"
+            var sql = @"
 SELECT SpecialtyId, COUNT(1) as Cnt
 FROM Appointments
-WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId IS NOT NULL
+WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId IS NOT NULL";
+
+            if (doctorId.HasValue)
+            {
+                sql += " AND DoctorId = @doctorId";
+            }
+            if (hospitalId.HasValue)
+            {
+                sql += " AND HospitalId = @hospitalId";
+            }
+
+            sql += @"
 GROUP BY SpecialtyId
 ORDER BY Cnt DESC";
 
-            var currentTotal = await CountAppointmentsAsync(connection, currentStart, currentEnd, null, cancellationToken);
+            var currentTotal = await CountAppointmentsAsync(connection, currentStart, currentEnd, null, cancellationToken, doctorId: doctorId, hospitalId: hospitalId);
 
             // First, collect all specialty data from reader
             var specialtyData = new List<(Guid SpecialtyId, int CurrentCount)>();
@@ -535,6 +665,14 @@ ORDER BY Cnt DESC";
             {
                 command.Parameters.AddWithValue("@start", currentStart);
                 command.Parameters.AddWithValue("@end", currentEnd);
+                if (doctorId.HasValue)
+                {
+                    command.Parameters.AddWithValue("@doctorId", doctorId.Value);
+                }
+                if (hospitalId.HasValue)
+                {
+                    command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
+                }
 
                 using var reader = await command.ExecuteReaderAsync(cancellationToken);
                 while (await reader.ReadAsync(cancellationToken))
@@ -552,7 +690,7 @@ ORDER BY Cnt DESC";
                 var share = currentTotal == 0 ? 0 : Math.Round((double)currentCount / currentTotal * 100, 2);
 
                 // Get previous period count (reader is closed, so this is safe)
-                var previousCount = await CountAppointmentsBySpecialtyAsync(connection, previousStart, previousEnd, specialtyId, cancellationToken);
+                var previousCount = await CountAppointmentsBySpecialtyAsync(connection, previousStart, previousEnd, specialtyId, cancellationToken, doctorId: doctorId, hospitalId: hospitalId);
                 var growth = CalculateDeltaPercent(currentCount, previousCount);
 
                 var specialtyName = await ResolveSpecialtyNameAsync(specialtyId, cancellationToken);
@@ -581,16 +719,35 @@ ORDER BY Cnt DESC";
         DateTime start,
         DateTime end,
         Guid specialtyId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? doctorId = null,
+        Guid? hospitalId = null)
     {
-        const string sql = @"
+        var sql = @"
 SELECT COUNT(1) FROM Appointments 
 WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId = @specialtyId";
+
+        if (doctorId.HasValue)
+        {
+            sql += " AND DoctorId = @doctorId";
+        }
+        if (hospitalId.HasValue)
+        {
+            sql += " AND HospitalId = @hospitalId";
+        }
 
         using var command = new SqlCommand(sql, connection);
         command.Parameters.AddWithValue("@start", start);
         command.Parameters.AddWithValue("@end", end);
         command.Parameters.AddWithValue("@specialtyId", specialtyId);
+        if (doctorId.HasValue)
+        {
+            command.Parameters.AddWithValue("@doctorId", doctorId.Value);
+        }
+        if (hospitalId.HasValue)
+        {
+            command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
+        }
 
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt32(result ?? 0);
@@ -600,9 +757,11 @@ WHERE AppointmentDate BETWEEN @start AND @end AND SpecialtyId = @specialtyId";
         SqlConnection connection,
         DateTime start,
         DateTime end,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? doctorId = null,
+        Guid? hospitalId = null)
     {
-        const string sql = @"
+        var sql = @"
 SELECT 
     COUNT(1) as TotalCancelled,
     SUM(CASE WHEN CancelledBy = 'PATIENT' THEN 1 ELSE 0 END) as CancelledByPatient,
@@ -610,12 +769,29 @@ SELECT
 FROM Appointments
 WHERE AppointmentDate BETWEEN @start AND @end AND Status = 'CANCELLED'";
 
+        if (doctorId.HasValue)
+        {
+            sql += " AND DoctorId = @doctorId";
+        }
+        if (hospitalId.HasValue)
+        {
+            sql += " AND HospitalId = @hospitalId";
+        }
+
         using var command = new SqlCommand(sql, connection);
         command.Parameters.AddWithValue("@start", start);
         command.Parameters.AddWithValue("@end", end);
+        if (doctorId.HasValue)
+        {
+            command.Parameters.AddWithValue("@doctorId", doctorId.Value);
+        }
+        if (hospitalId.HasValue)
+        {
+            command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
+        }
 
-        var total = await CountAppointmentsAsync(connection, start, end, null, cancellationToken);
-        var totalCancelled = await CountAppointmentsAsync(connection, start, end, "CANCELLED", cancellationToken);
+        var total = await CountAppointmentsAsync(connection, start, end, null, cancellationToken, doctorId: doctorId, hospitalId: hospitalId);
+        var totalCancelled = await CountAppointmentsAsync(connection, start, end, "CANCELLED", cancellationToken, doctorId: doctorId, hospitalId: hospitalId);
         var cancellationRate = total == 0 ? 0 : Math.Round((double)totalCancelled / total * 100, 2);
 
         int cancelledByPatient = 0;
@@ -646,30 +822,76 @@ WHERE AppointmentDate BETWEEN @start AND @end AND Status = 'CANCELLED'";
         SqlConnection connection,
         DateTime start,
         DateTime end,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? doctorId = null,
+        Guid? hospitalId = null)
     {
         try
         {
             // New patients: those who have their first appointment in this period
             // Returning patients: those who have appointments before this period
-            const string sqlNewPatients = @"
+            var sqlNewPatients = @"
 SELECT COUNT(DISTINCT PatientAccountId) as NewPatients
 FROM Appointments
-WHERE AppointmentDate BETWEEN @start AND @end
+WHERE AppointmentDate BETWEEN @start AND @end";
+
+            if (doctorId.HasValue)
+            {
+                sqlNewPatients += " AND DoctorId = @doctorId";
+            }
+            if (hospitalId.HasValue)
+            {
+                sqlNewPatients += " AND HospitalId = @hospitalId";
+            }
+
+            sqlNewPatients += @"
   AND PatientAccountId IN (
       SELECT PatientAccountId
-      FROM Appointments
+      FROM Appointments";
+
+            if (doctorId.HasValue)
+            {
+                sqlNewPatients += " WHERE DoctorId = @doctorId";
+            }
+            if (hospitalId.HasValue)
+            {
+                sqlNewPatients += doctorId.HasValue ? " AND HospitalId = @hospitalId" : " WHERE HospitalId = @hospitalId";
+            }
+
+            sqlNewPatients += @"
       GROUP BY PatientAccountId
       HAVING MIN(AppointmentDate) BETWEEN @start AND @end
   )";
 
-            const string sqlReturningPatients = @"
+            var sqlReturningPatients = @"
 SELECT COUNT(DISTINCT PatientAccountId) as ReturningPatients
 FROM Appointments
-WHERE AppointmentDate BETWEEN @start AND @end
+WHERE AppointmentDate BETWEEN @start AND @end";
+
+            if (doctorId.HasValue)
+            {
+                sqlReturningPatients += " AND DoctorId = @doctorId";
+            }
+            if (hospitalId.HasValue)
+            {
+                sqlReturningPatients += " AND HospitalId = @hospitalId";
+            }
+
+            sqlReturningPatients += @"
   AND PatientAccountId IN (
       SELECT PatientAccountId
-      FROM Appointments
+      FROM Appointments";
+
+            if (doctorId.HasValue)
+            {
+                sqlReturningPatients += " WHERE DoctorId = @doctorId";
+            }
+            if (hospitalId.HasValue)
+            {
+                sqlReturningPatients += doctorId.HasValue ? " AND HospitalId = @hospitalId" : " WHERE HospitalId = @hospitalId";
+            }
+
+            sqlReturningPatients += @"
       GROUP BY PatientAccountId
       HAVING MIN(AppointmentDate) < @start
   )";
@@ -682,6 +904,14 @@ WHERE AppointmentDate BETWEEN @start AND @end
             {
                 command.Parameters.AddWithValue("@start", start);
                 command.Parameters.AddWithValue("@end", end);
+                if (doctorId.HasValue)
+                {
+                    command.Parameters.AddWithValue("@doctorId", doctorId.Value);
+                }
+                if (hospitalId.HasValue)
+                {
+                    command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
+                }
                 var result = await command.ExecuteScalarAsync(cancellationToken);
                 newPatients = Convert.ToInt32(result ?? 0);
             }
@@ -691,6 +921,14 @@ WHERE AppointmentDate BETWEEN @start AND @end
             {
                 command.Parameters.AddWithValue("@start", start);
                 command.Parameters.AddWithValue("@end", end);
+                if (doctorId.HasValue)
+                {
+                    command.Parameters.AddWithValue("@doctorId", doctorId.Value);
+                }
+                if (hospitalId.HasValue)
+                {
+                    command.Parameters.AddWithValue("@hospitalId", hospitalId.Value);
+                }
                 var result = await command.ExecuteScalarAsync(cancellationToken);
                 returningPatients = Convert.ToInt32(result ?? 0);
             }
@@ -1149,6 +1387,554 @@ LƯU Ý JSON:
         jsonContent = jsonContent.Trim();
 
         return jsonContent;
+    }
+
+    public async Task<AiInsightResponse> GenerateForDoctorAsync(
+        Guid doctorId,
+        GenerateAiInsightRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            DateTime currentStart, currentEnd, previousStart, previousEnd;
+            string periodLabel;
+
+            // Nếu có fromDate và toDate, dùng date range tùy chỉnh
+            if (request?.FromDate.HasValue == true && request?.ToDate.HasValue == true)
+            {
+                currentStart = request.FromDate.Value.Date;
+                currentEnd = request.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+                var periodLength = (currentEnd - currentStart).TotalDays;
+                previousEnd = currentStart.AddTicks(-1);
+                previousStart = previousEnd.AddDays(-periodLength).Date;
+                periodLabel = $"Tùy chỉnh ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})";
+            }
+            else
+            {
+                var normalizedPeriod = (request?.Period ?? "week").Trim().ToLowerInvariant();
+                var (CurrentStart, CurrentEnd, PreviousStart, PreviousEnd, Label) = ResolvePeriod(normalizedPeriod);
+                currentStart = CurrentStart;
+                currentEnd = CurrentEnd;
+                previousStart = PreviousStart;
+                previousEnd = PreviousEnd;
+                periodLabel = Label;
+            }
+
+            _logger.LogInformation("Collecting metrics for doctor {DoctorId}, period {Period} ({Start} to {End})",
+                doctorId, periodLabel, currentStart, currentEnd);
+
+            var metrics = await CollectMetricsForDoctorAsync(
+                doctorId,
+                currentStart,
+                currentEnd,
+                previousStart,
+                previousEnd,
+                cancellationToken);
+
+            _logger.LogInformation("Metrics collected for doctor {DoctorId}. Total appointments: {Total}", doctorId, metrics.CurrentTotal);
+
+            // Lấy tên bác sĩ
+            string doctorName = await ResolveDoctorNameAsync(doctorId, cancellationToken);
+
+            var prompt = BuildPromptForDoctor(
+                doctorId,
+                doctorName,
+                metrics,
+                currentStart,
+                currentEnd,
+                previousStart,
+                previousEnd,
+                periodLabel);
+
+            _logger.LogInformation("Calling Groq API for doctor {DoctorId} with model {Model}", doctorId, _groqConfig.PrimaryModel);
+
+            var summary = await _groqApiHelper.CallGroqApiAsync(
+                prompt,
+                _groqConfig,
+                temperature: _groqConfig.Temperature ?? 0.2,
+                maxTokens: _groqConfig.MaxTokens ?? 6000,
+                cancellationToken: cancellationToken);
+
+            _logger.LogInformation("Groq API response received for doctor {DoctorId}. Summary length: {Length}", doctorId, summary?.Length ?? 0);
+
+            var (predictions, alerts, rootCauses, analysisConclusion, predictionConclusion) = ParseStructuredData(summary ?? string.Empty, metrics, _logger);
+
+            return new AiInsightResponse
+            {
+                Summary = summary?.Trim() ?? string.Empty,
+                Period = periodLabel,
+                PeriodStart = currentStart,
+                PeriodEnd = currentEnd,
+                GeneratedAt = DateTime.UtcNow,
+                Model = _groqConfig.PrimaryModel,
+                Metrics = metrics,
+                Predictions = predictions,
+                Alerts = alerts,
+                RootCauseAnalyses = rootCauses,
+                AnalysisConclusion = analysisConclusion,
+                PredictionConclusion = predictionConclusion
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating AI insights for doctor {DoctorId}: {Message}", doctorId, ex.Message);
+            throw;
+        }
+    }
+
+    public async Task<AiInsightResponse> GenerateForHospitalAsync(
+        Guid hospitalId,
+        GenerateAiInsightRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            DateTime currentStart, currentEnd, previousStart, previousEnd;
+            string periodLabel;
+
+            // Nếu có fromDate và toDate, dùng date range tùy chỉnh
+            if (request?.FromDate.HasValue == true && request?.ToDate.HasValue == true)
+            {
+                currentStart = request.FromDate.Value.Date;
+                currentEnd = request.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+                var periodLength = (currentEnd - currentStart).TotalDays;
+                previousEnd = currentStart.AddTicks(-1);
+                previousStart = previousEnd.AddDays(-periodLength).Date;
+                periodLabel = $"Tùy chỉnh ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})";
+            }
+            else
+            {
+                var normalizedPeriod = (request?.Period ?? "week").Trim().ToLowerInvariant();
+                var (CurrentStart, CurrentEnd, PreviousStart, PreviousEnd, Label) = ResolvePeriod(normalizedPeriod);
+                currentStart = CurrentStart;
+                currentEnd = CurrentEnd;
+                previousStart = PreviousStart;
+                previousEnd = PreviousEnd;
+                periodLabel = Label;
+            }
+
+            _logger.LogInformation("Collecting metrics for hospital {HospitalId}, period {Period} ({Start} to {End})",
+                hospitalId, periodLabel, currentStart, currentEnd);
+
+            var metrics = await CollectMetricsForHospitalAsync(
+                hospitalId,
+                currentStart,
+                currentEnd,
+                previousStart,
+                previousEnd,
+                cancellationToken);
+
+            _logger.LogInformation("Metrics collected for hospital {HospitalId}. Total appointments: {Total}", hospitalId, metrics.CurrentTotal);
+
+            // Lấy tên bệnh viện
+            string hospitalName = await ResolveHospitalNameAsync(hospitalId, cancellationToken);
+
+            var prompt = BuildPromptForHospital(
+                hospitalId,
+                hospitalName,
+                metrics,
+                currentStart,
+                currentEnd,
+                previousStart,
+                previousEnd,
+                periodLabel);
+
+            _logger.LogInformation("Calling Groq API for hospital {HospitalId} with model {Model}", hospitalId, _groqConfig.PrimaryModel);
+
+            var summary = await _groqApiHelper.CallGroqApiAsync(
+                prompt,
+                _groqConfig,
+                temperature: _groqConfig.Temperature ?? 0.2,
+                maxTokens: _groqConfig.MaxTokens ?? 6000,
+                cancellationToken: cancellationToken);
+
+            _logger.LogInformation("Groq API response received for hospital {HospitalId}. Summary length: {Length}", hospitalId, summary?.Length ?? 0);
+
+            var (predictions, alerts, rootCauses, analysisConclusion, predictionConclusion) = ParseStructuredData(summary ?? string.Empty, metrics, _logger);
+
+            return new AiInsightResponse
+            {
+                Summary = summary?.Trim() ?? string.Empty,
+                Period = periodLabel,
+                PeriodStart = currentStart,
+                PeriodEnd = currentEnd,
+                GeneratedAt = DateTime.UtcNow,
+                Model = _groqConfig.PrimaryModel,
+                Metrics = metrics,
+                Predictions = predictions,
+                Alerts = alerts,
+                RootCauseAnalyses = rootCauses,
+                AnalysisConclusion = analysisConclusion,
+                PredictionConclusion = predictionConclusion
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating AI insights for hospital {HospitalId}: {Message}", hospitalId, ex.Message);
+            throw;
+        }
+    }
+
+    private async Task<AiInsightMetrics> CollectMetricsForDoctorAsync(
+        Guid doctorId,
+        DateTime currentStart,
+        DateTime currentEnd,
+        DateTime previousStart,
+        DateTime previousEnd,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqlConnection(_appointmentConnection);
+            await connection.OpenAsync(cancellationToken);
+
+            _logger.LogInformation("Collecting basic metrics for doctor {DoctorId}...", doctorId);
+            var currentTotal = await CountAppointmentsAsync(connection, currentStart, currentEnd, null, cancellationToken, doctorId: doctorId);
+            var previousTotal = await CountAppointmentsAsync(connection, previousStart, previousEnd, null, cancellationToken, doctorId: doctorId);
+            var currentCancelled = await CountAppointmentsAsync(connection, currentStart, currentEnd, "CANCELLED", cancellationToken, doctorId: doctorId);
+            var previousCancelled = await CountAppointmentsAsync(connection, previousStart, previousEnd, "CANCELLED", cancellationToken, doctorId: doctorId);
+            var currentCompleted = await CountAppointmentsAsync(connection, currentStart, currentEnd, "COMPLETED", cancellationToken, doctorId: doctorId);
+
+            _logger.LogInformation("Getting top specialty for doctor {DoctorId}...", doctorId);
+            var topSpecialty = await GetTopSpecialtyAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
+            var topSpecialtyName = await ResolveSpecialtyNameAsync(topSpecialty?.SpecialtyId, cancellationToken);
+
+            // Extended analytics
+            _logger.LogInformation("Collecting extended analytics for doctor {DoctorId}...", doctorId);
+            var peakHours = await GetPeakHoursAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
+            var specialtyBreakdown = await GetSpecialtyBreakdownAsync(connection, currentStart, currentEnd, previousStart, previousEnd, cancellationToken, doctorId: doctorId);
+            var cancellationDetails = await GetCancellationDetailsAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
+            var patientSegments = await GetPatientSegmentsAsync(connection, currentStart, currentEnd, cancellationToken, doctorId: doctorId);
+
+            return new AiInsightMetrics
+            {
+                CurrentTotal = currentTotal,
+                PreviousTotal = previousTotal,
+                GrowthPercent = CalculateDeltaPercent(currentTotal, previousTotal),
+                CurrentCompleted = currentCompleted,
+                CurrentCancelled = currentCancelled,
+                CancellationRate = currentTotal == 0 ? 0 : Math.Round((double)currentCancelled / currentTotal * 100, 2),
+                CancellationDeltaPercent = CalculateDeltaPercent(currentCancelled, previousCancelled),
+                TopSpecialtyId = topSpecialty?.SpecialtyId,
+                TopSpecialtyName = topSpecialtyName,
+                TopSpecialtyCount = topSpecialty?.Count ?? 0,
+                TopSpecialtyShare = currentTotal == 0
+                    ? 0
+                    : Math.Round((double)(topSpecialty?.Count ?? 0) / currentTotal * 100, 2),
+                TopDoctors = new List<DoctorUtilization>(), // Not applicable for doctor view
+                TopHospitals = new List<HospitalStats>(), // Not applicable for doctor view
+                PeakHours = peakHours,
+                SpecialtyBreakdown = specialtyBreakdown,
+                CancellationDetails = cancellationDetails,
+                PatientSegments = patientSegments
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error collecting metrics for doctor {DoctorId}: {Message}", doctorId, ex.Message);
+            throw;
+        }
+    }
+
+    private async Task<AiInsightMetrics> CollectMetricsForHospitalAsync(
+        Guid hospitalId,
+        DateTime currentStart,
+        DateTime currentEnd,
+        DateTime previousStart,
+        DateTime previousEnd,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var connection = new SqlConnection(_appointmentConnection);
+            await connection.OpenAsync(cancellationToken);
+
+            _logger.LogInformation("Collecting basic metrics for hospital {HospitalId}...", hospitalId);
+            var currentTotal = await CountAppointmentsAsync(connection, currentStart, currentEnd, null, cancellationToken, hospitalId: hospitalId);
+            var previousTotal = await CountAppointmentsAsync(connection, previousStart, previousEnd, null, cancellationToken, hospitalId: hospitalId);
+            var currentCancelled = await CountAppointmentsAsync(connection, currentStart, currentEnd, "CANCELLED", cancellationToken, hospitalId: hospitalId);
+            var previousCancelled = await CountAppointmentsAsync(connection, previousStart, previousEnd, "CANCELLED", cancellationToken, hospitalId: hospitalId);
+            var currentCompleted = await CountAppointmentsAsync(connection, currentStart, currentEnd, "COMPLETED", cancellationToken, hospitalId: hospitalId);
+
+            _logger.LogInformation("Getting top specialty for hospital {HospitalId}...", hospitalId);
+            var topSpecialty = await GetTopSpecialtyAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+            var topSpecialtyName = await ResolveSpecialtyNameAsync(topSpecialty?.SpecialtyId, cancellationToken);
+
+            // Extended analytics
+            _logger.LogInformation("Collecting extended analytics for hospital {HospitalId}...", hospitalId);
+            var topDoctors = await GetTopDoctorsAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+            var peakHours = await GetPeakHoursAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+            var specialtyBreakdown = await GetSpecialtyBreakdownAsync(connection, currentStart, currentEnd, previousStart, previousEnd, cancellationToken, hospitalId: hospitalId);
+            var cancellationDetails = await GetCancellationDetailsAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+            var patientSegments = await GetPatientSegmentsAsync(connection, currentStart, currentEnd, cancellationToken, hospitalId: hospitalId);
+
+            return new AiInsightMetrics
+            {
+                CurrentTotal = currentTotal,
+                PreviousTotal = previousTotal,
+                GrowthPercent = CalculateDeltaPercent(currentTotal, previousTotal),
+                CurrentCompleted = currentCompleted,
+                CurrentCancelled = currentCancelled,
+                CancellationRate = currentTotal == 0 ? 0 : Math.Round((double)currentCancelled / currentTotal * 100, 2),
+                CancellationDeltaPercent = CalculateDeltaPercent(currentCancelled, previousCancelled),
+                TopSpecialtyId = topSpecialty?.SpecialtyId,
+                TopSpecialtyName = topSpecialtyName,
+                TopSpecialtyCount = topSpecialty?.Count ?? 0,
+                TopSpecialtyShare = currentTotal == 0
+                    ? 0
+                    : Math.Round((double)(topSpecialty?.Count ?? 0) / currentTotal * 100, 2),
+                TopDoctors = topDoctors,
+                TopHospitals = new List<HospitalStats>(), // Not applicable for hospital view
+                PeakHours = peakHours,
+                SpecialtyBreakdown = specialtyBreakdown,
+                CancellationDetails = cancellationDetails,
+                PatientSegments = patientSegments
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error collecting metrics for hospital {HospitalId}: {Message}", hospitalId, ex.Message);
+            throw;
+        }
+    }
+
+    private static string BuildPromptForDoctor(
+        Guid doctorId,
+        string doctorName,
+        AiInsightMetrics metrics,
+        DateTime currentStart,
+        DateTime currentEnd,
+        DateTime previousStart,
+        DateTime previousEnd,
+        string periodLabel)
+    {
+        var metricsJson = JsonSerializer.Serialize(metrics, new JsonSerializerOptions { WriteIndented = true });
+
+        return $@"
+Bạn là chuyên gia phân tích dữ liệu BI cho BookingCare - hệ thống đặt lịch khám bệnh trực tuyến.
+Phân tích dữ liệu và tạo báo cáo insights chuyên nghiệp bằng TIẾNG VIỆT cho bác sĩ {doctorName}.
+
+⚠️ YÊU CẦU BẮT BUỘC:
+- TẤT CẢ nội dung phải bằng TIẾNG VIỆT HOÀN TOÀN (kết luận, phân tích, dự đoán, tên chuyên khoa, khuyến nghị, cảnh báo)
+- TUYỆT ĐỐI KHÔNG được dùng tiếng Trung, tiếng Anh, hoặc bất kỳ ngôn ngữ nào khác (trừ tên riêng)
+- Sử dụng số liệu cụ thể từ dữ liệu, KHÔNG tạo dữ liệu giả
+- Viết thành đoạn văn liền mạch, không phải bullet points
+- Độ dài báo cáo: 1500-2800 từ
+- Tập trung vào hiệu suất CÁ NHÂN của bác sĩ: lịch hẹn, khung giờ, bệnh nhân mới/quay lại, chất lượng dịch vụ
+
+BỐI CẢNH:
+- Bác sĩ: {doctorName}
+- Giai đoạn hiện tại: {currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd} ({periodLabel})
+- Giai đoạn so sánh: {previousStart:yyyy-MM-dd} → {previousEnd:yyyy-MM-dd}
+
+DỮ LIỆU THỐNG KÊ:
+{metricsJson}
+
+CẤU TRÚC BÁO CÁO:
+
+BƯỚC 1: PHÂN TÍCH VĂN BẢN (viết trước JSON):
+Phân tích chi tiết các khía cạnh sau (mỗi phần 100-180 từ), ưu tiên góc nhìn CÁ NHÂN của bác sĩ:
+1. Tổng quan hiệu suất cá nhân (lượt đặt, hoàn thành, hủy, % tăng/giảm vs kỳ trước)
+2. Chuyên khoa bác sĩ đang phục vụ (lượt, % share, tăng/giảm, so sánh với trung bình)
+3. Khung giờ vàng của bác sĩ (giờ nhiều lượt nhất, đề xuất mở/điều chỉnh ca làm việc)
+4. Bệnh nhân mới vs quay lại, xu hướng retention với bác sĩ (tỷ lệ bệnh nhân quay lại khám)
+5. Hủy lịch gắn với bác sĩ (tỷ lệ, lý do, pattern theo giờ/ngày trong tuần, tác động đến uy tín)
+6. Đề xuất cải thiện cụ thể cho bác sĩ (5-7 ý: khung giờ, follow-up, nhắc hẹn, chất lượng dịch vụ, giao tiếp với bệnh nhân)
+7. Rủi ro cá nhân (3-5: mô tả, mức độ, khả năng, tác động, biện pháp khắc phục)
+8. Dự đoán cá nhân (lượt tuần/tháng tới, % hủy dự kiến, confidence, lý do, giờ nên mở thêm)
+9. Cảnh báo cá nhân (type, title, message, severity, metric, currentValue, thresholdValue, recommendedAction)
+10. Phân tích nguyên nhân gốc rễ cho các chỉ số bất thường của bác sĩ (metric, issue, potentialCauses[], mostLikelyCause, analysis 100-150 từ, impactScore)
+
+BƯỚC 2: JSON DATA (cuối báo cáo, trong thẻ <JSON_DATA>...</JSON_DATA>):
+Sử dụng cùng cấu trúc JSON như báo cáo bệnh viện nhưng CHỈ tập trung vào dữ liệu của bác sĩ này (điền metric theo dữ liệu đã cho).
+
+<JSON_DATA>
+{{
+  ""analysisConclusion"": ""<Kết luận phân tích - 250-300 TỪ, BẰNG TIẾNG VIỆT HOÀN TOÀN.
+  
+  Viết một đoạn văn liền mạch, bắt đầu 'Trong {periodLabel} hiện tại ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd}), bác sĩ {doctorName}'. 
+  Bao gồm: Tổng lượt đặt (số cụ thể, so kỳ trước %), chuyên khoa đang phục vụ (tên, số lượt, %), tỉ lệ hủy (số, %, so kỳ trước), lượt hoàn thành (số, %). 
+  Phân tích nguyên nhân tăng/giảm (yếu tố chính), đánh giá hiệu suất cá nhân (tốt/trung bình/cần cải thiện), xu hướng bệnh nhân (mới/quay lại), điểm mạnh/yếu chính.
+  Có số liệu cụ thể, phân tích ngắn gọn, KHÔNG có từ tiếng Anh>"",
+  
+  ""predictionConclusion"": ""<Kết luận dự đoán tương lai - 250-300 TỪ, BẰNG TIẾNG VIỆT HOÀN TOÀN.
+  
+  Viết một đoạn văn liền mạch về dự đoán cho bác sĩ. 
+  Bao gồm: Dự đoán lượt đặt tuần/tháng tới (số cụ thể, tăng/giảm %, lý do), tỉ lệ hủy dự kiến (%, xu hướng), chuyên khoa tiếp tục phục vụ (tên, lý do), xu hướng bệnh nhân. 
+  Đánh giá mức độ tin cậy (cao/trung bình/thấp, lý do), yếu tố ảnh hưởng chính (mùa vụ, sự kiện, lịch làm việc), rủi ro/cơ hội chính, khuyến nghị ngắn gọn.
+  Có số liệu cụ thể, lý do rõ ràng, KHÔNG có từ tiếng Anh>"",
+  ""predictions"": [
+    {{
+      ""period"": ""next_week"",
+      ""predictedAppointments"": <số>,
+      ""predictedGrowthPercent"": <số>,
+      ""predictedCancellationRate"": <số>,
+      ""predictedRevenue"": <số>,
+      ""topSpecialtyPrediction"": ""<tên chuyên khoa>"",
+      ""confidence"": ""high|medium|low"",
+      ""reasoning"": ""<lý do>""
+    }},
+    {{
+      ""period"": ""next_month"",
+      ""predictedAppointments"": <số>,
+      ""predictedGrowthPercent"": <số>,
+      ""predictedCancellationRate"": <số>,
+      ""predictedRevenue"": <số>,
+      ""topSpecialtyPrediction"": ""<tên chuyên khoa>"",
+      ""confidence"": ""high|medium|low"",
+      ""reasoning"": ""<lý do>""
+    }}
+  ],
+  ""alerts"": [
+    {{
+      ""type"": ""warning|critical|info|success"",
+      ""title"": ""<tiêu đề BẰNG TIẾNG VIỆT, ngắn gọn, ví dụ: 'Tỉ lệ hủy lịch cao'>"",
+      ""message"": ""<thông điệp BẰNG TIẾNG VIỆT, mô tả chi tiết vấn đề, ít nhất 30-50 từ, ví dụ: 'Tỉ lệ hủy lịch hiện tại là 25%, cao hơn ngưỡng cảnh báo 20%. Điều này cho thấy cần cải thiện chất lượng dịch vụ và tăng cường giao tiếp với bệnh nhân'>"",
+      ""severity"": ""high|medium|low"",
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
+      ""currentValue"": <số thực tế từ dữ liệu, ví dụ: nếu tỉ lệ hủy là 25% thì currentValue = 25>,
+      ""thresholdValue"": <ngưỡng cảnh báo để so sánh, ví dụ: nếu ngưỡng là 20% thì thresholdValue = 20>,
+      ""recommendedAction"": ""<hành động khuyến nghị BẰNG TIẾNG VIỆT, chi tiết, cụ thể, có thể thực hiện ngay, ví dụ: 'Gửi tin nhắn nhắc nhở bệnh nhân 24h trước khi khám, cải thiện chất lượng khám bệnh, tăng cường giao tiếp với bệnh nhân qua điện thoại', ít nhất 30-50 từ>""
+    }}
+  ],
+  ""rootCauseAnalyses"": [
+    {{
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
+      ""issue"": ""<mô tả vấn đề BẰNG TIẾNG VIỆT, chi tiết, ví dụ: 'Tỉ lệ hủy lịch cao ở mức 25%, vượt quá ngưỡng cảnh báo 20%'>"",
+      ""potentialCauses"": [""<nguyên nhân 1 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng của bệnh nhân'>"", ""<nguyên nhân 2 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Thiếu giao tiếp và nhắc nhở với bệnh nhân trước ngày khám'>""],
+      ""mostLikelyCause"": ""<nguyên nhân có khả năng cao nhất BẰNG TIẾNG VIỆT, giải thích chi tiết TẠI SAO đây là nguyên nhân chính, dựa trên dữ liệu nào, ít nhất 50-80 từ. Ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng là nguyên nhân chính vì dữ liệu cho thấy tỉ lệ hủy tăng cao sau khi bệnh nhân đặt lịch, và có nhiều phản hồi tiêu cực về chất lượng dịch vụ. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, cho thấy vấn đề chất lượng dịch vụ đang trở nên nghiêm trọng'>"",
+      ""analysis"": ""<phân tích chi tiết BẰNG TIẾNG VIỆT, ít nhất 150-200 từ, giải thích sâu về nguyên nhân gốc rễ, mức độ ảnh hưởng, bằng chứng từ dữ liệu, tại sao nguyên nhân này quan trọng, tác động đến uy tín bác sĩ như thế nào. Phân tích phải có cấu trúc rõ ràng với các đoạn văn riêng biệt. Ví dụ: 'Phân tích dữ liệu cho thấy rằng chất lượng dịch vụ khám bệnh là nguyên nhân chính dẫn đến việc hủy lịch. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, với hơn 60% lượt hủy xảy ra trong vòng 24 giờ sau khi đặt lịch. Điều này cho thấy bệnh nhân đang mất niềm tin vào chất lượng dịch vụ ngay sau khi đặt lịch. Dữ liệu phản hồi từ bệnh nhân cho thấy có nhiều phàn nàn về thời gian chờ đợi lâu, thái độ phục vụ chưa tốt, và chất lượng khám bệnh không đáp ứng kỳ vọng. Tác động của vấn đề này rất lớn, ảnh hưởng trực tiếp đến uy tín và thu nhập của bác sĩ. Để giải quyết, cần cải thiện chất lượng dịch vụ khám bệnh, tăng cường giao tiếp với bệnh nhân, và chú ý đến thời gian khám'>"",
+      ""impactScore"": <số 0-100>
+    }}
+  ]
+}}
+</JSON_DATA>
+
+LƯU Ý JSON:
+- JSON thuần, KHÔNG có markdown code block (```json)
+- KHÔNG có ký tự đặc biệt ngoài JSON
+- KHÔNG có comment hoặc text giải thích
+- Chỉ JSON object thuần túy";
+    }
+
+    private static string BuildPromptForHospital(
+        Guid hospitalId,
+        string hospitalName,
+        AiInsightMetrics metrics,
+        DateTime currentStart,
+        DateTime currentEnd,
+        DateTime previousStart,
+        DateTime previousEnd,
+        string periodLabel)
+    {
+        var metricsJson = JsonSerializer.Serialize(metrics, new JsonSerializerOptions { WriteIndented = true });
+
+        return $@"
+Bạn là chuyên gia phân tích dữ liệu BI cho BookingCare - hệ thống đặt lịch khám bệnh trực tuyến.
+Phân tích dữ liệu và tạo báo cáo insights chuyên nghiệp bằng TIẾNG VIỆT cho bệnh viện {hospitalName}.
+
+⚠️ YÊU CẦU BẮT BUỘC:
+- TẤT CẢ nội dung phải bằng TIẾNG VIỆT HOÀN TOÀN (kết luận, phân tích, dự đoán, tên chuyên khoa/bác sĩ, khuyến nghị, cảnh báo)
+- TUYỆT ĐỐI KHÔNG được dùng tiếng Trung, tiếng Anh, hoặc bất kỳ ngôn ngữ nào khác (trừ tên riêng)
+- Sử dụng số liệu cụ thể từ dữ liệu, KHÔNG tạo dữ liệu giả
+- Viết thành đoạn văn liền mạch, không phải bullet points
+- Độ dài báo cáo: 1500-2800 từ
+- Tập trung vào hiệu suất VẬN HÀNH bệnh viện: phân bổ bác sĩ, chuyên khoa, khung giờ, bệnh nhân mới/quay lại, chất lượng dịch vụ
+
+BỐI CẢNH:
+- Bệnh viện: {hospitalName}
+- Giai đoạn hiện tại: {currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd} ({periodLabel})
+- Giai đoạn so sánh: {previousStart:yyyy-MM-dd} → {previousEnd:yyyy-MM-dd}
+
+DỮ LIỆU THỐNG KÊ:
+{metricsJson}
+
+CẤU TRÚC BÁO CÁO:
+
+BƯỚC 1: PHÂN TÍCH VĂN BẢN (viết trước JSON):
+Phân tích chi tiết các khía cạnh sau (mỗi phần 100-180 từ), ưu tiên góc nhìn VẬN HÀNH bệnh viện:
+1. Tổng quan hiệu suất bệnh viện (lượt đặt, hoàn thành, hủy, % tăng/giảm vs kỳ trước)
+2. Top bác sĩ & phân bổ việc (số lượt, % share, quá tải/thiếu việc dựa trên dữ liệu)
+3. Chuyên khoa: top, % share, tăng trưởng; chuyên khoa tụt giảm cần hỗ trợ
+4. Khung giờ vàng toàn bệnh viện (giờ nhiều lượt nhất, đề xuất điều phối/giãn tải)
+5. Bệnh nhân: mới vs quay lại, retention của bệnh viện
+6. Hủy lịch theo bệnh viện (tỷ lệ, lý do, pattern theo bác sĩ/chuyên khoa/giờ, tác động)
+7. Đề xuất hành động cho bệnh viện (5-7 ý: điều phối bác sĩ, mở/đóng slot, hỗ trợ chuyên khoa yếu, nhắc hẹn)
+8. Rủi ro vận hành (3-5: mô tả, mức độ, khả năng, tác động, biện pháp)
+9. Dự đoán cho bệnh viện (lượt tuần/tháng tới, % hủy dự kiến, chuyên khoa có thể dẫn dắt, confidence, lý do)
+10. Cảnh báo vận hành (type, title, message, severity, metric, currentValue, thresholdValue, recommendedAction)
+11. Phân tích nguyên nhân gốc rễ cho các chỉ số bất thường của bệnh viện (metric, issue, potentialCauses[], mostLikelyCause, analysis 100-150 từ, impactScore)
+
+BƯỚC 2: JSON DATA (cuối báo cáo, trong thẻ <JSON_DATA>...</JSON_DATA>):
+Sử dụng cùng cấu trúc JSON như báo cáo admin nhưng CHỈ tập trung vào dữ liệu của bệnh viện này (điền metric theo dữ liệu đã cho).
+
+<JSON_DATA>
+{{
+  ""analysisConclusion"": ""<Kết luận phân tích hệ thống - 250-300 TỪ, BẰNG TIẾNG VIỆT HOÀN TOÀN.
+  
+  Viết một đoạn văn liền mạch, bắt đầu 'Trong {periodLabel} hiện tại ({currentStart:yyyy-MM-dd} → {currentEnd:yyyy-MM-dd})'. 
+  Bao gồm: Tổng lượt đặt (số cụ thể, so kỳ trước %), chuyên khoa nổi bật (tên, số lượt, %), tỉ lệ hủy (số, %, so kỳ trước), lượt hoàn thành (số, %). 
+  Phân tích nguyên nhân tăng/giảm (yếu tố chính), đánh giá top bác sĩ/bệnh viện/chuyên khoa (nếu có), xu hướng tổng thể (phát triển/suy giảm), điểm mạnh/yếu chính, tình trạng hệ thống (tốt/trung bình/cần cải thiện).
+  Có số liệu cụ thể, phân tích ngắn gọn, KHÔNG có từ tiếng Anh>"",
+  
+  ""predictionConclusion"": ""<Kết luận dự đoán tương lai - 250-300 TỪ, BẰNG TIẾNG VIỆT HOÀN TOÀN.
+  
+  Viết một đoạn văn liền mạch về dự đoán. 
+  Bao gồm: Dự đoán lượt đặt tuần/tháng tới (số cụ thể, tăng/giảm %, lý do), tỉ lệ hủy dự kiến (%, xu hướng), chuyên khoa phổ biến (tên, lý do), xu hướng khách hàng/bác sĩ/bệnh viện. 
+  Đánh giá mức độ tin cậy (cao/trung bình/thấp, lý do), yếu tố ảnh hưởng chính (mùa vụ, sự kiện, chính sách), rủi ro/cơ hội chính, khuyến nghị ngắn gọn.
+  Có số liệu cụ thể, lý do rõ ràng, KHÔNG có từ tiếng Anh>"",
+  ""predictions"": [
+    {{
+      ""period"": ""next_week"",
+      ""predictedAppointments"": <số>,
+      ""predictedGrowthPercent"": <số>,
+      ""predictedCancellationRate"": <số>,
+      ""predictedRevenue"": <số>,
+      ""topSpecialtyPrediction"": ""<tên chuyên khoa>"",
+      ""confidence"": ""high|medium|low"",
+      ""reasoning"": ""<lý do>""
+    }},
+    {{
+      ""period"": ""next_month"",
+      ""predictedAppointments"": <số>,
+      ""predictedGrowthPercent"": <số>,
+      ""predictedCancellationRate"": <số>,
+      ""predictedRevenue"": <số>,
+      ""topSpecialtyPrediction"": ""<tên chuyên khoa>"",
+      ""confidence"": ""high|medium|low"",
+      ""reasoning"": ""<lý do>""
+    }}
+  ],
+  ""alerts"": [
+    {{
+      ""type"": ""warning|critical|info|success"",
+      ""title"": ""<tiêu đề BẰNG TIẾNG VIỆT, ngắn gọn, ví dụ: 'Tỉ lệ hủy lịch cao'>"",
+      ""message"": ""<thông điệp BẰNG TIẾNG VIỆT, mô tả chi tiết vấn đề, ít nhất 30-50 từ, ví dụ: 'Tỉ lệ hủy lịch hiện tại là 25%, cao hơn ngưỡng cảnh báo 20%. Điều này cho thấy cần cải thiện chất lượng dịch vụ và tăng cường giao tiếp với khách hàng'>"",
+      ""severity"": ""high|medium|low"",
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
+      ""currentValue"": <số thực tế từ dữ liệu, ví dụ: nếu tỉ lệ hủy là 25% thì currentValue = 25>,
+      ""thresholdValue"": <ngưỡng cảnh báo để so sánh, ví dụ: nếu ngưỡng là 20% thì thresholdValue = 20>,
+      ""recommendedAction"": ""<hành động khuyến nghị BẰNG TIẾNG VIỆT, chi tiết, cụ thể, có thể thực hiện ngay, ví dụ: 'Gửi email nhắc nhở lịch hẹn 24h trước khi khám, cải thiện chất lượng dịch vụ khám bệnh, tăng cường giao tiếp với khách hàng qua hotline và SMS', ít nhất 30-50 từ>""
+    }}
+  ],
+  ""rootCauseAnalyses"": [
+    {{
+      ""metric"": ""<tên chỉ số BẰNG TIẾNG VIỆT, ví dụ: 'Tỉ lệ hủy lịch'>"",
+      ""issue"": ""<mô tả vấn đề BẰNG TIẾNG VIỆT, chi tiết, ví dụ: 'Tỉ lệ hủy lịch cao ở mức 25%, vượt quá ngưỡng cảnh báo 20%'>"",
+      ""potentialCauses"": [""<nguyên nhân 1 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng của khách hàng'>"", ""<nguyên nhân 2 BẰNG TIẾNG VIỆT, mô tả cụ thể, ví dụ: 'Thiếu giao tiếp và nhắc nhở với khách hàng trước ngày khám'>""],
+      ""mostLikelyCause"": ""<nguyên nhân có khả năng cao nhất BẰNG TIẾNG VIỆT, giải thích chi tiết TẠI SAO đây là nguyên nhân chính, dựa trên dữ liệu nào, ít nhất 50-80 từ. Ví dụ: 'Chất lượng dịch vụ khám bệnh chưa đáp ứng kỳ vọng là nguyên nhân chính vì dữ liệu cho thấy tỉ lệ hủy tăng cao sau khi khách hàng đặt lịch, và có nhiều phản hồi tiêu cực về chất lượng dịch vụ. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, cho thấy vấn đề chất lượng dịch vụ đang trở nên nghiêm trọng'>"",
+      ""analysis"": ""<phân tích chi tiết BẰNG TIẾNG VIỆT, ít nhất 150-200 từ, giải thích sâu về nguyên nhân gốc rễ, mức độ ảnh hưởng, bằng chứng từ dữ liệu, tại sao nguyên nhân này quan trọng, tác động đến hệ thống như thế nào. Phân tích phải có cấu trúc rõ ràng với các đoạn văn riêng biệt. Ví dụ: 'Phân tích dữ liệu cho thấy rằng chất lượng dịch vụ khám bệnh là nguyên nhân chính dẫn đến việc hủy lịch. Tỉ lệ hủy tăng từ 15% lên 25% trong 2 tuần qua, với hơn 60% lượt hủy xảy ra trong vòng 24 giờ sau khi đặt lịch. Điều này cho thấy khách hàng đang mất niềm tin vào chất lượng dịch vụ ngay sau khi đặt lịch. Dữ liệu phản hồi từ khách hàng cho thấy có nhiều phàn nàn về thời gian chờ đợi lâu, thái độ phục vụ chưa tốt, và chất lượng khám bệnh không đáp ứng kỳ vọng. Tác động của vấn đề này rất lớn, ảnh hưởng trực tiếp đến doanh thu và uy tín của hệ thống. Để giải quyết, cần cải thiện chất lượng dịch vụ khám bệnh, đào tạo nhân viên, và tăng cường giám sát chất lượng dịch vụ'>"",
+      ""impactScore"": <số 0-100>
+    }}
+  ]
+}}
+</JSON_DATA>
+
+LƯU Ý JSON:
+- JSON thuần, KHÔNG có markdown code block (```json)
+- KHÔNG có ký tự đặc biệt ngoài JSON
+- KHÔNG có comment hoặc text giải thích
+- Chỉ JSON object thuần túy";
     }
 
 }
