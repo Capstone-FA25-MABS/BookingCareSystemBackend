@@ -181,9 +181,6 @@ if (redisEnabled)
     });
 }
 
-// Bind Frontend options for base URL resolution
-builder.Services.Configure<FrontendOptions>(builder.Configuration.GetSection(FrontendOptions.SectionName));
-
 // Bind Default Avatars options
 builder.Services.Configure<BookingCare.Services.Auth.Configuration.DefaultAvatarsOptions>(
     builder.Configuration.GetSection(BookingCare.Services.Auth.Configuration.DefaultAvatarsOptions.SectionName));
