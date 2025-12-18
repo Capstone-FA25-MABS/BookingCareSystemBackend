@@ -45,6 +45,9 @@ builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection(MongoDbSettings.SectionName)
 );
 
+// MongoDB initialization service - ensures collections are created on startup
+builder.Services.AddHostedService<MongoDbInitializationService>();
+
 // FCM settings and services
 builder.Services.Configure<FcmOptions>(builder.Configuration.GetSection(FcmOptions.SectionName));
 builder.Services.AddScoped<IOtpService, OtpService>();

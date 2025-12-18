@@ -43,11 +43,6 @@ builder.Services.Configure<StripeConfiguration>(
     builder.Configuration.GetSection("StripeConfiguration")
 );
 
-// Bind Frontend options for base URL resolution
-builder.Services.Configure<FrontendOptions>(
-    builder.Configuration.GetSection(FrontendOptions.SectionName)
-);
-
 // Add repositories
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentMethodRepository, PaymentMethodRepository>();

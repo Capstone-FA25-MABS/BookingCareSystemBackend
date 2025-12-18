@@ -15,7 +15,7 @@ namespace BookingCare.Services.User.Controllers;
 [Produces("application/json")]
 [Route(ApiRouteTemplates.Versioned)]
 [ApiVersion(ApiVersions.V1_0)]
-[Authorize]
+[Authorize(Policy = "Role:Patient")]
 public class PatientRelativesController : BaseApiController
 {
     private readonly IPatientRelativeService _relativeService;

@@ -471,11 +471,6 @@ services:
       - ExternalAuth__Google__ClientId=${GOOGLE_CLIENT_ID}
       - ExternalAuth__Facebook__AppId=${FACEBOOK_APP_ID}
       - ExternalAuth__Facebook__AppSecret=${FACEBOOK_APP_SECRET}
-      - FrontendOptions__Client__BaseUrl=${FRONTEND_CLIENT_BASEURL}
-      - FrontendOptions__Admin__BaseUrl=${FRONTEND_ADMIN_BASEURL}
-      - FrontendOptions__Default__BaseUrl=${FRONTEND_DEFAULT_BASEURL}
-      - FrontendOptions__HostMap__localhost:5174=${FRONTEND_HOSTMAP_ADMIN}
-      - FrontendOptions__HostMap__localhost:5173=${FRONTEND_HOSTMAP_CLIENT}
     networks:
       - bookingcare-network
     restart: unless-stopped
