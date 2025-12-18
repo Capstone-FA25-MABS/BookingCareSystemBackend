@@ -39,6 +39,7 @@ public class UsersController : BaseApiController
     /// <returns>User details</returns>
     [HttpGet("{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetUser(Guid id)
     {
         var user = await _userService.GetByIdAsync(id);
@@ -162,6 +163,7 @@ public class UsersController : BaseApiController
     /// <returns>Paginated list of users</returns>
     [HttpGet]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin")]
     public async Task<IActionResult> GetUsers([FromQuery] UserQueryRequest query)
     {
         var result = await _userService.GetUsersAsync(query);
@@ -176,6 +178,7 @@ public class UsersController : BaseApiController
     /// <returns>List of matching users</returns>
     [HttpGet("search")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> SearchUsers([FromQuery] string searchTerm, [FromQuery] int limit = 10)
     {
         if (string.IsNullOrWhiteSpace(searchTerm))
