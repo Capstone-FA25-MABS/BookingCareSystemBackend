@@ -51,6 +51,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Created appointment ID</returns>
     [HttpPost]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Patient")]
     public async Task<IActionResult> CreateAppointment([FromBody] CreateAppointmentRequest request)
     {
         var appointmentId = await _appointmentService.CreateAppointmentAsync(
@@ -71,6 +72,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Appointment details</returns>
     [HttpGet("{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin,Staff,Doctor,Patient")]
     public async Task<IActionResult> GetAppointment(Guid id)
     {
         var appointment = await _appointmentService.GetAppointmentByIdForPatientAsync(id);
@@ -88,6 +90,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Paginated list of patient appointments with enriched data</returns>
     [HttpPost("patient")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Patient")]
     public async Task<IActionResult> GetAppointmentsByPatient(
         [FromBody] AppointmentQueryRequest query
     )
@@ -120,6 +123,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Success status</returns>
     [HttpPut("status/{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Admin,Staff,Doctor")]
     public async Task<IActionResult> UpdateAppointmentStatus(
         Guid id,
         [FromBody] UpdateAppointmentStatusRequest request
@@ -147,7 +151,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Success status</returns>
     [HttpPut("result/{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Doctor,Staff,Admin")]
+    [Authorize(Policy = "Role:Admin,Staff,Doctor")]
     public async Task<IActionResult> UpdateAppointmentResult(
         Guid id,
         [FromBody] UpdateAppointmentResultRequest request
@@ -174,6 +178,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Token and redirect URL</returns>
     [HttpPost("{id:guid}/generate-reschedule-token")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Patient")]
     public async Task<IActionResult> GenerateRescheduleToken(
         Guid id,
         [FromBody] GenerateRescheduleTokenRequest request
@@ -200,7 +205,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Success status with reschedule options</returns>
     [HttpPost("cancel/{id:guid}")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff, Patient")]
+    [Authorize(Policy = "Role:Staff,Patient")]
     public async Task<IActionResult> CancelAppointment(
         Guid id,
         [FromBody] CancelAppointmentRequest request
@@ -223,6 +228,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Updated appointment</returns>
     [HttpPost("{id:guid}/reschedule-same-doctor")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Patient")]
     public async Task<IActionResult> RescheduleSameDoctor(
         Guid id,
         [FromBody] RescheduleSameDoctorRequest request
@@ -249,7 +255,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Confirmation URL for patient</returns>
     [HttpPost("{id:guid}/assign-new-doctor")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff, Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> AssignNewDoctor(
         Guid id,
         [FromBody] AssignNewDoctorRequest request
@@ -276,6 +282,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Success status</returns>
     [HttpPost("{id:guid}/request-refund")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Patient")]
     public async Task<IActionResult> RequestRefund(Guid id, [FromBody] RequestRefundRequest request)
     {
         if (id != request.AppointmentId)
@@ -301,6 +308,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Response with action to take and any payment/refund info</returns>
     [HttpPost("{id:guid}/choose-new-doctor")]
     [MapToApiVersion(ApiVersions.V1_0)]
+    [Authorize(Policy = "Role:Patient")]
     public async Task<IActionResult> ChooseNewDoctor(
         Guid id,
         [FromBody] ChooseNewDoctorRequest request
@@ -327,7 +335,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>List of doctors</returns>
     [HttpGet("available-doctors")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff, Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetAvailableDoctors(
         [FromQuery] Guid hospitalId,
         [FromQuery] Guid specialtyId,
@@ -352,7 +360,7 @@ public class AppointmentsController : BaseApiController
     /// </summary>
     [HttpGet("staff/statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff, Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetHospitalStaffStatistics(
         [FromQuery] StaffHospitalStatisticsRequest request
     )
@@ -370,7 +378,7 @@ public class AppointmentsController : BaseApiController
     /// </summary>
     [HttpGet("statistics")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff, Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetAppointmentStatistics(
         [FromQuery] GetAppointmentStatisticsRequest request
     )
@@ -396,7 +404,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>List of recommended and previous doctors</returns>
     [HttpGet("{id:guid}/doctors-for-assignment")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff, Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> GetDoctorsForAssignment(
         Guid id,
         [FromQuery] bool checkAvailabilityAtOriginalTime = true
@@ -425,7 +433,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Assignment result with doctor and appointment info</returns>
     [HttpPost("{id:guid}/assign-doctor")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff, Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> AssignDoctorToAppointment(
         Guid id,
         [FromBody] AssignDoctorToAppointmentRequest request
@@ -457,7 +465,7 @@ public class AppointmentsController : BaseApiController
     /// <returns>Rejection result</returns>
     [HttpPost("{id:guid}/reject")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Roles = "Staff, Admin")]
+    [Authorize(Policy = "Role:Admin,Staff")]
     public async Task<IActionResult> RejectPendingAppointment(
         Guid id,
         [FromBody] RejectPendingAppointmentRequest request)

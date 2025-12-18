@@ -271,7 +271,6 @@ public class AIService : IAIService
         var formatInstructions = new[]
         {
             "- Sử dụng CHÍNH XÁC template trên với các ký hiệu đường kẻ (═, ─)",
-            "- Giữ nguyên các emoji (🩺, 📜, 🔍, 💊, 💉, ⚠️, 📋) để tạo điểm nhấn",
             "- Sử dụng bullet points (•) cho các danh sách",
             "- Sử dụng số thứ tự (1., 2., 3.) cho đơn thuốc",
             "- Giữ khoảng cách và căn lề đẹp mắt",

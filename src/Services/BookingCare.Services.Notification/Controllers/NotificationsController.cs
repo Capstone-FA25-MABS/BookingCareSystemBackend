@@ -51,7 +51,7 @@ public class NotificationsController : BaseApiController
     /// </summary>
     [HttpGet]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Policy = "Role:Admin,Patient")]
+    [Authorize]
     public async Task<IActionResult> GetNotifications(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
@@ -71,7 +71,7 @@ public class NotificationsController : BaseApiController
     /// </summary>
     [HttpGet("summary")]
     [MapToApiVersion(ApiVersions.V1_0)]
-    [Authorize(Policy = "Role:Admin,Patient")]
+    [Authorize]
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken = default)
     {
         var accountId = JwtHelper.GetAccountIdFromClaimsOrThrow(HttpContext);
