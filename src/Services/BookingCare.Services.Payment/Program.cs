@@ -71,6 +71,7 @@ builder.Services.AddScoped<IRefundHistoryService, RefundHistoryService>();
 builder.Services.AddScoped<IPaymentValidationService, PaymentValidationService>();
 builder.Services.AddScoped<IAppointmentDetailsService, AppointmentDetailsService>();
 builder.Services.AddScoped<IHospitalPayoutService, HospitalPayoutService>();
+builder.Services.AddSingleton<BookingCare.Services.Payment.Services.DatabaseInitializationService>();
 
 // Add payment gateway wrapper class for constructor parameter reduction
 builder.Services.AddScoped<PaymentGatewayServices>();
@@ -196,10 +197,10 @@ app.Run();
 static async Task EnsureDatabaseCreated(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
-    var context = scope.ServiceProvider.GetRequiredService<PaymentDbContext>();
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.Payment.Services.DatabaseInitializationService>();
     try
     {
-        await context.Database.EnsureCreatedAsync();
+        await dbInitService.InitializeAsync();
         app.Logger.LogInformation("Database initialized successfully");
     }
     catch (Exception ex)

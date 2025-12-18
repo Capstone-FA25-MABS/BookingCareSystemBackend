@@ -1265,7 +1265,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
+          "Host": "user-service",
           "Port": 6016
         }
       ],

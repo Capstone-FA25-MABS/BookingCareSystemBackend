@@ -1,7 +1,7 @@
 # BookingCare Microservices - Full Docker Compose
 # Sử dụng: docker-compose -f docker-compose-full.yml up -d
 
-version: '3.8'
+version: "3.8"
 
 services:
   # Infrastructure
@@ -79,7 +79,8 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -100,7 +101,8 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -117,11 +119,12 @@ services:
       - SA_PASSWORD=${SQLSERVER_USER_PASSWORD}
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_user_data:/var/opt/mssql
+      - sqlserver_user_data_v3:/var/opt/mssql
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -138,11 +141,12 @@ services:
       - SA_PASSWORD=${SQLSERVER_DOCTOR_PASSWORD}
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_doctor_data:/var/opt/mssql
+      - sqlserver_doctor_data_v2:/var/opt/mssql
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -163,7 +167,8 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -184,7 +189,8 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -201,11 +207,12 @@ services:
       - SA_PASSWORD=${SQLSERVER_HOSPITAL_PASSWORD}
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_hospital_data:/var/opt/mssql
+      - sqlserver_hospital_data_v2:/var/opt/mssql
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -226,7 +233,8 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -247,7 +255,8 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -268,7 +277,8 @@ services:
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -285,11 +295,12 @@ services:
       - SA_PASSWORD=${SQLSERVER_AI_PASSWORD}
       - MSSQL_PID=Developer
     volumes:
-      - sqlserver_ai_data:/var/opt/mssql
+      - sqlserver_ai_data_v2:/var/opt/mssql
     networks:
       - bookingcare-network
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -460,6 +471,11 @@ services:
       - ExternalAuth__Google__ClientId=${GOOGLE_CLIENT_ID}
       - ExternalAuth__Facebook__AppId=${FACEBOOK_APP_ID}
       - ExternalAuth__Facebook__AppSecret=${FACEBOOK_APP_SECRET}
+      - FrontendOptions__Client__BaseUrl=${FRONTEND_CLIENT_BASEURL}
+      - FrontendOptions__Admin__BaseUrl=${FRONTEND_ADMIN_BASEURL}
+      - FrontendOptions__Default__BaseUrl=${FRONTEND_DEFAULT_BASEURL}
+      - FrontendOptions__HostMap__localhost:5174=${FRONTEND_HOSTMAP_ADMIN}
+      - FrontendOptions__HostMap__localhost:5173=${FRONTEND_HOSTMAP_CLIENT}
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -865,15 +881,15 @@ volumes:
   mongodb_data:
   sqlserver_discount_data:
   sqlserver_saga_data:
-  sqlserver_user_data:
-  sqlserver_doctor_data:
+  sqlserver_user_data_v3:
+  sqlserver_doctor_data_v2:
   sqlserver_auth_data:
   sqlserver_appointment_data:
-  sqlserver_hospital_data:
+  sqlserver_hospital_data_v2:
   sqlserver_schedule_data:
   sqlserver_payment_data:
   sqlserver_servicemedical_data:
-  sqlserver_ai_data:
+  sqlserver_ai_data_v2:
 
 networks:
   bookingcare-network:

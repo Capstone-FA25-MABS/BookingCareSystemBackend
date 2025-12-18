@@ -76,18 +76,19 @@ resource "aws_volume_attachment" "docker" {
 }
 
 ###############################################################################
-# Elastic IP (Optional)
+# Elastic IP (Optional) - DISABLED TO SAVE COSTS
+# Using dynamic public IP instead - IP will change on instance restart
 ###############################################################################
 
-resource "aws_eip" "main" {
-  count    = var.enable_eip ? 1 : 0
-  domain   = "vpc"
-  instance = aws_instance.main.id
-
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.project_name}-${var.environment}-eip"
-    }
-  )
-}
+# resource "aws_eip" "main" {
+#   count    = var.enable_eip ? 1 : 0
+#   domain   = "vpc"
+#   instance = aws_instance.main.id
+#
+#   tags = merge(
+#     var.tags,
+#     {
+#       Name = "${var.project_name}-${var.environment}-eip"
+#     }
+#   )
+# }

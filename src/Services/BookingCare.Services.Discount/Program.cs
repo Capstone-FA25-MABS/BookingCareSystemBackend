@@ -43,6 +43,7 @@ builder.Services.AddScoped<IDiscountRepository, DiscountRepository>();
 
 // Service registration
 builder.Services.AddScoped<IDiscountService, DiscountService>();
+builder.Services.AddSingleton<BookingCare.Services.Discount.Services.DatabaseInitializationService>();
 
 // Background services
 builder.Services.AddHostedService<DiscountExpirationBackgroundService>();
@@ -111,20 +112,11 @@ app.MapGet(
         )
 );
 
-// Database migration and seeding (development only)
-if (app.Environment.IsDevelopment())
+// Initialize database from SQL script if not exists
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    try
-    {
-        var context = scope.ServiceProvider.GetRequiredService<DiscountDbContext>();
-        await context.Database.EnsureCreatedAsync();
-        app.Logger.LogInformation("Database ensured created successfully");
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "An error occurred while ensuring database creation");
-    }
+    var dbInitService = scope.ServiceProvider.GetRequiredService<BookingCare.Services.Discount.Services.DatabaseInitializationService>();
+    await dbInitService.InitializeAsync();
 }
 
 app.Run();

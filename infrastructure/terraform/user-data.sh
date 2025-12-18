@@ -4,19 +4,46 @@ set -e
 ###############################################################################
 # BookingCare EC2 Instance User Data Script
 # This script will run on first boot to set up the EC2 instance
+# 
+# Flow:
+# 1. Update packages
+# 2. Install Docker & Git
+# 3. Clone source from public repo
+# 4. Create Docker volumes
+# 5. Restore data (if backup exists)
+# 6. Start application
 ###############################################################################
 
 # Log all output
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "========================================="
-echo "Starting BookingCare EC2 Setup"
+echo "BookingCare EC2 Setup Started"
 echo "========================================="
+echo "Timestamp: $(date)"
+echo ""
 
-# Update system packages
-echo "Updating system packages..."
-apt-get update
+###############################################################################
+# Step 1: Update System Packages
+###############################################################################
+
+echo "═══════════════════════════════════════════════════════════"
+echo "Step 1: Updating system packages..."
+echo "═══════════════════════════════════════════════════════════"
+
+apt-get update -y
 apt-get upgrade -y
+
+echo "✓ System packages updated successfully"
+echo ""
+
+###############################################################################
+# Step 2: Install Docker & Git
+###############################################################################
+
+echo "═══════════════════════════════════════════════════════════"
+echo "Step 2: Installing Docker and Git..."
+echo "═══════════════════════════════════════════════════════════"
 
 # Install essential tools
 echo "Installing essential tools..."
@@ -34,10 +61,10 @@ apt-get install -y \
     lsb-release \
     software-properties-common
 
-###############################################################################
-# Install Docker
-###############################################################################
+echo "✓ Essential tools installed"
 
+# Install Docker
+echo ""
 echo "Installing Docker..."
 
 # Add Docker's official GPG key
@@ -52,104 +79,84 @@ echo \
   tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Install Docker Engine
-apt-get update
+apt-get update -y
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # Start and enable Docker
+echo "Starting and enabling Docker service..."
 systemctl start docker
 systemctl enable docker
+
+# Verify Docker is running
+if systemctl is-active --quiet docker; then
+    echo "✓ Docker service is running"
+else
+    echo "✗ ERROR: Docker service failed to start"
+    exit 1
+fi
 
 # Add ubuntu user to docker group
 usermod -aG docker ubuntu
 
-echo "Docker installed successfully!"
+echo ""
+echo "Docker version:"
 docker --version
 docker compose version
 
+echo "✓ Docker installed and configured successfully"
+echo ""
+
 ###############################################################################
-# Configure Docker Storage
+# Step 3: Clone Source Code from Public Repository
 ###############################################################################
 
-echo "Configuring Docker storage..."
+echo "═══════════════════════════════════════════════════════════"
+echo "Step 3: Cloning source code from GitHub..."
+echo "═══════════════════════════════════════════════════════════"
 
-# Wait for the EBS volume to be attached
-sleep 10
+# Create project directory
+PROJECT_DIR="/home/ubuntu/booking-care-integration"
+BACKUP_DIR="/home/ubuntu/backups"
 
-# Check if the volume is attached
-if [ -e /dev/nvme1n1 ] || [ -e /dev/xvdf ]; then
-    # Determine the device name
-    DEVICE=""
-    if [ -e /dev/nvme1n1 ]; then
-        DEVICE="/dev/nvme1n1"
-    elif [ -e /dev/xvdf ]; then
-        DEVICE="/dev/xvdf"
-    fi
+mkdir -p $PROJECT_DIR
+mkdir -p $BACKUP_DIR
+mkdir -p /home/ubuntu/logs
 
-    echo "Found device: $DEVICE"
+echo "Cloning repository..."
+REPO_URL="https://github.com/Capstone-FA25-MABS/booking-care-integration.git"
+BRANCH="main"
 
-    # Check if the device is already formatted
-    if ! blkid $DEVICE; then
-        echo "Formatting $DEVICE..."
-        mkfs.ext4 $DEVICE
-    fi
+cd /home/ubuntu
+git clone -b $BRANCH $REPO_URL booking-care-integration
 
-    # Create mount point
-    mkdir -p /var/lib/docker
-
-    # Mount the volume
-    mount $DEVICE /var/lib/docker
-
-    # Add to fstab for persistent mounting
-    DEVICE_UUID=$(blkid -s UUID -o value $DEVICE)
-    if ! grep -q $DEVICE_UUID /etc/fstab; then
-        echo "UUID=$DEVICE_UUID /var/lib/docker ext4 defaults,nofail 0 2" >> /etc/fstab
-    fi
-
-    echo "Docker storage configured on $DEVICE"
+if [ -d "$PROJECT_DIR" ]; then
+    echo "✓ Repository cloned successfully"
+    cd $PROJECT_DIR
+    git log -1 --oneline
+    
+    # Make scripts executable
+    chmod +x scripts/*.sh
+    echo "✓ Scripts made executable"
 else
-    echo "WARNING: Additional EBS volume not found. Using root volume for Docker storage."
+    echo "✗ ERROR: Failed to clone repository"
+    exit 1
 fi
 
-# Restart Docker to use new storage location
-systemctl restart docker
+# Set ownership
+chown -R ubuntu:ubuntu /home/ubuntu/booking-care-integration
+chown -R ubuntu:ubuntu /home/ubuntu/backups
+chown -R ubuntu:ubuntu /home/ubuntu/logs
+
+echo "✓ Source code ready"
+echo ""
 
 ###############################################################################
-# Install Docker Compose (standalone)
+# Step 4: Configure System Settings
 ###############################################################################
 
-echo "Installing Docker Compose standalone..."
-DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r .tag_name)
-curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
-ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
-
-###############################################################################
-# Install AWS CLI
-###############################################################################
-
-echo "Installing AWS CLI..."
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-./aws/install
-rm -rf aws awscliv2.zip
-
-###############################################################################
-# Install Node.js (for frontend if needed)
-###############################################################################
-
-echo "Installing Node.js..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs
-
-echo "Node.js installed successfully!"
-node --version
-npm --version
-
-###############################################################################
-# Configure System Settings
-###############################################################################
-
-echo "Configuring system settings..."
+echo "═══════════════════════════════════════════════════════════"
+echo "Step 4: Configuring system settings..."
+echo "═══════════════════════════════════════════════════════════"
 
 # Increase file descriptors
 cat >> /etc/security/limits.conf <<EOF
@@ -157,13 +164,13 @@ cat >> /etc/security/limits.conf <<EOF
 * hard nofile 65535
 EOF
 
-# Increase max map count for Elasticsearch (if needed)
+# Increase max map count (for databases)
 echo "vm.max_map_count=262144" >> /etc/sysctl.conf
 sysctl -p
 
-# Configure swap (optional)
+# Configure swap (8GB)
 if [ ! -f /swapfile ]; then
-    echo "Creating swap file..."
+    echo "Creating swap file (8GB)..."
     fallocate -l 8G /swapfile
     chmod 600 /swapfile
     mkswap /swapfile
@@ -171,286 +178,389 @@ if [ ! -f /swapfile ]; then
     echo '/swapfile none swap sw 0 0' >> /etc/fstab
     echo 'vm.swappiness=10' >> /etc/sysctl.conf
     sysctl -p
+    echo "✓ Swap configured"
 fi
 
-###############################################################################
-# Install CloudWatch Agent (optional)
-###############################################################################
-
-echo "Installing CloudWatch Agent..."
-wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-dpkg -i -E ./amazon-cloudwatch-agent.deb
-rm amazon-cloudwatch-agent.deb
+echo "✓ System settings configured"
+echo ""
 
 ###############################################################################
-# Create directory structure
+# Step 5: Create Docker Volumes for Data Persistence
 ###############################################################################
 
-echo "Creating directory structure..."
-mkdir -p /home/ubuntu/bookingcare
-mkdir -p /home/ubuntu/bookingcare/logs
-mkdir -p /home/ubuntu/bookingcare/data
-chown -R ubuntu:ubuntu /home/ubuntu/bookingcare
+echo "═══════════════════════════════════════════════════════════"
+echo "Step 5: Creating Docker volumes..."
+echo "═══════════════════════════════════════════════════════════"
+
+# Volume list
+VOLUMES=(
+    "bookingcaresystembackend_rabbitmq_data"
+    "bookingcaresystembackend_redis_data"
+    "bookingcaresystembackend_mongodb_data"
+    "bookingcaresystembackend_sqlserver_discount_data"
+    "bookingcaresystembackend_sqlserver_saga_data"
+    "bookingcaresystembackend_sqlserver_user_data"
+    "bookingcaresystembackend_sqlserver_doctor_data"
+    "bookingcaresystembackend_sqlserver_auth_data"
+    "bookingcaresystembackend_sqlserver_appointment_data"
+    "bookingcaresystembackend_sqlserver_hospital_data"
+    "bookingcaresystembackend_sqlserver_schedule_data"
+    "bookingcaresystembackend_sqlserver_payment_data"
+    "bookingcaresystembackend_sqlserver_servicemedical_data"
+    "bookingcaresystembackend_sqlserver_ai_data"
+)
+
+CREATED_COUNT=0
+
+for volume in "${VOLUMES[@]}"; do
+    if docker volume inspect "$volume" > /dev/null 2>&1; then
+        echo "  Volume already exists: $volume"
+    else
+        docker volume create "$volume" > /dev/null
+        echo "  ✓ Created volume: $volume"
+        ((CREATED_COUNT++))
+    fi
+done
+
+echo ""
+echo "✓ Created $CREATED_COUNT new volumes"
+echo "✓ Total volumes: ${#VOLUMES[@]}"
+echo ""
 
 ###############################################################################
-# Setup firewall (UFW)
+# Step 6: Check and Restore Data from Backup
 ###############################################################################
 
+echo "═══════════════════════════════════════════════════════════"
+echo "Step 6: Checking for data backup..."
+echo "═══════════════════════════════════════════════════════════"
+
+# Check if backup exists in S3 or local directory
+BACKUP_EXISTS=false
+LATEST_BACKUP=""
+
+# Check for local backup files
+if [ -d "$BACKUP_DIR" ]; then
+    LATEST_BACKUP=$(ls -t $BACKUP_DIR/*_databases.tar.gz 2>/dev/null | head -1)
+    if [ -n "$LATEST_BACKUP" ]; then
+        BACKUP_EXISTS=true
+        echo "✓ Found local backup: $LATEST_BACKUP"
+    fi
+fi
+
+# If backup exists, restore it
+if [ "$BACKUP_EXISTS" = true ]; then
+    echo ""
+    echo "Starting data restore process..."
+    
+    # Extract backup if it's compressed
+    BACKUP_FILENAME=$(basename "$LATEST_BACKUP")
+    BACKUP_DIR_NAME="${BACKUP_FILENAME%_databases.tar.gz}"
+    
+    cd $BACKUP_DIR
+    if [ -f "$BACKUP_FILENAME" ]; then
+        tar xzf "$BACKUP_FILENAME"
+        echo "✓ Backup extracted"
+    fi
+    
+    # Start infrastructure services first
+    echo ""
+    echo "Starting infrastructure services..."
+    cd $PROJECT_DIR
+    
+    docker compose up -d rabbitmq redis mongodb \
+        sqlserver-discount sqlserver-saga sqlserver-user \
+        sqlserver-doctor sqlserver-auth sqlserver-appointment \
+        sqlserver-hospital sqlserver-schedule sqlserver-payment \
+        sqlserver-servicemedical sqlserver-ai
+    
+    echo "Waiting for services to be healthy (60 seconds)..."
+    sleep 60
+    
+    # Run restore script
+    echo ""
+    echo "Restoring data..."
+    cd $PROJECT_DIR/scripts
+    
+    if [ -x "./restore-databases.sh" ]; then
+        ./restore-databases.sh "$BACKUP_DIR/$BACKUP_DIR_NAME" || {
+            echo "⚠ Warning: Data restore failed, continuing with fresh installation"
+        }
+    else
+        echo "⚠ Warning: Restore script not found, skipping data restore"
+    fi
+    
+    echo "✓ Data restore process completed"
+else
+    echo "ℹ No backup found - will start with fresh data"
+    echo "  To restore data later:"
+    echo "  1. Upload backup to: $BACKUP_DIR"
+    echo "  2. Run: cd $PROJECT_DIR/scripts && ./restore-databases.sh /path/to/backup"
+fi
+
+echo ""
+
+###############################################################################
+# Step 7: Start Application Services
+###############################################################################
+
+echo "═══════════════════════════════════════════════════════════"
+echo "Step 7: Starting BookingCare application..."
+echo "═══════════════════════════════════════════════════════════"
+
+cd $PROJECT_DIR
+
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    echo "⚠ Warning: .env file not found"
+    if [ -f ".env.example" ]; then
+        echo "Creating .env from .env.example..."
+        cp .env.example .env
+        echo "✓ .env file created"
+        echo "⚠ Please update .env file with actual credentials!"
+    else
+        echo "✗ ERROR: No .env.example file found"
+        echo "Please create .env file manually before starting services"
+        exit 1
+    fi
+fi
+
+# Start all services
+echo ""
+echo "Starting all services..."
+docker compose up -d
+
+echo ""
+echo "Waiting for services to start (30 seconds)..."
+sleep 30
+
+# Check service status
+echo ""
+echo "Service status:"
+docker compose ps
+
+echo ""
+echo "✓ Application started successfully"
+echo ""
+
+###############################################################################
+# Setup Firewall
+###############################################################################
+
+echo "═══════════════════════════════════════════════════════════"
 echo "Configuring firewall..."
+echo "═══════════════════════════════════════════════════════════"
+
 ufw --force enable
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow 22/tcp    # SSH
-ufw allow 80/tcp    # HTTP
-ufw allow 443/tcp   # HTTPS
-ufw allow 5000:5001/tcp    # API Gateway
-ufw allow 5173:5174/tcp    # Frontend
-ufw allow 6000:6020/tcp    # Microservices HTTP
-ufw allow 6100:6120/tcp    # Microservices gRPC
-ufw allow 3000/tcp         # Grafana
+
+# Essential ports
+ufw allow 22/tcp           # SSH
+ufw allow 80/tcp           # HTTP
+ufw allow 443/tcp          # HTTPS
+
+# Application ports (public access)
+ufw allow 5000:5001/tcp    # API Gateway - Main entry point
+ufw allow 5173:5174/tcp    # Frontend Apps (User & Admin UI)
+
+# Monitoring & Management (optional - can be restricted to admin IPs)
+ufw allow 3000/tcp         # Grafana Dashboard
 ufw allow 9090/tcp         # Prometheus
-ufw allow 15672/tcp        # RabbitMQ Management
 ufw allow 16686/tcp        # Jaeger UI
+ufw allow 15672/tcp        # RabbitMQ Management (admin only)
+
+# NOTE: Microservices ports (6000-6020, 6100-6120) are NOT exposed
+# They communicate internally via Docker network for security
+
 ufw reload
 
-###############################################################################
-# Setup automatic security updates
-###############################################################################
-
-echo "Configuring automatic security updates..."
-apt-get install -y unattended-upgrades
-dpkg-reconfigure -plow unattended-upgrades
+echo "✓ Firewall configured"
+echo ""
 
 ###############################################################################
-# Install monitoring tools
+# Create Management Scripts
 ###############################################################################
 
-echo "Installing monitoring tools..."
-apt-get install -y \
-    sysstat \
-    iotop \
-    iftop \
-    nethogs
+echo "═══════════════════════════════════════════════════════════"
+echo "Creating management scripts..."
+echo "═══════════════════════════════════════════════════════════"
 
-###############################################################################
-# Create deployment script
-###############################################################################
-
-cat > /home/ubuntu/deploy.sh <<'DEPLOY_SCRIPT'
+# Create update script
+cat > /home/ubuntu/update-app.sh <<'UPDATE_SCRIPT'
 #!/bin/bash
 set -e
 
 echo "========================================="
-echo "BookingCare Deployment Script"
+echo "BookingCare Update Script"
 echo "========================================="
 
-PROJECT_DIR="/home/ubuntu/bookingcare"
-REPO_URL="https://github.com/hiumx/BookingCareSystemBackend.git"
-BRANCH="${BRANCH:-develop}"
+PROJECT_DIR="/home/ubuntu/booking-care-integration"
 
-# Navigate to project directory
 cd $PROJECT_DIR
 
-# Check if repository exists
-if [ -d ".git" ]; then
-    echo "Pulling latest changes from $BRANCH branch..."
-    git fetch origin
-    git checkout $BRANCH
-    git pull origin $BRANCH
-else
-    echo "Cloning repository (branch: $BRANCH)..."
-    git clone -b $BRANCH $REPO_URL .
-fi
+# Pull latest changes
+echo "Pulling latest changes..."
+git pull origin main
 
-# Check if docker-compose.yml exists
-if [ ! -f "docker-compose.yml" ] && [ ! -f "docker-compose-full.yml" ]; then
-    echo "ERROR: docker-compose.yml not found!"
-    exit 1
-fi
+# Restart services
+echo "Restarting services..."
+docker compose down
+docker compose up -d
 
-# Use docker-compose-full.yml if it exists
-COMPOSE_FILE="docker-compose.yml"
-if [ -f "docker-compose-full.yml" ]; then
-    COMPOSE_FILE="docker-compose-full.yml"
-fi
-
-echo "Using compose file: $COMPOSE_FILE"
-
-# Stop existing containers
-echo "Stopping existing containers..."
-docker compose -f $COMPOSE_FILE down || true
-
-# Pull latest images (if any)
-echo "Pulling latest Docker images..."
-docker compose -f $COMPOSE_FILE pull || true
-
-# Build and start containers
-echo "Building and starting containers..."
-docker compose -f $COMPOSE_FILE build --no-cache
-docker compose -f $COMPOSE_FILE up -d
-
-# Wait for services to be healthy
 echo "Waiting for services to start..."
 sleep 30
 
-# Show running containers
-echo "Running containers:"
-docker compose -f $COMPOSE_FILE ps
+docker compose ps
 
-# Show resource usage
-echo ""
-echo "Docker resource usage:"
-docker stats --no-stream
+echo "✓ Update completed"
+UPDATE_SCRIPT
 
-# Show logs
-echo ""
-echo "Recent logs:"
-docker compose -f $COMPOSE_FILE logs --tail=50
+# Create backup script
+cat > /home/ubuntu/backup-data.sh <<'BACKUP_SCRIPT'
+#!/bin/bash
+set -e
 
-echo ""
 echo "========================================="
-echo "Deployment complete!"
-echo "To view logs: docker compose -f $COMPOSE_FILE logs -f"
+echo "BookingCare Backup Script"
 echo "========================================="
-DEPLOY_SCRIPT
 
-chmod +x /home/ubuntu/deploy.sh
-chown ubuntu:ubuntu /home/ubuntu/deploy.sh
+PROJECT_DIR="/home/ubuntu/booking-care-integration"
 
-###############################################################################
-# Create system info script
-###############################################################################
+cd $PROJECT_DIR/scripts
+./backup-databases.sh /home/ubuntu/backups
 
-cat > /home/ubuntu/system-info.sh <<'INFO_SCRIPT'
+echo "✓ Backup completed"
+echo "Backup location: /home/ubuntu/backups"
+BACKUP_SCRIPT
+
+# Create status check script
+cat > /home/ubuntu/check-status.sh <<'STATUS_SCRIPT'
 #!/bin/bash
 
 echo "========================================="
-echo "BookingCare System Information"
+echo "BookingCare System Status"
 echo "========================================="
 echo ""
-echo "System:"
-echo "  - OS: $(lsb_release -d | cut -f2)"
-echo "  - Kernel: $(uname -r)"
-echo "  - Uptime: $(uptime -p)"
+
+# Service status
+echo "Docker Compose Services:"
+cd /home/ubuntu/booking-care-integration
+docker compose ps
 echo ""
-echo "CPU:"
-echo "  - Model: $(lscpu | grep 'Model name' | cut -f 2 -d ':' | awk '{$1=$1}1')"
-echo "  - Cores: $(nproc)"
-echo "  - Usage: $(top -bn1 | grep "Cpu(s)" | awk '{print $2}')%"
+
+# Resource usage
+echo "Resource Usage:"
+docker stats --no-stream
 echo ""
-echo "Memory:"
-free -h
-echo ""
-echo "Disk Usage:"
+
+# Disk space
+echo "Disk Space:"
 df -h
 echo ""
-echo "Docker:"
-echo "  - Version: $(docker --version)"
-echo "  - Compose Version: $(docker-compose --version)"
-echo "  - Running Containers: $(docker ps -q | wc -l)"
+
+# Memory
+echo "Memory:"
+free -h
+STATUS_SCRIPT
+
+# Make scripts executable
+chmod +x /home/ubuntu/*.sh
+chown ubuntu:ubuntu /home/ubuntu/*.sh
+
+echo "✓ Management scripts created:"
+echo "  - /home/ubuntu/update-app.sh - Update application"
+echo "  - /home/ubuntu/backup-data.sh - Backup data"
+echo "  - /home/ubuntu/check-status.sh - Check system status"
 echo ""
-echo "Network:"
-ip addr show | grep "inet " | grep -v 127.0.0.1
-INFO_SCRIPT
-
-chmod +x /home/ubuntu/system-info.sh
-chown ubuntu:ubuntu /home/ubuntu/system-info.sh
 
 ###############################################################################
-# Final Setup
+# Final Summary
 ###############################################################################
 
-echo "Setting ownership..."
-chown -R ubuntu:ubuntu /home/ubuntu
-
-###############################################################################
-# AUTO-DEPLOY APPLICATION ON FIRST BOOT
-###############################################################################
-
-echo "========================================="
-echo "Starting Auto-Deployment..."
-echo "========================================="
-
-# Clone and deploy the application
-cd /home/ubuntu/bookingcare
-
-REPO_URL="https://github.com/hiumx/BookingCareSystemBackend.git"
-BRANCH="develop"
-
-echo "Cloning repository (branch: $BRANCH)..."
-sudo -u ubuntu git clone -b $BRANCH $REPO_URL . || {
-    echo "Failed to clone repository. Check if the repo is accessible."
-}
-
-# Check if docker-compose file exists
-if [ -f "docker-compose-full.yml" ]; then
-    COMPOSE_FILE="docker-compose-full.yml"
-elif [ -f "docker-compose.yml" ]; then
-    COMPOSE_FILE="docker-compose.yml"
-else
-    echo "WARNING: No docker-compose file found. Skipping auto-deployment."
-    COMPOSE_FILE=""
-fi
-
-if [ -n "$COMPOSE_FILE" ]; then
-    echo "Found compose file: $COMPOSE_FILE"
-    echo "Starting Docker containers..."
-    
-    cd /home/ubuntu/bookingcare
-    
-    # Pull images first (if any)
-    sudo -u ubuntu docker compose -f $COMPOSE_FILE pull || true
-    
-    # Build and start containers
-    sudo -u ubuntu docker compose -f $COMPOSE_FILE build
-    sudo -u ubuntu docker compose -f $COMPOSE_FILE up -d
-    
-    # Wait for services to be ready
-    sleep 30
-    
-    echo "Deployed containers:"
-    sudo -u ubuntu docker compose -f $COMPOSE_FILE ps
-fi
-
-echo "========================================="
-echo "BookingCare EC2 Setup Complete!"
-echo "========================================="
+echo "═══════════════════════════════════════════════════════════"
+echo "BookingCare EC2 Setup Completed Successfully! 🎉"
+echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "Installed Software:"
+echo "Timestamp: $(date)"
+echo ""
+
+echo "✓ Setup Summary:"
+echo "  [✓] System packages updated"
+echo "  [✓] Docker & Git installed and verified"
+echo "  [✓] Source code cloned from GitHub"
+echo "  [✓] Docker volumes created (14 volumes)"
+echo "  [✓] Data backup checked and restored (if available)"
+echo "  [✓] Application services started"
+echo "  [✓] Firewall configured"
+echo "  [✓] Management scripts created"
+echo ""
+
+echo "📂 Project Structure:"
+echo "  - Project: /home/ubuntu/booking-care-integration"
+echo "  - Backups: /home/ubuntu/backups"
+echo "  - Logs: /home/ubuntu/logs"
+echo ""
+
+echo "🔧 Management Scripts:"
+echo "  - update-app.sh     - Update and restart application"
+echo "  - backup-data.sh    - Backup all databases"
+echo "  - check-status.sh   - Check system and service status"
+echo ""
+
+# Get EC2 public IP
+EC2_PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "your-ec2-ip")
+
+echo "📊 Access Points:"
+echo "  - User UI:      http://${EC2_PUBLIC_IP}:5173"
+echo "  - Admin UI:     http://${EC2_PUBLIC_IP}:5174"
+echo "  - API Gateway:  http://${EC2_PUBLIC_IP}:5000"
+echo ""
+
+echo "⚠️  Important Next Steps:"
+echo "  1. Update .env file with production credentials:"
+echo "     sudo nano /home/ubuntu/booking-care-integration/.env"
+echo ""
+echo "  2. To upload backup data:"
+echo "     scp backup.tar.gz ubuntu@${EC2_PUBLIC_IP}:/home/ubuntu/backups/"
+echo "     ssh ubuntu@${EC2_PUBLIC_IP}"
+echo "     cd /home/ubuntu/booking-care-integration/scripts"
+echo "     ./restore-databases.sh /home/ubuntu/backups/YYYYMMDD_HHMMSS"
+echo ""
+echo "  3. Check service status:"
+echo "     cd /home/ubuntu/booking-care-integration"
+echo "     docker compose ps"
+echo "     docker compose logs -f"
+echo ""
+echo "  4. Create regular backups (add to crontab):"
+echo "     crontab -e"
+echo "     # Add: 0 2 * * * /home/ubuntu/backup-data.sh"
+echo ""
+
+echo "📖 Documentation:"
+echo "  - Backup Guide: /home/ubuntu/booking-care-integration/docs/BACKUP_RESTORE_GUIDE.md"
+echo "  - Deployment Checklist: /home/ubuntu/booking-care-integration/docs/EC2_DEPLOYMENT_CHECKLIST.md"
+echo "  - Scripts README: /home/ubuntu/booking-care-integration/scripts/README.md"
+echo ""
+
+echo "🔍 Current Service Status:"
+cd /home/ubuntu/booking-care-integration
+docker compose ps 2>/dev/null || echo "  Services starting... (check in a few minutes)"
+echo ""
+
+echo "📝 Installed Software:"
 echo "  - Docker: $(docker --version)"
 echo "  - Docker Compose: $(docker compose version)"
-echo "  - AWS CLI: $(aws --version)"
-echo "  - Node.js: $(node --version)"
-echo "  - npm: $(npm --version)"
 echo "  - Git: $(git --version)"
 echo ""
-echo "Application Status:"
-if [ -n "$COMPOSE_FILE" ]; then
-    echo "  - Repository: Cloned from $REPO_URL"
-    echo "  - Branch: $BRANCH"
-    echo "  - Compose file: $COMPOSE_FILE"
-    echo "  - Containers: Running (check with 'docker compose ps')"
-else
-    echo "  - Status: Manual deployment required"
-fi
+
+echo "═══════════════════════════════════════════════════════════"
+echo "Setup log available at: /var/log/user-data.log"
+echo "═══════════════════════════════════════════════════════════"
 echo ""
-echo "Useful Commands:"
-echo "  - View system info: /home/ubuntu/system-info.sh"
-echo "  - Re-deploy application: /home/ubuntu/deploy.sh"
-echo "  - View application logs: cd /home/ubuntu/bookingcare && docker compose logs -f"
-echo "  - Stop application: cd /home/ubuntu/bookingcare && docker compose down"
-echo ""
-echo "Access URLs (replace <instance-ip> with your actual IP):"
-echo "  - API Gateway: http://<instance-ip>:5000"
-echo "  - Frontend Client: http://<instance-ip>:5173"
-echo "  - Frontend Admin: http://<instance-ip>:5174"
-echo "  - RabbitMQ Management: http://<instance-ip>:15672"
-echo "  - Grafana: http://<instance-ip>:3000"
-echo "  - Prometheus: http://<instance-ip>:9090"
-echo "  - Jaeger UI: http://<instance-ip>:16686"
-echo ""
-echo "========================================="
 
 # Create a completion marker
 touch /var/log/user-data-complete
 date > /var/log/user-data-complete-time
+
+echo "Setup completed at: $(date)" >> /var/log/user-data-complete
