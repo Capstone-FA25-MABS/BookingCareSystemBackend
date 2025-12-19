@@ -16,57 +16,87 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Node Exporter
+  # Infrastructure Monitoring
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
 
-  # BookingCare Services
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15672']
+    metrics_path: /api/metrics
+    basic_auth:
+      username: '${RABBITMQ_DEFAULT_USER}'
+      password: '${RABBITMQ_DEFAULT_PASS}'
+
+  # BookingCare Microservices
+  - job_name: 'bookingcare-api-gateway'
+    static_configs:
+      - targets: ['api-gateway:5001']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
   - job_name: 'bookingcare-auth-service'
     static_configs:
       - targets: ['auth-service:6003']
     metrics_path: /metrics
     scrape_interval: 10s
 
-  - job_name: 'bookingcare-discount-service'
+  - job_name: 'bookingcare-user-service'
     static_configs:
-      - targets: ['discount-service:6007']
-    metrics_path: /metrics
-    scrape_interval: 10s
-
-  - job_name: 'bookingcare-clinic-service'
-    static_configs:
-      - targets: ['clinic-service:6001']
+      - targets: ['user-service:6016']
     metrics_path: /metrics
     scrape_interval: 10s
 
   - job_name: 'bookingcare-doctor-service'
     static_configs:
-      - targets: ['doctor-service:6002']
+      - targets: ['doctor-service:6008']
     metrics_path: /metrics
     scrape_interval: 10s
 
-  - job_name: 'bookingcare-user-service'
+  - job_name: 'bookingcare-hospital-service'
     static_configs:
-      - targets: ['user-service:6004']
+      - targets: ['hospital-service:6009']
     metrics_path: /metrics
     scrape_interval: 10s
 
   - job_name: 'bookingcare-appointment-service'
     static_configs:
-      - targets: ['appointment-service:6005']
+      - targets: ['appointment-service:6002']
     metrics_path: /metrics
     scrape_interval: 10s
 
   - job_name: 'bookingcare-payment-service'
     static_configs:
-      - targets: ['payment-service:6006']
+      - targets: ['payment-service:6011']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-discount-service'
+    static_configs:
+      - targets: ['discount-service:6006']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-schedule-service'
+    static_configs:
+      - targets: ['schedule-service:6014']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-servicemedical-service'
+    static_configs:
+      - targets: ['servicemedical-service:6015']
     metrics_path: /metrics
     scrape_interval: 10s
 
   - job_name: 'bookingcare-notification-service'
     static_configs:
-      - targets: ['notification-service:6011']
+      - targets: ['notification-service:6010']
     metrics_path: /metrics
     scrape_interval: 10s
 
@@ -78,7 +108,13 @@ scrape_configs:
 
   - job_name: 'bookingcare-analytics-service'
     static_configs:
-      - targets: ['analytics-service:6008']
+      - targets: ['analytics-service:6001']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-review-service'
+    static_configs:
+      - targets: ['review-service:6012']
     metrics_path: /metrics
     scrape_interval: 10s
 
@@ -88,12 +124,20 @@ scrape_configs:
     metrics_path: /metrics
     scrape_interval: 10s
 
-  # External dependencies
-  - job_name: 'rabbitmq'
+  - job_name: 'bookingcare-saga-service'
     static_configs:
-      - targets: ['rabbitmq:15692']
+      - targets: ['saga-service:6017']
     metrics_path: /metrics
+    scrape_interval: 10s
 
-  - job_name: 'redis'
+  - job_name: 'bookingcare-communication-service'
     static_configs:
-      - targets: ['redis_exporter:9121']
+      - targets: ['communication-service:6013']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: 'bookingcare-content-service'
+    static_configs:
+      - targets: ['content-service:6005']
+    metrics_path: /metrics
+    scrape_interval: 10s
