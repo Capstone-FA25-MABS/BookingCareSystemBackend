@@ -307,6 +307,29 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  sqlserver-content:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    # platform: linux/amd64
+    container_name: bookingcare_sqlserver_content
+    ports:
+      - "1454:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${SQLSERVER_CONTENT_PASSWORD}
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver_content_data:/var/opt/mssql
+    networks:
+      - bookingcare-network
+    healthcheck:
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/1433' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
   # Monitoring Stack
   prometheus:
     image: prom/prometheus:latest
@@ -609,7 +632,7 @@ services:
       - "6005:6005"
       - "6105:6105"
     depends_on:
-      mongodb:
+      sqlserver-content:
         condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
@@ -617,8 +640,7 @@ services:
       - Jwt__SecretKey=${JWT_KEY}
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
-      - MongoDbSettings__ConnectionString=${MONGODB_CONNECTION_STRING}
-      - MongoDbSettings__DatabaseName=MABS_Content
+      - ConnectionStrings__DefaultConnection=${CONTENT_CONNECTION_STRING}
     networks:
       - bookingcare-network
     restart: unless-stopped
@@ -991,6 +1013,7 @@ volumes:
   sqlserver_payment_data:
   sqlserver_servicemedical_data:
   sqlserver_ai_data_v2:
+  sqlserver_content_data:
   prometheus_data:
   grafana_data:
 

@@ -1,0 +1,230 @@
+USE [master]
+GO
+/****** Object:  Database [MABS_Content]    Script Date: 19/12/2025 10:33:54 CH ******/
+CREATE DATABASE [MABS_Content]
+ CONTAINMENT = NONE
+ ON  PRIMARY 
+( NAME = N'MABS_Content', FILENAME = N'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\MABS_Content.mdf' , SIZE = 8192KB , MAXSIZE = UNLIMITED, FILEGROWTH = 65536KB )
+ LOG ON 
+( NAME = N'MABS_Content_log', FILENAME = N'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\DATA\MABS_Content_log.ldf' , SIZE = 8192KB , MAXSIZE = 2048GB , FILEGROWTH = 65536KB )
+ WITH CATALOG_COLLATION = DATABASE_DEFAULT, LEDGER = OFF
+GO
+ALTER DATABASE [MABS_Content] SET COMPATIBILITY_LEVEL = 160
+GO
+IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
+begin
+EXEC [MABS_Content].[dbo].[sp_fulltext_database] @action = 'enable'
+end
+GO
+ALTER DATABASE [MABS_Content] SET ANSI_NULL_DEFAULT OFF 
+GO
+ALTER DATABASE [MABS_Content] SET ANSI_NULLS OFF 
+GO
+ALTER DATABASE [MABS_Content] SET ANSI_PADDING OFF 
+GO
+ALTER DATABASE [MABS_Content] SET ANSI_WARNINGS OFF 
+GO
+ALTER DATABASE [MABS_Content] SET ARITHABORT OFF 
+GO
+ALTER DATABASE [MABS_Content] SET AUTO_CLOSE ON 
+GO
+ALTER DATABASE [MABS_Content] SET AUTO_SHRINK OFF 
+GO
+ALTER DATABASE [MABS_Content] SET AUTO_UPDATE_STATISTICS ON 
+GO
+ALTER DATABASE [MABS_Content] SET CURSOR_CLOSE_ON_COMMIT OFF 
+GO
+ALTER DATABASE [MABS_Content] SET CURSOR_DEFAULT  GLOBAL 
+GO
+ALTER DATABASE [MABS_Content] SET CONCAT_NULL_YIELDS_NULL OFF 
+GO
+ALTER DATABASE [MABS_Content] SET NUMERIC_ROUNDABORT OFF 
+GO
+ALTER DATABASE [MABS_Content] SET QUOTED_IDENTIFIER OFF 
+GO
+ALTER DATABASE [MABS_Content] SET RECURSIVE_TRIGGERS OFF 
+GO
+ALTER DATABASE [MABS_Content] SET  ENABLE_BROKER 
+GO
+ALTER DATABASE [MABS_Content] SET AUTO_UPDATE_STATISTICS_ASYNC OFF 
+GO
+ALTER DATABASE [MABS_Content] SET DATE_CORRELATION_OPTIMIZATION OFF 
+GO
+ALTER DATABASE [MABS_Content] SET TRUSTWORTHY OFF 
+GO
+ALTER DATABASE [MABS_Content] SET ALLOW_SNAPSHOT_ISOLATION OFF 
+GO
+ALTER DATABASE [MABS_Content] SET PARAMETERIZATION SIMPLE 
+GO
+ALTER DATABASE [MABS_Content] SET READ_COMMITTED_SNAPSHOT ON 
+GO
+ALTER DATABASE [MABS_Content] SET HONOR_BROKER_PRIORITY OFF 
+GO
+ALTER DATABASE [MABS_Content] SET RECOVERY SIMPLE 
+GO
+ALTER DATABASE [MABS_Content] SET  MULTI_USER 
+GO
+ALTER DATABASE [MABS_Content] SET PAGE_VERIFY CHECKSUM  
+GO
+ALTER DATABASE [MABS_Content] SET DB_CHAINING OFF 
+GO
+ALTER DATABASE [MABS_Content] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF ) 
+GO
+ALTER DATABASE [MABS_Content] SET TARGET_RECOVERY_TIME = 60 SECONDS 
+GO
+ALTER DATABASE [MABS_Content] SET DELAYED_DURABILITY = DISABLED 
+GO
+ALTER DATABASE [MABS_Content] SET ACCELERATED_DATABASE_RECOVERY = OFF  
+GO
+ALTER DATABASE [MABS_Content] SET QUERY_STORE = ON
+GO
+ALTER DATABASE [MABS_Content] SET QUERY_STORE (OPERATION_MODE = READ_WRITE, CLEANUP_POLICY = (STALE_QUERY_THRESHOLD_DAYS = 30), DATA_FLUSH_INTERVAL_SECONDS = 900, INTERVAL_LENGTH_MINUTES = 60, MAX_STORAGE_SIZE_MB = 1000, QUERY_CAPTURE_MODE = AUTO, SIZE_BASED_CLEANUP_MODE = AUTO, MAX_PLANS_PER_QUERY = 200, WAIT_STATS_CAPTURE_MODE = ON)
+GO
+USE [MABS_Content]
+GO
+/****** Object:  Table [dbo].[__EFMigrationsHistory]    Script Date: 19/12/2025 10:33:54 CH ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[__EFMigrationsHistory](
+	[MigrationId] [nvarchar](150) NOT NULL,
+	[ProductVersion] [nvarchar](32) NOT NULL,
+ CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY CLUSTERED 
+(
+	[MigrationId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[blog_categories]    Script Date: 19/12/2025 10:33:54 CH ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[blog_categories](
+	[Id] [uniqueidentifier] NOT NULL,
+	[CategoryName] [nvarchar](255) NOT NULL,
+	[Description] [nvarchar](max) NULL,
+	[ImageUrl] [nvarchar](1024) NULL,
+	[Status] [nvarchar](10) NOT NULL,
+	[ParentId] [uniqueidentifier] NULL,
+	[CreatedAt] [datetime2](7) NOT NULL,
+	[UpdatedAt] [datetime2](7) NOT NULL,
+ CONSTRAINT [PK_blog_categories] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[blogs]    Script Date: 19/12/2025 10:33:54 CH ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[blogs](
+	[Id] [uniqueidentifier] NOT NULL,
+	[BlogCategoryId] [uniqueidentifier] NULL,
+	[TitleVi] [nvarchar](255) NOT NULL,
+	[ContentVi] [nvarchar](max) NOT NULL,
+	[TitleEn] [nvarchar](255) NULL,
+	[ContentEn] [nvarchar](max) NULL,
+	[ThumbnailUrl] [nvarchar](max) NULL,
+	[HeroImageUrl] [nvarchar](max) NULL,
+	[Tag] [nvarchar](100) NULL,
+	[Source] [nvarchar](100) NULL,
+	[Status] [nvarchar](20) NOT NULL,
+	[Featured] [bit] NOT NULL,
+	[PublishedAt] [datetime2](7) NULL,
+	[CreatedBy] [uniqueidentifier] NULL,
+	[CreatedAt] [datetime2](7) NOT NULL,
+	[UpdatedAt] [datetime2](7) NOT NULL,
+ CONSTRAINT [PK_blogs] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[hospital_faqs]    Script Date: 19/12/2025 10:33:54 CH ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[hospital_faqs](
+	[Id] [uniqueidentifier] NOT NULL,
+	[HospitalId] [uniqueidentifier] NOT NULL,
+	[Question] [nvarchar](max) NOT NULL,
+	[Answer] [nvarchar](max) NOT NULL,
+	[CreatedBy] [uniqueidentifier] NOT NULL,
+	[DisplayOrder] [int] NOT NULL,
+	[CreatedAt] [datetime2](7) NOT NULL,
+	[UpdatedAt] [datetime2](7) NOT NULL,
+ CONSTRAINT [PK_hospital_faqs] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+/****** Object:  Index [IX_blog_categories_ParentId]    Script Date: 19/12/2025 10:33:54 CH ******/
+CREATE NONCLUSTERED INDEX [IX_blog_categories_ParentId] ON [dbo].[blog_categories]
+(
+	[ParentId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_blogs_BlogCategoryId]    Script Date: 19/12/2025 10:33:54 CH ******/
+CREATE NONCLUSTERED INDEX [IX_blogs_BlogCategoryId] ON [dbo].[blogs]
+(
+	[BlogCategoryId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_hospital_faqs_HospitalId]    Script Date: 19/12/2025 10:33:54 CH ******/
+CREATE NONCLUSTERED INDEX [IX_hospital_faqs_HospitalId] ON [dbo].[hospital_faqs]
+(
+	[HospitalId] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [IX_hospital_faqs_HospitalId_DisplayOrder]    Script Date: 19/12/2025 10:33:54 CH ******/
+CREATE NONCLUSTERED INDEX [IX_hospital_faqs_HospitalId_DisplayOrder] ON [dbo].[hospital_faqs]
+(
+	[HospitalId] ASC,
+	[DisplayOrder] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[blog_categories] ADD  DEFAULT (newid()) FOR [Id]
+GO
+ALTER TABLE [dbo].[blog_categories] ADD  DEFAULT (N'Active') FOR [Status]
+GO
+ALTER TABLE [dbo].[blog_categories] ADD  DEFAULT (getdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[blog_categories] ADD  DEFAULT (getdate()) FOR [UpdatedAt]
+GO
+ALTER TABLE [dbo].[blogs] ADD  DEFAULT (newid()) FOR [Id]
+GO
+ALTER TABLE [dbo].[blogs] ADD  DEFAULT (N'Pending') FOR [Status]
+GO
+ALTER TABLE [dbo].[blogs] ADD  DEFAULT (getdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[blogs] ADD  DEFAULT (getdate()) FOR [UpdatedAt]
+GO
+ALTER TABLE [dbo].[hospital_faqs] ADD  DEFAULT (newid()) FOR [Id]
+GO
+ALTER TABLE [dbo].[hospital_faqs] ADD  DEFAULT ((0)) FOR [DisplayOrder]
+GO
+ALTER TABLE [dbo].[hospital_faqs] ADD  DEFAULT (getdate()) FOR [CreatedAt]
+GO
+ALTER TABLE [dbo].[hospital_faqs] ADD  DEFAULT (getdate()) FOR [UpdatedAt]
+GO
+ALTER TABLE [dbo].[blog_categories]  WITH CHECK ADD  CONSTRAINT [FK_blog_categories_blog_categories_ParentId] FOREIGN KEY([ParentId])
+REFERENCES [dbo].[blog_categories] ([Id])
+GO
+ALTER TABLE [dbo].[blog_categories] CHECK CONSTRAINT [FK_blog_categories_blog_categories_ParentId]
+GO
+ALTER TABLE [dbo].[blogs]  WITH CHECK ADD  CONSTRAINT [FK_blogs_blog_categories_BlogCategoryId] FOREIGN KEY([BlogCategoryId])
+REFERENCES [dbo].[blog_categories] ([Id])
+ON DELETE SET NULL
+GO
+ALTER TABLE [dbo].[blogs] CHECK CONSTRAINT [FK_blogs_blog_categories_BlogCategoryId]
+GO
+USE [master]
+GO
+ALTER DATABASE [MABS_Content] SET  READ_WRITE 
+GO
