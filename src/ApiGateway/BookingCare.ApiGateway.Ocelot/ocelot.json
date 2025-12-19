@@ -858,7 +858,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "payment-service",
-          "Port": 6011
+          "Port": 6088
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/payments/{everything}",
@@ -879,7 +879,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "payment-service",
-          "Port": 6011
+          "Port": 6088
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/paymentmethods/{everything}",
@@ -900,7 +900,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "payment-service",
-          "Port": 6011
+          "Port": 6088
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/payos/{everything}",
@@ -921,7 +921,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "payment-service",
-          "Port": 6011
+          "Port": 6088
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/vnpay/{everything}",
@@ -942,7 +942,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "payment-service",
-          "Port": 6011
+          "Port": 6088
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/stripe/{everything}",
@@ -963,7 +963,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "payment-service",
-          "Port": 6011
+          "Port": 6088
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/bankaccounts/{everything}",
@@ -984,7 +984,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "payment-service",
-          "Port": 6011
+          "Port": 6088
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/refundhistories/{everything}",
@@ -1005,7 +1005,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "payment-service",
-          "Port": 6011
+          "Port": 6088
         }
       ],
       "UpstreamPathTemplate": "/api/v{version}/hospitalpayouts/{everything}",

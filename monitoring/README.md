@@ -1,15 +1,17 @@
-# BookingCare Monitoring Setup Guide
+# BookingCare Monitoring Stack
 
-This document explains how to set up and use Prometheus, Grafana, and Jaeger for monitoring and distributed tracing in the BookingCare microservices system.
+Complete monitoring solution for BookingCare microservices using Prometheus & Grafana.
 
-## Overview
+## 📋 Overview
 
-The monitoring stack includes:
+This integrated monitoring solution provides:
 
-- **Prometheus**: Metrics collection and storage
-- **Grafana**: Visualization and dashboards
-- **Jaeger**: Distributed tracing
-- **Node Exporter**: System metrics
+- **Prometheus**: Time-series metrics collection and storage
+- **Grafana**: Advanced visualization and dashboards
+- **Node Exporter**: System-level metrics (CPU, memory, disk, network)
+- **Redis Exporter**: Cache performance metrics
+- **Alert Rules**: Production-ready alerting (18 rules)
+- **Custom Dashboards**: Pre-built visualization dashboards
 
 ## Quick Start
 
