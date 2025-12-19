@@ -68,6 +68,16 @@ builder.Services.AddScoped<GroqApiHelper>(sp =>
     return new GroqApiHelper(logger, httpClient, config);
 });
 
+// Register Pexels API Helper for fetching food and exercise images
+builder.Services.AddScoped<PexelsApiHelper>(sp =>
+{
+    var logger = sp.GetRequiredService<ILogger<PexelsApiHelper>>();
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient();
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    return new PexelsApiHelper(logger, httpClient, configuration);
+});
+
 // Register AI Service for medical summary generation
 builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<IAiInsightsService, AiInsightsService>();
@@ -184,7 +194,7 @@ app.UseStandardAuthPipeline();
 
 app.MapControllers();
 
-app.MapGet("/", () => "BookingCare AI Service is running...");
+app.MapGet("/", () => "Medcure AI Service is running...");
 
 // Database migration and seeding
 using var scope = app.Services.CreateScope();

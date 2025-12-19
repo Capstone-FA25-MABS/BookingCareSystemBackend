@@ -76,22 +76,27 @@ public class MealPlanDto
 public class MealDto
 {
     public string MealType { get; set; } = string.Empty; // "Breakfast", "Lunch", "Dinner", "Snack"
+    public string MealTime { get; set; } = string.Empty; // "08:00", "12:30", "19:00", etc.
     public RecipeDto Recipe { get; set; } = new();
 }
 
 /// <summary>
-/// DTO for recipe - SIMPLIFIED (removed unnecessary details)
+/// DTO for recipe - Enhanced with UI display info
 /// </summary>
 public class RecipeDto
 {
     public string NameVi { get; set; } = string.Empty;
     public string NameEn { get; set; } = string.Empty;
-    // Removed: DescriptionVi, DescriptionEn, Ingredients, InstructionsVi, InstructionsEn
-    // Keep only essential info
+    public string? DescriptionVi { get; set; } // Short description for UI
+    public string? DescriptionEn { get; set; }
+    public string? ImageUrl { get; set; } // Image URL for meal display
+    public string? BenefitsVi { get; set; } // Health benefits in Vietnamese
+    public string? BenefitsEn { get; set; } // Health benefits in English
     public int PrepTimeMinutes { get; set; }
     public int CookTimeMinutes { get; set; }
     public int Servings { get; set; }
     public NutritionInfoDto Nutrition { get; set; } = new();
+    public List<string>? MainIngredients { get; set; } // Top 3-5 main ingredients for display
 }
 
 // REMOVED: IngredientDto - not needed anymore
@@ -126,18 +131,23 @@ public class WorkoutPlanDto
 }
 
 /// <summary>
-/// DTO for exercise - SIMPLIFIED
+/// DTO for exercise - Enhanced with UI display info
 /// </summary>
 public class ExerciseDto
 {
     public string NameVi { get; set; } = string.Empty;
     public string NameEn { get; set; } = string.Empty;
+    public string? DescriptionVi { get; set; } // Short description about the exercise
+    public string? DescriptionEn { get; set; }
+    public string? ImageUrl { get; set; } // Image/GIF URL for exercise demonstration
+    public string? VideoUrl { get; set; } // Optional video tutorial URL
     public int DurationMinutes { get; set; }
     public int Sets { get; set; } // Number of sets
     public int Reps { get; set; } // Repetitions per set
     public string? Intensity { get; set; } // "Low", "Medium", "High"
     public int? CaloriesBurned { get; set; }
-    // Removed: InstructionsVi, InstructionsEn - too detailed
+    public string? TargetMuscles { get; set; } // e.g., "Chest, Triceps, Shoulders"
+    public List<string>? Instructions { get; set; } // Step-by-step instructions
 }
 
 /// <summary>
@@ -163,9 +173,33 @@ public class DailyPlanDto
     public DateTime Date { get; set; }
     public MealPlanDto? MealPlan { get; set; }
     public WorkoutPlanDto? WorkoutPlan { get; set; }
+    public HydrationPlanDto? HydrationPlan { get; set; }
     public decimal CompletionPercentage { get; set; }
     public int TotalCaloriesConsumed { get; set; }
     public int TotalCaloriesBurned { get; set; }
+}
+
+/// <summary>
+/// DTO for hydration plan
+/// </summary>
+public class HydrationPlanDto
+{
+    public decimal TargetWaterLiters { get; set; } // e.g., 2.5L
+    public int RecommendedGlasses { get; set; } // e.g., 8 glasses
+    public decimal GlassSizeMl { get; set; } // e.g., 250ml per glass
+    public List<HydrationReminderDto> Reminders { get; set; } = new();
+    public decimal CurrentIntakeLiters { get; set; } // Tracked intake
+    public int CompletedGlasses { get; set; }
+}
+
+/// <summary>
+/// DTO for hydration reminder
+/// </summary>
+public class HydrationReminderDto
+{
+    public string Time { get; set; } = string.Empty; // "08:00", "10:00", etc.
+    public string Message { get; set; } = string.Empty; // "Uống nước sau khi thức dậy"
+    public decimal AmountMl { get; set; } // Amount to drink
 }
 
 /// <summary>

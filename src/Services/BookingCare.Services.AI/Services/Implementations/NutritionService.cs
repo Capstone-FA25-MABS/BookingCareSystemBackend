@@ -20,6 +20,7 @@ public class NutritionService : INutritionService
     private readonly AiDbContext _context;
     private readonly HealthMetricsCalculator _healthMetricsCalculator;
     private readonly GroqApiHelper _groqApiHelper;
+    private readonly PexelsApiHelper _pexelsApiHelper;
     private readonly ServiceGroqConfiguration _nutritionConfig;
     private readonly UserService.UserServiceClient _userServiceClient;
     private readonly ILogger<NutritionService> _logger;
@@ -28,6 +29,7 @@ public class NutritionService : INutritionService
         AiDbContext context,
         HealthMetricsCalculator healthMetricsCalculator,
         GroqApiHelper groqApiHelper,
+        PexelsApiHelper pexelsApiHelper,
         IOptions<GroqServicesConfiguration> groqServicesConfig,
         UserService.UserServiceClient userServiceClient,
         ILogger<NutritionService> logger)
@@ -35,6 +37,7 @@ public class NutritionService : INutritionService
         _context = context;
         _healthMetricsCalculator = healthMetricsCalculator;
         _groqApiHelper = groqApiHelper;
+        _pexelsApiHelper = pexelsApiHelper;
         _nutritionConfig = groqServicesConfig.Value.NutritionService;
         _userServiceClient = userServiceClient;
         _logger = logger;
@@ -213,6 +216,24 @@ public class NutritionService : INutritionService
             usedMealNames,
             cancellationToken);
 
+        // Fetch real images from Pexels for each meal
+        foreach (var meal in mealPlan.Meals)
+        {
+            try
+            {
+                var imageUrl = await _pexelsApiHelper.GetFoodImageAsync(meal.Recipe.NameEn, cancellationToken);
+                if (!string.IsNullOrEmpty(imageUrl))
+                {
+                    meal.Recipe.ImageUrl = imageUrl;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch image for meal: {MealName}", meal.Recipe.NameVi);
+                // Keep the URL from AI or use fallback
+            }
+        }
+
         // Save to database
         var entity = new MealPlanEntity
         {
@@ -285,6 +306,24 @@ public class NutritionService : INutritionService
             currentWeek,
             dayOfWeek,
             cancellationToken);
+
+        // Fetch real images from Pexels for each exercise
+        foreach (var exercise in workoutPlan.Exercises)
+        {
+            try
+            {
+                var imageUrl = await _pexelsApiHelper.GetExerciseImageAsync(exercise.NameEn, cancellationToken);
+                if (!string.IsNullOrEmpty(imageUrl))
+                {
+                    exercise.ImageUrl = imageUrl;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch image for exercise: {ExerciseName}", exercise.NameVi);
+                // Keep the URL from AI or use fallback
+            }
+        }
 
         // Save to database
         var entity = new WorkoutPlanEntity
@@ -535,7 +574,7 @@ YÊU CẦU:
 5. Tổng dinh dưỡng trong ngày phải khớp với chỉ tiêu (±50 kcal)
 6. Xem xét tình trạng sức khỏe và dị ứng
 
-⚠️ BẮT BUỘC: Trả về CHỈ JSON format NGẮN GỌN sau, KHÔNG có text khác:
+⚠️ BẮT BUỘC: Trả về CHỈ JSON format sau, KHÔNG có text khác:
 {{
   ""totalCalories"": {profile.TargetCalories},
   ""totalProteinG"": {profile.TargetProteinG},
@@ -544,9 +583,16 @@ YÊU CẦU:
   ""meals"": [
     {{
       ""mealType"": ""Bữa sáng"",
+      ""mealTime"": ""07:00"",
       ""recipe"": {{
         ""nameVi"": ""Phở gà"",
         ""nameEn"": ""Chicken Pho"",
+        ""descriptionVi"": ""Món phở truyền thống với thịt gà luộc"",
+        ""descriptionEn"": ""Traditional pho with boiled chicken"",
+        ""imageUrl"": """",
+        ""benefitsVi"": ""Cung cấp năng lượng cho buổi sáng, protein từ thịt gà giúp xây dựng cơ bắp"",
+        ""benefitsEn"": ""Provides morning energy, chicken protein helps build muscle"",
+        ""mainIngredients"": [""Bánh phở"", ""Thịt gà"", ""Hành lá""],
         ""prepTimeMinutes"": 15,
         ""cookTimeMinutes"": 30,
         ""servings"": 1,
@@ -561,9 +607,16 @@ YÊU CẦU:
     }},
     {{
       ""mealType"": ""Bữa phụ sáng"",
+      ""mealTime"": ""10:00"",
       ""recipe"": {{
         ""nameVi"": ""Sữa chua Hy Lạp với hạt chia"",
         ""nameEn"": ""Greek Yogurt with Chia Seeds"",
+        ""descriptionVi"": ""Sữa chua giàu protein với hạt chia bổ dưỡng"",
+        ""descriptionEn"": ""Protein-rich yogurt with nutritious chia seeds"",
+        ""imageUrl"": """",
+        ""benefitsVi"": ""Giàu chất xơ giúp tiêu hóa tốt, omega-3 từ hạt chia tốt cho tim mạch"",
+        ""benefitsEn"": ""Rich in fiber for good digestion, omega-3 from chia seeds good for heart"",
+        ""mainIngredients"": [""Sữa chua Hy Lạp"", ""Hạt chia"", ""Mật ong""],
         ""prepTimeMinutes"": 5,
         ""cookTimeMinutes"": 0,
         ""servings"": 1,
@@ -577,7 +630,13 @@ YÊU CẦU:
       }}
     }}
   ]
-}}";
+}}
+
+LƯU Ý QUAN TRỌNG:
+- imageUrl để trống """" - hệ thống sẽ tự động lấy ảnh thật từ Pexels API
+- benefitsVi PHẢI được tạo riêng cho từng món ăn, mô tả tác dụng cụ thể
+- Ví dụ benefits: ""Rau xanh giúp phục hồi cơ bắp sau buổi tập"", ""Cá hồi giàu omega-3 tốt cho tim mạch""
+- mainIngredients: Liệt kê 3-5 nguyên liệu chính";
     }
 
     private string BuildWorkoutPlanPrompt(
@@ -630,19 +689,31 @@ YÊU CẦU:
 2. Mỗi ngày tập nhóm cơ khác nhau (split training)
 3. Chủ nhật là ngày nghỉ ngơi hoặc tập nhẹ (yoga, stretching)
 4. Bài tập phù hợp tập tại nhà hoặc phòng gym
-5. CHỈ cần tên bài tập, số sets, reps, thời gian - KHÔNG cần hướng dẫn chi tiết
-6. Thời gian tập: 30-60 phút
-7. Tăng cường độ theo tuần (tuần 1: nhẹ, tuần 4: nặng)
+5. Thời gian tập: 30-60 phút tùy theo mức độ vận động
+6. Tăng cường độ theo tuần (tuần 1: nhẹ, tuần 4: nặng)
+7. **SỐ LƯỢNG BÀI TẬP PHÙ HỢP VỚI MỨC ĐỘ VẬN ĐỘNG:**
+   - Sedentary (Ít vận động): 4-5 bài tập cơ bản, cường độ thấp
+   - Light (Nhẹ nhàng): 5-6 bài tập, cường độ trung bình thấp
+   - Moderate (Trung bình): 6-7 bài tập, cường độ trung bình
+   - Active (Năng động): 7-8 bài tập, cường độ cao
+   - VeryActive (Vận động viên): 8-10 bài tập, cường độ rất cao
+8. Mỗi bài tập cần có: tên, mô tả, nhóm cơ, sets, reps, cường độ, hướng dẫn
 
-⚠️ BẮT BUỘC: Trả về CHỈ JSON format NGẮN GỌN sau, KHÔNG có text khác:
+⚠️ BẮT BUỘC: Trả về CHỈ JSON format sau với SỐ LƯỢNG BÀI TẬP PHÙ HỢP:
 {{
-  ""workoutType"": ""Cardio"",
-  ""durationMinutes"": 30,
-  ""estimatedCaloriesBurned"": 250,
+  ""workoutType"": ""Strength Training"",
+  ""durationMinutes"": 45,
+  ""estimatedCaloriesBurned"": 300,
   ""exercises"": [
     {{
       ""nameVi"": ""Hít đất"",
       ""nameEn"": ""Push-ups"",
+      ""descriptionVi"": ""Bài tập ngực và vai cơ bản"",
+      ""descriptionEn"": ""Basic chest and shoulder exercise"",
+      ""imageUrl"": """",
+      ""videoUrl"": """",
+      ""targetMuscles"": ""Ngực, Vai, Tay sau"",
+      ""instructions"": [""Nằm sấp, tay rộng bằng vai"", ""Hạ người xuống đến khi ngực gần chạm sàn"", ""Đẩy người lên về vị trí ban đầu""],
       ""durationMinutes"": 5,
       ""sets"": 3,
       ""reps"": 15,
@@ -652,6 +723,12 @@ YÊU CẦU:
     {{
       ""nameVi"": ""Nâng tạ vai"",
       ""nameEn"": ""Shoulder Press"",
+      ""descriptionVi"": ""Bài tập phát triển cơ vai"",
+      ""descriptionEn"": ""Shoulder development exercise"",
+      ""imageUrl"": """",
+      ""videoUrl"": """",
+      ""targetMuscles"": ""Vai, Tay trước"",
+      ""instructions"": [""Đứng thẳng, giữ tạ ngang vai"", ""Đẩy tạ lên trên đầu"", ""Hạ tạ về vị trí ban đầu""],
       ""durationMinutes"": 8,
       ""sets"": 4,
       ""reps"": 12,
@@ -659,7 +736,13 @@ YÊU CẦU:
       ""caloriesBurned"": 50
     }}
   ]
-}}";
+}}
+
+LƯU Ý QUAN TRỌNG:
+- imageUrl và videoUrl để trống """" - hệ thống sẽ tự động lấy ảnh từ Pexels API
+- Tạo {GetExerciseCountByActivityLevel(profile.ActivityLevel)} bài tập phù hợp với mức độ vận động
+- Mỗi bài tập phải có đầy đủ: tên, mô tả, nhóm cơ, sets, reps, cường độ, hướng dẫn
+- instructions: 3-4 bước ngắn gọn";
     }
 
     #endregion
@@ -755,6 +838,22 @@ YÊU CẦU:
 
         // 4-week cycle (1, 2, 3, 4, 1, 2, 3, 4, ...)
         return (weeksSinceStart % 4) + 1;
+    }
+
+    /// <summary>
+    /// Get recommended exercise count based on activity level
+    /// </summary>
+    private string GetExerciseCountByActivityLevel(string activityLevel)
+    {
+        return activityLevel switch
+        {
+            "Sedentary" => "4-5",
+            "Light" => "5-6",
+            "Moderate" => "6-7",
+            "Active" => "7-8",
+            "VeryActive" => "8-10",
+            _ => "6-7"
+        };
     }
 
     #endregion
@@ -930,6 +1029,7 @@ YÊU CẦU:
     {
         var mealPlan = await GetMealPlanByDateAsync(userId, date, cancellationToken);
         var workoutPlan = await GetWorkoutPlanByDateAsync(userId, date, cancellationToken);
+        var hydrationPlan = GenerateHydrationPlan(userId);
 
         var completionPercentage = CalculateCompletionPercentage(mealPlan, workoutPlan);
 
@@ -938,9 +1038,38 @@ YÊU CẦU:
             Date = date,
             MealPlan = mealPlan,
             WorkoutPlan = workoutPlan,
+            HydrationPlan = hydrationPlan,
             CompletionPercentage = completionPercentage,
             TotalCaloriesConsumed = mealPlan?.TotalCalories ?? 0,
             TotalCaloriesBurned = workoutPlan?.EstimatedCaloriesBurned ?? 0
+        };
+    }
+
+    private HydrationPlanDto GenerateHydrationPlan(Guid userId)
+    {
+        // Standard hydration recommendation: 2-2.5L per day
+        var targetLiters = 2.5m;
+        var glassSizeMl = 250m;
+        var recommendedGlasses = (int)Math.Ceiling(targetLiters * 1000 / glassSizeMl);
+
+        return new HydrationPlanDto
+        {
+            TargetWaterLiters = targetLiters,
+            RecommendedGlasses = recommendedGlasses,
+            GlassSizeMl = glassSizeMl,
+            Reminders = new List<HydrationReminderDto>
+            {
+                new HydrationReminderDto { Time = "07:00", Message = "Uống nước sau khi thức dậy", AmountMl = 250 },
+                new HydrationReminderDto { Time = "09:00", Message = "Uống nước giữa buổi sáng", AmountMl = 250 },
+                new HydrationReminderDto { Time = "11:30", Message = "Uống nước trước bữa trưa", AmountMl = 250 },
+                new HydrationReminderDto { Time = "14:00", Message = "Uống nước sau bữa trưa", AmountMl = 250 },
+                new HydrationReminderDto { Time = "16:00", Message = "Uống nước giữa buổi chiều", AmountMl = 250 },
+                new HydrationReminderDto { Time = "18:00", Message = "Uống nước trước bữa tối", AmountMl = 250 },
+                new HydrationReminderDto { Time = "20:00", Message = "Uống nước buổi tối", AmountMl = 250 },
+                new HydrationReminderDto { Time = "21:30", Message = "Uống nước trước khi ngủ", AmountMl = 250 }
+            },
+            CurrentIntakeLiters = 0,
+            CompletedGlasses = 0
         };
     }
 
